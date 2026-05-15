@@ -40,6 +40,7 @@ public class AuthService
         }
 
         _apiClient.SetAccessToken(_accessToken);
+        _apiClient.OnUnauthorized = RefreshAsync;
         return true;
     }
 

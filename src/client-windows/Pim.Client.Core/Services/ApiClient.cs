@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
@@ -6,6 +7,9 @@ namespace Pim.Client.Core.Services;
 public class ApiClient
 {
     private readonly HttpClient _httpClient;
+    private volatile bool _isRefreshing;
+
+    public Func<Task<bool>>? OnUnauthorized { get; set; }
 
     public ApiClient()
     {
@@ -33,36 +37,65 @@ public class ApiClient
 
     public async Task<T?> GetAsync<T>(string endpoint, CancellationToken ct = default)
     {
-        var response = await _httpClient.GetAsync(endpoint, ct);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<T>(ct);
+        return await SendWithAuthRetryAsync<T>(
+            () => _httpClient.GetAsync(endpoint, ct), ct);
     }
 
     public async Task<T?> PostAsync<T>(string endpoint, object body, CancellationToken ct = default)
     {
-        var response = await _httpClient.PostAsJsonAsync(endpoint, body, ct);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<T>(ct);
+        return await SendWithAuthRetryAsync<T>(
+            () => _httpClient.PostAsJsonAsync(endpoint, body, ct), ct);
     }
 
     public async Task<T?> PutAsync<T>(string endpoint, object body, CancellationToken ct = default)
     {
-        var response = await _httpClient.PutAsJsonAsync(endpoint, body, ct);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<T>(ct);
+        return await SendWithAuthRetryAsync<T>(
+            () => _httpClient.PutAsJsonAsync(endpoint, body, ct), ct);
     }
 
     public async Task DeleteAsync(string endpoint, CancellationToken ct = default)
     {
-        var response = await _httpClient.DeleteAsync(endpoint, ct);
-        response.EnsureSuccessStatusCode();
+        await SendWithAuthRetryAsync<IgnoreResult>(
+            () => _httpClient.DeleteAsync(endpoint, ct), ct);
     }
 
     public async Task<T?> PostStringAsync<T>(string endpoint, string content, CancellationToken ct = default)
     {
-        var response = await _httpClient.PostAsync(endpoint,
-            new StringContent(content, System.Text.Encoding.UTF8, "text/plain"), ct);
+        return await SendWithAuthRetryAsync<T>(
+            () => _httpClient.PostAsync(endpoint,
+                new StringContent(content, System.Text.Encoding.UTF8, "text/calendar"), ct), ct);
+    }
+
+    private async Task<T?> SendWithAuthRetryAsync<T>(
+        Func<Task<HttpResponseMessage>> request, CancellationToken ct)
+    {
+        var response = await request();
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized
+            && OnUnauthorized is not null
+            && !_isRefreshing)
+        {
+            _isRefreshing = true;
+            try
+            {
+                if (await OnUnauthorized())
+                {
+                    response = await request();
+                }
+            }
+            finally
+            {
+                _isRefreshing = false;
+            }
+        }
+
         response.EnsureSuccessStatusCode();
+
+        if (typeof(T) == typeof(IgnoreResult))
+            return default;
+
         return await response.Content.ReadFromJsonAsync<T>(ct);
     }
+
+    private sealed class IgnoreResult { }
 }

@@ -17,10 +17,22 @@
                 <TextBlock Text="任务管理" FontSize="18" FontWeight="SemiBold"
                            Foreground="{StaticResource TextPrimaryBrush}"
                            VerticalAlignment="Center"/>
-                <Button Content="{Binding ShowInboxOnly, Converter={StaticResource InverseBool}}"
-                        Style="{StaticResource SecondaryButton}" Margin="12,0,0,0"
+                <Button Style="{StaticResource SecondaryButton}" Margin="12,0,0,0"
                         Padding="10,4" FontSize="12"
-                        Command="{Binding ToggleInboxCommand}"/>
+                        Command="{Binding ToggleInboxCommand}">
+                    <TextBlock>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="仅收件箱"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowInboxOnly}" Value="True">
+                                        <Setter Property="Text" Value="显示全部"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Button>
             </StackPanel>
             <Button Content="+ 新建任务" Style="{StaticResource PrimaryButton}"
                     HorizontalAlignment="Right"

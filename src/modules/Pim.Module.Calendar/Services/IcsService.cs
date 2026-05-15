@@ -1,0 +1,65 @@
+using Ical.Net.CalendarComponents;
+using Ical.Net.DataTypes;
+using Ical.Net.Serialization;
+using Pim.Module.Calendar.Entities;
+using IcalCalendar = Ical.Net.Calendar;
+
+namespace Pim.Module.Calendar.Services;
+
+public class IcsService
+{
+    public string ExportEvents(IEnumerable<EventEntity> events)
+    {
+        var calendar = new IcalCalendar();
+        foreach (var evt in events)
+        {
+            var calEvent = new CalendarEvent
+            {
+                Uid = evt.Uid,
+                Summary = evt.Title,
+                Description = evt.Description,
+                Location = evt.Location,
+                Start = new CalDateTime(evt.DtStart.UtcDateTime),
+                End = new CalDateTime(evt.DtEnd.UtcDateTime),
+                DtStamp = new CalDateTime(evt.DtStamp.UtcDateTime),
+                Status = evt.Status
+            };
+
+            if (!string.IsNullOrEmpty(evt.RRule))
+#pragma warning disable CS0618
+                calEvent.RecurrenceRules.Add(new RecurrencePattern(evt.RRule));
+#pragma warning restore CS0618
+
+            calendar.Events.Add(calEvent);
+        }
+
+        var serializer = new CalendarSerializer();
+        return serializer.SerializeToString(calendar)!;
+    }
+
+    public List<ParsedEvent> ImportEvents(string icsContent)
+    {
+        var calendar = IcalCalendar.Load(icsContent);
+        return calendar.Events.Select(e =>
+        {
+            var startDt = e.Start?.Value ?? DateTime.MinValue;
+            var endDt = e.End?.Value ?? DateTime.MinValue;
+            return new ParsedEvent(
+                e.Uid ?? Guid.NewGuid().ToString(),
+                e.Summary ?? "Untitled",
+                e.Description,
+                e.Location,
+                new DateTimeOffset(startDt, TimeSpan.Zero),
+                new DateTimeOffset(endDt, TimeSpan.Zero),
+#pragma warning disable CS0618
+                e.RecurrenceRules.FirstOrDefault()?.ToString()
+#pragma warning restore CS0618
+            );
+        }).ToList();
+    }
+}
+
+public record ParsedEvent(
+    string Uid, string Title, string? Description,
+    string? Location, DateTimeOffset Start, DateTimeOffset End, string? RRule
+);

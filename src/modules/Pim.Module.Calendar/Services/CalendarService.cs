@@ -1,0 +1,190 @@
+using System.Xml;
+using Microsoft.EntityFrameworkCore;
+using Pim.Core.Exceptions;
+using Pim.Infrastructure.Auth;
+using Pim.Infrastructure.Data;
+using Pim.Module.Calendar.DTOs;
+using Pim.Module.Calendar.Entities;
+
+namespace Pim.Module.Calendar.Services;
+
+public class CalendarService
+{
+    private readonly PimDbContext _db;
+    private readonly ICurrentUserService _currentUser;
+
+    public CalendarService(PimDbContext db, ICurrentUserService currentUser)
+    {
+        _db = db;
+        _currentUser = currentUser;
+    }
+
+    private Guid UserId => _currentUser.UserId ?? throw new DomainException(01002, "Not authenticated");
+
+    // --- Calendars ---
+    public async Task<List<CalendarResponse>> GetCalendarsAsync(CancellationToken ct)
+    {
+        return await _db.Set<CalendarEntity>()
+            .Where(c => c.UserId == UserId)
+            .Select(c => new CalendarResponse(c.Id, c.Name, c.Color, c.IsDefault,
+                c.Events.Count))
+            .ToListAsync(ct);
+    }
+
+    public async Task<CalendarResponse> CreateCalendarAsync(CreateCalendarRequest request, CancellationToken ct)
+    {
+        var calendar = new CalendarEntity
+        {
+            UserId = UserId,
+            Name = request.Name,
+            Color = request.Color ?? "#3B82F6",
+            IsDefault = !await _db.Set<CalendarEntity>().AnyAsync(c => c.UserId == UserId, ct)
+        };
+        _db.Set<CalendarEntity>().Add(calendar);
+        await _db.SaveChangesAsync(ct);
+        return new CalendarResponse(calendar.Id, calendar.Name, calendar.Color, calendar.IsDefault, 0);
+    }
+
+    // --- Events ---
+    public async Task<List<EventResponse>> GetEventsAsync(
+        DateTimeOffset start, DateTimeOffset end, CancellationToken ct)
+    {
+        return await _db.Set<EventEntity>()
+            .Where(e => e.Calendar.UserId == UserId &&
+                        e.DtStart < end && e.DtEnd > start)
+            .OrderBy(e => e.DtStart)
+            .Select(e => new EventResponse(
+                e.Id, e.CalendarId, e.Uid, e.Title, e.Description,
+                e.Location, e.DtStart, e.DtEnd, e.RRule, e.Status, e.Source))
+            .ToListAsync(ct);
+    }
+
+    public async Task<EventResponse> CreateEventAsync(CreateEventRequest request, CancellationToken ct)
+    {
+        var calendar = await _db.Set<CalendarEntity>()
+            .FirstOrDefaultAsync(c => c.Id == request.CalendarId && c.UserId == UserId, ct)
+            ?? throw new DomainException(02003, "Calendar not found");
+
+        var entity = new EventEntity
+        {
+            CalendarId = request.CalendarId,
+            Uid = Guid.NewGuid().ToString() + "@pim",
+            Title = request.Title,
+            Description = request.Description,
+            Location = request.Location,
+            DtStart = request.DtStart,
+            DtEnd = request.DtEnd,
+            RRule = request.RRule
+        };
+
+        _db.Set<EventEntity>().Add(entity);
+        await _db.SaveChangesAsync(ct);
+
+        return MapEvent(entity);
+    }
+
+    public async Task<EventResponse> UpdateEventAsync(Guid id, CreateEventRequest request, CancellationToken ct)
+    {
+        var entity = await _db.Set<EventEntity>()
+            .FirstOrDefaultAsync(e => e.Id == id && e.Calendar.UserId == UserId, ct)
+            ?? throw new DomainException(02001, "Event not found");
+
+        entity.Title = request.Title;
+        entity.Description = request.Description;
+        entity.Location = request.Location;
+        entity.DtStart = request.DtStart;
+        entity.DtEnd = request.DtEnd;
+        entity.RRule = request.RRule;
+        entity.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return MapEvent(entity);
+    }
+
+    public async Task<List<EventEntity>> GetEventEntitiesAsync(
+        DateTimeOffset start, DateTimeOffset end, CancellationToken ct)
+    {
+        return await _db.Set<EventEntity>()
+            .Where(e => e.Calendar.UserId == UserId &&
+                        e.DtStart < end && e.DtEnd > start)
+            .OrderBy(e => e.DtStart)
+            .ToListAsync(ct);
+    }
+
+    public async Task DeleteEventAsync(Guid id, CancellationToken ct)
+    {
+        var entity = await _db.Set<EventEntity>()
+            .FirstOrDefaultAsync(e => e.Id == id && e.Calendar.UserId == UserId, ct)
+            ?? throw new DomainException(02001, "Event not found");
+
+        entity.DeletedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // --- Tasks ---
+    public async Task<List<TaskResponse>> GetTasksAsync(bool? inbox, CancellationToken ct)
+    {
+        var query = _db.Set<TaskEntity>()
+            .Where(t => t.Calendar == null || t.Calendar.UserId == UserId);
+
+        if (inbox.HasValue)
+            query = query.Where(t => t.IsInbox == inbox.Value);
+
+        var tasks = await query.OrderBy(t => t.SortOrder).ToListAsync(ct);
+        return tasks.Select(MapTask).ToList();
+    }
+
+    public async Task<TaskResponse> CreateTaskAsync(CreateTaskRequest request, CancellationToken ct)
+    {
+        var task = new TaskEntity
+        {
+            CalendarId = request.CalendarId,
+            Uid = Guid.NewGuid().ToString() + "@pim",
+            Title = request.Title,
+            Description = request.Description,
+            Priority = request.Priority,
+            Due = request.Due,
+            EstimatedDuration = request.EstimatedDuration is not null
+                ? XmlConvert.ToTimeSpan(request.EstimatedDuration) : null,
+            MinimumSegment = request.MinimumSegment is not null
+                ? XmlConvert.ToTimeSpan(request.MinimumSegment) : null,
+            IsInbox = request.CalendarId is null
+        };
+
+        _db.Set<TaskEntity>().Add(task);
+        await _db.SaveChangesAsync(ct);
+        return MapTask(task);
+    }
+
+    public async Task MoveTaskAsync(Guid id, MoveTaskRequest request, CancellationToken ct)
+    {
+        var task = await _db.Set<TaskEntity>().FindAsync(new object[] { id }, ct)
+            ?? throw new DomainException(02004, "Task not found");
+
+        if (request.ScheduledStart.HasValue)
+        {
+            task.DtStart = request.ScheduledStart;
+            task.IsInbox = false;
+        }
+
+        if (request.NewSortOrder.HasValue)
+            task.SortOrder = request.NewSortOrder.Value;
+
+        task.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private static EventResponse MapEvent(EventEntity e) =>
+        new(e.Id, e.CalendarId, e.Uid, e.Title, e.Description,
+            e.Location, e.DtStart, e.DtEnd, e.RRule, e.Status, e.Source);
+
+    private static TaskResponse MapTask(TaskEntity t) =>
+        new(t.Id, t.CalendarId, t.Uid, t.Title, t.Description,
+            t.Priority,
+            t.EstimatedDuration is not null
+                ? XmlConvert.ToString(t.EstimatedDuration.Value) : null,
+            t.MinimumSegment is not null
+                ? XmlConvert.ToString(t.MinimumSegment.Value) : null,
+            t.DtStart, t.Due, t.Status, t.IsInbox, t.SortOrder,
+            t.SubTasks.Select(MapTask).ToList());
+}

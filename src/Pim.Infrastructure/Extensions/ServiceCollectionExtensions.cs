@@ -1,0 +1,45 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Pim.Infrastructure.Auth;
+using Pim.Infrastructure.Data;
+using Pim.Infrastructure.Storage;
+using Pim.Infrastructure.TextExtraction;
+
+namespace Pim.Infrastructure.Extensions;
+
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddPimInfrastructure(
+        this IServiceCollection services, IConfiguration configuration)
+    {
+        // EF Core
+        services.AddDbContext<PimDbContext>(options =>
+            options.UseNpgsql(
+                configuration.GetConnectionString("DefaultConnection"),
+                npgsql => npgsql.EnableRetryOnFailure(3)));
+
+        // Auth
+        services.AddSingleton<JwtService>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
+
+        // Storage
+        services.AddSingleton(sp => new MinioStorage(
+            configuration["Minio:Endpoint"]!,
+            configuration["Minio:AccessKey"]!,
+            configuration["Minio:SecretKey"]!));
+
+        services.AddSingleton(sp => new KopiaService(
+            configuration["Kopia:RepositoryPath"]!,
+            configuration["Kopia:Password"]!));
+
+        // Tika
+        services.AddHttpClient<TikaClient>(client =>
+        {
+            client.BaseAddress = new Uri(configuration["Tika:BaseUrl"]!);
+        });
+
+        return services;
+    }
+}

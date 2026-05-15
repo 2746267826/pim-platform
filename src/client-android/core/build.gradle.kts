@@ -1,0 +1,27 @@
+plugins {
+    id("com.android.library")
+    id("org.jetbrains.kotlin.android")
+    id("com.google.dagger.hilt.android")
+    kotlin("kapt")
+}
+
+android {
+    namespace = "com.pim.core"
+    compileSdk = 34
+    defaultConfig {
+        minSdk = 26
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+}
+
+dependencies {
+    implementation("com.google.dagger:hilt-android:2.48")
+    kapt("com.google.dagger:hilt-compiler:2.48")
+
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.9.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+}

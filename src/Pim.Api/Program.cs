@@ -1,6 +1,7 @@
 using Pim.Api;
 using Pim.Api.Endpoints;
 using Pim.Api.Middleware;
+using Pim.Api.Search;
 using Pim.Infrastructure.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -30,6 +31,9 @@ app.UseCors();
 
 // Auth endpoints (before modules so they're not auth-protected)
 app.MapAuthEndpoints();
+
+// Search endpoint (uses ISearchProvider from modules)
+app.MapSearchEndpoints();
 
 // Module endpoints
 moduleRegistry.MapAllEndpoints(app);

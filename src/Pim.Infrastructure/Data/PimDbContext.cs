@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Pim.Core.Data;
 using Pim.Infrastructure.Data.Entities;
@@ -6,6 +7,13 @@ namespace Pim.Infrastructure.Data;
 
 public class PimDbContext : DbContext
 {
+    private static readonly List<Assembly> _moduleAssemblies = new();
+
+    public static void RegisterModuleAssembly(Assembly assembly)
+    {
+        _moduleAssemblies.Add(assembly);
+    }
+
     public PimDbContext(DbContextOptions<PimDbContext> options) : base(options) { }
 
     public DbSet<UserEntity> Users => Set<UserEntity>();
@@ -31,5 +39,10 @@ public class PimDbContext : DbContext
         {
             e.HasIndex(l => new { l.IpAddress, l.AttemptedAt });
         });
+
+        foreach (var assembly in _moduleAssemblies)
+        {
+            modelBuilder.ApplyConfigurationsFromAssembly(assembly);
+        }
     }
 }

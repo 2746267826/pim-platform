@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace Pim.Infrastructure.Storage;
 
@@ -64,7 +65,9 @@ public class KopiaService
 
         psi.EnvironmentVariables["KOPIA_PASSWORD"] = _password;
 
-        using var process = Process.Start(psi)!;
+        using var process = Process.Start(psi);
+        if (process == null)
+            throw new FileNotFoundException("kopia executable not found on PATH");
         var output = await process.StandardOutput.ReadToEndAsync(ct);
         var error = await process.StandardError.ReadToEndAsync(ct);
         await process.WaitForExitAsync(ct);
@@ -77,8 +80,23 @@ public class KopiaService
 
     private IReadOnlyList<KopiaSnapshotInfo> ParseSnapshotList(string json)
     {
-        // Kopia JSON output will be parsed when file module is implemented
-        return new List<KopiaSnapshotInfo>();
+        if (string.IsNullOrWhiteSpace(json))
+            return Array.Empty<KopiaSnapshotInfo>();
+
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        var results = new List<KopiaSnapshotInfo>(root.GetArrayLength());
+        foreach (var item in root.EnumerateArray())
+        {
+            var id = item.GetProperty("id").GetString() ?? string.Empty;
+            var description = item.GetProperty("description").GetString() ?? string.Empty;
+            var startTime = item.GetProperty("startTime").GetDateTimeOffset();
+            var totalSize = item.GetProperty("stats").GetProperty("totalSize").GetInt64();
+            results.Add(new KopiaSnapshotInfo(id, description, startTime, totalSize));
+        }
+
+        return results;
     }
 }
 

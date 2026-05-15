@@ -55,10 +55,12 @@ public class MinioStorage
     public async Task<string> GetPresignedUrlAsync(
         string objectName, int expirySeconds = 300, CancellationToken ct = default)
     {
-        return await _client.PresignedGetObjectAsync(new PresignedGetObjectArgs()
+        ct.ThrowIfCancellationRequested();
+        var task = _client.PresignedGetObjectAsync(new PresignedGetObjectArgs()
             .WithBucket(BucketName)
             .WithObject(objectName)
             .WithExpiry(expirySeconds));
+        return await task.WaitAsync(ct);
     }
 
     public async Task DeleteAsync(string objectName, CancellationToken ct = default)

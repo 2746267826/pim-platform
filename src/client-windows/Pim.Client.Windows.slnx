@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Pim.Client.App/Pim.Client.App.csproj" />
+  <Project Path="Pim.Client.Core/Pim.Client.Core.csproj" />
+  <Project Path="Pim.Client.Infrastructure/Pim.Client.Infrastructure.csproj" />
+</Solution>

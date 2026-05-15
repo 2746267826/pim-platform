@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Pim.Core\Pim.Core.csproj" />
     <ProjectReference Include="..\Pim.Infrastructure\Pim.Infrastructure.csproj" />
+    <ProjectReference Include="..\modules\Pim.Module.Calendar\Pim.Module.Calendar.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -46,19 +46,53 @@ data class RefreshRequest(
     val refreshToken: String
 )
 
+// Calendar
+
+@Serializable
+data class CalendarResponse(
+    val id: String,
+    val name: String,
+    val color: String? = null,
+    val description: String? = null
+)
+
+@Serializable
+data class CreateCalendarRequest(
+    val name: String,
+    val color: String? = null,
+    val description: String? = null
+)
+
+// Events
+
 @Serializable
 data class EventResponse(
     val id: String,
     val title: String,
+    val description: String? = null,
+    val location: String? = null,
     val dtStart: String,
     val dtEnd: String,
-    val location: String? = null
+    val status: String? = null
 )
+
+@Serializable
+data class CreateEventRequest(
+    val calendarId: String,
+    val title: String,
+    val description: String? = null,
+    val location: String? = null,
+    val dtStart: String,
+    val dtEnd: String
+)
+
+// Tasks
 
 @Serializable
 data class TaskResponse(
     val id: String,
     val title: String,
+    val description: String? = null,
     val priority: Int,
     val due: String? = null,
     val status: String
@@ -66,8 +100,28 @@ data class TaskResponse(
 
 @Serializable
 data class CreateTaskRequest(
-    val calendarId: String,
     val title: String,
+    val description: String? = null,
     val priority: Int = 0,
     val due: String? = null
+)
+
+// Search
+
+@Serializable
+data class SearchResult(
+    val id: String,
+    val type: String,
+    val title: String,
+    val snippet: String,
+    val url: String
+)
+
+// ICS
+
+@Serializable
+data class IcsImportResponse(
+    val code: Int,
+    val message: String,
+    val data: Int
 )

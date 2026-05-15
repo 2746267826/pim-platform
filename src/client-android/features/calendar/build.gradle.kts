@@ -10,8 +10,15 @@ android {
     defaultConfig {
         minSdk = 26
     }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
     buildFeatures { compose = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.5" }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 dependencies {

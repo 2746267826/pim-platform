@@ -1,28 +1,80 @@
 <Window x:Class="Pim.Client.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:Pim.Client.App.Views"
         Title="PIM" Height="800" Width="1200"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Navigation bar -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#F3F4F6" Margin="0">
-            <Button Content="日历" Margin="4" Padding="8,4"/>
-            <Button Content="文件" Margin="4" Padding="8,4"/>
-            <Button Content="活动" Margin="4" Padding="8,4"/>
-        </StackPanel>
+        <!-- Top Status Bar -->
+        <Border Grid.Row="0" Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
+                Padding="16,8">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="8" Height="8" Fill="{StaticResource SuccessBrush}" Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding StatusText}" FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <TextBlock Text="{Binding UserDisplayName}" FontSize="12"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <Button Content="退出" Style="{StaticResource SecondaryButton}"
+                            Padding="8,4" FontSize="12"
+                            Command="{Binding LogoutCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-        <!-- Content area -->
-        <ContentControl Grid.Row="1" x:Name="MainContent" Margin="8"/>
+        <!-- Body -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-        <!-- Status bar -->
-        <StatusBar Grid.Row="2">
-            <StatusBarItem Content="就绪"/>
-        </StatusBar>
+            <!-- Left Navigation -->
+            <Border Grid.Column="0" Background="{StaticResource NavBgBrush}"
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                <StackPanel Margin="8,12">
+                    <Button Content="📅  日历" Style="{StaticResource NavButton}"
+                            Command="{Binding NavigateCommand}" CommandParameter="calendar"/>
+                    <Button Content="📋  任务" Style="{StaticResource NavButton}"
+                            Command="{Binding NavigateCommand}" CommandParameter="tasks" Margin="0,4,0,0"/>
+                    <Button Content="📁  文件" Style="{StaticResource NavButton}"
+                            Command="{Binding NavigateCommand}" CommandParameter="files" Margin="0,4,0,0"
+                            IsEnabled="False"/>
+                    <Button Content="📊  活动" Style="{StaticResource NavButton}"
+                            Command="{Binding NavigateCommand}" CommandParameter="activity" Margin="0,4,0,0"
+                            IsEnabled="False"/>
+                    <Button Content="🔍  搜索" Style="{StaticResource NavButton}"
+                            Command="{Binding NavigateCommand}" CommandParameter="search" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Content Area -->
+            <Grid Grid.Column="1" Margin="16">
+                <views:CalendarView x:Name="CalendarViewPanel"
+                    Visibility="{Binding CurrentView, Converter={StaticResource StringEquals}, ConverterParameter=calendar}"/>
+                <views:TaskListView x:Name="TaskListViewPanel"
+                    Visibility="{Binding CurrentView, Converter={StaticResource StringEquals}, ConverterParameter=tasks}"/>
+                <views:SearchView x:Name="SearchViewPanel"
+                    Visibility="{Binding CurrentView, Converter={StaticResource StringEquals}, ConverterParameter=search}"/>
+                <TextBlock Text="文件管理功能将在后续版本中实现"
+                           Visibility="{Binding CurrentView, Converter={StaticResource StringEquals}, ConverterParameter=files}"
+                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <TextBlock Text="活动日志功能将在后续版本中实现"
+                           Visibility="{Binding CurrentView, Converter={StaticResource StringEquals}, ConverterParameter=activity}"
+                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Grid>
+        </Grid>
     </Grid>
 </Window>

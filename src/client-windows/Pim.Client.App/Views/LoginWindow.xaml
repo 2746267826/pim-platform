@@ -1,0 +1,102 @@
+<Window x:Class="Pim.Client.App.Views.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PIM - 登录" Height="500" Width="400"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent">
+    <Border Background="{StaticResource CardBrush}" CornerRadius="12">
+        <Grid Margin="40">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Logo & Title -->
+            <StackPanel Grid.Row="0" Margin="0,20,0,30">
+                <TextBlock Text="PIM" FontSize="32" FontWeight="Bold"
+                           Foreground="{StaticResource PrimaryBrush}"
+                           HorizontalAlignment="Center"/>
+                <TextBlock Text="个人信息管理平台" FontSize="14"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center" Margin="0,4,0,0"/>
+            </StackPanel>
+
+            <!-- Mode Toggle -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal"
+                        HorizontalAlignment="Center" Margin="0,0,0,20">
+                <Button Content="登录" Width="100"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding ToggleModeCommand}"
+                        Visibility="{Binding IsRegisterMode, Converter={StaticResource InverseBool}}"/>
+                <Button Content="注册" Width="100"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding ToggleModeCommand}"
+                        Visibility="{Binding IsRegisterMode, Converter={StaticResource InverseBool}}"/>
+
+                <Button Content="注册" Width="100"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding ToggleModeCommand}"
+                        Visibility="{Binding IsRegisterMode, Converter={StaticResource BoolToVisibility}}"/>
+                <Button Content="登录" Width="100"
+                        Style="{StaticResource SecondaryButton}"
+                        Command="{Binding ToggleModeCommand}"
+                        Visibility="{Binding IsRegisterMode, Converter={StaticResource BoolToVisibility}}"/>
+            </StackPanel>
+
+            <!-- Form -->
+            <StackPanel Grid.Row="2">
+                <TextBlock Text="用户名" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                <TextBox Style="{StaticResource ModernTextBox}" Margin="0,0,0,12"
+                         Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <!-- Email (register only) -->
+                <TextBlock Text="邮箱" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"
+                           Visibility="{Binding IsRegisterMode, Converter={StaticResource BoolToVisibility}}"/>
+                <TextBox Style="{StaticResource ModernTextBox}" Margin="0,0,0,12"
+                         Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
+                         Visibility="{Binding IsRegisterMode, Converter={StaticResource BoolToVisibility}}"/>
+
+                <!-- Display Name (register only) -->
+                <TextBlock Text="显示名称（可选）" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"
+                           Visibility="{Binding IsRegisterMode, Converter={StaticResource BoolToVisibility}}"/>
+                <TextBox Style="{StaticResource ModernTextBox}" Margin="0,0,0,12"
+                         Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}"
+                         Visibility="{Binding IsRegisterMode, Converter={StaticResource BoolToVisibility}}"/>
+
+                <TextBlock Text="密码" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                <PasswordBox Style="{StaticResource ModernPasswordBox}" Margin="0,0,0,4"
+                             x:Name="PasswordBox"
+                             PasswordChanged="PasswordBox_PasswordChanged"/>
+
+                <!-- Error -->
+                <TextBlock Text="{Binding ErrorMessage}" Foreground="#EF4444"
+                           FontSize="12" Margin="0,8,0,0"
+                           Visibility="{Binding ErrorMessage, Converter={StaticResource StringNotEmpty}}"/>
+
+                <!-- Loading -->
+                <TextBlock Text="请稍候..." Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,0"
+                           Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}"/>
+            </StackPanel>
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="3" Margin="0,20,0,0">
+                <Button Content="{Binding IsRegisterMode, Converter={StaticResource InverseBool}}"
+                        Style="{StaticResource PrimaryButton}" Height="42"
+                        Command="{Binding LoginCommand}"
+                        Visibility="{Binding IsRegisterMode, Converter={StaticResource InverseBool}}"/>
+                <Button Content="登录" Style="{StaticResource PrimaryButton}" Height="42"
+                        Command="{Binding LoginCommand}"
+                        Visibility="{Binding IsRegisterMode, Converter={StaticResource InverseBool}}"
+                        x:Name="LoginBtn"/>
+
+                <Button Content="注册" Style="{StaticResource PrimaryButton}" Height="42"
+                        Command="{Binding RegisterCommand}"
+                        Visibility="{Binding IsRegisterMode, Converter={StaticResource BoolToVisibility}}"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

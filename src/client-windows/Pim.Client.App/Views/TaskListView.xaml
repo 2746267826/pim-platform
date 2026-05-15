@@ -1,0 +1,110 @@
+<UserControl x:Class="Pim.Client.App.Views.TaskListView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Toolbar -->
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="任务管理" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           VerticalAlignment="Center"/>
+                <Button Content="{Binding ShowInboxOnly, Converter={StaticResource InverseBool}}"
+                        Style="{StaticResource SecondaryButton}" Margin="12,0,0,0"
+                        Padding="10,4" FontSize="12"
+                        Command="{Binding ToggleInboxCommand}"/>
+            </StackPanel>
+            <Button Content="+ 新建任务" Style="{StaticResource PrimaryButton}"
+                    HorizontalAlignment="Right"
+                    Command="{Binding OpenCreateEditorCommand}"/>
+        </Grid>
+
+        <!-- Task List -->
+        <Border Grid.Row="1" Style="{StaticResource Card}">
+            <ScrollViewer>
+                <ItemsControl ItemsSource="{Binding Tasks}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Padding="12,10" Margin="0,0,0,4"
+                                    Background="{StaticResource BgBrush}" CornerRadius="6">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <!-- Priority bar -->
+                                    <Border Grid.Column="0" Width="4" CornerRadius="2" Margin="0,0,12,0">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{StaticResource BorderBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Priority}" Value="1">
+                                                        <Setter Property="Background" Value="#F59E0B"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Priority}" Value="2">
+                                                        <Setter Property="Background" Value="#EF4444"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Title}" FontSize="14"
+                                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                                        <TextBlock FontSize="11" Margin="0,2,0,0"
+                                                   Foreground="{StaticResource TextSecondaryBrush}">
+                                            <TextBlock.Text>
+                                                <MultiBinding StringFormat="{}状态: {0}">
+                                                    <Binding Path="Status"/>
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Text="{Binding Due, StringFormat='yyyy-MM-dd'}"
+                                               FontSize="11" VerticalAlignment="Center"
+                                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Editor Panel -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,12,0,0"
+                Visibility="{Binding IsEditorOpen, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+                <TextBlock Text="新建任务" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                <TextBlock Text="标题" FontSize="12" Margin="0,0,0,4"/>
+                <TextBox Style="{StaticResource ModernTextBox}" Margin="0,0,0,8"
+                         Text="{Binding EditorTitle, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Text="描述" FontSize="12" Margin="0,0,0,4"/>
+                <TextBox Style="{StaticResource ModernTextBox}" Margin="0,0,0,8"
+                         Text="{Binding EditorDescription, UpdateSourceTrigger=PropertyChanged}"
+                         AcceptsReturn="True" Height="60"/>
+                <TextBlock Text="优先级" FontSize="12" Margin="0,0,0,4"/>
+                <ComboBox Margin="0,0,0,8" SelectedIndex="{Binding EditorPriority}">
+                    <ComboBoxItem Content="普通"/>
+                    <ComboBoxItem Content="重要"/>
+                    <ComboBoxItem Content="紧急"/>
+                </ComboBox>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="取消" Style="{StaticResource SecondaryButton}"
+                            Command="{Binding CloseEditorCommand}" Margin="0,0,8,0"/>
+                    <Button Content="保存" Style="{StaticResource PrimaryButton}"
+                            Command="{Binding SaveTaskCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

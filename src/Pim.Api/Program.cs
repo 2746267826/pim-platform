@@ -1,4 +1,5 @@
 using Pim.Api;
+using Pim.Api.Endpoints;
 using Pim.Api.Middleware;
 using Pim.Infrastructure.Extensions;
 
@@ -26,6 +27,9 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseCors();
+
+// Auth endpoints (before modules so they're not auth-protected)
+app.MapAuthEndpoints();
 
 // Module endpoints
 moduleRegistry.MapAllEndpoints(app);

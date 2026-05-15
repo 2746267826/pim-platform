@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pim.Core", "src\Pim.Core\Pi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pim.Infrastructure", "src\Pim.Infrastructure\Pim.Infrastructure.csproj", "{3739DF66-D281-4897-94BE-BD546CEDDF9F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pim.Api", "src\Pim.Api\Pim.Api.csproj", "{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,6 +45,18 @@ Global
 		{3739DF66-D281-4897-94BE-BD546CEDDF9F}.Release|x64.Build.0 = Release|Any CPU
 		{3739DF66-D281-4897-94BE-BD546CEDDF9F}.Release|x86.ActiveCfg = Release|Any CPU
 		{3739DF66-D281-4897-94BE-BD546CEDDF9F}.Release|x86.Build.0 = Release|Any CPU
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}.Debug|x64.Build.0 = Debug|Any CPU
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}.Debug|x86.Build.0 = Debug|Any CPU
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}.Release|x64.ActiveCfg = Release|Any CPU
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}.Release|x64.Build.0 = Release|Any CPU
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}.Release|x86.ActiveCfg = Release|Any CPU
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -50,5 +64,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{30274502-E958-4547-AC4E-214E46EF65CE} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{3739DF66-D281-4897-94BE-BD546CEDDF9F} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{EF1D2450-3F50-4D33-B078-D3A4A0FCADBB} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

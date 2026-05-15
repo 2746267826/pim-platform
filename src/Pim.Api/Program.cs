@@ -1,0 +1,36 @@
+using Pim.Api;
+using Pim.Api.Middleware;
+using Pim.Infrastructure.Extensions;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Infrastructure
+builder.Services.AddPimInfrastructure(builder.Configuration);
+builder.Services.AddPimAuth();
+
+// HTTP
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+});
+
+// Module discovery
+var moduleRegistry = new ModuleRegistry();
+moduleRegistry.DiscoverModules(builder.Services, builder.Configuration);
+
+var app = builder.Build();
+
+app.UseMiddleware<ExceptionMiddleware>();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseCors();
+
+// Module endpoints
+moduleRegistry.MapAllEndpoints(app);
+
+// Init modules
+await moduleRegistry.InitializeAllAsync(app.Services);
+
+app.Run();

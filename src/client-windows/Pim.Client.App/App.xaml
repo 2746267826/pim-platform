@@ -13,6 +13,12 @@
             <converters:InverseBoolConverter x:Key="InverseBool"/>
             <converters:StringEqualsConverter x:Key="StringEquals"/>
             <converters:StringNotEmptyConverter x:Key="StringNotEmpty"/>
+            <converters:InverseBoolValueConverter x:Key="InverseBoolValue"/>
+            <converters:PriorityToColorConverter x:Key="PriorityToColor"/>
+            <converters:PriorityToBrushConverter x:Key="PriorityToBrush"/>
+            <converters:HexToBrushConverter x:Key="HexToBrush"/>
+            <converters:DateTimeToTimeLabelConverter x:Key="DateTimeToTimeLabel"/>
+            <converters:MinutesToDurationLabelConverter x:Key="MinutesToDurationLabel"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

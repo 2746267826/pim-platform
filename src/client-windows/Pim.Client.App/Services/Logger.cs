@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.IO;
+using Serilog;
+using Serilog.Events;
 
 namespace Pim.Client.App.Services;
 
@@ -9,43 +11,48 @@ public static class Logger
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "PIM", "logs");
 
-    private static readonly string LogFile = Path.Combine(LogDir,
-        $"pim-{DateTime.Now:yyyy-MM-dd}.log");
+    private static ILogger? _serilog;
 
-    private static readonly object _lock = new();
+    public static void Initialize()
+    {
+        Directory.CreateDirectory(LogDir);
 
-    public static void Info(string message) => Log("INFO", message, null);
-    public static void Warn(string message) => Log("WARN", message, null);
-    public static void Error(string message, Exception? ex = null) => Log("ERROR", message, ex);
+        var logFile = Path.Combine(LogDir, "pim-daemon-.log");
+        _serilog = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Debug()
+            .WriteTo.File(
+                logFile,
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 30,
+                outputTemplate: "{Timestamp:yyyy-MM-ddTHH:mm:ss.fffZ} [{Level}] {Message:lj}{NewLine}{Exception}")
+            .CreateLogger();
+    }
+
+    public static void Info(string message) => Write(LogEventLevel.Information, message, null);
+    public static void Warn(string message) => Write(LogEventLevel.Warning, message, null);
+    public static void Error(string message, Exception? ex = null) => Write(LogEventLevel.Error, message, ex);
 
     public static void Trace(string message)
     {
 #if DEBUG
-        Log("TRACE", message, null);
+        Write(LogEventLevel.Verbose, message, null);
 #endif
     }
 
-    private static void Log(string level, string message, Exception? ex)
+    private static void Write(LogEventLevel level, string message, Exception? ex)
     {
-        try
+        if (_serilog is not null)
         {
-            Directory.CreateDirectory(LogDir);
-            var line = $"{DateTimeOffset.UtcNow:yyyy-MM-ddTHH:mm:ss.fffZ} [{level}] {message}";
-            if (ex is not null)
-                line += $"\n{ex}";
-            lock (_lock)
-            {
-                File.AppendAllText(LogFile, line + Environment.NewLine);
-            }
-            Debug.WriteLine(line);
+            _serilog.Write(level, ex, message);
         }
-        catch
+        else
         {
-            // Last-resort fallback: output to debugger only
+            // Fallback before Serilog is initialized
             Debug.WriteLine($"{level}: {message}");
             if (ex is not null) Debug.WriteLine(ex.ToString());
         }
     }
 
-    public static string LogFilePath => LogFile;
+    public static string LogFilePath => Path.Combine(LogDir, $"pim-daemon-{DateTime.Now:yyyy-MM-dd}.log");
 }

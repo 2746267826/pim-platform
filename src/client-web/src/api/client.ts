@@ -58,7 +58,14 @@ export async function apiDelete(path: string): Promise<void> {
   await authedFetch<void>(path, { method: 'DELETE' });
 }
 
+function logApi(method: string, path: string, duration: number, status?: number) {
+  const msg = `[API] ${method} ${path} → ${status || '???'} (${duration}ms)`;
+  if (import.meta.env.DEV) console.log(msg);
+}
+
 async function authedFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
+  const start = performance.now();
+  const method = opts.method || 'GET';
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...((opts.headers as Record<string, string>) || {})
@@ -78,6 +85,9 @@ async function authedFetch<T>(path: string, opts: RequestInit = {}): Promise<T> 
       throw new Error('Session expired');
     }
   }
+
+  const elapsed = Math.round(performance.now() - start);
+  logApi(method, path, elapsed, res.status);
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

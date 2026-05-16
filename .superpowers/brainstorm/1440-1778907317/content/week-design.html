@@ -1,0 +1,112 @@
+<h2>本周视图设计</h2>
+<p class="subtitle">7 天列 + 时间轴网格 — 与 week_view.dart 对应</p>
+
+<div class="mockup">
+  <div class="mockup-header">本周视图</div>
+  <div class="mockup-body">
+    <div style="border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; font-size: 13px;">
+      <!-- Week header -->
+      <div style="padding: 14px 20px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between; background: #fafafa;">
+        <span style="font-weight: 700; font-size: 16px;">5/10 - 5/16</span>
+        <div style="display: flex; gap: 4px; align-items: center;">
+          <span style="font-size: 12px; color: #888; margin-right: 8px;">2026</span>
+          <span class="mock-button" style="font-size: 11px; padding: 4px 6px;">&lt;</span>
+          <span class="mock-button" style="font-size: 11px; padding: 4px 10px;">今日</span>
+          <span class="mock-button" style="font-size: 11px; padding: 4px 6px;">&gt;</span>
+        </div>
+      </div>
+      <!-- Day columns header -->
+      <div style="display: flex; border-bottom: 1px solid #e0e0e0;">
+        <div style="width: 52px; flex-shrink: 0;"></div>
+        <div style="flex: 1; text-align: center; padding: 10px 0;">
+          <div style="font-size: 10px; color: #888;">一</div>
+          <div style="width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; font-size: 14px;">10</div>
+        </div>
+        <div style="flex: 1; text-align: center; padding: 10px 0;">
+          <div style="font-size: 10px; color: #888;">二</div>
+          <div style="width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; font-size: 14px;">11</div>
+        </div>
+        <div style="flex: 1; text-align: center; padding: 10px 0;">
+          <div style="font-size: 10px; color: #888;">三</div>
+          <div style="width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; font-size: 14px;">12</div>
+        </div>
+        <div style="flex: 1; text-align: center; padding: 10px 0;">
+          <div style="font-size: 10px; color: #888;">四</div>
+          <div style="width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; font-size: 14px;">13</div>
+        </div>
+        <div style="flex: 1; text-align: center; padding: 10px 0;">
+          <div style="font-size: 10px; color: #888;">五</div>
+          <div style="width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; font-size: 14px;">14</div>
+        </div>
+        <div style="flex: 1; text-align: center; padding: 10px 0; background: rgba(21,101,192,0.06);">
+          <div style="font-size: 10px; color: #888;">六</div>
+          <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(21,101,192,0.12); display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; font-size: 14px; color: #1565c0; font-weight: 700;">15</div>
+        </div>
+        <div style="flex: 1; text-align: center; padding: 10px 0; background: rgba(255,255,255,0);">
+          <div style="font-size: 10px; color: #E53935;">日</div>
+          <div style="width: 32px; height: 32px; border-radius: 50%; background: #1565c0; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px; font-size: 14px; color: white; font-weight: 700;">16</div>
+        </div>
+      </div>
+      <!-- Time grid -->
+      <div style="height: 560px; display: flex; overflow-y: auto;">
+        <!-- Time labels -->
+        <div style="width: 52px; flex-shrink: 0; border-right: 1px solid #eee;">
+          <div style="height: 60px; padding-right: 6px; text-align: right; font-size: 10px; color: #bbb;">06:00</div>
+          <div style="height: 60px; padding-right: 6px; text-align: right; font-size: 10px; color: #bbb;">07:00</div>
+          <div style="height: 60px; padding-right: 6px; text-align: right; font-size: 10px; color: #bbb;">08:00</div>
+          <div style="height: 60px; padding-right: 6px; text-align: right; font-size: 10px; color: #bbb;">09:00</div>
+          <div style="height: 60px; padding-right: 6px; text-align: right; font-size: 10px; color: #bbb;">10:00</div>
+          <div style="height: 60px; padding-right: 6px; text-align: right; font-size: 10px; color: #bbb;">11:00</div>
+          <div style="height: 60px; padding-right: 6px; text-align: right; font-size: 10px; color: #bbb;">12:00</div>
+          <div style="height: 60px; padding-right: 6px; text-align: right; font-size: 10px; color: #bbb;">13:00</div>
+        </div>
+        <!-- 7 day columns -->
+        <div style="flex: 1; display: flex;">
+          <div style="flex: 1; border-right: 1px solid #f5f5f5; position: relative; background: rgba(21,101,192,0.02);">
+            <div style="position: absolute; top: 180px; left: 2px; right: 2px; height: 48px; background: rgba(107,94,228,0.15); border-left: 3px solid #6B5EE4; border-radius: 4px; padding: 4px 6px; font-size: 10px;"><div style="font-weight:600;">周会</div><div style="color:#888;">09:00</div></div>
+            <div style="position: absolute; top: 372px; left: 2px; right: 2px; height: 52px; background: rgba(14,168,160,0.15); border-left: 3px solid #0EA8A0; border-radius: 4px; padding: 4px 6px; font-size: 10px;"><div style="font-weight:600;">代码审查</div><div style="color:#888;">14:00</div></div>
+          </div>
+          <div style="flex: 1; border-right: 1px solid #f5f5f5; position: relative;"></div>
+          <div style="flex: 1; border-right: 1px solid #f5f5f5; position: relative;">
+            <div style="position: absolute; top: 300px; left: 2px; right: 2px; height: 72px; background: rgba(233,30,99,0.15); border-left: 3px solid #E91E63; border-radius: 4px; padding: 4px 6px; font-size: 10px;"><div style="font-weight:600;">设计评审</div><div style="color:#888;">11:00-12:00</div></div>
+          </div>
+          <div style="flex: 1; border-right: 1px solid #f5f5f5; position: relative;"></div>
+          <div style="flex: 1; border-right: 1px solid #f5f5f5; position: relative;"></div>
+          <div style="flex: 1; border-right: 1px solid #f5f5f5; position: relative; background: rgba(21,101,192,0.03);">
+            <div style="position: absolute; top: 204px; left: 2px; right: 2px; height: 60px; background: rgba(255,152,0,0.18); border-left: 3px solid #FFA726; border-radius: 4px; padding: 4px 6px; font-size: 10px;"><div style="font-weight:600;">重构认证</div><div style="color:#888;">09:30-10:30</div></div>
+          </div>
+          <div style="flex: 1; position: relative;">
+            <div style="position: absolute; top: 420px; left: 2px; right: 2px; height: 48px; background: rgba(76,175,80,0.15); border-left: 3px solid #43A047; border-radius: 4px; padding: 4px 6px; font-size: 10px;"><div style="font-weight:600;">更新文档</div><div style="color:#888;">15:00</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <h3>本周视图关键细节</h3>
+</div>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">日列头</div>
+    <div class="mockup-body" style="font-size: 13px;">
+      <p>星期简称（一～日）+ 日期数字</p>
+      <p><strong>今天</strong>：浅蓝底色圆</p>
+      <p><strong>选中日</strong>：蓝色实心圆 + 白字</p>
+      <p><strong>周日</strong>：红色文字</p>
+      <p>点击日列头可跳转到该日的时间轴视图</p>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">色块显示</div>
+    <div class="mockup-body" style="font-size: 13px;">
+      <p>日程和任务按时间定位（top = 时间 × 60px/小时）</p>
+      <p>高度 = 时长 × 60px/小时，最小 20px</p>
+      <p>左侧 3px 竖条着色</p>
+      <p>显示标题 + 开始时间</p>
+      <p>点击弹出详情对话框</p>
+    </div>
+  </div>
+</div>

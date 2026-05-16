@@ -1,0 +1,114 @@
+<h2>拖拽交互与收件箱面板设计</h2>
+<p class="subtitle">核心交互：收件箱 ↔ 时间轴拖拽排程 + 时间轴内调整</p>
+
+<div class="mockup">
+  <div class="mockup-header">拖拽交互全景</div>
+  <div class="mockup-body">
+    <div style="display:flex; gap:20px; padding:16px;">
+      <!-- Interaction 1 -->
+      <div style="flex:1; text-align:center;">
+        <div style="font-size: 11px; color: #888; margin-bottom: 8px;">交互 1：收件箱 → 时间轴排程</div>
+        <div style="border:1px solid #eee; border-radius:12px; padding:16px; background:#fafafa;">
+          <div style="display:flex; gap:8px;">
+            <div style="width:120px; border:1px dashed #bbb; border-radius:8px; padding:10px; background:white;">
+              <div style="font-size:10px;color:#888;margin-bottom:6px;">收件箱</div>
+              <div style="padding:8px; background:#fff; border:2px solid #1565c0; border-radius:8px; font-size:10px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                <span style="width:8px;height:8px;background:#E53935;border-radius:50%;display:inline-block;"></span>
+                重构认证模块
+                <div style="color:#888;font-size:9px;">⏱ 120分钟</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;color:#1565c0;font-size:20px;">→</div>
+            <div style="flex:1; border:1px solid #e0f0ff; border-radius:8px; padding:10px; background:rgba(21,101,192,0.04); position:relative;">
+              <div style="font-size:10px;color:#888;margin-bottom:6px;">时间轴 · 计划栏</div>
+              <div style="position:relative; height:80px;">
+                <div style="position:absolute; top:20px; left:4px; right:4px; height:40px; background:rgba(255,152,0,0.2); border-left:3px solid #FFA726; border-radius:4px; border:1.5px dashed #1565c0; display:flex;align-items:center;padding:0 8px;font-size:10px;">
+                  ⬇ 放置此处排程
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Interaction 2 -->
+      <div style="flex:1; text-align:center;">
+        <div style="font-size: 11px; color: #888; margin-bottom: 8px;">交互 2：时间轴内拖拽移动</div>
+        <div style="border:1px solid #eee; border-radius:12px; padding:16px; background:#fafafa;">
+          <div style="position:relative; height:120px; border:1px solid #eee; border-radius:8px; padding:8px;">
+            <div style="font-size:10px;color:#888;margin-bottom:4px;">09:00</div>
+            <div style="position:absolute; top:20px; left:8px; right:8px; height:40px; background:rgba(107,94,228,0.10); border-left:4px solid #6B5EE4; border-radius:4px; padding:6px 10px; font-size:10px; opacity:0.3;">
+              项目周会 09:00-10:00
+            </div>
+            <div style="font-size:10px;color:#888;margin-top:20px;">10:00</div>
+            <div style="position:absolute; top:60px; left:8px; right:8px; height:40px; background:rgba(107,94,228,0.15); border-left:4px solid #6B5EE4; border-radius:4px; padding:6px 10px; font-size:10px; border:1.5px solid #1565c0; box-shadow:0 4px 12px rgba(0,0,0,0.12);">
+              项目周会 10:00-11:00 <span style="color:#1565c0;font-size:9px;">移动中</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Interaction 3 -->
+      <div style="flex:1; text-align:center;">
+        <div style="font-size: 11px; color: #888; margin-bottom: 8px;">交互 3：底部边缘拖拽调时长</div>
+        <div style="border:1px solid #eee; border-radius:12px; padding:16px; background:#fafafa;">
+          <div style="position:relative; height:120px; border:1px solid #eee; border-radius:8px; padding:8px;">
+            <div style="font-size:10px;color:#888;margin-bottom:4px;">09:00</div>
+            <div style="position:absolute; top:20px; left:8px; right:8px; background:rgba(14,168,160,0.15); border-left:4px solid #0EA8A0; border-radius:4px; padding:6px 10px; font-size:10px;" id="resize-block">
+              代码审查 09:00-10:00
+              <div style="position:absolute; bottom:0; left:0; right:0; height:6px; background:rgba(21,101,192,0.3); border-radius:0 0 4px 4px; cursor:s-resize;"></div>
+            </div>
+            <div style="font-size:10px;color:#888;margin-top:52px;">10:00</div>
+            <div style="font-size:10px;color:#888;margin-top:24px;">⇕ 拖拽底部边缘</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Interaction 4 -->
+    <div style="padding:16px; text-align:center;">
+      <div style="font-size: 11px; color: #888; margin-bottom: 8px;">交互 4：时间轴 → 收件箱退排程</div>
+      <div style="display:flex; gap:8px; align-items:center; justify-content:center; border:1px solid #eee; border-radius:12px; padding:16px; background:#fafafa;">
+        <div style="width:200px; border:1px solid #e0e0e0; border-radius:8px; padding:10px; background:white;">
+          <div style="font-size:10px;color:#888;margin-bottom:6px;">时间轴 · 计划栏</div>
+          <div style="position:relative; height:60px;">
+            <div style="position:absolute; top:10px; left:4px; right:4px; height:32px; background:rgba(107,94,228,0.10); border-left:4px solid #6B5EE4; border-radius:4px; padding:6px 10px; font-size:10px; opacity:0.3;">项目周会</div>
+          </div>
+        </div>
+        <span style="font-size:20px; color:#E53935;">→</span>
+        <div style="width:150px; border:2px dashed #E53935; border-radius:8px; padding:10px; background:rgba(229,57,53,0.04);">
+          <div style="font-size:10px;color:#E53935;margin-bottom:6px;">收件箱（释放退回）</div>
+          <div style="font-size:10px;color:#888;">📥 拖到此处取消排程</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <h3>拖拽规则总结</h3>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-body">
+      <h3>收件箱 → 时间轴</h3>
+      <p>从收件箱长按拖拽任务卡片到计划栏，松手后弹出确认对话框。确认后设置 DtStart 为放置时间（15分钟吸附），任务从收件箱消失</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3>时间轴内移动</h3>
+      <p>拖拽色块上下移动修改开始时间。15分钟吸附。拖拽时显示半透明预览。松手前弹出确认对话框。日程和任务均支持</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3>底部边缘调时长</h3>
+      <p>鼠标悬停色块底部出现拖拽手柄（6px 高亮条）。上下拖拽调整结束时间（日程）/ 预计时长（任务）。15分钟吸附</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3>时间轴 → 收件箱</h3>
+      <p>从计划栏拖拽任务到收件箱面板，释放后 DtStart 清空，任务退回未排程状态。日程不支持此操作（日程必须有时间）</p>
+    </div>
+  </div>
+</div>

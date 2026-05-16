@@ -1,0 +1,148 @@
+<h2>任务视图设计</h2>
+<p class="subtitle">全量任务管理 — 列表 + 筛选 + 快速操作</p>
+
+<div class="mockup">
+  <div class="mockup-header">任务视图</div>
+  <div class="mockup-body">
+    <div style="border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; font-size: 13px;">
+      <!-- Header -->
+      <div style="padding: 14px 20px; border-bottom: 1px solid #e0e0e0; background: #fafafa; display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-weight: 700; font-size: 16px;">任务</span>
+        <span style="font-size: 12px; color: #888;">共 8 个任务 · 3 个未排程</span>
+      </div>
+      <!-- Filter bar -->
+      <div style="padding: 10px 20px; border-bottom: 1px solid #eee; display: flex; gap: 10px; align-items: center;">
+        <span style="font-size: 11px; color: #888;">筛选：</span>
+        <span style="padding: 4px 10px; border-radius: 12px; background: #1565c0; color: white; font-size: 11px;">全部</span>
+        <span style="padding: 4px 10px; border-radius: 12px; background: #f0f0f0; font-size: 11px;">未排程</span>
+        <span style="padding: 4px 10px; border-radius: 12px; background: #f0f0f0; font-size: 11px;">高优先级</span>
+        <span style="padding: 4px 10px; border-radius: 12px; background: #f0f0f0; font-size: 11px;">今日</span>
+        <span style="flex: 1;"></span>
+        <input class="mock-input" placeholder="搜索任务..." style="width: 180px; font-size: 11px; padding: 4px 10px;">
+      </div>
+      <!-- Task list -->
+      <div style="height: 480px; overflow-y: auto;">
+        <!-- Task row 1: unscheduled + high priority -->
+        <div style="display: flex; align-items: center; padding: 12px 20px; border-bottom: 1px solid #f5f5f5; gap: 12px;">
+          <span style="width: 10px; height: 10px; background: #E53935; border-radius: 50%; flex-shrink: 0;"></span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 13px;">重构认证模块</div>
+            <div style="font-size: 10px; color: #999; margin-top: 2px;">需要拆分 JWT 和 OAuth 逻辑 · 预计 2小时</div>
+          </div>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #f0f0f0; color: #888;">📁 开发</span>
+          <span style="font-size: 11px; color: #888; white-space: nowrap;">⏱ 120分钟</span>
+          <span style="font-size: 11px; color: #E53935; white-space: nowrap;">📅 5/20</span>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #fff0f0; color: #E53935;">高</span>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #f5f5f5; color: #888;">收件箱</span>
+          <span style="color: #ccc; font-size: 16px;">›</span>
+        </div>
+        <!-- Task row 2: scheduled + medium priority -->
+        <div style="display: flex; align-items: center; padding: 12px 20px; border-bottom: 1px solid #f5f5f5; gap: 12px;">
+          <span style="width: 10px; height: 10px; background: #FFA726; border-radius: 50%; flex-shrink: 0;"></span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 13px;">编写单元测试</div>
+            <div style="font-size: 10px; color: #999; margin-top: 2px;">覆盖 CalendarService 和 AuthService</div>
+          </div>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #f0f0f0; color: #888;">📁 开发</span>
+          <span style="font-size: 11px; color: #888; white-space: nowrap;">⏱ 60分钟</span>
+          <span style="font-size: 11px; white-space: nowrap;">🕐 5/16 14:00</span>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #fff8e0; color: #FFA726;">中</span>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #e8f5e9; color: #43A047;">已排程</span>
+          <span style="color: #ccc; font-size: 16px;">›</span>
+        </div>
+        <!-- Task row 3 -->
+        <div style="display: flex; align-items: center; padding: 12px 20px; border-bottom: 1px solid #f5f5f5; gap: 12px;">
+          <span style="width: 10px; height: 10px; background: #43A047; border-radius: 50%; flex-shrink: 0;"></span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 13px;">更新 API 文档</div>
+            <div style="font-size: 10px; color: #999; margin-top: 2px;">补充新接口的参数说明和示例</div>
+          </div>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #f0f0f0; color: #888;">📁 文档</span>
+          <span style="font-size: 11px; color: #888; white-space: nowrap;">⏱ 30分钟</span>
+          <span style="font-size: 11px; white-space: nowrap;">🕐 5/17 10:00</span>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #e8f5e9; color: #43A047;">低</span>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #e8f5e9; color: #43A047;">已排程</span>
+          <span style="color: #ccc; font-size: 16px;">›</span>
+        </div>
+        <!-- Task row 4: unscheduled -->
+        <div style="display: flex; align-items: center; padding: 12px 20px; border-bottom: 1px solid #f5f5f5; gap: 12px;">
+          <span style="width: 10px; height: 10px; background: #FFA726; border-radius: 50%; flex-shrink: 0;"></span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 13px;">性能优化 - 数据库查询</div>
+            <div style="font-size: 10px; color: #999; margin-top: 2px;">N+1 查询问题排查 · 预计 3小时</div>
+          </div>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #f0f0f0; color: #888;">📁 开发</span>
+          <span style="font-size: 11px; color: #888; white-space: nowrap;">⏱ 180分钟</span>
+          <span style="font-size: 11px; color: #E53935; white-space: nowrap;">📅 5/25</span>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #fff8e0; color: #FFA726;">中</span>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #f5f5f5; color: #888;">收件箱</span>
+          <span style="color: #ccc; font-size: 16px;">›</span>
+        </div>
+        <!-- Task row 5 -->
+        <div style="display: flex; align-items: center; padding: 12px 20px; border-bottom: 1px solid #f5f5f5; gap: 12px;">
+          <span style="width: 10px; height: 10px; background: #E53935; border-radius: 50%; flex-shrink: 0;"></span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 13px;">修复登录超时 Bug</div>
+            <div style="font-size: 10px; color: #999; margin-top: 2px;">Token 刷新逻辑异常 · 预计 1.5小时</div>
+          </div>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #f0f0f0; color: #888;">📁 开发</span>
+          <span style="font-size: 11px; color: #888; white-space: nowrap;">⏱ 90分钟</span>
+          <span style="font-size: 11px; white-space: nowrap;">🕐 5/16 16:00</span>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #fff0f0; color: #E53935;">高</span>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #e8f5e9; color: #43A047;">已排程</span>
+          <span style="color: #ccc; font-size: 16px;">›</span>
+        </div>
+        <!-- Task row 6: unscheduled -->
+        <div style="display: flex; align-items: center; padding: 12px 20px; border-bottom: 1px solid #f5f5f5; gap: 12px;">
+          <span style="width: 10px; height: 10px; background: #43A047; border-radius: 50%; flex-shrink: 0;"></span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 13px;">整理项目 README</div>
+            <div style="font-size: 10px; color: #999; margin-top: 2px;">补充部署说明和开发环境配置</div>
+          </div>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #f0f0f0; color: #888;">📁 文档</span>
+          <span style="font-size: 11px; color: #888; white-space: nowrap;">⏱ 45分钟</span>
+          <span style="font-size: 11px; white-space: nowrap;">—</span>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #e8f5e9; color: #43A047;">低</span>
+          <span style="font-size: 10px; padding: 2px 8px; border-radius: 10px; background: #f5f5f5; color: #888;">收件箱</span>
+          <span style="color: #ccc; font-size: 16px;">›</span>
+        </div>
+      </div>
+      <!-- Bottom actions -->
+      <div style="padding: 10px 20px; border-top: 1px solid #eee; background: #fafafa; display: flex; gap: 8px;">
+        <div class="mock-button" style="background: #1565c0; color: white; font-size: 11px;">+ 新建任务</div>
+        <div class="mock-button" style="font-size: 11px;">导出</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <h3>任务视图关键细节</h3>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-body">
+      <h3>任务行布局</h3>
+      <p>优先级圆点 + 标题描述 + 任务本标签 + 时长 + 排程时间/截止日期 + 优先级标签 + 状态标签 + 详情箭头</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3>筛选与搜索</h3>
+      <p>顶部 Chip 筛选栏：全部 / 未排程 / 高优先级 / 今日。右侧搜索框支持标题模糊搜索</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3>交互行为</h3>
+      <p>点击行打开任务详情对话框（编辑）。从列表拖拽任务到收件箱面板可取消排程。底部"新建任务"按钮打开空白详情对话框</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3>状态标识</h3>
+      <p>已排程 = 绿色"已排程"标签 + 显示排程时间。收件箱 = 灰色"收件箱"标签 + 显示截止日期（红色）。优先级：高红/中黄/低绿</p>
+    </div>
+  </div>
+</div>

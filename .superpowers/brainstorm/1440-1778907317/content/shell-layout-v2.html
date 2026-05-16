@@ -1,0 +1,178 @@
+<h2>更新后的 Shell 布局 — 按钮移至右下角</h2>
+<p class="subtitle">根据反馈调整，并整合新参考文件的 UI 要素</p>
+
+<div class="mockup">
+  <div class="mockup-header">WPF 日历窗口目标布局（融合全部 Flutter 参考）</div>
+  <div class="mockup-body">
+    <div style="display:flex; height: 680px; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; font-size: 13px;">
+      <!-- Left Sidebar -->
+      <div style="width: 220px; background: #f8f9fa; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; flex-shrink: 0;">
+        <div style="padding: 14px 16px; border-bottom: 1px solid #e0e0e0; font-weight: 600; font-size: 14px;">PIM</div>
+        <nav style="flex: 1; padding: 8px 0;">
+          <div style="padding: 8px 20px; background: #e3f0fd; font-weight: 600; color: #1565c0;">时间轴</div>
+          <div style="padding: 8px 20px; color: #555;">本周</div>
+          <div style="padding: 8px 20px; color: #555;">月视图</div>
+          <div style="padding: 8px 20px; color: #555;">任务</div>
+          <div style="padding: 8px 20px; color: #555;">文件</div>
+        </nav>
+        <div style="border-top: 1px solid #e0e0e0; padding: 12px 16px;">
+          <div style="font-size: 11px; color: #888; text-transform: uppercase; margin-bottom: 8px;">日历本</div>
+          <div style="padding: 4px 0; display: flex; align-items: center; gap: 8px;">
+            <span style="width: 10px; height: 10px; background: #6B5EE4; border-radius: 50%;"></span>
+            <span style="flex:1; font-size: 12px;">默认日历</span>
+            <span style="color: #aaa; font-size: 12px;">👁</span>
+          </div>
+          <div style="padding: 4px 0; display: flex; align-items: center; gap: 8px;">
+            <span style="width: 10px; height: 10px; background: #0EA8A0; border-radius: 50%;"></span>
+            <span style="flex:1; font-size: 12px;">工作任务</span>
+            <span style="color: #aaa; font-size: 12px;">👁</span>
+          </div>
+        </div>
+      </div>
+      <!-- Main Area -->
+      <div style="flex: 1; display: flex; flex-direction: column;">
+        <!-- Header + Date Strip -->
+        <div style="padding: 12px 20px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-weight: 600; font-size: 15px;">5/16 星期五</span>
+            <span style="font-size: 11px; color: #888;">2026</span>
+          </div>
+          <div style="display: flex; gap: 4px;">
+            <span style="padding: 4px 8px; border-radius: 4px; font-size: 11px;">&lt;</span>
+            <span style="padding: 4px 8px; background: #e3f0fd; border-radius: 4px; font-size: 11px; color: #1565c0;">今日</span>
+            <span style="padding: 4px 8px; border-radius: 4px; font-size: 11px;">&gt;</span>
+          </div>
+        </div>
+        <!-- Date Strip -->
+        <div style="padding: 8px 16px; border-bottom: 1px solid #eee; display: flex; gap: 4px; overflow-x: auto;">
+          <div style="min-width: 42px; padding: 6px 4px; text-align: center; border-radius: 10px; font-size: 10px;">
+            <div>一</div><div style="font-size: 15px; font-weight: 600;">10</div>
+          </div>
+          <div style="min-width: 42px; padding: 6px 4px; text-align: center; border-radius: 10px; font-size: 10px;">
+            <div>二</div><div style="font-size: 15px;">11</div>
+          </div>
+          <div style="min-width: 42px; padding: 6px 4px; text-align: center; border-radius: 10px; font-size: 10px;">
+            <div>三</div><div style="font-size: 15px;">12</div>
+          </div>
+          <div style="min-width: 42px; padding: 6px 4px; text-align: center; border-radius: 10px; font-size: 10px;">
+            <div>四</div><div style="font-size: 15px;">13</div>
+          </div>
+          <div style="min-width: 42px; padding: 6px 4px; text-align: center; border-radius: 10px; background: #e3f0fd; font-size: 10px;">
+            <div>五</div><div style="font-size: 15px; font-weight: 700; color: #1565c0;">14</div>
+          </div>
+          <div style="min-width: 42px; padding: 6px 4px; text-align: center; border-radius: 10px; font-size: 10px;">
+            <div>六</div><div style="font-size: 15px;">15</div>
+          </div>
+          <div style="min-width: 42px; padding: 6px 4px; text-align: center; border-radius: 10px; font-size: 10px;">
+            <div>日</div><div style="font-size: 15px; font-weight: 700;">16</div>
+          </div>
+        </div>
+        <!-- Content: 3-column layout -->
+        <div style="flex: 1; display: flex; position: relative;">
+          <!-- Time column -->
+          <div style="width: 48px; border-right: 1px solid #eee; display: flex; flex-direction: column; padding-top: 4px; flex-shrink: 0;">
+            <div style="height: 80px; display: flex; align-items: flex-start; justify-content: flex-end; padding-right: 6px; font-size: 10px; color: #999;">01:00</div>
+            <div style="height: 80px; display: flex; align-items: flex-start; justify-content: flex-end; padding-right: 6px; font-size: 10px; color: #999;">02:00</div>
+            <div style="height: 80px; display: flex; align-items: flex-start; justify-content: flex-end; padding-right: 6px; font-size: 10px; color: #999;">03:00</div>
+            <div style="height: 80px; display: flex; align-items: flex-start; justify-content: flex-end; padding-right: 6px; font-size: 10px; color: #999;">04:00</div>
+          </div>
+          <!-- Plan Column (3/5 of remaining) -->
+          <div style="flex: 3; border-right: 1px solid #eee; position: relative; padding: 4px;">
+            <div class="label" style="position: absolute; top: 4px; left: 8px; z-index: 1;">计划</div>
+            <div style="margin-top: 20px; position: relative;">
+              <div class="placeholder" style="height: 52px; margin: 2px 0; background: #e8e0f0; border-left: 4px solid #6B5EE4; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; position: relative; top: 160px;">项目周会 09:00-10:00</div>
+              <div class="placeholder" style="height: 68px; margin: 2px 0; background: #e0f0f0; border-left: 4px solid #0EA8A0; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; font-size: 11px; position: relative; top: 400px;">代码审查 14:00-15:00</div>
+              <!-- Current time indicator -->
+              <div style="position: absolute; left: 0; right: 0; top: 380px; border-top: 2px solid #E53935; z-index: 2;">
+                <div style="width: 8px; height: 8px; background: #E53935; border-radius: 50%; margin-top: -5px;"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Actual Column (2/5 of remaining) -->
+          <div style="flex: 2; position: relative; padding: 4px;">
+            <div class="label" style="position: absolute; top: 4px; left: 8px;">实际</div>
+            <div style="margin-top: 20px;">
+              <div class="placeholder" style="height: 40px; margin: 2px 0; background: #fff3e0; border-left: 3px solid #FF9800; border-radius: 4px; font-size: 10px; display: flex; align-items: center; padding: 0 6px; position: relative; top: 180px;">编程 09:15-10:30</div>
+            </div>
+          </div>
+        </div>
+        <!-- Quick Add Bar (bottom) -->
+        <div style="border-top: 1px solid #e0e0e0; padding: 8px 16px; display: flex; align-items: center; gap: 10px; background: #fafafa;">
+          <span style="width: 8px; height: 8px; background: #999; border-radius: 50%;"></span>
+          <span style="flex:1; font-size: 12px; color: #999;">现在在做：</span>
+          <span style="font-size: 12px; color: #1565c0;">▶</span>
+        </div>
+      </div>
+      <!-- Right Sidebar: Unscheduled Tasks -->
+      <div style="width: 300px; border-left: 1px solid #e0e0e0; display: flex; flex-direction: column; background: #fafafa;">
+        <div style="padding: 12px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #eee;">
+          <span style="font-size: 14px;">📥</span>
+          <span style="font-weight: 600; font-size: 13px;">收件箱 / 未排程</span>
+          <span style="margin-left: auto; font-size: 11px; color: #aaa;">ⓘ</span>
+        </div>
+        <div style="flex: 1; overflow-y: auto; padding: 8px;">
+          <!-- Unscheduled task cards -->
+          <div style="padding: 10px 12px; margin: 4px 0; background: white; border-radius: 10px; border: 1px solid #eee; font-size: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 10px; height: 10px; background: #E53935; border-radius: 50%;"></span>
+              <span style="flex:1; font-weight: 500;">重构认证模块</span>
+              <span style="color: #ccc;">⠿</span>
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 6px;">
+              <span style="font-size: 10px; padding: 2px 6px; background: #f0f0f0; border-radius: 4px;">📁 开发</span>
+              <span style="font-size: 10px; padding: 2px 6px; background: #f0f0f0; border-radius: 4px;">⏱ 120 分钟</span>
+              <span style="font-size: 10px; padding: 2px 6px; background: #fff0f0; border-radius: 4px; color: #E53935;">📅 5/20</span>
+            </div>
+          </div>
+          <div style="padding: 10px 12px; margin: 4px 0; background: white; border-radius: 10px; border: 1px solid #eee; font-size: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 10px; height: 10px; background: #FFA726; border-radius: 50%;"></span>
+              <span style="flex:1; font-weight: 500;">编写单元测试</span>
+              <span style="color: #ccc;">⠿</span>
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 6px;">
+              <span style="font-size: 10px; padding: 2px 6px; background: #f0f0f0; border-radius: 4px;">📁 开发</span>
+              <span style="font-size: 10px; padding: 2px 6px; background: #f0f0f0; border-radius: 4px;">⏱ 60 分钟</span>
+            </div>
+          </div>
+        </div>
+        <!-- Bottom-right action buttons -->
+        <div style="padding: 12px 16px; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 6px;">
+          <div class="mock-button" style="width: 100%; background: #1565c0; color: white;">+ 新建</div>
+          <div class="mock-button" style="width: 100%; background: #e8e8e8;">⚡ 一键重排</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px;">
+  <h3>整合全部参考文件后的 WPF UI 全景</h3>
+</div>
+
+<div class="cards">
+  <div class="card">
+    <div class="card-body">
+      <h3>左侧导航栏</h3>
+      <p>5个视图：时间轴、本周、月视图、任务、文件。底部日历本列表（颜色标识 + 可见性切换）</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3>时间轴（核心视图）</h3>
+      <p>左侧时间刻度 + 计划栏(3/5) + 实际栏(2/5)。日程/任务色块叠加，红色当前时间线，拖拽移动和调整时长</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3>右侧收件箱面板</h3>
+      <p>未排程任务列表，显示优先级圆点、任务本、时长、截止日期。长按拖拽到时间轴排程，底部"新建"和"一键重排"按钮</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <h3>底部快速追踪条</h3>
+      <p>输入当前活动 + 播放按钮开始计时。追踪中显示活动名、实时计时器、停止按钮</p>
+    </div>
+  </div>
+</div>

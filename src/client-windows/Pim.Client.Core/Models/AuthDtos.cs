@@ -25,7 +25,7 @@ public class AuthResponse
     [JsonPropertyName("expiresAt")]
     public DateTimeOffset ExpiresAt { get; set; }
 
-    [JsonPropertyName("userInfo")]
+    [JsonPropertyName("user")]
     public UserInfo? UserInfo { get; set; }
 }
 
@@ -114,6 +114,9 @@ public class TaskResponse
 
     [JsonPropertyName("estimatedDuration")]
     public string? EstimatedDuration { get; set; }
+
+    [JsonPropertyName("dtStart")]
+    public DateTimeOffset? DtStart { get; set; }
 
     [JsonPropertyName("due")]
     public DateTimeOffset? Due { get; set; }

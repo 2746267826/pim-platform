@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -11,17 +12,30 @@ public class ApiClient
 
     public Func<Task<bool>>? OnUnauthorized { get; set; }
 
+    public event Action<string, long>? RequestTiming;
+
     public ApiClient()
     {
-        _httpClient = new HttpClient
+        var handler = new HttpClientHandler
         {
-            BaseAddress = new Uri("http://localhost:5000/api/v1")
+            UseProxy = false
+        };
+        _httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost:5000/api/v1/")
         };
     }
 
     public void SetBaseUrl(string baseUrl)
     {
-        _httpClient.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/api/v1");
+        _httpClient.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/api/v1/");
+    }
+
+    public string CurrentBaseUrl => _httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "";
+
+    private string Resolve(string endpoint)
+    {
+        return endpoint.TrimStart('/');
     }
 
     public void SetAccessToken(string token)
@@ -38,38 +52,40 @@ public class ApiClient
     public async Task<T?> GetAsync<T>(string endpoint, CancellationToken ct = default)
     {
         return await SendWithAuthRetryAsync<T>(
-            () => _httpClient.GetAsync(endpoint, ct), ct);
+            () => _httpClient.GetAsync(Resolve(endpoint), ct), ct);
     }
 
     public async Task<T?> PostAsync<T>(string endpoint, object body, CancellationToken ct = default)
     {
         return await SendWithAuthRetryAsync<T>(
-            () => _httpClient.PostAsJsonAsync(endpoint, body, ct), ct);
+            () => _httpClient.PostAsJsonAsync(Resolve(endpoint), body, ct), ct);
     }
 
     public async Task<T?> PutAsync<T>(string endpoint, object body, CancellationToken ct = default)
     {
         return await SendWithAuthRetryAsync<T>(
-            () => _httpClient.PutAsJsonAsync(endpoint, body, ct), ct);
+            () => _httpClient.PutAsJsonAsync(Resolve(endpoint), body, ct), ct);
     }
 
     public async Task DeleteAsync(string endpoint, CancellationToken ct = default)
     {
         await SendWithAuthRetryAsync<IgnoreResult>(
-            () => _httpClient.DeleteAsync(endpoint, ct), ct);
+            () => _httpClient.DeleteAsync(Resolve(endpoint), ct), ct);
     }
 
     public async Task<T?> PostStringAsync<T>(string endpoint, string content, CancellationToken ct = default)
     {
         return await SendWithAuthRetryAsync<T>(
-            () => _httpClient.PostAsync(endpoint,
+            () => _httpClient.PostAsync(Resolve(endpoint),
                 new StringContent(content, System.Text.Encoding.UTF8, "text/calendar"), ct), ct);
     }
 
     private async Task<T?> SendWithAuthRetryAsync<T>(
         Func<Task<HttpResponseMessage>> request, CancellationToken ct)
     {
+        var sw = Stopwatch.StartNew();
         var response = await request();
+        var firstHopMs = sw.ElapsedMilliseconds;
 
         if (response.StatusCode == HttpStatusCode.Unauthorized
             && OnUnauthorized is not null
@@ -80,13 +96,19 @@ public class ApiClient
             {
                 if (await OnUnauthorized())
                 {
+                    sw.Restart();
                     response = await request();
+                    RequestTiming?.Invoke($"{response.RequestMessage?.Method} {response.RequestMessage?.RequestUri} (after refresh)", sw.ElapsedMilliseconds);
                 }
             }
             finally
             {
                 _isRefreshing = false;
             }
+        }
+        else
+        {
+            RequestTiming?.Invoke($"{response.RequestMessage?.Method} {response.RequestMessage?.RequestUri}", firstHopMs);
         }
 
         response.EnsureSuccessStatusCode();

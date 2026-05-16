@@ -1,21 +1,20 @@
-using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Pim.Client.App.ViewModels;
 
 namespace Pim.Client.App.Views;
 
 public partial class TaskListView : UserControl
 {
-    private TaskListViewModel? _vm;
-
     public TaskListView()
     {
         InitializeComponent();
-        DataContextChanged += (_, e) =>
+        if (App.Services != null)
+            DataContext = App.Services.GetRequiredService<TaskListViewModel>();
+        Loaded += async (_, _) =>
         {
-            _vm = e.NewValue as TaskListViewModel;
-            if (_vm is not null)
-                _ = _vm.LoadTasksAsync();
+            if (DataContext is TaskListViewModel vm)
+                await vm.LoadTasksAsync();
         };
     }
 }

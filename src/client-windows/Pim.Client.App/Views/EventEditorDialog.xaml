@@ -1,0 +1,245 @@
+<UserControl x:Class="Pim.Client.App.Views.EventEditorDialog"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="560" MaxHeight="700"
+             Background="{StaticResource CardBrush}">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Dialog Title -->
+        <TextBlock Grid.Row="0" Text="{Binding DialogTitle}" FontSize="20" FontWeight="SemiBold"
+                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,16"/>
+
+        <!-- Scrollable Content -->
+        <ScrollViewer Grid.Row="1">
+            <StackPanel>
+
+                <!-- Title -->
+                <TextBlock Text="标题" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                <TextBox Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" FontSize="16"
+                         Style="{StaticResource ModernTextBox}" Margin="0,0,0,16" MaxLength="255"/>
+
+                <!-- Calendar Selector -->
+                <TextBlock Text="日历" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                <ListBox ItemsSource="{Binding Calendars}"
+                         SelectedItem="{Binding SelectedCalendar}"
+                         SelectionMode="Single" Margin="0,0,0,16"
+                         BorderThickness="0" Background="Transparent">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border CornerRadius="16" Padding="12,8" Margin="0,0,8,4" Cursor="Hand"
+                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource PrimaryLightBrush}"/>
+                                                <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="10" Height="10"
+                                             Fill="{Binding Color, Converter={StaticResource HexToBrush}}"
+                                             VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Name}" FontSize="13"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               Margin="8,0,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter/>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <!-- All-Day CheckBox -->
+                <CheckBox Content="全天" IsChecked="{Binding IsAllDay}" Margin="0,0,0,12"
+                          Foreground="{StaticResource TextPrimaryBrush}" FontSize="13"/>
+
+                <!-- Start / End DateTime Pickers -->
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                        <TextBlock Text="开始日期" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                        <DatePicker SelectedDate="{Binding StartDate}" Margin="0,0,0,8"/>
+                        <TextBlock Text="开始时间" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding StartTime, UpdateSourceTrigger=LostFocus}"
+                                 Style="{StaticResource ModernTextBox}"
+                                 IsEnabled="{Binding IsAllDay, Converter={StaticResource InverseBoolValue}}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                        <TextBlock Text="结束日期" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                        <DatePicker SelectedDate="{Binding EndDate}" Margin="0,0,0,8"/>
+                        <TextBlock Text="结束时间" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                        <TextBox Text="{Binding EndTime, UpdateSourceTrigger=LostFocus}"
+                                 Style="{StaticResource ModernTextBox}"
+                                 IsEnabled="{Binding IsAllDay, Converter={StaticResource InverseBoolValue}}"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Location -->
+                <TextBlock Text="地点" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                <TextBox Text="{Binding Location, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource ModernTextBox}" Margin="0,0,0,16"/>
+
+                <!-- Description -->
+                <TextBlock Text="描述" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                <TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource ModernTextBox}" AcceptsReturn="True"
+                         Height="72" Margin="0,0,0,16"/>
+
+                <!-- Color Picker -->
+                <TextBlock Text="颜色" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                <ItemsControl ItemsSource="{Binding ColorPalette}" Margin="0,0,0,16">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Command="{Binding DataContext.SelectColorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}"
+                                    Width="32" Height="32" Margin="0,0,8,0" Padding="0"
+                                    Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                    ToolTip="{Binding}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Width="32" Height="32" CornerRadius="16"
+                                                Background="{Binding Converter={StaticResource HexToBrush}}"/>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Status Selector -->
+                <TextBlock Text="状态" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                <ListBox ItemsSource="{Binding StatusOptions}"
+                         SelectedItem="{Binding SelectedStatusOption}"
+                         SelectionMode="Single" Margin="0,0,0,16"
+                         BorderThickness="0" Background="Transparent">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border CornerRadius="16" Padding="12,6" Margin="0,0,8,4" Cursor="Hand"
+                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource PrimaryLightBrush}"/>
+                                                <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding Display}" FontSize="13"
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter/>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <!-- Repeat Selector -->
+                <TextBlock Text="重复" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,4"/>
+                <ListBox ItemsSource="{Binding RepeatOptions}"
+                         SelectedItem="{Binding SelectedRepeatOption}"
+                         SelectionMode="Single" Margin="0,0,0,16"
+                         BorderThickness="0" Background="Transparent">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Border CornerRadius="16" Padding="12,6" Margin="0,0,8,4" Cursor="Hand"
+                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource PrimaryLightBrush}"/>
+                                                <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding Display}" FontSize="13"
+                                           Foreground="{StaticResource TextPrimaryBrush}"/>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter/>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <!-- Block CheckBox -->
+                <CheckBox Content="自动安排阻塞时间" IsChecked="{Binding IsBlock}" Margin="0,0,0,12"
+                          Foreground="{StaticResource TextPrimaryBrush}" FontSize="13"/>
+
+                <!-- Error Message -->
+                <TextBlock Text="{Binding ErrorMessage}" FontSize="12"
+                           Foreground="#EF4444" Margin="0,0,0,8"
+                           Visibility="{Binding ErrorMessage, Converter={StaticResource StringNotEmpty}}"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Save Button -->
+        <Button Grid.Row="2" Content="保存" Style="{StaticResource PrimaryButton}"
+                Command="{Binding SaveCommand}"
+                HorizontalAlignment="Right" Margin="0,12,0,0"/>
+    </Grid>
+</UserControl>

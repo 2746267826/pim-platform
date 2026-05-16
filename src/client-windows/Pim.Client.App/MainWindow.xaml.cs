@@ -1,5 +1,6 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Pim.Client.App.Services;
 using Pim.Client.App.ViewModels;
 using Pim.Client.App.Views;
 
@@ -7,30 +8,34 @@ namespace Pim.Client.App;
 
 public partial class MainWindow : Window
 {
-    private readonly MainViewModel _vm;
+    private readonly ShellViewModel _shellVm;
     private readonly IServiceProvider _services;
+    private bool _isLoggingOut;
 
-    public MainWindow(MainViewModel vm, IServiceProvider services)
+    public event Action? LoggedOutAndReauthenticated;
+
+    public MainWindow(ShellViewModel shellVm, IServiceProvider services)
     {
+        Logger.Info("MainWindow constructing");
         InitializeComponent();
-        _vm = vm;
+        _shellVm = shellVm;
         _services = services;
-        DataContext = vm;
+        DataContext = shellVm;
 
-        CalendarViewPanel.DataContext = _services.GetRequiredService<CalendarViewModel>();
-        TaskListViewPanel.DataContext = _services.GetRequiredService<TaskListViewModel>();
-        SearchViewPanel.DataContext = _services.GetRequiredService<SearchViewModel>();
+        var authService = _services.GetRequiredService<Core.Services.AuthService>();
+        _shellVm.SetUserInfo(authService.CurrentDisplayName ?? authService.CurrentUsername ?? "");
 
-        vm.LoggedOut += OnLoggedOut;
-        vm.NavigateCommand.Execute("calendar");
+        Loaded += async (_, _) => await _shellVm.LoadCalendarsAsync();
+        Logger.Info("MainWindow constructed");
     }
 
-    private void OnLoggedOut()
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
-        _vm.LoggedOut -= OnLoggedOut;
-        var loginWindow = new LoginWindow(
-            _services.GetRequiredService<LoginViewModel>());
-        loginWindow.Show();
-        Close();
+        if (!_isLoggingOut)
+        {
+            Logger.Info("MainWindow closing (user exit), shutting down");
+            Application.Current.Shutdown();
+        }
+        base.OnClosing(e);
     }
 }

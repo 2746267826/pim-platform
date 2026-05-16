@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Pim.Client.App.Services;
 using Pim.Client.App.ViewModels;
 using Pim.Client.Core.Services;
 
@@ -15,15 +14,16 @@ public static class Startup
         services.AddSingleton<ApiClient>();
         services.AddSingleton<AuthService>();
 
-        // App services
-        services.AddSingleton<INavigationService, NavigationService>();
-
         // ViewModels
+        services.AddSingleton<ShellViewModel>();
         services.AddTransient<LoginViewModel>();
-        services.AddSingleton<MainViewModel>();
-        services.AddTransient<CalendarViewModel>();
+        services.AddTransient<TimelineViewModel>();
+        services.AddTransient<WeekViewModel>();
+        services.AddTransient<MonthViewModel>();
         services.AddTransient<TaskListViewModel>();
-        services.AddTransient<SearchViewModel>();
+        services.AddTransient<InboxPanelViewModel>();
+        services.AddTransient<EventEditorViewModel>();
+        services.AddTransient<TaskEditorViewModel>();
 
         return services.BuildServiceProvider();
     }

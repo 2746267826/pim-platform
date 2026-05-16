@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
 export default function LoginPage() {
@@ -13,8 +13,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated) {
-    navigate('/timeline', { replace: true });
-    return null;
+    return <Navigate to="/timeline" replace />;
   }
 
   async function handleSubmit(e: FormEvent) {

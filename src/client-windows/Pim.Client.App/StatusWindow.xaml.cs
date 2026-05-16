@@ -6,6 +6,8 @@ namespace Pim.Client.App;
 
 public partial class StatusWindow : Window
 {
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(3) };
+
     public StatusWindow()
     {
         InitializeComponent();
@@ -17,8 +19,7 @@ public partial class StatusWindow : Window
         // Check KeyStats
         try
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
-            var resp = await http.GetAsync("http://127.0.0.1:18080/api/stats/");
+            var resp = await _http.GetAsync("http://127.0.0.1:18080/api/stats/");
             KeyStatsStatus.Text = resp.IsSuccessStatusCode
                 ? "KeyStats      ✓ 已连接 (18080)"
                 : $"KeyStats      ✗ HTTP {resp.StatusCode}";
@@ -31,8 +32,7 @@ public partial class StatusWindow : Window
         // Check ActivityWatch
         try
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
-            var resp = await http.GetAsync("http://127.0.0.1:5600/api/0/buckets/");
+            var resp = await _http.GetAsync("http://127.0.0.1:5600/api/0/buckets/");
             AWStatus.Text = resp.IsSuccessStatusCode
                 ? "ActivityWatch ✓ 已连接 (5600)"
                 : $"ActivityWatch ✗ HTTP {resp.StatusCode}";

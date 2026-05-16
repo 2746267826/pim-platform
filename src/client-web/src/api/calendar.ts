@@ -43,3 +43,7 @@ export async function updateTask(id: string, data: Partial<TaskResponse>) {
   const r = await apiPut<ApiResponse<TaskResponse>>(`/calendar/tasks/${id}`, data);
   return r.data;
 }
+
+export async function deleteTask(id: string) {
+  await apiDelete(`/calendar/tasks/${id}`);
+}

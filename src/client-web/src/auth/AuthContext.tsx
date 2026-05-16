@@ -18,6 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     onTokensChanged(() => { setIsAuth(false); setUsername(null); });
+    return () => onTokensChanged(() => {});
   }, []);
 
   const login = useCallback(async (uname: string, pwd: string): Promise<string | null> => {

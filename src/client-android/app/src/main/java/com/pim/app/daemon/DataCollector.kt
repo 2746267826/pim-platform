@@ -2,6 +2,7 @@ package com.pim.app.daemon
 
 import android.app.usage.UsageStatsManager
 import android.content.Context
+import android.os.Build
 import kotlinx.coroutines.*
 import timber.log.Timber
 
@@ -26,9 +27,12 @@ class DataCollector(private val context: Context) {
         val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val end = System.currentTimeMillis()
         val begin = end - 5 * 60 * 1000L
-        val stats = usm.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY, begin, end
-        )
+        val interval = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            UsageStatsManager.INTERVAL_BEST
+        } else {
+            UsageStatsManager.INTERVAL_DAILY
+        }
+        val stats = usm.queryUsageStats(interval, begin, end)
         Timber.d("Collected ${stats.size} usage stat entries")
     }
 

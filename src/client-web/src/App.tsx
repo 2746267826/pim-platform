@@ -8,8 +8,8 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/*" element={<AppLayout />} />
         <Route path="/" element={<Navigate to="/timeline" replace />} />
+        <Route path="/*" element={<AppLayout />} />
       </Routes>
     </AuthProvider>
   )

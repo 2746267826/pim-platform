@@ -1,6 +1,7 @@
 package com.pim.app
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.pim.app.daemon.PimDaemonService
@@ -13,8 +14,13 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Start daemon service
-        startService(Intent(this, PimDaemonService::class.java))
+        // Start daemon service (foreground on API 26+)
+        val intent = Intent(this, PimDaemonService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
 
         // Start data collection
         collector = DataCollector(this)
@@ -23,16 +29,20 @@ class MainActivity : AppCompatActivity() {
         // Schedule upload worker
         scheduleUploadWorker(this)
 
-        // Open PIM web UI in browser
-        val browserIntent = Intent(Intent.ACTION_VIEW,
-            android.net.Uri.parse("http://<NAS_IP>:5000"))
-        startActivity(browserIntent)
+        // Open PIM web UI — configure server URL in settings
+        val serverUrl = getSharedPreferences("pim", MODE_PRIVATE)
+            .getString("server_url", null)
+        if (serverUrl != null) {
+            startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(serverUrl)))
+        }
 
         finish()
     }
 
     override fun onDestroy() {
-        collector.stop()
+        if (::collector.isInitialized) {
+            collector.stop()
+        }
         super.onDestroy()
     }
 }

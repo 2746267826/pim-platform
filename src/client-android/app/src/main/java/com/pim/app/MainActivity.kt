@@ -7,9 +7,12 @@ import androidx.appcompat.app.AppCompatActivity
 import com.pim.app.daemon.PimDaemonService
 import com.pim.app.daemon.DataCollector
 import com.pim.app.daemon.scheduleUploadWorker
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
-    private lateinit var collector: DataCollector
+    @Inject lateinit var collector: DataCollector
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,7 +26,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Start data collection
-        collector = DataCollector(this)
         collector.start()
 
         // Schedule upload worker

@@ -79,4 +79,8 @@ interface ApiService {
     // Outlook
     @POST("calendar/outlook/sync")
     suspend fun syncOutlook(): ApiResponse<String>
+
+    // Stats
+    @POST("stats/upload")
+    suspend fun uploadStats(@Body batch: UploadBatch): ApiResponse<Int>
 }

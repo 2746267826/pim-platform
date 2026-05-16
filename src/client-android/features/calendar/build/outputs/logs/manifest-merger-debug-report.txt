@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from C:\Users\a2746\Desktop\0\project\src\client-android\features\calendar\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest6791236673054307501.xml:2:13-83
+INJECTED from C:\Users\a2746\Desktop\0\project\src\client-android\features\calendar\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest6791236673054307501.xml:2:13-83
+	package
+		INJECTED from C:\Users\a2746\Desktop\0\project\src\client-android\features\calendar\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest6791236673054307501.xml
+	xmlns:android
+		ADDED from C:\Users\a2746\Desktop\0\project\src\client-android\features\calendar\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest6791236673054307501.xml:2:23-81
+uses-sdk
+INJECTED from C:\Users\a2746\Desktop\0\project\src\client-android\features\calendar\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest6791236673054307501.xml reason: use-sdk injection requested
+INJECTED from C:\Users\a2746\Desktop\0\project\src\client-android\features\calendar\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest6791236673054307501.xml
+INJECTED from C:\Users\a2746\Desktop\0\project\src\client-android\features\calendar\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest6791236673054307501.xml
+	android:targetSdkVersion
+		INJECTED from C:\Users\a2746\Desktop\0\project\src\client-android\features\calendar\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest6791236673054307501.xml
+	android:minSdkVersion
+		INJECTED from C:\Users\a2746\Desktop\0\project\src\client-android\features\calendar\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest6791236673054307501.xml

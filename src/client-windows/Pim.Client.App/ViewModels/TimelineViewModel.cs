@@ -28,7 +28,7 @@ public partial class TimelineViewModel : ObservableObject
             var from = date.Date;
             var to = from.AddDays(1);
             var eventsResult = await _apiClient.GetAsync<ApiResponse<List<EventResponse>>>(
-                $"/calendar/events?from={from:O}&to={to:O}");
+                $"/calendar/events?start={from:O}&end={to:O}");
             var tasksResult = await _apiClient.GetAsync<ApiResponse<List<TaskResponse>>>(
                 "/calendar/tasks");
 

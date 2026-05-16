@@ -21,8 +21,10 @@ public partial class TimelineView : UserControl
 
         _timer = new DispatcherTimer(TimeSpan.FromSeconds(60), DispatcherPriority.Normal,
             (_, _) => UpdateTimeLine(), Dispatcher);
-        Loaded += (_, _) =>
+        Loaded += async (_, _) =>
         {
+            if (DataContext is TimelineViewModel vm)
+                await vm.LoadAsync(DateTime.Today);
             UpdateTimeLine();
             PopulateTimeLabels();
         };

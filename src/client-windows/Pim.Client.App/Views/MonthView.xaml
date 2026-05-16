@@ -84,8 +84,7 @@
                                     </Style>
                                 </Border.Style>
                                 <TextBlock Text="{Binding Day}" FontSize="13"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           FontWeight="{Binding IsToday, Converter={StaticResource BoolToVisibility}}">
+                                           HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <!-- Use DayColorHex for foreground -->
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
@@ -128,22 +127,7 @@
             <StackPanel>
                 <!-- Selected Date Label -->
                 <TextBlock Text="{Binding SelectedDayLabel}" FontSize="15" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding SelectedDate}" Value="{x:Null}">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding SelectedDate, Converter={StaticResource StringNotEmpty}}"
-                                             Value="Visible">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
+                           Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,8"/>
 
                 <!-- Events Section -->
                 <StackPanel Visibility="{Binding HasEvents, Converter={StaticResource BoolToVisibility}}">

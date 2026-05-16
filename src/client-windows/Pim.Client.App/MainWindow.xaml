@@ -46,8 +46,8 @@
                     </Button>
                     <Button Content="📅  本周"
                             Command="{Binding NavigateCommand}" CommandParameter="week"
-                            Style="{StaticResource NavButton}" Margin="0,2,0,0">
-                        <Button.Resources>
+                            Margin="0,2,0,0">
+                        <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource NavButton}">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding CurrentView}" Value="week">
@@ -57,12 +57,12 @@
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </Button.Resources>
+                        </Button.Style>
                     </Button>
                     <Button Content="📆  月视图"
                             Command="{Binding NavigateCommand}" CommandParameter="month"
-                            Style="{StaticResource NavButton}" Margin="0,2,0,0">
-                        <Button.Resources>
+                            Margin="0,2,0,0">
+                        <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource NavButton}">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding CurrentView}" Value="month">
@@ -72,12 +72,12 @@
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </Button.Resources>
+                        </Button.Style>
                     </Button>
                     <Button Content="📋  任务"
                             Command="{Binding NavigateCommand}" CommandParameter="tasks"
-                            Style="{StaticResource NavButton}" Margin="0,2,0,0">
-                        <Button.Resources>
+                            Margin="0,2,0,0">
+                        <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource NavButton}">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding CurrentView}" Value="tasks">
@@ -87,7 +87,7 @@
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </Button.Resources>
+                        </Button.Style>
                     </Button>
                 </StackPanel>
 

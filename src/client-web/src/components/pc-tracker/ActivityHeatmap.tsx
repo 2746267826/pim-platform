@@ -41,8 +41,8 @@ export default function ActivityHeatmap({ data, isLoading }: Props) {
         {data.grid.map((row, ri) => (
           <div key={ri} className="flex gap-[3px]">
             {row.map((cell, ci) => (
-              <div key={ci} className="relative group flex-1 aspect-square rounded-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all"
-                style={{ backgroundColor: linearColor(cell.intensityScore, maxKey) }}
+              <div key={ci} className="relative group rounded-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all"
+                style={{ backgroundColor: linearColor(cell.intensityScore, maxKey), width: 14, height: 14 }}
                 title={`${cell.start.slice(0, 10)} · ${cell.intensityScore.toLocaleString()} 键`}>
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-gray-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10">
                   {cell.start.slice(0, 16)} · {cell.intensityScore.toLocaleString()} 键

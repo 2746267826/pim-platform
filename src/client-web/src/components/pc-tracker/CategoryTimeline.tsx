@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { format } from 'date-fns';
-import type { TimelineItem, CategorySummary } from '../../types';
+import type { TimelineItem, CategorySummary, AppCategoryRule } from '../../types';
 
 interface CategoryBlock {
   start: Date;
@@ -11,20 +11,35 @@ interface CategoryBlock {
   totalMinutes: number;
 }
 
-function buildCategoryBlocks(timeline: TimelineItem[], categories: CategorySummary[]): CategoryBlock[] {
+function buildAppCategoryMap(rules: AppCategoryRule[]): (appName: string) => { category: string; color: string } {
+  const sorted = [...rules].sort((a, b) => b.priority - a.priority);
+  return (appName: string) => {
+    for (const rule of sorted) {
+      if (appName.localeCompare(rule.appPattern, undefined, { sensitivity: 'base' }) === 0) {
+        return { category: rule.categoryName, color: rule.color };
+      }
+    }
+    return { category: '其他', color: '#8B5CF6' };
+  };
+}
+
+function buildCategoryBlocks(timeline: TimelineItem[], categories: CategorySummary[], rules?: AppCategoryRule[]): CategoryBlock[] {
   if (!timeline.length) return [];
-  const catMap = new Map(categories.map(c => [c.categoryName, c.color]));
+
+  const classify = rules
+    ? buildAppCategoryMap(rules)
+    : (appName: string) => {
+        const cat = categories.find(c => appName.localeCompare(c.categoryName, undefined, { sensitivity: 'base' }) === 0);
+        return cat ? { category: cat.categoryName, color: cat.color } : { category: '其他', color: '#8B5CF6' };
+      };
+
   const sorted = [...timeline].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
   const blocks: CategoryBlock[] = [];
   let current: CategoryBlock | null = null;
 
   for (const item of sorted) {
-    // Determine category from the appName (simple heuristic: match app name against category keywords)
-    const cat = categories.find(c =>
-      item.appName.toLowerCase().includes(c.categoryName.toLowerCase())
-    )?.categoryName || '其他';
-    const color = catMap.get(cat) || '#8B5CF6';
+    const { category: cat, color } = classify(item.appName);
 
     if (current && current.categoryName === cat) {
       current.end = new Date(item.end);
@@ -61,10 +76,11 @@ function fmtTime(iso: string) {
 interface Props {
   timeline: TimelineItem[];
   categories: CategorySummary[];
+  rules?: AppCategoryRule[];
 }
 
-export default function CategoryTimeline({ timeline, categories }: Props) {
-  const blocks = useMemo(() => buildCategoryBlocks(timeline, categories), [timeline, categories]);
+export default function CategoryTimeline({ timeline, categories, rules }: Props) {
+  const blocks = useMemo(() => buildCategoryBlocks(timeline, categories, rules), [timeline, categories, rules]);
 
   if (!blocks.length) return <div className="py-8 text-center text-gray-400">暂无时间线数据</div>;
 

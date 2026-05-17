@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, subDays, subMonths } from 'date-fns';
-import { getPcSummary, getPcHeatmapGrid } from '../api/pcTracker';
+import { getPcSummary, getPcHeatmapGrid, getPcCategories } from '../api/pcTracker';
 import DateDimensionBar from '../components/pc-tracker/DateDimensionBar';
 import ActivityHeatmap from '../components/pc-tracker/ActivityHeatmap';
 import CategoryTimeline from '../components/pc-tracker/CategoryTimeline';
@@ -51,6 +51,13 @@ export default function PcTrackerPage() {
     queryFn: () => getPcHeatmapGrid(heatmapRange.start, heatmapRange.end, dimension),
   });
 
+  // Category rules query (for timeline classification)
+  const { data: catRulesData } = useQuery({
+    queryKey: ['pc-categories'],
+    queryFn: () => getPcCategories(),
+    staleTime: 300000,
+  });
+
   return (
     <div className="max-w-[960px] mx-auto space-y-4 pb-8">
       {/* Module 1: Date + Dimension */}
@@ -64,7 +71,8 @@ export default function PcTrackerPage() {
 
       {/* Timeline: Category Aggregation */}
       <PanelCard title="时间线" subtitle="按活动分类聚合（悬浮查看详情）" icon="⏱">
-        <CategoryTimeline timeline={data?.timeline || []} categories={data?.categories || []} />
+        <CategoryTimeline timeline={data?.timeline || []} categories={data?.categories || []}
+          rules={catRulesData ?? undefined} />
       </PanelCard>
 
       {/* Module 3: Daily Activity */}

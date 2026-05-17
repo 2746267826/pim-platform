@@ -16,12 +16,14 @@ export interface CalendarResponse {
   id: string;
   name: string;
   color: string;
+  kind: string;
   isDefault: boolean;
 }
 
 export interface EventResponse {
   id: string;
   calendarId: string;
+  uid: string;
   title: string;
   description?: string;
   location?: string;
@@ -29,6 +31,8 @@ export interface EventResponse {
   dtEnd: string;
   rrule?: string;
   status: string;
+  source: string;
+  originalEventId?: string;
 }
 
 export interface TaskResponse {
@@ -64,6 +68,8 @@ export interface PcSummaryResponse {
   appRanking: AppRankingItem[];
   timeline: TimelineItem[];
   sessions: WorkSessionItem[];
+  metrics: DerivedMetrics | null;
+  categories: CategorySummary[];
 }
 
 export interface KeystatsSummary {
@@ -120,4 +126,64 @@ export interface WorkSessionItem {
   durationMinutes: number;
   mainApp: string;
   appSwitchCount: number;
+}
+
+export interface DerivedMetrics {
+  totalRecordedDuration: string;
+  activeInputDuration: string;
+  idleDuration: string;
+  sessionCount: number;
+  activeAppCount: number;
+  totalKeyPresses: number;
+  totalClicks: number;
+  appSwitchCount: number;
+  switchFrequency: number;
+  mostFocusedApp: string;
+  keyClickRatio: number;
+}
+
+export interface CategorySummary {
+  categoryName: string;
+  color: string;
+  share: number;
+  keyPresses: number;
+  totalClicks: number;
+}
+
+export interface AppCategoryRule {
+  id: string;
+  appPattern: string;
+  categoryName: string;
+  color: string;
+  priority: number;
+  isBuiltin: boolean;
+}
+
+export interface DetailQueryParams {
+  dateFrom?: string;
+  dateTo?: string;
+  dimension?: 'hour' | 'day' | 'month' | 'year';
+  deviceId?: string;
+  appName?: string;
+  categoryName?: string;
+  keyName?: string;
+  eventType?: string;
+  sortBy?: string;
+  sortDir?: 'asc' | 'desc';
+  page?: number;
+  pageSize?: number;
+}
+
+export interface DetailQueryResponse {
+  items: Record<string, unknown>[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+export interface HeatmapGridResponse {
+  grid: HeatmapBucket[][];
+  dimension: string;
+  maxKeyCount: number;
 }

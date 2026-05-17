@@ -21,6 +21,21 @@ export default function SettingsPage() {
         </div>
         <span className="text-gray-300 text-xl">→</span>
       </div>
+
+      <div
+        className="bg-white border rounded-lg p-5 hover:border-blue-300 cursor-pointer transition-colors flex items-center justify-between mt-4"
+        onClick={() => navigate('/settings/pc-data')}
+      >
+        <div>
+          <h3 className="font-semibold text-base flex items-center gap-2">
+            <span>💻</span> PC记录详细数据
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">
+            查询、筛选、导出全部PC记录数据
+          </p>
+        </div>
+        <span className="text-gray-300 text-xl">→</span>
+      </div>
     </div>
   );
 }

@@ -8,6 +8,8 @@ const navItems = [
   { label: '本周', path: '/week', icon: '📅' },
   { label: '月视图', path: '/month', icon: '📆' },
   { label: '任务', path: '/tasks', icon: '📋' },
+  { label: 'PC记录', path: '/pc-tracker', icon: '💻' },
+  { label: '设置', path: '/settings', icon: '⚙' },
 ];
 
 export default function Sidebar() {

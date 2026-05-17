@@ -6,6 +6,9 @@ import TimelinePage from '../pages/TimelinePage';
 import WeekPage from '../pages/WeekPage';
 import MonthPage from '../pages/MonthPage';
 import TaskListPage from '../pages/TaskListPage';
+import PcTrackerPage from '../pages/PcTrackerPage';
+import SettingsPage from '../pages/SettingsPage';
+import CalendarDataManager from '../pages/CalendarDataManager';
 
 export default function AppLayout() {
   const { isAuthenticated } = useAuth();
@@ -24,6 +27,9 @@ export default function AppLayout() {
             <Route path="/week" element={<WeekPage />} />
             <Route path="/month" element={<MonthPage />} />
             <Route path="/tasks" element={<TaskListPage />} />
+            <Route path="/pc-tracker" element={<PcTrackerPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
           </Routes>
         </div>
       </div>

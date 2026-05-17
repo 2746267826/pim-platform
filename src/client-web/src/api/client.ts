@@ -54,8 +54,8 @@ export async function apiPut<T>(path: string, body?: unknown): Promise<T> {
   return authedFetch<T>(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined });
 }
 
-export async function apiDelete(path: string): Promise<void> {
-  await authedFetch<void>(path, { method: 'DELETE' });
+export async function apiDelete<T>(path: string): Promise<T> {
+  return authedFetch<T>(path, { method: 'DELETE' });
 }
 
 function logApi(method: string, path: string, duration: number, status?: number) {

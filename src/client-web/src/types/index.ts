@@ -43,3 +43,81 @@ export interface TaskResponse {
   status: string;
   isInbox: boolean;
 }
+
+export interface PagedResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+export interface ImportResult {
+  imported: number;
+  skipped: number;
+}
+
+// PC Tracker types
+export interface PcSummaryResponse {
+  keystats: KeystatsSummary | null;
+  heatmap: HeatmapBucket[];
+  appRanking: AppRankingItem[];
+  timeline: TimelineItem[];
+  sessions: WorkSessionItem[];
+}
+
+export interface KeystatsSummary {
+  date: string;
+  keyPresses: number;
+  totalClicks: number;
+  leftClicks: number;
+  rightClicks: number;
+  middleClicks: number;
+  sideBackClicks: number;
+  sideForwardClicks: number;
+  mouseDistance: number;
+  scrollDistance: number;
+  peakKps: number;
+  peakCps: number;
+  topKeys: KeyCountItem[];
+}
+
+export interface KeyCountItem {
+  keyName: string;
+  count: number;
+  share: number;
+}
+
+export interface HeatmapBucket {
+  start: string;
+  end: string;
+  hour: number;
+  activeMinutes: number;
+  totalEvents: number;
+  intensityScore: number;
+}
+
+export interface AppRankingItem {
+  appName: string;
+  displayName: string;
+  keyPresses: number;
+  totalClicks: number;
+  scrollDistance: number;
+  share: number;
+}
+
+export interface TimelineItem {
+  start: string;
+  end: string;
+  durationMinutes: number;
+  appName: string;
+  windowTitle: string | null;
+}
+
+export interface WorkSessionItem {
+  start: string;
+  end: string;
+  durationMinutes: number;
+  mainApp: string;
+  appSwitchCount: number;
+}

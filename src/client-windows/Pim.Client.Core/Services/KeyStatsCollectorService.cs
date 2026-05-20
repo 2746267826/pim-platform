@@ -161,4 +161,28 @@ public sealed class KeyStatsCollectorService : IDisposable
         public int SideForwardClicks { get; set; }
         public double ScrollDistance { get; set; }
     }
+
+    private sealed record KeystatsSampleUploadPayload(
+        string PimDeviceId,
+        string SampledAt,
+        string Date,
+        int KeyPresses,
+        Dictionary<string, int>? KeyPressCounts,
+        int LeftClicks,
+        int RightClicks,
+        int MiddleClicks,
+        int SideBackClicks,
+        int SideForwardClicks,
+        double MouseDistance,
+        double ScrollDistance,
+        [property: JsonPropertyName("peakKPS")]
+        int PeakKps,
+        [property: JsonPropertyName("peakCPS")]
+        int PeakCps,
+        [property: JsonPropertyName("formattedMouseDistance")]
+        string? FormattedMouseDistance,
+        [property: JsonPropertyName("formattedScrollDistance")]
+        string? FormattedScrollDistance,
+        Dictionary<string, KeyStatsAppStats>? AppStats
+    );
 }

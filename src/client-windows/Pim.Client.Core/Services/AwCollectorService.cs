@@ -170,6 +170,33 @@ public class AwCollectorService : IDisposable
     {
         public Dictionary<string, string> Data { get; init; } = Data ?? new();
     }
+
+    private sealed record AwInfoPayload(string? Hostname, string? Version, bool Testing, string? DeviceId);
+
+    private sealed record AwBucketPayload(
+        string Id,
+        string? Name,
+        string Type,
+        string Client,
+        string Hostname,
+        string? Created,
+        string? LastUpdated,
+        Dictionary<string, object>? Data
+    );
+
+    private sealed record AwEventPayload(
+        long SourceEventId,
+        string Timestamp,
+        double Duration,
+        Dictionary<string, object>? Data
+    );
+
+    private sealed record CompleteAwUploadPayload(
+        string PimDeviceId,
+        AwInfoPayload? AwInfo,
+        AwBucketPayload Bucket,
+        List<AwEventPayload> Events
+    );
 }
 
 public sealed class AwCollectorCursorState

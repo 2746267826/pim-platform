@@ -175,8 +175,28 @@ export interface DetailQueryParams {
   pageSize?: number;
 }
 
+export type PcDetailRecordType = 'window' | 'afk' | 'input-minute' | 'app-input' | 'key-input';
+
+export interface PcDetailRecord {
+  recordType: PcDetailRecordType | string;
+  start: string;
+  end: string | null;
+  durationSeconds: number | null;
+  deviceId: string;
+  appName: string | null;
+  displayName: string | null;
+  categoryName: string | null;
+  title: string | null;
+  keyPresses: number | null;
+  totalClicks: number | null;
+  mouseDistance: number | null;
+  scrollDistance: number | null;
+  keyCounts: Record<string, number> | null;
+  raw: unknown;
+}
+
 export interface DetailQueryResponse {
-  items: Record<string, unknown>[];
+  items: PcDetailRecord[];
   page: number;
   pageSize: number;
   totalCount: number;

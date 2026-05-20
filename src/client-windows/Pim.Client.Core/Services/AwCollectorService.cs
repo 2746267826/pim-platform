@@ -18,8 +18,6 @@ public class AwCollectorService : IDisposable
     private string? _lastUploadError;
     private static readonly object _lock = new();
     private static readonly string AwBase = Environment.GetEnvironmentVariable("AW_BASE_URL") ?? "http://127.0.0.1:5600";
-    private static readonly string BucketId = $"aw-watcher-window_{Environment.MachineName}";
-    private static readonly string AfkBucketId = $"aw-watcher-afk_{Environment.MachineName}";
     private AwInfoPayload? _awInfo;
     private readonly Dictionary<string, AwBucketPayload> _bucketCache = new();
 
@@ -60,20 +58,21 @@ public class AwCollectorService : IDisposable
             }
 
             _awInfo ??= await FetchAwInfoAsync();
+            var buckets = await FetchSupportedBucketsAsync();
 
             Log?.Invoke($"[AwCollector] Backfill started: {startUtc:O} - {endUtc:O}");
-            var windowOutcome = await BackfillBucketAsync(BucketId, startUtc, endUtc);
-            var afkOutcome = await BackfillBucketAsync(AfkBucketId, startUtc, endUtc);
-            var error = BuildUploadHealthMessage(
-                windowOutcome.Fetched,
-                windowOutcome.Uploaded,
-                afkOutcome.Fetched,
-                afkOutcome.Uploaded);
-            var errorDetails = new[] { error, windowOutcome.Error, afkOutcome.Error }
+            var outcomes = new List<AwBucketUploadOutcome>();
+            foreach (var bucket in buckets)
+                outcomes.Add(await BackfillBucketAsync(bucket, startUtc, endUtc));
+
+            var error = BuildUploadHealthMessage(outcomes);
+            var errorDetails = outcomes
+                .Select(o => o.Error)
+                .Prepend(error)
                 .Where(e => !string.IsNullOrWhiteSpace(e));
             var backfillError = string.Join("; ", errorDetails);
 
-            if (windowOutcome.Uploaded + afkOutcome.Uploaded > 0)
+            if (outcomes.Sum(o => o.Uploaded) > 0)
             {
                 lock (_lock)
                 {
@@ -82,7 +81,8 @@ public class AwCollectorService : IDisposable
                 }
             }
 
-            Log?.Invoke($"[AwCollector] Backfill finished: window {windowOutcome.Uploaded}/{windowOutcome.Fetched}, afk {afkOutcome.Uploaded}/{afkOutcome.Fetched}");
+            var summary = string.Join(", ", buckets.Zip(outcomes, (bucket, outcome) => $"{bucket.Id} {outcome.Uploaded}/{outcome.Fetched}"));
+            Log?.Invoke($"[AwCollector] Backfill finished: {summary}");
         }
         finally
         {
@@ -116,20 +116,18 @@ public class AwCollectorService : IDisposable
         try
         {
             _awInfo ??= await FetchAwInfoAsync();
+            var buckets = await FetchSupportedBucketsAsync();
 
-            var windowOutcome = await CollectBucketAndUploadAsync(BucketId, isAfk: false);
-            var afkOutcome = await CollectBucketAndUploadAsync(AfkBucketId, isAfk: true);
-            var pending = Math.Max(0, windowOutcome.Fetched - windowOutcome.Uploaded)
-                + Math.Max(0, afkOutcome.Fetched - afkOutcome.Uploaded);
-            var healthMessage = BuildUploadHealthMessage(
-                windowOutcome.Fetched,
-                windowOutcome.Uploaded,
-                afkOutcome.Fetched,
-                afkOutcome.Uploaded);
+            var outcomes = new List<AwBucketUploadOutcome>();
+            foreach (var bucket in buckets)
+                outcomes.Add(await CollectBucketAndUploadAsync(bucket));
+
+            var pending = outcomes.Sum(o => Math.Max(0, o.Fetched - o.Uploaded));
+            var healthMessage = BuildUploadHealthMessage(outcomes);
 
             lock (_lock) { _queueCount = pending; }
 
-            if (windowOutcome.Uploaded + afkOutcome.Uploaded > 0)
+            if (outcomes.Sum(o => o.Uploaded) > 0)
             {
                 lock (_lock)
                 {
@@ -144,23 +142,16 @@ public class AwCollectorService : IDisposable
         }
     }
 
-    private async Task<AwBucketUploadOutcome> CollectBucketAndUploadAsync(string bucketId, bool isAfk)
+    private async Task<AwBucketUploadOutcome> CollectBucketAndUploadAsync(AwBucketPayload bucket)
     {
-        var lastId = isAfk ? _cursorState.LastAfkId : _cursorState.LastWindowId;
+        var bucketId = bucket.Id;
+        var lastId = _cursorState.LastForBucket(bucketId);
         var rawEvents = FetchNewEvents(bucketId, lastId, out var pendingLastId);
 
         if (rawEvents.Count == 0) return new AwBucketUploadOutcome(0, 0);
 
-        var bucket = await FetchBucketAsync(bucketId);
-        if (bucket is null)
-        {
-            var message = $"ActivityWatch bucket metadata unavailable for {bucketId}";
-            Log?.Invoke($"[AwCollector] {message}");
-            lock (_lock) { _lastUploadError = message; }
-            return new AwBucketUploadOutcome(rawEvents.Count, 0);
-        }
-
         var uploaded = 0;
+        var kind = AwBucketSelection.DescribeBucketKind(bucket.Type);
         try
         {
             foreach (var batch in ChunkCompleteAwUploadEvents(rawEvents))
@@ -187,14 +178,10 @@ public class AwCollectorService : IDisposable
                 }
 
                 uploaded += events.Count;
-                Log?.Invoke($"[AwCollector] Uploaded {events.Count} complete {(isAfk ? "afk" : "window")} events -> {result.Data} saved");
+                Log?.Invoke($"[AwCollector] Uploaded {events.Count} complete {kind} events -> {result.Data} saved");
             }
 
-            if (isAfk)
-                _cursorState.RecordFetched(_cursorState.LastWindowId, pendingLastId);
-            else
-                _cursorState.RecordFetched(pendingLastId, _cursorState.LastAfkId);
-
+            _cursorState.RecordFetched(bucketId, pendingLastId);
             _cursorState.CommitFetched();
 
             lock (_lock)
@@ -216,16 +203,10 @@ public class AwCollectorService : IDisposable
         return new AwBucketUploadOutcome(rawEvents.Count, 0);
     }
 
-    private async Task<AwBucketUploadOutcome> BackfillBucketAsync(string bucketId, DateTimeOffset startUtc, DateTimeOffset endUtc)
+    private async Task<AwBucketUploadOutcome> BackfillBucketAsync(AwBucketPayload bucket, DateTimeOffset startUtc, DateTimeOffset endUtc)
     {
-        var bucket = await FetchBucketAsync(bucketId);
-        if (bucket is null)
-        {
-            var message = $"ActivityWatch bucket metadata unavailable for backfill {bucketId}";
-            Log?.Invoke($"[AwCollector] {message}");
-            lock (_lock) { _lastUploadError = message; }
-            return new AwBucketUploadOutcome(0, 0, message);
-        }
+        var bucketId = bucket.Id;
+        var kind = AwBucketSelection.DescribeBucketKind(bucket.Type);
 
         List<RawAwEvent> rawEvents;
         try
@@ -278,7 +259,7 @@ public class AwCollectorService : IDisposable
                 }
 
                 uploaded += events.Count;
-                Log?.Invoke($"[AwCollector] Backfill accepted {events.Count} {bucketId} events -> {result.Data} saved/upserted");
+                Log?.Invoke($"[AwCollector] Backfill accepted {events.Count} {kind} events -> {result.Data} saved/upserted");
             }
             catch (Exception ex)
             {
@@ -312,6 +293,40 @@ public class AwCollectorService : IDisposable
         }
     }
 
+    private async Task<IReadOnlyList<AwBucketPayload>> FetchSupportedBucketsAsync()
+    {
+        try
+        {
+            var buckets = await _aw.GetFromJsonAsync<Dictionary<string, AwBucketPayload>>("/api/0/buckets/", _cts.Token) ?? new();
+            var supported = new List<AwBucketPayload>();
+
+            foreach (var (bucketId, bucket) in buckets)
+            {
+                var bucketWithId = EnsureBucketId(bucketId, bucket);
+                _bucketCache[bucketWithId.Id] = bucketWithId;
+                if (AwBucketSelection.IsSupportedUploadBucket(bucketWithId.Id, bucketWithId.Type, bucketWithId.Client))
+                    supported.Add(bucketWithId);
+            }
+
+            return supported
+                .OrderBy(b => b.Id, StringComparer.Ordinal)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            var message = $"ActivityWatch bucket discovery failed: {ex.Message}";
+            Log?.Invoke($"[AwCollector] {message}");
+            lock (_lock) { _lastUploadError = message; }
+            return Array.Empty<AwBucketPayload>();
+        }
+    }
+
+    private static AwBucketPayload EnsureBucketId(string bucketId, AwBucketPayload bucket)
+    {
+        bucket.Id = string.IsNullOrWhiteSpace(bucket.Id) ? bucketId : bucket.Id;
+        return bucket;
+    }
+
     private async Task<AwBucketPayload?> FetchBucketAsync(string bucketId)
     {
         if (_bucketCache.TryGetValue(bucketId, out var cached))
@@ -321,8 +336,13 @@ public class AwCollectorService : IDisposable
         {
             var bucket = await _aw.GetFromJsonAsync<AwBucketPayload>($"/api/0/buckets/{Uri.EscapeDataString(bucketId)}", _cts.Token);
             if (bucket is not null)
-                _bucketCache[bucketId] = bucket;
-            return bucket;
+            {
+                var bucketWithId = EnsureBucketId(bucketId, bucket);
+                _bucketCache[bucketWithId.Id] = bucketWithId;
+                return bucketWithId;
+            }
+
+            return null;
         }
         catch (Exception ex)
         {
@@ -361,14 +381,10 @@ public class AwCollectorService : IDisposable
     private static IEnumerable<IReadOnlyList<T>> ChunkCompleteAwUploadEvents<T>(IEnumerable<T> events) =>
         events.Chunk(CompleteAwUploadBatchSize).Select(batch => (IReadOnlyList<T>)batch);
 
-    private static string? BuildUploadHealthMessage(int windowFetched, int windowUploaded, int afkFetched, int afkUploaded)
+    private static string? BuildUploadHealthMessage(IEnumerable<AwBucketUploadOutcome> outcomes)
     {
-        var pendingWindow = Math.Max(0, windowFetched - windowUploaded);
-        var pendingAfk = Math.Max(0, afkFetched - afkUploaded);
-        if (pendingWindow == 0 && pendingAfk == 0)
-            return null;
-
-        return $"Partial AW upload failure: window pending {pendingWindow}, afk pending {pendingAfk}";
+        var pending = outcomes.Sum(o => Math.Max(0, o.Fetched - o.Uploaded));
+        return pending == 0 ? null : $"Partial AW upload failure: pending {pending} events";
     }
 
     public void Dispose()
@@ -392,17 +408,20 @@ public class AwCollectorService : IDisposable
         string? DeviceId
     );
 
-    private sealed record AwBucketPayload(
-        string Id,
-        string? Name,
-        string Type,
-        string Client,
-        string Hostname,
-        string? Created,
-        [property: JsonPropertyName("last_updated")]
-        string? LastUpdated,
-        Dictionary<string, object>? Data
-    );
+    private sealed class AwBucketPayload
+    {
+        public string Id { get; set; } = "";
+        public string? Name { get; set; }
+        public string Type { get; set; } = "";
+        public string Client { get; set; } = "";
+        public string Hostname { get; set; } = "";
+        public string? Created { get; set; }
+
+        [JsonPropertyName("last_updated")]
+        public string? LastUpdated { get; set; }
+
+        public Dictionary<string, object>? Data { get; set; }
+    }
 
     private sealed record AwEventPayload(
         long SourceEventId,
@@ -423,21 +442,24 @@ public class AwCollectorService : IDisposable
 
 public sealed class AwCollectorCursorState
 {
-    private long _pendingWindowId;
-    private long _pendingAfkId;
+    private readonly Dictionary<string, long> _committed = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, long> _pending = new(StringComparer.Ordinal);
 
-    public long LastWindowId { get; private set; }
-    public long LastAfkId { get; private set; }
-
-    public void RecordFetched(long windowLastId, long afkLastId)
+    public long LastForBucket(string bucketId)
     {
-        _pendingWindowId = Math.Max(_pendingWindowId, windowLastId);
-        _pendingAfkId = Math.Max(_pendingAfkId, afkLastId);
+        return _committed.GetValueOrDefault(bucketId);
+    }
+
+    public void RecordFetched(string bucketId, long lastId)
+    {
+        _pending[bucketId] = Math.Max(_pending.GetValueOrDefault(bucketId), lastId);
     }
 
     public void CommitFetched()
     {
-        LastWindowId = Math.Max(LastWindowId, _pendingWindowId);
-        LastAfkId = Math.Max(LastAfkId, _pendingAfkId);
+        foreach (var (bucketId, lastId) in _pending)
+            _committed[bucketId] = Math.Max(_committed.GetValueOrDefault(bucketId), lastId);
+
+        _pending.Clear();
     }
 }

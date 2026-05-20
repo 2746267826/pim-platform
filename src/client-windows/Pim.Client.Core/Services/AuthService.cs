@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Pim.Client.Core.Models;
 
 namespace Pim.Client.Core.Services;
@@ -8,6 +9,11 @@ public class AuthService
     private string? _accessToken;
     private string? _refreshToken;
     private DateTimeOffset _accessTokenExpiry;
+
+    private static readonly string TokenDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "PIM");
+    private static readonly string TokenPath = Path.Combine(TokenDir, "token.json");
 
     public AuthService(ApiClient apiClient)
     {
@@ -37,6 +43,7 @@ public class AuthService
         if (result?.Data is null) return false;
 
         ApplyTokens(result.Data);
+        SaveToken();
         return true;
     }
 
@@ -49,12 +56,67 @@ public class AuthService
         if (result is { Code: 0, Data: not null })
         {
             ApplyTokens(result.Data);
+            SaveToken();
             return null;
         }
 
         return result is null
             ? "服务器无响应"
             : $"错误码 {result.Code}: {result.Message}";
+    }
+
+    public async Task<bool> TryRestoreTokenAsync()
+    {
+        try
+        {
+            if (!File.Exists(TokenPath)) return false;
+
+            var json = await File.ReadAllTextAsync(TokenPath);
+            var data = JsonSerializer.Deserialize<PersistedToken>(json);
+            if (data is null) return false;
+
+            _accessToken = data.AccessToken;
+            _refreshToken = data.RefreshToken;
+            _accessTokenExpiry = data.ExpiresAt;
+            CurrentUserId = data.UserId;
+            CurrentUsername = data.Username;
+            CurrentDisplayName = data.DisplayName;
+
+            _apiClient.SetAccessToken(_accessToken!);
+            _apiClient.OnUnauthorized = RefreshAsync;
+
+            // If token expired, try refresh
+            if (!IsAuthenticated)
+                return await RefreshAsync();
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void SaveToken()
+    {
+        try
+        {
+            Directory.CreateDirectory(TokenDir);
+            var data = new PersistedToken
+            {
+                AccessToken = _accessToken!,
+                RefreshToken = _refreshToken!,
+                ExpiresAt = _accessTokenExpiry,
+                UserId = CurrentUserId,
+                Username = CurrentUsername,
+                DisplayName = CurrentDisplayName
+            };
+            File.WriteAllText(TokenPath, JsonSerializer.Serialize(data));
+        }
+        catch
+        {
+            // Best-effort save — don't crash if disk is full
+        }
     }
 
     private void ApplyTokens(AuthResponse data)
@@ -88,6 +150,7 @@ public class AuthService
         _accessTokenExpiry = result.Data.ExpiresAt;
 
         _apiClient.SetAccessToken(_accessToken);
+        SaveToken();
         return true;
     }
 
@@ -99,5 +162,16 @@ public class AuthService
         CurrentUsername = null;
         CurrentDisplayName = null;
         _apiClient.ClearAccessToken();
+        try { File.Delete(TokenPath); } catch { }
+    }
+
+    private class PersistedToken
+    {
+        public string AccessToken { get; set; } = string.Empty;
+        public string RefreshToken { get; set; } = string.Empty;
+        public DateTimeOffset ExpiresAt { get; set; }
+        public string? UserId { get; set; }
+        public string? Username { get; set; }
+        public string? DisplayName { get; set; }
     }
 }

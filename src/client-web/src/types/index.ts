@@ -42,6 +42,7 @@ export interface TaskResponse {
   description?: string;
   priority: number;
   estimatedDuration?: string;
+  minimumSegment?: string;
   dtStart?: string;
   due?: string;
   status: string;

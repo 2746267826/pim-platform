@@ -1,4 +1,3 @@
-// src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx
 import type { DerivedMetrics, CategorySummary, AppRankingItem } from '../../types';
 
 interface Props {
@@ -11,71 +10,107 @@ interface Props {
   onSelectApp: (app: string | null) => void;
 }
 
-function MetricCard({ label, value }: { label: string; value: string | number }) {
+function CompactStat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="bg-white rounded-lg p-3 text-center border border-gray-100">
-      <div className="text-[11px] text-gray-400 mb-1">{label}</div>
-      <div className="text-base font-bold text-gray-800">{value}</div>
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="text-[11px] text-slate-500">{label}</div>
+      <div className="mt-1 min-w-0 break-words text-sm font-semibold text-slate-950">{value}</div>
     </div>
   );
 }
 
-export default function DailyActivityPanel({ metrics, categories, appRanking, selectedCategory, onSelectCategory, selectedApp, onSelectApp }: Props) {
-  if (!metrics) return <div className="py-8 text-center text-gray-400">暂无活动数据</div>;
+export default function DailyActivityPanel({
+  metrics,
+  categories,
+  appRanking,
+  selectedCategory,
+  onSelectCategory,
+  selectedApp,
+  onSelectApp,
+}: Props) {
+  if (!metrics) return <div className="rounded-xl border border-slate-200 bg-slate-50 py-10 text-center text-sm text-slate-400">暂无活动数据</div>;
 
   const top5Categories = categories.slice(0, 5);
   const top5Apps = appRanking.slice(0, 5);
-  const totalInput = top5Apps.reduce((s, a) => s + a.keyPresses + a.totalClicks, 0) || 1;
+  const totalInput = top5Apps.reduce((sum, app) => sum + app.keyPresses + app.totalClicks, 0) || 1;
 
   return (
     <div className="space-y-4">
-      {/* Metrics grid — 4+4+3 */}
-      <div className="grid grid-cols-4 gap-3">
-        <MetricCard label="累计记录时长" value={metrics.totalRecordedDuration} />
-        <MetricCard label="有输入时长" value={metrics.activeInputDuration} />
-        <MetricCard label="空闲时长" value={metrics.idleDuration} />
-        <MetricCard label="独立工作会话" value={`${metrics.sessionCount} 个`} />
-      </div>
-      <div className="grid grid-cols-4 gap-3">
-        <MetricCard label="活跃应用数" value={`${metrics.activeAppCount} 个`} />
-        <MetricCard label="键盘按键总数" value={metrics.totalKeyPresses.toLocaleString()} />
-        <MetricCard label="点击总数" value={metrics.totalClicks.toLocaleString()} />
-        <MetricCard label="应用切换次数" value={`${metrics.appSwitchCount} 次`} />
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <MetricCard label="切换频率" value={`${metrics.switchFrequency} 次/10min`} />
-        <MetricCard label="最专注应用" value={metrics.mostFocusedApp} />
-        <MetricCard label="按键/点击比" value={`${metrics.keyClickRatio}:1`} />
+      <div className="grid grid-cols-2 gap-3">
+        <CompactStat label="工作会话" value={`${metrics.sessionCount} 个`} />
+        <CompactStat label="应用切换" value={`${metrics.appSwitchCount} 次`} />
+        <CompactStat label="最专注应用" value={metrics.mostFocusedApp || '-'} />
+        <CompactStat label="按键/点击比" value={`${metrics.keyClickRatio}:1`} />
       </div>
 
-      {/* Top 5 categories */}
-      <div>
-        <div className="text-xs text-gray-400 mb-2">🏷️ 前五分类</div>
-        <div className="flex flex-wrap gap-2">
-          {top5Categories.map(c => (
-            <button key={c.categoryName} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              selectedCategory === c.categoryName ? 'ring-2 ring-blue-400 bg-blue-50' : 'bg-gray-100 hover:bg-gray-200'
-            }`}
-              style={{ backgroundColor: selectedCategory === c.categoryName ? undefined : c.color + '18', color: c.color }}
-              onClick={() => onSelectCategory(selectedCategory === c.categoryName ? null : c.categoryName)}>
-              {c.categoryName} {c.share}%
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-xs font-semibold text-slate-700">分类排行</div>
+          {selectedCategory && (
+            <button type="button" className="text-xs text-blue-600 hover:text-blue-700" onClick={() => onSelectCategory(null)}>
+              清除
+            </button>
+          )}
+        </div>
+        <div className="space-y-2">
+          {top5Categories.length === 0 ? (
+            <p className="py-3 text-center text-xs text-slate-400">暂无分类数据</p>
+          ) : top5Categories.map(category => (
+            <button
+              key={category.categoryName}
+              type="button"
+              className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                selectedCategory === category.categoryName
+                  ? 'border-blue-300 bg-blue-50'
+                  : 'border-slate-200 bg-white hover:border-blue-200'
+              }`}
+              onClick={() => onSelectCategory(selectedCategory === category.categoryName ? null : category.categoryName)}
+            >
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="flex min-w-0 items-center gap-2 font-medium text-slate-800">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: category.color }} />
+                  <span className="truncate">{category.categoryName}</span>
+                </span>
+                <span className="shrink-0 text-slate-500">{category.share}%</span>
+              </div>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Top 5 apps */}
-      <div>
-        <div className="text-xs text-gray-400 mb-2">⚙️ 前五应用（进程名）</div>
-        <div className="flex flex-wrap gap-2">
-          {top5Apps.map(a => {
-            const share = Math.round((a.keyPresses + a.totalClicks) / totalInput * 100);
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="text-xs font-semibold text-slate-700">应用排行</div>
+          {selectedApp && (
+            <button type="button" className="text-xs text-blue-600 hover:text-blue-700" onClick={() => onSelectApp(null)}>
+              清除
+            </button>
+          )}
+        </div>
+        <div className="space-y-2">
+          {top5Apps.length === 0 ? (
+            <p className="py-3 text-center text-xs text-slate-400">暂无应用数据</p>
+          ) : top5Apps.map(app => {
+            const inputCount = app.keyPresses + app.totalClicks;
+            const share = Math.round((inputCount / totalInput) * 100);
             return (
-              <button key={a.appName} className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                selectedApp === a.appName ? 'ring-2 ring-blue-400 bg-blue-50' : 'bg-gray-100 hover:bg-gray-200'
-              }`}
-                onClick={() => onSelectApp(selectedApp === a.appName ? null : a.appName)}>
-                {a.appName} <span className="text-gray-400">{share}%</span>
+              <button
+                key={app.appName}
+                type="button"
+                className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                  selectedApp === app.appName
+                    ? 'border-teal-300 bg-teal-50'
+                    : 'border-slate-200 bg-white hover:border-teal-200'
+                }`}
+                onClick={() => onSelectApp(selectedApp === app.appName ? null : app.appName)}
+              >
+                <div className="mb-1 flex items-center justify-between gap-3 text-xs">
+                  <span className="min-w-0 truncate font-medium text-slate-800">{app.displayName || app.appName}</span>
+                  <span className="shrink-0 text-slate-500">{share}%</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                  <div className="h-full rounded-full bg-teal-500" style={{ width: `${share}%` }} />
+                </div>
               </button>
             );
           })}

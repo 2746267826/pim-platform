@@ -1,0 +1,194 @@
+using System.Net.Http.Json;
+using Pim.Client.Core.Models;
+
+namespace Pim.Client.Core.Services;
+
+public class AwCollectorService : IDisposable
+{
+    private readonly HttpClient _aw;
+    private readonly ApiClient _api;
+    private readonly CancellationTokenSource _cts = new();
+    private readonly AwCollectorCursorState _cursorState = new();
+    private int _queueCount;
+    private DateTime? _lastUploadTime;
+    private string? _lastUploadError;
+    private static readonly object _lock = new();
+    private static readonly string AwBase = Environment.GetEnvironmentVariable("AW_BASE_URL") ?? "http://127.0.0.1:5600";
+    private static readonly string BucketId = $"aw-watcher-window_{Environment.MachineName}";
+    private static readonly string AfkBucketId = $"aw-watcher-afk_{Environment.MachineName}";
+
+    public Action<string>? Log { get; set; }
+    public int QueueCount { get { lock (_lock) return _queueCount; } }
+    public DateTime? LastUploadTime { get { lock (_lock) return _lastUploadTime; } }
+    public string? LastUploadError { get { lock (_lock) return _lastUploadError; } }
+
+    public AwCollectorService(ApiClient apiClient)
+    {
+        _aw = new HttpClient { BaseAddress = new Uri(AwBase) };
+        _api = apiClient;
+    }
+
+    public async Task SyncNowAsync()
+    {
+        try
+        {
+            await CollectAndUploadAsync();
+        }
+        catch (Exception ex)
+        {
+            Log?.Invoke($"[AwCollector] Manual sync error: {ex.Message}");
+        }
+    }
+
+    public void Start()
+    {
+        Task.Run(async () =>
+        {
+            while (!_cts.Token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(30_000, _cts.Token);
+                    await CollectAndUploadAsync();
+                }
+                catch (TaskCanceledException) { break; }
+                catch (Exception ex)
+                {
+                    Log?.Invoke($"[AwCollector] Error: {ex.Message}");
+                }
+            }
+        });
+    }
+
+    private async Task CollectAndUploadAsync()
+    {
+        var events = new List<object>();
+
+        var pendingWindowLastId = _cursorState.LastWindowId;
+        var pendingAfkLastId = _cursorState.LastAfkId;
+
+        foreach (var evt in FetchNewEvents(BucketId, _cursorState.LastWindowId, out pendingWindowLastId))
+        {
+            var app = "unknown";
+            var title = "";
+            if (evt.Data.TryGetValue("app", out var a)) app = a;
+            if (evt.Data.TryGetValue("title", out var t)) title = t;
+
+            events.Add(new
+            {
+                timestamp = evt.Timestamp,
+                duration = evt.Duration,
+                eventType = "window",
+                appName = app,
+                windowTitle = title
+            });
+        }
+
+        foreach (var evt in FetchNewEvents(AfkBucketId, _cursorState.LastAfkId, out pendingAfkLastId))
+        {
+            string? status = null;
+            if (evt.Data.TryGetValue("status", out var s)) status = s;
+
+            events.Add(new
+            {
+                timestamp = evt.Timestamp,
+                duration = evt.Duration,
+                eventType = "afk",
+                appName = (string?)null,
+                windowTitle = (string?)null,
+                afkStatus = status ?? "unknown"
+            });
+        }
+
+        lock (_lock) { _queueCount = events.Count; }
+
+        if (events.Count == 0) return;
+        _cursorState.RecordFetched(pendingWindowLastId, pendingAfkLastId);
+
+        var request = new { deviceId = Environment.MachineName, events };
+
+        try
+        {
+            var result = await _api.PostAsync<ApiResponse<int>>("/pc/aw/upload", request, _cts.Token);
+            if (result is not null)
+            {
+                Log?.Invoke($"[AwCollector] Uploaded {events.Count} events → {result.Data} saved");
+                lock (_lock)
+                {
+                    _queueCount = 0;
+                    _lastUploadTime = DateTime.Now;
+                    _lastUploadError = null;
+                }
+                _cursorState.CommitFetched();
+            }
+            else
+            {
+                Log?.Invoke($"[AwCollector] Upload returned null response (check auth)");
+                lock (_lock) { _lastUploadError = "认证失败"; }
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            Log?.Invoke($"[AwCollector] Upload failed: {ex.Message}");
+            lock (_lock) { _lastUploadError = ex.Message; }
+        }
+        catch (Exception ex)
+        {
+            lock (_lock) { _lastUploadError = ex.Message; }
+        }
+    }
+
+    private List<RawAwEvent> FetchNewEvents(string bucketId, long lastId, out long pendingLastId)
+    {
+        pendingLastId = lastId;
+        try
+        {
+            var url = $"/api/0/buckets/{bucketId}/events?limit=100";
+            var response = _aw.GetAsync(url, _cts.Token).GetAwaiter().GetResult();
+            if (!response.IsSuccessStatusCode) return new();
+
+            var all = response.Content.ReadFromJsonAsync<List<RawAwEvent>>(cancellationToken: _cts.Token)
+                .GetAwaiter().GetResult() ?? new();
+
+            var currentLast = lastId;
+            var unprocessed = all.Where(e => e.Id > currentLast).ToList();
+            if (unprocessed.Count > 0)
+                pendingLastId = unprocessed.Max(e => e.Id);
+            return unprocessed;
+        }
+        catch { return new(); }
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+        _aw.Dispose();
+    }
+
+    private record RawAwEvent(long Id, string Timestamp, double Duration, Dictionary<string, string> Data)
+    {
+        public Dictionary<string, string> Data { get; init; } = Data ?? new();
+    }
+}
+
+public sealed class AwCollectorCursorState
+{
+    private long _pendingWindowId;
+    private long _pendingAfkId;
+
+    public long LastWindowId { get; private set; }
+    public long LastAfkId { get; private set; }
+
+    public void RecordFetched(long windowLastId, long afkLastId)
+    {
+        _pendingWindowId = Math.Max(_pendingWindowId, windowLastId);
+        _pendingAfkId = Math.Max(_pendingAfkId, afkLastId);
+    }
+
+    public void CommitFetched()
+    {
+        LastWindowId = Math.Max(LastWindowId, _pendingWindowId);
+        LastAfkId = Math.Max(LastAfkId, _pendingAfkId);
+    }
+}

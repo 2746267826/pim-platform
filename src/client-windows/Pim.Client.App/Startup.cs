@@ -12,6 +12,8 @@ public static class Startup
         // Core services
         services.AddSingleton<ApiClient>();
         services.AddSingleton<AuthService>();
+        services.AddSingleton<AwCollectorService>();
+        services.AddSingleton<KeyStatsCollectorService>();
         services.AddSingleton<TrayIcon>();
 
         return services.BuildServiceProvider();

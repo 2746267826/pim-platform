@@ -5,6 +5,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { useQuery } from '@tanstack/react-query';
 import { getEvents, getTasks } from '../api/calendar';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
+import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import type { DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import type { EventResponse } from '../types';
 
@@ -31,8 +32,13 @@ export default function MonthPage() {
   const [selectStart, setSelectStart] = useState<string | undefined>();
   const [selectEnd, setSelectEnd] = useState<string | undefined>();
 
+  const { hiddenCalendarIds } = useCalendarVisibility();
+  const visibleEvents = hiddenCalendarIds.size > 0
+    ? events.filter(e => !hiddenCalendarIds.has(e.calendarId))
+    : events;
+
   const fcEvents = [
-    ...events.map(e => ({
+    ...visibleEvents.map(e => ({
       id: e.id,
       title: e.title,
       start: e.dtStart,

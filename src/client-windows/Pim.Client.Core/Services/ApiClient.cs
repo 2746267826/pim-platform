@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Pim.Client.Core;
 
 namespace Pim.Client.Core.Services;
 
@@ -22,13 +23,14 @@ public class ApiClient
         };
         _httpClient = new HttpClient(handler)
         {
-            BaseAddress = new Uri("http://localhost:5000/api/v1/")
+            BaseAddress = new Uri($"{ClientDefaults.DefaultServerUrl}/api/v1/")
         };
     }
 
     public void SetBaseUrl(string baseUrl)
     {
-        _httpClient.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/api/v1/");
+        var normalized = NormalizeServerUrl(baseUrl);
+        _httpClient.BaseAddress = new Uri(normalized.TrimEnd('/') + "/api/v1/");
     }
 
     public string CurrentBaseUrl => _httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "";
@@ -36,6 +38,19 @@ public class ApiClient
     private string Resolve(string endpoint)
     {
         return endpoint.TrimStart('/');
+    }
+
+    public static string NormalizeServerUrl(string baseUrl)
+    {
+        var trimmed = baseUrl.Trim().TrimEnd('/');
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+        {
+            return trimmed;
+        }
+
+        return uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+            ? new UriBuilder(uri) { Host = "127.0.0.1" }.Uri.ToString().TrimEnd('/')
+            : trimmed;
     }
 
     public void SetAccessToken(string token)

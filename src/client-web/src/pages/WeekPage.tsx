@@ -5,6 +5,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { useQuery } from '@tanstack/react-query';
 import { getEvents, getTasks } from '../api/calendar';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
+import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import type { DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import type { EventResponse, TaskResponse } from '../types';
 
@@ -34,7 +35,12 @@ export default function WeekPage() {
   const [selectStart, setSelectStart] = useState<string | undefined>();
   const [selectEnd, setSelectEnd] = useState<string | undefined>();
 
-  const fcEvents = buildFcEvents(events, tasks);
+  const { hiddenCalendarIds } = useCalendarVisibility();
+  const visibleEvents = hiddenCalendarIds.size > 0
+    ? events.filter(e => !hiddenCalendarIds.has(e.calendarId))
+    : events;
+
+  const fcEvents = buildFcEvents(visibleEvents, tasks);
 
   function handleDatesSet(arg: { start: Date; end: Date }) {
     setCurrentRange({ start: arg.start.toISOString(), end: arg.end.toISOString() });

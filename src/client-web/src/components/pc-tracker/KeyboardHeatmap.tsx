@@ -1,18 +1,26 @@
-// src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx
 import type { KeystatsSummary } from '../../types';
 
-const GREEN_STOPS = ['#ebedf0', '#9be9a8', '#40c463', '#30a14e', '#216e39'];
-const MODIFIER_KEYS = new Set(['LCtrl', 'RCtrl', 'LWin', 'RWin', 'LAlt', 'RAlt', 'Esc', 'Tab', 'CapsLock']);
+const TEAL_STOPS = ['#f8fafc', '#ccfbf1', '#5eead4', '#14b8a6', '#0f766e'];
+const MODIFIER_KEYS = new Set(['Ctrl', 'Shift', 'Win', 'Alt', 'Fn', 'Menu', 'Esc', 'Tab', 'Caps', 'CapsLock']);
+
+interface SafeKeyCount {
+  keyName: string;
+  count: number;
+}
+
+type KeySpec = { code: string; label: string; units?: number };
+type KeyRow = KeySpec[];
+type KeyCluster = { name: string; rows: KeyRow[] };
 
 function keyColor(count: number, max: number): string {
-  if (count === 0 || max === 0) return GREEN_STOPS[0];
+  if (count === 0 || max === 0) return TEAL_STOPS[0];
   const ratio = Math.min(count / max, 1);
-  const idx = ratio * (GREEN_STOPS.length - 1);
+  const idx = ratio * (TEAL_STOPS.length - 1);
   const low = Math.floor(idx);
-  const high = Math.min(low + 1, GREEN_STOPS.length - 1);
+  const high = Math.min(low + 1, TEAL_STOPS.length - 1);
   const t = idx - low;
-  const l = parseInt(GREEN_STOPS[low].slice(1), 16);
-  const h = parseInt(GREEN_STOPS[high].slice(1), 16);
+  const l = parseInt(TEAL_STOPS[low].slice(1), 16);
+  const h = parseInt(TEAL_STOPS[high].slice(1), 16);
   const r = Math.round(((l >> 16) & 0xff) + t * (((h >> 16) & 0xff) - ((l >> 16) & 0xff)));
   const g = Math.round(((l >> 8) & 0xff) + t * (((h >> 8) & 0xff) - ((l >> 8) & 0xff)));
   const b = Math.round((l & 0xff) + t * ((h & 0xff) - (l & 0xff)));
@@ -20,89 +28,334 @@ function keyColor(count: number, max: number): string {
 }
 
 function textColor(count: number, max: number): string {
-  return count > max * 0.4 ? '#fff' : '#374151';
+  return count > max * 0.42 ? '#fff' : '#334155';
 }
 
-// ANSI 104-key layout rows
-const KEYBOARD_ROWS = [
-  ['Esc', '', '', '', '', '', '', '', '', '', '', '', '', 'Backspace', ''],
-  ['Tab', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '[', ']', '\\', ''],
-  ['Caps', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', "'", '', 'Enter', ''],
-  ['Shift', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', ',', '.', '/', '', 'Shift', '', ''],
-  ['Ctrl', 'Win', 'Alt', '', 'Space', '', '', 'Alt', 'Win', 'Ctrl', '', '', '', '↑', ''],
-  ['', '', '', '', '', '', '', '', '', '', '', '←', '↓', '→']
+function normalizeKey(item: unknown): SafeKeyCount | null {
+  if (!item || typeof item !== 'object') return null;
+  const value = item as { keyName?: unknown; count?: unknown };
+  if (typeof value.keyName !== 'string' || value.keyName.length === 0) return null;
+  return {
+    keyName: value.keyName,
+    count: typeof value.count === 'number' && Number.isFinite(value.count) ? value.count : 0,
+  };
+}
+
+function key(code: string, label = code, units = 1): KeySpec {
+  return { code, label, units };
+}
+
+const KEYBOARD_CLUSTERS: KeyCluster[] = [
+  {
+    name: 'Main',
+    rows: [
+      [key('Esc'), key('F1'), key('F2'), key('F3'), key('F4'), key('F5'), key('F6'), key('F7'), key('F8'), key('F9'), key('F10'), key('F11'), key('F12')],
+      [key('`', '`'), key('1'), key('2'), key('3'), key('4'), key('5'), key('6'), key('7'), key('8'), key('9'), key('0'), key('-', '-'), key('=', '='), key('Backspace', 'Back', 2)],
+      [key('Tab', 'Tab', 1.5), key('Q'), key('W'), key('E'), key('R'), key('T'), key('Y'), key('U'), key('I'), key('O'), key('P'), key('[', '['), key(']', ']'), key('\\', '\\', 1.5)],
+      [key('CapsLock', 'Caps', 1.75), key('A'), key('S'), key('D'), key('F'), key('G'), key('H'), key('J'), key('K'), key('L'), key(';', ';'), key("'", "'"), key('Enter', 'Enter', 2.25)],
+      [key('Shift', 'Shift', 2.25), key('Z'), key('X'), key('C'), key('V'), key('B'), key('N'), key('M'), key(',', ','), key('.', '.'), key('/', '/'), key('RShift', 'Shift', 2.75)],
+      [key('Ctrl', 'Ctrl', 1.25), key('Win', 'Win', 1.25), key('Alt', 'Alt', 1.25), key('Space', 'Space', 6.25), key('RAlt', 'Alt', 1.25), key('RWin', 'Win', 1.25), key('Menu', 'Menu', 1.25), key('RCtrl', 'Ctrl', 1.25)],
+    ],
+  },
+  {
+    name: 'Navigation',
+    rows: [
+      [key('PrintScreen', 'Prt'), key('ScrollLock', 'Scr'), key('Pause', 'Pause')],
+      [key('Insert', 'Ins'), key('Home'), key('PageUp', 'PgUp')],
+      [key('Delete', 'Del'), key('End'), key('PageDown', 'PgDn')],
+      [key('ArrowBlank1', '', 1), key('Up', '↑'), key('ArrowBlank2', '', 1)],
+      [key('Left', '←'), key('Down', '↓'), key('Right', '→')],
+    ],
+  },
+  {
+    name: 'Numpad',
+    rows: [
+      [key('NumLock', 'Num'), key('NumpadDivide', '/'), key('NumpadMultiply', '*'), key('NumpadSubtract', '-')],
+      [key('Numpad7', '7'), key('Numpad8', '8'), key('Numpad9', '9'), key('NumpadAdd', '+')],
+      [key('Numpad4', '4'), key('Numpad5', '5'), key('Numpad6', '6'), key('NumpadAdd2', '+')],
+      [key('Numpad1', '1'), key('Numpad2', '2'), key('Numpad3', '3'), key('NumpadEnter', 'Enter')],
+      [key('Numpad0', '0', 2), key('NumpadDecimal', '.'), key('NumpadEnter2', 'Enter')],
+    ],
+  },
 ];
 
-const KEY_WIDTHS: Record<string, number> = {
-  'Backspace': 1.5, 'Tab': 1.3, 'Caps': 1.5, 'Enter': 1.7,
-  'Shift': 1.8, 'Ctrl': 1.2, 'Win': 1.1, 'Alt': 1.1,
-  'Space': 5, '↑': 1, '↓': 1, '←': 1, '→': 1,
-};
+function aliasesFor(code: string) {
+  const map: Record<string, string[]> = {
+    Ctrl: ['Ctrl', 'LCtrl', 'ControlLeft'],
+    RCtrl: ['RCtrl', 'ControlRight'],
+    Shift: ['Shift', 'LShift', 'ShiftLeft'],
+    RShift: ['RShift', 'ShiftRight'],
+    Alt: ['Alt', 'LAlt', 'AltLeft'],
+    RAlt: ['RAlt', 'AltRight'],
+    Win: ['Win', 'LWin', 'MetaLeft'],
+    RWin: ['RWin', 'MetaRight'],
+    Space: ['Space', 'Spacebar', ' '],
+    Backspace: ['Backspace', 'Back'],
+    CapsLock: ['CapsLock', 'Caps'],
+    Up: ['Up', 'ArrowUp'],
+    Down: ['Down', 'ArrowDown'],
+    Left: ['Left', 'ArrowLeft'],
+    Right: ['Right', 'ArrowRight'],
+    PageUp: ['PageUp', 'PgUp'],
+    PageDown: ['PageDown', 'PgDn'],
+    PrintScreen: ['PrintScreen', 'PrtSc'],
+    NumpadDivide: ['NumpadDivide', 'Num /'],
+    NumpadMultiply: ['NumpadMultiply', 'Num *'],
+    NumpadSubtract: ['NumpadSubtract', 'Num -'],
+    NumpadAdd: ['NumpadAdd', 'Num +'],
+    NumpadAdd2: ['NumpadAdd', 'Num +'],
+    NumpadEnter: ['NumpadEnter', 'Num Enter'],
+    NumpadEnter2: ['NumpadEnter', 'Num Enter'],
+    NumpadDecimal: ['NumpadDecimal', 'Num .'],
+  };
+
+  if (code.startsWith('Numpad') && /^Numpad\d$/.test(code)) {
+    return [code, `Num ${code.slice(-1)}`, code.slice(-1)];
+  }
+
+  if (code.startsWith('ArrowBlank')) return [];
+  return map[code] ?? [code];
+}
+
+function countForKey(keyCounts: Map<string, number>, code: string) {
+  return aliasesFor(code).reduce((sum, alias) => sum + (keyCounts.get(alias) ?? 0), 0);
+}
+
+function isModifier(code: string) {
+  return MODIFIER_KEYS.has(code) || code.startsWith('R') && MODIFIER_KEYS.has(code.slice(1));
+}
+
+function KeyCap({
+  spec,
+  count,
+  maxKey,
+}: {
+  spec: KeySpec;
+  count: number;
+  maxKey: number;
+}) {
+  if (!spec.label) {
+    return <div style={{ width: `${(spec.units ?? 1) * 2.15}rem` }} />;
+  }
+
+  const mod = isModifier(spec.code);
+  const backgroundColor = mod ? '#e2e8f0' : keyColor(count, maxKey);
+  const color = mod ? '#64748b' : textColor(count, maxKey);
+
+  return (
+    <div
+      tabIndex={0}
+      className="group relative flex h-9 items-center justify-center rounded-lg border border-white/80 font-mono text-[10px] font-semibold shadow-sm outline-none transition-transform hover:-translate-y-0.5 hover:ring-2 hover:ring-blue-300 focus:ring-2 focus:ring-blue-300"
+      style={{
+        width: `${(spec.units ?? 1) * 2.15}rem`,
+        minWidth: `${(spec.units ?? 1) * 2.15}rem`,
+        backgroundColor,
+        color,
+      }}
+      title={`${spec.label}: ${count.toLocaleString('zh-CN')}`}
+    >
+      {spec.label}
+      {count > 0 && (
+        <span className="absolute bottom-0.5 right-1 text-[8px] leading-none" style={{ color }}>{count}</span>
+      )}
+      <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-xl bg-slate-950 px-2 py-1 text-[10px] text-white shadow-2xl group-hover:block group-focus:block">
+        {spec.label}: {count.toLocaleString('zh-CN')}
+      </div>
+    </div>
+  );
+}
+
+function KeyboardCluster({ cluster, keyCounts, maxKey }: { cluster: KeyCluster; keyCounts: Map<string, number>; maxKey: number }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{cluster.name}</div>
+      {cluster.rows.map((row, rowIndex) => (
+        <div key={rowIndex} className="flex gap-1">
+          {row.map((spec, index) => (
+            <KeyCap key={`${spec.code}-${index}`} spec={spec} count={countForKey(keyCounts, spec.code)} maxKey={maxKey} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface MouseZoneProps {
+  label: string;
+  zone: string;
+  count: number;
+  maxKey: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rx: number;
+}
+
+function MouseZone({
+  label,
+  zone,
+  count,
+  maxKey,
+  x,
+  y,
+  width,
+  height,
+  rx,
+}: MouseZoneProps) {
+  const bg = keyColor(count, maxKey);
+  const color = textColor(count, maxKey);
+  const title = `${label}: ${count.toLocaleString('zh-CN')}`;
+
+  return (
+    <g
+      tabIndex={0}
+      data-mouse-zone={zone}
+      className="outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+      role="img"
+      aria-label={title}
+    >
+      <title>{title}</title>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        rx={rx}
+        fill={bg}
+        stroke="rgba(255,255,255,0.9)"
+        strokeWidth="2"
+      />
+      <text
+        x={x + width / 2}
+        y={y + height / 2 - 2}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill={color}
+        fontSize="11"
+        fontWeight="700"
+      >
+        {label}
+      </text>
+      {count > 0 && (
+        <text
+          x={x + width / 2}
+          y={y + height / 2 + 12}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill={color}
+          fontSize="10"
+          fontWeight="700"
+        >
+          {count.toLocaleString('zh-CN')}
+        </text>
+      )}
+    </g>
+  );
+}
+
+function MouseHeatmap({ keystats, maxKey }: { keystats: KeystatsSummary; maxKey: number }) {
+  const maxMouse = Math.max(
+    maxKey,
+    keystats.leftClicks,
+    keystats.rightClicks,
+    keystats.middleClicks,
+    keystats.sideBackClicks,
+    keystats.sideForwardClicks,
+    1,
+  );
+
+  return (
+    <div className="min-w-[260px] rounded-2xl border border-slate-200 bg-white/85 p-4">
+      <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Mouse</div>
+      <svg
+        viewBox="0 0 240 300"
+        className="mx-auto h-72 w-full max-w-[240px]"
+        role="img"
+        aria-label="鼠标热力图"
+      >
+        <defs>
+          <filter id="mouse-shadow" x="-20%" y="-10%" width="140%" height="130%">
+            <feDropShadow dx="0" dy="8" stdDeviation="8" floodColor="#0f172a" floodOpacity="0.12" />
+          </filter>
+        </defs>
+        <rect x="62" y="12" width="130" height="246" rx="58" fill="#f1f5f9" stroke="#dbe3ee" strokeWidth="2" filter="url(#mouse-shadow)" />
+        <path d="M127 18v104" stroke="#dbe3ee" strokeWidth="2" strokeLinecap="round" />
+        <MouseZone label="左键" zone="left" count={keystats.leftClicks} maxKey={maxMouse} x={68} y={24} width={56} height={92} rx={26} />
+        <MouseZone label="右键" zone="right" count={keystats.rightClicks} maxKey={maxMouse} x={130} y={24} width={56} height={92} rx={26} />
+        <MouseZone label="滚轮" zone="wheel" count={keystats.middleClicks} maxKey={maxMouse} x={112} y={50} width={18} height={64} rx={9} />
+        <MouseZone label="侧后" zone="side-back" count={keystats.sideBackClicks} maxKey={maxMouse} x={28} y={118} width={38} height={48} rx={16} />
+        <MouseZone label="侧前" zone="side-forward" count={keystats.sideForwardClicks} maxKey={maxMouse} x={28} y={176} width={38} height={48} rx={16} />
+        <circle cx="127" cy="242" r="11" fill="#e2e8f0" stroke="rgba(255,255,255,0.9)" strokeWidth="2" />
+        <text x="127" y="270" textAnchor="middle" fill="#475569" fontSize="13" fontWeight="700">
+          {keystats.totalClicks.toLocaleString('zh-CN')}
+        </text>
+        <text x="127" y="287" textAnchor="middle" fill="#94a3b8" fontSize="10">
+          总点击
+        </text>
+      </svg>
+    </div>
+  );
+}
 
 interface Props {
   keystats: KeystatsSummary | null;
 }
 
 export default function KeyboardHeatmap({ keystats }: Props) {
-  if (!keystats) return <div className="py-8 text-center text-gray-400">暂无按键数据</div>;
+  const safeKeystats: KeystatsSummary = keystats ?? {
+    date: '',
+    keyPresses: 0,
+    totalClicks: 0,
+    leftClicks: 0,
+    rightClicks: 0,
+    middleClicks: 0,
+    sideBackClicks: 0,
+    sideForwardClicks: 0,
+    mouseDistance: 0,
+    scrollDistance: 0,
+    peakKps: 0,
+    peakCps: 0,
+    topKeys: [],
+  };
 
-  const keyCounts = new Map(keystats.topKeys.map(k => [k.keyName, k.count]));
-  const allCounts = keystats.topKeys.map(k => k.count);
+  const topKeys = Array.isArray(safeKeystats.topKeys)
+    ? safeKeystats.topKeys.map(normalizeKey).filter(key => key !== null)
+    : [];
+  const keyCounts = new Map(topKeys.map(key => [key.keyName, key.count]));
+  const allCounts = topKeys.map(key => key.count);
   const maxKey = Math.max(...allCounts, 1);
 
-  const shortcuts = keystats.topKeys
-    .filter(k => k.keyName.includes('+'))
+  const shortcuts = topKeys
+    .filter(keyItem => keyItem.keyName.includes('+'))
     .sort((a, b) => b.count - a.count);
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-center">
-        <div className="flex flex-col gap-[2px]" style={{ maxWidth: 680 }}>
-          {KEYBOARD_ROWS.map((row, ri) => (
-            <div key={ri} className="flex gap-[2px]">
-              {row.map((key, ki) => {
-                if (!key) return <div key={ki} style={{ width: 16 }} />;
-                const count = keyCounts.get(key) || 0;
-                const isMod = MODIFIER_KEYS.has(key);
-                const bg = isMod ? '#e5e7eb' : keyColor(count, maxKey);
-                const color = isMod ? '#6b7280' : textColor(count, maxKey);
-                const width = (KEY_WIDTHS[key] || 1) * 38;
-                return (
-                  <div key={ki} className="h-8 rounded flex items-center justify-center text-[10px] font-mono relative group"
-                    style={{ backgroundColor: bg, color, width, minWidth: 26 }}>
-                    {key.length <= 3 ? key : key.slice(0, 3)}
-                    {count > 0 && (
-                      <span className="absolute -bottom-1 right-0.5 text-[8px] leading-none" style={{ color }}>{count}</span>
-                    )}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-gray-800 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-10">
-                      {key}: {count.toLocaleString()}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex min-w-[1180px] gap-4">
+          <div className="flex flex-1 gap-4">
+            {KEYBOARD_CLUSTERS.map(cluster => (
+              <KeyboardCluster key={cluster.name} cluster={cluster} keyCounts={keyCounts} maxKey={maxKey} />
+            ))}
+          </div>
+          <MouseHeatmap keystats={safeKeystats} maxKey={maxKey} />
         </div>
       </div>
 
-      {/* Mouse clicks */}
-      <div className="flex justify-center gap-6 text-xs text-gray-500 pt-2 border-t border-gray-100">
-        <span>🖱 左键 {keystats.leftClicks.toLocaleString()}</span>
-        <span>右键 {keystats.rightClicks.toLocaleString()}</span>
-        <span>中键 {keystats.middleClicks}</span>
-        <span>侧后退 {keystats.sideBackClicks}</span>
-        <span>侧前进 {keystats.sideForwardClicks}</span>
-        <span className="font-medium ml-2">总点击 {keystats.totalClicks.toLocaleString()}</span>
-      </div>
+      {!keystats && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          当前日期暂无键鼠数据，已展示完整键鼠布局骨架。
+        </div>
+      )}
 
-      {/* Shortcuts */}
       {shortcuts.length > 0 && (
-        <div className="pt-2 border-t border-dashed border-gray-100">
-          <div className="text-xs text-gray-400 mb-2">快捷键统计</div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <div className="mb-2 text-xs font-semibold text-slate-700">快捷键统计</div>
           <div className="flex flex-wrap gap-2">
-            {shortcuts.map(s => (
-              <span key={s.keyName} className="px-2 py-1 bg-red-50 border border-red-100 rounded text-xs text-red-600">
-                {s.keyName} <span className="text-red-400">{s.count}</span>
+            {shortcuts.map(shortcut => (
+              <span key={shortcut.keyName} className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">
+                {shortcut.keyName} <span className="text-blue-500">{shortcut.count.toLocaleString('zh-CN')}</span>
               </span>
             ))}
           </div>

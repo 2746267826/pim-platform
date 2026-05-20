@@ -1,11 +1,10 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { CalendarVisibilityProvider } from '../context/CalendarVisibilityContext';
 import Sidebar from './Sidebar';
 import InboxPanel from '../panels/InboxPanel';
-import TimelinePage from '../pages/TimelinePage';
-import WeekPage from '../pages/WeekPage';
-import MonthPage from '../pages/MonthPage';
+import TodayPage from '../pages/TodayPage';
+import CalendarPage from '../pages/CalendarPage';
 import TaskListPage from '../pages/TaskListPage';
 import PcTrackerPage from '../pages/PcTrackerPage';
 import SettingsPage from '../pages/SettingsPage';
@@ -14,30 +13,34 @@ import PcDetailQueryPage from '../pages/PcDetailQueryPage';
 
 export default function AppLayout() {
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
+  const showCalendarInbox = location.pathname === '/calendar' || location.pathname.startsWith('/calendar/');
+
   return (
     <CalendarVisibilityProvider>
-      <div className="h-screen flex">
+      <div className="pim-shell h-screen flex overflow-hidden">
         <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-auto p-4">
-            <Routes>
-              <Route path="/timeline" element={<TimelinePage />} />
-              <Route path="/week" element={<WeekPage />} />
-              <Route path="/month" element={<MonthPage />} />
-              <Route path="/tasks" element={<TaskListPage />} />
-              <Route path="/pc-tracker" element={<PcTrackerPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
-              <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />
-            </Routes>
-          </div>
-        </div>
-        <InboxPanel />
+        <main className="flex-1 overflow-auto p-4">
+          <Routes>
+            <Route path="/today" element={<TodayPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/timeline" element={<Navigate to="/calendar?view=timeline" replace />} />
+            <Route path="/week" element={<Navigate to="/calendar?view=timeline" replace />} />
+            <Route path="/month" element={<Navigate to="/calendar?view=month" replace />} />
+            <Route path="/tasks" element={<TaskListPage />} />
+            <Route path="/pc-tracker" element={<PcTrackerPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
+            <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />
+            <Route path="*" element={<Navigate to="/today" replace />} />
+          </Routes>
+        </main>
+        {showCalendarInbox && <InboxPanel draggable />}
       </div>
     </CalendarVisibilityProvider>
   );

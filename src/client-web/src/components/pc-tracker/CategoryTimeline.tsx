@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { format } from 'date-fns';
 import type { TimelineItem, CategorySummary, AppCategoryRule } from '../../types';
+import { getPcBusinessDayStart } from '../../utils/pcBusinessDay';
 
 interface CategoryBlock {
   start: Date;
@@ -19,7 +20,7 @@ function buildAppCategoryMap(rules: AppCategoryRule[]): (appName: string) => { c
         return { category: rule.categoryName, color: rule.color };
       }
     }
-    return { category: '其他', color: '#8B5CF6' };
+    return { category: '其他', color: '#64748b' };
   };
 }
 
@@ -30,7 +31,7 @@ function buildCategoryBlocks(timeline: TimelineItem[], categories: CategorySumma
     ? buildAppCategoryMap(rules)
     : (appName: string) => {
         const cat = categories.find(c => appName.localeCompare(c.categoryName, undefined, { sensitivity: 'base' }) === 0);
-        return cat ? { category: cat.categoryName, color: cat.color } : { category: '其他', color: '#8B5CF6' };
+        return cat ? { category: cat.categoryName, color: cat.color } : { category: '其他', color: '#64748b' };
       };
 
   const sorted = [...timeline].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
@@ -39,9 +40,9 @@ function buildCategoryBlocks(timeline: TimelineItem[], categories: CategorySumma
   let current: CategoryBlock | null = null;
 
   for (const item of sorted) {
-    const { category: cat, color } = classify(item.appName);
+    const { category, color } = classify(item.appName);
 
-    if (current && current.categoryName === cat) {
+    if (current && current.categoryName === category) {
       current.end = new Date(item.end);
       current.totalMinutes += item.durationMinutes;
       const existing = current.apps.find(a => a.name === item.appName);
@@ -52,7 +53,7 @@ function buildCategoryBlocks(timeline: TimelineItem[], categories: CategorySumma
       current = {
         start: new Date(item.start),
         end: new Date(item.end),
-        categoryName: cat,
+        categoryName: category,
         color,
         apps: [{ name: item.appName, share: item.durationMinutes }],
         totalMinutes: item.durationMinutes,
@@ -62,15 +63,23 @@ function buildCategoryBlocks(timeline: TimelineItem[], categories: CategorySumma
   if (current) blocks.push(current);
 
   for (const block of blocks) {
-    const total = block.apps.reduce((s, a) => s + a.share, 0);
-    for (const app of block.apps) app.share = Math.round((app.share / total) * 100);
+    const total = block.apps.reduce((sum, app) => sum + app.share, 0);
+    for (const app of block.apps) app.share = total > 0 ? Math.round((app.share / total) * 100) : 0;
   }
 
   return blocks;
 }
 
 function fmtTime(iso: string) {
-  try { return format(new Date(iso), 'HH:mm'); } catch { return iso; }
+  try {
+    return format(new Date(iso), 'HH:mm');
+  } catch {
+    return iso;
+  }
+}
+
+function businessDayStart(date: Date) {
+  return getPcBusinessDayStart(date);
 }
 
 interface Props {
@@ -82,35 +91,53 @@ interface Props {
 export default function CategoryTimeline({ timeline, categories, rules }: Props) {
   const blocks = useMemo(() => buildCategoryBlocks(timeline, categories, rules), [timeline, categories, rules]);
 
-  if (!blocks.length) return <div className="py-8 text-center text-gray-400">暂无时间线数据</div>;
+  if (!blocks.length) {
+    return <div className="rounded-2xl border border-slate-200 bg-slate-50 py-10 text-center text-sm text-slate-400">暂无时间线数据</div>;
+  }
 
-  const dayStart = new Date(blocks[0].start);
-  dayStart.setHours(0, 0, 0, 0);
+  const dayStart = businessDayStart(blocks[0].start);
   const dayEnd = new Date(dayStart);
   dayEnd.setDate(dayEnd.getDate() + 1);
   const totalMs = dayEnd.getTime() - dayStart.getTime();
 
   return (
-    <div className="relative h-14 bg-gray-50 rounded-lg overflow-hidden">
-      {blocks.map((block, i) => {
-        const leftPct = ((block.start.getTime() - dayStart.getTime()) / totalMs) * 100;
-        const widthPct = Math.max(((block.end.getTime() - block.start.getTime()) / totalMs) * 100, 0.5);
-        return (
-          <div key={i} className="absolute top-2 h-10 rounded-lg group flex items-center justify-center text-[10px] font-medium text-white truncate px-1"
-            style={{ left: `${leftPct}%`, width: `${widthPct}%`, backgroundColor: block.color, opacity: 0.85 }}>
-            {block.categoryName}
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-gray-800 text-white text-[10px] px-3 py-2 rounded-lg whitespace-nowrap z-10 min-w-[160px]">
-              <div className="font-semibold mb-1">{block.categoryName}</div>
-              <div>{fmtTime(block.start.toISOString())} — {fmtTime(block.end.toISOString())}</div>
-              <div className="text-gray-300 mt-1">
-                {block.apps.map(a => (
-                  <div key={a.name}>{a.name} {a.share}%</div>
-                ))}
+    <div className="overflow-visible rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="relative h-28 overflow-visible rounded-2xl border border-slate-200 bg-white px-1">
+        <div className="absolute inset-x-1 top-1/2 h-px -translate-y-1/2 bg-slate-100" />
+        {blocks.map((block, index) => {
+          const leftPct = ((block.start.getTime() - dayStart.getTime()) / totalMs) * 100;
+          const widthPct = Math.max(((block.end.getTime() - block.start.getTime()) / totalMs) * 100, 0.45);
+          const showInlineLabel = widthPct >= 6;
+          return (
+            <div
+              key={index}
+              tabIndex={0}
+              className="group absolute top-10 flex h-10 items-center justify-center rounded-xl px-1 text-[10px] font-medium text-white shadow-sm outline-none ring-offset-2 transition-transform hover:-translate-y-0.5 focus:ring-2 focus:ring-blue-300"
+              style={{ left: `${leftPct}%`, width: `${widthPct}%`, backgroundColor: block.color }}
+              aria-label={`${block.categoryName}，${fmtTime(block.start.toISOString())} 到 ${fmtTime(block.end.toISOString())}`}
+            >
+              {showInlineLabel && <span className="truncate">{block.categoryName}</span>}
+              <div className="absolute bottom-full left-1/2 z-50 mb-3 hidden min-w-[220px] -translate-x-1/2 whitespace-nowrap rounded-xl bg-slate-950 px-3 py-2 text-left text-[11px] text-white shadow-2xl group-hover:block group-focus:block">
+                <div className="mb-1 font-semibold">{block.categoryName}</div>
+                <div>{fmtTime(block.start.toISOString())} - {fmtTime(block.end.toISOString())}</div>
+                <div className="text-slate-300">{Math.round(block.totalMinutes)} 分钟</div>
+                <div className="mt-1 text-slate-300">
+                  {block.apps.map(app => (
+                    <div key={app.name}>{app.name} {app.share}%</div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      <div className="mt-3 grid grid-cols-5 text-[10px] text-slate-400">
+        <span>04:00</span>
+        <span className="text-center">10:00</span>
+        <span className="text-center">16:00</span>
+        <span className="text-center">22:00</span>
+        <span className="text-right">04:00+1</span>
+      </div>
     </div>
   );
 }

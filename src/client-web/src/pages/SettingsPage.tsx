@@ -1,41 +1,44 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import PageHeader from '../ui/PageHeader';
+
+const settingsLinks = [
+  {
+    title: '管理日程数据',
+    description: '查看、筛选、导入导出全部日程',
+    label: '日程',
+    to: '/settings/calendar-data',
+  },
+  {
+    title: 'PC 记录详细数据',
+    description: '查询、筛选、导出全部 PC 记录数据',
+    label: 'PC',
+    to: '/settings/pc-data',
+  },
+] as const;
 
 export default function SettingsPage() {
-  const navigate = useNavigate();
-
   return (
-    <div className="max-w-2xl mx-auto">
-      <h2 className="text-xl font-bold mb-6">设置</h2>
+    <div className="mx-auto max-w-2xl space-y-4 pb-8">
+      <PageHeader title="设置" subtitle="管理数据入口与本地记录" />
 
-      <div
-        className="bg-white border rounded-lg p-5 hover:border-blue-300 cursor-pointer transition-colors flex items-center justify-between"
-        onClick={() => navigate('/settings/calendar-data')}
-      >
-        <div>
-          <h3 className="font-semibold text-base flex items-center gap-2">
-            <span>📅</span> 管理日程数据
-          </h3>
-          <p className="text-sm text-gray-500 mt-1">
-            查看、筛选、导入导出全部日程
-          </p>
-        </div>
-        <span className="text-gray-300 text-xl">→</span>
-      </div>
-
-      <div
-        className="bg-white border rounded-lg p-5 hover:border-blue-300 cursor-pointer transition-colors flex items-center justify-between mt-4"
-        onClick={() => navigate('/settings/pc-data')}
-      >
-        <div>
-          <h3 className="font-semibold text-base flex items-center gap-2">
-            <span>💻</span> PC记录详细数据
-          </h3>
-          <p className="text-sm text-gray-500 mt-1">
-            查询、筛选、导出全部PC记录数据
-          </p>
-        </div>
-        <span className="text-gray-300 text-xl">→</span>
-      </div>
+      {settingsLinks.map(link => (
+        <Link
+          key={link.to}
+          to={link.to}
+          className="pim-card flex w-full cursor-pointer items-center justify-between gap-4 p-5 text-left transition-colors hover:border-blue-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        >
+          <div className="flex min-w-0 items-center gap-4">
+            <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-sm font-semibold text-blue-700">
+              {link.label}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-base font-semibold text-slate-950">{link.title}</span>
+              <span className="mt-1 block text-sm text-slate-500">{link.description}</span>
+            </span>
+          </div>
+          <span className="text-xl text-slate-300" aria-hidden="true">→</span>
+        </Link>
+      ))}
     </div>
   );
 }

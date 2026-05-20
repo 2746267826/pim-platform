@@ -8,7 +8,7 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<Navigate to="/timeline" replace />} />
+        <Route path="/" element={<Navigate to="/today" replace />} />
         <Route path="/*" element={<AppLayout />} />
       </Routes>
     </AuthProvider>

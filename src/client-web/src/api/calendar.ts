@@ -1,9 +1,36 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './client';
 import type { ApiResponse, CalendarResponse, EventResponse, TaskResponse, PagedResult, ImportResult } from '../types';
 
-export async function getCalendars() {
-  const r = await apiGet<ApiResponse<CalendarResponse[]>>('/calendar/calendars');
+export type TaskMutationData = {
+  calendarId?: string;
+  title: string;
+  description?: string;
+  priority: number;
+  estimatedDuration?: string;
+  minimumSegment?: string;
+  dtStart?: string;
+  due?: string;
+  status?: string;
+};
+
+export async function getCalendars(kind?: string) {
+  const qs = kind ? `?kind=${encodeURIComponent(kind)}` : '';
+  const r = await apiGet<ApiResponse<CalendarResponse[]>>(`/calendar/calendars${qs}`);
   return r.data;
+}
+
+export async function createCalendar(data: { name: string; color?: string; kind?: string }) {
+  const r = await apiPost<ApiResponse<CalendarResponse>>('/calendar/calendars', data);
+  return r.data;
+}
+
+export async function updateCalendar(id: string, data: { name?: string; color?: string }) {
+  const r = await apiPut<ApiResponse<CalendarResponse>>(`/calendar/calendars/${id}`, data);
+  return r.data;
+}
+
+export async function deleteCalendar(id: string) {
+  await apiDelete(`/calendar/calendars/${id}`);
 }
 
 export async function getEvents(start: string, end: string) {
@@ -27,6 +54,11 @@ export async function deleteEvent(id: string) {
   await apiDelete(`/calendar/events/${id}`);
 }
 
+export async function batchDeleteEvents(ids: string[]) {
+  const r = await apiPost<ApiResponse<{ deletedCount: number }>>('/calendar/events/batch-delete', { ids });
+  return r.data;
+}
+
 export async function getTasks(inboxOnly = false) {
   const r = await apiGet<ApiResponse<TaskResponse[]>>(
     `/calendar/tasks?inbox=${inboxOnly}`
@@ -34,14 +66,33 @@ export async function getTasks(inboxOnly = false) {
   return r.data;
 }
 
-export async function createTask(data: Partial<TaskResponse>) {
+export async function createTask(data: Partial<TaskMutationData>) {
   const r = await apiPost<ApiResponse<TaskResponse>>('/calendar/tasks', data);
   return r.data;
 }
 
-export async function updateTask(id: string, data: Partial<TaskResponse>) {
+export async function updateTask(id: string, data: TaskMutationData) {
   const r = await apiPut<ApiResponse<TaskResponse>>(`/calendar/tasks/${id}`, data);
   return r.data;
+}
+
+export async function moveTask(id: string, data: { scheduledStart?: string; duration?: string; newSortOrder?: number }) {
+  await apiPost<ApiResponse<string>>(`/calendar/tasks/${id}/move`, data);
+}
+
+export function taskToMutationData(task: TaskResponse, overrides: Partial<TaskMutationData> = {}): TaskMutationData {
+  return {
+    calendarId: task.calendarId,
+    title: task.title,
+    description: task.description,
+    priority: task.priority,
+    estimatedDuration: task.estimatedDuration,
+    minimumSegment: task.minimumSegment,
+    dtStart: task.dtStart,
+    due: task.due,
+    status: task.status,
+    ...overrides,
+  };
 }
 
 export async function deleteTask(id: string) {
@@ -92,9 +143,10 @@ export async function exportIcs(ids?: string[], start?: string, end?: string) {
   URL.revokeObjectURL(url);
 }
 
-export async function importIcs(file: File) {
+export async function importIcs(file: File, calendarId?: string) {
   const formData = new FormData();
   formData.append('file', file);
+  if (calendarId) formData.append('calendarId', calendarId);
 
   const resp = await fetch('/api/v1/calendar/import-ics', {
     method: 'POST',

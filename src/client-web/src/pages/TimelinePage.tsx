@@ -1,10 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { useQuery } from '@tanstack/react-query';
 import { getEvents, getTasks } from '../api/calendar';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
+import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import { format } from 'date-fns';
 import type { DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import type { EventResponse } from '../types';
@@ -29,23 +30,34 @@ export default function TimelinePage() {
   const [editEvent, setEditEvent] = useState<EventResponse | undefined>();
   const [selectStart, setSelectStart] = useState<string | undefined>();
   const [selectEnd, setSelectEnd] = useState<string | undefined>();
+  const calendarRef = useRef<FullCalendar>(null);
 
-  const fcEvents = buildFcEvents(events, tasks.filter(t =>
+  useEffect(() => {
+    const api = calendarRef.current?.getApi();
+    if (api) api.gotoDate(format(selectedDate, 'yyyy-MM-dd'));
+  }, [selectedDate]);
+
+  const { hiddenCalendarIds } = useCalendarVisibility();
+  const visibleEvents = hiddenCalendarIds.size > 0
+    ? events.filter(e => !hiddenCalendarIds.has(e.calendarId))
+    : events;
+
+  const fcEvents = buildFcEvents(visibleEvents, tasks.filter(t =>
     t.dtStart && t.dtStart.startsWith(startStr)
   ));
 
-  const handleDateSelect = useCallback((selectInfo: DateSelectArg) => {
+  function handleDateSelect(selectInfo: DateSelectArg) {
     setEditEvent(undefined);
     setSelectStart(selectInfo.startStr);
     setSelectEnd(selectInfo.endStr);
     setEditorOpen(true);
-  }, []);
+  }
 
-  const handleEventClick = useCallback((clickInfo: EventClickArg) => {
+  function handleEventClick(clickInfo: EventClickArg) {
     const raw = clickInfo.event.extendedProps as unknown as EventResponse;
     setEditEvent(raw);
     setEditorOpen(true);
-  }, []);
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -77,6 +89,7 @@ export default function TimelinePage() {
 
       <div className="flex-1">
         <FullCalendar
+          ref={calendarRef}
           plugins={[timeGridPlugin, interactionPlugin]}
           initialView="timeGridDay"
           initialDate={format(selectedDate, 'yyyy-MM-dd')}
@@ -104,16 +117,31 @@ export default function TimelinePage() {
   );
 }
 
-function buildFcEvents(events: Array<{ id: string; title: string; dtStart: string; dtEnd: string }>, tasks: Array<{ id: string; title: string; dtStart?: string; priority: number }>) {
-  const result: Array<{ id: string; title: string; start: string; end: string; backgroundColor: string; borderColor: string }> = [];
+function buildFcEvents(
+  events: EventResponse[],
+  tasks: Array<{ id: string; title: string; dtStart?: string; priority: number }>
+) {
+  const fcEvents: Array<{
+    id: string; title: string; start: string; end: string;
+    backgroundColor: string; borderColor: string;
+    extendedProps: Record<string, unknown>;
+  }> = [];
   for (const e of events) {
-    result.push({ id: e.id, title: e.title, start: e.dtStart, end: e.dtEnd, backgroundColor: '#1565c0', borderColor: '#1565c0' });
+    fcEvents.push({
+      id: e.id, title: e.title, start: e.dtStart, end: e.dtEnd,
+      backgroundColor: '#1565c0', borderColor: '#1565c0',
+      extendedProps: { type: 'event', ...e }
+    });
   }
   for (const t of tasks) {
     if (!t.dtStart) continue;
     const end = new Date(new Date(t.dtStart).getTime() + 3600000).toISOString();
     const color = t.priority === 1 ? '#E53935' : t.priority === 3 ? '#43A047' : '#FFA726';
-    result.push({ id: t.id, title: t.title, start: t.dtStart, end, backgroundColor: color, borderColor: color });
+    fcEvents.push({
+      id: t.id, title: t.title, start: t.dtStart, end,
+      backgroundColor: color, borderColor: color,
+      extendedProps: { type: 'task', ...t }
+    });
   }
-  return result;
+  return fcEvents;
 }

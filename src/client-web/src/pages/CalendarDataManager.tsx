@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { getCalendars, getEventsPaged, exportIcs, importIcs } from '../api/calendar';
+import { getCalendars, getEventsPaged, exportIcs, importIcs, batchDeleteEvents } from '../api/calendar';
 import type { EventResponse } from '../types';
 
 export default function CalendarDataManager() {
@@ -26,8 +26,8 @@ export default function CalendarDataManager() {
   const [importMsg, setImportMsg] = useState('');
 
   const { data: calendars } = useQuery({
-    queryKey: ['calendars'],
-    queryFn: getCalendars
+    queryKey: ['calendars', 'calendar'],
+    queryFn: () => getCalendars('calendar')
   });
 
   const dateParams = (() => {
@@ -53,8 +53,10 @@ export default function CalendarDataManager() {
     })
   });
 
+  const [importCalendarId, setImportCalendarId] = useState('');
+
   const importMut = useMutation({
-    mutationFn: importIcs,
+    mutationFn: (file: File) => importIcs(file, importCalendarId || undefined),
     onSuccess: (result) => {
       setImportMsg(`成功导入 ${result.imported} 条日程${result.skipped > 0 ? `，跳过 ${result.skipped} 条重复` : ''}`);
       queryClient.invalidateQueries({ queryKey: ['events-paged'] });
@@ -62,10 +64,36 @@ export default function CalendarDataManager() {
     onError: (err: Error) => setImportMsg(`导入失败: ${err.message}`)
   });
 
+  const deleteMut = useMutation({
+    mutationFn: batchDeleteEvents,
+    onSuccess: (result) => {
+      setImportMsg(`已删除 ${result.deletedCount} 条日程`);
+      setSelectedIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ['events-paged'] });
+    },
+    onError: (err: Error) => setImportMsg(`删除失败: ${err.message}`)
+  });
+
+  function handleBatchDelete() {
+    if (!data || selectedIds.size === 0) return;
+    if (!confirm(`确定要删除选中的 ${selectedIds.size} 条日程吗？此操作不可撤销。`)) return;
+    // Map selected occurrence IDs back to original event IDs
+    const ids = Array.from(selectedIds);
+    const originalIds = ids.map(id => {
+      const evt = data.items.find(e => e.id === id);
+      return evt?.originalEventId ?? id;
+    });
+    deleteMut.mutate(Array.from(new Set(originalIds)));
+  }
+
   function toggleSelect(id: string) {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }
@@ -77,7 +105,15 @@ export default function CalendarDataManager() {
   }
 
   function handleExportSelected() {
-    exportIcs(Array.from(selectedIds));
+    const ids = Array.from(selectedIds);
+    if (!data) return;
+    // Map selected occurrence IDs back to original event IDs for export
+    const originalIds = ids.map(id => {
+      const evt = data.items.find(e => e.id === id);
+      return evt?.originalEventId ?? id;
+    });
+    const uniqueIds = Array.from(new Set(originalIds));
+    exportIcs(uniqueIds);
   }
 
   function handleExportAll() {
@@ -111,7 +147,14 @@ export default function CalendarDataManager() {
           <button onClick={() => navigate('/settings')} className="text-gray-400 hover:text-gray-600">← 返回</button>
           <h2 className="text-xl font-bold">📅 管理日程数据</h2>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <select value={importCalendarId} onChange={e => setImportCalendarId(e.target.value)}
+            className="border rounded px-2 py-1.5 text-sm">
+            <option value="">导入到: 默认日历</option>
+            {calendars?.map(cal => (
+              <option key={cal.id} value={cal.id}>{cal.name}</option>
+            ))}
+          </select>
           <button onClick={handleImport} disabled={importMut.isPending}
             className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50">
             {importMut.isPending ? '导入中...' : '📥 导入 ICS'}
@@ -123,6 +166,10 @@ export default function CalendarDataManager() {
           <button onClick={handleExportAll}
             className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50">
             📤 导出全部
+          </button>
+          <button onClick={handleBatchDelete} disabled={selectedIds.size === 0 || deleteMut.isPending}
+            className="px-3 py-1.5 text-sm border border-red-200 rounded text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed">
+            {deleteMut.isPending ? '删除中...' : `🗑 删除选中(${selectedIds.size})`}
           </button>
         </div>
       </div>

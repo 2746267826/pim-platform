@@ -69,20 +69,42 @@ public sealed class KeyStatsCollectorService : IDisposable
             var stats = await _keyStats.GetFromJsonAsync<KeyStatsSnapshot>("/api/stats/", _cts.Token);
             if (stats is null) return;
 
-            var result = await _api.PostAsync<ApiResponse<string>>("/pc/keystats/upload", stats, _cts.Token);
-            if (result is not null)
+            var sample = new KeystatsSampleUploadPayload(
+                stats.DeviceId,
+                DateTimeOffset.UtcNow.ToString("O"),
+                stats.Date,
+                stats.KeyPresses,
+                stats.KeyPressCounts,
+                stats.LeftClicks,
+                stats.RightClicks,
+                stats.MiddleClicks,
+                stats.SideBackClicks,
+                stats.SideForwardClicks,
+                stats.MouseDistance,
+                stats.ScrollDistance,
+                stats.PeakKps,
+                stats.PeakCps,
+                stats.FormattedMouseDistance,
+                stats.FormattedScrollDistance,
+                stats.AppStats);
+
+            var sampleResult = await TryPostAsync("/pc/keystats/samples", sample);
+            var legacyResult = await TryPostAsync("/pc/keystats/upload", stats);
+            var healthMessage = BuildUploadHealthMessage(sampleResult is not null, legacyResult is not null);
+
+            if (sampleResult is not null || legacyResult is not null)
             {
                 lock (LockObj)
                 {
                     _lastUploadTime = DateTime.Now;
-                    _lastUploadError = null;
+                    _lastUploadError = healthMessage;
                 }
-                Log?.Invoke($"[KeyStatsCollector] Uploaded snapshot for {stats.Date}");
+                Log?.Invoke($"[KeyStatsCollector] Uploaded snapshot for {stats.Date} (sample: {FormatUploadResult(sampleResult)}, legacy: {FormatUploadResult(legacyResult)})");
             }
             else
             {
-                lock (LockObj) { _lastUploadError = "Authentication failed"; }
-                Log?.Invoke("[KeyStatsCollector] Upload returned null response");
+                lock (LockObj) { _lastUploadError = healthMessage; }
+                Log?.Invoke($"[KeyStatsCollector] {healthMessage}");
             }
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
@@ -95,6 +117,35 @@ public sealed class KeyStatsCollectorService : IDisposable
             lock (LockObj) { _lastUploadError = ex.Message; }
             Log?.Invoke($"[KeyStatsCollector] Error: {ex.Message}");
         }
+    }
+
+    private async Task<ApiResponse<string>?> TryPostAsync(string endpoint, object payload)
+    {
+        try
+        {
+            return await _api.PostAsync<ApiResponse<string>>(endpoint, payload, _cts.Token);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            Log?.Invoke($"[KeyStatsCollector] Upload to {endpoint} failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static string FormatUploadResult(ApiResponse<string>? result)
+    {
+        return result is null ? "failed" : "ok";
+    }
+
+    private static string? BuildUploadHealthMessage(bool sampleOk, bool legacyOk)
+    {
+        return (sampleOk, legacyOk) switch
+        {
+            (true, true) => null,
+            (true, false) => "Sample ok; legacy upload failed",
+            (false, true) => "Sample upload failed; legacy ok",
+            _ => "Both sample and legacy uploads returned null response"
+        };
     }
 
     public void Dispose()
@@ -138,6 +189,12 @@ public sealed class KeyStatsCollectorService : IDisposable
 
         [JsonPropertyName("scrollDistance")]
         public double ScrollDistance { get; set; }
+
+        [JsonPropertyName("formattedMouseDistance")]
+        public string? FormattedMouseDistance { get; set; }
+
+        [JsonPropertyName("formattedScrollDistance")]
+        public string? FormattedScrollDistance { get; set; }
 
         [JsonPropertyName("peakKPS")]
         public int PeakKps { get; set; }

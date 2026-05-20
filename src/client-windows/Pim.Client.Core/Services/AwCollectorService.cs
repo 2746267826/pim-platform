@@ -6,6 +6,8 @@ namespace Pim.Client.Core.Services;
 
 public class AwCollectorService : IDisposable
 {
+    private const int ActivityWatchUnboundedLimit = -1;
+    private const int CompleteAwUploadBatchSize = 500;
     private readonly HttpClient _aw;
     private readonly ApiClient _api;
     private readonly CancellationTokenSource _cts = new();
@@ -158,34 +160,48 @@ public class AwCollectorService : IDisposable
             return new AwBucketUploadOutcome(rawEvents.Count, 0);
         }
 
-        var events = rawEvents
-            .Select(e => new AwEventPayload(e.Id, e.Timestamp, e.Duration, e.Data))
-            .ToList();
-
-        var request = new CompleteAwUploadPayload(Environment.MachineName, _awInfo, bucket, events);
-
+        var uploaded = 0;
         try
         {
-            var result = await _api.PostAsync<ApiResponse<int>>("/pc/aw/upload-complete", request, _cts.Token);
-            if (result is not null)
+            foreach (var batch in ChunkCompleteAwUploadEvents(rawEvents))
             {
-                if (isAfk)
-                    _cursorState.RecordFetched(_cursorState.LastWindowId, pendingLastId);
-                else
-                    _cursorState.RecordFetched(pendingLastId, _cursorState.LastAfkId);
-
-                _cursorState.CommitFetched();
-
-                Log?.Invoke($"[AwCollector] Uploaded {events.Count} complete {(isAfk ? "afk" : "window")} events -> {result.Data} saved");
-                lock (_lock)
+                var events = batch
+                    .Select(e => new AwEventPayload(e.Id, e.Timestamp, e.Duration, e.Data))
+                    .ToList();
+                var request = new CompleteAwUploadPayload(Environment.MachineName, _awInfo, bucket, events);
+                var result = await _api.PostAsync<ApiResponse<int>>("/pc/aw/upload-complete", request, _cts.Token);
+                if (result is null)
                 {
-                    _queueCount = 0;
+                    const string message = "Authentication failed";
+                    Log?.Invoke("[AwCollector] Complete upload returned null response (check auth)");
+                    lock (_lock) { _lastUploadError = message; }
+                    return new AwBucketUploadOutcome(rawEvents.Count, uploaded, message);
                 }
-                return new AwBucketUploadOutcome(rawEvents.Count, events.Count);
+
+                if (!IsSuccessResponse(result))
+                {
+                    var message = $"Complete upload rejected for {bucketId}: code {result.Code}, message {result.Message}";
+                    Log?.Invoke($"[AwCollector] {message}");
+                    lock (_lock) { _lastUploadError = message; }
+                    return new AwBucketUploadOutcome(rawEvents.Count, uploaded, message);
+                }
+
+                uploaded += events.Count;
+                Log?.Invoke($"[AwCollector] Uploaded {events.Count} complete {(isAfk ? "afk" : "window")} events -> {result.Data} saved");
             }
 
-            Log?.Invoke("[AwCollector] Complete upload returned null response (check auth)");
-            lock (_lock) { _lastUploadError = "Authentication failed"; }
+            if (isAfk)
+                _cursorState.RecordFetched(_cursorState.LastWindowId, pendingLastId);
+            else
+                _cursorState.RecordFetched(pendingLastId, _cursorState.LastAfkId);
+
+            _cursorState.CommitFetched();
+
+            lock (_lock)
+            {
+                _queueCount = 0;
+            }
+            return new AwBucketUploadOutcome(rawEvents.Count, uploaded);
         }
         catch (HttpRequestException ex)
         {
@@ -320,7 +336,7 @@ public class AwCollectorService : IDisposable
         pendingLastId = lastId;
         try
         {
-            var url = $"/api/0/buckets/{bucketId}/events?limit=100";
+            var url = BuildEventsUrl(bucketId);
             var response = _aw.GetAsync(url, _cts.Token).GetAwaiter().GetResult();
             if (!response.IsSuccessStatusCode) return new();
 
@@ -328,13 +344,22 @@ public class AwCollectorService : IDisposable
                 .GetAwaiter().GetResult() ?? new();
 
             var currentLast = lastId;
-            var unprocessed = all.Where(e => e.Id > currentLast).ToList();
+            var unprocessed = all
+                .Where(e => e.Id > currentLast)
+                .OrderBy(e => e.Id)
+                .ToList();
             if (unprocessed.Count > 0)
                 pendingLastId = unprocessed.Max(e => e.Id);
             return unprocessed;
         }
         catch { return new(); }
     }
+
+    private static string BuildEventsUrl(string bucketId) =>
+        $"/api/0/buckets/{Uri.EscapeDataString(bucketId)}/events?limit={ActivityWatchUnboundedLimit}";
+
+    private static IEnumerable<IReadOnlyList<T>> ChunkCompleteAwUploadEvents<T>(IEnumerable<T> events) =>
+        events.Chunk(CompleteAwUploadBatchSize).Select(batch => (IReadOnlyList<T>)batch);
 
     private static string? BuildUploadHealthMessage(int windowFetched, int windowUploaded, int afkFetched, int afkUploaded)
     {

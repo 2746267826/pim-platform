@@ -9,6 +9,7 @@ public class AwCollectorService : IDisposable
     private readonly HttpClient _aw;
     private readonly ApiClient _api;
     private readonly CancellationTokenSource _cts = new();
+    private readonly SemaphoreSlim _collectionGate = new(1, 1);
     private readonly AwCollectorCursorState _cursorState = new();
     private int _queueCount;
     private DateTime? _lastUploadTime;
@@ -43,6 +44,50 @@ public class AwCollectorService : IDisposable
         }
     }
 
+    public async Task BackfillAsync(DateTimeOffset startUtc, DateTimeOffset endUtc)
+    {
+        await _collectionGate.WaitAsync(_cts.Token);
+        try
+        {
+            if (endUtc <= startUtc)
+            {
+                const string message = "ActivityWatch backfill skipped: end must be after start";
+                Log?.Invoke($"[AwCollector] {message}");
+                lock (_lock) { _lastUploadError = message; }
+                return;
+            }
+
+            _awInfo ??= await FetchAwInfoAsync();
+
+            Log?.Invoke($"[AwCollector] Backfill started: {startUtc:O} - {endUtc:O}");
+            var windowOutcome = await BackfillBucketAsync(BucketId, startUtc, endUtc);
+            var afkOutcome = await BackfillBucketAsync(AfkBucketId, startUtc, endUtc);
+            var error = BuildUploadHealthMessage(
+                windowOutcome.Fetched,
+                windowOutcome.Uploaded,
+                afkOutcome.Fetched,
+                afkOutcome.Uploaded);
+            var errorDetails = new[] { error, windowOutcome.Error, afkOutcome.Error }
+                .Where(e => !string.IsNullOrWhiteSpace(e));
+            var backfillError = string.Join("; ", errorDetails);
+
+            if (windowOutcome.Uploaded + afkOutcome.Uploaded > 0)
+            {
+                lock (_lock)
+                {
+                    _lastUploadTime = DateTime.Now;
+                    _lastUploadError = string.IsNullOrWhiteSpace(backfillError) ? null : backfillError;
+                }
+            }
+
+            Log?.Invoke($"[AwCollector] Backfill finished: window {windowOutcome.Uploaded}/{windowOutcome.Fetched}, afk {afkOutcome.Uploaded}/{afkOutcome.Fetched}");
+        }
+        finally
+        {
+            _collectionGate.Release();
+        }
+    }
+
     public void Start()
     {
         Task.Run(async () =>
@@ -65,27 +110,35 @@ public class AwCollectorService : IDisposable
 
     private async Task CollectAndUploadAsync()
     {
-        _awInfo ??= await FetchAwInfoAsync();
-
-        var windowOutcome = await CollectBucketAndUploadAsync(BucketId, isAfk: false);
-        var afkOutcome = await CollectBucketAndUploadAsync(AfkBucketId, isAfk: true);
-        var pending = Math.Max(0, windowOutcome.Fetched - windowOutcome.Uploaded)
-            + Math.Max(0, afkOutcome.Fetched - afkOutcome.Uploaded);
-        var healthMessage = BuildUploadHealthMessage(
-            windowOutcome.Fetched,
-            windowOutcome.Uploaded,
-            afkOutcome.Fetched,
-            afkOutcome.Uploaded);
-
-        lock (_lock) { _queueCount = pending; }
-
-        if (windowOutcome.Uploaded + afkOutcome.Uploaded > 0)
+        await _collectionGate.WaitAsync(_cts.Token);
+        try
         {
-            lock (_lock)
+            _awInfo ??= await FetchAwInfoAsync();
+
+            var windowOutcome = await CollectBucketAndUploadAsync(BucketId, isAfk: false);
+            var afkOutcome = await CollectBucketAndUploadAsync(AfkBucketId, isAfk: true);
+            var pending = Math.Max(0, windowOutcome.Fetched - windowOutcome.Uploaded)
+                + Math.Max(0, afkOutcome.Fetched - afkOutcome.Uploaded);
+            var healthMessage = BuildUploadHealthMessage(
+                windowOutcome.Fetched,
+                windowOutcome.Uploaded,
+                afkOutcome.Fetched,
+                afkOutcome.Uploaded);
+
+            lock (_lock) { _queueCount = pending; }
+
+            if (windowOutcome.Uploaded + afkOutcome.Uploaded > 0)
             {
-                _lastUploadTime = DateTime.Now;
-                _lastUploadError = healthMessage;
+                lock (_lock)
+                {
+                    _lastUploadTime = DateTime.Now;
+                    _lastUploadError = healthMessage;
+                }
             }
+        }
+        finally
+        {
+            _collectionGate.Release();
         }
     }
 
@@ -146,6 +199,89 @@ public class AwCollectorService : IDisposable
 
         return new AwBucketUploadOutcome(rawEvents.Count, 0);
     }
+
+    private async Task<AwBucketUploadOutcome> BackfillBucketAsync(string bucketId, DateTimeOffset startUtc, DateTimeOffset endUtc)
+    {
+        var bucket = await FetchBucketAsync(bucketId);
+        if (bucket is null)
+        {
+            var message = $"ActivityWatch bucket metadata unavailable for backfill {bucketId}";
+            Log?.Invoke($"[AwCollector] {message}");
+            lock (_lock) { _lastUploadError = message; }
+            return new AwBucketUploadOutcome(0, 0, message);
+        }
+
+        List<RawAwEvent> rawEvents;
+        try
+        {
+            var start = Uri.EscapeDataString(startUtc.ToString("O"));
+            var end = Uri.EscapeDataString(endUtc.ToString("O"));
+            var url = $"/api/0/buckets/{Uri.EscapeDataString(bucketId)}/events?start={start}&end={end}";
+            rawEvents = await _aw.GetFromJsonAsync<List<RawAwEvent>>(url, _cts.Token) ?? new();
+        }
+        catch (Exception ex)
+        {
+            var message = $"ActivityWatch backfill fetch failed for {bucketId}: {ex.Message}";
+            Log?.Invoke($"[AwCollector] {message}");
+            lock (_lock) { _lastUploadError = message; }
+            return new AwBucketUploadOutcome(0, 0, message);
+        }
+
+        if (rawEvents.Count == 0)
+        {
+            Log?.Invoke($"[AwCollector] Backfill found no events for {bucketId}");
+            return new AwBucketUploadOutcome(0, 0);
+        }
+
+        var uploaded = 0;
+        var errors = new List<string>();
+        foreach (var batch in rawEvents.Chunk(200))
+        {
+            var events = batch
+                .Select(e => new AwEventPayload(e.Id, e.Timestamp, e.Duration, e.Data))
+                .ToList();
+            var request = new CompleteAwUploadPayload(Environment.MachineName, _awInfo, bucket, events);
+
+            try
+            {
+                var result = await _api.PostAsync<ApiResponse<int>>("/pc/aw/upload-complete", request, _cts.Token);
+                if (result is null)
+                {
+                    var message = $"Backfill upload returned null response for {bucketId}";
+                    errors.Add(message);
+                    Log?.Invoke($"[AwCollector] {message}");
+                    continue;
+                }
+
+                if (!IsSuccessResponse(result))
+                {
+                    var message = $"Backfill upload rejected for {bucketId}: code {result.Code}, message {result.Message}";
+                    errors.Add(message);
+                    Log?.Invoke($"[AwCollector] {message}");
+                    continue;
+                }
+
+                uploaded += events.Count;
+                Log?.Invoke($"[AwCollector] Backfill accepted {events.Count} {bucketId} events -> {result.Data} saved/upserted");
+            }
+            catch (Exception ex)
+            {
+                var message = $"Backfill upload failed for {bucketId}: {ex.Message}";
+                errors.Add(message);
+                Log?.Invoke($"[AwCollector] {message}");
+            }
+        }
+
+        lock (_lock)
+        {
+            _lastUploadError = errors.Count == 0 ? null : string.Join("; ", errors);
+        }
+
+        return new AwBucketUploadOutcome(rawEvents.Count, uploaded, errors.Count == 0 ? null : string.Join("; ", errors));
+    }
+
+    private static bool IsSuccessResponse<T>(ApiResponse<T> result) =>
+        result.Code is 0 or 200;
 
     private async Task<AwInfoPayload?> FetchAwInfoAsync()
     {
@@ -214,6 +350,7 @@ public class AwCollectorService : IDisposable
     {
         _cts.Cancel();
         _cts.Dispose();
+        _collectionGate.Dispose();
         _aw.Dispose();
     }
 
@@ -256,7 +393,7 @@ public class AwCollectorService : IDisposable
         List<AwEventPayload> Events
     );
 
-    private readonly record struct AwBucketUploadOutcome(int Fetched, int Uploaded);
+    private readonly record struct AwBucketUploadOutcome(int Fetched, int Uploaded, string? Error = null);
 }
 
 public sealed class AwCollectorCursorState

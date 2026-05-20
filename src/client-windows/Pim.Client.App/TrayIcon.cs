@@ -28,6 +28,7 @@ public class TrayIcon : IDisposable
         _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         _notifyIcon.ContextMenuStrip.Items.Add("登录...", null, (_, _) => ShowLogin());
         _notifyIcon.ContextMenuStrip.Items.Add("立即同步", null, async (_, _) => await TriggerSyncAsync());
+        _notifyIcon.ContextMenuStrip.Items.Add("回填最近 14 天 ActivityWatch", null, async (_, _) => await TriggerAwBackfillAsync());
         _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         _notifyIcon.ContextMenuStrip.Items.Add("退出", null, (_, _) => ConfirmAndExit());
 
@@ -92,6 +93,32 @@ public class TrayIcon : IDisposable
         catch (Exception ex)
         {
             System.Windows.Forms.MessageBox.Show($"同步失败：{ex.Message}", "PIM",
+                System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+        }
+    }
+
+    private static async Task TriggerAwBackfillAsync()
+    {
+        try
+        {
+            var awCollector = App.Services.GetRequiredService<Pim.Client.Core.Services.AwCollectorService>();
+            var endUtc = DateTimeOffset.UtcNow;
+            await awCollector.BackfillAsync(endUtc.AddDays(-14), endUtc);
+
+            if (!string.IsNullOrWhiteSpace(awCollector.LastUploadError))
+            {
+                System.Windows.Forms.MessageBox.Show($"ActivityWatch 回填已执行，但仍有上传错误：\n{awCollector.LastUploadError}", "PIM",
+                    System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
+            }
+            else
+            {
+                System.Windows.Forms.MessageBox.Show("ActivityWatch 最近 14 天回填完成", "PIM",
+                    System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Forms.MessageBox.Show($"ActivityWatch 回填失败：{ex.Message}", "PIM",
                 System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
         }
     }

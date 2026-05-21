@@ -4,32 +4,46 @@ import { queryPcDetail } from '../../api/pcTracker';
 import type { DetailQueryParams, PcDetailRecord } from '../../types';
 
 const detailCsvColumns: { key: keyof PcDetailRecord; label: string }[] = [
-  { key: 'recordType', label: 'recordType' },
-  { key: 'start', label: 'start' },
-  { key: 'end', label: 'end' },
-  { key: 'durationSeconds', label: 'durationSeconds' },
-  { key: 'deviceId', label: 'deviceId' },
-  { key: 'appName', label: 'appName' },
-  { key: 'displayName', label: 'displayName' },
-  { key: 'categoryName', label: 'categoryName' },
-  { key: 'title', label: 'title' },
-  { key: 'keyPresses', label: 'keyPresses' },
-  { key: 'totalClicks', label: 'totalClicks' },
-  { key: 'mouseDistance', label: 'mouseDistance' },
-  { key: 'scrollDistance', label: 'scrollDistance' },
-  { key: 'keyCounts', label: 'keyCounts' },
-  { key: 'raw', label: 'raw' },
+  { key: 'recordType', label: '记录类型' },
+  { key: 'start', label: '开始时间' },
+  { key: 'end', label: '结束时间' },
+  { key: 'durationSeconds', label: '持续秒数' },
+  { key: 'deviceId', label: '设备' },
+  { key: 'appName', label: '应用进程' },
+  { key: 'displayName', label: '应用名称' },
+  { key: 'categoryName', label: '分类' },
+  { key: 'title', label: '标题' },
+  { key: 'url', label: '网页地址' },
+  { key: 'domain', label: '域名' },
+  { key: 'path', label: '路径' },
+  { key: 'isLocalFile', label: '本地文件' },
+  { key: 'browserAppName', label: '浏览器应用' },
+  { key: 'browserWindowTitle', label: '浏览器窗口标题' },
+  { key: 'audible', label: '有声音' },
+  { key: 'incognito', label: '隐身模式' },
+  { key: 'tabCount', label: '标签页数量' },
+  { key: 'absorbedShortEventsCount', label: '吸收短页面数' },
+  { key: 'absorbedDurationSeconds', label: '吸收时长秒数' },
+  { key: 'sourceWebEventIds', label: '来源页面事件' },
+  { key: 'sourceWindowEventIds', label: '来源窗口事件' },
+  { key: 'keyPresses', label: '按键数' },
+  { key: 'totalClicks', label: '点击数' },
+  { key: 'mouseDistance', label: '鼠标距离' },
+  { key: 'scrollDistance', label: '滚动距离' },
+  { key: 'keyCounts', label: '按键明细' },
+  { key: 'raw', label: '原始数据' },
 ];
 
 function formatCsvValue(row: PcDetailRecord, key: keyof PcDetailRecord) {
-  if (key === 'raw') return row.raw == null ? '' : JSON.stringify(row.raw);
-  if (key === 'keyCounts') return row.keyCounts == null ? '' : JSON.stringify(row.keyCounts);
-  return row[key] ?? '';
+  const value = row[key];
+  if (value == null) return '';
+  const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
+  return /^[=+\-@\t\r\n]/.test(text) ? `'${text}` : text;
 }
 
 function downloadCSV(items: PcDetailRecord[], filename: string) {
   if (!items.length) return;
-  const header = detailCsvColumns.map(c => c.label).join(',');
+  const header = detailCsvColumns.map(c => JSON.stringify(c.label)).join(',');
   const rows = items.map(row =>
     detailCsvColumns.map(c => JSON.stringify(formatCsvValue(row, c.key))).join(',')
   );
@@ -49,12 +63,130 @@ function formatDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-CN');
 }
 
-function formatNumber(value: number | null) {
+function formatNumber(value: number | null | undefined) {
   return value ?? '-';
 }
 
 function formatDurationSeconds(value: number | null | undefined) {
-  return value == null ? '-' : `${Math.round(value)}s`;
+  return value == null ? '-' : `${Math.round(value)} 秒`;
+}
+
+function formatBoolean(value: boolean | null | undefined) {
+  if (value == null) return '-';
+  return value ? '是' : '否';
+}
+
+function formatRecordType(value: string) {
+  const labels: Record<string, string> = {
+    window: '窗口',
+    afk: '离开',
+    'input-minute': '输入分钟',
+    'app-input': '应用输入',
+    'key-input': '按键输入',
+    'web-page': '页面',
+    web: '原始页面',
+  };
+  return labels[value] ?? value;
+}
+
+function renderMainDetail(row: PcDetailRecord) {
+  if (row.recordType === 'web-page') {
+    return (
+      <div className="min-w-[280px] max-w-[420px] space-y-1">
+        <div className="font-medium text-gray-800 truncate" title={row.title ?? undefined}>
+          {row.title || '-'}
+        </div>
+        <div className="text-gray-600 truncate" title={row.domain ?? undefined}>
+          {row.domain || '-'}
+        </div>
+        <div className="text-gray-500 truncate" title={row.url ?? undefined}>
+          {row.url || '-'}
+        </div>
+        {row.raw != null && (
+          <div className="text-gray-400 truncate" title={JSON.stringify(row.raw)}>
+            原始数据：{JSON.stringify(row.raw)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (row.recordType === 'web') {
+    return (
+      <div className="min-w-[280px] max-w-[420px] space-y-1">
+        <div className="font-medium text-gray-800 truncate" title={row.title ?? undefined}>
+          {row.title || '-'}
+        </div>
+        <div className="text-gray-600 truncate" title={row.domain ?? undefined}>
+          {row.domain || '-'}
+        </div>
+        <div className="text-gray-500 truncate" title={row.url ?? undefined}>
+          {row.url || '-'}
+        </div>
+        {row.raw != null && (
+          <div className="text-gray-400 truncate" title={JSON.stringify(row.raw)}>
+            原始数据：{JSON.stringify(row.raw)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-[220px] max-w-[320px] truncate" title={row.title ?? undefined}>
+      {row.title || '-'}
+    </div>
+  );
+}
+
+function renderBrowserSource(row: PcDetailRecord) {
+  if (row.recordType !== 'web-page' && row.recordType !== 'web') {
+    return row.displayName || row.appName || '-';
+  }
+
+  return (
+    <div className="min-w-[180px] max-w-[260px] space-y-1">
+      <div className="truncate" title={row.browserAppName ?? row.displayName ?? row.appName ?? undefined}>
+        {row.browserAppName || row.displayName || row.appName || '-'}
+      </div>
+      <div className="text-gray-500 truncate" title={row.browserWindowTitle ?? undefined}>
+        {row.browserWindowTitle || '-'}
+      </div>
+    </div>
+  );
+}
+
+function renderExtraInfo(row: PcDetailRecord) {
+  if (row.recordType === 'web-page') {
+    const absorbedCount = row.absorbedShortEventsCount ?? 0;
+    const absorbedDuration = row.absorbedDurationSeconds ?? 0;
+    return (
+      <div className="min-w-[150px] space-y-1 text-gray-700">
+        <div>吸收短页面：{absorbedCount} 条</div>
+        <div>吸收时长：{formatDurationSeconds(absorbedDuration)}</div>
+        <div>标签页：{formatNumber(row.tabCount)}</div>
+        <div>本地文件：{formatBoolean(row.isLocalFile)}</div>
+      </div>
+    );
+  }
+
+  if (row.recordType === 'web') {
+    return (
+      <div className="min-w-[140px] space-y-1 text-gray-700">
+        <div>有声音：{formatBoolean(row.audible)}</div>
+        <div>隐身：{formatBoolean(row.incognito)}</div>
+        <div>标签页：{formatNumber(row.tabCount)}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-w-[120px] space-y-1 text-gray-700">
+      <div>按键：{formatNumber(row.keyPresses)}</div>
+      <div>点击：{formatNumber(row.totalClicks)}</div>
+      <div>滚动：{formatNumber(row.scrollDistance)}</div>
+    </div>
+  );
 }
 
 export default function PcDetailQueryPanel() {
@@ -66,19 +198,18 @@ export default function PcDetailQueryPanel() {
   });
 
   const update = (key: keyof DetailQueryParams, value: unknown) =>
-    setParams(p => ({ ...p, [key]: value, page: key === 'page' ? Number(value) : 1 }));
+    setParams(p => ({ ...p, [key]: value || undefined, page: key === 'page' ? Number(value) : 1 }));
 
   return (
     <div className="space-y-4">
-      {/* Filter bar */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-4">
         <div>
-          <label className="text-xs text-gray-500">日期起</label>
+          <label className="text-xs text-gray-500">开始日期</label>
           <input type="date" className="w-full border rounded-lg px-3 py-2 text-sm"
             onChange={e => update('dateFrom', e.target.value)} />
         </div>
         <div>
-          <label className="text-xs text-gray-500">日期止</label>
+          <label className="text-xs text-gray-500">结束日期</label>
           <input type="date" className="w-full border rounded-lg px-3 py-2 text-sm"
             onChange={e => update('dateTo', e.target.value)} />
         </div>
@@ -94,20 +225,31 @@ export default function PcDetailQueryPanel() {
           </select>
         </div>
         <div>
+          <label className="text-xs text-gray-500">视图</label>
+          <select className="w-full border rounded-lg px-3 py-2 text-sm"
+            defaultValue="interpreted"
+            onChange={e => update('view', e.target.value || undefined)}>
+            <option value="interpreted">解释视图</option>
+            <option value="raw">原始视图</option>
+          </select>
+        </div>
+        <div>
           <label className="text-xs text-gray-500">事件类型</label>
           <select className="w-full border rounded-lg px-3 py-2 text-sm"
             onChange={e => update('eventType', e.target.value || undefined)}>
             <option value="">全部</option>
-            <option value="window">window</option>
-            <option value="afk">afk</option>
-            <option value="input-minute">input-minute</option>
-            <option value="app-input">app-input</option>
-            <option value="key-input">key-input</option>
+            <option value="web-page">页面</option>
+            <option value="web">原始页面</option>
+            <option value="window">窗口</option>
+            <option value="afk">离开</option>
+            <option value="input-minute">输入分钟</option>
+            <option value="app-input">应用输入</option>
+            <option value="key-input">按键输入</option>
           </select>
         </div>
         <div>
           <label className="text-xs text-gray-500">设备</label>
-          <input type="text" className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="输入 device_id"
+          <input type="text" className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="输入设备 ID"
             onChange={e => update('deviceId', e.target.value)} />
         </div>
         <div>
@@ -122,8 +264,23 @@ export default function PcDetailQueryPanel() {
         </div>
         <div>
           <label className="text-xs text-gray-500">按键名</label>
-          <input type="text" className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="如 Space"
+          <input type="text" className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="例如空格键"
             onChange={e => update('keyName', e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500">域名</label>
+          <input type="text" className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="例如 example.com"
+            onChange={e => update('domain', e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500">标题</label>
+          <input type="text" className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="页面标题关键词"
+            onChange={e => update('title', e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500">网页地址</label>
+          <input type="text" className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="网页地址关键词"
+            onChange={e => update('url', e.target.value)} />
         </div>
         <div>
           <label className="text-xs text-gray-500">排序</label>
@@ -137,12 +294,11 @@ export default function PcDetailQueryPanel() {
         </div>
       </div>
 
-      {/* Export buttons */}
       {data && data.items.length > 0 && (
         <div className="flex gap-2">
           <button className="px-3 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100"
             onClick={() => downloadCSV(data.items, `pc-detail-${new Date().toISOString().slice(0, 10)}.csv`)}>
-            导出 CSV
+            导出表格
           </button>
           <button className="px-3 py-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100"
             onClick={() => {
@@ -155,12 +311,11 @@ export default function PcDetailQueryPanel() {
               a.click();
               URL.revokeObjectURL(url);
             }}>
-            导出 JSON
+            导出原始数据
           </button>
         </div>
       )}
 
-      {/* Table */}
       <div className="overflow-x-auto">
         {isLoading ? (
           <div className="py-8 text-center text-gray-400">查询中...</div>
@@ -170,35 +325,29 @@ export default function PcDetailQueryPanel() {
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="border-b bg-gray-50">
-                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">Type</th>
-                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">Start</th>
-                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">End</th>
-                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">Device</th>
-                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">App</th>
-                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">Title</th>
-                <th className="text-right px-3 py-2 text-xs text-gray-500 font-medium">Keys</th>
-                <th className="text-right px-3 py-2 text-xs text-gray-500 font-medium">Clicks</th>
-                <th className="text-right px-3 py-2 text-xs text-gray-500 font-medium">Scroll</th>
-                <th className="text-right px-3 py-2 text-xs text-gray-500 font-medium">Duration</th>
+                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">类型</th>
+                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">开始</th>
+                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">结束</th>
+                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">设备</th>
+                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">来源</th>
+                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">详情</th>
+                <th className="text-left px-3 py-2 text-xs text-gray-500 font-medium">补充信息</th>
+                <th className="text-right px-3 py-2 text-xs text-gray-500 font-medium">持续时间</th>
               </tr>
             </thead>
             <tbody>
               {data.items.map((row, i) => (
                 <tr key={`${row.recordType}-${row.start}-${i}`} className="border-b hover:bg-gray-50">
-                  <td className="px-3 py-2 text-xs text-gray-700">{row.recordType}</td>
+                  <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{formatRecordType(row.recordType)}</td>
                   <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{formatDate(row.start)}</td>
                   <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{formatDate(row.end)}</td>
                   <td className="px-3 py-2 text-xs text-gray-700">{row.deviceId || '-'}</td>
-                  <td className="px-3 py-2 text-xs text-gray-700 max-w-[160px] truncate">
-                    {row.displayName || row.appName || '-'}
+                  <td className="px-3 py-2 text-xs text-gray-700">{renderBrowserSource(row)}</td>
+                  <td className="px-3 py-2 text-xs text-gray-700">{renderMainDetail(row)}</td>
+                  <td className="px-3 py-2 text-xs text-gray-700">{renderExtraInfo(row)}</td>
+                  <td className="px-3 py-2 text-xs text-gray-700 text-right whitespace-nowrap">
+                    {formatDurationSeconds(row.durationSeconds)}
                   </td>
-                  <td className="px-3 py-2 text-xs text-gray-700 max-w-[260px] truncate" title={row.title ?? undefined}>
-                    {row.title || '-'}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-700 text-right">{formatNumber(row.keyPresses)}</td>
-                  <td className="px-3 py-2 text-xs text-gray-700 text-right">{formatNumber(row.totalClicks)}</td>
-                  <td className="px-3 py-2 text-xs text-gray-700 text-right">{formatNumber(row.scrollDistance)}</td>
-                  <td className="px-3 py-2 text-xs text-gray-700 text-right">{formatDurationSeconds(row.durationSeconds)}</td>
                 </tr>
               ))}
             </tbody>
@@ -206,13 +355,12 @@ export default function PcDetailQueryPanel() {
         )}
       </div>
 
-      {/* Pagination */}
       {data && data.totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <button className="px-2 py-1 text-xs border rounded disabled:opacity-30"
             disabled={(params.page || 1) <= 1}
             onClick={() => update('page', Math.max(1, (params.page || 1) - 1))}>上一页</button>
-          <span className="text-xs text-gray-500">第 {data.page} / {data.totalPages} 页（共 {data.totalCount} 条）</span>
+          <span className="text-xs text-gray-500">第 {data.page} / {data.totalPages} 页，共 {data.totalCount} 条</span>
           <button className="px-2 py-1 text-xs border rounded disabled:opacity-30"
             disabled={(params.page || 1) >= data.totalPages}
             onClick={() => update('page', (params.page || 1) + 1)}>下一页</button>

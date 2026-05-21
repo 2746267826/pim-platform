@@ -168,6 +168,10 @@ export interface DetailQueryParams {
   appName?: string;
   categoryName?: string;
   keyName?: string;
+  domain?: string;
+  title?: string;
+  url?: string;
+  view?: 'raw' | 'interpreted' | string;
   eventType?: string;
   sortBy?: string;
   sortDir?: 'asc' | 'desc';
@@ -175,7 +179,7 @@ export interface DetailQueryParams {
   pageSize?: number;
 }
 
-export type PcDetailRecordType = 'window' | 'afk' | 'input-minute' | 'app-input' | 'key-input';
+export type PcDetailRecordType = 'window' | 'afk' | 'input-minute' | 'app-input' | 'key-input' | 'web' | 'web-page';
 
 export interface PcDetailRecord {
   recordType: PcDetailRecordType | string;
@@ -187,6 +191,19 @@ export interface PcDetailRecord {
   displayName: string | null;
   categoryName: string | null;
   title: string | null;
+  url?: string | null;
+  domain?: string | null;
+  path?: string | null;
+  isLocalFile?: boolean | null;
+  browserAppName?: string | null;
+  browserWindowTitle?: string | null;
+  audible?: boolean | null;
+  incognito?: boolean | null;
+  tabCount?: number | null;
+  absorbedShortEventsCount?: number | null;
+  absorbedDurationSeconds?: number | null;
+  sourceWebEventIds?: number[] | null;
+  sourceWindowEventIds?: number[] | null;
   keyPresses: number | null;
   totalClicks: number | null;
   mouseDistance: number | null;

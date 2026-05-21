@@ -60,6 +60,9 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['tasks'] }); onClose(); }
   });
 
+  const mutationError = createMut.error || updateMut.error || deleteMut.error;
+  const mutationErrorMessage = mutationError instanceof Error ? mutationError.message : null;
+
   function handleDelete() {
     if (confirm(`确定删除任务 "${task?.title}"？`)) {
       deleteMut.mutate();
@@ -133,6 +136,11 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   return (
     <EditorDrawer open={open} onClose={onClose} title={task ? '编辑任务' : '新建任务'} footer={footer}>
       <form id="task-editor-form" onSubmit={handleSubmit} className="space-y-4">
+        {mutationErrorMessage && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {mutationErrorMessage}
+          </div>
+        )}
         <Field label="任务本">
           <select value={calendarId} onChange={e => setCalendarId(e.target.value)}
             className="w-full border rounded px-3 py-2 text-sm">

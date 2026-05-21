@@ -41,6 +41,17 @@ function normalizeKey(item: unknown): SafeKeyCount | null {
   };
 }
 
+function normalizeKeyCountEntries(value: unknown): SafeKeyCount[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+
+  return Object.entries(value as Record<string, unknown>)
+    .map(([keyName, count]) => ({
+      keyName,
+      count: typeof count === 'number' && Number.isFinite(count) ? count : 0,
+    }))
+    .filter(key => key.keyName.length > 0);
+}
+
 function key(code: string, label = code, units = 1): KeySpec {
   return { code, label, units };
 }
@@ -99,18 +110,18 @@ function aliasesFor(code: string) {
     PageUp: ['PageUp', 'PgUp'],
     PageDown: ['PageDown', 'PgDn'],
     PrintScreen: ['PrintScreen', 'PrtSc'],
-    NumpadDivide: ['NumpadDivide', 'Num /'],
-    NumpadMultiply: ['NumpadMultiply', 'Num *'],
-    NumpadSubtract: ['NumpadSubtract', 'Num -'],
-    NumpadAdd: ['NumpadAdd', 'Num +'],
-    NumpadAdd2: ['NumpadAdd', 'Num +'],
-    NumpadEnter: ['NumpadEnter', 'Num Enter'],
-    NumpadEnter2: ['NumpadEnter', 'Num Enter'],
-    NumpadDecimal: ['NumpadDecimal', 'Num .'],
+    NumpadDivide: ['NumpadDivide', 'Num/', 'Num /'],
+    NumpadMultiply: ['NumpadMultiply', 'Num*', 'Num *'],
+    NumpadSubtract: ['NumpadSubtract', 'Num-', 'Num -'],
+    NumpadAdd: ['NumpadAdd', 'Num+', 'Num +'],
+    NumpadAdd2: ['NumpadAdd', 'Num+', 'Num +'],
+    NumpadEnter: ['NumpadEnter', 'NumEnter', 'Num Enter'],
+    NumpadEnter2: ['NumpadEnter', 'NumEnter', 'Num Enter'],
+    NumpadDecimal: ['NumpadDecimal', 'Num.', 'Num .'],
   };
 
   if (code.startsWith('Numpad') && /^Numpad\d$/.test(code)) {
-    return [code, `Num ${code.slice(-1)}`, code.slice(-1)];
+    return [code, `Num${code.slice(-1)}`, `Num ${code.slice(-1)}`];
   }
 
   if (code.startsWith('ArrowBlank')) return [];
@@ -316,17 +327,20 @@ export default function KeyboardHeatmap({ keystats }: Props) {
     scrollDistance: 0,
     peakKps: 0,
     peakCps: 0,
+    keyPressCounts: {},
     topKeys: [],
   };
 
+  const completeKeyCounts = normalizeKeyCountEntries(safeKeystats.keyPressCounts);
   const topKeys = Array.isArray(safeKeystats.topKeys)
     ? safeKeystats.topKeys.map(normalizeKey).filter(key => key !== null)
     : [];
-  const keyCounts = new Map(topKeys.map(key => [key.keyName, key.count]));
-  const allCounts = topKeys.map(key => key.count);
+  const heatmapKeys = completeKeyCounts.length > 0 ? completeKeyCounts : topKeys;
+  const keyCounts = new Map(heatmapKeys.map(key => [key.keyName, key.count]));
+  const allCounts = heatmapKeys.map(key => key.count);
   const maxKey = Math.max(...allCounts, 1);
 
-  const shortcuts = topKeys
+  const shortcuts = heatmapKeys
     .filter(keyItem => keyItem.keyName.includes('+'))
     .sort((a, b) => b.count - a.count);
 

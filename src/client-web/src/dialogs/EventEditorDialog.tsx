@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { createEvent, updateEvent, deleteEvent, getCalendars } from '../api/calendar';
 import EditorDrawer from '../ui/EditorDrawer';
@@ -41,18 +41,41 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
 
   const createMut = useMutation({
     mutationFn: (data: Partial<EventResponse>) => createEvent(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['events'] }); queryClient.invalidateQueries({ queryKey: ['events-paged'] }); onClose(); }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['events-paged'] });
+      queryClient.invalidateQueries({ queryKey: ['calendars'] });
+      onClose();
+    }
   });
 
   const updateMut = useMutation({
     mutationFn: (data: Partial<EventResponse>) => updateEvent(event!.id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['events'] }); queryClient.invalidateQueries({ queryKey: ['events-paged'] }); onClose(); }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['events-paged'] });
+      queryClient.invalidateQueries({ queryKey: ['calendars'] });
+      onClose();
+    }
   });
 
   const deleteMut = useMutation({
     mutationFn: () => deleteEvent(event!.id),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['events'] }); queryClient.invalidateQueries({ queryKey: ['events-paged'] }); onClose(); }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['events-paged'] });
+      queryClient.invalidateQueries({ queryKey: ['calendars'] });
+      onClose();
+    }
   });
+
+  const mutationError = createMut.error || updateMut.error || deleteMut.error;
+  const mutationErrorMessage = mutationError instanceof Error ? mutationError.message : null;
+
+  useEffect(() => {
+    if (calendarId || event || !calendars || calendars.length !== 1) return;
+    setCalendarId(calendars[0].id);
+  }, [calendarId, calendars, event]);
 
   function handleDelete() {
     if (confirm(`确定删除日程 "${event?.title}"？此操作不可撤销。`)) {
@@ -62,7 +85,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const data = { title, description, location, dtStart, dtEnd, calendarId };
+    const data = { title, description, location, dtStart, dtEnd, calendarId: calendarId || undefined };
     if (event) updateMut.mutate(data);
     else createMut.mutate(data);
   }
@@ -92,10 +115,15 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   return (
     <EditorDrawer open={open} onClose={onClose} title={event ? '编辑日程' : '新建日程'} footer={footer}>
       <form id="event-editor-form" onSubmit={handleSubmit} className="space-y-4">
+        {mutationErrorMessage && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {mutationErrorMessage}
+          </div>
+        )}
         <Field label="日历本">
           <select value={calendarId} onChange={e => setCalendarId(e.target.value)}
-            className="w-full border rounded px-3 py-2 text-sm" required>
-            <option value="">选择日历本</option>
+            className="w-full border rounded px-3 py-2 text-sm">
+            <option value="">默认日历</option>
             {calendars?.map(cal => (
               <option key={cal.id} value={cal.id}>{cal.name}</option>
             ))}

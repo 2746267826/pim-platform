@@ -59,9 +59,13 @@ export async function batchDeleteEvents(ids: string[]) {
   return r.data;
 }
 
-export async function getTasks(inboxOnly = false) {
+export function buildTasksPath(inboxOnly?: boolean) {
+  return inboxOnly ? '/calendar/tasks?inbox=true' : '/calendar/tasks';
+}
+
+export async function getTasks(inboxOnly?: boolean) {
   const r = await apiGet<ApiResponse<TaskResponse[]>>(
-    `/calendar/tasks?inbox=${inboxOnly}`
+    buildTasksPath(inboxOnly)
   );
   return r.data;
 }

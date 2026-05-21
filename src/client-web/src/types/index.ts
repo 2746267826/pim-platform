@@ -86,6 +86,7 @@ export interface KeystatsSummary {
   scrollDistance: number;
   peakKps: number;
   peakCps: number;
+  keyPressCounts: Record<string, number>;
   topKeys: KeyCountItem[];
 }
 

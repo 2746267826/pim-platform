@@ -120,6 +120,12 @@ export interface TimelineItem {
   durationMinutes: number;
   appName: string;
   windowTitle: string | null;
+  categoryName: string;
+  categoryColor: string;
+  projectTag: string | null;
+  classificationConfidence: number;
+  classificationSource: string;
+  classificationExplanation: string;
 }
 
 export interface WorkSessionItem {
@@ -161,6 +167,37 @@ export interface AppCategoryRule {
   isBuiltin: boolean;
 }
 
+export interface ActivityClassificationRule {
+  id: string;
+  ruleName: string;
+  scope: string;
+  categoryName: string | null;
+  projectTag: string | null;
+  color: string;
+  priority: number;
+  source: string;
+  status: string;
+  conditionsJson: string;
+  confidence: number;
+  explanation: string | null;
+}
+
+export interface ActivityClassificationSuggestion {
+  id: string;
+  clusterKey: string;
+  sampleCount: number;
+  totalDurationSeconds: number;
+  sampleRecordsJson: string;
+  sanitizedContextJson: string;
+  currentCategory: string | null;
+  suggestedCategory: string | null;
+  suggestedProjectTag: string | null;
+  suggestedRulesJson: string | null;
+  userFeedback: string | null;
+  llmResponseJson: string | null;
+  status: string;
+}
+
 export interface DetailQueryParams {
   dateFrom?: string;
   dateTo?: string;
@@ -191,6 +228,11 @@ export interface PcDetailRecord {
   appName: string | null;
   displayName: string | null;
   categoryName: string | null;
+  categoryColor?: string | null;
+  projectTag?: string | null;
+  classificationConfidence?: number | null;
+  classificationSource?: string | null;
+  classificationExplanation?: string | null;
   title: string | null;
   url?: string | null;
   domain?: string | null;

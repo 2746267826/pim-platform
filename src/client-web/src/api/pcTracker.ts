@@ -3,7 +3,8 @@ import type { ApiResponse } from '../types';
 import type {
   PcSummaryResponse, TimelineItem, HeatmapBucket,
   DetailQueryParams, DetailQueryResponse,
-  AppCategoryRule, HeatmapGridResponse
+  AppCategoryRule, HeatmapGridResponse,
+  ActivityClassificationRule, ActivityClassificationSuggestion
 } from '../types';
 
 export function getPcSummary(date: string) {
@@ -34,6 +35,16 @@ export function queryPcDetail(params: DetailQueryParams) {
 
 export function getPcCategories() {
   return apiGet<ApiResponse<AppCategoryRule[]>>('/pc/categories').then(r => r.data);
+}
+
+export function getActivityClassificationRules() {
+  return apiGet<ApiResponse<ActivityClassificationRule[]>>('/pc/classification/rules').then(r => r.data);
+}
+
+export function getActivityClassificationSuggestions(date: string) {
+  return apiGet<ApiResponse<ActivityClassificationSuggestion[]>>(
+    `/pc/classification/suggestions?date=${date}`
+  ).then(r => r.data);
 }
 
 export function savePcCategory(rule: { appPattern: string; categoryName: string; color: string; priority: number }) {

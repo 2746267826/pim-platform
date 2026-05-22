@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, subDays, subMonths } from 'date-fns';
-import { getPcSummary, getPcHeatmapGrid, getPcCategories } from '../api/pcTracker';
+import { getPcSummary, getPcHeatmapGrid } from '../api/pcTracker';
 import DateDimensionBar from '../components/pc-tracker/DateDimensionBar';
 import ActivityHeatmap from '../components/pc-tracker/ActivityHeatmap';
 import CategoryTimeline from '../components/pc-tracker/CategoryTimeline';
@@ -58,12 +58,6 @@ export default function PcTrackerPage() {
   const { data: heatmapData, isLoading: heatmapLoading } = useQuery({
     queryKey: ['pc-heatmap-grid', heatmapRange.start, heatmapRange.end, dimension],
     queryFn: () => getPcHeatmapGrid(heatmapRange.start, heatmapRange.end, dimension),
-  });
-
-  const { data: catRulesData } = useQuery({
-    queryKey: ['pc-categories'],
-    queryFn: () => getPcCategories(),
-    staleTime: 300000,
   });
 
   const metrics = [
@@ -125,8 +119,6 @@ export default function PcTrackerPage() {
         <AnalysisCard title="分类时间线" subtitle="按 ActivityWatch 时间片聚合分类">
           <CategoryTimeline
             timeline={data?.timeline || []}
-            categories={data?.categories || []}
-            rules={catRulesData ?? undefined}
           />
         </AnalysisCard>
 

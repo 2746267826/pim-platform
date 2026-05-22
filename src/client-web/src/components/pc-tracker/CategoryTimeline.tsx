@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { format } from 'date-fns';
-import type { TimelineItem, CategorySummary, AppCategoryRule } from '../../types';
+import type { TimelineItem } from '../../types';
 import { getPcBusinessDayStart } from '../../utils/pcBusinessDay';
 
 interface CategoryBlock {
@@ -8,31 +8,16 @@ interface CategoryBlock {
   end: Date;
   categoryName: string;
   color: string;
+  projectTag: string | null;
+  confidence: number | null;
+  source: string | null;
+  explanation: string | null;
   apps: { name: string; share: number }[];
   totalMinutes: number;
 }
 
-function buildAppCategoryMap(rules: AppCategoryRule[]): (appName: string) => { category: string; color: string } {
-  const sorted = [...rules].sort((a, b) => b.priority - a.priority);
-  return (appName: string) => {
-    for (const rule of sorted) {
-      if (appName.localeCompare(rule.appPattern, undefined, { sensitivity: 'base' }) === 0) {
-        return { category: rule.categoryName, color: rule.color };
-      }
-    }
-    return { category: '其他', color: '#64748b' };
-  };
-}
-
-function buildCategoryBlocks(timeline: TimelineItem[], categories: CategorySummary[], rules?: AppCategoryRule[]): CategoryBlock[] {
+function buildCategoryBlocks(timeline: TimelineItem[]): CategoryBlock[] {
   if (!timeline.length) return [];
-
-  const classify = rules
-    ? buildAppCategoryMap(rules)
-    : (appName: string) => {
-        const cat = categories.find(c => appName.localeCompare(c.categoryName, undefined, { sensitivity: 'base' }) === 0);
-        return cat ? { category: cat.categoryName, color: cat.color } : { category: '其他', color: '#64748b' };
-      };
 
   const sorted = [...timeline].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
@@ -40,11 +25,16 @@ function buildCategoryBlocks(timeline: TimelineItem[], categories: CategorySumma
   let current: CategoryBlock | null = null;
 
   for (const item of sorted) {
-    const { category, color } = classify(item.appName);
+    const categoryName = item.categoryName || '其他';
+    const projectTag = item.projectTag || null;
+    const color = item.categoryColor || '#64748b';
 
-    if (current && current.categoryName === category) {
+    if (current && current.categoryName === categoryName && current.projectTag === projectTag) {
       current.end = new Date(item.end);
       current.totalMinutes += item.durationMinutes;
+      current.confidence = mergeConfidence(current.confidence, item.classificationConfidence);
+      current.source = mergeText(current.source, item.classificationSource);
+      current.explanation = mergeText(current.explanation, item.classificationExplanation);
       const existing = current.apps.find(a => a.name === item.appName);
       if (existing) existing.share += item.durationMinutes;
       else current.apps.push({ name: item.appName, share: item.durationMinutes });
@@ -53,8 +43,12 @@ function buildCategoryBlocks(timeline: TimelineItem[], categories: CategorySumma
       current = {
         start: new Date(item.start),
         end: new Date(item.end),
-        categoryName: category,
+        categoryName,
         color,
+        projectTag,
+        confidence: item.classificationConfidence ?? null,
+        source: item.classificationSource || null,
+        explanation: item.classificationExplanation || null,
         apps: [{ name: item.appName, share: item.durationMinutes }],
         totalMinutes: item.durationMinutes,
       };
@@ -68,6 +62,18 @@ function buildCategoryBlocks(timeline: TimelineItem[], categories: CategorySumma
   }
 
   return blocks;
+}
+
+function mergeConfidence(current: number | null, next: number | null) {
+  if (current === null || current === undefined) return next ?? null;
+  if (next === null || next === undefined) return current;
+  return Math.min(current, next);
+}
+
+function mergeText(current: string | null, next: string | null) {
+  if (!current) return next || null;
+  if (!next || next === current) return current;
+  return `${current} / ${next}`;
 }
 
 function fmtTime(iso: string) {
@@ -84,12 +90,10 @@ function businessDayStart(date: Date) {
 
 interface Props {
   timeline: TimelineItem[];
-  categories: CategorySummary[];
-  rules?: AppCategoryRule[];
 }
 
-export default function CategoryTimeline({ timeline, categories, rules }: Props) {
-  const blocks = useMemo(() => buildCategoryBlocks(timeline, categories, rules), [timeline, categories, rules]);
+export default function CategoryTimeline({ timeline }: Props) {
+  const blocks = useMemo(() => buildCategoryBlocks(timeline), [timeline]);
 
   if (!blocks.length) {
     return <div className="rounded-2xl border border-slate-200 bg-slate-50 py-10 text-center text-sm text-slate-400">暂无时间线数据</div>;
@@ -117,10 +121,15 @@ export default function CategoryTimeline({ timeline, categories, rules }: Props)
               aria-label={`${block.categoryName}，${fmtTime(block.start.toISOString())} 到 ${fmtTime(block.end.toISOString())}`}
             >
               {showInlineLabel && <span className="truncate">{block.categoryName}</span>}
-              <div className="absolute bottom-full left-1/2 z-50 mb-3 hidden min-w-[220px] -translate-x-1/2 whitespace-nowrap rounded-xl bg-slate-950 px-3 py-2 text-left text-[11px] text-white shadow-2xl group-hover:block group-focus:block">
+              <div className="absolute bottom-full left-1/2 z-50 mb-3 hidden min-w-[240px] max-w-[320px] -translate-x-1/2 rounded-xl bg-slate-950 px-3 py-2 text-left text-[11px] text-white shadow-2xl group-hover:block group-focus:block">
                 <div className="mb-1 font-semibold">{block.categoryName}</div>
                 <div>{fmtTime(block.start.toISOString())} - {fmtTime(block.end.toISOString())}</div>
                 <div className="text-slate-300">{Math.round(block.totalMinutes)} 分钟</div>
+                {block.projectTag && <div className="text-slate-300">项目：{block.projectTag}</div>}
+                <div className="text-slate-300">
+                  来源：{block.source || '未知'}{block.confidence !== null ? ` · 置信度 ${Math.round(block.confidence * 100)}%` : ''}
+                </div>
+                {block.explanation && <div className="mt-1 whitespace-normal text-slate-300">{block.explanation}</div>}
                 <div className="mt-1 text-slate-300">
                   {block.apps.map(app => (
                     <div key={app.name}>{app.name} {app.share}%</div>

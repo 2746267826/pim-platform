@@ -255,6 +255,39 @@ export interface ActivityClassificationSuggestion {
   status: string;
 }
 
+export interface ActivityClassificationApplyRange {
+  mode: 'today' | 'range' | 'all';
+  dateFrom?: string | null;
+  dateTo?: string | null;
+}
+
+export interface SaveActivityClassificationRuleRequest {
+  ruleName: string;
+  scope: string;
+  categoryName: string | null;
+  projectTag: string | null;
+  color: string;
+  priority: number;
+  conditionsJson: string;
+  confidence: number;
+  explanation: string | null;
+}
+
+export interface ActivityClassificationPreview {
+  affectedRecordCount: number;
+  affectedDurationSeconds: number;
+  currentCategoryCounts: Record<string, number>;
+  newCategoryCounts: Record<string, number>;
+  samples: PcDetailRecord[];
+  requiresConfirmation: boolean;
+  summary: string;
+}
+
+export interface ActivityClassificationSettings {
+  recommendedMinimumClassificationDurationMinutes: number;
+  supportedRecommendedMinimumDurations: number[];
+}
+
 export interface DetailQueryParams {
   dateFrom?: string;
   dateTo?: string;

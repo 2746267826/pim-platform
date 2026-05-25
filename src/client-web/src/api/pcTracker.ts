@@ -189,6 +189,11 @@ export function getActivityClassificationSuggestions(date: string) {
   ).then(r => r.data);
 }
 
+export function rejectActivityClassificationSuggestion(id: string) {
+  return apiPost<ApiResponse<string>>(`/pc/classification/suggestions/${id}/reject`, {})
+    .then(r => r.data);
+}
+
 export function previewActivityClassificationRule(
   rule: SaveActivityClassificationRuleRequest,
   range: ActivityClassificationApplyRange

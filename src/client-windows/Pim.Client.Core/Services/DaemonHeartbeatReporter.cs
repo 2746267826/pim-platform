@@ -26,7 +26,10 @@ public sealed class DaemonHeartbeatReporter
         DateTimeOffset? lastAttemptedUploadAt,
         string? lastError)
     {
-        var normalizedServerUrl = ApiClient.NormalizeServerUrl(serverUrl);
+        var normalizedServerUrl = ApiClient.NormalizeServerUrl(
+            string.IsNullOrWhiteSpace(serverUrl)
+                ? ClientDefaults.DefaultServerUrl
+                : serverUrl);
         var statusJson = JsonSerializer.Serialize(new
         {
             machine = Environment.MachineName,

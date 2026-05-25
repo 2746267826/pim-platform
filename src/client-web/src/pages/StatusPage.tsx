@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getStatusDetail } from '../api/status';
+import { getComponentKindLabel, getHealthStatusLabel, getStatusDetail } from '../api/status';
 import type { PimHealthStatus, StatusComponent } from '../types';
 import PageHeader from '../ui/PageHeader';
 
@@ -49,15 +49,16 @@ function StatusPill({ status, label }: { status: PimHealthStatus; label: string 
 
 function ComponentCard({ component }: { component: StatusComponent }) {
   const detailEntries = Object.entries(component.details || {});
+  const kindLabel = getComponentKindLabel(component.kind);
 
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold text-slate-950">{component.name}</h2>
-          <p className="mt-1 truncate text-xs text-slate-500">{component.kind}</p>
+          {kindLabel && <p className="mt-1 truncate text-xs text-slate-500">{kindLabel}</p>}
         </div>
-        <StatusPill status={component.status} label={component.status} />
+        <StatusPill status={component.status} label={getHealthStatusLabel(component.status)} />
       </div>
 
       <p className="mt-3 text-sm text-slate-600">{component.message || '系统状态暂不可用'}</p>
@@ -126,7 +127,7 @@ export default function StatusPage() {
                 <h2 className="mt-2 text-2xl font-semibold text-slate-950">{summary.label || '未知'}</h2>
                 <p className="mt-2 text-sm text-slate-600">{summary.message || '系统状态暂不可用'}</p>
               </div>
-              <StatusPill status={summaryStatus} label={summaryStatus} />
+              <StatusPill status={summaryStatus} label={getHealthStatusLabel(summaryStatus)} />
             </div>
             <p className="mt-4 text-xs text-slate-400">检查时间：{formatCheckedAt(summary.checkedAt)}</p>
           </section>

@@ -87,6 +87,38 @@ export interface SystemStatusDetail {
   nextSteps: string[];
 }
 
+export interface PcQualityComponent {
+  key: string;
+  name: string;
+  status: PimHealthStatus;
+  message: string;
+  details: Record<string, string>;
+}
+
+export interface PcQualityIssue {
+  code: string;
+  severity: PimHealthStatus;
+  componentKey: string;
+  message: string;
+  nextStep: string | null;
+}
+
+export interface PcQualityResponse {
+  overallStatus: PimHealthStatus;
+  label: string;
+  message: string;
+  checkedAt: string;
+  components: PcQualityComponent[];
+  issues: PcQualityIssue[];
+  nextSteps: string[];
+}
+
+export interface PcQualityQueryParams {
+  date?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
 // PC Tracker types
 export interface PcSummaryResponse {
   keystats: KeystatsSummary | null;

@@ -4,7 +4,9 @@ import type {
   PcSummaryResponse, TimelineItem, HeatmapBucket,
   DetailQueryParams, DetailQueryResponse,
   AppCategoryRule, HeatmapGridResponse,
-  ActivityClassificationRule, ActivityClassificationSuggestion
+  ActivityClassificationRule, ActivityClassificationSuggestion,
+  PcQualityResponse, PcQualityQueryParams, PcQualityComponent, PcQualityIssue,
+  PimHealthStatus
 } from '../types';
 
 export function getPcSummary(date: string) {
@@ -31,6 +33,135 @@ export function queryPcDetail(params: DetailQueryParams) {
     if (v !== undefined && v !== null && v !== '') searchParams.set(k, String(v));
   });
   return apiGet<ApiResponse<DetailQueryResponse>>(`/pc/detail?${searchParams.toString()}`).then(r => r.data);
+}
+
+const healthStatusByNumber: Record<number, PimHealthStatus> = {
+  0: 'Unknown',
+  1: 'Healthy',
+  2: 'Warning',
+  3: 'Critical',
+};
+
+const healthStatusNames = new Set<PimHealthStatus>(['Unknown', 'Healthy', 'Warning', 'Critical']);
+
+const healthStatusLabels: Record<PimHealthStatus, string> = {
+  Unknown: '未知',
+  Healthy: '正常',
+  Warning: '有警告',
+  Critical: '故障',
+};
+
+type RawPcQualityComponent = Omit<PcQualityComponent, 'status' | 'message' | 'details'> & {
+  status: unknown;
+  message: unknown;
+  details: unknown;
+};
+
+type RawPcQualityIssue = Omit<PcQualityIssue, 'severity' | 'message' | 'nextStep'> & {
+  severity: unknown;
+  message: unknown;
+  nextStep: unknown;
+};
+
+type RawPcQuality = {
+  overallStatus?: unknown;
+  label?: unknown;
+  message?: unknown;
+  checkedAt?: unknown;
+  components?: unknown;
+  issues?: unknown;
+  nextSteps?: unknown;
+};
+
+function textOrEmpty(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value);
+}
+
+function normalizeHealthStatus(value: unknown): PimHealthStatus {
+  if (typeof value === 'number') return healthStatusByNumber[value] ?? 'Unknown';
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^\d+$/.test(trimmed)) return healthStatusByNumber[Number(trimmed)] ?? 'Unknown';
+    if (healthStatusNames.has(trimmed as PimHealthStatus)) return trimmed as PimHealthStatus;
+  }
+  return 'Unknown';
+}
+
+function getHealthStatusLabel(status: PimHealthStatus) {
+  return healthStatusLabels[status] ?? healthStatusLabels.Unknown;
+}
+
+function normalizeQualityLabel(value: unknown, status: PimHealthStatus): string {
+  const label = textOrEmpty(value).trim();
+  if (!label) return getHealthStatusLabel(status);
+  return healthStatusNames.has(label as PimHealthStatus) ? getHealthStatusLabel(status) : label;
+}
+
+function normalizeDetails(details: unknown): Record<string, string> {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) return {};
+
+  return Object.fromEntries(
+    Object.entries(details).map(([key, value]) => [key, textOrEmpty(value)])
+  );
+}
+
+function normalizeQualityComponent(raw: unknown): PcQualityComponent {
+  const component = (raw && typeof raw === 'object' ? raw : {}) as Partial<RawPcQualityComponent>;
+
+  return {
+    key: textOrEmpty(component.key),
+    name: textOrEmpty(component.name),
+    status: normalizeHealthStatus(component.status),
+    message: textOrEmpty(component.message),
+    details: normalizeDetails(component.details),
+  };
+}
+
+function normalizeQualityIssue(raw: unknown): PcQualityIssue {
+  const issue = (raw && typeof raw === 'object' ? raw : {}) as Partial<RawPcQualityIssue>;
+  const nextStep = issue.nextStep === null || issue.nextStep === undefined
+    ? null
+    : String(issue.nextStep);
+
+  return {
+    code: textOrEmpty(issue.code),
+    severity: normalizeHealthStatus(issue.severity),
+    componentKey: textOrEmpty(issue.componentKey),
+    message: textOrEmpty(issue.message),
+    nextStep,
+  };
+}
+
+export function normalizePcQuality(raw: unknown): PcQualityResponse {
+  const quality = (raw && typeof raw === 'object' ? raw : {}) as RawPcQuality;
+  const overallStatus = normalizeHealthStatus(quality.overallStatus);
+
+  return {
+    overallStatus,
+    label: normalizeQualityLabel(quality.label, overallStatus),
+    message: textOrEmpty(quality.message),
+    checkedAt: textOrEmpty(quality.checkedAt),
+    components: Array.isArray(quality.components)
+      ? quality.components.map(normalizeQualityComponent)
+      : [],
+    issues: Array.isArray(quality.issues)
+      ? quality.issues.map(normalizeQualityIssue)
+      : [],
+    nextSteps: Array.isArray(quality.nextSteps)
+      ? quality.nextSteps.map(textOrEmpty).filter(Boolean)
+      : [],
+  };
+}
+
+export function getPcQuality(params: PcQualityQueryParams = {}) {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') searchParams.set(k, String(v));
+  });
+  const query = searchParams.toString();
+  const path = query ? `/pc/quality?${query}` : '/pc/quality';
+  return apiGet<ApiResponse<unknown>>(path).then(r => normalizePcQuality(r.data));
 }
 
 export function getPcCategories() {

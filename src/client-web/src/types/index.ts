@@ -358,3 +358,84 @@ export interface HeatmapGridResponse {
   dimension: string;
   maxKeyCount: number;
 }
+
+export type TodaySectionStatus =
+  | 'available'
+  | 'normal'
+  | 'empty'
+  | 'warning'
+  | 'critical'
+  | 'unavailable';
+
+export interface TodayLink {
+  rel: 'self' | 'details' | 'api' | string;
+  href: string;
+}
+
+export interface TodaySectionError {
+  code: string;
+  message: string;
+}
+
+export interface TodaySectionRegistryItem {
+  id: string;
+  kind: TodaySectionKind | string;
+  status: TodaySectionStatus;
+  links: TodayLink[];
+}
+
+export interface TodaySectionRegistry {
+  date: string;
+  pcBusinessDate: string;
+  generatedAt: string;
+  sections: TodaySectionRegistryItem[];
+}
+
+export interface TodaySection<TData = unknown> {
+  id: string;
+  kind: TodaySectionKind | string;
+  status: TodaySectionStatus;
+  generatedAt: string;
+  data: TData;
+  links: TodayLink[];
+  error: TodaySectionError | null;
+}
+
+export type TodaySectionKind =
+  | 'calendar.schedule'
+  | 'calendar.tasks'
+  | 'pc.activity'
+  | 'pc.quality'
+  | 'operations.health'
+  | 'pc.classification_suggestions';
+
+export interface CalendarScheduleTodayData {
+  events: EventResponse[];
+  scheduledTasks: TaskResponse[];
+}
+
+export interface CalendarTasksTodayData {
+  incompleteCount: number;
+  dueTodayTasks: TaskResponse[];
+  overdueTasks: TaskResponse[];
+  unscheduledTasks: TaskResponse[];
+}
+
+export interface PcActivityTodayData {
+  summary: PcSummaryResponse;
+}
+
+export interface PcQualityTodayData {
+  quality: PcQualityResponse;
+  issueCount: number;
+}
+
+export interface OperationsHealthTodayData {
+  detail: SystemStatusDetail;
+  summary: SystemStatusSummary;
+}
+
+export interface ClassificationSuggestionsTodayData {
+  pendingCount: number;
+  suggestions: ActivityClassificationSuggestion[];
+}

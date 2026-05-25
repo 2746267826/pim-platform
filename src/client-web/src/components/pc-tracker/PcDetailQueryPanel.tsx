@@ -196,6 +196,10 @@ function getEmptyStateText(quality: PcQualityResponse | undefined) {
   if (codes.has('no-keystats-samples-in-range') || codes.has('missing-keystats-samples')) return '查询范围内没有 KeyStats 分钟样本';
   if (codes.has('no-aw-events-in-range') || codes.has('missing-aw-events')) return '查询范围内没有 ActivityWatch 原始事件';
   if (codes.has('missing-aw-window-bucket')) return 'ActivityWatch 窗口采集源不可用';
+  if (codes.has('missing-aw-window-events')) return '查询范围内没有 ActivityWatch 窗口事件';
+  if (codes.has('missing-aw-afk-events')) return '查询范围内没有 ActivityWatch 离开状态事件';
+  if (codes.has('keystats-insufficient-samples')) return 'KeyStats 样本不足，暂时无法生成输入时间线';
+  if (codes.has('timeline-inputs-incomplete')) return '解释时间线的 ActivityWatch 或 KeyStats 输入不完整';
   if (codes.has('missing-windows-daemon-heartbeat')) return 'Windows daemon 尚未上报状态';
   if (quality.overallStatus === 'Unknown') return '新环境可能仍在等待采样';
   return '暂无数据';

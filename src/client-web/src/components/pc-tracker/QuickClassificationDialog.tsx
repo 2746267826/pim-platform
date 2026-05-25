@@ -125,8 +125,8 @@ export default function QuickClassificationDialog({
 
   const range: ActivityClassificationApplyRange = {
     mode: rangeMode,
-    dateFrom: rangeMode === 'all' ? null : dateFrom,
-    dateTo: rangeMode === 'all' ? null : dateTo,
+    dateFrom,
+    dateTo,
   };
   const canSubmit = Boolean(rule) && categoryName.trim().length > 0;
   const isRangeDisabled = rangeMode !== 'range';
@@ -191,8 +191,8 @@ export default function QuickClassificationDialog({
           </div>
 
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              {(['today', 'range', 'all'] as const).map(mode => (
+            <div className="grid grid-cols-2 gap-2">
+              {(['today', 'range'] as const).map(mode => (
                 <button
                   key={mode}
                   type="button"
@@ -206,7 +206,7 @@ export default function QuickClassificationDialog({
                       : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200'
                   }`}
                 >
-                  {mode === 'today' ? '今天' : mode === 'range' ? '范围' : '全部'}
+                  {mode === 'today' ? '今天' : '范围'}
                 </button>
               ))}
             </div>

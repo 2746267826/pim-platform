@@ -10,6 +10,7 @@ import PcTrackerPage from '../pages/PcTrackerPage';
 import SettingsPage from '../pages/SettingsPage';
 import CalendarDataManager from '../pages/CalendarDataManager';
 import PcDetailQueryPage from '../pages/PcDetailQueryPage';
+import StatusPage from '../pages/StatusPage';
 
 export default function AppLayout() {
   const { isAuthenticated } = useAuth();
@@ -34,6 +35,7 @@ export default function AppLayout() {
             <Route path="/month" element={<Navigate to="/calendar?view=month" replace />} />
             <Route path="/tasks" element={<TaskListPage />} />
             <Route path="/pc-tracker" element={<PcTrackerPage />} />
+            <Route path="/status" element={<StatusPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
             <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />

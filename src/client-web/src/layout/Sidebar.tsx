@@ -4,12 +4,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCalendars, createCalendar, updateCalendar, deleteCalendar } from '../api/calendar';
 import { useAuth } from '../auth/AuthContext';
 import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
+import SidebarStatusIndicator from '../components/status/SidebarStatusIndicator';
 
 const navItems = [
   { label: '今日', path: '/today', short: '今' },
   { label: '日历', path: '/calendar', short: '历' },
   { label: '任务', path: '/tasks', short: '任' },
   { label: 'PC记录', path: '/pc-tracker', short: 'PC' },
+  { label: '状态信息', path: '/status', short: '态' },
   { label: '设置', path: '/settings', short: '设' },
 ];
 
@@ -173,6 +175,7 @@ export default function Sidebar() {
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">PIM</p>
         <p className="mt-1 text-lg font-semibold text-slate-950">个人中枢</p>
       </div>
+      <SidebarStatusIndicator />
 
       <nav className="flex-1 space-y-1 overflow-auto px-3 pb-3">
         {navItems.map(item => {

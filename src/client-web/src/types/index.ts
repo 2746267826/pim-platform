@@ -62,6 +62,31 @@ export interface ImportResult {
   skipped: number;
 }
 
+export type PimHealthStatus = 'Unknown' | 'Healthy' | 'Warning' | 'Critical';
+
+export interface SystemStatusSummary {
+  status: PimHealthStatus;
+  label: string;
+  message: string;
+  checkedAt: string;
+}
+
+export interface StatusComponent {
+  key: string;
+  name: string;
+  kind: string;
+  status: PimHealthStatus;
+  message: string;
+  checkedAt: string;
+  details: Record<string, string>;
+}
+
+export interface SystemStatusDetail {
+  summary: SystemStatusSummary;
+  components: StatusComponent[];
+  nextSteps: string[];
+}
+
 // PC Tracker types
 export interface PcSummaryResponse {
   keystats: KeystatsSummary | null;

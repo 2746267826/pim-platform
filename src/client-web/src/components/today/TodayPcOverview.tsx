@@ -1,7 +1,7 @@
 import EmptyState from '../../ui/EmptyState';
 import MetricCard from '../../ui/MetricCard';
 import StatusBadge from '../../ui/StatusBadge';
-import type { PcSummaryResponse } from '../../types';
+import type { PcActivityTodayData, TodaySection } from '../../types';
 import { PC_BUSINESS_HOURS, pcHourLabel } from '../../utils/pcBusinessDay';
 
 function formatNumber(value: number | undefined) {
@@ -17,19 +17,12 @@ function intensityClass(score: number, max: number) {
   return 'bg-teal-100';
 }
 
-export default function TodayPcOverview({
-  summary,
-  isLoading,
-  error,
-}: {
-  summary?: PcSummaryResponse;
-  isLoading?: boolean;
-  error?: Error | null;
-}) {
-  const metrics = summary?.metrics;
-  const keystats = summary?.keystats;
+export default function TodayPcOverview({ section }: { section: TodaySection<PcActivityTodayData> }) {
+  const summary = section.data.summary;
+  const metrics = summary.metrics;
+  const keystats = summary.keystats;
   const heatmap = PC_BUSINESS_HOURS.map(hour => {
-    const bucket = summary?.heatmap.find(item => item.hour === hour);
+    const bucket = summary.heatmap.find(item => item.hour === hour);
     return {
       hour,
       activeMinutes: bucket?.activeMinutes ?? 0,
@@ -46,17 +39,12 @@ export default function TodayPcOverview({
           <h2 className="font-semibold text-slate-900">PC 记录概览</h2>
           <p className="mt-1 text-xs text-slate-500">输入、应用活跃度与 24 小时热力分布</p>
         </div>
-        <StatusBadge tone={error ? 'danger' : isLoading ? 'neutral' : 'activity'}>
-          {error ? '加载失败' : isLoading ? '加载中' : '今日'}
+        <StatusBadge tone={section.status === 'empty' ? 'neutral' : 'activity'}>
+          {section.status === 'empty' ? '暂无数据' : '今日'}
         </StatusBadge>
       </div>
 
-      {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
-          <p className="font-medium">PC 记录加载失败</p>
-          <p className="mt-1 text-xs leading-5">{error.message || '请稍后重试。'}</p>
-        </div>
-      ) : !isLoading && !summary ? (
+      {section.status === 'empty' ? (
         <EmptyState title="暂无 PC 记录" description="守护程序同步后会显示今天的使用概览。" />
       ) : (
         <div className="space-y-4">
@@ -109,7 +97,7 @@ export default function TodayPcOverview({
             </div>
           </div>
 
-          {summary?.appRanking?.length ? (
+          {summary.appRanking?.length ? (
             <div className="space-y-2">
               <p className="text-sm font-medium text-slate-800">主要应用</p>
               {summary.appRanking.slice(0, 4).map(app => (

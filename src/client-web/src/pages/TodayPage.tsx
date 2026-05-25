@@ -1,19 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { addDays, format } from 'date-fns';
-import { getEvents, getTasks } from '../api/calendar';
-import { getPcSummary } from '../api/pcTracker';
-import EventEditorDialog from '../dialogs/EventEditorDialog';
+import { format } from 'date-fns';
+import { getTodaySectionRegistry } from '../api/today';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
 import PageHeader from '../ui/PageHeader';
-import TodayPcOverview from '../components/today/TodayPcOverview';
-import TodayScheduleList, {
-  buildScheduledItems,
-  type ScheduledItem,
-} from '../components/today/TodayScheduleList';
-import TodayTaskColumn from '../components/today/TodayTaskColumn';
-import type { EventResponse, TaskResponse } from '../types';
-import { getPcBusinessDate } from '../utils/pcBusinessDay';
+import EmptyState from '../ui/EmptyState';
+import TodaySectionHost, {
+  isKnownTodaySectionKind,
+  todaySectionOrder,
+} from '../components/today/TodaySectionHost';
+import type { TaskResponse, TodaySectionKind, TodaySectionRegistryItem } from '../types';
 
 function useTodayDate() {
   const [today, setToday] = useState(() => new Date());
@@ -34,85 +30,54 @@ function errorMessage(error: Error | null) {
   return error?.message || '请稍后重试。';
 }
 
-function DataErrorPanel({
-  eventsError,
-  tasksError,
-}: {
-  eventsError: Error | null;
-  tasksError: Error | null;
-}) {
-  if (!eventsError && !tasksError) return null;
+function RegistryErrorPanel({ error }: { error: Error | null }) {
+  if (!error) return null;
 
   return (
     <section className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-      <p className="font-medium">今日数据加载不完整</p>
-      <div className="mt-1 space-y-1 text-xs leading-5">
-        {eventsError && <p>日程加载失败：{errorMessage(eventsError)}</p>}
-        {tasksError && <p>任务加载失败：{errorMessage(tasksError)}</p>}
-      </div>
+      <p className="font-medium">今日区块加载失败</p>
+      <p className="mt-1 text-xs leading-5">{errorMessage(error)}</p>
     </section>
   );
+}
+
+function sortSections(sections: TodaySectionRegistryItem[]) {
+  const orderIndex = new Map<TodaySectionKind, number>(
+    todaySectionOrder.map((kind, index) => [kind, index]),
+  );
+
+  return [...sections].sort((a, b) => {
+    const aIndex = isKnownTodaySectionKind(a.kind)
+      ? orderIndex.get(a.kind as TodaySectionKind)!
+      : Number.POSITIVE_INFINITY;
+    const bIndex = isKnownTodaySectionKind(b.kind)
+      ? orderIndex.get(b.kind as TodaySectionKind)!
+      : Number.POSITIVE_INFINITY;
+    return aIndex - bIndex;
+  });
 }
 
 export default function TodayPage() {
   const today = useTodayDate();
   const dateStr = format(today, 'yyyy-MM-dd');
-  const pcDateStr = format(getPcBusinessDate(today), 'yyyy-MM-dd');
-  const tomorrowStr = format(addDays(today, 1), 'yyyy-MM-dd');
-  const [eventEditorOpen, setEventEditorOpen] = useState(false);
   const [taskEditorOpen, setTaskEditorOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<EventResponse | undefined>();
   const [editingTask, setEditingTask] = useState<TaskResponse | undefined>();
 
   const {
-    data: events = [],
-    error: eventsError,
+    data: registry,
+    error: registryError,
+    isLoading: registryLoading,
   } = useQuery({
-    queryKey: ['events', dateStr, tomorrowStr],
-    queryFn: () => getEvents(dateStr, tomorrowStr),
-  });
-
-  const {
-    data: tasks = [],
-    error: tasksError,
-  } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => getTasks(),
-  });
-
-  const {
-    data: pcSummary,
-    error: pcError,
-    isLoading: pcLoading,
-  } = useQuery({
-    queryKey: ['pc-summary', pcDateStr],
-    queryFn: () => getPcSummary(pcDateStr),
+    queryKey: ['today-sections', dateStr],
+    queryFn: () => getTodaySectionRegistry(dateStr),
     refetchInterval: 30000,
   });
 
-  const scheduledItems = useMemo(
-    () => buildScheduledItems(events, tasks, dateStr),
-    [events, tasks, dateStr],
-  );
+  const sections = useMemo(() => sortSections(registry?.sections ?? []), [registry?.sections]);
 
-  function openEvent(event: EventResponse | undefined) {
-    if (!event) return;
-    setEditingEvent(event);
-    setEventEditorOpen(true);
-  }
-
-  function openTask(task: TaskResponse | undefined) {
-    if (!task) return;
+  function openTask(task: TaskResponse) {
     setEditingTask(task);
     setTaskEditorOpen(true);
-  }
-
-  function handleScheduledSelect(item: ScheduledItem) {
-    if (item.type === 'event') {
-      openEvent(events.find(event => event.id === item.id));
-      return;
-    }
-    openTask(tasks.find(task => task.id === item.id));
   }
 
   return (
@@ -134,21 +99,25 @@ export default function TodayPage() {
         }
       />
 
-      <DataErrorPanel eventsError={eventsError} tasksError={tasksError} />
+      <RegistryErrorPanel error={registryError} />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
-        <TodayScheduleList items={scheduledItems} onSelect={handleScheduledSelect} />
-        <div className="xl:col-span-2">
-          <TodayPcOverview summary={pcSummary} isLoading={pcLoading} error={pcError} />
+      {registryLoading ? (
+        <EmptyState title="正在加载今日区块" description="今日页面会按区块独立加载数据。" />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+          {sections.map(section => (
+            <div key={section.id} className={section.kind === 'pc.activity' ? 'xl:col-span-2' : undefined}>
+              <TodaySectionHost
+                item={section}
+                date={dateStr}
+                todayPrefix={dateStr}
+                onSelectTask={openTask}
+              />
+            </div>
+          ))}
         </div>
-        <TodayTaskColumn tasks={tasks} todayPrefix={dateStr} onSelect={openTask} />
-      </div>
+      )}
 
-      <EventEditorDialog
-        open={eventEditorOpen}
-        onClose={() => setEventEditorOpen(false)}
-        event={editingEvent}
-      />
       <TaskEditorDialog
         open={taskEditorOpen}
         onClose={() => setTaskEditorOpen(false)}

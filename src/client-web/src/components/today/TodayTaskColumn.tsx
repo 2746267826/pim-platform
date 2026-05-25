@@ -1,6 +1,6 @@
 import StatusBadge from '../../ui/StatusBadge';
 import EmptyState from '../../ui/EmptyState';
-import type { TaskResponse } from '../../types';
+import type { CalendarTasksTodayData, TaskResponse, TodaySection } from '../../types';
 
 function validTimestamp(value?: string) {
   if (!value) return Number.POSITIVE_INFINITY;
@@ -49,15 +49,25 @@ export function sortTasksByDue(tasks: TaskResponse[]) {
 }
 
 export default function TodayTaskColumn({
-  tasks,
+  section,
   todayPrefix,
   onSelect,
 }: {
-  tasks: TaskResponse[];
+  section: TodaySection<CalendarTasksTodayData>;
   todayPrefix: string;
   onSelect?: (task: TaskResponse) => void;
 }) {
-  const incompleteTasks = sortTasksByDue(tasks.filter(task => task.status !== 'COMPLETED'));
+  const incompleteTasks = sortTasksByDue(
+    Array.from(
+      new Map(
+        [
+          ...section.data.overdueTasks,
+          ...section.data.dueTodayTasks,
+          ...section.data.unscheduledTasks,
+        ].map(task => [task.id, task]),
+      ).values(),
+    ),
+  );
 
   return (
     <section className="pim-panel min-w-0 p-4">

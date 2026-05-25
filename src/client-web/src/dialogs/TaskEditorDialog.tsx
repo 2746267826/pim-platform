@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery, type QueryClient } from '@tanstack/react-query';
 import { createTask, updateTask, deleteTask, getCalendars, moveTask, taskToMutationData } from '../api/calendar';
 import type { TaskMutationData } from '../api/calendar';
 import EditorDrawer from '../ui/EditorDrawer';
@@ -23,6 +23,12 @@ export default function TaskEditorDialog(props: Props) {
   return <TaskEditorForm key={formKey} {...props} />;
 }
 
+function invalidateTaskRelatedQueries(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  queryClient.invalidateQueries({ queryKey: ['today-sections'] });
+  queryClient.invalidateQueries({ queryKey: ['today-section'] });
+}
+
 function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
@@ -41,7 +47,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
 
   const createMut = useMutation({
     mutationFn: (data: Partial<TaskMutationData>) => createTask(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['tasks'] }); onClose(); }
+    onSuccess: () => { invalidateTaskRelatedQueries(queryClient); onClose(); }
   });
 
   const updateMut = useMutation({
@@ -52,12 +58,12 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
       const updated = await updateTask(task!.id, data);
       return updated;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['tasks'] }); onClose(); }
+    onSuccess: () => { invalidateTaskRelatedQueries(queryClient); onClose(); }
   });
 
   const deleteMut = useMutation({
     mutationFn: () => deleteTask(task!.id),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['tasks'] }); onClose(); }
+    onSuccess: () => { invalidateTaskRelatedQueries(queryClient); onClose(); }
   });
 
   const mutationError = createMut.error || updateMut.error || deleteMut.error;

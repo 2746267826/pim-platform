@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, subDays, subMonths } from 'date-fns';
-import { getPcSummary, getPcHeatmapGrid } from '../api/pcTracker';
+import { getPcSummary, getPcHeatmapGrid, getPcQuality } from '../api/pcTracker';
 import DateDimensionBar from '../components/pc-tracker/DateDimensionBar';
 import ActivityHeatmap from '../components/pc-tracker/ActivityHeatmap';
 import CategoryTimeline from '../components/pc-tracker/CategoryTimeline';
 import DailyActivityPanel from '../components/pc-tracker/DailyActivityPanel';
 import KeyboardHeatmap from '../components/pc-tracker/KeyboardHeatmap';
+import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import MetricCard from '../ui/MetricCard';
 import PageHeader from '../ui/PageHeader';
 import { getPcBusinessDate } from '../utils/pcBusinessDay';
@@ -44,6 +45,12 @@ export default function PcTrackerPage() {
   const { data } = useQuery({
     queryKey: ['pc-summary', dateStr],
     queryFn: () => getPcSummary(dateStr),
+    refetchInterval: 30000,
+  });
+
+  const { data: quality, isLoading: qualityLoading, error: qualityError } = useQuery({
+    queryKey: ['pc-quality', dateStr],
+    queryFn: () => getPcQuality({ date: dateStr }),
     refetchInterval: 30000,
   });
 
@@ -85,6 +92,8 @@ export default function PcTrackerPage() {
           </div>
         }
       />
+
+      <PcQualitySummary quality={quality} isLoading={qualityLoading} error={qualityError} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         {metrics.map(([label, value], index) => (

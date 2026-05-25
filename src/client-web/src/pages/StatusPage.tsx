@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { getPcQuality } from '../api/pcTracker';
 import { getComponentKindLabel, getHealthStatusLabel, getStatusDetail } from '../api/status';
+import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import type { PimHealthStatus, StatusComponent } from '../types';
 import PageHeader from '../ui/PageHeader';
 
@@ -79,9 +81,21 @@ function ComponentCard({ component }: { component: StatusComponent }) {
 }
 
 export default function StatusPage() {
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+  const { data, isLoading, isError, refetch: refetchStatus, isFetching: statusFetching } = useQuery({
     queryKey: ['status-detail'],
     queryFn: getStatusDetail,
+    refetchInterval: 60_000,
+  });
+
+  const {
+    data: pcQuality,
+    isLoading: pcQualityLoading,
+    error: pcQualityError,
+    refetch: refetchPcQuality,
+    isFetching: pcQualityFetching,
+  } = useQuery({
+    queryKey: ['status-pc-quality'],
+    queryFn: () => getPcQuality(),
     refetchInterval: 60_000,
   });
 
@@ -96,8 +110,11 @@ export default function StatusPage() {
         actions={
           <button
             type="button"
-            onClick={() => refetch()}
-            disabled={isFetching}
+            onClick={() => {
+              void refetchStatus();
+              void refetchPcQuality();
+            }}
+            disabled={statusFetching || pcQualityFetching}
             className="pim-button-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
             刷新
@@ -131,6 +148,13 @@ export default function StatusPage() {
             </div>
             <p className="mt-4 text-xs text-slate-400">检查时间：{formatCheckedAt(summary.checkedAt)}</p>
           </section>
+
+          <PcQualitySummary
+            quality={pcQuality}
+            isLoading={pcQualityLoading}
+            error={pcQualityError}
+            compact
+          />
 
           {data.nextSteps.length > 0 && (
             <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">

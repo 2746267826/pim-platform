@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { queryPcDetail } from '../../api/pcTracker';
-import type { DetailQueryParams, PcDetailRecord } from '../../types';
+import { queryPcDetail, getPcQuality } from '../../api/pcTracker';
+import type { DetailQueryParams, PcDetailRecord, PcQualityResponse } from '../../types';
 
 const detailCsvColumns: { key: keyof PcDetailRecord; label: string }[] = [
   { key: 'recordType', label: '记录类型' },
@@ -189,12 +189,30 @@ function renderExtraInfo(row: PcDetailRecord) {
   );
 }
 
+function getEmptyStateText(quality: PcQualityResponse | undefined) {
+  if (!quality) return '暂无数据';
+
+  const codes = new Set(quality.issues.map(issue => issue.code));
+  if (codes.has('no-keystats-samples-in-range') || codes.has('missing-keystats-samples')) return '查询范围内没有 KeyStats 分钟样本';
+  if (codes.has('no-aw-events-in-range') || codes.has('missing-aw-events')) return '查询范围内没有 ActivityWatch 原始事件';
+  if (codes.has('missing-aw-window-bucket')) return 'ActivityWatch 窗口采集源不可用';
+  if (codes.has('missing-windows-daemon-heartbeat')) return 'Windows daemon 尚未上报状态';
+  if (quality.overallStatus === 'Unknown') return '新环境可能仍在等待采样';
+  return '暂无数据';
+}
+
 export default function PcDetailQueryPanel() {
   const [params, setParams] = useState<DetailQueryParams>({ page: 1, pageSize: 20 });
 
   const { data, isLoading } = useQuery({
     queryKey: ['pc-detail', params],
     queryFn: () => queryPcDetail(params),
+  });
+
+  const { data: quality } = useQuery({
+    queryKey: ['pc-detail-quality', params.dateFrom, params.dateTo],
+    queryFn: () => getPcQuality({ dateFrom: params.dateFrom, dateTo: params.dateTo }),
+    enabled: !data || data.items.length === 0,
   });
 
   const update = (key: keyof DetailQueryParams, value: unknown) =>
@@ -320,7 +338,7 @@ export default function PcDetailQueryPanel() {
         {isLoading ? (
           <div className="py-8 text-center text-gray-400">查询中...</div>
         ) : !data || !data.items.length ? (
-          <div className="py-8 text-center text-gray-400">暂无数据</div>
+          <div className="py-8 text-center text-gray-400">{getEmptyStateText(quality)}</div>
         ) : (
           <table className="w-full text-sm border-collapse">
             <thead>

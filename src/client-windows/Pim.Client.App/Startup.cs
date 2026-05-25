@@ -14,6 +14,7 @@ public static class Startup
         services.AddSingleton<AuthService>();
         services.AddSingleton<AwCollectorService>();
         services.AddSingleton<KeyStatsCollectorService>();
+        services.AddSingleton<DaemonHeartbeatReporter>();
         services.AddSingleton<TrayIcon>();
 
         return services.BuildServiceProvider();

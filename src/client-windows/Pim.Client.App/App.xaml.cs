@@ -9,6 +9,8 @@ public partial class App : Application
 {
     public static IServiceProvider Services { get; private set; } = null!;
     private TrayIcon? _trayIcon;
+    private readonly CancellationTokenSource _shutdown = new();
+    private readonly PeriodicTimer _heartbeatTimer = new(TimeSpan.FromMinutes(2));
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -76,6 +78,9 @@ public partial class App : Application
             keyStatsCollector.Log = msg => Logger.Info(msg);
             keyStatsCollector.Start();
             Logger.Info("KeyStats collector started");
+
+            _ = Task.Run(() => RunHeartbeatLoopAsync(_shutdown.Token));
+            Logger.Info("Daemon heartbeat loop started");
         }
         catch (Exception ex)
         {
@@ -84,8 +89,35 @@ public partial class App : Application
         }
     }
 
+    private async Task RunHeartbeatLoopAsync(CancellationToken ct)
+    {
+        var reporter = Services.GetRequiredService<DaemonHeartbeatReporter>();
+        while (await _heartbeatTimer.WaitForNextTickAsync(ct))
+        {
+            try
+            {
+                var config = DaemonConfig.Load();
+                var heartbeat = DaemonHeartbeatReporter.BuildHeartbeat(
+                    Environment.MachineName,
+                    typeof(App).Assembly.GetName().Version?.ToString() ?? "unknown",
+                    config.ServerUrl,
+                    null,
+                    DateTimeOffset.UtcNow,
+                    null);
+                await reporter.ReportAsync(heartbeat, ct);
+                Logger.Info("Daemon heartbeat reported");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Daemon heartbeat failed: {ex.Message}");
+            }
+        }
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
+        _shutdown.Cancel();
+        _heartbeatTimer.Dispose();
         _trayIcon?.Dispose();
         Logger.Info("Daemon exiting");
         base.OnExit(e);

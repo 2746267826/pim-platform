@@ -7,6 +7,7 @@ import TodayPage from '../pages/TodayPage';
 import CalendarPage from '../pages/CalendarPage';
 import TaskListPage from '../pages/TaskListPage';
 import PcTrackerPage from '../pages/PcTrackerPage';
+import PcClassificationPage from '../pages/PcClassificationPage';
 import SettingsPage from '../pages/SettingsPage';
 import CalendarDataManager from '../pages/CalendarDataManager';
 import PcDetailQueryPage from '../pages/PcDetailQueryPage';
@@ -35,6 +36,7 @@ export default function AppLayout() {
             <Route path="/month" element={<Navigate to="/calendar?view=month" replace />} />
             <Route path="/tasks" element={<TaskListPage />} />
             <Route path="/pc-tracker" element={<PcTrackerPage />} />
+            <Route path="/pc-classification" element={<PcClassificationPage />} />
             <Route path="/status" element={<StatusPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/calendar-data" element={<CalendarDataManager />} />

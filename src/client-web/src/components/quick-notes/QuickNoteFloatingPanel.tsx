@@ -19,6 +19,10 @@ interface QuickNoteFloatingPanelProps {
 }
 
 function getViewportSize(): PanelSize {
+  if (typeof window === 'undefined') {
+    return { width: 1024, height: 768 };
+  }
+
   return {
     width: window.innerWidth,
     height: window.innerHeight,
@@ -128,7 +132,19 @@ export default function QuickNoteFloatingPanel({ onClose }: QuickNoteFloatingPan
     }
 
     dragRef.current = null;
-    event.currentTarget.releasePointerCapture(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    savePanelPosition(positionRef.current);
+  }
+
+  function handleLostPointerCapture(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) {
+      return;
+    }
+
+    dragRef.current = null;
     savePanelPosition(positionRef.current);
   }
 
@@ -138,6 +154,7 @@ export default function QuickNoteFloatingPanel({ onClose }: QuickNoteFloatingPan
       return;
     }
 
+    setError(null);
     saveMutation.mutate(markdown);
   }
 
@@ -158,6 +175,7 @@ export default function QuickNoteFloatingPanel({ onClose }: QuickNoteFloatingPan
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onLostPointerCapture={handleLostPointerCapture}
       >
         <h2 className="truncate text-sm font-semibold text-slate-800">快速记录</h2>
         <button

@@ -7,6 +7,7 @@
     "noUnusedParameters": false
   },
   "include": [
+    "quickNotesEntryBundle.test.ts",
     "quickNotesApiPath.test.ts",
     "quickNotesAttachmentUrls.test.ts",
     "quickNotesTypes.test.ts",

@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { CalendarVisibilityProvider } from '../context/CalendarVisibilityContext';
+import QuickNoteFloatingButton from '../components/quick-notes/QuickNoteFloatingButton';
+import QuickNoteFloatingPanel from '../components/quick-notes/QuickNoteFloatingPanel';
 import Sidebar from './Sidebar';
 import InboxPanel from '../panels/InboxPanel';
 import TodayPage from '../pages/TodayPage';
@@ -16,6 +19,7 @@ import StatusPage from '../pages/StatusPage';
 export default function AppLayout() {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
+  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -45,6 +49,8 @@ export default function AppLayout() {
           </Routes>
         </main>
         {showCalendarInbox && <InboxPanel draggable />}
+        <QuickNoteFloatingButton onClick={() => setQuickNoteOpen(true)} />
+        {quickNoteOpen && <QuickNoteFloatingPanel onClose={() => setQuickNoteOpen(false)} />}
       </div>
     </CalendarVisibilityProvider>
   );

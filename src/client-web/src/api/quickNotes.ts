@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost, apiPut } from './client';
+import { apiDelete, apiGet, apiPost, apiPut, apiUpload } from './client';
 import type {
   ApiResponse,
   CreateQuickNoteRequest,
@@ -71,25 +71,12 @@ export function deleteQuickNote(id: string) {
   return apiDelete<ApiResponse<string>>(quickNoteApiPaths.detail(id)).then(r => r.data);
 }
 
-export async function uploadQuickNoteAttachment(file: File) {
+export async function uploadQuickNoteAttachment(file: File): Promise<QuickNoteAttachmentUpload> {
   const formData = new FormData();
   formData.append('file', file);
 
-  const headers: Record<string, string> = {};
-  const token = localStorage.getItem('accessToken');
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  const resp = await fetch('/api/v1/quick-notes/attachments', {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
-
-  if (!resp.ok) {
-    const error = await resp.json().catch(() => ({}));
-    throw new Error(error.message || `Upload failed: ${resp.status}`);
-  }
-
-  const json = await resp.json() as ApiResponse<QuickNoteAttachmentUpload>;
-  return json.data;
+  return apiUpload<ApiResponse<QuickNoteAttachmentUpload>>(
+    quickNoteApiPaths.attachments(),
+    formData,
+  ).then(r => r.data);
 }

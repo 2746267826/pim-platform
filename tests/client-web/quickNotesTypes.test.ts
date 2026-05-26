@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import type {
   QuickNoteAttachment,
+  QuickNoteAttachmentUpload,
   QuickNoteDetail,
   QuickNoteListItem,
   QuickNoteStatus,
 } from '../../src/client-web/src/types';
-import { restoreQuickNote } from '../../src/client-web/src/api/quickNotes';
+import { apiUpload } from '../../src/client-web/src/api/client';
+import { restoreQuickNote, uploadQuickNoteAttachment } from '../../src/client-web/src/api/quickNotes';
 
 const status: QuickNoteStatus = 'inbox';
 
@@ -13,7 +15,19 @@ function acceptsRestoreQuickNoteSignature(fn: typeof restoreQuickNote) {
   return fn('11111111-1111-1111-1111-111111111111', 'processed');
 }
 
+function acceptsApiUploadSignature(fn: typeof apiUpload) {
+  return fn('/quick-notes/attachments', new FormData());
+}
+
+function acceptsUploadQuickNoteAttachmentReturn(
+  result: ReturnType<typeof uploadQuickNoteAttachment>,
+): Promise<QuickNoteAttachmentUpload> {
+  return result;
+}
+
 void acceptsRestoreQuickNoteSignature;
+void acceptsApiUploadSignature;
+void acceptsUploadQuickNoteAttachmentReturn;
 
 const attachment: QuickNoteAttachment = {
   id: '22222222-2222-2222-2222-222222222222',

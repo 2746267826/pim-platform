@@ -58,26 +58,38 @@ export async function apiDelete<T>(path: string): Promise<T> {
   return authedFetch<T>(path, { method: 'DELETE' });
 }
 
+export async function apiUpload<T>(path: string, body: BodyInit): Promise<T> {
+  return apiFetchRaw<T>(path, { method: 'POST', body });
+}
+
 function logApi(method: string, path: string, duration: number, status?: number) {
   const msg = `[API] ${method} ${path} → ${status || '???'} (${duration}ms)`;
   if (import.meta.env.DEV) console.log(msg);
 }
 
 async function authedFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
+  return apiFetchRaw<T>(path, opts, true);
+}
+
+async function apiFetchRaw<T>(
+  path: string,
+  opts: RequestInit = {},
+  includeJsonContentType = false,
+): Promise<T> {
   const start = performance.now();
   const method = opts.method || 'GET';
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...((opts.headers as Record<string, string>) || {})
-  };
-  if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+  const headers = new Headers(opts.headers);
+  if (includeJsonContentType && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
 
   let res = await fetch(`${BASE}${path}`, { ...opts, headers });
 
   if (res.status === 401 && refreshToken) {
     const ok = await refreshAccessToken();
     if (ok) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
+      headers.set('Authorization', `Bearer ${accessToken}`);
       res = await fetch(`${BASE}${path}`, { ...opts, headers });
     } else {
       clearTokens();

@@ -471,7 +471,7 @@ export interface QuickNoteDetail extends QuickNoteListItem {
 
 export interface CreateQuickNoteRequest {
   contentMarkdown: string;
-  source?: 'web-floating' | 'web-page' | string;
+  source?: string;
   attachmentIds?: string[];
 }
 

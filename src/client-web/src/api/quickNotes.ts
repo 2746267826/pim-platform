@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost, apiPut, apiUpload } from './client';
+import { apiDelete, apiDownloadBlob, apiGet, apiPost, apiPut, apiUpload } from './client';
 import type {
   ApiResponse,
   CreateQuickNoteRequest,
@@ -79,4 +79,8 @@ export async function uploadQuickNoteAttachment(file: File): Promise<QuickNoteAt
     quickNoteApiPaths.attachments(),
     formData,
   ).then(r => r.data);
+}
+
+export function downloadQuickNoteAttachmentBlob(id: string): Promise<Blob> {
+  return apiDownloadBlob(quickNoteApiPaths.attachmentDownload(id));
 }

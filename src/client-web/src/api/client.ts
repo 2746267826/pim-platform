@@ -62,6 +62,11 @@ export async function apiUpload<T>(path: string, body: BodyInit): Promise<T> {
   return apiFetchRaw<T>(path, { method: 'POST', body });
 }
 
+export async function apiDownloadBlob(path: string): Promise<Blob> {
+  const res = await apiFetchResponse(path);
+  return res.blob();
+}
+
 function logApi(method: string, path: string, duration: number, status?: number) {
   const msg = `[API] ${method} ${path} → ${status || '???'} (${duration}ms)`;
   if (import.meta.env.DEV) console.log(msg);
@@ -76,6 +81,17 @@ async function apiFetchRaw<T>(
   opts: RequestInit = {},
   includeJsonContentType = false,
 ): Promise<T> {
+  const res = await apiFetchResponse(path, opts, includeJsonContentType);
+
+  if (res.status === 204 || res.headers.get('content-length') === '0') return undefined as T;
+  return res.json();
+}
+
+async function apiFetchResponse(
+  path: string,
+  opts: RequestInit = {},
+  includeJsonContentType = false,
+): Promise<Response> {
   const start = performance.now();
   const method = opts.method || 'GET';
   const headers = new Headers(opts.headers);
@@ -106,6 +122,5 @@ async function apiFetchRaw<T>(
     throw new Error(err.message || `HTTP ${res.status}`);
   }
 
-  if (res.status === 204 || res.headers.get('content-length') === '0') return undefined as T;
-  return res.json();
+  return res;
 }

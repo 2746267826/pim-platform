@@ -11,6 +11,7 @@ import {
   restoreQuickNote,
   updateQuickNote,
 } from '../api/quickNotes';
+import { buildQuickNoteUpdatePayload } from '../components/quick-notes/quickNoteAttachmentBlobUrls';
 import QuickNoteEditor from '../components/quick-notes/QuickNoteEditor';
 import QuickNoteMarkdownPreview from '../components/quick-notes/QuickNoteMarkdownPreview';
 import type { QuickNoteDetail, QuickNoteListItem, QuickNoteStatus } from '../types';
@@ -219,13 +220,11 @@ export default function QuickNotesPage() {
   const updateMutation = useMutation({
     mutationFn: ({
       id,
-      contentMarkdown,
-      attachmentIds,
+      payload,
     }: {
       id: string;
-      contentMarkdown: string;
-      attachmentIds: string[];
-    }) => updateQuickNote(id, { contentMarkdown, attachmentIds }),
+      payload: ReturnType<typeof buildQuickNoteUpdatePayload>;
+    }) => updateQuickNote(id, payload),
     onSuccess: note => {
       setError(null);
       invalidateQuickNotes(note.id);
@@ -291,8 +290,7 @@ export default function QuickNotesPage() {
     if (!trimmed || editMarkdown === selected.contentMarkdown) return;
     updateMutation.mutate({
       id: selected.id,
-      contentMarkdown: editMarkdown,
-      attachmentIds: selected.attachments.map(attachment => attachment.id),
+      payload: buildQuickNoteUpdatePayload(editMarkdown),
     });
   }
 

@@ -6,8 +6,8 @@ import type {
   QuickNoteListItem,
   QuickNoteStatus,
 } from '../../src/client-web/src/types';
-import { apiUpload } from '../../src/client-web/src/api/client';
-import { restoreQuickNote, uploadQuickNoteAttachment } from '../../src/client-web/src/api/quickNotes';
+import { apiDownloadBlob, apiUpload } from '../../src/client-web/src/api/client';
+import { downloadQuickNoteAttachmentBlob, restoreQuickNote, uploadQuickNoteAttachment } from '../../src/client-web/src/api/quickNotes';
 
 const status: QuickNoteStatus = 'inbox';
 
@@ -19,6 +19,14 @@ function acceptsApiUploadSignature(fn: typeof apiUpload) {
   return fn('/quick-notes/attachments', new FormData());
 }
 
+function acceptsApiDownloadBlobSignature(fn: typeof apiDownloadBlob): Promise<Blob> {
+  return fn('/quick-notes/attachments/22222222-2222-2222-2222-222222222222/download');
+}
+
+function acceptsDownloadQuickNoteAttachmentBlobSignature(fn: typeof downloadQuickNoteAttachmentBlob): Promise<Blob> {
+  return fn('22222222-2222-2222-2222-222222222222');
+}
+
 function acceptsUploadQuickNoteAttachmentReturn(
   result: ReturnType<typeof uploadQuickNoteAttachment>,
 ): Promise<QuickNoteAttachmentUpload> {
@@ -27,6 +35,8 @@ function acceptsUploadQuickNoteAttachmentReturn(
 
 void acceptsRestoreQuickNoteSignature;
 void acceptsApiUploadSignature;
+void acceptsApiDownloadBlobSignature;
+void acceptsDownloadQuickNoteAttachmentBlobSignature;
 void acceptsUploadQuickNoteAttachmentReturn;
 
 const attachment: QuickNoteAttachment = {

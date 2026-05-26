@@ -8,6 +8,7 @@ import Sidebar from './Sidebar';
 import InboxPanel from '../panels/InboxPanel';
 import TodayPage from '../pages/TodayPage';
 import CalendarPage from '../pages/CalendarPage';
+import QuickNotesPage from '../pages/QuickNotesPage';
 import TaskListPage from '../pages/TaskListPage';
 import PcTrackerPage from '../pages/PcTrackerPage';
 import PcClassificationPage from '../pages/PcClassificationPage';
@@ -35,6 +36,7 @@ export default function AppLayout() {
           <Routes>
             <Route path="/today" element={<TodayPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/quick-notes" element={<QuickNotesPage />} />
             <Route path="/timeline" element={<Navigate to="/calendar?view=timeline" replace />} />
             <Route path="/week" element={<Navigate to="/calendar?view=timeline" replace />} />
             <Route path="/month" element={<Navigate to="/calendar?view=month" replace />} />

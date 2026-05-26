@@ -21,7 +21,8 @@ import {
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
 
-import { uploadQuickNoteAttachment } from '../../api/quickNotes';
+import { downloadQuickNoteAttachmentBlob, uploadQuickNoteAttachment } from '../../api/quickNotes';
+import { getQuickNoteAttachmentIdFromDownloadUrl } from './quickNoteAttachmentBlobUrls';
 
 export interface QuickNoteEditorProps {
   value: string;
@@ -37,6 +38,7 @@ export default function QuickNoteEditor({
   readOnly = false,
 }: QuickNoteEditorProps) {
   const editorRef = useRef<MDXEditorMethods>(null);
+  const previewObjectUrls = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -44,6 +46,11 @@ export default function QuickNoteEditor({
       editor.setMarkdown(value);
     }
   }, [value]);
+
+  useEffect(() => () => {
+    previewObjectUrls.current.forEach(url => URL.revokeObjectURL(url));
+    previewObjectUrls.current.clear();
+  }, []);
 
   const plugins = useMemo(() => {
     const sharedPlugins = [
@@ -56,6 +63,22 @@ export default function QuickNoteEditor({
         imageUploadHandler: async file => {
           const uploaded = await uploadQuickNoteAttachment(file);
           return uploaded.downloadUrl;
+        },
+        imagePreviewHandler: async imageSource => {
+          const attachmentId = getQuickNoteAttachmentIdFromDownloadUrl(imageSource);
+          if (!attachmentId) {
+            return imageSource;
+          }
+
+          const cachedObjectUrl = previewObjectUrls.current.get(attachmentId);
+          if (cachedObjectUrl) {
+            return cachedObjectUrl;
+          }
+
+          const blob = await downloadQuickNoteAttachmentBlob(attachmentId);
+          const objectUrl = URL.createObjectURL(blob);
+          previewObjectUrls.current.set(attachmentId, objectUrl);
+          return objectUrl;
         },
       }),
       markdownShortcutPlugin(),

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   buildQuickNoteUpdatePayload,
   extractQuickNoteAttachmentIds,
+  getQuickNoteAttachmentIdFromDownloadUrl,
   rewriteQuickNoteAttachmentUrls,
 } from '../../src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls';
 
@@ -16,6 +17,11 @@ const markdown = [
 ].join('\n');
 
 assert.deepEqual(extractQuickNoteAttachmentIds(markdown), [firstId, secondId]);
+assert.equal(
+  getQuickNoteAttachmentIdFromDownloadUrl(`/api/v1/quick-notes/attachments/${firstId}/download`),
+  firstId,
+);
+assert.equal(getQuickNoteAttachmentIdFromDownloadUrl(`https://example.com/api/v1/quick-notes/attachments/${firstId}/download`), null);
 
 assert.equal(
   rewriteQuickNoteAttachmentUrls(

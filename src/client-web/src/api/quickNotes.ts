@@ -63,8 +63,8 @@ export function archiveQuickNote(id: string) {
   return apiPost<ApiResponse<QuickNoteDetail>>(quickNoteApiPaths.archive(id), {}).then(r => r.data);
 }
 
-export function restoreQuickNote(id: string) {
-  return apiPost<ApiResponse<QuickNoteDetail>>(quickNoteApiPaths.restore(id), {}).then(r => r.data);
+export function restoreQuickNote(id: string, status: QuickNoteStatus = 'inbox') {
+  return apiPost<ApiResponse<QuickNoteDetail>>(quickNoteApiPaths.restore(id), { status }).then(r => r.data);
 }
 
 export function deleteQuickNote(id: string) {

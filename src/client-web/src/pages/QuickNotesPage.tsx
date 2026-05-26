@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -70,6 +70,8 @@ export default function QuickNotesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editMarkdown, setEditMarkdown] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
+  const selectedIdRef = useRef<string | null>(null);
 
   const listParams = useMemo(() => ({
     status,
@@ -83,7 +85,10 @@ export default function QuickNotesPage() {
     queryFn: () => getQuickNotes(listParams),
   });
 
-  const notes = listQuery.data?.items ?? [];
+  const notes = useMemo(
+    () => (listQuery.data?.items ?? []).filter(note => !deletedIds.has(note.id)),
+    [deletedIds, listQuery.data?.items],
+  );
 
   const detailQuery = useQuery({
     queryKey: ['quick-notes', 'detail', selectedId],
@@ -93,6 +98,34 @@ export default function QuickNotesPage() {
 
   const selected = detailQuery.data;
 
+  const setSelection = useCallback((nextId: string | null) => {
+    selectedIdRef.current = nextId;
+    setSelectedId(nextId);
+  }, []);
+
+  const updateSelection = useCallback((updater: (current: string | null) => string | null) => {
+    setSelectedId(current => {
+      const next = updater(current);
+      selectedIdRef.current = next;
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (listQuery.data) {
+      const idsInList = new Set(listQuery.data.items.map(note => note.id));
+      setDeletedIds(current => {
+        const pendingIds = Array.from(current).filter(id => idsInList.has(id));
+
+        if (pendingIds.length === current.size) {
+          return current;
+        }
+
+        return new Set(pendingIds);
+      });
+    }
+  }, [listQuery.data]);
+
   useEffect(() => {
     if (selected) {
       setEditMarkdown(selected.contentMarkdown);
@@ -100,16 +133,75 @@ export default function QuickNotesPage() {
   }, [selected]);
 
   useEffect(() => {
-    if (selectedId && !listQuery.isLoading && notes.length > 0 && !notes.some(note => note.id === selectedId)) {
-      setSelectedId(notes[0].id);
+    if (!selectedId) {
+      setEditMarkdown('');
     }
-  }, [listQuery.isLoading, notes, selectedId]);
+  }, [selectedId]);
 
   useEffect(() => {
-    if (!selectedId && notes.length > 0) {
-      setSelectedId(notes[0].id);
+    if (listQuery.isLoading) return;
+
+    updateSelection(current => {
+      if (notes.length === 0) {
+        return null;
+      }
+
+      if (current && notes.some(note => note.id === current)) {
+        return current;
+      }
+
+      return notes[0].id;
+    });
+  }, [listQuery.isLoading, notes, updateSelection]);
+
+  function clearSelectionIfCurrent(targetId: string) {
+    updateSelection(current => {
+      if (current === targetId) {
+        return null;
+      }
+
+      return current;
+    });
+  }
+
+  function hideDeletedNote(id: string) {
+    setDeletedIds(current => {
+      if (current.has(id)) return current;
+
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
+  }
+
+  function changeStatusIfCurrent(targetId: string, nextStatus: QuickNoteStatus) {
+    if (selectedIdRef.current === targetId) {
+      setStatus(nextStatus);
+      setSelection(targetId);
     }
-  }, [notes, selectedId]);
+  }
+
+  function selectCreatedNote(note: QuickNoteDetail) {
+    setDraft('');
+    setSelection(note.id);
+    setStatus(note.status);
+    setError(null);
+    invalidateQuickNotes(note.id);
+  }
+
+  function selectNote(note: QuickNoteListItem) {
+    if (deletedIds.has(note.id)) {
+      setDeletedIds(current => {
+        if (!current.has(note.id)) return current;
+
+        const next = new Set(current);
+        next.delete(note.id);
+        return next;
+      });
+    }
+    setSelection(note.id);
+    setError(null);
+  }
 
   function invalidateQuickNotes(id?: string | null) {
     void queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
@@ -120,13 +212,7 @@ export default function QuickNotesPage() {
 
   const createMutation = useMutation({
     mutationFn: (contentMarkdown: string) => createQuickNote({ contentMarkdown, source: 'web-page' }),
-    onSuccess: note => {
-      setDraft('');
-      setSelectedId(note.id);
-      setStatus(note.status);
-      setError(null);
-      invalidateQuickNotes(note.id);
-    },
+    onSuccess: selectCreatedNote,
     onError: () => setError('创建失败，请稍后重试。'),
   });
 
@@ -150,8 +236,7 @@ export default function QuickNotesPage() {
   const processMutation = useMutation({
     mutationFn: processQuickNote,
     onSuccess: note => {
-      setStatus(note.status);
-      setSelectedId(note.id);
+      changeStatusIfCurrent(note.id, note.status);
       invalidateQuickNotes(note.id);
     },
     onError: () => setError('处理失败，请稍后重试。'),
@@ -160,8 +245,7 @@ export default function QuickNotesPage() {
   const archiveMutation = useMutation({
     mutationFn: archiveQuickNote,
     onSuccess: note => {
-      setStatus(note.status);
-      setSelectedId(note.id);
+      changeStatusIfCurrent(note.id, note.status);
       invalidateQuickNotes(note.id);
     },
     onError: () => setError('归档失败，请稍后重试。'),
@@ -170,8 +254,7 @@ export default function QuickNotesPage() {
   const restoreMutation = useMutation({
     mutationFn: ({ id, nextStatus }: { id: string; nextStatus: QuickNoteStatus }) => restoreQuickNote(id, nextStatus),
     onSuccess: note => {
-      setStatus(note.status);
-      setSelectedId(note.id);
+      changeStatusIfCurrent(note.id, note.status);
       invalidateQuickNotes(note.id);
     },
     onError: () => setError('恢复失败，请稍后重试。'),
@@ -180,7 +263,8 @@ export default function QuickNotesPage() {
   const deleteMutation = useMutation({
     mutationFn: deleteQuickNote,
     onSuccess: (_deletedId, id) => {
-      setSelectedId(current => (current === id ? null : current));
+      hideDeletedNote(id);
+      clearSelectionIfCurrent(id);
       setError(null);
       invalidateQuickNotes(id);
     },
@@ -218,11 +302,6 @@ export default function QuickNotesPage() {
     if (confirmed) {
       deleteMutation.mutate(note.id);
     }
-  }
-
-  function selectNote(note: QuickNoteListItem) {
-    setSelectedId(note.id);
-    setError(null);
   }
 
   return (
@@ -281,7 +360,7 @@ export default function QuickNotesPage() {
                   type="button"
                   onClick={() => {
                     setStatus(item.key);
-                    setSelectedId(null);
+                    setSelection(null);
                   }}
                   className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
                     status === item.key
@@ -300,7 +379,7 @@ export default function QuickNotesPage() {
                 value={search}
                 onChange={event => {
                   setSearch(event.target.value);
-                  setSelectedId(null);
+                  setSelection(null);
                 }}
                 placeholder="搜索内容..."
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"

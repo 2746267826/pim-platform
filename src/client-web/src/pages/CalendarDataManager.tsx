@@ -67,7 +67,7 @@ export default function CalendarDataManager() {
   const deleteMut = useMutation({
     mutationFn: batchDeleteEvents,
     onSuccess: (result) => {
-      setImportMsg(`已删除 ${result.deletedCount} 条日程`);
+      setImportMsg(`已删除 ${result.affectedCount} 条日程`);
       setSelectedIds(new Set());
       queryClient.invalidateQueries({ queryKey: ['events-paged'] });
     },

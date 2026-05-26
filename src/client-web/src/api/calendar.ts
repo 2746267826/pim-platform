@@ -54,8 +54,15 @@ export async function deleteEvent(id: string) {
   await apiDelete(`/calendar/events/${id}`);
 }
 
+export type CalendarOperationResult = {
+  operation: string;
+  operationId: string;
+  affectedCount: number;
+  affectedIds: string[];
+};
+
 export async function batchDeleteEvents(ids: string[]) {
-  const r = await apiPost<ApiResponse<{ deletedCount: number }>>('/calendar/events/batch-delete', { ids });
+  const r = await apiPost<ApiResponse<CalendarOperationResult>>('/calendar/events/batch-delete', { ids });
   return r.data;
 }
 

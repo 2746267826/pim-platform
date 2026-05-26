@@ -63,5 +63,9 @@ export function savePanelPosition(point: PanelPoint) {
     return;
   }
 
-  localStorage.setItem(QUICK_NOTE_PANEL_POSITION_KEY, JSON.stringify(point));
+  try {
+    localStorage.setItem(QUICK_NOTE_PANEL_POSITION_KEY, JSON.stringify(point));
+  } catch {
+    // Panel position persistence is best-effort.
+  }
 }

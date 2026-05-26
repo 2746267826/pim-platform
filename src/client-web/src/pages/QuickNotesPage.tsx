@@ -131,8 +131,15 @@ export default function QuickNotesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, contentMarkdown }: { id: string; contentMarkdown: string }) =>
-      updateQuickNote(id, { contentMarkdown }),
+    mutationFn: ({
+      id,
+      contentMarkdown,
+      attachmentIds,
+    }: {
+      id: string;
+      contentMarkdown: string;
+      attachmentIds: string[];
+    }) => updateQuickNote(id, { contentMarkdown, attachmentIds }),
     onSuccess: note => {
       setError(null);
       invalidateQuickNotes(note.id);
@@ -198,7 +205,11 @@ export default function QuickNotesPage() {
     if (!selected || updateMutation.isPending) return;
     const trimmed = editMarkdown.trim();
     if (!trimmed || editMarkdown === selected.contentMarkdown) return;
-    updateMutation.mutate({ id: selected.id, contentMarkdown: editMarkdown });
+    updateMutation.mutate({
+      id: selected.id,
+      contentMarkdown: editMarkdown,
+      attachmentIds: selected.attachments.map(attachment => attachment.id),
+    });
   }
 
   function handleDelete(note: QuickNoteDetail) {

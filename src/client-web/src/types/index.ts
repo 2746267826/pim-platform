@@ -439,3 +439,53 @@ export interface ClassificationSuggestionsTodayData {
   pendingCount: number;
   suggestions: ActivityClassificationSuggestion[];
 }
+
+export type QuickNoteStatus = 'inbox' | 'processed' | 'archived';
+
+export interface QuickNoteAttachment {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  downloadUrl: string;
+  previewUrl: string | null;
+  createdAt: string;
+}
+
+export interface QuickNoteListItem {
+  id: string;
+  contentPreview: string;
+  status: QuickNoteStatus;
+  source: string;
+  attachmentCount: number;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface QuickNoteDetail extends QuickNoteListItem {
+  contentMarkdown: string;
+  attachments: QuickNoteAttachment[];
+  metadataJson: string;
+}
+
+export interface CreateQuickNoteRequest {
+  contentMarkdown: string;
+  source?: 'web-floating' | 'web-page' | string;
+  attachmentIds?: string[];
+}
+
+export interface UpdateQuickNoteRequest {
+  contentMarkdown: string;
+  status?: QuickNoteStatus;
+  attachmentIds?: string[];
+}
+
+export interface QuickNoteAttachmentUpload {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  downloadUrl: string;
+  previewUrl: string | null;
+}

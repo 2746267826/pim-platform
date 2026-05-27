@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -13,20 +13,20 @@ import type {
   CalendarRestorePreviewResponse,
 } from '../types';
 
-type RecycleType = 'all' | 'event' | 'task' | 'calendar' | 'calendar-book' | 'task-book';
+type RecycleType = 'all' | 'event' | 'task' | 'calendar' | 'task-book';
 
 const typeOptions: { value: RecycleType; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'event', label: '日程' },
   { value: 'task', label: '任务' },
   { value: 'calendar', label: '日历本' },
-  { value: 'calendar-book', label: '日历本（兼容）' },
   { value: 'task-book', label: '任务本' },
 ];
 
 const invalidateAfterRestoreKeys = [
   ['calendar-recycle-bin'],
   ['events'],
+  ['events-paged'],
   ['tasks'],
   ['calendars'],
   ['today-sections'],
@@ -41,12 +41,12 @@ function typeLabel(type: string) {
   return type || '未知';
 }
 
-function getQueryType(type: RecycleType) {
-  return type === 'calendar-book' ? 'calendar' : type;
-}
-
 function canRestoreAsCopy(type: string) {
   return type === 'event' || type === 'task';
+}
+
+function recycleItemKey(item: Pick<CalendarRecycleBinItem, 'type' | 'id'>) {
+  return `${item.type}:${item.id}`;
 }
 
 function getErrorMessage(error: unknown) {
@@ -97,21 +97,80 @@ function RestorePreviewDialog({
   onRetryPreview,
   onRestore,
 }: RestorePreviewDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
   const hasConflicts = (preview?.conflicts.length ?? 0) > 0;
   const copyAllowed = canRestoreAsCopy(item.type);
   const canRestoreNormally = Boolean(preview?.canRestoreWithoutConflict);
 
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+
+    dialogRef.current?.focus();
+
+    return () => {
+      previouslyFocusedRef.current?.focus();
+      previouslyFocusedRef.current = null;
+    };
+  }, []);
+
+  function getFocusableElements() {
+    const dialog = dialogRef.current;
+    if (!dialog) return [];
+
+    return Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter(element => !element.hasAttribute('aria-hidden'));
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      onCancel();
+      return;
+    }
+
+    if (e.key !== 'Tab') return;
+
+    const focusableElements = getFocusableElements();
+    if (focusableElements.length === 0) {
+      e.preventDefault();
+      dialogRef.current?.focus();
+      return;
+    }
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    const activeElement = document.activeElement;
+
+    if (e.shiftKey && (activeElement === firstElement || activeElement === dialogRef.current)) {
+      e.preventDefault();
+      lastElement.focus();
+    } else if (!e.shiftKey && (activeElement === lastElement || activeElement === dialogRef.current)) {
+      e.preventDefault();
+      firstElement.focus();
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 py-6">
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="recycle-restore-preview-title"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
         className="w-full max-w-2xl rounded-lg border border-slate-200 bg-white shadow-2xl"
       >
         <header className="border-b border-slate-200 px-5 py-4">
           <p className="text-xs font-semibold uppercase text-blue-600">恢复预览</p>
-          <h2 id="recycle-restore-preview-title" className="mt-1 text-base font-semibold text-slate-950">
+          <h2 id={titleId} className="mt-1 text-base font-semibold text-slate-950">
             恢复“{item.title}”
           </h2>
           <p className="mt-2 text-sm text-slate-600">
@@ -259,16 +318,20 @@ export default function RecycleBinPage() {
   const [search, setSearch] = useState('');
   const [selectedItem, setSelectedItem] = useState<CalendarRecycleBinItem | null>(null);
   const [preview, setPreview] = useState<CalendarRestorePreviewResponse | null>(null);
+  const [previewError, setPreviewError] = useState<unknown>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [result, setResult] = useState<CalendarOperationResult | null>(null);
+  const selectedItemKeyRef = useRef<string | null>(null);
+  const activePreviewRequestRef = useRef<{ itemKey: string; requestId: number } | null>(null);
+  const nextPreviewRequestIdRef = useRef(0);
 
   const normalizedSearch = search.trim();
-  const queryType = getQueryType(type);
 
   const listQuery = useQuery({
-    queryKey: ['calendar-recycle-bin', queryType, normalizedSearch],
+    queryKey: ['calendar-recycle-bin', type, normalizedSearch],
     queryFn: () =>
       getRecycleBin({
-        type: queryType,
+        type,
         search: normalizedSearch || undefined,
         page: 1,
         pageSize: 50,
@@ -277,7 +340,6 @@ export default function RecycleBinPage() {
 
   const previewMutation = useMutation({
     mutationFn: (item: CalendarRecycleBinItem) => previewRecycleRestore(item.type, item.id),
-    onSuccess: data => setPreview(data),
   });
 
   const restoreMutation = useMutation({
@@ -285,8 +347,12 @@ export default function RecycleBinPage() {
       restoreRecycleItem(item.type, item.id, restoreAsCopy),
     onSuccess: data => {
       setResult(data);
+      selectedItemKeyRef.current = null;
+      activePreviewRequestRef.current = null;
       setSelectedItem(null);
       setPreview(null);
+      setPreviewError(null);
+      setIsPreviewLoading(false);
       for (const queryKey of invalidateAfterRestoreKeys) {
         void queryClient.invalidateQueries({ queryKey });
       }
@@ -295,27 +361,65 @@ export default function RecycleBinPage() {
 
   const items = listQuery.data?.items ?? [];
 
+  function isActivePreviewRequest(item: CalendarRecycleBinItem, requestId: number) {
+    const itemKey = recycleItemKey(item);
+    return selectedItemKeyRef.current === itemKey
+      && activePreviewRequestRef.current?.itemKey === itemKey
+      && activePreviewRequestRef.current.requestId === requestId;
+  }
+
+  function startPreviewRequest(item: CalendarRecycleBinItem) {
+    const itemKey = recycleItemKey(item);
+    const requestId = nextPreviewRequestIdRef.current + 1;
+
+    nextPreviewRequestIdRef.current = requestId;
+    selectedItemKeyRef.current = itemKey;
+    activePreviewRequestRef.current = { itemKey, requestId };
+    setPreview(null);
+    setPreviewError(null);
+    setIsPreviewLoading(true);
+    previewMutation.reset();
+    previewMutation.mutate(item, {
+      onSuccess: (data, variables) => {
+        if (isActivePreviewRequest(variables, requestId)) {
+          setPreview(data);
+        }
+      },
+      onError: (error, variables) => {
+        if (isActivePreviewRequest(variables, requestId)) {
+          setPreviewError(error);
+        }
+      },
+      onSettled: (_data, _error, variables) => {
+        if (isActivePreviewRequest(variables, requestId)) {
+          setIsPreviewLoading(false);
+        }
+      },
+    });
+  }
+
   function openRestorePreview(item: CalendarRecycleBinItem) {
     setResult(null);
     setSelectedItem(item);
-    setPreview(null);
-    previewMutation.reset();
     restoreMutation.reset();
-    previewMutation.mutate(item);
+    startPreviewRequest(item);
   }
 
   function closeRestorePreview() {
+    selectedItemKeyRef.current = null;
+    activePreviewRequestRef.current = null;
     setSelectedItem(null);
     setPreview(null);
+    setPreviewError(null);
+    setIsPreviewLoading(false);
     previewMutation.reset();
     restoreMutation.reset();
   }
 
   function retryRestorePreview() {
     if (!selectedItem) return;
-    setPreview(null);
-    previewMutation.reset();
-    previewMutation.mutate(selectedItem);
+
+    startPreviewRequest(selectedItem);
   }
 
   function restoreSelected(restoreAsCopy: boolean) {
@@ -438,8 +542,8 @@ export default function RecycleBinPage() {
         <RestorePreviewDialog
           item={selectedItem}
           preview={preview}
-          isLoading={previewMutation.isPending}
-          previewError={previewMutation.error}
+          isLoading={isPreviewLoading}
+          previewError={previewError}
           restoreError={restoreMutation.error}
           isRestoring={restoreMutation.isPending}
           onCancel={closeRestorePreview}

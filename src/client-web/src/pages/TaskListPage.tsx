@@ -1,18 +1,44 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getTasks, updateTask, taskToMutationData } from '../api/calendar';
+import {
+  batchDeleteTasks,
+  getCalendars,
+  getTasksPaged,
+  updateTask,
+  taskToMutationData,
+} from '../api/calendar';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
 import { sortTasksByDue } from '../components/today/TodayTaskColumn';
 import EmptyState from '../ui/EmptyState';
 import StatusBadge from '../ui/StatusBadge';
-import type { TaskMutationData } from '../api/calendar';
-import type { TaskResponse } from '../types';
+import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
+import type { GetTasksParams, TaskMutationData } from '../api/calendar';
+import type { CalendarOperationSample, TaskResponse } from '../types';
 
 const filters = [
   { key: 'all', label: '全部' },
   { key: 'inbox', label: '收集箱' },
+  { key: 'today', label: '今日截止' },
+  { key: 'planned', label: '今日已安排' },
   { key: 'high', label: '高优先' },
-  { key: 'today', label: '今日' },
+  { key: 'completed', label: '已完成' },
+] as const;
+
+type TaskFilter = typeof filters[number]['key'];
+
+const taskMutationInvalidationKeys = [
+  ['tasks'],
+  ['tasks-paged'],
+  ['today-sections'],
+  ['today-section'],
+] as const;
+
+const taskDeleteInvalidationKeys = [
+  ['tasks'],
+  ['tasks-paged'],
+  ['calendar-recycle-bin'],
+  ['today-sections'],
+  ['today-section'],
 ] as const;
 
 function formatLocalDate(date: Date) {
@@ -49,6 +75,18 @@ function priorityLabel(priority: number) {
   return '普通优先级';
 }
 
+function priorityTone(priority: number) {
+  if (priority === 1) return 'danger';
+  if (priority === 3) return 'activity';
+  return 'warning';
+}
+
+function statusLabel(status: string) {
+  if (status === 'COMPLETED') return '已完成';
+  if (status === 'NEEDS-ACTION') return '待处理';
+  return status || '未设置';
+}
+
 function formatDue(value?: string) {
   if (!value) return '无截止';
   const parsed = new Date(value);
@@ -61,45 +99,194 @@ function formatDue(value?: string) {
   });
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message;
+  return '删除失败，请稍后再试。';
+}
+
+function buildTaskQuery(
+  filter: TaskFilter,
+  search: string,
+  calendarId: string,
+  todayStr: string,
+): GetTasksParams {
+  const todayStart = `${todayStr}T00:00:00`;
+  const todayEnd = `${todayStr}T23:59:59`;
+  const query: GetTasksParams = {
+    page: 1,
+    pageSize: 100,
+  };
+  const normalizedSearch = search.trim();
+
+  if (normalizedSearch) query.search = normalizedSearch;
+  if (calendarId) query.calendarId = calendarId;
+  if (filter === 'inbox') query.inbox = true;
+  if (filter === 'high') query.priority = 1;
+  if (filter === 'completed') query.status = 'COMPLETED';
+  if (filter === 'planned') {
+    query.plannedFrom = todayStart;
+    query.plannedTo = todayEnd;
+  }
+  if (filter === 'today') {
+    query.dueFrom = todayStart;
+    query.dueTo = todayEnd;
+  }
+
+  return query;
+}
+
+function toTaskSample(
+  task: TaskResponse,
+  taskBookNameById: Map<string, string>,
+): CalendarOperationSample {
+  return {
+    id: task.id,
+    type: 'task',
+    title: task.title,
+    start: task.dtStart,
+    end: task.plannedEnd || task.due,
+    bookName: task.calendarId ? taskBookNameById.get(task.calendarId) : undefined,
+  };
+}
+
 export default function TaskListPage() {
   const todayStr = useLocalDate();
-  const [filter, setFilter] = useState<string>('all');
+  const [filter, setFilter] = useState<TaskFilter>('all');
   const [search, setSearch] = useState('');
+  const [selectedTaskBook, setSelectedTaskBook] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskResponse | undefined>();
   const queryClient = useQueryClient();
 
-  const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => getTasks()
+  function invalidateKeys(keys: typeof taskMutationInvalidationKeys | typeof taskDeleteInvalidationKeys) {
+    for (const queryKey of keys) {
+      queryClient.invalidateQueries({ queryKey });
+    }
+  }
+
+  const { data: taskBooks = [], isLoading: taskBooksLoading } = useQuery({
+    queryKey: ['calendars', 'task'],
+    queryFn: () => getCalendars('task'),
+  });
+
+  const taskQuery = useMemo(
+    () => buildTaskQuery(filter, search, selectedTaskBook, todayStr),
+    [filter, search, selectedTaskBook, todayStr],
+  );
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['tasks-paged', filter, search, selectedTaskBook, todayStr],
+    queryFn: () => getTasksPaged(taskQuery),
   });
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: TaskMutationData }) =>
       updateTask(id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    onSuccess: () => invalidateKeys(taskMutationInvalidationKeys),
   });
 
-  const filtered = useMemo(() => {
-    let result = tasks;
-    if (filter === 'inbox') result = result.filter(t => t.isInbox);
-    if (filter === 'high') result = result.filter(t => t.priority === 1);
-    if (filter === 'today') result = result.filter(t => t.dtStart && t.dtStart.startsWith(todayStr));
-    if (search) result = result.filter(t => t.title.toLowerCase().includes(search.toLowerCase()));
-    return sortTasksByDue(result);
-  }, [tasks, filter, search, todayStr]);
+  const deleteMutation = useMutation({
+    mutationFn: (ids: string[]) => batchDeleteTasks(ids),
+    onSuccess: () => {
+      setSelectedIds(new Set());
+      setDeleteInput(null);
+      setDeleteErrorMessage(null);
+      invalidateKeys(taskDeleteInvalidationKeys);
+    },
+    onError: error => {
+      setDeleteInput(null);
+      setDeleteErrorMessage(getErrorMessage(error));
+    },
+  });
+
+  const items = useMemo(() => sortTasksByDue(data?.items ?? []), [data?.items]);
+  const totalCount = data?.totalCount ?? items.length;
+  const currentIds = useMemo(() => items.map(task => task.id), [items]);
+  const allCurrentSelected = currentIds.length > 0 && currentIds.every(id => selectedIds.has(id));
+  const taskBookNameById = useMemo(
+    () => new Map(taskBooks.map(book => [book.id, book.name])),
+    [taskBooks],
+  );
+
+  function clearSelectionState() {
+    setSelectedIds(new Set());
+    setDeleteErrorMessage(null);
+  }
+
+  function handleFilterChange(nextFilter: TaskFilter) {
+    setFilter(nextFilter);
+    clearSelectionState();
+  }
+
+  function handleSearchChange(nextSearch: string) {
+    setSearch(nextSearch);
+    clearSelectionState();
+  }
+
+  function handleTaskBookChange(nextTaskBook: string) {
+    setSelectedTaskBook(nextTaskBook);
+    clearSelectionState();
+  }
+
+  function toggleTaskSelection(taskId: string, checked: boolean) {
+    setSelectedIds(current => {
+      const next = new Set(current);
+      if (checked) next.add(taskId);
+      else next.delete(taskId);
+      return next;
+    });
+  }
+
+  function toggleCurrentResultSelection() {
+    if (currentIds.length === 0) return;
+
+    setSelectedIds(current => {
+      const next = new Set(current);
+      if (allCurrentSelected) currentIds.forEach(id => next.delete(id));
+      else currentIds.forEach(id => next.add(id));
+      return next;
+    });
+  }
+
+  function requestDeleteSelected() {
+    const selectedTasks = items.filter(task => selectedIds.has(task.id));
+    if (selectedTasks.length === 0) return;
+
+    deleteMutation.reset();
+    setDeleteErrorMessage(null);
+    setDeleteInput({
+      targetType: 'task',
+      title: '选中的任务',
+      affectedCount: selectedIds.size,
+      samples: selectedTasks.slice(0, 5).map(task => toTaskSample(task, taskBookNameById)),
+    });
+  }
+
+  function confirmDeleteSelected() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    deleteMutation.mutate(ids);
+  }
+
+  function closeEditor() {
+    setEditorOpen(false);
+    invalidateKeys(taskMutationInvalidationKeys);
+  }
 
   if (isLoading) return <div className="p-4 text-sm text-slate-500">加载中...</div>;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 pb-8">
+    <div className="mx-auto max-w-4xl space-y-4 pb-8">
       <section className="pim-panel p-4">
         <div className="flex flex-wrap gap-2">
           {filters.map(f => (
             <button
               key={f.key}
               type="button"
-              onClick={() => setFilter(f.key)}
+              onClick={() => handleFilterChange(f.key)}
               className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
                 filter === f.key
                   ? 'border-blue-600 bg-blue-600 text-white'
@@ -111,27 +298,86 @@ export default function TaskListPage() {
           ))}
         </div>
 
-        <label className="mt-4 block">
-          <span className="sr-only">搜索任务</span>
-          <input
-            type="text"
-            placeholder="搜索任务..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-          />
-        </label>
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_220px]">
+          <label className="block">
+            <span className="sr-only">搜索任务</span>
+            <input
+              type="text"
+              placeholder="搜索任务..."
+              value={search}
+              onChange={e => handleSearchChange(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+            />
+          </label>
+
+          <label className="block">
+            <span className="sr-only">任务本</span>
+            <select
+              value={selectedTaskBook}
+              onChange={e => handleTaskBookChange(e.target.value)}
+              disabled={taskBooksLoading}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-blue-300 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">全部任务本</option>
+              {taskBooks.map(book => (
+                <option key={book.id} value={book.id}>{book.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <StatusBadge tone="neutral">共 {totalCount} 项</StatusBadge>
+            {selectedIds.size > 0 && <StatusBadge tone="primary">已选 {selectedIds.size} 项</StatusBadge>}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleCurrentResultSelection}
+              disabled={currentIds.length === 0}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-blue-200 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {allCurrentSelected ? '取消全选' : '全选当前结果'}
+            </button>
+            <button
+              type="button"
+              onClick={requestDeleteSelected}
+              disabled={selectedIds.size === 0 || deleteMutation.isPending}
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              删除选中
+            </button>
+          </div>
+        </div>
+
+        {deleteErrorMessage && (
+          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {deleteErrorMessage}
+          </div>
+        )}
       </section>
 
-      {filtered.length === 0 ? (
+      {items.length === 0 ? (
         <EmptyState title="没有任务" description="调整筛选或搜索条件后再看看。" />
       ) : (
         <div className="space-y-2">
-          {filtered.map(task => (
+          {items.map(task => (
             <article
               key={task.id}
               className="pim-card flex items-center gap-3 p-3 transition-colors hover:border-blue-200 hover:bg-slate-50"
             >
+              <label className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white">
+                <span className="sr-only">选择任务：{task.title}</span>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(task.id)}
+                  onChange={e => toggleTaskSelection(task.id, e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-200"
+                />
+              </label>
+
               <button
                 type="button"
                 className="flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left focus:outline-none focus:ring-2 focus:ring-blue-200"
@@ -146,8 +392,13 @@ export default function TaskListPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-slate-900">{task.title}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <StatusBadge tone={priorityTone(task.priority)}>{priorityLabel(task.priority)}</StatusBadge>
+                    <StatusBadge tone={task.status === 'COMPLETED' ? 'activity' : 'neutral'}>
+                      {statusLabel(task.status)}
+                    </StatusBadge>
                     <StatusBadge tone="neutral">{formatDue(task.due)}</StatusBadge>
-                    {task.dtStart && <StatusBadge tone="primary">已排程</StatusBadge>}
+                    {task.dtStart && <StatusBadge tone="primary">已安排 {formatDue(task.dtStart)}</StatusBadge>}
+                    {task.isInbox && <StatusBadge tone="warning">收集箱</StatusBadge>}
                   </div>
                 </div>
               </button>
@@ -176,8 +427,18 @@ export default function TaskListPage() {
 
       <TaskEditorDialog
         open={editorOpen}
-        onClose={() => setEditorOpen(false)}
+        onClose={closeEditor}
         task={editingTask}
+      />
+      <ConfirmActionDialog
+        open={deleteInput !== null}
+        input={deleteInput}
+        isPending={deleteMutation.isPending}
+        onCancel={() => {
+          if (deleteMutation.isPending) return;
+          setDeleteInput(null);
+        }}
+        onConfirm={confirmDeleteSelected}
       />
     </div>
   );

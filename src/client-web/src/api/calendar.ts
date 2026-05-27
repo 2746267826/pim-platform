@@ -31,6 +31,20 @@ export type RecycleBinParams = {
   pageSize?: number;
 };
 
+export interface GetTasksParams {
+  inbox?: boolean;
+  search?: string;
+  calendarId?: string;
+  status?: string;
+  priority?: number;
+  plannedFrom?: string;
+  plannedTo?: string;
+  dueFrom?: string;
+  dueTo?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 function appendQuery(path: string, params: Record<string, string | number | undefined>) {
   const searchParams = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -126,6 +140,27 @@ export function buildTasksPath(inboxOnly?: boolean) {
 export async function getTasks(inboxOnly?: boolean) {
   const r = await apiGet<ApiResponse<TaskResponse[]>>(
     buildTasksPath(inboxOnly)
+  );
+  return r.data;
+}
+
+export async function getTasksPaged(params: GetTasksParams = {}) {
+  const searchParams = new URLSearchParams();
+  if (params.inbox !== undefined) searchParams.set('inbox', String(params.inbox));
+  if (params.search) searchParams.set('search', params.search);
+  if (params.calendarId) searchParams.set('calendarId', params.calendarId);
+  if (params.status) searchParams.set('status', params.status);
+  if (params.priority !== undefined) searchParams.set('priority', String(params.priority));
+  if (params.plannedFrom) searchParams.set('plannedFrom', params.plannedFrom);
+  if (params.plannedTo) searchParams.set('plannedTo', params.plannedTo);
+  if (params.dueFrom) searchParams.set('dueFrom', params.dueFrom);
+  if (params.dueTo) searchParams.set('dueTo', params.dueTo);
+  if (params.page !== undefined) searchParams.set('page', String(params.page));
+  if (params.pageSize !== undefined) searchParams.set('pageSize', String(params.pageSize));
+
+  const qs = searchParams.toString();
+  const r = await apiGet<ApiResponse<PagedResult<TaskResponse>>>(
+    qs ? `/calendar/tasks?${qs}` : '/calendar/tasks'
   );
   return r.data;
 }

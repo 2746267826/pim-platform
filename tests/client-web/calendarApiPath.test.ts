@@ -3,6 +3,7 @@ import {
   batchUpdateTasks,
   buildTasksPath,
   calendarApiPaths,
+  getTasksPaged,
   planTask,
   previewCalendarDelete,
 } from '../../src/client-web/src/api/calendar';
@@ -26,6 +27,28 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 
 async function main() {
   await assert.rejects(
+    () => getTasksPaged({
+      inbox: true,
+      search: 'focus',
+      calendarId: 'task-book-1',
+      status: 'COMPLETED',
+      priority: 1,
+      plannedFrom: '2026-05-27T00:00:00',
+      plannedTo: '2026-05-27T23:59:59',
+      dueFrom: '2026-05-27T00:00:00',
+      dueTo: '2026-05-27T23:59:59',
+      page: 1,
+      pageSize: 100,
+    }),
+    requestCaptured
+  );
+  assert.equal(
+    requests[0].url,
+    '/api/v1/calendar/tasks?inbox=true&search=focus&calendarId=task-book-1&status=COMPLETED&priority=1&plannedFrom=2026-05-27T00%3A00%3A00&plannedTo=2026-05-27T23%3A59%3A59&dueFrom=2026-05-27T00%3A00%3A00&dueTo=2026-05-27T23%3A59%3A59&page=1&pageSize=100'
+  );
+  assert.equal(requests[0].init?.method, undefined);
+
+  await assert.rejects(
     () => planTask('task-1', {
       plannedStart: '2026-05-27T09:00:00Z',
       plannedEnd: '2026-05-27T10:00:00Z',
@@ -33,10 +56,10 @@ async function main() {
     }),
     requestCaptured
   );
-  assert.equal(requests[0].url, '/api/v1/calendar/tasks/task-1/plan');
-  assert.equal(requests[0].init?.method, 'POST');
+  assert.equal(requests[1].url, '/api/v1/calendar/tasks/task-1/plan');
+  assert.equal(requests[1].init?.method, 'POST');
   try {
-    assert.deepEqual(JSON.parse(String(requests[0].init?.body)), {
+    assert.deepEqual(JSON.parse(String(requests[1].init?.body)), {
       plannedStart: '2026-05-27T09:00:00Z',
       plannedEnd: '2026-05-27T10:00:00Z',
       estimatedDuration: '01:00:00',
@@ -54,10 +77,10 @@ async function main() {
     }),
     requestCaptured
   );
-  assert.equal(requests[1].url, '/api/v1/calendar/tasks/batch-update');
-  assert.equal(requests[1].init?.method, 'POST');
+  assert.equal(requests[2].url, '/api/v1/calendar/tasks/batch-update');
+  assert.equal(requests[2].init?.method, 'POST');
   try {
-    assert.deepEqual(JSON.parse(String(requests[1].init?.body)), {
+    assert.deepEqual(JSON.parse(String(requests[2].init?.body)), {
       ids: ['task-1', 'task-2'],
       status: 'done',
       priority: 2,
@@ -68,10 +91,10 @@ async function main() {
   }
 
   await assert.rejects(() => previewCalendarDelete('calendar-1'), requestCaptured);
-  assert.equal(requests[2].url, '/api/v1/calendar/calendars/calendar-1/delete-preview');
+  assert.equal(requests[3].url, '/api/v1/calendar/calendars/calendar-1/delete-preview');
   try {
-    assert.equal(requests[2].init?.method, 'POST');
-    assert.deepEqual(JSON.parse(String(requests[2].init?.body)), {});
+    assert.equal(requests[3].init?.method, 'POST');
+    assert.deepEqual(JSON.parse(String(requests[3].init?.body)), {});
   } catch (error) {
     failures.push(error);
   }

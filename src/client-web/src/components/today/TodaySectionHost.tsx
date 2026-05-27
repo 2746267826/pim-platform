@@ -18,6 +18,7 @@ import TodayHealthSection from './TodayHealthSection';
 import TodayPcOverview from './TodayPcOverview';
 import TodayPcQualitySection from './TodayPcQualitySection';
 import TodayScheduleList from './TodayScheduleList';
+import type { ScheduledItem } from './TodayScheduleList';
 import TodayTaskColumn from './TodayTaskColumn';
 
 export const todaySectionOrder: TodaySectionKind[] = [
@@ -78,7 +79,7 @@ export default function TodaySectionHost({
   item: TodaySectionRegistryItem;
   date: string;
   todayPrefix: string;
-  onSelectScheduled?: (item: { type: 'event' | 'task'; id: string }) => void;
+  onSelectScheduled?: (item: ScheduledItem) => void;
   onSelectTask?: (task: TaskResponse) => void;
 }) {
   const known = isKnownTodaySectionKind(item.kind);
@@ -117,10 +118,13 @@ export default function TodaySectionHost({
         <TodayScheduleList
           section={data as TodaySection<CalendarScheduleTodayData>}
           onSelect={item => {
+            if (onSelectScheduled) {
+              onSelectScheduled(item);
+              return;
+            }
             if (item.type === 'task') {
               onSelectTask?.(item.task);
             }
-            onSelectScheduled?.(item);
           }}
         />
       );

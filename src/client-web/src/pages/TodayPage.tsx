@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { getTodaySectionRegistry } from '../api/today';
+import EventEditorDialog from '../dialogs/EventEditorDialog';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
 import PageHeader from '../ui/PageHeader';
 import EmptyState from '../ui/EmptyState';
@@ -9,7 +10,8 @@ import TodaySectionHost, {
   isKnownTodaySectionKind,
   todaySectionOrder,
 } from '../components/today/TodaySectionHost';
-import type { TaskResponse, TodaySectionKind, TodaySectionRegistryItem } from '../types';
+import type { ScheduledItem } from '../components/today/TodayScheduleList';
+import type { EventResponse, TaskResponse, TodaySectionKind, TodaySectionRegistryItem } from '../types';
 
 function useTodayDate() {
   const [today, setToday] = useState(() => new Date());
@@ -60,8 +62,11 @@ function sortSections(sections: TodaySectionRegistryItem[]) {
 export default function TodayPage() {
   const today = useTodayDate();
   const dateStr = format(today, 'yyyy-MM-dd');
+  const queryClient = useQueryClient();
   const [taskEditorOpen, setTaskEditorOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskResponse | undefined>();
+  const [eventEditorOpen, setEventEditorOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<EventResponse | undefined>();
 
   const {
     data: registry,
@@ -78,6 +83,23 @@ export default function TodayPage() {
   function openTask(task: TaskResponse) {
     setEditingTask(task);
     setTaskEditorOpen(true);
+  }
+
+  function openScheduledItem(item: ScheduledItem) {
+    if (item.type === 'task') {
+      openTask(item.task);
+      return;
+    }
+
+    setEditingEvent(item.event);
+    setEventEditorOpen(true);
+  }
+
+  function closeEventEditor() {
+    setEventEditorOpen(false);
+    setEditingEvent(undefined);
+    queryClient.invalidateQueries({ queryKey: ['today-sections'] });
+    queryClient.invalidateQueries({ queryKey: ['today-section'] });
   }
 
   return (
@@ -111,6 +133,7 @@ export default function TodayPage() {
                 item={section}
                 date={dateStr}
                 todayPrefix={dateStr}
+                onSelectScheduled={openScheduledItem}
                 onSelectTask={openTask}
               />
             </div>
@@ -122,6 +145,11 @@ export default function TodayPage() {
         open={taskEditorOpen}
         onClose={() => setTaskEditorOpen(false)}
         task={editingTask}
+      />
+      <EventEditorDialog
+        open={eventEditorOpen}
+        onClose={closeEventEditor}
+        event={editingEvent}
       />
     </div>
   );

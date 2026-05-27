@@ -33,6 +33,14 @@ export interface EventResponse {
   status: string;
   source: string;
   originalEventId?: string;
+  isAllDay?: boolean;
+  timeZoneId?: string;
+  sourceTimeZoneId?: string;
+  sourceUid?: string;
+  externalMetadataJson?: string;
+  recurrenceId?: string;
+  exDatesJson?: string;
+  recurrenceMetadataJson?: string;
 }
 
 export interface TaskResponse {
@@ -45,6 +53,7 @@ export interface TaskResponse {
   minimumSegment?: string;
   dtStart?: string;
   due?: string;
+  plannedEnd?: string;
   status: string;
   isInbox: boolean;
 }
@@ -60,6 +69,81 @@ export interface PagedResult<T> {
 export interface ImportResult {
   imported: number;
   skipped: number;
+}
+
+export interface CalendarOperationSample {
+  id: string;
+  type: string;
+  title: string;
+  start?: string;
+  end?: string;
+  bookName?: string;
+}
+
+export interface CalendarDeletePreviewResponse {
+  targetType: string;
+  targetId: string;
+  title: string;
+  operationKind: string;
+  affectedCount: number;
+  samples: CalendarOperationSample[];
+  summary: string;
+  requiresStrictConfirmation: boolean;
+}
+
+export interface CalendarOperationResult {
+  operation: string;
+  operationId: string;
+  affectedCount: number;
+  affectedIds: string[];
+  samples: CalendarOperationSample[];
+  message: string;
+}
+
+export interface CalendarRestoreConflict {
+  deletedId: string;
+  deletedType: string;
+  activeId: string;
+  activeType: string;
+  reason: string;
+  title: string;
+}
+
+export interface CalendarRestorePreviewResponse {
+  targetType: string;
+  targetId: string;
+  title: string;
+  restoreCount: number;
+  samples: CalendarOperationSample[];
+  conflicts: CalendarRestoreConflict[];
+  canRestoreWithoutConflict: boolean;
+}
+
+export interface CalendarRecycleBinItem {
+  id: string;
+  type: string;
+  title: string;
+  deletedAt: string;
+  bookName?: string;
+  start?: string;
+  end?: string;
+  source: string;
+  deletedByOperationId?: string;
+  deletedByOperationKind?: string;
+}
+
+export interface ImportSkippedItem {
+  reason: string;
+  title: string;
+  start?: string;
+  uid?: string;
+}
+
+export interface ImportReport {
+  imported: number;
+  skipped: number;
+  skippedReasons: Record<string, number>;
+  samples: ImportSkippedItem[];
 }
 
 export type PimHealthStatus = 'Unknown' | 'Healthy' | 'Warning' | 'Critical';

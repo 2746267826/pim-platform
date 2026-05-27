@@ -5,9 +5,9 @@ import interactionPlugin, { Draggable } from '@fullcalendar/interaction';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import type { DateSelectArg, DatesSetArg, EventClickArg, EventContentArg, EventInput } from '@fullcalendar/core';
 import { format } from 'date-fns';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { getEvents, getTasks } from '../api/calendar';
+import { getEvents, getTasks, planTask } from '../api/calendar';
 import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
@@ -47,8 +47,10 @@ export default function CalendarPage() {
   const [editingEvent, setEditingEvent] = useState<EventResponse | undefined>();
   const [eventDefaultStart, setEventDefaultStart] = useState<string | undefined>();
   const [eventDefaultEnd, setEventDefaultEnd] = useState<string | undefined>();
+  const [planTaskError, setPlanTaskError] = useState<string | null>(null);
   const calendarRef = useRef<FullCalendar>(null);
   const pageRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (searchParams.get('view') === mode) return;
@@ -84,6 +86,26 @@ export default function CalendarPage() {
   });
 
   const { hiddenCalendarIds } = useCalendarVisibility();
+  const planTaskMutation = useMutation({
+    mutationFn: ({ task, plannedStart }: { task: TaskResponse; plannedStart: string }) =>
+      planTask(task.id, {
+        plannedStart,
+        plannedEnd: getPlannedEndForDrop(task, plannedStart),
+      }),
+    onMutate: () => setPlanTaskError(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks-paged'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['today-sections'] });
+      queryClient.invalidateQueries({ queryKey: ['today-section'] });
+    },
+    onError: error => {
+      setPlanTaskError(error instanceof Error ? error.message : '任务计划失败，请稍后再试。');
+    },
+  });
+  const { mutate: mutatePlanTask } = planTaskMutation;
+
   const calendarEvents = useMemo(() => {
     const visibleEvents = hiddenCalendarIds.size > 0
       ? events.filter(event => !hiddenCalendarIds.has(event.calendarId))
@@ -158,11 +180,9 @@ export default function CalendarPage() {
     const task = tasks.find(item => item.id === taskId);
     if (!task) return;
 
-    const scheduledStart = toLocalDateTimeInputValue(dropInfo.date);
-    setEditingTask(task);
-    setTaskDefaultDtStart(scheduledStart);
-    setTaskEditorOpen(true);
-  }, [tasks]);
+    const plannedStart = toLocalDateTimeInputValue(dropInfo.date);
+    mutatePlanTask({ task, plannedStart });
+  }, [mutatePlanTask, tasks]);
 
   return (
     <div ref={pageRef} className="flex h-full min-h-0 flex-col gap-4">
@@ -208,6 +228,11 @@ export default function CalendarPage() {
       />
 
       <section className="calendar-board pim-panel min-h-0 flex-1 overflow-hidden p-3">
+        {planTaskError && (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {planTaskError}
+          </div>
+        )}
         <FullCalendar
           key={mode}
           ref={calendarRef}
@@ -320,6 +345,7 @@ function buildCalendarEvents(events: EventResponse[], tasks: TaskResponse[]): Ca
       title: event.title,
       start: event.dtStart,
       end: event.dtEnd,
+      allDay: event.isAllDay,
       backgroundColor: '#2563EB',
       borderColor: '#2563EB',
       extendedProps: {
@@ -334,7 +360,7 @@ function buildCalendarEvents(events: EventResponse[], tasks: TaskResponse[]): Ca
         id: task.id,
         title: task.title,
         start: task.dtStart,
-        end: task.due,
+        end: task.plannedEnd || task.due,
         backgroundColor: color,
         borderColor: color,
         extendedProps: {
@@ -344,4 +370,50 @@ function buildCalendarEvents(events: EventResponse[], tasks: TaskResponse[]): Ca
       };
     }),
   ];
+}
+
+function getPlannedEndForDrop(task: TaskResponse, plannedStart: string): string | undefined {
+  const plannedStartDate = parseCalendarDate(plannedStart);
+  if (!plannedStartDate) return task.due;
+
+  const existingPlannedEnd = parseCalendarDate(task.plannedEnd);
+  const existingPlannedStart = parseCalendarDate(task.dtStart);
+  if (existingPlannedEnd && existingPlannedStart) {
+    const durationMs = existingPlannedEnd.getTime() - existingPlannedStart.getTime();
+    if (durationMs > 0) return toLocalDateTimeInputValue(new Date(plannedStartDate.getTime() + durationMs));
+  }
+
+  const estimatedDurationMs = parseTimeSpanMs(task.estimatedDuration);
+  if (estimatedDurationMs && estimatedDurationMs > 0) {
+    return toLocalDateTimeInputValue(new Date(plannedStartDate.getTime() + estimatedDurationMs));
+  }
+
+  return task.due;
+}
+
+function parseCalendarDate(value?: string): Date | null {
+  if (!value) return null;
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function parseTimeSpanMs(value?: string): number | null {
+  if (!value) return null;
+
+  const match = /^(?:(\d+)\.)?(\d+):([0-5]\d):([0-5]\d)(?:\.(\d{1,7}))?$/.exec(value);
+  if (!match) return null;
+
+  const [, days = '0', hours, minutes, seconds, fraction = ''] = match;
+  const baseMs = (
+    Number(days) * 24 * 60 * 60
+    + Number(hours) * 60 * 60
+    + Number(minutes) * 60
+    + Number(seconds)
+  ) * 1000;
+  const fractionMs = fraction
+    ? Number(`0.${fraction}`) * 1000
+    : 0;
+
+  return baseMs + fractionMs;
 }

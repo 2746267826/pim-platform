@@ -77,7 +77,7 @@ export default function TodayTaskColumn({
       </div>
 
       {incompleteTasks.length === 0 ? (
-        <EmptyState title="没有未完成任务" description="可以安心推进今天的重点事项。" />
+        <EmptyState title="没有未完成任务" description="可以新建任务，或打开日历安排今天要推进的工作。" />
       ) : (
         <div className="space-y-2">
           {incompleteTasks.map(task => (
@@ -104,6 +104,7 @@ export default function TodayTaskColumn({
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <StatusBadge tone={dueTone(task, todayPrefix)}>{formatDue(task.due)}</StatusBadge>
                 {task.dtStart && <StatusBadge tone="activity">已排程</StatusBadge>}
+                {task.plannedEnd && <StatusBadge tone="neutral">计划至 {formatDue(task.plannedEnd)}</StatusBadge>}
               </div>
             </button>
           ))}

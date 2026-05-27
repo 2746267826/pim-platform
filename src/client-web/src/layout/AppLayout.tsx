@@ -12,6 +12,7 @@ import PcTrackerPage from '../pages/PcTrackerPage';
 import PcClassificationPage from '../pages/PcClassificationPage';
 import SettingsPage from '../pages/SettingsPage';
 import CalendarDataManager from '../pages/CalendarDataManager';
+import RecycleBinPage from '../pages/RecycleBinPage';
 import PcDetailQueryPage from '../pages/PcDetailQueryPage';
 import StatusPage from '../pages/StatusPage';
 
@@ -52,6 +53,7 @@ export default function AppLayout() {
               <Route path="/status" element={<StatusPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
+              <Route path="/settings/recycle-bin" element={<RecycleBinPage />} />
               <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />
               <Route path="*" element={<Navigate to="/today" replace />} />
             </Routes>

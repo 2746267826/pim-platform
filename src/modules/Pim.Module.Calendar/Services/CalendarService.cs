@@ -148,7 +148,9 @@ public class CalendarService
             Location = request.Location,
             DtStart = request.DtStart,
             DtEnd = request.DtEnd,
-            RRule = request.RRule
+            RRule = request.RRule,
+            IsAllDay = request.IsAllDay,
+            TimeZoneId = request.TimeZoneId
         };
 
         _db.Set<EventEntity>().Add(entity);
@@ -156,6 +158,133 @@ public class CalendarService
 
         return MapEvent(entity);
     }
+
+    public async Task<ImportReport> ImportOutlookIcsAsync(
+        string icsContent,
+        Guid? targetCalendarId,
+        OutlookIcsService outlookIcs,
+        CancellationToken ct = default)
+    {
+        var parsed = outlookIcs.Parse(icsContent);
+        if (parsed.ErrorReason is not null)
+        {
+            return new ImportReport(
+                0,
+                1,
+                new Dictionary<string, int> { [parsed.ErrorReason] = 1 },
+                new List<ImportSkippedItem>
+                {
+                    new(parsed.ErrorReason, "Outlook ICS import", null, null)
+                });
+        }
+
+        CalendarEntity? calendar = null;
+        if (targetCalendarId.HasValue)
+        {
+            calendar = await _db.Set<CalendarEntity>()
+                .FirstOrDefaultAsync(c => c.Id == targetCalendarId.Value && c.UserId == UserId, ct);
+        }
+
+        calendar ??= await GetOrCreateDefaultCalendarAsync("calendar", ct);
+
+        var imported = 0;
+        var skipped = 0;
+        var reasonCounts = new Dictionary<string, int>();
+        var samples = new List<ImportSkippedItem>();
+        var acceptedEvents = new List<OutlookIcsParsedEvent>();
+
+        void AddSkipped(string reason, OutlookIcsParsedEvent item)
+        {
+            skipped++;
+            reasonCounts[reason] = reasonCounts.GetValueOrDefault(reason) + 1;
+            if (samples.Count < 10)
+                samples.Add(new ImportSkippedItem(reason, item.Title, item.Start, item.Uid));
+        }
+
+        foreach (var item in parsed.Events)
+        {
+            if (item.InvalidReason is not null)
+            {
+                AddSkipped(item.InvalidReason, item);
+                continue;
+            }
+
+            if (item.Start == DateTimeOffset.MinValue || item.End == DateTimeOffset.MinValue)
+            {
+                AddSkipped("invalid_date", item);
+                continue;
+            }
+
+            var duplicateReason = await FindActiveDuplicateReasonAsync(item, ct);
+            duplicateReason ??= FindAcceptedDuplicateReason(item, acceptedEvents);
+            if (duplicateReason is not null)
+            {
+                AddSkipped(duplicateReason, item);
+                continue;
+            }
+
+            _db.Set<EventEntity>().Add(new EventEntity
+            {
+                CalendarId = calendar.Id,
+                Uid = Truncate(item.Uid, 255) ?? string.Empty,
+                SourceUid = Truncate(item.Uid, 255),
+                Title = Truncate(item.Title, 255) ?? string.Empty,
+                Description = item.Description,
+                Location = Truncate(item.Location, 500),
+                DtStart = item.Start,
+                DtEnd = item.End,
+                RRule = item.RRule,
+                IsAllDay = item.IsAllDay,
+                TimeZoneId = Truncate(item.SourceTimeZoneId, 100),
+                SourceTimeZoneId = Truncate(item.SourceTimeZoneId, 100),
+                Source = "outlook-ics",
+                SourceIcsComponent = item.SourceIcsComponent,
+                ExternalMetadataJson = item.ExternalMetadataJson,
+                RecurrenceId = Truncate(item.RecurrenceId, 255),
+                ExDatesJson = item.ExDatesJson,
+                RecurrenceMetadataJson = item.RecurrenceMetadataJson
+            });
+            acceptedEvents.Add(item);
+            imported++;
+        }
+
+        if (imported > 0)
+            await _db.SaveChangesAsync(ct);
+
+        return new ImportReport(imported, skipped, reasonCounts, samples);
+    }
+
+    private async Task<string?> FindActiveDuplicateReasonAsync(OutlookIcsParsedEvent item, CancellationToken ct)
+    {
+        if (await _db.Set<EventEntity>().AnyAsync(e => e.Calendar.UserId == UserId && e.Uid == item.Uid, ct))
+            return "duplicate_uid";
+
+        if (await _db.Set<EventEntity>().AnyAsync(e => e.Calendar.UserId == UserId && e.SourceUid == item.Uid, ct))
+            return "duplicate_source_uid";
+
+        if (await _db.Set<EventEntity>().AnyAsync(e =>
+                e.Calendar.UserId == UserId &&
+                e.Title == item.Title &&
+                e.DtStart == item.Start &&
+                e.DtEnd == item.End, ct))
+            return "duplicate_title_time";
+
+        return null;
+    }
+
+    private static string? FindAcceptedDuplicateReason(OutlookIcsParsedEvent item, IReadOnlyList<OutlookIcsParsedEvent> acceptedEvents)
+    {
+        if (acceptedEvents.Any(e => e.Uid == item.Uid))
+            return "duplicate_uid";
+
+        if (acceptedEvents.Any(e => e.Title == item.Title && e.Start == item.Start && e.End == item.End))
+            return "duplicate_title_time";
+
+        return null;
+    }
+
+    private static string? Truncate(string? value, int maxLength) =>
+        value is not null && value.Length > maxLength ? value[..maxLength] : value;
 
     private async Task<CalendarEntity> GetOrCreateDefaultCalendarAsync(string kind, CancellationToken ct)
     {
@@ -181,7 +310,7 @@ public class CalendarService
         return calendar;
     }
 
-    public async Task<EventResponse> UpdateEventAsync(Guid id, CreateEventRequest request, CancellationToken ct)
+    public async Task<EventResponse> UpdateEventAsync(Guid id, UpdateEventRequest request, CancellationToken ct)
     {
         var entity = await _db.Set<EventEntity>()
             .FirstOrDefaultAsync(e => e.Id == id && e.Calendar.UserId == UserId, ct)
@@ -193,6 +322,10 @@ public class CalendarService
         entity.DtStart = request.DtStart;
         entity.DtEnd = request.DtEnd;
         entity.RRule = request.RRule;
+        if (request.IsAllDay.HasValue)
+            entity.IsAllDay = request.IsAllDay.Value;
+        if (request.TimeZoneId is not null)
+            entity.TimeZoneId = request.TimeZoneId;
         entity.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _db.SaveChangesAsync(ct);
@@ -250,6 +383,64 @@ public class CalendarService
         return tasks.Select(MapTask).ToList();
     }
 
+    public async Task<PagedResult<TaskResponse>> GetTasksPagedAsync(
+        bool? inbox,
+        string? search,
+        Guid? calendarId,
+        string? status,
+        int? priority,
+        DateTimeOffset? plannedFrom,
+        DateTimeOffset? plannedTo,
+        DateTimeOffset? dueFrom,
+        DateTimeOffset? dueTo,
+        int page = 1,
+        int pageSize = 50,
+        CancellationToken ct = default)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var query = _db.Set<TaskEntity>()
+            .Where(t => t.UserId == UserId);
+
+        if (inbox.HasValue)
+            query = query.Where(t => t.IsInbox == inbox.Value);
+        if (!string.IsNullOrWhiteSpace(search))
+            query = query.Where(t => t.Title.Contains(search));
+        if (calendarId.HasValue)
+            query = query.Where(t => t.CalendarId == calendarId.Value);
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(t => t.Status == status);
+        if (priority.HasValue)
+            query = query.Where(t => t.Priority == priority.Value);
+        if (plannedFrom.HasValue)
+            query = query.Where(t => t.DtStart >= plannedFrom.Value);
+        if (plannedTo.HasValue)
+            query = query.Where(t => t.DtStart <= plannedTo.Value);
+        if (dueFrom.HasValue)
+            query = query.Where(t => t.Due >= dueFrom.Value);
+        if (dueTo.HasValue)
+            query = query.Where(t => t.Due <= dueTo.Value);
+
+        var totalCount = await query.CountAsync(ct);
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+        var tasks = await query
+            .OrderBy(t => t.Status == "COMPLETED")
+            .ThenBy(t => t.Due == null)
+            .ThenBy(t => t.Due)
+            .ThenBy(t => t.SortOrder)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return new PagedResult<TaskResponse>(
+            tasks.Select(MapTask).ToList(),
+            page,
+            pageSize,
+            totalCount,
+            totalPages);
+    }
+
     public async Task<TaskResponse> CreateTaskAsync(CreateTaskRequest request, CancellationToken ct)
     {
         var task = new TaskEntity
@@ -264,7 +455,8 @@ public class CalendarService
             EstimatedDuration = ParseDuration(request.EstimatedDuration),
             MinimumSegment = ParseDuration(request.MinimumSegment),
             IsInbox = request.CalendarId is null && !request.DtStart.HasValue,
-            DtStart = request.DtStart
+            DtStart = request.DtStart,
+            PlannedEnd = request.PlannedEnd
         };
 
         _db.Set<TaskEntity>().Add(task);
@@ -272,7 +464,7 @@ public class CalendarService
         return MapTask(task);
     }
 
-    public async Task<TaskResponse> UpdateTaskAsync(Guid id, CreateTaskRequest request, CancellationToken ct)
+    public async Task<TaskResponse> UpdateTaskAsync(Guid id, UpdateTaskRequest request, CancellationToken ct)
     {
         var task = await _db.Set<TaskEntity>()
             .FirstOrDefaultAsync(t => t.Id == id && t.UserId == UserId, ct)
@@ -285,6 +477,8 @@ public class CalendarService
         task.EstimatedDuration = ParseDuration(request.EstimatedDuration);
         task.MinimumSegment = ParseDuration(request.MinimumSegment);
         task.DtStart = request.DtStart;
+        if (request.PlannedEnd.HasValue)
+            task.PlannedEnd = request.PlannedEnd;
         task.CalendarId = request.CalendarId;
         if (request.Status is not null)
         {
@@ -296,6 +490,119 @@ public class CalendarService
 
         await _db.SaveChangesAsync(ct);
         return MapTask(task);
+    }
+
+    public async Task<TaskResponse> PlanTaskAsync(Guid id, PlanTaskRequest request, CancellationToken ct = default)
+    {
+        var task = await _db.Set<TaskEntity>()
+            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == UserId, ct)
+            ?? throw new DomainException(02004, "Task not found");
+
+        task.DtStart = request.PlannedStart;
+        task.PlannedEnd = request.PlannedEnd;
+        if (request.EstimatedDuration is not null)
+            task.EstimatedDuration = ParseDuration(request.EstimatedDuration);
+        task.IsInbox = false;
+        task.UpdatedAt = DateTimeOffset.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+        return MapTask(task);
+    }
+
+    public async Task<CalendarOperationResult> BatchUpdateTasksAsync(
+        BatchTaskUpdateRequest request,
+        CancellationToken ct = default)
+    {
+        var ids = request.Ids?
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList() ?? new List<Guid>();
+        var operationId = Guid.NewGuid();
+
+        if (ids.Count == 0)
+        {
+            return new CalendarOperationResult(
+                "calendar.tasks.batch_update",
+                operationId,
+                0,
+                Array.Empty<Guid>(),
+                Array.Empty<CalendarOperationSample>(),
+                "No tasks updated");
+        }
+
+        if (request.Status is null && !request.Priority.HasValue && !request.CalendarId.HasValue)
+        {
+            return new CalendarOperationResult(
+                "calendar.tasks.batch_update",
+                operationId,
+                0,
+                Array.Empty<Guid>(),
+                Array.Empty<CalendarOperationSample>(),
+                "No tasks updated");
+        }
+
+        CalendarEntity? targetCalendar = null;
+        if (request.CalendarId.HasValue)
+        {
+            targetCalendar = await _db.Set<CalendarEntity>()
+                .FirstOrDefaultAsync(c => c.Id == request.CalendarId.Value && c.UserId == UserId, ct)
+                ?? throw new DomainException(02003, "Calendar not found");
+        }
+
+        var tasks = await _db.Set<TaskEntity>()
+            .Include(t => t.Calendar)
+            .Where(t => t.UserId == UserId && ids.Contains(t.Id))
+            .ToListAsync(ct);
+        var now = DateTimeOffset.UtcNow;
+
+        foreach (var task in tasks)
+        {
+            if (request.Status is not null)
+            {
+                task.Status = request.Status;
+                task.CompletedAt = request.Status == "COMPLETED" ? now : null;
+            }
+
+            if (request.Priority.HasValue)
+                task.Priority = request.Priority.Value;
+
+            if (request.CalendarId.HasValue)
+            {
+                task.CalendarId = targetCalendar!.Id;
+                task.Calendar = targetCalendar;
+                task.IsInbox = false;
+            }
+
+            task.UpdatedAt = now;
+        }
+
+        if (tasks.Count > 0)
+            await _db.SaveChangesAsync(ct);
+
+        if (tasks.Count == 0)
+        {
+            return new CalendarOperationResult(
+                "calendar.tasks.batch_update",
+                operationId,
+                0,
+                Array.Empty<Guid>(),
+                Array.Empty<CalendarOperationSample>(),
+                "No tasks updated");
+        }
+
+        return new CalendarOperationResult(
+            "calendar.tasks.batch_update",
+            operationId,
+            tasks.Count,
+            tasks.Select(t => t.Id).ToList(),
+            tasks.Take(5).Select(t => new CalendarOperationSample(
+                t.Id,
+                "task",
+                t.Title,
+                t.DtStart,
+                t.PlannedEnd,
+                t.Calendar?.Name)).ToList(),
+            "Updated tasks");
     }
 
     public async Task MoveTaskAsync(Guid id, MoveTaskRequest request, CancellationToken ct)
@@ -311,6 +618,11 @@ public class CalendarService
 
         if (request.NewSortOrder.HasValue)
             task.SortOrder = request.NewSortOrder.Value;
+
+        if (request.PlannedEnd.HasValue)
+            task.PlannedEnd = request.PlannedEnd;
+        else if (request.Duration.HasValue && request.ScheduledStart.HasValue)
+            task.PlannedEnd = request.ScheduledStart.Value.Add(request.Duration.Value);
 
         task.UpdatedAt = DateTimeOffset.UtcNow;
         await _db.SaveChangesAsync(ct);
@@ -328,14 +640,20 @@ public class CalendarService
 
     private static EventResponse MapEvent(EventEntity e) =>
         new(e.Id, e.CalendarId, e.Uid, e.Title, e.Description,
-            e.Location, e.DtStart, e.DtEnd, e.RRule, e.Status, e.Source, null);
+            e.Location, e.DtStart, e.DtEnd, e.RRule, e.Status, e.Source, null,
+            e.IsAllDay, e.TimeZoneId, e.SourceTimeZoneId, e.SourceUid,
+            e.ExternalMetadataJson, e.RecurrenceId, e.ExDatesJson,
+            e.RecurrenceMetadataJson);
 
     private static EventResponse MapExpandedEvent(ExpandedEvent e) =>
         new(e.OccurrenceId, e.Entity.CalendarId, e.Entity.Uid,
             e.Entity.Title, e.Entity.Description,
             e.Entity.Location, e.OccurrenceStart, e.OccurrenceEnd,
             e.Entity.RRule, e.Entity.Status, e.Entity.Source,
-            e.Entity.Id);
+            e.Entity.Id, e.Entity.IsAllDay, e.Entity.TimeZoneId,
+            e.Entity.SourceTimeZoneId, e.Entity.SourceUid,
+            e.Entity.ExternalMetadataJson, e.Entity.RecurrenceId, e.Entity.ExDatesJson,
+            e.Entity.RecurrenceMetadataJson);
 
     private static string? FormatDuration(TimeSpan? duration) =>
         duration is not null ? duration.Value.ToString("c") : null;
@@ -353,5 +671,5 @@ public class CalendarService
             FormatDuration(t.EstimatedDuration),
             FormatDuration(t.MinimumSegment),
             t.DtStart, t.Due, t.Status, t.IsInbox, t.SortOrder,
-            t.SubTasks.Select(MapTask).ToList());
+            t.SubTasks.Select(MapTask).ToList(), t.PlannedEnd);
 }

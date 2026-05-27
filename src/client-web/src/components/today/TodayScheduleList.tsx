@@ -6,6 +6,7 @@ export type ScheduledItem =
   | {
       type: 'event';
       id: string;
+      event: EventResponse;
       title: string;
       start: string;
       end?: string;
@@ -57,6 +58,7 @@ export function buildScheduledItems(
   const eventItems: ScheduledItem[] = events.map(event => ({
     type: 'event',
     id: event.id,
+    event,
     title: event.title,
     start: event.dtStart,
     end: event.dtEnd,
@@ -92,6 +94,7 @@ export default function TodayScheduleList({
   const eventItems: ScheduledItem[] = section.data.events.map(event => ({
     type: 'event',
     id: event.id,
+    event,
     title: event.title,
     start: event.dtStart,
     end: event.dtEnd,
@@ -125,7 +128,7 @@ export default function TodayScheduleList({
         <div className="space-y-2">
           {items.map(item => {
             const itemLabel = item.type === 'task' ? `任务，${priorityLabel(item.priority)}` : '日程';
-            const canSelect = item.type === 'task' && Boolean(onSelect);
+            const canSelect = Boolean(onSelect);
             const interactionClass = canSelect
               ? 'cursor-pointer transition-colors hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-200'
               : 'cursor-default opacity-90';

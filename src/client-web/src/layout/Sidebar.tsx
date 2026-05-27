@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getCalendars, createCalendar, updateCalendar, deleteCalendar } from '../api/calendar';
+import { getCalendars, createCalendar, updateCalendar, deleteCalendar, previewCalendarDelete } from '../api/calendar';
 import { useAuth } from '../auth/AuthContext';
 import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import SidebarStatusIndicator from '../components/status/SidebarStatusIndicator';
+import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
 
 const navItems = [
   { label: '今日', path: '/today', short: '今' },
@@ -33,6 +34,11 @@ function CalendarBookSection({
   const [editName, setEditName] = useState('');
   const [newName, setNewName] = useState('');
   const [showNew, setShowNew] = useState(false);
+  const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const activeDeletePreviewRequestRef = useRef<{ deleteId: string; requestId: number } | null>(null);
+  const nextDeletePreviewRequestIdRef = useRef(0);
   const { hiddenCalendarIds, toggleCalendar } = useCalendarVisibility();
 
   const createMut = useMutation({
@@ -54,7 +60,37 @@ function CalendarBookSection({
 
   const deleteMut = useMutation({
     mutationFn: deleteCalendar,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey })
+    onSuccess: () => {
+      const affectedQueryKeys: string[][] = [
+        queryKey,
+        ['calendars'],
+        ['calendar-recycle-bin'],
+        ['events'],
+        ['events-paged'],
+        ['tasks'],
+        ['today-sections'],
+        ['today-section'],
+      ];
+
+      affectedQueryKeys.forEach(key => {
+        queryClient.invalidateQueries({ queryKey: key });
+      });
+
+      activeDeletePreviewRequestRef.current = null;
+      setDeleteInput(null);
+      setDeleteId(null);
+      setDeleteError(null);
+    },
+    onError: () => {
+      activeDeletePreviewRequestRef.current = null;
+      setDeleteInput(null);
+      setDeleteId(null);
+      setDeleteError('删除失败，请稍后重试。');
+    }
+  });
+
+  const previewDeleteMut = useMutation({
+    mutationFn: previewCalendarDelete,
   });
 
   function startRename(id: string, currentName: string) {
@@ -64,6 +100,51 @@ function CalendarBookSection({
 
   function submitRename(id: string) {
     if (editName.trim()) updateMut.mutate({ id, data: { name: editName.trim() } });
+  }
+
+  function isActiveDeletePreviewRequest(id: string, requestId: number) {
+    return activeDeletePreviewRequestRef.current?.deleteId === id
+      && activeDeletePreviewRequestRef.current.requestId === requestId;
+  }
+
+  function requestDeletePreview(id: string) {
+    const requestId = nextDeletePreviewRequestIdRef.current + 1;
+
+    nextDeletePreviewRequestIdRef.current = requestId;
+    activeDeletePreviewRequestRef.current = { deleteId: id, requestId };
+    setDeleteId(id);
+    setDeleteInput(null);
+    setDeleteError(null);
+    previewDeleteMut.mutate(id, {
+      onSuccess: preview => {
+        if (isActiveDeletePreviewRequest(id, requestId)) {
+          setDeleteInput({
+            targetType: preview.targetType,
+            title: preview.title,
+            affectedCount: Math.max(1, preview.affectedCount),
+            samples: preview.samples,
+          });
+        }
+      },
+      onError: () => {
+        if (isActiveDeletePreviewRequest(id, requestId)) {
+          activeDeletePreviewRequestRef.current = null;
+          setDeleteInput(null);
+          setDeleteId(null);
+          setDeleteError('删除预览失败，请稍后重试。');
+        }
+      },
+    });
+  }
+
+  function cancelDelete() {
+    activeDeletePreviewRequestRef.current = null;
+    setDeleteInput(null);
+    setDeleteId(null);
+  }
+
+  function confirmDelete() {
+    if (deleteId) deleteMut.mutate(deleteId);
   }
 
   return (
@@ -99,8 +180,13 @@ function CalendarBookSection({
         </div>
       )}
 
+      {deleteError && (
+        <p className="px-2 pb-1 text-xs text-red-500">{deleteError}</p>
+      )}
+
       {books?.map(book => {
         const hidden = hiddenCalendarIds.has(book.id);
+        const deleteDisabled = previewDeleteMut.isPending || deleteMut.isPending;
         return (
           <div key={book.id} className={`group flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-slate-100 ${hidden ? 'opacity-45' : ''}`}>
             <button
@@ -138,8 +224,9 @@ function CalendarBookSection({
                 ✎
               </button>
               <button
-                onClick={() => { if (confirm(`删除${title} "${book.name}"？`)) deleteMut.mutate(book.id); }}
-                className="rounded px-1 text-xs leading-none text-slate-400 hover:bg-red-50 hover:text-red-500"
+                onClick={() => requestDeletePreview(book.id)}
+                disabled={deleteDisabled}
+                className="rounded px-1 text-xs leading-none text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                 title="删除"
               >
                 ✕
@@ -152,6 +239,14 @@ function CalendarBookSection({
       {(!books || books.length === 0) && !showNew && (
         <p className="px-2 py-1 text-xs text-slate-400">暂无{title}，点击 + 创建</p>
       )}
+
+      <ConfirmActionDialog
+        open={deleteInput !== null}
+        input={deleteInput}
+        isPending={deleteMut.isPending}
+        onCancel={cancelDelete}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

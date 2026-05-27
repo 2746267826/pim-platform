@@ -11,6 +11,7 @@ import TaskListPage from '../pages/TaskListPage';
 import PcTrackerPage from '../pages/PcTrackerPage';
 import PcClassificationPage from '../pages/PcClassificationPage';
 import SettingsPage from '../pages/SettingsPage';
+import AiSettingsPage from '../pages/AiSettingsPage';
 import CalendarDataManager from '../pages/CalendarDataManager';
 import PcDetailQueryPage from '../pages/PcDetailQueryPage';
 import StatusPage from '../pages/StatusPage';
@@ -51,6 +52,7 @@ export default function AppLayout() {
               <Route path="/pc-classification" element={<PcClassificationPage />} />
               <Route path="/status" element={<StatusPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings/ai" element={<AiSettingsPage />} />
               <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
               <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />
               <Route path="*" element={<Navigate to="/today" replace />} />

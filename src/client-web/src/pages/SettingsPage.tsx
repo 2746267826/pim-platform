@@ -9,6 +9,12 @@ const settingsLinks = [
     to: '/settings/calendar-data',
   },
   {
+    title: '回收站',
+    description: '恢复已删除的日程、任务、日历本和任务本',
+    label: '恢复',
+    to: '/settings/recycle-bin',
+  },
+  {
     title: 'PC 记录详细数据',
     description: '查询、筛选、导出全部 PC 记录数据',
     label: 'PC',
@@ -36,7 +42,9 @@ export default function SettingsPage() {
               <span className="mt-1 block text-sm text-slate-500">{link.description}</span>
             </span>
           </div>
-          <span className="text-xl text-slate-300" aria-hidden="true">→</span>
+          <span className="text-xl text-slate-300" aria-hidden="true">
+            →
+          </span>
         </Link>
       ))}
     </div>

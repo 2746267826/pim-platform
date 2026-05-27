@@ -11,6 +11,7 @@ const navItems = [
   { label: '今日', path: '/today', short: '今' },
   { label: '日历', path: '/calendar', short: '历' },
   { label: '快速记录', path: '/quick-notes', short: '记' },
+  { label: '文件', path: '/files', short: '文' },
   { label: '任务', path: '/tasks', short: '任' },
   { label: 'PC记录', path: '/pc-tracker', short: 'PC' },
   { label: '分类管理', path: '/pc-classification', short: '分' },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { getTodaySectionRegistry } from '../api/today';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
@@ -62,6 +62,7 @@ function sortSections(sections: TodaySectionRegistryItem[]) {
 export default function TodayPage() {
   const today = useTodayDate();
   const dateStr = format(today, 'yyyy-MM-dd');
+  const queryClient = useQueryClient();
   const [taskEditorOpen, setTaskEditorOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskResponse | undefined>();
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
@@ -92,6 +93,13 @@ export default function TodayPage() {
 
     setEditingEvent(item.event);
     setEventEditorOpen(true);
+  }
+
+  function closeEventEditor() {
+    setEventEditorOpen(false);
+    setEditingEvent(undefined);
+    queryClient.invalidateQueries({ queryKey: ['today-sections'] });
+    queryClient.invalidateQueries({ queryKey: ['today-section'] });
   }
 
   return (
@@ -140,7 +148,7 @@ export default function TodayPage() {
       />
       <EventEditorDialog
         open={eventEditorOpen}
-        onClose={() => setEventEditorOpen(false)}
+        onClose={closeEventEditor}
         event={editingEvent}
       />
     </div>

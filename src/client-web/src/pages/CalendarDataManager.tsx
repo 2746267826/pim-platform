@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { getCalendars, getEventsPaged, exportIcs, importIcs, batchDeleteEvents } from '../api/calendar';
-import type { EventResponse } from '../types';
+import type { CalendarOperationResult, EventResponse, ImportReport } from '../types';
+import OperationResultBanner from '../ui/OperationResultBanner';
+import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
 
 export default function CalendarDataManager() {
   const navigate = useNavigate();
@@ -22,8 +24,11 @@ export default function CalendarDataManager() {
   // Detail dialog
   const [detailEvent, setDetailEvent] = useState<EventResponse | null>(null);
 
-  // Import result
-  const [importMsg, setImportMsg] = useState('');
+  // Operation feedback
+  const [operationResult, setOperationResult] = useState<CalendarOperationResult | ImportReport | null>(null);
+  const [operationError, setOperationError] = useState<string | null>(null);
+  const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
 
   const { data: calendars } = useQuery({
     queryKey: ['calendars', 'calendar'],
@@ -58,32 +63,70 @@ export default function CalendarDataManager() {
   const importMut = useMutation({
     mutationFn: (file: File) => importIcs(file, importCalendarId || undefined),
     onSuccess: (result) => {
-      setImportMsg(`成功导入 ${result.imported} 条日程${result.skipped > 0 ? `，跳过 ${result.skipped} 条重复` : ''}`);
+      setOperationResult(result);
+      setOperationError(null);
       queryClient.invalidateQueries({ queryKey: ['events-paged'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
     },
-    onError: (err: Error) => setImportMsg(`导入失败: ${err.message}`)
+    onError: (err: Error) => {
+      setOperationError(`导入失败: ${err.message}`);
+      setOperationResult(null);
+    }
   });
 
   const deleteMut = useMutation({
     mutationFn: batchDeleteEvents,
     onSuccess: (result) => {
-      setImportMsg(`已删除 ${result.affectedCount} 条日程`);
+      setOperationResult(result);
       setSelectedIds(new Set());
+      setDeleteInput(null);
+      setPendingDeleteIds([]);
+      setOperationError(null);
       queryClient.invalidateQueries({ queryKey: ['events-paged'] });
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-recycle-bin'] });
     },
-    onError: (err: Error) => setImportMsg(`删除失败: ${err.message}`)
+    onError: (err: Error) => {
+      setOperationError(`删除失败: ${err.message}`);
+      setOperationResult(null);
+      setDeleteInput(null);
+      setPendingDeleteIds([]);
+    }
   });
 
   function handleBatchDelete() {
     if (!data || selectedIds.size === 0) return;
-    if (!confirm(`确定要删除选中的 ${selectedIds.size} 条日程吗？此操作不可撤销。`)) return;
-    // Map selected occurrence IDs back to original event IDs
-    const ids = Array.from(selectedIds);
-    const originalIds = ids.map(id => {
-      const evt = data.items.find(e => e.id === id);
-      return evt?.originalEventId ?? id;
+    const selectedEvents = data.items.filter(event => selectedIds.has(event.id));
+    const originalIds = selectedEvents.map(event => event.originalEventId ?? event.id);
+    const uniqueIds = Array.from(new Set(originalIds));
+    if (uniqueIds.length === 0) return;
+
+    setPendingDeleteIds(uniqueIds);
+    setDeleteInput({
+      targetType: 'event',
+      title: uniqueIds.length === 1 ? selectedEvents[0]?.title ?? '选中的日程' : '选中的日程',
+      affectedCount: uniqueIds.length,
+      samples: selectedEvents.slice(0, 5).map(event => ({
+        id: event.originalEventId ?? event.id,
+        type: 'event',
+        title: event.title,
+        start: event.dtStart,
+        end: event.dtEnd,
+        bookName: calendars?.find(calendar => calendar.id === event.calendarId)?.name,
+      })),
     });
-    deleteMut.mutate(Array.from(new Set(originalIds)));
+    setOperationError(null);
+  }
+
+  function handleConfirmDelete() {
+    if (pendingDeleteIds.length === 0) return;
+    deleteMut.mutate(pendingDeleteIds);
+  }
+
+  function handleCancelDelete() {
+    if (deleteMut.isPending) return;
+    setDeleteInput(null);
+    setPendingDeleteIds([]);
   }
 
   function toggleSelect(id: string) {
@@ -174,13 +217,20 @@ export default function CalendarDataManager() {
         </div>
       </div>
 
-      {/* Import result message */}
-      {importMsg && (
-        <div className={`mb-3 p-3 rounded text-sm ${importMsg.startsWith('成功') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
-          {importMsg}
-          <button onClick={() => setImportMsg('')} className="ml-3 underline">关闭</button>
-        </div>
-      )}
+      {/* Operation result message */}
+      <div className="mb-3 space-y-3">
+        <OperationResultBanner result={operationResult} onDismiss={() => setOperationResult(null)} />
+        {operationError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+            <div className="flex items-start justify-between gap-3">
+              <span>{operationError}</span>
+              <button type="button" onClick={() => setOperationError(null)} className="rounded-md px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100">
+                关闭
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Filter bar */}
       <div className="flex items-center gap-3 mb-3 bg-white border rounded-lg p-3">
@@ -317,11 +367,37 @@ export default function CalendarDataManager() {
               {detailEvent.location && <div><dt className="text-gray-400">地点</dt><dd>{detailEvent.location}</dd></div>}
               {detailEvent.description && <div><dt className="text-gray-400">描述</dt><dd className="whitespace-pre-wrap">{detailEvent.description}</dd></div>}
               {detailEvent.rrule && <div><dt className="text-gray-400">重复规则</dt><dd>{rruleLabel(detailEvent.rrule)} ({detailEvent.rrule})</dd></div>}
+              {detailEvent.source === 'outlook-ics' && (
+                <div>
+                  <dt className="text-gray-400">Outlook 导入</dt>
+                  <dd className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm leading-6 text-blue-700">
+                    Outlook 导入：会议字段已保留，PIM 暂不处理会议响应。
+                  </dd>
+                </div>
+              )}
+              {detailEvent.externalMetadataJson && detailEvent.externalMetadataJson !== '{}' && (
+                <div>
+                  <dt className="text-gray-400">保留元数据</dt>
+                  <dd>
+                    <pre className="max-h-40 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-700 whitespace-pre-wrap">
+                      {detailEvent.externalMetadataJson}
+                    </pre>
+                  </dd>
+                </div>
+              )}
               <div><dt className="text-gray-400">状态</dt><dd>{detailEvent.status}</dd></div>
             </dl>
           </div>
         </div>
       )}
+
+      <ConfirmActionDialog
+        open={deleteInput !== null}
+        input={deleteInput}
+        isPending={deleteMut.isPending}
+        onCancel={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

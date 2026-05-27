@@ -33,6 +33,14 @@ export interface EventResponse {
   status: string;
   source: string;
   originalEventId?: string;
+  isAllDay?: boolean;
+  timeZoneId?: string;
+  sourceTimeZoneId?: string;
+  sourceUid?: string;
+  externalMetadataJson?: string;
+  recurrenceId?: string;
+  exDatesJson?: string;
+  recurrenceMetadataJson?: string;
 }
 
 export interface TaskResponse {
@@ -45,6 +53,7 @@ export interface TaskResponse {
   minimumSegment?: string;
   dtStart?: string;
   due?: string;
+  plannedEnd?: string;
   status: string;
   isInbox: boolean;
 }
@@ -60,6 +69,64 @@ export interface PagedResult<T> {
 export interface ImportResult {
   imported: number;
   skipped: number;
+}
+
+export interface CalendarOperationSample {
+  id: string;
+  title: string;
+  type: string;
+}
+
+export interface CalendarDeletePreviewResponse {
+  calendarId: string;
+  calendarName: string;
+  eventCount: number;
+  taskCount: number;
+  samples: CalendarOperationSample[];
+}
+
+export interface CalendarOperationResult {
+  operation: string;
+  operationId: string;
+  affectedCount: number;
+  affectedIds: string[];
+  samples?: CalendarOperationSample[];
+}
+
+export interface CalendarRestoreConflict {
+  code: string;
+  message: string;
+  severity: string;
+}
+
+export interface CalendarRestorePreviewResponse {
+  item: CalendarRecycleBinItem;
+  canRestore: boolean;
+  conflicts: CalendarRestoreConflict[];
+}
+
+export interface CalendarRecycleBinItem {
+  id: string;
+  itemId: string;
+  type: string;
+  title: string;
+  deletedAt: string;
+  deletedBy?: string;
+  calendarId?: string;
+  calendarName?: string;
+}
+
+export interface ImportSkippedItem {
+  uid?: string;
+  reason: string;
+  title?: string;
+}
+
+export interface ImportReport {
+  imported: number;
+  updated: number;
+  skipped: number;
+  skippedItems: ImportSkippedItem[];
 }
 
 export type PimHealthStatus = 'Unknown' | 'Healthy' | 'Warning' | 'Critical';

@@ -1,5 +1,16 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './client';
-import type { ApiResponse, CalendarResponse, EventResponse, TaskResponse, PagedResult, ImportResult } from '../types';
+import type {
+  ApiResponse,
+  CalendarDeletePreviewResponse,
+  CalendarOperationResult,
+  CalendarRecycleBinItem,
+  CalendarResponse,
+  CalendarRestorePreviewResponse,
+  EventResponse,
+  ImportReport,
+  PagedResult,
+  TaskResponse,
+} from '../types';
 
 export type TaskMutationData = {
   calendarId?: string;
@@ -11,6 +22,50 @@ export type TaskMutationData = {
   dtStart?: string;
   due?: string;
   status?: string;
+};
+
+export type RecycleBinParams = {
+  type?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+function appendQuery(path: string, params: Record<string, string | number | undefined>) {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) searchParams.set(key, String(value));
+  }
+
+  const qs = searchParams.toString();
+  return qs ? `${path}?${qs}` : path;
+}
+
+export const calendarApiPaths = {
+  recycleBin(params: RecycleBinParams = {}) {
+    return appendQuery('/calendar/recycle-bin', params);
+  },
+  recycleRestorePreview(type: string, id: string) {
+    return `/calendar/recycle-bin/${encodeURIComponent(type)}/${encodeURIComponent(id)}/restore-preview`;
+  },
+  recycleRestore(type: string, id: string) {
+    return `/calendar/recycle-bin/${encodeURIComponent(type)}/${encodeURIComponent(id)}/restore`;
+  },
+  calendarDeletePreview(id: string) {
+    return `/calendar/calendars/${encodeURIComponent(id)}/delete-preview`;
+  },
+  eventBatchDelete() {
+    return '/calendar/events/batch-delete';
+  },
+  taskPlan(id: string) {
+    return `/calendar/tasks/${encodeURIComponent(id)}/plan`;
+  },
+  taskBatchUpdate() {
+    return '/calendar/tasks/batch-update';
+  },
+  taskBatchDelete() {
+    return '/calendar/tasks/batch-delete';
+  },
 };
 
 export async function getCalendars(kind?: string) {
@@ -54,15 +109,8 @@ export async function deleteEvent(id: string) {
   await apiDelete(`/calendar/events/${id}`);
 }
 
-export type CalendarOperationResult = {
-  operation: string;
-  operationId: string;
-  affectedCount: number;
-  affectedIds: string[];
-};
-
-export async function batchDeleteEvents(ids: string[]) {
-  const r = await apiPost<ApiResponse<CalendarOperationResult>>('/calendar/events/batch-delete', { ids });
+export async function batchDeleteEvents(ids: string[]): Promise<CalendarOperationResult> {
+  const r = await apiPost<ApiResponse<CalendarOperationResult>>(calendarApiPaths.eventBatchDelete(), { ids });
   return r.data;
 }
 
@@ -108,6 +156,56 @@ export function taskToMutationData(task: TaskResponse, overrides: Partial<TaskMu
 
 export async function deleteTask(id: string) {
   await apiDelete(`/calendar/tasks/${id}`);
+}
+
+export async function getRecycleBin(params: RecycleBinParams = {}) {
+  const r = await apiGet<ApiResponse<PagedResult<CalendarRecycleBinItem>>>(
+    calendarApiPaths.recycleBin(params)
+  );
+  return r.data;
+}
+
+export async function previewRecycleRestore(type: string, id: string) {
+  const r = await apiGet<ApiResponse<CalendarRestorePreviewResponse>>(
+    calendarApiPaths.recycleRestorePreview(type, id)
+  );
+  return r.data;
+}
+
+export async function restoreRecycleItem(type: string, id: string) {
+  const r = await apiPost<ApiResponse<CalendarOperationResult>>(
+    calendarApiPaths.recycleRestore(type, id),
+    {}
+  );
+  return r.data;
+}
+
+export async function previewCalendarDelete(id: string) {
+  const r = await apiGet<ApiResponse<CalendarDeletePreviewResponse>>(
+    calendarApiPaths.calendarDeletePreview(id)
+  );
+  return r.data;
+}
+
+export async function planTask(id: string) {
+  const r = await apiPost<ApiResponse<TaskResponse>>(calendarApiPaths.taskPlan(id), {});
+  return r.data;
+}
+
+export async function batchDeleteTasks(ids: string[]) {
+  const r = await apiPost<ApiResponse<CalendarOperationResult>>(
+    calendarApiPaths.taskBatchDelete(),
+    { ids }
+  );
+  return r.data;
+}
+
+export async function batchUpdateTasks(updates: Array<{ id: string; data: Partial<TaskMutationData> }>) {
+  const r = await apiPost<ApiResponse<CalendarOperationResult>>(
+    calendarApiPaths.taskBatchUpdate(),
+    { updates }
+  );
+  return r.data;
 }
 
 interface GetEventsParams {
@@ -165,6 +263,6 @@ export async function importIcs(file: File, calendarId?: string) {
     body: formData
   });
   if (!resp.ok) throw new Error(`Import failed: ${resp.status}`);
-  const json = await resp.json() as ApiResponse<ImportResult>;
+  const json = await resp.json() as ApiResponse<ImportReport>;
   return json.data;
 }

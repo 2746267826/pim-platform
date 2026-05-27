@@ -32,6 +32,7 @@ export default function AiStatusPanel({ status, isLoading = false, error = null 
     queryClient.invalidateQueries({ queryKey: ['ai-status'] });
     queryClient.invalidateQueries({ queryKey: ['ai-usage-summary'] });
     queryClient.invalidateQueries({ queryKey: ['ai-requests'] });
+    queryClient.invalidateQueries({ queryKey: ['ai-request-detail'] });
   };
 
   const healthMutation = useMutation({

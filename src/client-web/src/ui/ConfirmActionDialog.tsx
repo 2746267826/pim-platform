@@ -1,40 +1,24 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef, type KeyboardEvent } from 'react';
 import type { CalendarOperationSample } from '../types';
+import {
+  buildDeleteConfirmationCopy,
+  getOperationSampleTypeLabel,
+  type DeleteConfirmationInput,
+} from './confirmActionDialogModel';
 
-export interface DeleteConfirmationInput {
-  targetType: string;
-  title: string;
-  affectedCount: number;
-  samples: CalendarOperationSample[];
-}
-
-export interface DeleteConfirmationCopy {
-  title: string;
-  description: string;
-  confirmLabel: string;
-  samples: CalendarOperationSample[];
-}
+export {
+  type DeleteConfirmationCopy,
+  type DeleteConfirmationInput,
+} from './confirmActionDialogModel';
+// eslint-disable-next-line react-refresh/only-export-components -- Compatibility export; implementation lives in the model module.
+export { buildDeleteConfirmationCopy } from './confirmActionDialogModel';
 
 interface ConfirmActionDialogProps {
   open: boolean;
   input: DeleteConfirmationInput | null;
-  isPending: boolean;
+  isPending?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
-}
-
-function getTargetTypeLabel(targetType: string) {
-  if (targetType === 'calendar') return '日历本';
-  if (targetType === 'task-book') return '任务本';
-  if (targetType === 'task') return '任务';
-  return '日程';
-}
-
-function getSampleTypeLabel(type: string) {
-  if (type === 'calendar') return '日历本';
-  if (type === 'task-book') return '任务本';
-  if (type === 'task') return '任务';
-  return '日程';
 }
 
 function formatSampleTime(sample: CalendarOperationSample) {
@@ -42,45 +26,86 @@ function formatSampleTime(sample: CalendarOperationSample) {
   return sample.start || sample.end || null;
 }
 
-export function buildDeleteConfirmationCopy(input: DeleteConfirmationInput): DeleteConfirmationCopy {
-  const typeLabel = getTargetTypeLabel(input.targetType);
-
-  if (input.affectedCount <= 1) {
-    return {
-      title: `删除${typeLabel}`,
-      description: `${input.title} 将移动到回收站，可以在设置中恢复。`,
-      confirmLabel: '移动到回收站',
-      samples: input.samples,
-    };
-  }
-
-  return {
-    title: `删除${typeLabel}`,
-    description: `${input.title} 和 ${input.affectedCount} 个关联项目将一起移动到回收站。`,
-    confirmLabel: `确认移动 ${input.affectedCount} 项`,
-    samples: input.samples,
-  };
-}
-
 export default function ConfirmActionDialog({
   open,
   input,
-  isPending,
+  isPending = false,
   onCancel,
   onConfirm,
 }: ConfirmActionDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
 
+  useEffect(() => {
+    if (!open || !input) return;
+
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+
+    const dialog = dialogRef.current;
+    dialog?.focus();
+
+    return () => {
+      previouslyFocusedRef.current?.focus();
+      previouslyFocusedRef.current = null;
+    };
+  }, [open, input]);
+
   if (!open || !input) return null;
+
+  function getFocusableElements() {
+    const dialog = dialogRef.current;
+    if (!dialog) return [];
+
+    return Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter(element => !element.hasAttribute('aria-hidden'));
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      onCancel();
+      return;
+    }
+
+    if (e.key !== 'Tab') return;
+
+    const focusableElements = getFocusableElements();
+    if (focusableElements.length === 0) {
+      e.preventDefault();
+      dialogRef.current?.focus();
+      return;
+    }
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    const activeElement = document.activeElement;
+
+    if (e.shiftKey && (activeElement === firstElement || activeElement === dialogRef.current)) {
+      e.preventDefault();
+      lastElement.focus();
+    } else if (!e.shiftKey && (activeElement === lastElement || activeElement === dialogRef.current)) {
+      e.preventDefault();
+      firstElement.focus();
+    }
+  }
 
   const copy = buildDeleteConfirmationCopy(input);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 px-4 py-6">
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
         className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-2xl"
       >
         <header className="border-b border-slate-200 px-5 py-4">
@@ -110,7 +135,7 @@ export default function ConfirmActionDialog({
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-slate-900">{sample.title}</p>
                         <p className="mt-0.5 text-xs text-slate-500">
-                          {getSampleTypeLabel(sample.type)}
+                          {getOperationSampleTypeLabel(sample.type)}
                           {sample.bookName ? ` · ${sample.bookName}` : ''}
                         </p>
                       </div>

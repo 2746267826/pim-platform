@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { buildDeleteConfirmationCopy } from '../../src/client-web/src/ui/ConfirmActionDialog';
+import { readFileSync } from 'node:fs';
+import { buildDeleteConfirmationCopy } from '../../src/client-web/src/ui/confirmActionDialogModel';
 import type { CalendarOperationSample } from '../../src/client-web/src/types';
 
 const eventSamples: CalendarOperationSample[] = [
@@ -36,6 +37,17 @@ assert.equal(calendarCascadeCopy.title, '删除日历本');
 assert.equal(calendarCascadeCopy.description, '工作 和 4 个关联项目将一起移动到回收站。');
 assert.equal(calendarCascadeCopy.confirmLabel, '确认移动 4 项');
 
+const calendarBookCascadeCopy = buildDeleteConfirmationCopy({
+  targetType: 'calendar-book',
+  title: '家庭日历',
+  affectedCount: 3,
+  samples: eventSamples,
+});
+
+assert.equal(calendarBookCascadeCopy.title, '删除日历本');
+assert.equal(calendarBookCascadeCopy.description, '家庭日历 和 3 个关联项目将一起移动到回收站。');
+assert.equal(calendarBookCascadeCopy.confirmLabel, '确认移动 3 项');
+
 const taskBookCopy = buildDeleteConfirmationCopy({
   targetType: 'task-book',
   title: '个人任务',
@@ -52,3 +64,17 @@ const taskBookCopy = buildDeleteConfirmationCopy({
 
 assert.equal(taskBookCopy.title, '删除任务本');
 assert.equal(taskBookCopy.confirmLabel, '确认移动 2 项');
+
+const dialogSource = readFileSync(
+  new URL('../../src/client-web/src/ui/ConfirmActionDialog.tsx', import.meta.url),
+  'utf8',
+);
+
+assert.match(dialogSource, /useEffect/);
+assert.match(dialogSource, /useRef/);
+assert.match(dialogSource, /previouslyFocusedRef/);
+assert.match(dialogSource, /tabIndex=\{-1\}/);
+assert.match(dialogSource, /onKeyDown=\{handleKeyDown\}/);
+assert.match(dialogSource, /e\.key === 'Escape'/);
+assert.match(dialogSource, /e\.key !== 'Tab'/);
+assert.match(dialogSource, /querySelectorAll<HTMLElement>/);

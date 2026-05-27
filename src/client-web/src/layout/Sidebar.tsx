@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCalendars, createCalendar, updateCalendar, deleteCalendar, previewCalendarDelete } from '../api/calendar';
@@ -37,6 +37,8 @@ function CalendarBookSection({
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const activeDeletePreviewRequestRef = useRef<{ deleteId: string; requestId: number } | null>(null);
+  const nextDeletePreviewRequestIdRef = useRef(0);
   const { hiddenCalendarIds, toggleCalendar } = useCalendarVisibility();
 
   const createMut = useMutation({
@@ -64,6 +66,7 @@ function CalendarBookSection({
         ['calendars'],
         ['calendar-recycle-bin'],
         ['events'],
+        ['events-paged'],
         ['tasks'],
         ['today-sections'],
         ['today-section'],
@@ -73,11 +76,13 @@ function CalendarBookSection({
         queryClient.invalidateQueries({ queryKey: key });
       });
 
+      activeDeletePreviewRequestRef.current = null;
       setDeleteInput(null);
       setDeleteId(null);
       setDeleteError(null);
     },
     onError: () => {
+      activeDeletePreviewRequestRef.current = null;
       setDeleteInput(null);
       setDeleteId(null);
       setDeleteError('删除失败，请稍后重试。');
@@ -86,19 +91,6 @@ function CalendarBookSection({
 
   const previewDeleteMut = useMutation({
     mutationFn: previewCalendarDelete,
-    onSuccess: preview => {
-      setDeleteInput({
-        targetType: preview.targetType,
-        title: preview.title,
-        affectedCount: Math.max(1, preview.affectedCount),
-        samples: preview.samples,
-      });
-    },
-    onError: () => {
-      setDeleteInput(null);
-      setDeleteId(null);
-      setDeleteError('删除预览失败，请稍后重试。');
-    }
   });
 
   function startRename(id: string, currentName: string) {
@@ -110,14 +102,43 @@ function CalendarBookSection({
     if (editName.trim()) updateMut.mutate({ id, data: { name: editName.trim() } });
   }
 
+  function isActiveDeletePreviewRequest(id: string, requestId: number) {
+    return activeDeletePreviewRequestRef.current?.deleteId === id
+      && activeDeletePreviewRequestRef.current.requestId === requestId;
+  }
+
   function requestDeletePreview(id: string) {
+    const requestId = nextDeletePreviewRequestIdRef.current + 1;
+
+    nextDeletePreviewRequestIdRef.current = requestId;
+    activeDeletePreviewRequestRef.current = { deleteId: id, requestId };
     setDeleteId(id);
     setDeleteInput(null);
     setDeleteError(null);
-    previewDeleteMut.mutate(id);
+    previewDeleteMut.mutate(id, {
+      onSuccess: preview => {
+        if (isActiveDeletePreviewRequest(id, requestId)) {
+          setDeleteInput({
+            targetType: preview.targetType,
+            title: preview.title,
+            affectedCount: Math.max(1, preview.affectedCount),
+            samples: preview.samples,
+          });
+        }
+      },
+      onError: () => {
+        if (isActiveDeletePreviewRequest(id, requestId)) {
+          activeDeletePreviewRequestRef.current = null;
+          setDeleteInput(null);
+          setDeleteId(null);
+          setDeleteError('删除预览失败，请稍后重试。');
+        }
+      },
+    });
   }
 
   function cancelDelete() {
+    activeDeletePreviewRequestRef.current = null;
     setDeleteInput(null);
     setDeleteId(null);
   }

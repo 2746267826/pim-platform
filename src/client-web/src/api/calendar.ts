@@ -20,6 +20,7 @@ export type TaskMutationData = {
   estimatedDuration?: string;
   minimumSegment?: string;
   dtStart?: string;
+  plannedEnd?: string;
   due?: string;
   status?: string;
 };
@@ -188,6 +189,7 @@ export function taskToMutationData(task: TaskResponse, overrides: Partial<TaskMu
     estimatedDuration: task.estimatedDuration,
     minimumSegment: task.minimumSegment,
     dtStart: task.dtStart,
+    plannedEnd: task.plannedEnd,
     due: task.due,
     status: task.status,
     ...overrides,

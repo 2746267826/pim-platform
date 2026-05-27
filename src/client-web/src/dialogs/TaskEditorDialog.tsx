@@ -3,6 +3,7 @@ import { useMutation, useQueryClient, useQuery, type QueryClient } from '@tansta
 import { createTask, updateTask, deleteTask, getCalendars, moveTask, taskToMutationData } from '../api/calendar';
 import type { TaskMutationData } from '../api/calendar';
 import EditorDrawer from '../ui/EditorDrawer';
+import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
 import { Field } from './common';
 import type { TaskResponse } from '../types';
 
@@ -34,9 +35,11 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   const [description, setDescription] = useState(task?.description || '');
   const [priority, setPriority] = useState(task?.priority || 0);
   const [dtStart, setDtStart] = useState(defaultDtStart || task?.dtStart || '');
+  const [plannedEnd, setPlannedEnd] = useState(task?.plannedEnd || '');
   const [due, setDue] = useState(task?.due || '');
   const [duration, setDuration] = useState(task?.estimatedDuration || '');
   const [calendarId, setCalendarId] = useState(task?.calendarId || '');
+  const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
   const queryClient = useQueryClient();
 
   const { data: calendars } = useQuery({
@@ -63,16 +66,44 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
 
   const deleteMut = useMutation({
     mutationFn: () => deleteTask(task!.id),
-    onSuccess: () => { invalidateTaskRelatedQueries(queryClient); onClose(); }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar-recycle-bin'] });
+      invalidateTaskRelatedQueries(queryClient);
+      setDeleteInput(null);
+      onClose();
+    },
+    onError: () => setDeleteInput(null),
   });
 
   const mutationError = createMut.error || updateMut.error || deleteMut.error;
   const mutationErrorMessage = mutationError instanceof Error ? mutationError.message : null;
 
   function handleDelete() {
-    if (confirm(`确定删除任务 "${task?.title}"？`)) {
-      deleteMut.mutate();
-    }
+    if (!task) return;
+    deleteMut.reset();
+    setDeleteInput({
+      targetType: 'task',
+      title: task.title,
+      affectedCount: 1,
+      samples: [{
+        id: task.id,
+        type: 'task',
+        title: task.title,
+        start: task.dtStart,
+        end: task.plannedEnd || task.due,
+        bookName: undefined,
+      }],
+    });
+  }
+
+  function confirmDelete() {
+    if (!task) return;
+    deleteMut.mutate();
+  }
+
+  function cancelDelete() {
+    if (deleteMut.isPending) return;
+    setDeleteInput(null);
   }
 
   function handleToggleComplete() {
@@ -86,6 +117,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
     const data: TaskMutationData = {
       title, description, priority,
       dtStart: dtStart || undefined,
+      plannedEnd: plannedEnd || undefined,
       due: due || undefined,
       estimatedDuration: duration || undefined,
       calendarId: calendarId || undefined
@@ -140,6 +172,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   );
 
   return (
+    <>
     <EditorDrawer open={open} onClose={onClose} title={task ? '编辑任务' : '新建任务'} footer={footer}>
       <form id="task-editor-form" onSubmit={handleSubmit} className="space-y-4">
         {mutationErrorMessage && (
@@ -184,6 +217,10 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
           <input type="datetime-local" value={dtStart} onChange={e => setDtStart(e.target.value)}
             className="w-full border rounded px-3 py-2 text-sm" />
         </Field>
+        <Field label="计划结束">
+          <input type="datetime-local" value={plannedEnd} onChange={e => setPlannedEnd(e.target.value)}
+            className="w-full border rounded px-3 py-2 text-sm" />
+        </Field>
         <Field label="截止日期">
           <input type="datetime-local" value={due} onChange={e => setDue(e.target.value)}
             className="w-full border rounded px-3 py-2 text-sm" />
@@ -194,5 +231,13 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
         </Field>
       </form>
     </EditorDrawer>
+    <ConfirmActionDialog
+      open={deleteInput !== null}
+      input={deleteInput}
+      isPending={deleteMut.isPending}
+      onCancel={cancelDelete}
+      onConfirm={confirmDelete}
+    />
+    </>
   );
 }

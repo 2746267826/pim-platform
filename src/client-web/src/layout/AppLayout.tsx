@@ -16,6 +16,7 @@ import PcDetailQueryPage from '../pages/PcDetailQueryPage';
 import StatusPage from '../pages/StatusPage';
 
 const QuickNotesPage = lazy(() => import('../pages/QuickNotesPage'));
+const FilesPage = lazy(() => import('../pages/FilesPage'));
 const QuickNoteFloatingPanel = lazy(() => import('../components/quick-notes/QuickNoteFloatingPanel'));
 
 function SuspenseFallback() {
@@ -43,6 +44,7 @@ export default function AppLayout() {
               <Route path="/today" element={<TodayPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/quick-notes" element={<QuickNotesPage />} />
+              <Route path="/files" element={<FilesPage />} />
               <Route path="/timeline" element={<Navigate to="/calendar?view=timeline" replace />} />
               <Route path="/week" element={<Navigate to="/calendar?view=timeline" replace />} />
               <Route path="/month" element={<Navigate to="/calendar?view=month" replace />} />

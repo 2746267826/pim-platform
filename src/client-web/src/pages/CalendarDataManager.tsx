@@ -1,10 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { getCalendars, getEventsPaged, exportIcs, importIcs, batchDeleteEvents } from '../api/calendar';
 import type { CalendarOperationResult, EventResponse, ImportReport } from '../types';
 import OperationResultBanner from '../ui/OperationResultBanner';
 import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
+
+function pruneSelectedIds(selected: Set<string>, visibleIds: string[]) {
+  const visibleIdSet = new Set(visibleIds);
+  return new Set(Array.from(selected).filter(id => visibleIdSet.has(id)));
+}
+
+function hasStaleSelection(selected: Set<string>, visibleIds: string[]) {
+  if (selected.size === 0) return false;
+  const visibleIdSet = new Set(visibleIds);
+  return Array.from(selected).some(id => !visibleIdSet.has(id));
+}
 
 export default function CalendarDataManager() {
   const navigate = useNavigate();
@@ -58,10 +69,34 @@ export default function CalendarDataManager() {
     })
   });
 
+  const currentIds = useMemo(() => data?.items.map(event => event.id) ?? [], [data?.items]);
+  const visibleSelectedIds = useMemo(
+    () => currentIds.filter(id => selectedIds.has(id)),
+    [currentIds, selectedIds],
+  );
+  const allCurrentSelected = currentIds.length > 0 && currentIds.every(id => selectedIds.has(id));
+
+  useEffect(() => {
+    if (!hasStaleSelection(selectedIds, currentIds)) return;
+
+    let cancelled = false;
+    window.queueMicrotask(() => {
+      if (!cancelled) setSelectedIds(current => pruneSelectedIds(current, currentIds));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentIds, selectedIds]);
+
   const [importCalendarId, setImportCalendarId] = useState('');
 
   const importMut = useMutation({
     mutationFn: (file: File) => importIcs(file, importCalendarId || undefined),
+    onMutate: () => {
+      setOperationResult(null);
+      setOperationError(null);
+    },
     onSuccess: (result) => {
       setOperationResult(result);
       setOperationError(null);
@@ -76,6 +111,10 @@ export default function CalendarDataManager() {
 
   const deleteMut = useMutation({
     mutationFn: batchDeleteEvents,
+    onMutate: () => {
+      setOperationResult(null);
+      setOperationError(null);
+    },
     onSuccess: (result) => {
       setOperationResult(result);
       setSelectedIds(new Set());
@@ -95,12 +134,15 @@ export default function CalendarDataManager() {
   });
 
   function handleBatchDelete() {
-    if (!data || selectedIds.size === 0) return;
+    if (!data || visibleSelectedIds.length === 0) return;
     const selectedEvents = data.items.filter(event => selectedIds.has(event.id));
+    if (selectedEvents.length === 0) return;
     const originalIds = selectedEvents.map(event => event.originalEventId ?? event.id);
     const uniqueIds = Array.from(new Set(originalIds));
     if (uniqueIds.length === 0) return;
 
+    setOperationResult(null);
+    setOperationError(null);
     setPendingDeleteIds(uniqueIds);
     setDeleteInput({
       targetType: 'event',
@@ -115,7 +157,6 @@ export default function CalendarDataManager() {
         bookName: calendars?.find(calendar => calendar.id === event.calendarId)?.name,
       })),
     });
-    setOperationError(null);
   }
 
   function handleConfirmDelete() {
@@ -142,19 +183,26 @@ export default function CalendarDataManager() {
   }
 
   function toggleSelectAll() {
-    if (!data) return;
-    const allIds = data.items.map(e => e.id);
-    setSelectedIds(prev => prev.size === allIds.length ? new Set() : new Set(allIds));
+    if (currentIds.length === 0) return;
+
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allCurrentSelected) {
+        currentIds.forEach(id => next.delete(id));
+      } else {
+        currentIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
   }
 
   function handleExportSelected() {
-    const ids = Array.from(selectedIds);
     if (!data) return;
+    const selectedEvents = data.items.filter(event => selectedIds.has(event.id));
+    if (selectedEvents.length === 0) return;
+
     // Map selected occurrence IDs back to original event IDs for export
-    const originalIds = ids.map(id => {
-      const evt = data.items.find(e => e.id === id);
-      return evt?.originalEventId ?? id;
-    });
+    const originalIds = selectedEvents.map(event => event.originalEventId ?? event.id);
     const uniqueIds = Array.from(new Set(originalIds));
     exportIcs(uniqueIds);
   }
@@ -202,17 +250,17 @@ export default function CalendarDataManager() {
             className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50">
             {importMut.isPending ? '导入中...' : '📥 导入 ICS'}
           </button>
-          <button onClick={handleExportSelected} disabled={selectedIds.size === 0}
+          <button onClick={handleExportSelected} disabled={visibleSelectedIds.length === 0}
             className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50 disabled:opacity-50">
-            📤 导出选中({selectedIds.size})
+            📤 导出选中({visibleSelectedIds.length})
           </button>
           <button onClick={handleExportAll}
             className="px-3 py-1.5 text-sm border rounded hover:bg-gray-50">
             📤 导出全部
           </button>
-          <button onClick={handleBatchDelete} disabled={selectedIds.size === 0 || deleteMut.isPending}
+          <button onClick={handleBatchDelete} disabled={visibleSelectedIds.length === 0 || deleteMut.isPending}
             className="px-3 py-1.5 text-sm border border-red-200 rounded text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed">
-            {deleteMut.isPending ? '删除中...' : `🗑 删除选中(${selectedIds.size})`}
+            {deleteMut.isPending ? '删除中...' : `🗑 删除选中(${visibleSelectedIds.length})`}
           </button>
         </div>
       </div>
@@ -275,7 +323,7 @@ export default function CalendarDataManager() {
             <tr className="bg-gray-50 border-b text-left">
               <th className="p-3 w-8">
                 <input type="checkbox"
-                  checked={data && selectedIds.size === data.items.length && data.items.length > 0}
+                  checked={allCurrentSelected}
                   onChange={toggleSelectAll} />
               </th>
               <th className="p-3">标题</th>

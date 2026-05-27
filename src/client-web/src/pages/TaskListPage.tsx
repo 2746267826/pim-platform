@@ -8,7 +8,6 @@ import {
   taskToMutationData,
 } from '../api/calendar';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
-import { sortTasksByDue } from '../components/today/TodayTaskColumn';
 import EmptyState from '../ui/EmptyState';
 import StatusBadge from '../ui/StatusBadge';
 import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
@@ -40,6 +39,8 @@ const taskDeleteInvalidationKeys = [
   ['today-sections'],
   ['today-section'],
 ] as const;
+
+const emptyTasks: TaskResponse[] = [];
 
 function formatLocalDate(date: Date) {
   const year = date.getFullYear();
@@ -104,6 +105,17 @@ function getErrorMessage(error: unknown) {
   return '删除失败，请稍后再试。';
 }
 
+function pruneSelectedIds(selected: Set<string>, visibleIds: string[]) {
+  const visibleIdSet = new Set(visibleIds);
+  return new Set(Array.from(selected).filter(id => visibleIdSet.has(id)));
+}
+
+function hasStaleSelection(selected: Set<string>, visibleIds: string[]) {
+  if (selected.size === 0) return false;
+  const visibleIdSet = new Set(visibleIds);
+  return Array.from(selected).some(id => !visibleIdSet.has(id));
+}
+
 function buildTaskQuery(
   filter: TaskFilter,
   search: string,
@@ -155,6 +167,7 @@ export default function TaskListPage() {
   const [search, setSearch] = useState('');
   const [selectedTaskBook, setSelectedTaskBook] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -192,17 +205,19 @@ export default function TaskListPage() {
     mutationFn: (ids: string[]) => batchDeleteTasks(ids),
     onSuccess: () => {
       setSelectedIds(new Set());
+      setPendingDeleteIds([]);
       setDeleteInput(null);
       setDeleteErrorMessage(null);
       invalidateKeys(taskDeleteInvalidationKeys);
     },
     onError: error => {
+      setPendingDeleteIds([]);
       setDeleteInput(null);
       setDeleteErrorMessage(getErrorMessage(error));
     },
   });
 
-  const items = useMemo(() => sortTasksByDue(data?.items ?? []), [data?.items]);
+  const items = data?.items ?? emptyTasks;
   const totalCount = data?.totalCount ?? items.length;
   const currentIds = useMemo(() => items.map(task => task.id), [items]);
   const allCurrentSelected = currentIds.length > 0 && currentIds.every(id => selectedIds.has(id));
@@ -211,8 +226,23 @@ export default function TaskListPage() {
     [taskBooks],
   );
 
+  useEffect(() => {
+    if (!hasStaleSelection(selectedIds, currentIds)) return;
+
+    let cancelled = false;
+    window.queueMicrotask(() => {
+      if (!cancelled) setSelectedIds(current => pruneSelectedIds(current, currentIds));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentIds, selectedIds]);
+
   function clearSelectionState() {
     setSelectedIds(new Set());
+    setPendingDeleteIds([]);
+    setDeleteInput(null);
     setDeleteErrorMessage(null);
   }
 
@@ -255,20 +285,28 @@ export default function TaskListPage() {
     const selectedTasks = items.filter(task => selectedIds.has(task.id));
     if (selectedTasks.length === 0) return;
 
+    const visibleSelectedIds = selectedTasks.map(task => task.id);
     deleteMutation.reset();
+    setPendingDeleteIds(visibleSelectedIds);
     setDeleteErrorMessage(null);
     setDeleteInput({
       targetType: 'task',
       title: '选中的任务',
-      affectedCount: selectedIds.size,
+      affectedCount: visibleSelectedIds.length,
       samples: selectedTasks.slice(0, 5).map(task => toTaskSample(task, taskBookNameById)),
     });
   }
 
   function confirmDeleteSelected() {
-    const ids = Array.from(selectedIds);
+    const ids = pendingDeleteIds;
     if (ids.length === 0) return;
     deleteMutation.mutate(ids);
+  }
+
+  function cancelDelete() {
+    if (deleteMutation.isPending) return;
+    setPendingDeleteIds([]);
+    setDeleteInput(null);
   }
 
   function closeEditor() {
@@ -328,7 +366,7 @@ export default function TaskListPage() {
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-            <StatusBadge tone="neutral">共 {totalCount} 项</StatusBadge>
+            <StatusBadge tone="neutral">显示前 {items.length} 项 / 共 {totalCount} 项</StatusBadge>
             {selectedIds.size > 0 && <StatusBadge tone="primary">已选 {selectedIds.size} 项</StatusBadge>}
           </div>
 
@@ -434,10 +472,7 @@ export default function TaskListPage() {
         open={deleteInput !== null}
         input={deleteInput}
         isPending={deleteMutation.isPending}
-        onCancel={() => {
-          if (deleteMutation.isPending) return;
-          setDeleteInput(null);
-        }}
+        onCancel={cancelDelete}
         onConfirm={confirmDeleteSelected}
       />
     </div>

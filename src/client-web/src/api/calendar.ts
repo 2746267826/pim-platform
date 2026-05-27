@@ -155,8 +155,8 @@ export async function getTasksPaged(params: GetTasksParams = {}) {
   if (params.plannedTo) searchParams.set('plannedTo', params.plannedTo);
   if (params.dueFrom) searchParams.set('dueFrom', params.dueFrom);
   if (params.dueTo) searchParams.set('dueTo', params.dueTo);
-  if (params.page !== undefined) searchParams.set('page', String(params.page));
-  if (params.pageSize !== undefined) searchParams.set('pageSize', String(params.pageSize));
+  searchParams.set('page', String(params.page ?? 1));
+  searchParams.set('pageSize', String(params.pageSize ?? 50));
 
   const qs = searchParams.toString();
   const r = await apiGet<ApiResponse<PagedResult<TaskResponse>>>(

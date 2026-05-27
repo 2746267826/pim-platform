@@ -90,12 +90,12 @@ export default function CalendarPage() {
     mutationFn: ({ task, plannedStart }: { task: TaskResponse; plannedStart: string }) =>
       planTask(task.id, {
         plannedStart,
-        plannedEnd: task.estimatedDuration ? undefined : task.due,
-        estimatedDuration: task.estimatedDuration,
+        plannedEnd: getPlannedEndForDrop(task, plannedStart),
       }),
     onMutate: () => setPlanTaskError(null),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks-paged'] });
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['today-sections'] });
       queryClient.invalidateQueries({ queryKey: ['today-section'] });
@@ -104,6 +104,7 @@ export default function CalendarPage() {
       setPlanTaskError(error instanceof Error ? error.message : '任务计划失败，请稍后再试。');
     },
   });
+  const { mutate: mutatePlanTask } = planTaskMutation;
 
   const calendarEvents = useMemo(() => {
     const visibleEvents = hiddenCalendarIds.size > 0
@@ -180,8 +181,8 @@ export default function CalendarPage() {
     if (!task) return;
 
     const plannedStart = toLocalDateTimeInputValue(dropInfo.date);
-    planTaskMutation.mutate({ task, plannedStart });
-  }, [planTaskMutation, tasks]);
+    mutatePlanTask({ task, plannedStart });
+  }, [mutatePlanTask, tasks]);
 
   return (
     <div ref={pageRef} className="flex h-full min-h-0 flex-col gap-4">
@@ -344,6 +345,7 @@ function buildCalendarEvents(events: EventResponse[], tasks: TaskResponse[]): Ca
       title: event.title,
       start: event.dtStart,
       end: event.dtEnd,
+      allDay: event.isAllDay,
       backgroundColor: '#2563EB',
       borderColor: '#2563EB',
       extendedProps: {
@@ -368,4 +370,50 @@ function buildCalendarEvents(events: EventResponse[], tasks: TaskResponse[]): Ca
       };
     }),
   ];
+}
+
+function getPlannedEndForDrop(task: TaskResponse, plannedStart: string): string | undefined {
+  const plannedStartDate = parseCalendarDate(plannedStart);
+  if (!plannedStartDate) return task.due;
+
+  const existingPlannedEnd = parseCalendarDate(task.plannedEnd);
+  const existingPlannedStart = parseCalendarDate(task.dtStart);
+  if (existingPlannedEnd && existingPlannedStart) {
+    const durationMs = existingPlannedEnd.getTime() - existingPlannedStart.getTime();
+    if (durationMs > 0) return toLocalDateTimeInputValue(new Date(plannedStartDate.getTime() + durationMs));
+  }
+
+  const estimatedDurationMs = parseTimeSpanMs(task.estimatedDuration);
+  if (estimatedDurationMs && estimatedDurationMs > 0) {
+    return toLocalDateTimeInputValue(new Date(plannedStartDate.getTime() + estimatedDurationMs));
+  }
+
+  return task.due;
+}
+
+function parseCalendarDate(value?: string): Date | null {
+  if (!value) return null;
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function parseTimeSpanMs(value?: string): number | null {
+  if (!value) return null;
+
+  const match = /^(?:(\d+)\.)?(\d+):([0-5]\d):([0-5]\d)(?:\.(\d{1,7}))?$/.exec(value);
+  if (!match) return null;
+
+  const [, days = '0', hours, minutes, seconds, fraction = ''] = match;
+  const baseMs = (
+    Number(days) * 24 * 60 * 60
+    + Number(hours) * 60 * 60
+    + Number(minutes) * 60
+    + Number(seconds)
+  ) * 1000;
+  const fractionMs = fraction
+    ? Number(`0.${fraction}`) * 1000
+    : 0;
+
+  return baseMs + fractionMs;
 }

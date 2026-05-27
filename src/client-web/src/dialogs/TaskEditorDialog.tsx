@@ -26,6 +26,7 @@ export default function TaskEditorDialog(props: Props) {
 
 function invalidateTaskRelatedQueries(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  queryClient.invalidateQueries({ queryKey: ['tasks-paged'] });
   queryClient.invalidateQueries({ queryKey: ['today-sections'] });
   queryClient.invalidateQueries({ queryKey: ['today-section'] });
 }
@@ -40,6 +41,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   const [duration, setDuration] = useState(task?.estimatedDuration || '');
   const [calendarId, setCalendarId] = useState(task?.calendarId || '');
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
+  const [validationErrorMessage, setValidationErrorMessage] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: calendars } = useQuery({
@@ -76,7 +78,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   });
 
   const mutationError = createMut.error || updateMut.error || deleteMut.error;
-  const mutationErrorMessage = mutationError instanceof Error ? mutationError.message : null;
+  const mutationErrorMessage = validationErrorMessage || (mutationError instanceof Error ? mutationError.message : null);
 
   function handleDelete() {
     if (!task) return;
@@ -114,6 +116,12 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (task?.plannedEnd && !plannedEnd) {
+      setValidationErrorMessage('当前接口暂不支持清空计划结束时间，可改成新的结束时间。');
+      return;
+    }
+
+    setValidationErrorMessage(null);
     const data: TaskMutationData = {
       title, description, priority,
       dtStart: dtStart || undefined,
@@ -218,7 +226,10 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
             className="w-full border rounded px-3 py-2 text-sm" />
         </Field>
         <Field label="计划结束">
-          <input type="datetime-local" value={plannedEnd} onChange={e => setPlannedEnd(e.target.value)}
+          <input type="datetime-local" value={plannedEnd} onChange={e => {
+            setPlannedEnd(e.target.value);
+            setValidationErrorMessage(null);
+          }}
             className="w-full border rounded px-3 py-2 text-sm" />
         </Field>
         <Field label="截止日期">

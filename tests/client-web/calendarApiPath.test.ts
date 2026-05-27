@@ -4,6 +4,7 @@ import {
   buildTasksPath,
   calendarApiPaths,
   planTask,
+  previewCalendarDelete,
 } from '../../src/client-web/src/api/calendar';
 
 assert.equal(buildTasksPath(), '/calendar/tasks');
@@ -62,6 +63,15 @@ async function main() {
       priority: 2,
       calendarId: 'calendar-2',
     });
+  } catch (error) {
+    failures.push(error);
+  }
+
+  await assert.rejects(() => previewCalendarDelete('calendar-1'), requestCaptured);
+  assert.equal(requests[2].url, '/api/v1/calendar/calendars/calendar-1/delete-preview');
+  try {
+    assert.equal(requests[2].init?.method, 'POST');
+    assert.deepEqual(JSON.parse(String(requests[2].init?.body)), {});
   } catch (error) {
     failures.push(error);
   }

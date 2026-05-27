@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import { calendarApiPaths, previewRecycleRestore } from '../../src/client-web/src/api/calendar';
+import {
+  calendarApiPaths,
+  previewRecycleRestore,
+  restoreRecycleItem,
+} from '../../src/client-web/src/api/calendar';
 
 const failures: unknown[] = [];
 
@@ -40,6 +44,15 @@ async function main() {
   assert.equal(requests[0].url, '/api/v1/calendar/recycle-bin/event/abc/restore-preview');
   try {
     assert.equal(requests[0].init?.method, 'POST');
+  } catch (error) {
+    failures.push(error);
+  }
+
+  await assert.rejects(() => restoreRecycleItem('event', 'abc', true), requestCaptured);
+  assert.equal(requests[1].url, '/api/v1/calendar/recycle-bin/event/abc/restore');
+  assert.equal(requests[1].init?.method, 'POST');
+  try {
+    assert.deepEqual(JSON.parse(String(requests[1].init?.body)), { restoreAsCopy: true });
   } catch (error) {
     failures.push(error);
   }

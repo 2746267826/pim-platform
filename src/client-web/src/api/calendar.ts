@@ -177,17 +177,18 @@ export async function previewRecycleRestore(type: string, id: string) {
   return r.data;
 }
 
-export async function restoreRecycleItem(type: string, id: string) {
+export async function restoreRecycleItem(type: string, id: string, restoreAsCopy = false) {
   const r = await apiPost<ApiResponse<CalendarOperationResult>>(
     calendarApiPaths.recycleRestore(type, id),
-    {}
+    { restoreAsCopy }
   );
   return r.data;
 }
 
 export async function previewCalendarDelete(id: string) {
-  const r = await apiGet<ApiResponse<CalendarDeletePreviewResponse>>(
-    calendarApiPaths.calendarDeletePreview(id)
+  const r = await apiPost<ApiResponse<CalendarDeletePreviewResponse>>(
+    calendarApiPaths.calendarDeletePreview(id),
+    {}
   );
   return r.data;
 }

@@ -1,5 +1,7 @@
 import type {
+  CalendarDeletePreviewResponse,
   CalendarOperationResult,
+  CalendarOperationSample,
   CalendarRecycleBinItem,
   CalendarRestorePreviewResponse,
   EventResponse,
@@ -7,41 +9,65 @@ import type {
   TaskResponse,
 } from '../../src/client-web/src/types';
 
+const operationSample: CalendarOperationSample = {
+  id: 'event-1',
+  type: 'event',
+  title: 'Planning',
+  start: '2026-05-27T00:00:00Z',
+  end: '2026-05-27T01:00:00Z',
+  bookName: 'Work',
+};
+
+const deletePreview: CalendarDeletePreviewResponse = {
+  targetType: 'calendar',
+  targetId: 'calendar-1',
+  title: 'Work',
+  operationKind: 'delete_calendar',
+  affectedCount: 1,
+  samples: [operationSample],
+  summary: 'Delete 1 calendar item',
+  requiresStrictConfirmation: true,
+};
+
 const operationResult: CalendarOperationResult = {
   operation: 'delete',
   operationId: 'op-1',
   affectedCount: 1,
   affectedIds: ['event-1'],
-  samples: [
-    {
-      id: 'event-1',
-      title: 'Planning',
-      type: 'event',
-    },
-  ],
+  samples: [operationSample],
+  message: 'Deleted 1 event',
 };
 
 const recycleItem: CalendarRecycleBinItem = {
   id: 'trash-1',
-  itemId: 'event-1',
   type: 'event',
   title: 'Planning',
   deletedAt: '2026-05-27T00:00:00Z',
-  deletedBy: 'user-1',
-  calendarId: 'cal-1',
-  calendarName: 'Work',
+  bookName: 'Work',
+  start: '2026-05-27T00:00:00Z',
+  end: '2026-05-27T01:00:00Z',
+  source: 'event',
+  deletedByOperationId: 'op-1',
+  deletedByOperationKind: 'delete_event',
 };
 
 const restorePreview: CalendarRestorePreviewResponse = {
-  item: recycleItem,
-  canRestore: false,
+  targetType: 'event',
+  targetId: 'event-1',
+  title: 'Planning',
+  restoreCount: 1,
+  samples: [operationSample],
   conflicts: [
     {
-      code: 'calendar_missing',
-      message: 'Calendar is missing',
-      severity: 'warning',
+      deletedId: 'calendar-1',
+      deletedType: 'calendar',
+      activeId: 'calendar-2',
+      activeType: 'calendar',
+      reason: 'duplicate',
+      title: 'Work',
     },
   ],
+  canRestoreWithoutConflict: false,
 };
 
 const event: EventResponse = {
@@ -65,13 +91,16 @@ const event: EventResponse = {
 
 const importReport: ImportReport = {
   imported: 1,
-  updated: 0,
   skipped: 1,
-  skippedItems: [
+  skippedReasons: {
+    duplicate: 1,
+  },
+  samples: [
     {
       uid: 'uid-2',
       reason: 'duplicate',
       title: 'Duplicate event',
+      start: '2026-05-27T02:00:00Z',
     },
   ],
 };
@@ -89,7 +118,9 @@ const task: TaskResponse = {
 // @ts-expect-error EventResponse intentionally excludes raw ICS payloads.
 event.sourceIcsComponent = 'BEGIN:VEVENT';
 
+void deletePreview;
 void operationResult;
+void recycleItem;
 void restorePreview;
 void importReport;
 void task;

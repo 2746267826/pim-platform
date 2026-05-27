@@ -43,7 +43,12 @@ function appendQuery(path: string, params: Record<string, string | number | unde
 
 export const calendarApiPaths = {
   recycleBin(params: RecycleBinParams = {}) {
-    return appendQuery('/calendar/recycle-bin', params);
+    return appendQuery('/calendar/recycle-bin', {
+      type: params.type,
+      search: params.search,
+      page: params.page,
+      pageSize: params.pageSize,
+    });
   },
   recycleRestorePreview(type: string, id: string) {
     return `/calendar/recycle-bin/${encodeURIComponent(type)}/${encodeURIComponent(id)}/restore-preview`;
@@ -166,7 +171,7 @@ export async function getRecycleBin(params: RecycleBinParams = {}) {
 }
 
 export async function previewRecycleRestore(type: string, id: string) {
-  const r = await apiGet<ApiResponse<CalendarRestorePreviewResponse>>(
+  const r = await apiPost<ApiResponse<CalendarRestorePreviewResponse>>(
     calendarApiPaths.recycleRestorePreview(type, id)
   );
   return r.data;
@@ -187,8 +192,11 @@ export async function previewCalendarDelete(id: string) {
   return r.data;
 }
 
-export async function planTask(id: string) {
-  const r = await apiPost<ApiResponse<TaskResponse>>(calendarApiPaths.taskPlan(id), {});
+export async function planTask(
+  id: string,
+  data: { plannedStart: string; plannedEnd?: string; estimatedDuration?: string }
+) {
+  const r = await apiPost<ApiResponse<TaskResponse>>(calendarApiPaths.taskPlan(id), data);
   return r.data;
 }
 
@@ -200,10 +208,15 @@ export async function batchDeleteTasks(ids: string[]) {
   return r.data;
 }
 
-export async function batchUpdateTasks(updates: Array<{ id: string; data: Partial<TaskMutationData> }>) {
+export async function batchUpdateTasks(data: {
+  ids: string[];
+  status?: string;
+  priority?: number;
+  calendarId?: string;
+}) {
   const r = await apiPost<ApiResponse<CalendarOperationResult>>(
     calendarApiPaths.taskBatchUpdate(),
-    { updates }
+    data
   );
   return r.data;
 }

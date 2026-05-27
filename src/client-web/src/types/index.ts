@@ -489,3 +489,160 @@ export interface QuickNoteAttachmentUpload {
   downloadUrl: string;
   previewUrl: string | null;
 }
+
+// Files module types
+export interface FileProvider {
+  id: string;
+  provider: string;
+  baseUrl: string;
+  internalBaseUrl: string | null;
+  username: string;
+  status: string;
+  lastSyncAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BindNextcloudProviderRequest {
+  baseUrl: string;
+  internalBaseUrl: string | null;
+  username: string;
+  appPassword: string;
+}
+
+export interface FileProviderTest {
+  success: boolean;
+  status: string;
+  errorMessage: string | null;
+}
+
+export interface FileItem {
+  id: string;
+  providerId: string;
+  externalFileId: string;
+  parentExternalFileId: string | null;
+  path: string;
+  name: string;
+  itemType: string;
+  mimeType: string | null;
+  size: number | null;
+  etag: string | null;
+  contentHash: string | null;
+  currentVersionId: string | null;
+  permissions: string | null;
+  isDeleted: boolean;
+  deletedAt: string | null;
+  lastSeenAt: string | null;
+  createdAt: string;
+  modifiedAt: string;
+  syncedAt: string;
+  indexStatus: string;
+  ai: FileAiResult | null;
+}
+
+export interface FileVersion {
+  id: string;
+  fileItemId: string;
+  externalVersionId: string;
+  etag: string | null;
+  size: number | null;
+  modifiedAt: string;
+  source: string;
+  isCurrent: boolean;
+  syncedAt: string;
+}
+
+export interface FileAiResult {
+  id: string;
+  fileItemId: string;
+  versionId: string;
+  summary: string;
+  tags: string[];
+  language: string | null;
+  sensitivity: string | null;
+  generatedAt: string;
+  model: string | null;
+  aiRequestLogId: string | null;
+  evidenceChunkIds: string[];
+}
+
+export interface FileSuggestion {
+  id: string;
+  fileItemId: string;
+  suggestionType: string;
+  title: string;
+  reason: string;
+  confidence: number;
+  payloadJson: string;
+  status: string;
+  aiRequestLogId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FileListResponse {
+  result: PagedResult<FileItem>;
+}
+
+export type FileSearchMode = 'keyword' | 'semantic' | 'hybrid';
+
+export interface FileSearchResult {
+  items: FileItem[];
+  chunks: FileChunkSearchHit[];
+}
+
+export interface FileChunkSearchHit {
+  chunkId: string;
+  fileItemId: string;
+  versionId: string;
+  text: string;
+  score: number;
+}
+
+export interface MoveFileRequest {
+  destinationPath: string;
+}
+
+export interface RenameFileRequest {
+  name: string;
+}
+
+export interface FileOpenLink {
+  url: string;
+  mode: string;
+}
+
+export type FileOpenLinkMode = 'view' | 'edit' | 'nextcloud';
+
+export interface VersionRestorePreview {
+  fileItemId: string;
+  versionId: string;
+  currentVersionLabel: string;
+  restoreVersionLabel: string;
+  requiresConfirmation: boolean;
+  summary: string;
+}
+
+export interface FileIndexJob {
+  id: string;
+  fileItemId: string;
+  versionId: string | null;
+  status: string;
+  stage: string;
+  attemptCount: number;
+  lastError: string | null;
+}
+
+export interface FileSuggestionStatusRequest {
+  status: string;
+}
+
+export interface FileTrashItem {
+  trashId: string;
+  originalLocation: string;
+  name: string;
+  itemType: string;
+  size: number | null;
+  deletedAt: string;
+}

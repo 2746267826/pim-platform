@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import { fileApiPaths } from '../../src/client-web/src/api/files';
+
+const providerId = '11111111-1111-1111-1111-111111111111';
+const itemId = '22222222-2222-2222-2222-222222222222';
+const versionId = '33333333-3333-3333-3333-333333333333';
+const suggestionId = '44444444-4444-4444-4444-444444444444';
+
+assert.equal(fileApiPaths.providers(), '/files/providers');
+assert.equal(fileApiPaths.bindNextcloud(), '/files/providers/nextcloud');
+assert.equal(fileApiPaths.providerTest(providerId), `/files/providers/${providerId}/test`);
+assert.equal(fileApiPaths.providerSync(providerId), `/files/providers/${providerId}/sync`);
+assert.equal(fileApiPaths.items('/Reports'), '/files/items?path=%2FReports');
+assert.equal(fileApiPaths.item(itemId), `/files/items/${itemId}`);
+assert.equal(fileApiPaths.upload(), '/files/items/upload');
+assert.equal(fileApiPaths.itemDownload(itemId), `/files/items/${itemId}/download`);
+assert.equal(fileApiPaths.move(itemId), `/files/items/${itemId}/move`);
+assert.equal(fileApiPaths.rename(itemId), `/files/items/${itemId}/rename`);
+assert.equal(fileApiPaths.trash(), '/files/trash');
+assert.equal(fileApiPaths.trashRestore(providerId, 'trash/report.docx'), `/files/trash/${providerId}/restore?trashId=trash%2Freport.docx`);
+assert.equal(fileApiPaths.versions(itemId), `/files/items/${itemId}/versions`);
+assert.equal(fileApiPaths.versionDownload(itemId, versionId), `/files/items/${itemId}/versions/${versionId}/download`);
+assert.equal(fileApiPaths.versionRestorePreview(itemId, versionId), `/files/items/${itemId}/versions/${versionId}/restore-preview`);
+assert.equal(fileApiPaths.versionRestore(itemId, versionId), `/files/items/${itemId}/versions/${versionId}/restore`);
+assert.equal(fileApiPaths.index(itemId), `/files/items/${itemId}/index`);
+assert.equal(fileApiPaths.search('budget report', 'hybrid'), '/files/search?q=budget+report&mode=hybrid');
+assert.equal(fileApiPaths.suggestions(), '/files/suggestions');
+assert.equal(fileApiPaths.dismissSuggestion(suggestionId), `/files/suggestions/${suggestionId}/dismiss`);
+assert.equal(fileApiPaths.acceptSuggestion(suggestionId), `/files/suggestions/${suggestionId}/accept`);
+assert.equal(fileApiPaths.openLink(itemId, 'nextcloud'), `/files/items/${itemId}/open-link?mode=nextcloud`);

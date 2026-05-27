@@ -573,3 +573,84 @@ export interface QuickNoteAttachmentUpload {
   downloadUrl: string;
   previewUrl: string | null;
 }
+
+export type AiRequestStatus = 'Succeeded' | 'Failed' | 'Blocked' | 'TimedOut' | 'FailedValidation';
+
+export interface AiStatus {
+  enabled: boolean;
+  provider: string;
+  baseUrl: string;
+  defaultModel: string;
+  lastHealthCheckAt?: string | null;
+  lastError?: string | null;
+  recentSuccessfulCallAt?: string | null;
+}
+
+export interface AiRequestLogListItem {
+  id: string;
+  startedAt: string;
+  module: string;
+  purpose: string;
+  model: string;
+  status: AiRequestStatus;
+  totalTokens?: number | null;
+  estimatedCost?: number | null;
+  durationMs?: number | null;
+  sourceObjectType: string;
+  sourceObjectId: string;
+  errorSummary?: string | null;
+}
+
+export interface AiRequestLogDetail extends AiRequestLogListItem {
+  userId?: string | null;
+  provider: string;
+  liteLlmRequestId?: string | null;
+  correlationId: string;
+  attemptNumber: number;
+  maxAttempts: number;
+  finishedAt?: string | null;
+  requestMessagesJson: string;
+  requestPayloadJson: string;
+  responseRawJson: string;
+  responseText?: string | null;
+  parsedOutputJson?: string | null;
+  schemaName?: string | null;
+  schemaVersion?: string | null;
+  schemaJsonSnapshot?: string | null;
+  schemaValidationErrorsJson: string;
+  usage: {
+    promptTokens?: number | null;
+    completionTokens?: number | null;
+    totalTokens?: number | null;
+    estimatedCost?: number | null;
+    currency?: string | null;
+  };
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  metadataJson: string;
+}
+
+export interface AiUsageGroup {
+  groupKey: string;
+  requestCount: number;
+  successCount: number;
+  failureCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estimatedCost: number;
+}
+
+export interface AiUsageSummary {
+  requestCount: number;
+  successCount: number;
+  failureCount: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  estimatedCost: number;
+  byModule: AiUsageGroup[];
+  byPurpose: AiUsageGroup[];
+  byModel: AiUsageGroup[];
+  byStatus: AiUsageGroup[];
+}

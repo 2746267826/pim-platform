@@ -4,7 +4,7 @@ import PageHeader from '../ui/PageHeader';
 const settingsLinks = [
   {
     title: '管理日程数据',
-    description: '查看、筛选、导入导出全部日程',
+    description: '查看、筛选、导入导出全部日程数据',
     label: '日程',
     to: '/settings/calendar-data',
   },
@@ -19,6 +19,12 @@ const settingsLinks = [
     description: '查询、筛选、导出全部 PC 记录数据',
     label: 'PC',
     to: '/settings/pc-data',
+  },
+  {
+    title: 'AI 设置',
+    description: 'LiteLLM 状态、用量、请求日志与详情',
+    label: 'AI',
+    to: '/settings/ai',
   },
 ] as const;
 
@@ -38,11 +44,11 @@ export default function SettingsPage() {
               {link.label}
             </span>
             <span className="min-w-0">
-              <span className="block text-base font-semibold text-slate-950">{link.title}</span>
-              <span className="mt-1 block text-sm text-slate-500">{link.description}</span>
+              <span className="block truncate text-base font-semibold text-slate-950">{link.title}</span>
+              <span className="mt-1 block break-words text-sm text-slate-500">{link.description}</span>
             </span>
           </div>
-          <span className="text-xl text-slate-300" aria-hidden="true">
+          <span className="shrink-0 text-xl text-slate-300" aria-hidden="true">
             →
           </span>
         </Link>

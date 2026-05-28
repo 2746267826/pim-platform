@@ -278,7 +278,7 @@ function MouseHeatmap({ keystats, maxKey }: { keystats: KeystatsSummary; maxKey:
 
   return (
     <div className="min-w-[260px] rounded-2xl border border-slate-200 bg-white/85 p-4">
-      <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Mouse</div>
+      <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">鼠标</div>
       <svg
         viewBox="0 0 240 300"
         className="mx-auto h-72 w-full max-w-[240px]"

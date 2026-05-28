@@ -64,7 +64,7 @@ export default function AiStatusPanel({ status, isLoading = false, error = null 
       {error && <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error.message}</p>}
 
       <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <Field label="Provider" value={status?.provider ?? '-'} />
+        <Field label="服务商" value={status?.provider ?? '-'} />
         <Field label="默认模型" value={status?.defaultModel ?? '-'} />
         <Field label="Base URL" value={status?.baseUrl ?? '-'} />
         <Field label="上次健康检查" value={formatDateTime(status?.lastHealthCheckAt)} />

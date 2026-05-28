@@ -78,11 +78,11 @@ function parentPath(path: string) {
 
 function breadcrumb(path: string) {
   const normalized = normalizeFolderPath(path);
-  if (normalized === '/') return [{ label: 'Root', path: '/' }];
+  if (normalized === '/') return [{ label: '根目录', path: '/' }];
 
   const parts = normalized.split('/').filter(Boolean);
   return [
-    { label: 'Root', path: '/' },
+    { label: '根目录', path: '/' },
     ...parts.map((part, index) => ({
       label: part,
       path: `/${parts.slice(0, index + 1).join('/')}`,
@@ -141,6 +141,52 @@ function statusTone(status: string | null | undefined) {
   return 'border-slate-200 bg-slate-50 text-slate-600';
 }
 
+function statusLabel(status: string | null | undefined) {
+  if (!status) return '-';
+  const labels: Record<string, string> = {
+    accepted: '已采纳',
+    completed: '已完成',
+    connected: '已连接',
+    current: '当前',
+    deleted: '已删除',
+    dismissed: '已忽略',
+    error: '错误',
+    failed: '失败',
+    indexed: '已索引',
+    pending: '待处理',
+    processing: '处理中',
+    queued: '排队中',
+    running: '运行中',
+    success: '成功',
+  };
+  return labels[status.toLowerCase()] ?? status;
+}
+
+function itemTypeLabel(type: FileItem['itemType']) {
+  return type === 'folder' ? '文件夹' : '文件';
+}
+
+function sourceLabel(source: string | null | undefined) {
+  if (!source) return '-';
+  const labels: Record<string, string> = {
+    local: '本地',
+    nextcloud: 'Nextcloud',
+    remote: '远端',
+  };
+  return labels[source.toLowerCase()] ?? source;
+}
+
+function suggestionTypeLabel(type: string | null | undefined) {
+  if (!type) return '-';
+  const labels: Record<string, string> = {
+    classification: '分类',
+    move: '移动',
+    rename: '重命名',
+    tag: '标签',
+  };
+  return labels[type.toLowerCase()] ?? type;
+}
+
 function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -165,15 +211,15 @@ function Section({ title, children, actions }: { title: string; children: ReactN
 function StatusBadge({ label }: { label: string | null | undefined }) {
   return (
     <span className={`inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-xs font-medium ${statusTone(label)}`}>
-      <span className="truncate">{label || '-'}</span>
+      <span className="truncate">{statusLabel(label)}</span>
     </span>
   );
 }
 
 function itemIcon(item: FileItem) {
-  if (item.itemType === 'folder') return 'DIR';
+  if (item.itemType === 'folder') return '夹';
   const ext = item.name.includes('.') ? item.name.split('.').pop()?.toUpperCase() : null;
-  return ext?.slice(0, 4) || 'FILE';
+  return ext?.slice(0, 4) || '文';
 }
 
 export default function FilesPage() {
@@ -327,7 +373,7 @@ export default function FilesPage() {
     onSuccess: provider => {
       setActiveProviderId(provider.id);
       setBindForm(current => ({ ...current, appPassword: '' }));
-      setProviderMessage('Nextcloud provider saved.');
+      setProviderMessage('Nextcloud 文件来源已保存。');
       setError(null);
       invalidateFiles();
     },
@@ -337,7 +383,7 @@ export default function FilesPage() {
   const testMutation = useMutation({
     mutationFn: (providerId: string) => testFileProvider(providerId),
     onSuccess: result => {
-      setProviderMessage(result.success ? 'Connection test passed.' : result.errorMessage || 'Connection test failed.');
+      setProviderMessage(result.success ? '连接测试通过。' : result.errorMessage || '连接测试失败。');
       setError(null);
     },
     onError: error => setError(errorMessage(error)),
@@ -346,7 +392,7 @@ export default function FilesPage() {
   const syncMutation = useMutation({
     mutationFn: (providerId: string) => syncFileProvider(providerId),
     onSuccess: () => {
-      setProviderMessage('Sync completed.');
+      setProviderMessage('同步完成。');
       setSubmittedSearch('');
       setSearchText('');
       setError(null);
@@ -398,7 +444,7 @@ export default function FilesPage() {
   const indexMutation = useMutation({
     mutationFn: (id: string) => indexFile(id),
     onSuccess: job => {
-      setProviderMessage(`Index job ${job.status}.`);
+      setProviderMessage(`索引任务${statusLabel(job.status)}。`);
       setError(null);
       invalidateFiles(job.fileItemId);
     },
@@ -448,7 +494,7 @@ export default function FilesPage() {
     },
     onSuccess: itemId => {
       if (itemId) {
-        setProviderMessage('Version restored.');
+        setProviderMessage('版本已恢复。');
         setError(null);
         invalidateFiles(itemId);
       }
@@ -469,11 +515,11 @@ export default function FilesPage() {
 
   const restoreTrashMutation = useMutation({
     mutationFn: (trashId: string) => {
-      if (!activeProvider) throw new Error('Select a provider before restoring trash.');
+      if (!activeProvider) throw new Error('请先选择文件来源，再恢复回收站项目。');
       return restoreFileTrash(activeProvider.id, trashId);
     },
     onSuccess: () => {
-      setProviderMessage('Trash item restored.');
+      setProviderMessage('回收站项目已恢复。');
       setError(null);
       invalidateFiles();
     },
@@ -483,7 +529,7 @@ export default function FilesPage() {
   function submitBind(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!bindForm.baseUrl.trim() || !bindForm.username.trim() || !bindForm.appPassword.trim()) {
-      setError('Base URL, username, and app password are required.');
+      setError('请填写外部访问地址、用户名和应用密码。');
       return;
     }
     bindMutation.mutate();
@@ -535,19 +581,19 @@ export default function FilesPage() {
   }
 
   function handleMove(item: FileItem) {
-    const destinationPath = window.prompt('Move to path', item.path);
+    const destinationPath = window.prompt('移动到路径', item.path);
     if (!destinationPath?.trim()) return;
     moveMutation.mutate({ id: item.id, destinationPath: destinationPath.trim() });
   }
 
   function handleRename(item: FileItem) {
-    const name = window.prompt('New name', item.name);
+    const name = window.prompt('新名称', item.name);
     if (!name?.trim() || name.trim() === item.name) return;
     renameMutation.mutate({ id: item.id, name: name.trim() });
   }
 
   function handleDelete(item: FileItem) {
-    if (!window.confirm(`Move "${item.name}" to trash?`)) return;
+    if (!window.confirm(`将“${item.name}”移入回收站？`)) return;
     deleteMutation.mutate(item.id);
   }
 
@@ -596,12 +642,12 @@ export default function FilesPage() {
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[320px_minmax(520px,1fr)_400px]">
         <div className="flex min-h-0 flex-col gap-4 overflow-auto">
-          <Section title="Provider">
+          <Section title="文件来源">
             <div className="space-y-3 p-3">
               {providersQuery.isLoading ? (
-                <p className="text-sm text-slate-500">Loading providers...</p>
+                <p className="text-sm text-slate-500">正在加载文件来源...</p>
               ) : providers.length === 0 ? (
-                <p className="text-sm text-slate-500">No provider connected.</p>
+                <p className="text-sm text-slate-500">尚未连接文件来源。</p>
               ) : (
                 <div className="space-y-2">
                   {providers.map(provider => {
@@ -647,7 +693,7 @@ export default function FilesPage() {
             </div>
           </Section>
 
-          <Section title="Bind Nextcloud">
+          <Section title="绑定 Nextcloud">
             <form className="space-y-2 p-3" onSubmit={submitBind}>
               <input
                 type="url"
@@ -660,21 +706,21 @@ export default function FilesPage() {
                 type="url"
                 value={bindForm.internalBaseUrl}
                 onChange={event => setBindForm(current => ({ ...current, internalBaseUrl: event.target.value }))}
-                placeholder="Internal URL"
+                placeholder="内部访问地址"
                 className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
               />
               <input
                 type="text"
                 value={bindForm.username}
                 onChange={event => setBindForm(current => ({ ...current, username: event.target.value }))}
-                placeholder="Username"
+                placeholder="用户名"
                 className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
               />
               <input
                 type="password"
                 value={bindForm.appPassword}
                 onChange={event => setBindForm(current => ({ ...current, appPassword: event.target.value }))}
-                placeholder="App password"
+                placeholder="应用密码"
                 className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
               />
               <button
@@ -682,13 +728,13 @@ export default function FilesPage() {
                 disabled={bindMutation.isPending}
                 className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                保存 Provider
+                保存文件来源
               </button>
             </form>
           </Section>
 
           <Section
-            title="Folder tree"
+            title="文件夹树"
             actions={
               <button
                 type="button"
@@ -699,7 +745,7 @@ export default function FilesPage() {
                 disabled={currentPath === '/'}
                 className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Up
+                上一级
               </button>
             }
           >
@@ -721,24 +767,24 @@ export default function FilesPage() {
                     <span aria-hidden="true" style={{ width: `${row.depth * 14}px` }} className="shrink-0" />
                     <span className={`h-px w-3 shrink-0 ${row.depth === 0 ? 'bg-transparent' : 'bg-slate-200'}`} />
                     <span className="rounded border border-blue-100 bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">
-                      {row.item ? 'DIR' : row.current ? 'OPEN' : 'PATH'}
+                      {row.item ? '夹' : row.current ? '当前' : '路径'}
                     </span>
                     <span className="truncate">{row.label}</span>
                   </button>
                 ))}
                 {folderTreeRows.length === 1 && (
-                  <p className="px-2 py-2 text-xs text-slate-500">No child folders here.</p>
+                  <p className="px-2 py-2 text-xs text-slate-500">当前没有子文件夹。</p>
                 )}
               </div>
             </div>
           </Section>
 
-          <Section title="Trash">
+          <Section title="回收站">
             <div className="max-h-[220px] overflow-auto p-2">
               {trashQuery.isLoading ? (
-                <p className="px-2 py-3 text-sm text-slate-500">Loading trash...</p>
+                <p className="px-2 py-3 text-sm text-slate-500">正在加载回收站...</p>
               ) : trashItems.length === 0 ? (
-                <p className="px-2 py-3 text-sm text-slate-500">Trash is empty.</p>
+                <p className="px-2 py-3 text-sm text-slate-500">回收站为空。</p>
               ) : (
                 <div className="space-y-2">
                   {trashItems.slice(0, 8).map(item => (
@@ -766,7 +812,7 @@ export default function FilesPage() {
         </div>
 
         <Section
-          title="Files"
+          title="文件列表"
           actions={
             <>
               <input ref={fileInputRef} type="file" className="hidden" onChange={handleUploadChange} />
@@ -807,7 +853,7 @@ export default function FilesPage() {
                   type="search"
                   value={searchText}
                   onChange={event => setSearchText(event.target.value)}
-                  placeholder="Search files"
+                  placeholder="搜索文件"
                   className="min-w-[220px] flex-1 rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
                 />
                 <select
@@ -815,9 +861,9 @@ export default function FilesPage() {
                   onChange={event => setSearchMode(event.target.value as FileSearchMode)}
                   className="rounded-md border border-slate-200 bg-white px-2 py-2 text-sm text-slate-700 outline-none focus:border-blue-300"
                 >
-                  <option value="hybrid">Hybrid</option>
-                  <option value="keyword">Keyword</option>
-                  <option value="semantic">Semantic</option>
+                  <option value="hybrid">混合</option>
+                  <option value="keyword">关键词</option>
+                  <option value="semantic">语义</option>
                 </select>
                 <button type="submit" className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700">
                   搜索
@@ -831,17 +877,17 @@ export default function FilesPage() {
             </div>
 
             <div className="grid grid-cols-[minmax(220px,1fr)_110px_150px_110px] border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase text-slate-500">
-              <button type="button" onClick={() => toggleSort('name')} className="text-left">Name {sortKey === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button>
-              <button type="button" onClick={() => toggleSort('size')} className="text-right">Size {sortKey === 'size' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button>
-              <button type="button" onClick={() => toggleSort('modifiedAt')} className="text-right">Modified {sortKey === 'modifiedAt' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button>
-              <span className="text-right">Index</span>
+              <button type="button" onClick={() => toggleSort('name')} className="text-left">名称 {sortKey === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button>
+              <button type="button" onClick={() => toggleSort('size')} className="text-right">大小 {sortKey === 'size' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button>
+              <button type="button" onClick={() => toggleSort('modifiedAt')} className="text-right">修改时间 {sortKey === 'modifiedAt' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button>
+              <span className="text-right">索引</span>
             </div>
 
             <div className="min-h-[420px] overflow-auto">
               {(itemsQuery.isLoading || searchQuery.isLoading) ? (
-                <p className="p-4 text-sm text-slate-500">Loading files...</p>
+                <p className="p-4 text-sm text-slate-500">正在加载文件...</p>
               ) : sortedItems.length === 0 ? (
-                <p className="p-4 text-sm text-slate-500">{submittedSearch ? 'No search results.' : 'No files in this folder.'}</p>
+                <p className="p-4 text-sm text-slate-500">{submittedSearch ? '没有匹配的搜索结果。' : '当前文件夹没有文件。'}</p>
               ) : (
                 sortedItems.map(item => {
                   const active = item.id === selectedId;
@@ -877,7 +923,7 @@ export default function FilesPage() {
 
             {semanticHits.length > 0 && (
               <div className="border-t border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-semibold uppercase text-slate-500">Semantic hits</p>
+                <p className="text-xs font-semibold uppercase text-slate-500">语义命中</p>
                 <div className="mt-2 space-y-2">
                   {semanticHits.slice(0, 4).map(hit => (
                     <button
@@ -896,13 +942,13 @@ export default function FilesPage() {
           </div>
         </Section>
 
-        <Section title="Details">
+        <Section title="详细信息">
           {!selectedId ? (
-            <p className="p-4 text-sm text-slate-500">Select a file or folder.</p>
+            <p className="p-4 text-sm text-slate-500">请选择文件或文件夹。</p>
           ) : detailQuery.isLoading && !selected ? (
-            <p className="p-4 text-sm text-slate-500">Loading details...</p>
+            <p className="p-4 text-sm text-slate-500">正在加载详细信息...</p>
           ) : !selected ? (
-            <p className="p-4 text-sm text-slate-500">Selected item is unavailable.</p>
+            <p className="p-4 text-sm text-slate-500">所选项目不可用。</p>
           ) : (
             <div className="flex max-h-full flex-col">
               <div className="space-y-3 border-b border-slate-200 p-3">
@@ -918,7 +964,7 @@ export default function FilesPage() {
                     disabled={busy}
                     className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
-                    View primary
+                    主要方式打开
                   </button>
                   {selected.itemType !== 'folder' && (
                     <>
@@ -928,7 +974,7 @@ export default function FilesPage() {
                         disabled={busy}
                         className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Edit separately
+                        单独编辑
                       </button>
                       <button
                         type="button"
@@ -936,7 +982,7 @@ export default function FilesPage() {
                         disabled={busy}
                         className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Download
+                        下载
                       </button>
                     </>
                   )}
@@ -946,31 +992,31 @@ export default function FilesPage() {
                     disabled={busy}
                     className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Open in Nextcloud
+                    在 Nextcloud 中打开
                   </button>
                 </div>
 
                 {isOoxmlFile(selected) && (
                   <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                    OOXML edit opens the provider editor. Confirm version state before replacing shared documents.
+                    OOXML 文档会使用文件来源提供的编辑器打开。替换共享文档前，请先确认版本状态。
                   </p>
                 )}
 
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2 border-y border-slate-100 py-3 text-xs">
                   <div className="min-w-0">
-                    <dt className="text-slate-400">Type</dt>
-                    <dd className="mt-1 truncate font-medium text-slate-800">{selected.itemType}</dd>
+                    <dt className="text-slate-400">类型</dt>
+                    <dd className="mt-1 truncate font-medium text-slate-800">{itemTypeLabel(selected.itemType)}</dd>
                   </div>
                   <div className="min-w-0">
-                    <dt className="text-slate-400">Size</dt>
+                    <dt className="text-slate-400">大小</dt>
                     <dd className="mt-1 truncate font-medium text-slate-800">{formatBytes(selected.size)}</dd>
                   </div>
                   <div className="min-w-0">
-                    <dt className="text-slate-400">Modified</dt>
+                    <dt className="text-slate-400">修改时间</dt>
                     <dd className="mt-1 truncate font-medium text-slate-800">{formatDateTime(selected.modifiedAt)}</dd>
                   </div>
                   <div className="min-w-0">
-                    <dt className="text-slate-400">Synced</dt>
+                    <dt className="text-slate-400">同步时间</dt>
                     <dd className="mt-1 truncate font-medium text-slate-800">{formatDateTime(selected.syncedAt)}</dd>
                   </div>
                 </dl>
@@ -982,7 +1028,7 @@ export default function FilesPage() {
                     disabled={busy}
                     className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Rename
+                    重命名
                   </button>
                   <button
                     type="button"
@@ -990,7 +1036,7 @@ export default function FilesPage() {
                     disabled={busy}
                     className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Move
+                    移动
                   </button>
                   {selected.itemType !== 'folder' && (
                     <button
@@ -999,7 +1045,7 @@ export default function FilesPage() {
                       disabled={busy}
                       className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Index
+                      建立索引
                     </button>
                   )}
                   <button
@@ -1008,7 +1054,7 @@ export default function FilesPage() {
                     disabled={busy}
                     className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Delete to trash
+                    移入回收站
                   </button>
                 </div>
               </div>
@@ -1029,16 +1075,16 @@ export default function FilesPage() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-500">No AI result for current version.</p>
+                    <p className="text-sm text-slate-500">当前版本暂无 AI 结果。</p>
                   )}
                 </div>
 
                 <div className="space-y-2 border-b border-slate-200 p-3">
-                  <h3 className="text-xs font-semibold uppercase text-slate-500">Versions</h3>
+                  <h3 className="text-xs font-semibold uppercase text-slate-500">版本</h3>
                   {versionsQuery.isLoading ? (
-                    <p className="text-sm text-slate-500">Loading versions...</p>
+                    <p className="text-sm text-slate-500">正在加载版本...</p>
                   ) : versions.length === 0 ? (
-                    <p className="text-sm text-slate-500">No versions.</p>
+                    <p className="text-sm text-slate-500">暂无版本。</p>
                   ) : (
                     versions.map(version => (
                       <div key={version.id} className="rounded-md border border-slate-200 p-2">
@@ -1048,7 +1094,7 @@ export default function FilesPage() {
                               <p className="text-xs font-semibold text-slate-800">{formatDateTime(version.modifiedAt)}</p>
                               {version.isCurrent && <StatusBadge label="current" />}
                             </div>
-                            <p className="mt-1 text-xs text-slate-500">{formatBytes(version.size)} · {version.source}</p>
+                            <p className="mt-1 text-xs text-slate-500">{formatBytes(version.size)} · {sourceLabel(version.source)}</p>
                           </div>
                           <div className="flex shrink-0 gap-1">
                             <button
@@ -1057,7 +1103,7 @@ export default function FilesPage() {
                               disabled={busy}
                               className="rounded border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              Down
+                              下载
                             </button>
                             {!version.isCurrent && (
                               <button
@@ -1066,7 +1112,7 @@ export default function FilesPage() {
                                 disabled={busy}
                                 className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                               >
-                                Restore version
+                                恢复此版本
                               </button>
                             )}
                           </div>
@@ -1077,11 +1123,11 @@ export default function FilesPage() {
                 </div>
 
                 <div className="space-y-2 p-3">
-                  <h3 className="text-xs font-semibold uppercase text-slate-500">Suggestions</h3>
+                  <h3 className="text-xs font-semibold uppercase text-slate-500">建议</h3>
                   {suggestionsQuery.isLoading ? (
-                    <p className="text-sm text-slate-500">Loading suggestions...</p>
+                    <p className="text-sm text-slate-500">正在加载建议...</p>
                   ) : selectedSuggestions.length === 0 ? (
-                    <p className="text-sm text-slate-500">No suggestions for this item.</p>
+                    <p className="text-sm text-slate-500">当前项目暂无建议。</p>
                   ) : (
                     selectedSuggestions.map(suggestion => (
                       <div key={suggestion.id} className="rounded-md border border-slate-200 p-2">
@@ -1090,7 +1136,7 @@ export default function FilesPage() {
                             <p className="truncate text-sm font-semibold text-slate-900">{suggestion.title}</p>
                             <p className="mt-1 text-xs text-slate-600">{suggestion.reason}</p>
                             <p className="mt-1 text-[11px] text-slate-400">
-                              {suggestion.suggestionType} · {Math.round(suggestion.confidence * 100)}%
+                              {suggestionTypeLabel(suggestion.suggestionType)} · {Math.round(suggestion.confidence * 100)}%
                             </p>
                           </div>
                           <StatusBadge label={suggestion.status} />
@@ -1102,7 +1148,7 @@ export default function FilesPage() {
                             disabled={busy}
                             className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            Accept - mark useful
+                            采纳并标记有用
                           </button>
                           <button
                             type="button"
@@ -1110,7 +1156,7 @@ export default function FilesPage() {
                             disabled={busy}
                             className="rounded border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            Dismiss
+                            忽略
                           </button>
                         </div>
                       </div>

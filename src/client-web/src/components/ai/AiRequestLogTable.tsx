@@ -66,7 +66,7 @@ export default function AiRequestLogTable({ data, selectedId, isLoading = false,
                 <th className="px-3 py-2 text-left">模块 / 用途</th>
                 <th className="px-3 py-2 text-left">模型</th>
                 <th className="px-3 py-2 text-left">状态</th>
-                <th className="px-3 py-2 text-right">Tokens</th>
+                <th className="px-3 py-2 text-right">Token</th>
                 <th className="px-3 py-2 text-right">耗时</th>
                 <th className="px-3 py-2 text-left">错误摘要</th>
               </tr>

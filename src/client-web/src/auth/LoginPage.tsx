@@ -40,7 +40,7 @@ export default function LoginPage() {
       if (err) setError(err);
       else navigate(redirectTarget, { replace: true });
     } catch {
-      setError('Network error');
+      setError('网络连接失败，请稍后再试');
     } finally { setLoading(false); }
   }
 

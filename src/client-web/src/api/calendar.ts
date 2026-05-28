@@ -293,7 +293,7 @@ export async function exportIcs(ids?: string[], start?: string, end?: string) {
   const resp = await fetch(`/api/v1/calendar/export-ics?${params.toString()}`, {
     headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
   });
-  if (!resp.ok) throw new Error(`Export failed: ${resp.status}`);
+  if (!resp.ok) throw new Error(`导出失败：${resp.status}`);
   const blob = await resp.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -313,7 +313,7 @@ export async function importIcs(file: File, calendarId?: string) {
     headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
     body: formData
   });
-  if (!resp.ok) throw new Error(`Import failed: ${resp.status}`);
+  if (!resp.ok) throw new Error(`导入失败：${resp.status}`);
   const json = await resp.json() as ApiResponse<ImportReport>;
   return json.data;
 }

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { loadTokens, clearTokens, setTokens, onTokensChanged } from '../api/client';
-import type { ApiResponse, AuthResponse } from '../types';
+import { authFailureMessage, readAuthResponse } from './authApi';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -27,8 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: uname, password: pwd })
     });
-    const json: ApiResponse<AuthResponse> = await res.json();
-    if (json.code !== 0 || !json.data) return json.message || 'Login failed';
+    const json = await readAuthResponse(res);
+    if (!res.ok || json?.code !== 0 || !json.data) return authFailureMessage('login', res, json);
     setTokens(json.data.accessToken, json.data.refreshToken);
     setUsername(json.data.userInfo?.displayName || uname);
     setIsAuth(true);
@@ -41,8 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: uname, email, password: pwd, displayName })
     });
-    const json: ApiResponse<AuthResponse> = await res.json();
-    if (json.code !== 0 || !json.data) return json.message || 'Registration failed';
+    const json = await readAuthResponse(res);
+    if (!res.ok || json?.code !== 0 || !json.data) return authFailureMessage('register', res, json);
     setTokens(json.data.accessToken, json.data.refreshToken);
     setUsername(json.data.userInfo?.displayName || uname);
     setIsAuth(true);

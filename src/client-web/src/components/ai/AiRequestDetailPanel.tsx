@@ -93,7 +93,7 @@ export default function AiRequestDetailPanel({ detail, isLoading = false, error 
             <InfoRow label="模块" value={detail.module} />
             <InfoRow label="用途" value={detail.purpose} />
             <InfoRow label="模型" value={detail.model} />
-            <InfoRow label="Provider" value={detail.provider} />
+            <InfoRow label="服务商" value={detail.provider} />
             <InfoRow label="Correlation ID" value={detail.correlationId} />
             <InfoRow label="LiteLLM Request ID" value={detail.liteLlmRequestId} />
             <InfoRow label="尝试次数" value={`${detail.attemptNumber} / ${detail.maxAttempts}`} />
@@ -101,9 +101,9 @@ export default function AiRequestDetailPanel({ detail, isLoading = false, error 
           </dl>
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MetricCard label="Prompt Tokens" value={formatNumber(detail.usage.promptTokens)} />
-            <MetricCard label="Completion Tokens" value={formatNumber(detail.usage.completionTokens)} />
-            <MetricCard label="Total Tokens" value={formatNumber(detail.usage.totalTokens ?? detail.totalTokens)} tone="activity" />
+            <MetricCard label="输入 Token" value={formatNumber(detail.usage.promptTokens)} />
+            <MetricCard label="输出 Token" value={formatNumber(detail.usage.completionTokens)} />
+            <MetricCard label="总 Token" value={formatNumber(detail.usage.totalTokens ?? detail.totalTokens)} tone="activity" />
             <MetricCard label="预估成本" value={formatCost(detail.usage.estimatedCost ?? detail.estimatedCost, detail.usage.currency)} />
           </div>
 
@@ -115,12 +115,12 @@ export default function AiRequestDetailPanel({ detail, isLoading = false, error 
           )}
 
           <div className="space-y-4">
-            <CodeBlock title="Messages" value={detail.requestMessagesJson} />
-            <CodeBlock title="Request Payload" value={detail.requestPayloadJson} />
-            <CodeBlock title="Response Text" value={detail.responseText} />
-            <CodeBlock title="Response Raw" value={detail.responseRawJson} />
-            <CodeBlock title="Parsed JSON" value={detail.parsedOutputJson} />
-            <CodeBlock title="Schema Errors" value={detail.schemaValidationErrorsJson} />
+            <CodeBlock title="消息列表" value={detail.requestMessagesJson} />
+            <CodeBlock title="请求载荷" value={detail.requestPayloadJson} />
+            <CodeBlock title="响应文本" value={detail.responseText} />
+            <CodeBlock title="原始响应" value={detail.responseRawJson} />
+            <CodeBlock title="解析后的 JSON" value={detail.parsedOutputJson} />
+            <CodeBlock title="结构校验错误" value={detail.schemaValidationErrorsJson} />
           </div>
         </div>
       )}

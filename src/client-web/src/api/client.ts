@@ -110,7 +110,7 @@ async function apiFetchResponse(
     } else {
       clearTokens();
       onAuthChange?.();
-      throw new Error('Session expired');
+      throw new Error('登录已过期，请重新登录');
     }
   }
 

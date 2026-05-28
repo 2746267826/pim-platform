@@ -140,7 +140,7 @@ export default function StatusPage() {
           <section className="rounded-lg border border-slate-200 bg-white p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Overall</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">总体状态</p>
                 <h2 className="mt-2 text-2xl font-semibold text-slate-950">{summary.label || '未知'}</h2>
                 <p className="mt-2 text-sm text-slate-600">{summary.message || '系统状态暂不可用'}</p>
               </div>

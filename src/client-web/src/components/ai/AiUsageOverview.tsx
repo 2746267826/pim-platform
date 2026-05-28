@@ -41,7 +41,7 @@ function CompactGroupRows({ title, groups }: { title: string; groups: AiUsageGro
               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
                 <span>成功 {formatNumber(group.successCount)}</span>
                 <span>失败 {formatNumber(group.failureCount)}</span>
-                <span>Tokens {formatNumber(group.totalTokens)}</span>
+                <span>Token {formatNumber(group.totalTokens)}</span>
                 <span>{formatCost(group.estimatedCost)}</span>
               </div>
             </div>

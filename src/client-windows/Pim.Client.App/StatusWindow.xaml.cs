@@ -30,7 +30,9 @@ public partial class StatusWindow : Window
         _awCollector = App.Services.GetRequiredService<AwCollectorService>();
         _keyStatsCollector = App.Services.GetRequiredService<KeyStatsCollectorService>();
 
-        ServerUrlBox.Text = DaemonConfig.Load().ServerUrl;
+        var config = DaemonConfig.Load();
+        ServerUrlBox.Text = config.ServerUrl;
+        AutoStartCheckBox.IsChecked = config.AutoStart;
         RefreshAll();
     }
 
@@ -295,5 +297,15 @@ public partial class StatusWindow : Window
         }
 
         return errors.Count == 0 ? null : string.Join("\n", errors);
+    }
+
+    private void OnAutoStartToggled(object sender, RoutedEventArgs e)
+    {
+        var enabled = AutoStartCheckBox.IsChecked == true;
+        AutoStartManager.Set(enabled);
+
+        var config = DaemonConfig.Load();
+        config.AutoStart = enabled;
+        config.Save();
     }
 }

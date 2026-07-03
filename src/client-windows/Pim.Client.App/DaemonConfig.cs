@@ -7,6 +7,7 @@ namespace Pim.Client.App;
 public class DaemonConfig
 {
     public string ServerUrl { get; set; } = ClientDefaults.DefaultServerUrl;
+    public bool AutoStart { get; set; } = true;
 
     private static readonly string Dir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PIM");

@@ -29,6 +29,8 @@ public partial class App : Application
             Logger.Info("DI configured");
 
             var config = DaemonConfig.Load();
+            // Apply auto-start setting (synchronizes registry with config at every boot)
+            AutoStartManager.Set(config.AutoStart);
             var apiClient = Services.GetRequiredService<ApiClient>();
             var authService = Services.GetRequiredService<AuthService>();
             if (!string.IsNullOrEmpty(config.ServerUrl))

@@ -30,7 +30,20 @@ public class ApiClient
     public void SetBaseUrl(string baseUrl)
     {
         var normalized = NormalizeServerUrl(baseUrl);
-        _httpClient.BaseAddress = new Uri(normalized.TrimEnd('/') + "/api/v1/");
+        var uri = new Uri(normalized.TrimEnd('/') + "/api/v1/");
+
+        // Build a fresh HttpClient so we can safely change the base address
+        // even after the previous client has started sending requests.
+        var handler = new HttpClientHandler { UseProxy = false };
+        var newClient = new HttpClient(handler) { BaseAddress = uri };
+
+        // Preserve the current auth header
+        if (_httpClient.DefaultRequestHeaders.Authorization is { } auth)
+            newClient.DefaultRequestHeaders.Authorization = auth;
+
+        // Atomically swap (safe because HttpClient disposal is immediate
+        // on .NET — all in-flight operations are cancelled by the OS).
+        Interlocked.Exchange(ref _httpClient, newClient).Dispose();
     }
 
     public string CurrentBaseUrl => _httpClient.BaseAddress?.ToString().TrimEnd('/') ?? "";

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import type { TimelineItem } from '../../types';
-import { getPcBusinessDayStart } from '../../utils/pcBusinessDay';
+import { getPcBusinessDate } from '../../utils/pcBusinessDay';
 
 interface GanttBlock {
   start: Date;
@@ -29,7 +29,7 @@ const MIN_WIDTH_PX = 4;
 function buildGanttBlocks(timeline: TimelineItem[]): { blocks: GanttBlock[]; dayStart: Date; dayEnd: Date } {
   if (!timeline.length) return { blocks: [], dayStart: new Date(), dayEnd: new Date() };
 
-  const dayStart = getPcBusinessDayStart();
+  const dayStart = new Date(getPcBusinessDate(new Date()).toISOString().slice(0, 10) + 'T00:00:00Z');
   const dayEnd = new Date(dayStart);
   dayEnd.setHours(dayEnd.getHours() + 24);
 
@@ -83,25 +83,6 @@ export default function CategoryTimeline({ timeline }: Props) {
   const [tooltip, setTooltip] = useState<ActiveTooltip | null>(null);
 
   const { blocks, dayStart } = useMemo(() => buildGanttBlocks(timeline), [timeline]);
-
-  // Group by hour
-  const hourBuckets = useMemo(() => {
-    const buckets = Array.from({ length: 24 }, (_, i) => ({
-      hour: i,
-      blocks: [] as GanttBlock[],
-      totalMin: 0,
-    }));
-    for (const block of blocks) {
-      const startHour = block.start.getHours();
-      for (let h = startHour; h <= block.end.getHours() && h < 24; h++) {
-        if (buckets[h]) {
-          buckets[h].blocks.push(block);
-          buckets[h].totalMin += block.durationMinutes / Math.max(block.end.getHours() - block.start.getHours(), 1);
-        }
-      }
-    }
-    return buckets;
-  }, [blocks]);
 
   const totalMinutes = blocks.reduce((s, b) => s + b.durationMinutes, 0);
   const productiveMin = blocks.filter(b => getProductivityBadge(b.categoryName).label === 'P').reduce((s, b) => s + b.durationMinutes, 0);

@@ -58,8 +58,8 @@ export default function ActivityHeatmap({ data, isLoading, onDateClick }: Props)
     return <div className="rounded-2xl border border-slate-200 bg-slate-50 py-10 text-center text-sm text-slate-400">加载中...</div>;
   }
 
-  const cells = Array.isArray(data?.grid)
-    ? data.grid.flatMap(row => Array.isArray(row) ? row.map(normalizeCell).filter(Boolean) : [])
+  const cells: SafeCell[] = Array.isArray(data?.grid)
+    ? data.grid.flatMap(row => Array.isArray(row) ? row.map(normalizeCell).filter((c): c is SafeCell => c !== null) : [])
     : [];
 
   if (!data || cells.length === 0) {
@@ -75,7 +75,8 @@ export default function ActivityHeatmap({ data, isLoading, onDateClick }: Props)
     : cells;
 
   // Group by week for month/year view
-  const sorted = [...filteredCells].sort(
+  const safeCells: SafeCell[] = filteredCells.filter((c): c is SafeCell => c !== null);
+  const sorted = [...safeCells].sort(
     (a, b) => (parseDate(a.start)?.getTime() ?? 0) - (parseDate(b.start)?.getTime() ?? 0)
   );
 

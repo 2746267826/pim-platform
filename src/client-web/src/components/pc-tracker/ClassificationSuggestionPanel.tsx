@@ -4,8 +4,11 @@ import type { ActivityClassificationSuggestion } from '../../types';
 interface Props {
   suggestions: ActivityClassificationSuggestion[];
   isLoading: boolean;
+  onAccept: (suggestion: ActivityClassificationSuggestion) => void;
   onCorrect: (suggestion: ActivityClassificationSuggestion) => void;
   onReject: (suggestion: ActivityClassificationSuggestion) => void;
+  onBatchAccept: (ids: string[]) => void;
+  onBatchReject: (ids: string[]) => void;
 }
 
 function formatMinutes(seconds: number) {
@@ -31,7 +34,7 @@ function getRecognitionBadge(recognitionSource?: string | null) {
   }
   return (
     <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
-      未识别
+      未识别 ❓
     </span>
   );
 }
@@ -39,8 +42,11 @@ function getRecognitionBadge(recognitionSource?: string | null) {
 export default function ClassificationSuggestionPanel({
   suggestions,
   isLoading,
+  onAccept,
   onCorrect,
   onReject,
+  onBatchAccept,
+  onBatchReject,
 }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -155,13 +161,14 @@ export default function ClassificationSuggestionPanel({
             <div className="flex shrink-0 gap-2 pl-9 md:pl-0">
               <button
                 type="button"
-                onClick={() => onCorrect(suggestion)}
+                onClick={() => onAccept(suggestion)}
                 className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
               >
                 接受
               </button>
               <button
                 type="button"
+                onClick={() => onCorrect(suggestion)}
                 className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
               >
                 修改
@@ -194,10 +201,22 @@ export default function ClassificationSuggestionPanel({
           </span>
           {selectedIds.size > 0 && (
             <>
-              <button className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700">
+              <button
+                onClick={() => {
+                  onBatchAccept([...selectedIds]);
+                  setSelectedIds(new Set());
+                }}
+                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+              >
                 批量接受
               </button>
-              <button className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50">
+              <button
+                onClick={() => {
+                  onBatchReject([...selectedIds]);
+                  setSelectedIds(new Set());
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+              >
                 批量拒绝
               </button>
               <span className="ml-auto text-xs text-slate-400">

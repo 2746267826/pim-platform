@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, subDays, subMonths } from 'date-fns';
 import {
+  acceptActivityClassificationSuggestion,
   applyActivityClassificationRule,
   getActivityClassificationSuggestions,
   getPcHeatmapGrid,
@@ -140,6 +141,37 @@ export default function PcTrackerPage() {
     },
   });
 
+  const acceptMutation = useMutation({
+    mutationFn: ({ id, clusterKey }: { id: string; clusterKey: string }) => {
+      const appName = clusterKey?.startsWith('app:') ? clusterKey.slice(4) : clusterKey;
+      return acceptActivityClassificationSuggestion(id, {
+        ruleName: `Quick: ${appName}`,
+        scope: 'app',
+        categoryName: null,
+        conditionsJson: JSON.stringify({ all: [{ field: 'appNameNormalized', op: 'equals', value: appName.toLowerCase() }] }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pc-classification-suggestions'] });
+      queryClient.invalidateQueries({ queryKey: ['pc-summary'] });
+    },
+  });
+
+  function handleAccept(suggestion: ActivityClassificationSuggestion) {
+    acceptMutation.mutate({ id: suggestion.id, clusterKey: suggestion.clusterKey });
+  }
+
+  function handleBatchAccept(ids: string[], suggestions: ActivityClassificationSuggestion[]) {
+    ids.forEach(id => {
+      const s = suggestions.find(s => s.id === id);
+      if (s) acceptMutation.mutate({ id: s.id, clusterKey: s.clusterKey });
+    });
+  }
+
+  function handleBatchReject(ids: string[]) {
+    ids.forEach(id => rejectMutation.mutate(id));
+  }
+
   function handleCorrectSuggestion(suggestion: ActivityClassificationSuggestion) {
     setActiveSuggestion(suggestion);
     handleDraftChange();
@@ -207,8 +239,11 @@ export default function PcTrackerPage() {
         <ClassificationSuggestionPanel
           suggestions={suggestions}
           isLoading={suggestionsLoading}
+          onAccept={handleAccept}
           onCorrect={handleCorrectSuggestion}
           onReject={suggestion => rejectMutation.mutate(suggestion.id)}
+          onBatchAccept={ids => handleBatchAccept(ids, suggestions)}
+          onBatchReject={handleBatchReject}
         />
       </AnalysisCard>
 

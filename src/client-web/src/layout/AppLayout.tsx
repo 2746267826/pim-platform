@@ -16,6 +16,7 @@ import CalendarDataManager from '../pages/CalendarDataManager';
 import RecycleBinPage from '../pages/RecycleBinPage';
 import PcDetailQueryPage from '../pages/PcDetailQueryPage';
 import StatusPage from '../pages/StatusPage';
+import AppKnowledgeBasePage from '../pages/AppKnowledgeBasePage';
 
 const QuickNotesPage = lazy(() => import('../pages/QuickNotesPage'));
 const FilesPage = lazy(() => import('../pages/FilesPage'));
@@ -59,6 +60,7 @@ export default function AppLayout() {
               <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
               <Route path="/settings/recycle-bin" element={<RecycleBinPage />} />
               <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />
+              <Route path="/app-knowledge-base" element={<AppKnowledgeBasePage />} />
               <Route path="*" element={<Navigate to="/today" replace />} />
             </Routes>
           </Suspense>

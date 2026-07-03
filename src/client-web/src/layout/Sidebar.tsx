@@ -15,6 +15,7 @@ const navItems = [
   { label: '任务', path: '/tasks', short: '任' },
   { label: 'PC记录', path: '/pc-tracker', short: 'PC' },
   { label: '分类管理', path: '/pc-classification', short: '分' },
+  { label: 'App知识库', path: '/app-knowledge-base', short: '库' },
   { label: '状态信息', path: '/status', short: '态' },
   { label: '设置', path: '/settings', short: '设' },
 ];

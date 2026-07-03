@@ -194,6 +194,26 @@ export function rejectActivityClassificationSuggestion(id: string) {
     .then(r => r.data);
 }
 
+export function acceptActivityClassificationSuggestion(
+  id: string,
+  data: {
+    ruleName: string;
+    scope: string;
+    categoryName: string | null;
+    conditionsJson: string;
+  }
+) {
+  return apiPost<ApiResponse<ActivityClassificationRule>>(
+    `/pc/classification/suggestions/${id}/accept`,
+    {
+      ruleName: data.ruleName,
+      scope: data.scope,
+      categoryName: data.categoryName,
+      conditionsJson: data.conditionsJson,
+    }
+  ).then(r => r.data);
+}
+
 export function previewActivityClassificationRule(
   rule: SaveActivityClassificationRuleRequest,
   range: ActivityClassificationApplyRange

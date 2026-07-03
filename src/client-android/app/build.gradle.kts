@@ -48,6 +48,8 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":features:calendar"))
 
+    implementation("androidx.appcompat:appcompat:1.6.1")
+
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation("androidx.hilt:hilt-work:1.1.0")
     kapt("androidx.hilt:hilt-compiler:1.1.0") // processes @HiltWorker → generates Hilt_UploadWorker

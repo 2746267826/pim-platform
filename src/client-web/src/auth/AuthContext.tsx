@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import { loadTokens, clearTokens, setTokens, onTokensChanged } from '../api/client';
-import { authFailureMessage, readAuthResponse } from './authApi';
+import { loadTokens, clearTokens, setTokens, onTokensChanged, apiPost } from '../api/client';
+import type { ApiResponse, AuthResponse } from '../types';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -22,31 +22,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (uname: string, pwd: string): Promise<string | null> => {
-    const res = await fetch('/api/v1/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: uname, password: pwd })
-    });
-    const json = await readAuthResponse(res);
-    if (!res.ok || json?.code !== 0 || !json.data) return authFailureMessage('login', res, json);
-    setTokens(json.data.accessToken, json.data.refreshToken);
-    setUsername(json.data.userInfo?.displayName || uname);
-    setIsAuth(true);
-    return null;
+    try {
+      const json = await apiPost<ApiResponse<AuthResponse>>('/auth/login', { username: uname, password: pwd });
+      if (json?.code !== 0 || !json.data) return json?.message || '登录失败';
+      setTokens(json.data.accessToken, json.data.refreshToken);
+      setUsername(json.data.userInfo?.displayName || uname);
+      setIsAuth(true);
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : '登录失败';
+    }
   }, []);
 
   const register = useCallback(async (uname: string, email: string, pwd: string, displayName?: string) => {
-    const res = await fetch('/api/v1/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: uname, email, password: pwd, displayName })
-    });
-    const json = await readAuthResponse(res);
-    if (!res.ok || json?.code !== 0 || !json.data) return authFailureMessage('register', res, json);
-    setTokens(json.data.accessToken, json.data.refreshToken);
-    setUsername(json.data.userInfo?.displayName || uname);
-    setIsAuth(true);
-    return null;
+    try {
+      const json = await apiPost<ApiResponse<AuthResponse>>('/auth/register', { username: uname, email, password: pwd, displayName });
+      if (json?.code !== 0 || !json.data) return json?.message || '注册失败';
+      setTokens(json.data.accessToken, json.data.refreshToken);
+      setUsername(json.data.userInfo?.displayName || uname);
+      setIsAuth(true);
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : '注册失败';
+    }
   }, []);
 
   const logout = useCallback(() => {

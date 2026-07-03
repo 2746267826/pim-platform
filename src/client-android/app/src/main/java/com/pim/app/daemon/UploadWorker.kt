@@ -10,10 +10,11 @@ import com.pim.core.network.ApiService
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.android.workers.HiltWorker
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 
-@dagger.hilt.android.workers.HiltWorker
+@HiltWorker
 class UploadWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,

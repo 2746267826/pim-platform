@@ -337,6 +337,9 @@ export interface ActivityClassificationSuggestion {
   userFeedback: string | null;
   llmResponseJson: string | null;
   status: string;
+  appDisplayName?: string | null;
+  appIcon?: string | null;
+  recognitionSource?: string | null;
 }
 
 export interface ActivityClassificationApplyRange {

@@ -26,14 +26,31 @@ android {
     }
 }
 
+kapt {
+    correctErrorTypes = true
+    javacOptions {
+        // Ensure kapt has access to internal javac APIs for Dagger/Hilt annotation processing
+        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED")
+        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED")
+        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED")
+        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED")
+        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED")
+        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED")
+        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED")
+        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED")
+        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED")
+        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED")
+        option("-J--add-opens=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED")
+    }
+}
+
 dependencies {
     implementation(project(":core"))
     implementation(project(":features:calendar"))
 
     implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation("androidx.hilt:hilt-work:1.1.0")
-    // hilt-compiler (com.google.dagger) handles @HiltWorker processing in 2.48+
-    // kapt("androidx.hilt:hilt-compiler:1.1.0")
+    kapt("androidx.hilt:hilt-compiler:1.1.0")
 
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")

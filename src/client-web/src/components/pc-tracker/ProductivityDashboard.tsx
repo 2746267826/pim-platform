@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { getProductivityDashboard, type ProductivityDashboard } from '../../api/pcTracker';
+import { getProductivityDashboard } from '../../api/pcTracker';
 
 function CircularScore({ score }: { score: number }) {
   const r = 40;

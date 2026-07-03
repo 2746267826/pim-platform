@@ -3,6 +3,7 @@ package com.pim.app
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.pim.app.daemon.PimDaemonService
 import com.pim.app.daemon.DataCollector
@@ -36,6 +37,8 @@ class MainActivity : AppCompatActivity() {
             .getString("server_url", null)
         if (serverUrl != null) {
             startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(serverUrl)))
+        } else {
+            Toast.makeText(this, "PIM 后台服务已启动，请在设置中配置服务器地址", Toast.LENGTH_LONG).show()
         }
 
         finish()

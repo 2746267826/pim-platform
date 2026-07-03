@@ -12,7 +12,7 @@
         android:allowBackup="true"
         android:label="PIM"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
         <!-- Remove default WorkManager initializer for Hilt -->
         <provider
@@ -34,6 +34,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".daemon.StatusActivity"
+            android:exported="false" />
 
         <service
             android:name=".daemon.PimDaemonService"

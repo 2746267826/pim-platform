@@ -1,18 +1,30 @@
 package com.pim.core.auth
 
 import android.content.Context
+import android.content.SharedPreferences
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 
 class TokenManager(context: Context) {
-    private val masterKey = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
-    private val prefs = EncryptedSharedPreferences.create(
-        "pim_auth",
-        masterKey,
-        context,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+    private val prefs: SharedPreferences
+
+    init {
+        val p = try {
+            val masterKey = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+            EncryptedSharedPreferences.create(
+                "pim_auth",
+                masterKey,
+                context,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            Log.w("TokenManager", "EncryptedSharedPreferences failed, falling back to plain SharedPreferences", e)
+            context.getSharedPreferences("pim_auth_fallback", Context.MODE_PRIVATE)
+        }
+        prefs = p
+    }
 
     fun saveTokens(accessToken: String, refreshToken: String) {
         prefs.edit()

@@ -12,8 +12,8 @@ android {
         applicationId = "com.pim.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = System.getenv("CI_VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = System.getenv("CI_APP_VERSION") ?: "0.0.0(local)"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

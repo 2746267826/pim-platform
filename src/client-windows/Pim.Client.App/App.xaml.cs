@@ -114,7 +114,10 @@ public partial class App : Application
             var config = DaemonConfig.Load();
             var heartbeat = DaemonHeartbeatReporter.BuildHeartbeat(
                 Environment.MachineName,
-                typeof(App).Assembly.GetName().Version?.ToString() ?? "unknown",
+                typeof(App).Assembly
+                    .GetCustomAttributes(false)
+                    .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+                    .FirstOrDefault()?.InformationalVersion ?? "0.0.0(unknown)",
                 config.ServerUrl,
                 null,
                 DateTimeOffset.UtcNow,

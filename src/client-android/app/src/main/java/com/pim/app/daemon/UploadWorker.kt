@@ -8,12 +8,13 @@ import com.pim.core.models.AppUsageEntry
 import com.pim.core.models.UploadBatch
 import com.pim.core.network.ApiService
 import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.android.workers.HiltWorker
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 
+@HiltWorker
 class UploadWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
@@ -21,11 +22,6 @@ class UploadWorker @AssistedInject constructor(
     private val dao: AppUsageDao,
     private val api: ApiService
 ) : CoroutineWorker(context, params) {
-
-    @AssistedFactory
-    interface Factory {
-        fun create(context: Context, params: WorkerParameters): UploadWorker
-    }
 
     override suspend fun doWork(): Result {
         Timber.d("UploadWorker starting")
@@ -58,7 +54,6 @@ class UploadWorker @AssistedInject constructor(
                 dao.markSynced(ids)
                 Timber.d("Uploaded ${ids.size} records, accepted ${response.data ?: 0}")
 
-                // Clean up old synced records (7 days)
                 val cutoff = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L
                 dao.deleteSyncedOlderThan(cutoff)
 

@@ -53,8 +53,7 @@ dependencies {
     implementation("com.jakewharton.timber:timber:5.0.1")
 
     implementation("androidx.work:work-runtime-ktx:2.9.0")
-    implementation("androidx.hilt:hilt-work:1.1.0")
-    // Worker binding via WorkerModule + @AssistedFactory instead of @HiltWorker
+    // Dagger 2.51 has built-in @HiltWorker + HiltWorkerFactory, no extra androidx.hilt deps needed
 
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")

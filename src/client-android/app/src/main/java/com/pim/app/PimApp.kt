@@ -1,9 +1,9 @@
 package com.pim.app
 
 import android.app.Application
-import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
+import dagger.hilt.android.workers.HiltWorkerFactory
 import javax.inject.Inject
 
 @HiltAndroidApp

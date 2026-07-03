@@ -19,6 +19,7 @@ import DailyActivityPanel from '../components/pc-tracker/DailyActivityPanel';
 import KeyboardHeatmap from '../components/pc-tracker/KeyboardHeatmap';
 import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import ClassificationSuggestionPanel from '../components/pc-tracker/ClassificationSuggestionPanel';
+import ProductivityDashboardPanel from '../components/pc-tracker/ProductivityDashboard';
 import QuickClassificationDialog from '../components/pc-tracker/QuickClassificationDialog';
 import MetricCard from '../ui/MetricCard';
 import PageHeader from '../ui/PageHeader';
@@ -234,6 +235,10 @@ export default function PcTrackerPage() {
       />
 
       <PcQualitySummary quality={quality} isLoading={qualityLoading} error={qualityError} />
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
+        <ProductivityDashboardPanel />
+      </div>
 
       <AnalysisCard title="分类建议" subtitle="处理高置信度聚类，快速写入纠错规则">
         <ClassificationSuggestionPanel

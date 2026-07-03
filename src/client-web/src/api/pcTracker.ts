@@ -256,3 +256,87 @@ export function savePcCategory(rule: { appPattern: string; categoryName: string;
 export function deletePcCategory(id: string) {
   return apiDelete<ApiResponse<string>>(`/pc/categories/${id}`).then(r => r.data);
 }
+
+// === Phase 2: 分类树 API ===
+export interface CategoryTreeNode {
+  id: string;
+  parentId: string | null;
+  name: string;
+  color: string;
+  icon: string | null;
+  productivity: string;
+  sortOrder: number;
+  isBuiltin: boolean;
+  children: CategoryTreeNode[];
+}
+
+export interface CategorySaveRequest {
+  id?: string;
+  parentId?: string | null;
+  name: string;
+  color: string;
+  icon?: string | null;
+  productivity: string;
+  sortOrder: number;
+}
+
+export function getCategoryTree() {
+  return apiGet<ApiResponse<CategoryTreeNode[]>>('/pc/categories/tree').then(r => r.data);
+}
+
+export function saveCategory(req: CategorySaveRequest) {
+  return apiPost<ApiResponse<CategoryTreeNode>>('/pc/categories', req).then(r => r.data);
+}
+
+export function deleteCategory(id: string) {
+  return apiDelete<ApiResponse<string>>(`/pc/categories/${id}`).then(r => r.data);
+}
+
+export function seedCategories() {
+  return apiPost<ApiResponse<string>>('/pc/categories/seed', {}).then(r => r.data);
+}
+
+// === Phase 2: Productivity API ===
+export interface ProductivityDashboard {
+  todayScore: number;
+  productiveHours: number;
+  distractingHours: number;
+  neutralHours: number;
+  targetHours: number;
+  goalMet: boolean;
+  weeklyTrend: DailyProductivity[];
+}
+
+export interface DailyProductivity {
+  date: string;
+  productiveMinutes: number;
+  distractingMinutes: number;
+  neutralMinutes: number;
+  totalMinutes: number;
+  productiveRatio: number;
+}
+
+export function getProductivityDashboard(date: string) {
+  return apiGet<ApiResponse<ProductivityDashboard>>(`/pc/productivity/dashboard?date=${date}`).then(r => r.data);
+}
+
+export function getProductivityRange(start: string, end: string) {
+  return apiGet<ApiResponse<DailyProductivity[]>>(`/pc/productivity/range?start=${start}&end=${end}`).then(r => r.data);
+}
+
+// === Phase 2: 时间线 v2 API ===
+export interface TimelineV2Item {
+  start: string;
+  end: string;
+  appName: string;
+  windowTitle: string | null;
+  categoryName: string;
+  categoryColor: string | null;
+  productivity: string;
+  confidence: number;
+  durationMinutes: number;
+}
+
+export function getTimelineV2(date: string) {
+  return apiGet<ApiResponse<TimelineV2Item[]>>(`/pc/timeline/v2?date=${date}`).then(r => r.data);
+}

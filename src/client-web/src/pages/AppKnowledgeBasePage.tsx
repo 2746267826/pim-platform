@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getAppSignatures, createAppSignature, deleteAppSignature, type AppSignature } from '../api/appSignatures';
+import { getAppSignatures, createAppSignature, deleteAppSignature } from '../api/appSignatures';
 import PageHeader from '../ui/PageHeader';
 
 const productivities = [
@@ -54,7 +54,7 @@ export default function AppKnowledgeBasePage() {
     <div className="space-y-4">
       <PageHeader
         title="App 知识库"
-        description="管理已知应用的名称、分类和图标映射"
+        subtitle="管理已知应用的名称、分类和图标映射"
       />
 
       {/* Search + Add toolbar */}

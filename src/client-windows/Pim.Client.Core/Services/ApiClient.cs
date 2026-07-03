@@ -8,7 +8,7 @@ namespace Pim.Client.Core.Services;
 
 public class ApiClient
 {
-    private readonly HttpClient _httpClient;
+    private HttpClient _httpClient;
     private volatile bool _isRefreshing;
 
     public Func<Task<bool>>? OnUnauthorized { get; set; }

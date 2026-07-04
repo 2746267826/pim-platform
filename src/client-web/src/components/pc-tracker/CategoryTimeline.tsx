@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
-import { format } from 'date-fns';
 import type { TimelineItem } from '../../types';
-import { getPcBusinessDate } from '../../utils/pcBusinessDay';
 
 interface GanttSegment {
   startH: number;
@@ -50,8 +48,6 @@ export default function CategoryTimeline({ timeline }: Props) {
     if (!timeline.length) {
       return { segments: [], hourRange: { min: 6, max: 23 }, stats: null, legend: [] };
     }
-
-    const dayStart = new Date(getPcBusinessDate(new Date()).toISOString().slice(0, 10) + 'T00:00:00Z');
 
     // Parse events and split into hourly segments
     const allSegments: GanttSegment[] = [];
@@ -137,7 +133,6 @@ export default function CategoryTimeline({ timeline }: Props) {
     segments.forEach(seg => {
       // Determine which hours this segment belongs to
       for (let h = hourRange.min; h <= hourRange.max; h++) {
-        const hMin = h;
         if (seg.startH <= h && seg.endH >= h) {
           // Check overlap
           const segStartMin = seg.startH * 60 + seg.startM;

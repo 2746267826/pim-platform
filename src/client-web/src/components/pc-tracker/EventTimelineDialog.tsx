@@ -2,16 +2,6 @@ import { useEffect, useId, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
 import type { TimelineItem } from '../../types';
 
-interface VtEntry {
-  start: Date;
-  end: Date;
-  appName: string;
-  windowTitle: string | null;
-  categoryName: string;
-  categoryColor: string;
-  durationMinutes: number;
-}
-
 const PRODUCTIVE_CATS = ['工作', '编程', '文档', '学习', '邮件', '终端'];
 const DISTRACTING_CATS = ['游戏', '视频', '娱乐', '社交'];
 

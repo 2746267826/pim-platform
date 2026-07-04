@@ -57,5 +57,5 @@ public static class Logger
     }
 
     private static string? _logFilePath;
-    public static string LogFilePath => _logFilePath ??= Path.Combine(LogDir, $"pim-daemon-{DateTime.Now:yyyy-MM-dd}.jsonl");
+    public static string LogFilePath => _logFilePath ??= Path.Combine(LogDir, $"pim-daemon-{DateTime.Now:yyyyMMdd}.jsonl");
 }

@@ -3,11 +3,9 @@ import { format } from 'date-fns';
 import type { TimelineItem } from '../../types';
 import { getPcBusinessDate } from '../../utils/pcBusinessDay';
 
-interface GanttBlock {
+interface TimelineEntry {
   start: Date;
   end: Date;
-  leftPct: number;
-  widthPct: number;
   categoryName: string;
   color: string;
   appName: string;
@@ -17,49 +15,9 @@ interface GanttBlock {
 }
 
 interface ActiveTooltip {
-  block: GanttBlock;
+  entry: TimelineEntry;
   x: number;
   y: number;
-}
-
-const BLOCK_HEIGHT = 28;
-const HOUR_WIDTH_PCT = 100 / 24;
-const MIN_WIDTH_PX = 4;
-
-function buildGanttBlocks(timeline: TimelineItem[]): { blocks: GanttBlock[]; dayStart: Date; dayEnd: Date } {
-  if (!timeline.length) return { blocks: [], dayStart: new Date(), dayEnd: new Date() };
-
-  const dayStart = new Date(getPcBusinessDate(new Date()).toISOString().slice(0, 10) + 'T00:00:00Z');
-  const dayEnd = new Date(dayStart);
-  dayEnd.setHours(dayEnd.getHours() + 24);
-
-  const totalMs = dayEnd.getTime() - dayStart.getTime();
-  const blocks = timeline
-    .filter(item => item.start && item.end)
-    .map(item => {
-      const start = new Date(item.start);
-      const end = new Date(item.end);
-      // Clamp to business day
-      const clampedStart = start < dayStart ? dayStart : start;
-      const clampedEnd = end > dayEnd ? dayEnd : end;
-      const leftMs = clampedStart.getTime() - dayStart.getTime();
-      const durMs = clampedEnd.getTime() - clampedStart.getTime();
-      return {
-        start: clampedStart,
-        end: clampedEnd,
-        leftPct: (leftMs / totalMs) * 100,
-        widthPct: Math.max((durMs / totalMs) * 100, 0.1),
-        categoryName: item.categoryName || '其他',
-        color: item.categoryColor || '#64748b',
-        appName: item.appName || '',
-        windowTitle: item.windowTitle,
-        confidence: item.classificationConfidence,
-        durationMinutes: item.durationMinutes || durMs / 60000,
-      };
-    })
-    .filter(b => b.widthPct > 0);
-
-  return { blocks, dayStart, dayEnd };
 }
 
 function getProductivityBadge(category: string): { label: string; color: string } {
@@ -70,11 +28,6 @@ function getProductivityBadge(category: string): { label: string; color: string 
   return { label: 'N', color: 'bg-slate-300' };
 }
 
-const HOUR_LABELS = Array.from({ length: 24 }, (_, i) => ({
-  label: `${String(i).padStart(2, '0')}:00`,
-  hour: i,
-}));
-
 interface Props {
   timeline: TimelineItem[];
 }
@@ -82,10 +35,39 @@ interface Props {
 export default function CategoryTimeline({ timeline }: Props) {
   const [tooltip, setTooltip] = useState<ActiveTooltip | null>(null);
 
-  const { blocks, dayStart } = useMemo(() => buildGanttBlocks(timeline), [timeline]);
+  const { entries, dayStart } = useMemo(() => {
+    if (!timeline.length) return { entries: [], dayStart: new Date() };
 
-  const totalMinutes = blocks.reduce((s, b) => s + b.durationMinutes, 0);
-  const productiveMin = blocks.filter(b => getProductivityBadge(b.categoryName).label === 'P').reduce((s, b) => s + b.durationMinutes, 0);
+    const dayStart = new Date(getPcBusinessDate(new Date()).toISOString().slice(0, 10) + 'T00:00:00Z');
+
+    const entries = timeline
+      .filter(item => item.start && item.end)
+      .map(item => {
+        const start = new Date(item.start);
+        const end = new Date(item.end);
+        const durMs = end.getTime() - start.getTime();
+        return {
+          start,
+          end,
+          categoryName: item.categoryName || '其他',
+          color: item.categoryColor || '#64748b',
+          appName: item.appName || '',
+          windowTitle: item.windowTitle,
+          confidence: item.classificationConfidence,
+          durationMinutes: item.durationMinutes || durMs / 60000,
+        };
+      })
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    return { entries, dayStart };
+  }, [timeline]);
+
+  const totalMinutes = entries.reduce((s, e) => s + e.durationMinutes, 0);
+  const productiveMin = entries
+    .filter(e => getProductivityBadge(e.categoryName).label === 'P')
+    .reduce((s, e) => s + e.durationMinutes, 0);
+
+  const maxDuration = Math.max(...entries.map(e => e.durationMinutes), 1);
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -111,86 +93,88 @@ export default function CategoryTimeline({ timeline }: Props) {
         </div>
       </div>
 
-      {/* Gantt chart */}
+      {/* Vertical Timeline */}
       <div className="relative">
-        {/* Hour grid lines */}
-        <div className="flex border-b border-slate-100 mb-1">
-          {HOUR_LABELS.filter((_, i) => i % 3 === 0).map(({ label, hour }) => (
-            <div
-              key={hour}
-              className="text-[9px] text-slate-400 font-medium"
-              style={{ width: `${HOUR_WIDTH_PCT * 3}%` }}
-            >
-              {label}
-            </div>
-          ))}
-        </div>
+        {/* Vertical connector line */}
+        <div className="absolute left-[71px] top-2 bottom-2 w-0.5 bg-slate-200 rounded-full" />
 
-        {/* Timeline rows - group by overlapping blocks */}
-        <div className="relative" style={{ minHeight: BLOCK_HEIGHT * 2 + 8 }}>
-          {/* Hour background stripes */}
-          {HOUR_LABELS.map(({ hour }) => (
-            <div
-              key={hour}
-              className="absolute top-0 bottom-0 border-l border-slate-50"
-              style={{ left: `${hour * HOUR_WIDTH_PCT}%`, width: `${HOUR_WIDTH_PCT}%` }}
-            />
-          ))}
-
-          {/* Blocks */}
-          {blocks.length === 0 ? (
-            <div className="py-8 text-center text-sm text-slate-400">暂无时间线数据</div>
-          ) : (
-            blocks.map((block, i) => (
+        {entries.length === 0 ? (
+          <div className="py-8 text-center text-sm text-slate-400">暂无时间线数据</div>
+        ) : (
+          <div className="space-y-1">
+            {entries.map((entry, i) => (
               <div
                 key={i}
-                className="absolute flex items-center rounded-md px-1.5 cursor-pointer transition-all hover:opacity-80 hover:shadow-md overflow-hidden"
-                style={{
-                  left: `${block.leftPct}%`,
-                  width: `${Math.max(block.widthPct, 0.3)}%`,
-                  height: BLOCK_HEIGHT - 4 + 'px',
-                  top: (i % 5) * (BLOCK_HEIGHT + 4) + 4 + 'px',
-                  backgroundColor: block.color + '30',
-                  borderLeft: `3px solid ${block.color}`,
-                  minWidth: MIN_WIDTH_PX + 'px',
-                  zIndex: 10 - i,
-                }}
+                className="group relative flex items-start gap-3 py-1.5 cursor-pointer transition-all hover:bg-slate-50 rounded-lg px-2 -mx-2"
                 onMouseEnter={(e) => {
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                  setTooltip({ block, x: rect.left + rect.width / 2, y: rect.top - 8 });
+                  setTooltip({ entry, x: rect.left + 80, y: rect.top - 8 });
                 }}
                 onMouseLeave={() => setTooltip(null)}
               >
-                {block.widthPct > 1.5 && (
-                  <>
-                    <span className="text-[9px] font-medium text-slate-700 truncate">
-                      {block.appName}
-                    </span>
-                    <span className="ml-1 text-[8px] text-slate-500 whitespace-nowrap">
-                      {block.durationMinutes.toFixed(0)}m
-                    </span>
-                  </>
-                )}
-              </div>
-            ))
-          )}
-        </div>
+                {/* Time column */}
+                <div className="w-[60px] shrink-0 pt-0.5 text-right">
+                  <span className="text-[11px] font-medium text-slate-600">
+                    {format(entry.start, 'HH:mm')}
+                  </span>
+                  <span className="text-[10px] text-slate-400 mx-0.5">-</span>
+                  <span className="text-[11px] text-slate-500">
+                    {format(entry.end, 'HH:mm')}
+                  </span>
+                </div>
 
-        {/* Hour labels at bottom */}
-        <div className="flex mt-1 pt-1 border-t border-slate-100">
-          {HOUR_LABELS.filter((_, i) => i % 3 === 0).map(({ label, hour }) => (
-            <div key={hour} className="text-[9px] text-slate-300" style={{ width: `${HOUR_WIDTH_PCT * 3}%` }}>
-              {label}
-            </div>
-          ))}
-        </div>
+                {/* Timeline dot */}
+                <div className="relative shrink-0 pt-1.5">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full border-2 border-white shadow-sm"
+                    style={{ backgroundColor: entry.color }}
+                  />
+                </div>
+
+                {/* Content */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-800 truncate">
+                      {entry.appName}
+                    </span>
+                    <span
+                      className={`shrink-0 w-3.5 h-3.5 rounded-full text-[7px] flex items-center justify-center font-bold text-white ${
+                        getProductivityBadge(entry.categoryName).color
+                      }`}
+                    >
+                      {getProductivityBadge(entry.categoryName).label}
+                    </span>
+                    <span className="shrink-0 text-[10px] text-slate-400">
+                      {entry.durationMinutes.toFixed(0)}m
+                    </span>
+                  </div>
+                  {entry.windowTitle && (
+                    <div className="text-[10px] text-slate-400 truncate mt-0.5 leading-tight">
+                      {entry.windowTitle}
+                    </div>
+                  )}
+
+                  {/* Duration bar */}
+                  <div className="mt-1 h-1.5 w-full max-w-[300px] bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-200"
+                      style={{
+                        width: `${Math.max((entry.durationMinutes / maxDuration) * 100, 4)}%`,
+                        backgroundColor: entry.color,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Category breakdown */}
       <div className="mt-4 flex flex-wrap gap-1.5">
-        {Array.from(new Map(blocks.map(b => [b.categoryName, { color: b.color, totalMin: 0 }]))
-        ).map(([name, info]) => {
-          const mins = blocks.filter(b => b.categoryName === name).reduce((s, b) => s + b.durationMinutes, 0);
+        {Array.from(new Map(entries.map(e => [e.categoryName, { color: e.color, totalMin: 0 }]))).map(([name, info]) => {
+          const mins = entries.filter(e => e.categoryName === name).reduce((s, e) => s + e.durationMinutes, 0);
           info.totalMin = mins;
           return { name, color: info.color, totalMin: mins };
         })
@@ -209,24 +193,24 @@ export default function CategoryTimeline({ timeline }: Props) {
       {tooltip && (
         <div
           className="fixed z-50 rounded-xl bg-slate-950 px-3 py-2 text-[11px] text-white shadow-2xl pointer-events-none"
-          style={{ left: tooltip.x, top: tooltip.y, transform: 'translate(-50%, -100%)' }}
+          style={{ left: tooltip.x, top: tooltip.y, transform: 'translate(0, -100%)' }}
         >
-          <div className="font-semibold">{tooltip.block.appName}</div>
+          <div className="font-semibold">{tooltip.entry.appName}</div>
           <div className="text-slate-300 mt-0.5">
-            {format(tooltip.block.start, 'HH:mm')} - {format(tooltip.block.end, 'HH:mm')}
+            {format(tooltip.entry.start, 'HH:mm')} - {format(tooltip.entry.end, 'HH:mm')}
           </div>
           <div className="flex items-center gap-1.5 mt-1">
-            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: tooltip.block.color }} />
-            <span>{tooltip.block.categoryName}</span>
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: tooltip.entry.color }} />
+            <span>{tooltip.entry.categoryName}</span>
             <span className={`ml-1 w-3.5 h-3.5 rounded-full text-[8px] flex items-center justify-center font-bold text-white ${
-              getProductivityBadge(tooltip.block.categoryName).color
+              getProductivityBadge(tooltip.entry.categoryName).color
             }`}>
-              {getProductivityBadge(tooltip.block.categoryName).label}
+              {getProductivityBadge(tooltip.entry.categoryName).label}
             </span>
           </div>
           <div className="text-slate-300 mt-0.5">
-            {tooltip.block.durationMinutes.toFixed(1)} 分钟
-            {tooltip.block.confidence > 0 && ` · ${(tooltip.block.confidence * 100).toFixed(0)}% 置信`}
+            {tooltip.entry.durationMinutes.toFixed(1)} 分钟
+            {tooltip.entry.confidence > 0 && ` · ${(tooltip.entry.confidence * 100).toFixed(0)}% 置信`}
           </div>
         </div>
       )}

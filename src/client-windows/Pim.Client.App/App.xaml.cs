@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Pim.Client.App.Services;
@@ -77,6 +80,8 @@ public partial class App : Application
             awCollector.Start();
             Logger.Info("ActivityWatch collector started");
 
+            EnsureKeyStatsRunning();
+
             var keyStatsCollector = Services.GetRequiredService<KeyStatsCollectorService>();
             keyStatsCollector.Log = msg => Logger.Info(msg);
             keyStatsCollector.Start();
@@ -148,5 +153,64 @@ public partial class App : Application
         _trayIcon?.Dispose();
         Logger.Info("Daemon exiting");
         base.OnExit(e);
+    }
+
+    /// <summary>
+    /// 确保 KeyStats 进程在运行。如果未运行，通过计划任务静默拉起。
+    /// 创建计划任务需要管理员权限，但运行已有任务不需要。
+    /// </summary>
+    private static void EnsureKeyStatsRunning()
+    {
+        try
+        {
+            if (Process.GetProcessesByName("KeyStats").Length > 0)
+            {
+                Logger.Info("KeyStats process already running");
+                return;
+            }
+
+            // 先找同目录下的 KeyStats.exe
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var keyStatsPath = Path.Combine(baseDir, "KeyStats.exe");
+
+            if (!File.Exists(keyStatsPath))
+            {
+                Logger.Warn($"KeyStats.exe not found at {keyStatsPath}");
+                return;
+            }
+
+            // 尝试通过计划任务静默启动（不需要管理员权限）
+            const string taskName = "PimKeyStats";
+            var taskRun = Process.Start(new ProcessStartInfo("schtasks", $"/run /tn \"{taskName}\"")
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false,
+            });
+            taskRun?.WaitForExit(3000);
+
+            if (taskRun?.ExitCode == 0)
+            {
+                Logger.Info("KeyStats launched via scheduled task");
+                // 等待进程起来
+                for (int i = 0; i < 10; i++)
+                {
+                    if (Process.GetProcessesByName("KeyStats").Length > 0) return;
+                    Thread.Sleep(500);
+                }
+                return;
+            }
+
+            // 计划任务不存在或启动失败，尝试直接拉起（会弹 UAC）
+            Logger.Warn("Scheduled task not found, launching KeyStats directly (UAC may prompt)");
+            Process.Start(new ProcessStartInfo(keyStatsPath)
+            {
+                UseShellExecute = true,
+                Verb = "runas",
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Failed to ensure KeyStats is running", ex);
+        }
     }
 }

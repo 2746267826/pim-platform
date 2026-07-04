@@ -21,6 +21,7 @@ import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import ClassificationSuggestionPanel from '../components/pc-tracker/ClassificationSuggestionPanel';
 import ProductivityDashboardPanel from '../components/pc-tracker/ProductivityDashboard';
 import QuickClassificationDialog from '../components/pc-tracker/QuickClassificationDialog';
+import EventTimelineDialog from '../components/pc-tracker/EventTimelineDialog';
 import MetricCard from '../ui/MetricCard';
 import PageHeader from '../ui/PageHeader';
 import type {
@@ -34,10 +35,12 @@ import { getPcBusinessDate } from '../utils/pcBusinessDay';
 function AnalysisCard({
   title,
   subtitle,
+  actions,
   children,
 }: {
   title: string;
   subtitle?: string;
+  actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -47,6 +50,7 @@ function AnalysisCard({
           <h2 className="text-sm font-semibold text-slate-950">{title}</h2>
           {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
         </div>
+        {actions && <div className="shrink-0">{actions}</div>}
       </div>
       {children}
     </section>
@@ -59,6 +63,7 @@ export default function PcTrackerPage() {
   const [dimension, setDimension] = useState<'hour' | 'day' | 'month' | 'year'>('day');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
+  const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState<ActivityClassificationSuggestion | null>(null);
   const [preview, setPreview] = useState<ActivityClassificationPreview | null>(null);
   const previewRequestIdRef = useRef(0);
@@ -282,7 +287,19 @@ export default function PcTrackerPage() {
       </div>
 
       <div className="space-y-4">
-        <AnalysisCard title="分类时间线" subtitle="按 ActivityWatch 时间片聚合分类">
+        <AnalysisCard
+          title="分类时间线"
+          subtitle="按小时分组的甘特图时间线，悬停查看详情"
+          actions={
+            <button
+              type="button"
+              onClick={() => setTimelineDialogOpen(true)}
+              className="pim-button-primary h-8 px-3 text-xs font-medium"
+            >
+              查看详情
+            </button>
+          }
+        >
           <CategoryTimeline
             timeline={data?.timeline || []}
           />
@@ -304,6 +321,13 @@ export default function PcTrackerPage() {
         onDraftChange={handleDraftChange}
         onPreview={handlePreview}
         onApply={handleApply}
+      />
+
+      <EventTimelineDialog
+        open={timelineDialogOpen}
+        timeline={data?.timeline || []}
+        dateStr={dateStr}
+        onClose={() => setTimelineDialogOpen(false)}
       />
     </div>
   );

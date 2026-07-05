@@ -33,7 +33,7 @@ export default function ActivityAnalysisHeatmap({ analysis, selectedStart, onSel
   if (!analysis || blocks.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-        No activity analysis data.
+        暂无活动分析数据。
       </div>
     );
   }
@@ -47,9 +47,9 @@ export default function ActivityAnalysisHeatmap({ analysis, selectedStart, onSel
             <button
               key={block.start}
               type="button"
-              title={`${formatTime(block.start)} | ${formatMinutes(block.activeDurationSeconds)} active minutes`}
+              title={`${formatTime(block.start)} | ${formatMinutes(block.activeDurationSeconds)} 活跃分钟`}
               aria-pressed={selectedCell}
-              aria-label={`${formatTime(block.start)}, ${formatMinutes(block.activeDurationSeconds)} active minutes, ${block.pendingClassificationCount} pending classification, ${block.contextSwitchCount} context switches`}
+              aria-label={`${formatTime(block.start)}，${formatMinutes(block.activeDurationSeconds)} 活跃分钟，${block.pendingClassificationCount} 条待分类，${block.contextSwitchCount} 次上下文切换`}
               onClick={() => onSelectBlock(block)}
               className={`h-9 rounded-md border text-[10px] font-semibold text-slate-800 transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-cyan-300 ${
                 selectedCell ? 'border-slate-900' : block.pendingClassificationCount > 0 ? 'border-amber-500' : 'border-white'
@@ -63,9 +63,9 @@ export default function ActivityAnalysisHeatmap({ analysis, selectedStart, onSel
       </div>
 
       <div className="flex flex-wrap gap-3 text-xs text-slate-500">
-        <span>Activity analysis</span>
-        <span>Filled cells show activity intensity</span>
-        <span>Amber borders show pending classification</span>
+        <span>活动分析</span>
+        <span>颜色越深表示活动越密集</span>
+        <span>琥珀色边框表示有待分类记录</span>
       </div>
 
       {selected && (
@@ -74,7 +74,7 @@ export default function ActivityAnalysisHeatmap({ analysis, selectedStart, onSel
             {formatTime(selected.start)} - {formatTime(selected.end)}
           </div>
           <p className="mt-1 text-xs text-slate-600">
-            {formatMinutes(selected.activeDurationSeconds)} active minutes | {selected.contextSwitchCount.toLocaleString('zh-CN')} context switches | {selected.pendingClassificationCount.toLocaleString('zh-CN')} pending
+            {formatMinutes(selected.activeDurationSeconds)} 活跃分钟 | {selected.contextSwitchCount.toLocaleString('zh-CN')} 次上下文切换 | {selected.pendingClassificationCount.toLocaleString('zh-CN')} 条待分类
           </p>
 
           <div className="mt-2 grid gap-2 md:grid-cols-2">
@@ -82,7 +82,7 @@ export default function ActivityAnalysisHeatmap({ analysis, selectedStart, onSel
               {selected.categories.slice(0, 4).map(item => (
                 <div key={item.categoryName} className="flex min-w-0 items-center justify-between gap-2">
                   <span className="min-w-0 break-words">{item.categoryName}</span>
-                  <span className="shrink-0">{formatMinutes(item.durationSeconds)}m</span>
+                  <span className="shrink-0">{formatMinutes(item.durationSeconds)} 分钟</span>
                 </div>
               ))}
             </div>
@@ -90,7 +90,7 @@ export default function ActivityAnalysisHeatmap({ analysis, selectedStart, onSel
               {selected.apps.slice(0, 4).map(item => (
                 <div key={item.appName} className="flex min-w-0 items-center justify-between gap-2">
                   <span className="min-w-0 break-words">{item.appName}</span>
-                  <span className="shrink-0">{formatMinutes(item.durationSeconds)}m</span>
+                  <span className="shrink-0">{formatMinutes(item.durationSeconds)} 分钟</span>
                 </div>
               ))}
             </div>

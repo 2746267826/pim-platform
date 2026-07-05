@@ -22,6 +22,7 @@ import type {
   PcActivityAnalysisResponse,
   SuggestionClassificationPreviewRequest,
 } from '../../src/client-web/src/types';
+import type { CategoryTreeNode } from '../../src/client-web/src/api/pcTracker';
 
 const suggestion: ActivityClassificationSuggestion = {
   id: 'suggestion-1',
@@ -45,12 +46,34 @@ const suggestion: ActivityClassificationSuggestion = {
 const preview: ActivityClassificationPreview = {
   affectedRecordCount: 3,
   affectedDurationSeconds: 900,
-  currentCategoryCounts: { Other: 3 },
-  newCategoryCounts: { Learning: 3 },
+  currentCategoryCounts: { '其他': 3 },
+  newCategoryCounts: { '学习': 3 },
   samples: [],
   requiresConfirmation: true,
-  summary: '3 records will move to Learning.',
+  summary: '本次会影响 3 条记录。',
 };
+
+const categories: CategoryTreeNode[] = [{
+  id: 'cat-root',
+  parentId: null,
+  name: '学习',
+  color: '#64748b',
+  icon: null,
+  productivity: 'productive',
+  sortOrder: 0,
+  isBuiltin: true,
+  children: [{
+    id: 'cat-child',
+    parentId: 'cat-root',
+    name: '技术学习',
+    color: '#8b5cf6',
+    icon: null,
+    productivity: 'productive',
+    sortOrder: 0,
+    isBuiltin: true,
+    children: [],
+  }],
+}];
 
 const requireFromClient = createRequire(path.join(process.cwd(), 'src/client-web/package.json'));
 const React = requireFromClient('react') as typeof import('react');
@@ -67,20 +90,23 @@ const queueHtml = renderToStaticMarkup(
   })
 );
 
-assert.equal(queueHtml.includes('Process and preview'), true);
+assert.equal(queueHtml.includes('处理并预览'), true);
 assert.equal(queueHtml.includes('Accept'), false);
 assert.equal(queueHtml.includes('Later'), false);
 assert.equal(queueHtml.includes('Microsoft Docs'), true);
+assert.equal(queueHtml.includes('已识别'), true);
+assert.equal(queueHtml.includes('样本'), true);
+assert.equal(queueHtml.includes('分钟'), true);
 
 const previewHtml = renderToStaticMarkup(
   React.createElement(RuleImpactPreviewPanel, { preview })
 );
 
-assert.equal(previewHtml.includes('Rule impact preview'), true);
-assert.equal(previewHtml.includes('3 records'), true);
-assert.equal(previewHtml.includes('15 minutes'), true);
-assert.equal(previewHtml.includes('Before: Other 3'), true);
-assert.equal(previewHtml.includes('After: Learning 3'), true);
+assert.equal(previewHtml.includes('规则影响预览'), true);
+assert.equal(previewHtml.includes('3 条记录'), true);
+assert.equal(previewHtml.includes('15 分钟'), true);
+assert.equal(previewHtml.includes('当前：其他 3'), true);
+assert.equal(previewHtml.includes('应用后：学习 3'), true);
 
 const activityAnalysis: PcActivityAnalysisResponse = {
   date: '2026-07-05',
@@ -106,12 +132,12 @@ const activityAnalysisHtml = renderToStaticMarkup(
   })
 );
 
-assert.equal(activityAnalysisHtml.includes('Activity analysis'), true);
+assert.equal(activityAnalysisHtml.includes('活动分析'), true);
 assert.equal(activityAnalysisHtml.includes('Keyboard'), false);
-assert.equal(activityAnalysisHtml.includes('30 active minutes'), true);
+assert.equal(activityAnalysisHtml.includes('30 活跃分钟'), true);
 assert.equal(activityAnalysisHtml.includes('Programming'), true);
 assert.equal(activityAnalysisHtml.includes('aria-pressed="true"'), true);
-assert.equal(activityAnalysisHtml.includes('pending classification'), true);
+assert.equal(activityAnalysisHtml.includes('待分类'), true);
 
 const currentRequestId = nextPcRoute3RequestId(3);
 assert.equal(currentRequestId, 4);
@@ -216,15 +242,19 @@ const dialogHtml = renderToStaticMarkup(
     isPreviewing: false,
     isApplying: false,
     errorMessage: null,
+    categories,
     onClose: () => undefined,
     onPreview: () => undefined,
     onApply: () => undefined,
   })
 );
 
-assert.equal(dialogHtml.includes('Classification preview'), true);
-assert.equal(dialogHtml.includes('Apply'), true);
-assert.equal(/<button[^>]*disabled=""[^>]*>Apply<\/button>/.test(dialogHtml), true);
+assert.equal(dialogHtml.includes('分类预览'), true);
+assert.equal(dialogHtml.includes('学习'), true);
+assert.equal(dialogHtml.includes('技术学习'), true);
+assert.equal(dialogHtml.includes('<select'), true);
+assert.equal(dialogHtml.includes('应用'), true);
+assert.equal(/<button[^>]*disabled=""[^>]*>应用<\/button>/.test(dialogHtml), true);
 
 const rangeDialogHtml = renderToStaticMarkup(
   React.createElement(ClassificationPreviewDialog, {
@@ -234,14 +264,15 @@ const rangeDialogHtml = renderToStaticMarkup(
     isPreviewing: false,
     isApplying: false,
     errorMessage: null,
+    categories,
     onClose: () => undefined,
     onPreview: () => undefined,
     onApply: () => undefined,
   })
 );
 
-assert.equal(rangeDialogHtml.includes('Today'), true);
-assert.equal(rangeDialogHtml.includes('Range'), true);
+assert.equal(rangeDialogHtml.includes('今天'), true);
+assert.equal(rangeDialogHtml.includes('日期范围'), true);
 
 const pcTrackerPageSource = fs.readFileSync(
   path.join(process.cwd(), 'src/client-web/src/pages/PcTrackerPage.tsx'),

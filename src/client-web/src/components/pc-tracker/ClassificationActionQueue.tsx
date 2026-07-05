@@ -10,23 +10,23 @@ interface Props {
 
 function formatMinutes(seconds: number) {
   const minutes = Math.round((seconds / 60) * 10) / 10;
-  return `${minutes.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} minutes`;
+  return `${minutes.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 分钟`;
 }
 
 function displayName(suggestion: ActivityClassificationSuggestion) {
-  return suggestion.appDisplayName || suggestion.clusterKey || 'Unclassified activity';
+  return suggestion.appDisplayName || suggestion.clusterKey || '未分类活动';
 }
 
 function suggestionBadge(suggestion: ActivityClassificationSuggestion) {
   if (suggestion.recognitionSource === 'builtin' || suggestion.recognitionSource === 'manual') {
-    return 'Recognized';
+    return '已识别';
   }
 
   if (suggestion.suggestedCategory) {
-    return 'Suggested';
+    return '系统建议';
   }
 
-  return 'Needs review';
+  return '待处理';
 }
 
 export default function ClassificationActionQueue({
@@ -39,7 +39,7 @@ export default function ClassificationActionQueue({
   if (isLoading) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-        Loading classification work...
+        正在加载分类任务...
       </div>
     );
   }
@@ -49,7 +49,7 @@ export default function ClassificationActionQueue({
   if (visibleSuggestions.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-        No pending classification work.
+        暂无待处理分类任务。
       </div>
     );
   }
@@ -73,15 +73,15 @@ export default function ClassificationActionQueue({
               </div>
 
               <p className="mt-1 text-xs text-slate-600">
-                {suggestion.sampleCount.toLocaleString('zh-CN')} samples |{' '}
+                {suggestion.sampleCount.toLocaleString('zh-CN')} 个样本 |{' '}
                 {formatMinutes(suggestion.totalDurationSeconds)}
-                {suggestion.currentCategory ? ` | current ${suggestion.currentCategory}` : ''}
+                {suggestion.currentCategory ? ` | 当前 ${suggestion.currentCategory}` : ''}
               </p>
 
               {(suggestion.suggestedCategory || suggestion.suggestedProjectTag) && (
                 <p className="mt-1 text-xs text-cyan-700">
-                  Proposed {suggestion.suggestedCategory || 'category unchanged'}
-                  {suggestion.suggestedProjectTag ? ` | project ${suggestion.suggestedProjectTag}` : ''}
+                  建议 {suggestion.suggestedCategory || '分类不变'}
+                  {suggestion.suggestedProjectTag ? ` | 项目 ${suggestion.suggestedProjectTag}` : ''}
                 </p>
               )}
             </div>
@@ -92,7 +92,7 @@ export default function ClassificationActionQueue({
                 onClick={() => onPreview(suggestion)}
                 className="pim-button-primary min-h-8 px-3 py-1.5 text-xs font-medium"
               >
-                Process and preview
+                处理并预览
               </button>
               {onLater && (
                 <button
@@ -100,7 +100,7 @@ export default function ClassificationActionQueue({
                   onClick={() => onLater(suggestion)}
                   className="pim-button-secondary min-h-8 px-3 py-1.5 text-xs font-medium"
                 >
-                  Later
+                  稍后
                 </button>
               )}
               <button
@@ -108,7 +108,7 @@ export default function ClassificationActionQueue({
                 onClick={() => onReject(suggestion)}
                 className="pim-button-secondary min-h-8 px-3 py-1.5 text-xs font-medium"
               >
-                Ignore
+                忽略
               </button>
             </div>
           </div>
@@ -117,7 +117,7 @@ export default function ClassificationActionQueue({
 
       {suggestions.length > visibleSuggestions.length && (
         <p className="px-1 text-xs text-slate-500">
-          {suggestions.length - visibleSuggestions.length} more items are waiting.
+          还有 {suggestions.length - visibleSuggestions.length} 项等待处理。
         </p>
       )}
     </div>

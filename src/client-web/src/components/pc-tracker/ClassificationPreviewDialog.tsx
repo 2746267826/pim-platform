@@ -7,6 +7,7 @@ import type {
   SuggestionClassificationApplyRequest,
   SuggestionClassificationPreviewRequest,
 } from '../../types';
+import type { CategoryTreeNode } from '../../api/pcTracker';
 import RuleImpactPreviewPanel from './RuleImpactPreviewPanel';
 
 interface Props {
@@ -16,9 +17,57 @@ interface Props {
   isPreviewing: boolean;
   isApplying: boolean;
   errorMessage: string | null;
+  categories?: CategoryTreeNode[];
   onClose: () => void;
   onPreview: (request: SuggestionClassificationPreviewRequest) => void;
   onApply: (request: SuggestionClassificationApplyRequest) => void;
+}
+
+interface CategoryOption {
+  value: string;
+  label: string;
+}
+
+function addCategoryOptions(
+  nodes: CategoryTreeNode[] | undefined,
+  options: CategoryOption[],
+  seen: Set<string>,
+  depth = 0
+) {
+  for (const node of nodes ?? []) {
+    const name = node.name.trim();
+    if (name && !seen.has(name.toLowerCase())) {
+      seen.add(name.toLowerCase());
+      options.push({
+        value: name,
+        label: `${'　'.repeat(depth)}${name}`,
+      });
+    }
+
+    addCategoryOptions(node.children, options, seen, depth + 1);
+  }
+}
+
+export function buildClassificationCategoryOptions(
+  categories: CategoryTreeNode[] | undefined,
+  extraNames: Array<string | null | undefined>
+) {
+  const options: CategoryOption[] = [];
+  const seen = new Set<string>();
+  addCategoryOptions(categories, options, seen);
+
+  for (const value of extraNames) {
+    const name = value?.trim();
+    if (!name || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    options.push({ value: name, label: name });
+  }
+
+  if (!seen.has('其他')) {
+    options.push({ value: '其他', label: '其他' });
+  }
+
+  return options;
 }
 
 export function classificationPreviewRequestKey(
@@ -82,6 +131,7 @@ export default function ClassificationPreviewDialog({
   isPreviewing,
   isApplying,
   errorMessage,
+  categories = [],
   onClose,
   onPreview,
   onApply,
@@ -98,7 +148,7 @@ export default function ClassificationPreviewDialog({
 
   useEffect(() => {
     if (!suggestion) return;
-    setCategoryName(suggestion.suggestedCategory || suggestion.currentCategory || '');
+    setCategoryName(suggestion.suggestedCategory || suggestion.currentCategory || '其他');
     setProjectTag(suggestion.suggestedProjectTag || '');
     setMode('today');
     setDateFrom(date);
@@ -140,6 +190,12 @@ export default function ClassificationPreviewDialog({
     };
   }, [categoryName, date, dateFrom, dateTo, mode, projectTag]);
 
+  const categoryOptions = useMemo(() => buildClassificationCategoryOptions(categories, [
+    suggestion?.suggestedCategory,
+    suggestion?.currentCategory,
+    categoryName,
+  ]), [categories, categoryName, suggestion]);
+
   if (!suggestion) return null;
 
   const canApply = canApplyClassificationPreview(
@@ -164,7 +220,7 @@ export default function ClassificationPreviewDialog({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 id={titleId} className="text-base font-semibold text-slate-950">
-                Classification preview
+                分类预览
               </h2>
               <p className="mt-1 truncate text-sm text-slate-500">{suggestion.clusterKey}</p>
             </div>
@@ -173,7 +229,7 @@ export default function ClassificationPreviewDialog({
               onClick={onClose}
               className="pim-button-secondary h-9 shrink-0 px-3 text-sm"
             >
-              Close
+              关闭
             </button>
           </div>
         </header>
@@ -181,15 +237,21 @@ export default function ClassificationPreviewDialog({
         <div className="min-h-0 flex-1 space-y-4 overflow-auto px-5 py-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="min-w-0 text-sm">
-              <span className="mb-1 block text-xs font-medium text-slate-500">Category</span>
-              <input
+              <span className="mb-1 block text-xs font-medium text-slate-500">分类</span>
+              <select
                 value={categoryName}
                 onChange={event => setCategoryName(event.target.value)}
                 className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
-              />
+              >
+                {categoryOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="min-w-0 text-sm">
-              <span className="mb-1 block text-xs font-medium text-slate-500">Project tag</span>
+              <span className="mb-1 block text-xs font-medium text-slate-500">项目标签</span>
               <input
                 value={projectTag}
                 onChange={event => setProjectTag(event.target.value)}
@@ -206,7 +268,7 @@ export default function ClassificationPreviewDialog({
                 onClick={() => setMode(value)}
                 className={value === mode ? 'pim-button-primary h-9 text-sm' : 'pim-button-secondary h-9 text-sm'}
               >
-                {value === 'today' ? 'Today' : 'Range'}
+                {value === 'today' ? '今天' : '日期范围'}
               </button>
             ))}
           </div>
@@ -214,7 +276,7 @@ export default function ClassificationPreviewDialog({
           {mode === 'range' && (
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="min-w-0 text-sm">
-                <span className="mb-1 block text-xs font-medium text-slate-500">Start date</span>
+                <span className="mb-1 block text-xs font-medium text-slate-500">开始日期</span>
                 <input
                   type="date"
                   value={dateFrom}
@@ -223,7 +285,7 @@ export default function ClassificationPreviewDialog({
                 />
               </label>
               <label className="min-w-0 text-sm">
-                <span className="mb-1 block text-xs font-medium text-slate-500">End date</span>
+                <span className="mb-1 block text-xs font-medium text-slate-500">结束日期</span>
                 <input
                   type="date"
                   value={dateTo}
@@ -254,7 +316,7 @@ export default function ClassificationPreviewDialog({
             disabled={isPreviewing || isApplying}
             className="pim-button-secondary h-10 px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isPreviewing ? 'Previewing' : 'Preview'}
+            {isPreviewing ? '预览中' : '预览'}
           </button>
           <button
             type="button"
@@ -264,7 +326,7 @@ export default function ClassificationPreviewDialog({
             disabled={!canApply}
             className="pim-button-primary h-10 px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isApplying ? 'Applying' : 'Apply'}
+            {isApplying ? '应用中' : '应用'}
           </button>
         </footer>
       </section>

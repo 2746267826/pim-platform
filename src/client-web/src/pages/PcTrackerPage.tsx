@@ -4,6 +4,7 @@ import { format, subDays, subMonths } from 'date-fns';
 import {
   applyActivityClassificationSuggestion,
   getActivityClassificationSuggestions,
+  getCategoryTree,
   getPcActivityAnalysis,
   getPcHeatmapGrid,
   getPcQuality,
@@ -105,6 +106,12 @@ export default function PcTrackerPage() {
     refetchInterval: 30000,
   });
 
+  const { data: categoryTree = [] } = useQuery({
+    queryKey: ['pc-category-tree'],
+    queryFn: getCategoryTree,
+    staleTime: 60000,
+  });
+
   const heatmapRange = dimension === 'hour'
     ? { start: dateStr, end: dateStr }
     : dimension === 'day'
@@ -136,7 +143,7 @@ export default function PcTrackerPage() {
     },
     onError: (error, variables) => {
       if (isCurrentPcRoute3Request(variables.requestId, previewRequestIdRef.current)) {
-        setPreviewError(error instanceof Error ? error.message : 'Preview failed');
+        setPreviewError(error instanceof Error ? error.message : '预览失败');
       }
     },
   });
@@ -165,7 +172,7 @@ export default function PcTrackerPage() {
     },
     onError: (error, variables) => {
       if (isCurrentPcRoute3Request(variables.requestId, applyRequestIdRef.current)) {
-        setPreviewError(error instanceof Error ? error.message : 'Apply failed');
+        setPreviewError(error instanceof Error ? error.message : '应用失败');
       }
     },
   });
@@ -267,7 +274,7 @@ export default function PcTrackerPage() {
         ))}
       </div>
 
-      <AnalysisCard title="Activity analysis" subtitle="New module: time-block activity state and classification gaps">
+      <AnalysisCard title="活动分析" subtitle="按时间块查看活动强度、切换频率和待分类缺口">
         <ActivityAnalysisHeatmap
           analysis={activityAnalysis}
           selectedStart={selectedAnalysisBlockStart}
@@ -324,6 +331,7 @@ export default function PcTrackerPage() {
         isPreviewing={previewMutation.isPending}
         isApplying={applyMutation.isPending}
         errorMessage={previewError}
+        categories={categoryTree}
         onClose={handleCloseDialog}
         onPreview={handlePreview}
         onApply={handleApply}

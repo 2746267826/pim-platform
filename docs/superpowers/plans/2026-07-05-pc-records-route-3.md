@@ -18,7 +18,7 @@ Use this objective when starting goal mode:
 
 ## Recommended Subagent Strategy
 
-Use `superpowers:subagent-driven-development` for execution. Up to 9 subagents can run at once after the foundation tasks land.
+Use `superpowers:subagent-driven-development` for execution. Up to 19 subagents can run at once after the foundation tasks land.
 
 Suggested maximum parallel assignment:
 
@@ -31,6 +31,8 @@ Suggested maximum parallel assignment:
 7. **Action queue/dialog agent:** Task 8.
 8. **Full PC page integration agent:** Task 9.
 9. **Verification/GA agent:** Task 10.
+
+Additional subagents up to the 19-agent cap should be reserved for independent code reviews, focused failure investigations, migration review, frontend visual review, and GitHub Actions log triage. Do not dispatch multiple implementation subagents against the same unresolved write set.
 
 Dependency guardrails:
 

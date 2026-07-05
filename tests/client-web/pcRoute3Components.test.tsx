@@ -1,0 +1,201 @@
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import ClassificationActionQueue from '../../src/client-web/src/components/pc-tracker/ClassificationActionQueue';
+import ClassificationPreviewDialog, {
+  canApplyClassificationPreview,
+  classificationPreviewConfirmationKey,
+  classificationPreviewRequestKey,
+  resolveConfirmedClassificationPreviewKey,
+} from '../../src/client-web/src/components/pc-tracker/ClassificationPreviewDialog';
+import RuleImpactPreviewPanel from '../../src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel';
+import type {
+  ActivityClassificationPreview,
+  ActivityClassificationSuggestionPreview,
+  ActivityClassificationSuggestion,
+  SuggestionClassificationPreviewRequest,
+} from '../../src/client-web/src/types';
+
+const suggestion: ActivityClassificationSuggestion = {
+  id: 'suggestion-1',
+  clusterKey: 'web:docs.microsoft.com',
+  sampleCount: 3,
+  totalDurationSeconds: 900,
+  sampleRecordsJson: '[]',
+  sanitizedContextJson: '{}',
+  currentCategory: 'Other',
+  suggestedCategory: 'Learning',
+  suggestedProjectTag: 'docs',
+  suggestedRulesJson: null,
+  userFeedback: null,
+  llmResponseJson: null,
+  status: 'pending',
+  appDisplayName: 'Microsoft Docs',
+  appIcon: null,
+  recognitionSource: 'builtin',
+};
+
+const preview: ActivityClassificationPreview = {
+  affectedRecordCount: 3,
+  affectedDurationSeconds: 900,
+  currentCategoryCounts: { Other: 3 },
+  newCategoryCounts: { Learning: 3 },
+  samples: [],
+  requiresConfirmation: true,
+  summary: '3 records will move to Learning.',
+};
+
+const requireFromClient = createRequire(path.join(process.cwd(), 'src/client-web/package.json'));
+const React = requireFromClient('react') as typeof import('react');
+const { renderToStaticMarkup } = requireFromClient('react-dom/server') as typeof import('react-dom/server');
+const reactGlobal = globalThis as typeof globalThis & { React: typeof React };
+reactGlobal.React = React;
+
+const queueHtml = renderToStaticMarkup(
+  React.createElement(ClassificationActionQueue, {
+    suggestions: [suggestion],
+    isLoading: false,
+    onPreview: () => undefined,
+    onReject: () => undefined,
+  })
+);
+
+assert.equal(queueHtml.includes('Process and preview'), true);
+assert.equal(queueHtml.includes('Accept'), false);
+assert.equal(queueHtml.includes('Later'), false);
+assert.equal(queueHtml.includes('Microsoft Docs'), true);
+
+const previewHtml = renderToStaticMarkup(
+  React.createElement(RuleImpactPreviewPanel, { preview })
+);
+
+assert.equal(previewHtml.includes('Rule impact preview'), true);
+assert.equal(previewHtml.includes('3 records'), true);
+assert.equal(previewHtml.includes('15 minutes'), true);
+assert.equal(previewHtml.includes('Before: Other 3'), true);
+assert.equal(previewHtml.includes('After: Learning 3'), true);
+
+const previewRequest: SuggestionClassificationPreviewRequest = {
+  categoryName: 'Learning',
+  projectTag: 'docs',
+  range: { mode: 'today', dateFrom: '2026-07-05', dateTo: '2026-07-05' },
+};
+
+const previewRequestKey = classificationPreviewRequestKey(previewRequest);
+const previewConfirmationKey = classificationPreviewConfirmationKey(suggestion.id, previewRequest);
+const changedRequest: SuggestionClassificationPreviewRequest = {
+  ...previewRequest,
+  categoryName: 'Work',
+};
+const changedProjectRequest: SuggestionClassificationPreviewRequest = {
+  ...previewRequest,
+  projectTag: 'client-work',
+};
+const changedRangeModeRequest: SuggestionClassificationPreviewRequest = {
+  ...previewRequest,
+  range: { mode: 'range', dateFrom: '2026-07-01', dateTo: '2026-07-05' },
+};
+const changedRangeDateRequest: SuggestionClassificationPreviewRequest = {
+  ...previewRequest,
+  range: { mode: 'today', dateFrom: '2026-07-06', dateTo: '2026-07-06' },
+};
+
+const suggestionPreview: ActivityClassificationSuggestionPreview = {
+  rule: {
+    ruleName: 'Docs',
+    scope: 'activity',
+    categoryName: 'Learning',
+    projectTag: 'docs',
+    color: '#64748b',
+    priority: 900,
+    conditionsJson: '{"all":[]}',
+    confidence: 0.95,
+    explanation: null,
+  },
+  preview,
+};
+const nextSuggestionPreview: ActivityClassificationSuggestionPreview = {
+  ...suggestionPreview,
+  preview: { ...preview, summary: 'Fresh preview result.' },
+};
+
+assert.equal(canApplyClassificationPreview(preview, previewConfirmationKey, suggestion.id, previewRequest, false, false), true);
+assert.equal(canApplyClassificationPreview(preview, previewConfirmationKey, 'suggestion-2', previewRequest, false, false), false);
+assert.equal(canApplyClassificationPreview(preview, previewConfirmationKey, suggestion.id, changedRequest, false, false), false);
+assert.equal(canApplyClassificationPreview(preview, previewConfirmationKey, suggestion.id, changedProjectRequest, false, false), false);
+assert.equal(canApplyClassificationPreview(preview, previewConfirmationKey, suggestion.id, changedRangeModeRequest, false, false), false);
+assert.equal(canApplyClassificationPreview(preview, previewConfirmationKey, suggestion.id, changedRangeDateRequest, false, false), false);
+assert.equal(canApplyClassificationPreview(null, previewConfirmationKey, suggestion.id, previewRequest, false, false), false);
+assert.equal(canApplyClassificationPreview(preview, previewConfirmationKey, suggestion.id, previewRequest, true, false), false);
+
+assert.equal(
+  resolveConfirmedClassificationPreviewKey({
+    previousPreview: null,
+    nextPreview: suggestionPreview,
+    pendingPreviewConfirmationKey: previewConfirmationKey,
+    confirmedPreviewConfirmationKey: null,
+  }),
+  previewConfirmationKey
+);
+assert.equal(
+  resolveConfirmedClassificationPreviewKey({
+    previousPreview: suggestionPreview,
+    nextPreview: suggestionPreview,
+    pendingPreviewConfirmationKey: classificationPreviewConfirmationKey(suggestion.id, changedRequest),
+    confirmedPreviewConfirmationKey: previewConfirmationKey,
+  }),
+  previewConfirmationKey
+);
+assert.equal(
+  resolveConfirmedClassificationPreviewKey({
+    previousPreview: suggestionPreview,
+    nextPreview: nextSuggestionPreview,
+    pendingPreviewConfirmationKey: classificationPreviewConfirmationKey(suggestion.id, changedRangeModeRequest),
+    confirmedPreviewConfirmationKey: previewConfirmationKey,
+  }),
+  classificationPreviewConfirmationKey(suggestion.id, changedRangeModeRequest)
+);
+assert.equal(
+  resolveConfirmedClassificationPreviewKey({
+    previousPreview: suggestionPreview,
+    nextPreview: null,
+    pendingPreviewConfirmationKey: previewConfirmationKey,
+    confirmedPreviewConfirmationKey: previewConfirmationKey,
+  }),
+  null
+);
+
+const dialogHtml = renderToStaticMarkup(
+  React.createElement(ClassificationPreviewDialog, {
+    suggestion,
+    date: '2026-07-05',
+    preview: null,
+    isPreviewing: false,
+    isApplying: false,
+    errorMessage: null,
+    onClose: () => undefined,
+    onPreview: () => undefined,
+    onApply: () => undefined,
+  })
+);
+
+assert.equal(dialogHtml.includes('Classification preview'), true);
+assert.equal(dialogHtml.includes('Apply'), true);
+assert.equal(/<button[^>]*disabled=""[^>]*>Apply<\/button>/.test(dialogHtml), true);
+
+const rangeDialogHtml = renderToStaticMarkup(
+  React.createElement(ClassificationPreviewDialog, {
+    suggestion: { ...suggestion, suggestedCategory: null },
+    date: '2026-07-05',
+    preview: null,
+    isPreviewing: false,
+    isApplying: false,
+    errorMessage: null,
+    onClose: () => undefined,
+    onPreview: () => undefined,
+    onApply: () => undefined,
+  })
+);
+
+assert.equal(rangeDialogHtml.includes('Today'), true);
+assert.equal(rangeDialogHtml.includes('Range'), true);

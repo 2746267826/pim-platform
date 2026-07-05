@@ -7,6 +7,9 @@ import type {
   ActivityClassificationRule, ActivityClassificationSuggestion,
   ActivityClassificationApplyRange, ActivityClassificationPreview,
   ActivityClassificationSettings, SaveActivityClassificationRuleRequest,
+  ActivityClassificationSuggestionPreview, ActivityClassificationSuggestionApply,
+  SuggestionClassificationPreviewRequest, SuggestionClassificationApplyRequest,
+  PcActivityAnalysisResponse,
   PcQualityResponse, PcQualityQueryParams, PcQualityComponent, PcQualityIssue,
   PimHealthStatus
 } from '../types';
@@ -175,9 +178,16 @@ export const pcClassificationApiPaths = {
   preview: '/pc/classification/rules/preview',
   apply: '/pc/classification/rules/apply',
   suggestions: (date: string) => `/pc/classification/suggestions?date=${date}`,
+  suggestionPreview: (id: string) => `/pc/classification/suggestions/${id}/preview`,
+  suggestionApply: (id: string) => `/pc/classification/suggestions/${id}/apply`,
+  recompute: '/pc/classification/recompute',
   settings: '/pc/classification/settings',
   recentProjectTags: '/pc/classification/project-tags/recent',
 } as const;
+
+export function pcActivityAnalysisApiPath(date: string, blockMinutes = 60) {
+  return `/pc/activity-analysis?date=${date}&blockMinutes=${blockMinutes}`;
+}
 
 export function getActivityClassificationRules() {
   return apiGet<ApiResponse<ActivityClassificationRule[]>>(pcClassificationApiPaths.rules).then(r => r.data);
@@ -214,6 +224,26 @@ export function acceptActivityClassificationSuggestion(
   ).then(r => r.data);
 }
 
+export function previewActivityClassificationSuggestion(
+  id: string,
+  request: SuggestionClassificationPreviewRequest
+) {
+  return apiPost<ApiResponse<ActivityClassificationSuggestionPreview>>(
+    pcClassificationApiPaths.suggestionPreview(id),
+    request
+  ).then(r => r.data);
+}
+
+export function applyActivityClassificationSuggestion(
+  id: string,
+  request: SuggestionClassificationApplyRequest
+) {
+  return apiPost<ApiResponse<ActivityClassificationSuggestionApply>>(
+    pcClassificationApiPaths.suggestionApply(id),
+    request
+  ).then(r => r.data);
+}
+
 export function previewActivityClassificationRule(
   rule: SaveActivityClassificationRuleRequest,
   range: ActivityClassificationApplyRange
@@ -247,6 +277,12 @@ export function saveActivityClassificationSettings(minutes: number) {
 
 export function getRecentActivityProjectTags() {
   return apiGet<ApiResponse<string[]>>(pcClassificationApiPaths.recentProjectTags).then(r => r.data);
+}
+
+export function getPcActivityAnalysis(date: string, blockMinutes = 60) {
+  return apiGet<ApiResponse<PcActivityAnalysisResponse>>(
+    pcActivityAnalysisApiPath(date, blockMinutes)
+  ).then(r => r.data);
 }
 
 export function savePcCategory(rule: { appPattern: string; categoryName: string; color: string; priority: number }) {

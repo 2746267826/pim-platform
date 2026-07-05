@@ -343,7 +343,7 @@ export interface ActivityClassificationSuggestion {
 }
 
 export interface ActivityClassificationApplyRange {
-  mode: 'today' | 'range' | 'all';
+  mode: 'today' | 'range';
   dateFrom?: string | null;
   dateTo?: string | null;
 }
@@ -368,6 +368,59 @@ export interface ActivityClassificationPreview {
   samples: PcDetailRecord[];
   requiresConfirmation: boolean;
   summary: string;
+}
+
+export interface SuggestionClassificationPreviewRequest {
+  categoryName: string | null;
+  projectTag: string | null;
+  range: ActivityClassificationApplyRange;
+}
+
+export interface ActivityClassificationSuggestionPreview {
+  rule: SaveActivityClassificationRuleRequest;
+  preview: ActivityClassificationPreview;
+}
+
+export interface SuggestionClassificationApplyRequest {
+  categoryName: string | null;
+  projectTag: string | null;
+  range: ActivityClassificationApplyRange;
+}
+
+export interface ActivityClassificationSuggestionApply {
+  rule: ActivityClassificationRule;
+  preview: ActivityClassificationPreview;
+  auditId: string;
+  suggestionStatus: string;
+}
+
+export interface PcActivityAnalysisResponse {
+  date: string;
+  blockMinutes: number;
+  blocks: PcActivityAnalysisBlock[];
+}
+
+export interface PcActivityAnalysisBlock {
+  start: string;
+  end: string;
+  intensityScore: number;
+  activeDurationSeconds: number;
+  pendingClassificationCount: number;
+  contextSwitchCount: number;
+  categoryChangeCount: number;
+  categories: PcActivityAnalysisCategory[];
+  apps: PcActivityAnalysisApp[];
+}
+
+export interface PcActivityAnalysisCategory {
+  categoryName: string;
+  color: string;
+  durationSeconds: number;
+}
+
+export interface PcActivityAnalysisApp {
+  appName: string;
+  durationSeconds: number;
 }
 
 export interface ActivityClassificationSettings {
@@ -424,6 +477,12 @@ export interface PcDetailRecord {
   absorbedDurationSeconds?: number | null;
   sourceWebEventIds?: number[] | null;
   sourceWindowEventIds?: number[] | null;
+  recordKey?: string | null;
+  recordKeyVersion?: string | null;
+  recordKeyStability?: string | null;
+  sourceBucketIds?: string[] | null;
+  sourceType?: string | null;
+  interpretationVersion?: string | null;
   keyPresses: number | null;
   totalClicks: number | null;
   mouseDistance: number | null;

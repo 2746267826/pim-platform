@@ -2,35 +2,43 @@ import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, subDays, subMonths } from 'date-fns';
 import {
-  acceptActivityClassificationSuggestion,
-  applyActivityClassificationRule,
+  applyActivityClassificationSuggestion,
   getActivityClassificationSuggestions,
+  getPcActivityAnalysis,
   getPcHeatmapGrid,
   getPcQuality,
   getPcSummary,
-  getRecentActivityProjectTags,
-  previewActivityClassificationRule,
+  previewActivityClassificationSuggestion,
   rejectActivityClassificationSuggestion,
 } from '../api/pcTracker';
 import DateDimensionBar from '../components/pc-tracker/DateDimensionBar';
 import ActivityHeatmap from '../components/pc-tracker/ActivityHeatmap';
+import ActivityAnalysisHeatmap from '../components/pc-tracker/ActivityAnalysisHeatmap';
 import CategoryTimeline from '../components/pc-tracker/CategoryTimeline';
 import DailyActivityPanel from '../components/pc-tracker/DailyActivityPanel';
 import KeyboardHeatmap from '../components/pc-tracker/KeyboardHeatmap';
 import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
-import ClassificationSuggestionPanel from '../components/pc-tracker/ClassificationSuggestionPanel';
+import ClassificationActionQueue from '../components/pc-tracker/ClassificationActionQueue';
 import ProductivityDashboardPanel from '../components/pc-tracker/ProductivityDashboard';
-import QuickClassificationDialog from '../components/pc-tracker/QuickClassificationDialog';
+import ClassificationPreviewDialog from '../components/pc-tracker/ClassificationPreviewDialog';
 import EventTimelineDialog from '../components/pc-tracker/EventTimelineDialog';
 import MetricCard from '../ui/MetricCard';
 import PageHeader from '../ui/PageHeader';
 import type {
-  ActivityClassificationApplyRange,
-  ActivityClassificationPreview,
   ActivityClassificationSuggestion,
-  SaveActivityClassificationRuleRequest,
+  ActivityClassificationSuggestionPreview,
+  SuggestionClassificationApplyRequest,
+  SuggestionClassificationPreviewRequest,
 } from '../types';
 import { getPcBusinessDate } from '../utils/pcBusinessDay';
+
+export function nextPcRoute3RequestId(current: number) {
+  return current + 1;
+}
+
+export function isCurrentPcRoute3Request(requestId: number, current: number) {
+  return requestId === current;
+}
 
 function AnalysisCard({
   title,
@@ -65,8 +73,11 @@ export default function PcTrackerPage() {
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
   const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState<ActivityClassificationSuggestion | null>(null);
-  const [preview, setPreview] = useState<ActivityClassificationPreview | null>(null);
+  const [preview, setPreview] = useState<ActivityClassificationSuggestionPreview | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [selectedAnalysisBlockStart, setSelectedAnalysisBlockStart] = useState<string | null>(null);
   const previewRequestIdRef = useRef(0);
+  const applyRequestIdRef = useRef(0);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
@@ -88,9 +99,10 @@ export default function PcTrackerPage() {
     refetchInterval: 30000,
   });
 
-  const { data: recentProjectTags = [] } = useQuery({
-    queryKey: ['pc-recent-project-tags'],
-    queryFn: getRecentActivityProjectTags,
+  const { data: activityAnalysis } = useQuery({
+    queryKey: ['pc-activity-analysis', dateStr, 60],
+    queryFn: () => getPcActivityAnalysis(dateStr, 60),
+    refetchInterval: 30000,
   });
 
   const heatmapRange = dimension === 'hour'
@@ -108,35 +120,53 @@ export default function PcTrackerPage() {
 
   const previewMutation = useMutation({
     mutationFn: ({
-      rule,
-      range,
+      id,
+      request,
       requestId,
     }: {
-      rule: SaveActivityClassificationRuleRequest;
-      range: ActivityClassificationApplyRange;
+      id: string;
+      request: SuggestionClassificationPreviewRequest;
       requestId: number;
-    }) => previewActivityClassificationRule(rule, range).then(result => ({ result, requestId })),
+    }) => previewActivityClassificationSuggestion(id, request).then(result => ({ result, requestId })),
     onSuccess: ({ result, requestId }) => {
-      if (requestId === previewRequestIdRef.current) {
+      if (isCurrentPcRoute3Request(requestId, previewRequestIdRef.current)) {
         setPreview(result);
+        setPreviewError(null);
+      }
+    },
+    onError: (error, variables) => {
+      if (isCurrentPcRoute3Request(variables.requestId, previewRequestIdRef.current)) {
+        setPreviewError(error instanceof Error ? error.message : 'Preview failed');
       }
     },
   });
 
   const applyMutation = useMutation({
     mutationFn: ({
-      rule,
-      range,
+      id,
+      request,
+      requestId,
     }: {
-      rule: SaveActivityClassificationRuleRequest;
-      range: ActivityClassificationApplyRange;
-    }) => applyActivityClassificationRule(rule, range),
-    onSuccess: () => {
-      setActiveSuggestion(null);
-      setPreview(null);
+      id: string;
+      request: SuggestionClassificationApplyRequest;
+      requestId: number;
+    }) => applyActivityClassificationSuggestion(id, request).then(result => ({ result, requestId })),
+    onSuccess: ({ requestId }) => {
+      if (!isCurrentPcRoute3Request(requestId, applyRequestIdRef.current)) return;
+
       queryClient.invalidateQueries({ queryKey: ['pc-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['pc-activity-analysis'] });
       queryClient.invalidateQueries({ queryKey: ['pc-classification-suggestions'] });
       queryClient.invalidateQueries({ queryKey: ['pc-recent-project-tags'] });
+      queryClient.invalidateQueries({ queryKey: ['productivity-dashboard'] });
+      setActiveSuggestion(null);
+      setPreview(null);
+      setPreviewError(null);
+    },
+    onError: (error, variables) => {
+      if (isCurrentPcRoute3Request(variables.requestId, applyRequestIdRef.current)) {
+        setPreviewError(error instanceof Error ? error.message : 'Apply failed');
+      }
     },
   });
 
@@ -147,37 +177,6 @@ export default function PcTrackerPage() {
     },
   });
 
-  const acceptMutation = useMutation({
-    mutationFn: ({ id, clusterKey }: { id: string; clusterKey: string }) => {
-      const appName = clusterKey?.startsWith('app:') ? clusterKey.slice(4) : clusterKey;
-      return acceptActivityClassificationSuggestion(id, {
-        ruleName: `Quick: ${appName}`,
-        scope: 'app',
-        categoryName: null,
-        conditionsJson: JSON.stringify({ all: [{ field: 'appNameNormalized', op: 'equals', value: appName.toLowerCase() }] }),
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pc-classification-suggestions'] });
-      queryClient.invalidateQueries({ queryKey: ['pc-summary'] });
-    },
-  });
-
-  function handleAccept(suggestion: ActivityClassificationSuggestion) {
-    acceptMutation.mutate({ id: suggestion.id, clusterKey: suggestion.clusterKey });
-  }
-
-  function handleBatchAccept(ids: string[], suggestions: ActivityClassificationSuggestion[]) {
-    ids.forEach(id => {
-      const s = suggestions.find(s => s.id === id);
-      if (s) acceptMutation.mutate({ id: s.id, clusterKey: s.clusterKey });
-    });
-  }
-
-  function handleBatchReject(ids: string[]) {
-    ids.forEach(id => rejectMutation.mutate(id));
-  }
-
   function handleCorrectSuggestion(suggestion: ActivityClassificationSuggestion) {
     setActiveSuggestion(suggestion);
     handleDraftChange();
@@ -186,31 +185,34 @@ export default function PcTrackerPage() {
   function handleCloseDialog() {
     setActiveSuggestion(null);
     handleDraftChange();
+    applyRequestIdRef.current = nextPcRoute3RequestId(applyRequestIdRef.current);
+    setPreviewError(null);
     previewMutation.reset();
     applyMutation.reset();
   }
 
   function handleDraftChange() {
-    previewRequestIdRef.current += 1;
+    previewRequestIdRef.current = nextPcRoute3RequestId(previewRequestIdRef.current);
     setPreview(null);
+    setPreviewError(null);
     previewMutation.reset();
   }
 
-  function handlePreview(
-    rule: SaveActivityClassificationRuleRequest,
-    range: ActivityClassificationApplyRange
-  ) {
-    const requestId = previewRequestIdRef.current + 1;
+  function handlePreview(request: SuggestionClassificationPreviewRequest) {
+    if (!activeSuggestion) return;
+    const requestId = nextPcRoute3RequestId(previewRequestIdRef.current);
     previewRequestIdRef.current = requestId;
     setPreview(null);
-    previewMutation.mutate({ rule, range, requestId });
+    setPreviewError(null);
+    previewMutation.mutate({ id: activeSuggestion.id, request, requestId });
   }
 
-  function handleApply(
-    rule: SaveActivityClassificationRuleRequest,
-    range: ActivityClassificationApplyRange
-  ) {
-    applyMutation.mutate({ rule, range });
+  function handleApply(request: SuggestionClassificationApplyRequest) {
+    if (!activeSuggestion) return;
+    const requestId = nextPcRoute3RequestId(applyRequestIdRef.current);
+    applyRequestIdRef.current = requestId;
+    setPreviewError(null);
+    applyMutation.mutate({ id: activeSuggestion.id, request, requestId });
   }
 
   const metrics = [
@@ -246,14 +248,11 @@ export default function PcTrackerPage() {
       </div>
 
       <AnalysisCard title="分类建议" subtitle="处理高置信度聚类，快速写入纠错规则">
-        <ClassificationSuggestionPanel
+        <ClassificationActionQueue
           suggestions={suggestions}
           isLoading={suggestionsLoading}
-          onAccept={handleAccept}
-          onCorrect={handleCorrectSuggestion}
+          onPreview={handleCorrectSuggestion}
           onReject={suggestion => rejectMutation.mutate(suggestion.id)}
-          onBatchAccept={ids => handleBatchAccept(ids, suggestions)}
-          onBatchReject={handleBatchReject}
         />
       </AnalysisCard>
 
@@ -267,6 +266,14 @@ export default function PcTrackerPage() {
           />
         ))}
       </div>
+
+      <AnalysisCard title="Activity analysis" subtitle="New module: time-block activity state and classification gaps">
+        <ActivityAnalysisHeatmap
+          analysis={activityAnalysis}
+          selectedStart={selectedAnalysisBlockStart}
+          onSelectBlock={block => setSelectedAnalysisBlockStart(block.start)}
+        />
+      </AnalysisCard>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,0.9fr)]">
         <AnalysisCard title="活动热力图" subtitle="按所选时间维度汇总输入强度">
@@ -310,15 +317,14 @@ export default function PcTrackerPage() {
         </AnalysisCard>
       </div>
 
-      <QuickClassificationDialog
+      <ClassificationPreviewDialog
         suggestion={activeSuggestion}
         date={dateStr}
-        recentProjectTags={recentProjectTags}
         preview={preview}
         isPreviewing={previewMutation.isPending}
         isApplying={applyMutation.isPending}
+        errorMessage={previewError}
         onClose={handleCloseDialog}
-        onDraftChange={handleDraftChange}
         onPreview={handlePreview}
         onApply={handleApply}
       />

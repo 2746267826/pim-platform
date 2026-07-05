@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import ActivityAnalysisHeatmap from '../../src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap';
 import ClassificationActionQueue from '../../src/client-web/src/components/pc-tracker/ClassificationActionQueue';
 import ClassificationPreviewDialog, {
   canApplyClassificationPreview,
@@ -9,10 +11,15 @@ import ClassificationPreviewDialog, {
   resolveConfirmedClassificationPreviewKey,
 } from '../../src/client-web/src/components/pc-tracker/ClassificationPreviewDialog';
 import RuleImpactPreviewPanel from '../../src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel';
+import {
+  isCurrentPcRoute3Request,
+  nextPcRoute3RequestId,
+} from '../../src/client-web/src/pages/PcTrackerPage';
 import type {
   ActivityClassificationPreview,
   ActivityClassificationSuggestionPreview,
   ActivityClassificationSuggestion,
+  PcActivityAnalysisResponse,
   SuggestionClassificationPreviewRequest,
 } from '../../src/client-web/src/types';
 
@@ -74,6 +81,42 @@ assert.equal(previewHtml.includes('3 records'), true);
 assert.equal(previewHtml.includes('15 minutes'), true);
 assert.equal(previewHtml.includes('Before: Other 3'), true);
 assert.equal(previewHtml.includes('After: Learning 3'), true);
+
+const activityAnalysis: PcActivityAnalysisResponse = {
+  date: '2026-07-05',
+  blockMinutes: 60,
+  blocks: [{
+    start: '2026-07-05T00:00:00Z',
+    end: '2026-07-05T01:00:00Z',
+    intensityScore: 3,
+    activeDurationSeconds: 1800,
+    pendingClassificationCount: 1,
+    contextSwitchCount: 2,
+    categoryChangeCount: 1,
+    categories: [{ categoryName: 'Programming', color: '#2563eb', durationSeconds: 1800 }],
+    apps: [{ appName: 'Code.exe', durationSeconds: 1800 }],
+  }],
+};
+
+const activityAnalysisHtml = renderToStaticMarkup(
+  React.createElement(ActivityAnalysisHeatmap, {
+    analysis: activityAnalysis,
+    selectedStart: null,
+    onSelectBlock: () => undefined,
+  })
+);
+
+assert.equal(activityAnalysisHtml.includes('Activity analysis'), true);
+assert.equal(activityAnalysisHtml.includes('Keyboard'), false);
+assert.equal(activityAnalysisHtml.includes('30 active minutes'), true);
+assert.equal(activityAnalysisHtml.includes('Programming'), true);
+assert.equal(activityAnalysisHtml.includes('aria-pressed="true"'), true);
+assert.equal(activityAnalysisHtml.includes('pending classification'), true);
+
+const currentRequestId = nextPcRoute3RequestId(3);
+assert.equal(currentRequestId, 4);
+assert.equal(isCurrentPcRoute3Request(currentRequestId, 4), true);
+assert.equal(isCurrentPcRoute3Request(currentRequestId - 1, 4), false);
 
 const previewRequest: SuggestionClassificationPreviewRequest = {
   categoryName: 'Learning',
@@ -199,3 +242,15 @@ const rangeDialogHtml = renderToStaticMarkup(
 
 assert.equal(rangeDialogHtml.includes('Today'), true);
 assert.equal(rangeDialogHtml.includes('Range'), true);
+
+const pcTrackerPageSource = fs.readFileSync(
+  path.join(process.cwd(), 'src/client-web/src/pages/PcTrackerPage.tsx'),
+  'utf8'
+);
+
+assert.equal(pcTrackerPageSource.includes('ActivityAnalysisHeatmap'), true);
+assert.equal(pcTrackerPageSource.includes('ClassificationActionQueue'), true);
+assert.equal(pcTrackerPageSource.includes('ClassificationPreviewDialog'), true);
+assert.equal(pcTrackerPageSource.includes('acceptActivityClassificationSuggestion'), false);
+assert.equal(pcTrackerPageSource.includes('ClassificationSuggestionPanel'), false);
+assert.equal(pcTrackerPageSource.includes('QuickClassificationDialog'), false);

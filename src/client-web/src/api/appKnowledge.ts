@@ -22,7 +22,7 @@ export interface AppKnowledgeApp {
 
 export interface AppKnowledgeContextPattern {
   id: string;
-  appId: string;
+  appId: string | null;
   processName: string;
   patternType: AppKnowledgePatternType;
   patternValue: string;

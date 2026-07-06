@@ -39,10 +39,27 @@ const context: AppKnowledgeContextPattern = {
   lastMatchedAt: null,
 };
 
+const contextWithoutApp: AppKnowledgeContextPattern = {
+  id: 'context-2',
+  appId: null,
+  processName: 'msedge.exe',
+  patternType: 'title',
+  patternValue: 'Release notes',
+  targetCategoryName: null,
+  projectTag: 'docs',
+  scopeSummary: 'msedge.exe / Release notes',
+  source: 'system-suggested',
+  confidence: 0.75,
+  enabled: false,
+  affectedRecordCount: 3,
+  affectedDurationSeconds: 900,
+  lastMatchedAt: '2026-07-06T01:00:00Z',
+};
+
 const preview: AppKnowledgeSuggestionPreview = {
   suggestionId: 'suggestion-1',
   recommendedContext: context,
-  alternatives: [context],
+  alternatives: [context, contextWithoutApp],
   preview: {
     affectedRecordCount: 42,
     affectedDurationSeconds: 7200,
@@ -56,4 +73,6 @@ const preview: AppKnowledgeSuggestionPreview = {
 
 assert.equal(app.contextCount, 2);
 assert.equal(context.patternType, 'domain');
+assert.equal(contextWithoutApp.appId, null);
+assert.equal(preview.alternatives.length, 2);
 assert.equal(preview.recommendedContext.scopeSummary, 'Edge / github.com');

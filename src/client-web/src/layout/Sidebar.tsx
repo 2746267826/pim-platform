@@ -14,6 +14,8 @@ export const primaryNavItems = [
   { label: '文件', path: '/files', short: '文' },
   { label: '任务', path: '/tasks', short: '任' },
   { label: 'PC记录', path: '/pc-tracker', short: 'PC' },
+  { label: '手机记录', path: '/mobile-records', short: '机' },
+  { label: '历史位置', path: '/location-history', short: '位' },
   { label: 'App知识库', path: '/app-knowledge-base', short: '库' },
   { label: '状态信息', path: '/status', short: '态' },
   { label: '设置', path: '/settings', short: '设' },

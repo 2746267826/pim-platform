@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
+import { getMobileQuality } from '../api/mobile';
 import { getPcQuality } from '../api/pcTracker';
 import { getComponentKindLabel, getHealthStatusLabel, getStatusDetail } from '../api/status';
 import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
+import MobileDiagnosticsPanel, { type MobileQualityDiagnosticsData } from '../components/status/MobileDiagnosticsPanel';
 import type { PimHealthStatus, StatusComponent } from '../types';
 import PageHeader from '../ui/PageHeader';
 
@@ -99,6 +101,18 @@ export default function StatusPage() {
     refetchInterval: 60_000,
   });
 
+  const {
+    data: mobileQuality,
+    isLoading: mobileQualityLoading,
+    error: mobileQualityError,
+    refetch: refetchMobileQuality,
+    isFetching: mobileQualityFetching,
+  } = useQuery({
+    queryKey: ['status-mobile-quality'],
+    queryFn: () => getMobileQuality(),
+    refetchInterval: 60_000,
+  });
+
   const summary = data?.summary;
   const summaryStatus = summary?.status ?? 'Unknown';
 
@@ -113,8 +127,9 @@ export default function StatusPage() {
             onClick={() => {
               void refetchStatus();
               void refetchPcQuality();
+              void refetchMobileQuality();
             }}
-            disabled={statusFetching || pcQualityFetching}
+            disabled={statusFetching || pcQualityFetching || mobileQualityFetching}
             className="pim-button-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
             刷新
@@ -154,6 +169,12 @@ export default function StatusPage() {
             isLoading={pcQualityLoading}
             error={pcQualityError}
             compact
+          />
+
+          <MobileDiagnosticsPanel
+            quality={mobileQuality as MobileQualityDiagnosticsData | undefined}
+            isLoading={mobileQualityLoading}
+            error={mobileQualityError}
           />
 
           {data.nextSteps.length > 0 && (

@@ -83,4 +83,21 @@ interface ApiService {
     // Stats
     @POST("stats/upload")
     suspend fun uploadStats(@Body batch: UploadBatch): ApiResponse<Int>
+
+    // Mobile
+    @POST("mobile/devices/register")
+    suspend fun registerMobileDevice(@Body request: MobileDeviceRegisterRequest): ApiResponse<MobileDeviceDto>
+
+    @POST("mobile/sync/gaps")
+    suspend fun getMobileGaps(@Body request: MobileGapRequest): ApiResponse<MobileGapResponse>
+
+    @POST("mobile/usage/events")
+    suspend fun uploadMobileUsage(@Body request: MobileUsageEventsUploadRequest): ApiResponse<MobileIngestResponse>
+
+    @POST("mobile/location/points")
+    suspend fun uploadMobileLocation(@Body request: MobileLocationPointRequest): ApiResponse<MobileLocationPointDto>
+
+    // Daemon
+    @POST("daemon/heartbeat")
+    suspend fun sendHeartbeat(@Body request: DaemonHeartbeatRequest): ApiResponse<DaemonHeartbeatDto>
 }

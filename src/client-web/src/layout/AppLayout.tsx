@@ -20,6 +20,8 @@ import CategoryTreePage from '../pages/CategoryTreePage';
 
 const QuickNotesPage = lazy(() => import('../pages/QuickNotesPage'));
 const FilesPage = lazy(() => import('../pages/FilesPage'));
+const MobileRecordsPage = lazy(() => import('../pages/MobileRecordsPage'));
+const HistoricalLocationPage = lazy(() => import('../pages/HistoricalLocationPage'));
 const QuickNoteFloatingPanel = lazy(() => import('../components/quick-notes/QuickNoteFloatingPanel'));
 
 function SuspenseFallback() {
@@ -53,6 +55,8 @@ export default function AppLayout() {
               <Route path="/month" element={<Navigate to="/calendar?view=month" replace />} />
               <Route path="/tasks" element={<TaskListPage />} />
               <Route path="/pc-tracker" element={<PcTrackerPage />} />
+              <Route path="/mobile-records" element={<MobileRecordsPage />} />
+              <Route path="/location-history" element={<HistoricalLocationPage />} />
               <Route path="/status" element={<StatusPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/ai" element={<AiSettingsPage />} />

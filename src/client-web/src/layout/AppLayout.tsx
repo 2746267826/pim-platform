@@ -9,7 +9,6 @@ import TodayPage from '../pages/TodayPage';
 import CalendarPage from '../pages/CalendarPage';
 import TaskListPage from '../pages/TaskListPage';
 import PcTrackerPage from '../pages/PcTrackerPage';
-import PcClassificationPage from '../pages/PcClassificationPage';
 import SettingsPage from '../pages/SettingsPage';
 import AiSettingsPage from '../pages/AiSettingsPage';
 import CalendarDataManager from '../pages/CalendarDataManager';
@@ -54,7 +53,6 @@ export default function AppLayout() {
               <Route path="/month" element={<Navigate to="/calendar?view=month" replace />} />
               <Route path="/tasks" element={<TaskListPage />} />
               <Route path="/pc-tracker" element={<PcTrackerPage />} />
-              <Route path="/pc-classification" element={<PcClassificationPage />} />
               <Route path="/status" element={<StatusPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/ai" element={<AiSettingsPage />} />
@@ -62,7 +60,9 @@ export default function AppLayout() {
               <Route path="/settings/recycle-bin" element={<RecycleBinPage />} />
               <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />
               <Route path="/app-knowledge-base" element={<AppKnowledgeBasePage />} />
-              <Route path="/pc-categories" element={<CategoryTreePage />} />
+              <Route path="/app-knowledge-base/categories" element={<CategoryTreePage />} />
+              <Route path="/pc-categories" element={<Navigate to="/app-knowledge-base/categories" replace />} />
+              <Route path="/pc-classification" element={<Navigate to="/app-knowledge-base" replace />} />
               <Route path="*" element={<Navigate to="/today" replace />} />
             </Routes>
           </Suspense>

@@ -7,15 +7,13 @@ import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import SidebarStatusIndicator from '../components/status/SidebarStatusIndicator';
 import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
 
-const navItems = [
+export const primaryNavItems = [
   { label: '今日', path: '/today', short: '今' },
   { label: '日历', path: '/calendar', short: '历' },
   { label: '快速记录', path: '/quick-notes', short: '记' },
   { label: '文件', path: '/files', short: '文' },
   { label: '任务', path: '/tasks', short: '任' },
   { label: 'PC记录', path: '/pc-tracker', short: 'PC' },
-  { label: '分类管理', path: '/pc-classification', short: '分' },
-  { label: '分类树', path: '/pc-categories', short: '树' },
   { label: 'App知识库', path: '/app-knowledge-base', short: '库' },
   { label: '状态信息', path: '/status', short: '态' },
   { label: '设置', path: '/settings', short: '设' },
@@ -278,7 +276,7 @@ export default function Sidebar() {
       <SidebarStatusIndicator />
 
       <nav className="flex-1 space-y-1 overflow-auto px-3 pb-3">
-        {navItems.map(item => {
+        {primaryNavItems.map(item => {
           const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
 
           return (

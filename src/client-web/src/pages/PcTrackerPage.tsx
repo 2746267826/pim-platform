@@ -19,6 +19,7 @@ import CategoryTimeline from '../components/pc-tracker/CategoryTimeline';
 import DailyActivityPanel from '../components/pc-tracker/DailyActivityPanel';
 import KeyboardHeatmap from '../components/pc-tracker/KeyboardHeatmap';
 import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
+import PcReviewSummary from '../components/pc-tracker/PcReviewSummary';
 import ClassificationActionQueue from '../components/pc-tracker/ClassificationActionQueue';
 import ProductivityDashboardPanel from '../components/pc-tracker/ProductivityDashboard';
 import ClassificationPreviewDialog from '../components/pc-tracker/ClassificationPreviewDialog';
@@ -249,6 +250,8 @@ export default function PcTrackerPage() {
       />
 
       <PcQualitySummary quality={quality} isLoading={qualityLoading} error={qualityError} />
+
+      <PcReviewSummary summary={data} pendingSuggestions={suggestions} />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
         <ProductivityDashboardPanel />

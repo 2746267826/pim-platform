@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import type { AppKnowledgeContextPattern } from '../../src/client-web/src/api/appKnowledge';
+import AppKnowledgeContextList from '../../src/client-web/src/components/app-knowledge/AppKnowledgeContextList';
 import AppKnowledgeTabs from '../../src/client-web/src/components/app-knowledge/AppKnowledgeTabs';
 
 const requireFromClient = createRequire(path.join(process.cwd(), 'src/client-web/package.json'));
@@ -50,4 +52,40 @@ test('app knowledge base page keeps app tab active with updated subtitle', () =>
   assert.equal(source.includes('title="App 知识库"'), true);
   assert.equal(source.includes('subtitle="管理应用、域名、标题模式和分类归属知识"'), true);
   assert.equal(source.includes('<AppKnowledgeTabs active="apps" />'), true);
+  assert.equal(source.includes('getAppKnowledgeApps'), true);
+  assert.equal(source.includes('getAppKnowledgeContexts'), true);
+  assert.equal(source.includes('deleteAppKnowledgeContext'), true);
+  assert.equal(source.includes('<AppKnowledgeContextList'), true);
+});
+
+test('context list renders context knowledge pattern details', () => {
+  const context: AppKnowledgeContextPattern = {
+    id: 'context-1',
+    appId: 'app-1',
+    processName: 'chrome.exe',
+    patternType: 'domain',
+    patternValue: 'github.com',
+    targetCategoryName: 'Development',
+    projectTag: 'pim-platform',
+    scopeSummary: 'github.com work',
+    source: 'learned',
+    confidence: 0.91,
+    enabled: true,
+    affectedRecordCount: 12,
+    affectedDurationSeconds: 45 * 60,
+    lastMatchedAt: '2026-07-06T08:00:00Z',
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(AppKnowledgeContextList, {
+      contexts: [context],
+      isLoading: false,
+      onDelete: () => undefined,
+    })
+  );
+
+  assert.equal(html.includes('Context knowledge'), true);
+  assert.equal(html.includes('github.com'), true);
+  assert.equal(html.includes('Development'), true);
+  assert.equal(html.includes('pim-platform'), true);
 });

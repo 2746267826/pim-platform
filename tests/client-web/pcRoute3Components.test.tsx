@@ -102,7 +102,7 @@ const previewHtml = renderToStaticMarkup(
   React.createElement(RuleImpactPreviewPanel, { preview })
 );
 
-assert.equal(previewHtml.includes('规则影响预览'), true);
+assert.equal(previewHtml.includes('知识库写入影响'), true);
 assert.equal(previewHtml.includes('3 条记录'), true);
 assert.equal(previewHtml.includes('15 分钟'), true);
 assert.equal(previewHtml.includes('当前：其他 3'), true);
@@ -249,12 +249,16 @@ const dialogHtml = renderToStaticMarkup(
   })
 );
 
-assert.equal(dialogHtml.includes('分类预览'), true);
+assert.equal(dialogHtml.includes('App 知识库写入预览'), true);
+assert.equal(dialogHtml.includes('目标分类'), true);
+assert.equal(dialogHtml.includes('项目标签'), true);
+assert.equal(dialogHtml.includes('预览影响'), true);
+assert.equal(dialogHtml.includes('写入 App 知识库'), true);
+assert.equal(dialogHtml.includes('创建规则'), false);
 assert.equal(dialogHtml.includes('学习'), true);
 assert.equal(dialogHtml.includes('技术学习'), true);
 assert.equal(dialogHtml.includes('<select'), true);
-assert.equal(dialogHtml.includes('应用'), true);
-assert.equal(/<button[^>]*disabled=""[^>]*>应用<\/button>/.test(dialogHtml), true);
+assert.equal(/<button[^>]*disabled=""[^>]*>写入 App 知识库<\/button>/.test(dialogHtml), true);
 
 const rangeDialogHtml = renderToStaticMarkup(
   React.createElement(ClassificationPreviewDialog, {
@@ -284,5 +288,11 @@ assert.equal(pcTrackerPageSource.includes('ContextConfirmationPanel'), true);
 assert.equal(pcTrackerPageSource.includes('ClassificationActionQueue'), false);
 assert.equal(pcTrackerPageSource.includes('ClassificationPreviewDialog'), true);
 assert.equal(pcTrackerPageSource.includes('acceptActivityClassificationSuggestion'), false);
+assert.equal(pcTrackerPageSource.includes('previewAppKnowledgeSuggestion'), true);
+assert.equal(pcTrackerPageSource.includes('applyAppKnowledgeSuggestion'), true);
+assert.equal(pcTrackerPageSource.includes('previewActivityClassificationSuggestion'), false);
+assert.equal(pcTrackerPageSource.includes('applyActivityClassificationSuggestion'), false);
+assert.equal(pcTrackerPageSource.includes("['app-knowledge-apps']"), true);
+assert.equal(pcTrackerPageSource.includes("['app-knowledge-contexts']"), true);
 assert.equal(pcTrackerPageSource.includes('ClassificationSuggestionPanel'), false);
 assert.equal(pcTrackerPageSource.includes('QuickClassificationDialog'), false);

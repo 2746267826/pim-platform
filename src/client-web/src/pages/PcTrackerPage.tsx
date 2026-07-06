@@ -2,16 +2,15 @@ import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, subDays, subMonths } from 'date-fns';
 import {
-  applyActivityClassificationSuggestion,
   getActivityClassificationSuggestions,
   getCategoryTree,
   getPcActivityAnalysis,
   getPcHeatmapGrid,
   getPcQuality,
   getPcSummary,
-  previewActivityClassificationSuggestion,
   rejectActivityClassificationSuggestion,
 } from '../api/pcTracker';
+import { applyAppKnowledgeSuggestion, previewAppKnowledgeSuggestion } from '../api/appKnowledge';
 import DateDimensionBar from '../components/pc-tracker/DateDimensionBar';
 import ActivityHeatmap from '../components/pc-tracker/ActivityHeatmap';
 import ActivityAnalysisHeatmap from '../components/pc-tracker/ActivityAnalysisHeatmap';
@@ -22,12 +21,11 @@ import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import PcReviewSummary from '../components/pc-tracker/PcReviewSummary';
 import ContextConfirmationPanel from '../components/pc-tracker/ContextConfirmationPanel';
 import ProductivityDashboardPanel from '../components/pc-tracker/ProductivityDashboard';
-import ClassificationPreviewDialog from '../components/pc-tracker/ClassificationPreviewDialog';
+import ClassificationPreviewDialog, { type PreviewLike } from '../components/pc-tracker/ClassificationPreviewDialog';
 import EventTimelineDialog from '../components/pc-tracker/EventTimelineDialog';
 import PageHeader from '../ui/PageHeader';
 import type {
   ActivityClassificationSuggestion,
-  ActivityClassificationSuggestionPreview,
   SuggestionClassificationApplyRequest,
   SuggestionClassificationPreviewRequest,
 } from '../types';
@@ -74,7 +72,7 @@ export default function PcTrackerPage() {
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
   const [timelineDialogOpen, setTimelineDialogOpen] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState<ActivityClassificationSuggestion | null>(null);
-  const [preview, setPreview] = useState<ActivityClassificationSuggestionPreview | null>(null);
+  const [preview, setPreview] = useState<PreviewLike | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [selectedAnalysisBlockStart, setSelectedAnalysisBlockStart] = useState<string | null>(null);
   const previewRequestIdRef = useRef(0);
@@ -134,7 +132,7 @@ export default function PcTrackerPage() {
       id: string;
       request: SuggestionClassificationPreviewRequest;
       requestId: number;
-    }) => previewActivityClassificationSuggestion(id, request).then(result => ({ result, requestId })),
+    }) => previewAppKnowledgeSuggestion(id, request).then(result => ({ result, requestId })),
     onSuccess: ({ result, requestId }) => {
       if (isCurrentPcRoute3Request(requestId, previewRequestIdRef.current)) {
         setPreview(result);
@@ -157,7 +155,7 @@ export default function PcTrackerPage() {
       id: string;
       request: SuggestionClassificationApplyRequest;
       requestId: number;
-    }) => applyActivityClassificationSuggestion(id, request).then(result => ({ result, requestId })),
+    }) => applyAppKnowledgeSuggestion(id, request).then(result => ({ result, requestId })),
     onSuccess: ({ requestId }) => {
       if (!isCurrentPcRoute3Request(requestId, applyRequestIdRef.current)) return;
 
@@ -166,13 +164,15 @@ export default function PcTrackerPage() {
       queryClient.invalidateQueries({ queryKey: ['pc-classification-suggestions'] });
       queryClient.invalidateQueries({ queryKey: ['pc-recent-project-tags'] });
       queryClient.invalidateQueries({ queryKey: ['productivity-dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['app-knowledge-apps'] });
+      queryClient.invalidateQueries({ queryKey: ['app-knowledge-contexts'] });
       setActiveSuggestion(null);
       setPreview(null);
       setPreviewError(null);
     },
     onError: (error, variables) => {
       if (isCurrentPcRoute3Request(variables.requestId, applyRequestIdRef.current)) {
-        setPreviewError(error instanceof Error ? error.message : '应用失败');
+        setPreviewError(error instanceof Error ? error.message : '写入失败');
       }
     },
   });

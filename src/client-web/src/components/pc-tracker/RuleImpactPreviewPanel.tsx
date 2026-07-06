@@ -22,7 +22,7 @@ export default function RuleImpactPreviewPanel({ preview }: Props) {
   return (
     <section className="rounded-lg border border-cyan-200 bg-cyan-50 p-3 text-sm text-cyan-950">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">规则影响预览</h3>
+        <h3 className="text-sm font-semibold">知识库写入影响</h3>
         {preview.requiresConfirmation && (
           <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
             需要确认

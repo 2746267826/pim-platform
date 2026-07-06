@@ -3,17 +3,18 @@ import type {
   ActivityClassificationApplyRange,
   ActivityClassificationPreview,
   ActivityClassificationSuggestion,
-  ActivityClassificationSuggestionPreview,
   SuggestionClassificationApplyRequest,
   SuggestionClassificationPreviewRequest,
 } from '../../types';
 import type { CategoryTreeNode } from '../../api/pcTracker';
 import RuleImpactPreviewPanel from './RuleImpactPreviewPanel';
 
+export type PreviewLike = { preview: ActivityClassificationPreview };
+
 interface Props {
   suggestion: ActivityClassificationSuggestion | null;
   date: string;
-  preview: ActivityClassificationSuggestionPreview | null;
+  preview: PreviewLike | null;
   isPreviewing: boolean;
   isApplying: boolean;
   errorMessage: string | null;
@@ -111,8 +112,8 @@ export function resolveConfirmedClassificationPreviewKey({
   pendingPreviewConfirmationKey,
   confirmedPreviewConfirmationKey,
 }: {
-  previousPreview: ActivityClassificationSuggestionPreview | null;
-  nextPreview: ActivityClassificationSuggestionPreview | null;
+  previousPreview: PreviewLike | null;
+  nextPreview: PreviewLike | null;
   pendingPreviewConfirmationKey: string | null;
   confirmedPreviewConfirmationKey: string | null;
 }) {
@@ -144,7 +145,7 @@ export default function ClassificationPreviewDialog({
   const [dateTo, setDateTo] = useState(date);
   const [pendingPreviewConfirmationKey, setPendingPreviewConfirmationKey] = useState<string | null>(null);
   const [confirmedPreviewConfirmationKey, setConfirmedPreviewConfirmationKey] = useState<string | null>(null);
-  const previousPreviewRef = useRef<ActivityClassificationSuggestionPreview | null>(preview);
+  const previousPreviewRef = useRef<PreviewLike | null>(preview);
 
   useEffect(() => {
     if (!suggestion) return;
@@ -220,7 +221,7 @@ export default function ClassificationPreviewDialog({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 id={titleId} className="text-base font-semibold text-slate-950">
-                分类预览
+                App 知识库写入预览
               </h2>
               <p className="mt-1 truncate text-sm text-slate-500">{suggestion.clusterKey}</p>
             </div>
@@ -237,7 +238,7 @@ export default function ClassificationPreviewDialog({
         <div className="min-h-0 flex-1 space-y-4 overflow-auto px-5 py-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="min-w-0 text-sm">
-              <span className="mb-1 block text-xs font-medium text-slate-500">分类</span>
+              <span className="mb-1 block text-xs font-medium text-slate-500">目标分类</span>
               <select
                 value={categoryName}
                 onChange={event => setCategoryName(event.target.value)}
@@ -316,7 +317,7 @@ export default function ClassificationPreviewDialog({
             disabled={isPreviewing || isApplying}
             className="pim-button-secondary h-10 px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isPreviewing ? '预览中' : '预览'}
+            {isPreviewing ? '预览中' : '预览影响'}
           </button>
           <button
             type="button"
@@ -326,7 +327,7 @@ export default function ClassificationPreviewDialog({
             disabled={!canApply}
             className="pim-button-primary h-10 px-4 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isApplying ? '应用中' : '应用'}
+            {isApplying ? '写入中' : '写入 App 知识库'}
           </button>
         </footer>
       </section>

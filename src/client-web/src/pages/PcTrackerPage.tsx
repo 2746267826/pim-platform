@@ -226,7 +226,7 @@ export default function PcTrackerPage() {
     <div className="mx-auto w-full max-w-[1500px] space-y-4 pb-8">
       <PageHeader
         title="PC 记录"
-        subtitle="从全局概览进入应用、分类与输入行为 drilldown"
+        subtitle="从全局概览进入应用、分类与输入行为下钻分析"
         actions={
           <div className="min-w-0 max-w-full">
             <DateDimensionBar

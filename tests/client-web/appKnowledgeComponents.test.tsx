@@ -84,8 +84,50 @@ test('context list renders context knowledge pattern details', () => {
     })
   );
 
-  assert.equal(html.includes('Context knowledge'), true);
+  assert.equal(html.includes('上下文知识'), true);
+  assert.equal(html.includes('域名'), true);
+  assert.equal(html.includes('学习'), true);
+  assert.equal(html.includes('影响 12 条记录'), true);
+  assert.equal(html.includes('影响时长 45 分钟'), true);
   assert.equal(html.includes('github.com'), true);
   assert.equal(html.includes('Development'), true);
   assert.equal(html.includes('pim-platform'), true);
+});
+
+test('app knowledge UI copy does not expose English remnants', () => {
+  const source = [
+    readClientSource('pages/AppKnowledgeBasePage.tsx'),
+    readClientSource('pages/PcTrackerPage.tsx'),
+    readClientSource('components/app-knowledge/AppKnowledgeContextList.tsx'),
+    readClientSource('components/app-knowledge/AppKnowledgeImpactSummary.tsx'),
+  ].join('\n');
+
+  const forbiddenEnglishUiCopy = [
+    'Selected for context',
+    'Context patterns',
+    'Select an app',
+    'recent impact',
+    'Choose a row to inspect context knowledge patterns.',
+    'context patterns',
+    'pending contexts',
+    'Delete this context knowledge pattern?',
+    'Select an app row to view context knowledge.',
+    'No target assigned',
+    'Loading context knowledge...',
+    'No context knowledge patterns yet.',
+    'Context knowledge',
+    'Disabled',
+    'App default',
+    'Domain',
+    'Window title',
+    'URL path',
+    'Source family',
+    'affected records',
+    'affected minutes',
+    'drilldown',
+  ];
+
+  for (const text of forbiddenEnglishUiCopy) {
+    assert.equal(source.includes(text), false, `should translate UI copy: ${text}`);
+  }
 });

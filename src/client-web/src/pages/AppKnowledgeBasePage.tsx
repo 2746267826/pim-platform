@@ -18,7 +18,7 @@ const productivities = [
 
 function formatRecentDuration(seconds: number) {
   const minutes = Math.round(seconds / 60);
-  return `${minutes.toLocaleString()} min`;
+  return `${minutes.toLocaleString()} 分钟`;
 }
 
 function getSourceLabel(source: string) {
@@ -251,7 +251,7 @@ export default function AppKnowledgeBasePage() {
                         <td className="px-3 py-2.5 font-medium text-slate-900">
                           <div className="flex flex-col">
                             <span>{app.displayName}</span>
-                            {isSelected && <span className="text-xs font-normal text-blue-600">Selected for context</span>}
+                            {isSelected && <span className="text-xs font-normal text-blue-600">正在查看上下文</span>}
                           </div>
                         </td>
                         <td className="px-3 py-2.5 font-mono text-xs text-slate-500">{app.processName}</td>
@@ -265,9 +265,9 @@ export default function AppKnowledgeBasePage() {
                         </td>
                         <td className="px-3 py-2.5 text-slate-600">
                           <div className="flex flex-col text-xs">
-                            <span>{app.contextCount.toLocaleString()} patterns</span>
+                            <span>{app.contextCount.toLocaleString()} 个模式</span>
                             <span className={app.pendingContextCount > 0 ? 'text-amber-600' : 'text-slate-400'}>
-                              {app.pendingContextCount.toLocaleString()} pending
+                              {app.pendingContextCount.toLocaleString()} 项待确认
                             </span>
                           </div>
                         </td>
@@ -314,28 +314,28 @@ export default function AppKnowledgeBasePage() {
         <aside className="min-w-0 space-y-3 rounded-lg border border-slate-200 bg-white p-4">
           <div className="space-y-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Context patterns</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">上下文模式</p>
               <h2 className="mt-1 text-base font-semibold text-slate-900">
-                {selectedApp ? selectedApp.displayName : 'Select an app'}
+                {selectedApp ? selectedApp.displayName : '选择应用'}
               </h2>
               <p className="mt-1 text-xs text-slate-500">
                 {selectedApp
-                  ? `${selectedApp.processName} · ${formatRecentDuration(selectedApp.recentAffectedDurationSeconds)} recent impact`
-                  : 'Choose a row to inspect context knowledge patterns.'}
+                  ? `${selectedApp.processName} · ${formatRecentDuration(selectedApp.recentAffectedDurationSeconds)} 近期影响`
+                  : '选择一行查看上下文知识模式。'}
               </p>
             </div>
 
             {selectedApp && (
               <div className="flex flex-wrap gap-2 text-xs text-slate-600">
                 <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
-                  {selectedApp.contextCount.toLocaleString()} context patterns
+                  {selectedApp.contextCount.toLocaleString()} 个上下文模式
                 </span>
                 <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
-                  {formatRecentDuration(selectedApp.recentAffectedDurationSeconds)} recent impact
+                  {formatRecentDuration(selectedApp.recentAffectedDurationSeconds)} 近期影响
                 </span>
                 {selectedApp.pendingContextCount > 0 && (
                   <span className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
-                    {selectedApp.pendingContextCount.toLocaleString()} pending contexts
+                    {selectedApp.pendingContextCount.toLocaleString()} 项待确认上下文
                   </span>
                 )}
               </div>
@@ -347,14 +347,14 @@ export default function AppKnowledgeBasePage() {
               contexts={contexts}
               isLoading={contextsLoading}
               onDelete={id => {
-                if (confirm('Delete this context knowledge pattern?')) {
+                if (confirm('确认删除这个上下文知识模式？')) {
                   contextDeleteMut.mutate(id);
                 }
               }}
             />
           ) : (
             <div className="rounded border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-              Select an app row to view context knowledge.
+              选择应用行以查看上下文知识。
             </div>
           )}
         </aside>

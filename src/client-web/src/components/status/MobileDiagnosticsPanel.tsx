@@ -83,22 +83,22 @@ const diagnostics = [
   },
   {
     label: '移动使用采集',
-    keys: ['mobile-usage-coverage', 'mobile-usage', 'usage-collection'],
+    keys: ['mobile-usage-coverage', 'mobile-usage', 'usage-collection', 'event-coverage', 'fallback-only-days'],
     fallbackMessage: '暂无移动使用采集诊断。',
   },
   {
     label: '移动同步批次',
-    keys: ['mobile-sync', 'mobile-sync-batches', 'sync-batches'],
+    keys: ['mobile-sync', 'mobile-sync-batches', 'sync-batches', 'sync-batch-failures'],
     fallbackMessage: '暂无移动同步批次诊断。',
   },
   {
     label: '移动定位',
-    keys: ['mobile-location', 'location-capture'],
+    keys: ['mobile-location', 'location-capture', 'location-accuracy-rejections'],
     fallbackMessage: '暂无移动定位诊断。',
   },
   {
     label: '移动应用元数据诊断',
-    keys: ['mobile-app-metadata', 'app-metadata'],
+    keys: ['mobile-app-metadata', 'app-metadata', 'app-metadata-completeness'],
     fallbackMessage: '暂无移动应用元数据诊断。',
   },
 ] as const;

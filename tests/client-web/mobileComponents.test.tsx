@@ -10,6 +10,7 @@ import type {
   MobileSyncBatchSummary,
   MobileTimelineItem,
 } from '../../src/client-web/src/api/mobile';
+import type { MobileQualityDiagnosticsData } from '../../src/client-web/src/components/status/MobileDiagnosticsPanel';
 
 const clientPackagePath = path.join(process.cwd(), 'src/client-web/package.json');
 const requireFromClient = createRequire(clientPackagePath);
@@ -178,6 +179,87 @@ const locationPoints: MobileLocationPoint[] = [
   },
 ];
 
+const canonicalDiagnostics: MobileQualityDiagnosticsData = {
+  overallStatus: 'Warning',
+  label: 'mobile-warning',
+  message: 'canonical diagnostics',
+  checkedAt: '2026-07-06T09:05:00Z',
+  components: [
+    {
+      key: 'mobile-usage-coverage',
+      name: 'usage canonical',
+      status: 'Warning',
+      message: 'canonical usage message',
+      checkedAt: '2026-07-06T09:05:00Z',
+      details: { fallbackSummaryCount: '1' },
+    },
+    {
+      key: 'mobile-sync',
+      name: 'sync canonical',
+      status: 'Warning',
+      message: 'canonical sync message',
+      checkedAt: '2026-07-06T09:05:00Z',
+      details: { failedBatchCount: '1' },
+    },
+    {
+      key: 'mobile-location',
+      name: 'location canonical',
+      status: 'Warning',
+      message: 'canonical location message',
+      checkedAt: '2026-07-06T09:05:00Z',
+      details: { rejectedLocationCount: '1' },
+    },
+    {
+      key: 'mobile-app-metadata',
+      name: 'metadata canonical',
+      status: 'Warning',
+      message: 'canonical metadata message',
+      checkedAt: '2026-07-06T09:05:00Z',
+      details: { missingAppMetadataCount: '1' },
+    },
+  ],
+  issues: [],
+  nextSteps: [],
+};
+
+const legacyDiagnostics: MobileQualityDiagnosticsData = {
+  ...canonicalDiagnostics,
+  components: [
+    {
+      key: 'fallback-only-days',
+      name: 'usage legacy',
+      status: 'Warning',
+      message: 'legacy usage message',
+      checkedAt: '2026-07-06T09:05:00Z',
+      details: { fallbackSummaryCount: '1' },
+    },
+    {
+      key: 'sync-batch-failures',
+      name: 'sync legacy',
+      status: 'Warning',
+      message: 'legacy sync message',
+      checkedAt: '2026-07-06T09:05:00Z',
+      details: { failedBatchCount: '1' },
+    },
+    {
+      key: 'location-accuracy-rejections',
+      name: 'location legacy',
+      status: 'Warning',
+      message: 'legacy location message',
+      checkedAt: '2026-07-06T09:05:00Z',
+      details: { rejectedLocationCount: '1' },
+    },
+    {
+      key: 'app-metadata-completeness',
+      name: 'metadata legacy',
+      status: 'Warning',
+      message: 'legacy metadata message',
+      checkedAt: '2026-07-06T09:05:00Z',
+      details: { missingAppMetadataCount: '1' },
+    },
+  ],
+};
+
 async function main() {
   const { default: MobileRecordsDashboard } = await import(
     '../../src/client-web/src/components/mobile/MobileRecordsDashboard'
@@ -193,6 +275,9 @@ async function main() {
   );
   const { formatAccuracyLabel } = await import(
     '../../src/client-web/src/pages/HistoricalLocationPage'
+  );
+  const { default: MobileDiagnosticsPanel } = await import(
+    '../../src/client-web/src/components/status/MobileDiagnosticsPanel'
   );
 
   test('mobile records dashboard renders Chinese usage, ranking, sync, quality, and fallback UI', () => {
@@ -360,6 +445,28 @@ async function main() {
     assert.equal(mapSource.includes('Marker'), true);
     assert.equal(mapSource.includes('Polyline'), true);
     assert.equal(mapSource.includes('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'), true);
+  });
+
+  test('mobile diagnostics panel accepts canonical and legacy component keys', () => {
+    const canonicalHtml = renderToStaticMarkup(
+      React.createElement(MobileDiagnosticsPanel, {
+        quality: canonicalDiagnostics,
+      })
+    );
+    const legacyHtml = renderToStaticMarkup(
+      React.createElement(MobileDiagnosticsPanel, {
+        quality: legacyDiagnostics,
+      })
+    );
+
+    assert.equal(canonicalHtml.includes('canonical usage message'), true);
+    assert.equal(canonicalHtml.includes('canonical sync message'), true);
+    assert.equal(canonicalHtml.includes('canonical location message'), true);
+    assert.equal(canonicalHtml.includes('canonical metadata message'), true);
+    assert.equal(legacyHtml.includes('legacy usage message'), true);
+    assert.equal(legacyHtml.includes('legacy sync message'), true);
+    assert.equal(legacyHtml.includes('legacy location message'), true);
+    assert.equal(legacyHtml.includes('legacy metadata message'), true);
   });
 }
 

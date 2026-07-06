@@ -83,12 +83,14 @@ class MobileSyncCoordinator @Inject constructor(
 
         if (!hasToken) {
             logs.warn("mobile-sync", "Skipping sync because auth token is missing.")
-            return state(
+            val authMissing = state(
                 phase = "auth-missing",
                 progressText = "Auth token missing; sync skipped.",
                 lastError = "Auth token missing",
                 lastAttemptedUploadAt = attemptedAt
             )
+            persistState(authMissing)
+            return authMissing
         }
 
         if (!hasUsageAccess) {
@@ -100,6 +102,7 @@ class MobileSyncCoordinator @Inject constructor(
                 lastError = "Usage access permission missing",
                 lastAttemptedUploadAt = attemptedAt
             )
+            persistState(missingPermissionState)
             sendHeartbeat(deviceIdentity.deviceId, serverUrl, false, missingPermissionState)
             return missingPermissionState
         }
@@ -118,6 +121,12 @@ class MobileSyncCoordinator @Inject constructor(
 
             val rangeEndUtc = System.currentTimeMillis()
             val rangeStartUtc = rangeEndUtc - FOURTEEN_DAYS_MS
+            val gapChecking = state(
+                phase = "gap-checking",
+                progressText = "Checking server gaps.",
+                lastAttemptedUploadAt = attemptedAt
+            )
+            persistState(gapChecking)
             val gapResponse = api.getMobileGaps(
                 MobileGapRequest(
                     deviceIdentity.deviceId,
@@ -132,7 +141,29 @@ class MobileSyncCoordinator @Inject constructor(
                 throw IllegalStateException(gapResponse.message.ifBlank { "Gap check failed." })
             }
 
-            val windows = gapData.windows
+            val windows = gapData.windows.mapNotNull { window ->
+                val originalStart = parseIsoMillis(window.windowStartUtc)
+                val originalEnd = parseIsoMillis(window.windowEndUtc)
+                clampGapWindow(
+                    windowStartUtc = originalStart,
+                    windowEndUtc = originalEnd,
+                    maxBackfillStartUtc = parseIsoMillis(gapData.maxBackfillStartUtc),
+                    nowUtc = rangeEndUtc
+                )?.also { clamped ->
+                    if (clamped.windowStartUtc != originalStart || clamped.windowEndUtc != originalEnd) {
+                        logs.warn(
+                            "mobile-sync",
+                            "Clamped server gap window to Android 14-day bounds.",
+                            mapOf(
+                                "originalStartUtc" to window.windowStartUtc,
+                                "originalEndUtc" to window.windowEndUtc,
+                                "clampedStartUtc" to iso(clamped.windowStartUtc),
+                                "clampedEndUtc" to iso(clamped.windowEndUtc)
+                            )
+                        )
+                    }
+                }
+            }
             logs.info(
                 "mobile-sync",
                 "Server gap check returned ${windows.size} windows.",
@@ -145,22 +176,19 @@ class MobileSyncCoordinator @Inject constructor(
                 gapWindowCount = windows.size,
                 lastAttemptedUploadAt = attemptedAt
             )
+            persistState(current)
 
             for (window in windows) {
-                val windowStartUtc = parseIsoMillis(window.windowStartUtc)
-                val windowEndUtc = parseIsoMillis(window.windowEndUtc)
                 logs.info(
                     "mobile-sync",
                     "Collecting usage for server gap window.",
                     mapOf(
-                        "windowStartUtc" to window.windowStartUtc,
-                        "windowEndUtc" to window.windowEndUtc,
-                        "reason" to window.reason,
-                        "sourcePreference" to window.sourcePreference
+                        "windowStartUtc" to iso(window.windowStartUtc),
+                        "windowEndUtc" to iso(window.windowEndUtc)
                     )
                 )
 
-                val collection = usageEventCollector.collectUsage(windowStartUtc, windowEndUtc)
+                val collection = usageEventCollector.collectUsage(window.windowStartUtc, window.windowEndUtc)
                 val eventIds = mobileDataDao.insertUsageEvents(collection.events)
                 val summaryIds = mobileDataDao.insertUsageSummaries(collection.summaries)
                 val packageNames = packageNames(collection.events, collection.summaries)
@@ -171,8 +199,8 @@ class MobileSyncCoordinator @Inject constructor(
 
                 val uploadState = uploadWindow(
                     deviceId = deviceIdentity.deviceId,
-                    windowStartUtc = window.windowStartUtc,
-                    windowEndUtc = window.windowEndUtc,
+                    windowStartUtc = iso(window.windowStartUtc),
+                    windowEndUtc = iso(window.windowEndUtc),
                     events = collection.events,
                     summaries = collection.summaries,
                     apps = appMetadata,
@@ -180,12 +208,33 @@ class MobileSyncCoordinator @Inject constructor(
                     summaryIds = summaryIds
                 )
 
-                current = current.merge(uploadState)
+                val merged = current.merge(uploadState)
+                val hasUploadErrors = merged.failedCount > 0 || merged.lastError != null
+                current = merged.copy(
+                    phase = if (hasUploadErrors) {
+                        "upload-failed"
+                    } else {
+                        "uploading"
+                    },
+                    progressText = if (hasUploadErrors) {
+                        merged.lastError ?: uploadState.progressText
+                    } else {
+                        "Uploading server-requested windows."
+                    },
+                    gapWindowCount = windows.size,
+                    pendingQueueCount = pendingQueueCount(),
+                    lastAttemptedUploadAt = attemptedAt
+                )
+                persistState(current)
             }
 
             val completed = current.copy(
-                phase = "completed",
-                progressText = "Mobile sync completed.",
+                phase = if (current.failedCount == 0) "completed" else "completed-with-errors",
+                progressText = if (current.failedCount == 0) {
+                    "Mobile sync completed."
+                } else {
+                    "Mobile sync completed with upload errors."
+                },
                 pendingQueueCount = pendingQueueCount(),
                 lastSuccessfulUploadAt = if (current.failedCount == 0) nowIso() else current.lastSuccessfulUploadAt
             )
@@ -251,7 +300,7 @@ class MobileSyncCoordinator @Inject constructor(
             return state(
                 phase = "upload-failed",
                 progressText = message,
-                failedCount = events.size + summaries.size,
+                failedCount = maxOf(1, events.size + summaries.size),
                 lastError = message,
                 pendingQueueCount = pendingQueueCount()
             )
@@ -357,6 +406,7 @@ class MobileSyncCoordinator @Inject constructor(
             lastAttemptedUploadAt = attemptedAt
         )
         sendHeartbeat(deviceId, serverUrl, usagePermissionGranted, failed)
+        persistState(failed)
         return failed
     }
 
@@ -496,9 +546,15 @@ class MobileSyncCoordinator @Inject constructor(
             .putInt("failed_count", state.failedCount)
             .putString("last_error", state.lastError)
             .putInt("pending_queue_count", state.pendingQueueCount)
+            .putInt("gap_window_count", state.gapWindowCount)
             .putString("last_attempted_upload_at", state.lastAttemptedUploadAt)
             .putString("last_successful_upload_at", state.lastSuccessfulUploadAt)
-            .apply()
+            .commit()
+    }
+
+    private fun previousSuccessfulUploadAt(): String? {
+        return context.getSharedPreferences("pim_mobile_sync_state", Context.MODE_PRIVATE)
+            .getString("last_successful_upload_at", null)
     }
 
     private fun state(
@@ -525,7 +581,7 @@ class MobileSyncCoordinator @Inject constructor(
             pendingQueueCount = pendingQueueCount,
             gapWindowCount = gapWindowCount,
             lastAttemptedUploadAt = lastAttemptedUploadAt,
-            lastSuccessfulUploadAt = lastSuccessfulUploadAt
+            lastSuccessfulUploadAt = lastSuccessfulUploadAt ?: previousSuccessfulUploadAt()
         )
     }
 
@@ -611,6 +667,30 @@ class MobileSyncCoordinator @Inject constructor(
 
     companion object {
         private const val FOURTEEN_DAYS_MS = 14L * 24L * 60L * 60L * 1000L
+    }
+}
+
+private data class ClampedGapWindow(
+    val windowStartUtc: Long,
+    val windowEndUtc: Long
+)
+
+private fun clampGapWindow(
+    windowStartUtc: Long,
+    windowEndUtc: Long,
+    maxBackfillStartUtc: Long,
+    nowUtc: Long
+): ClampedGapWindow? {
+    val effectiveStart = maxOf(
+        windowStartUtc,
+        maxBackfillStartUtc,
+        nowUtc - 14L * 24L * 60L * 60L * 1000L
+    )
+    val effectiveEnd = minOf(windowEndUtc, nowUtc)
+    return if (effectiveStart < effectiveEnd) {
+        ClampedGapWindow(effectiveStart, effectiveEnd)
+    } else {
+        null
     }
 }
 

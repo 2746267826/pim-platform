@@ -8,6 +8,7 @@ import {
   type CategoryTreeNode,
   type CategorySaveRequest,
 } from '../api/pcTracker';
+import AppKnowledgeTabs from '../components/app-knowledge/AppKnowledgeTabs';
 import PageHeader from '../ui/PageHeader';
 
 function TreeNode({
@@ -184,10 +185,11 @@ export default function CategoryTreePage() {
   };
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
-      <PageHeader title="分类管理" subtitle="管理活动分类树结构" />
+    <div className="space-y-4">
+      <PageHeader title="分类树" subtitle="作为 App 知识库的目标分类结构" />
+      <AppKnowledgeTabs active="categories" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left: Tree */}
         <div className="lg:col-span-2 pim-panel p-4">
           <div className="flex items-center justify-between mb-4">

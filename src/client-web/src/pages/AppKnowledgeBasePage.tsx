@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAppSignatures, createAppSignature, deleteAppSignature } from '../api/appSignatures';
+import AppKnowledgeTabs from '../components/app-knowledge/AppKnowledgeTabs';
 import PageHeader from '../ui/PageHeader';
 
 const productivities = [
@@ -54,8 +55,9 @@ export default function AppKnowledgeBasePage() {
     <div className="space-y-4">
       <PageHeader
         title="App 知识库"
-        subtitle="管理已知应用的名称、分类和图标映射"
+        subtitle="管理应用、域名、标题模式和分类归属知识"
       />
+      <AppKnowledgeTabs active="apps" />
 
       {/* Search + Add toolbar */}
       <div className="flex flex-wrap items-center gap-3">

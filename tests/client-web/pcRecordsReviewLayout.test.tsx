@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import ContextConfirmationPanel from '../../src/client-web/src/components/pc-tracker/ContextConfirmationPanel';
 import PcReviewSummary from '../../src/client-web/src/components/pc-tracker/PcReviewSummary';
 import type { ActivityClassificationSuggestion, PcSummaryResponse } from '../../src/client-web/src/types';
 
@@ -62,3 +63,23 @@ assert.equal(html.includes('记录时长'), true);
 assert.equal(html.includes('主要分类'), true);
 assert.equal(html.includes('待确认上下文'), true);
 assert.equal(html.includes('工作 / 开发'), true);
+assert.equal(html.includes('8h 12m'), true);
+assert.equal(html.includes('5h 40m'), true);
+assert.equal(html.includes('78'), true);
+assert.equal(html.includes('1'), true);
+assert.equal(html.includes('1,690'), true);
+assert.equal(html.includes('Code.exe'), true);
+
+const contextPanelHtml = renderToStaticMarkup(
+  React.createElement(ContextConfirmationPanel, {
+    suggestions: [suggestion],
+    isLoading: false,
+    onPreview: () => undefined,
+    onReject: () => undefined,
+  })
+);
+
+assert.equal(contextPanelHtml.includes('待确认上下文'), true);
+assert.equal(contextPanelHtml.includes('写入 App 知识库'), true);
+assert.equal(contextPanelHtml.includes('旧规则'), false);
+assert.equal(contextPanelHtml.includes('纠错规则'), false);

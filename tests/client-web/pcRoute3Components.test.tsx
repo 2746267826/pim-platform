@@ -280,7 +280,8 @@ const pcTrackerPageSource = fs.readFileSync(
 );
 
 assert.equal(pcTrackerPageSource.includes('ActivityAnalysisHeatmap'), true);
-assert.equal(pcTrackerPageSource.includes('ClassificationActionQueue'), true);
+assert.equal(pcTrackerPageSource.includes('ContextConfirmationPanel'), true);
+assert.equal(pcTrackerPageSource.includes('ClassificationActionQueue'), false);
 assert.equal(pcTrackerPageSource.includes('ClassificationPreviewDialog'), true);
 assert.equal(pcTrackerPageSource.includes('acceptActivityClassificationSuggestion'), false);
 assert.equal(pcTrackerPageSource.includes('ClassificationSuggestionPanel'), false);

@@ -20,11 +20,10 @@ import DailyActivityPanel from '../components/pc-tracker/DailyActivityPanel';
 import KeyboardHeatmap from '../components/pc-tracker/KeyboardHeatmap';
 import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import PcReviewSummary from '../components/pc-tracker/PcReviewSummary';
-import ClassificationActionQueue from '../components/pc-tracker/ClassificationActionQueue';
+import ContextConfirmationPanel from '../components/pc-tracker/ContextConfirmationPanel';
 import ProductivityDashboardPanel from '../components/pc-tracker/ProductivityDashboard';
 import ClassificationPreviewDialog from '../components/pc-tracker/ClassificationPreviewDialog';
 import EventTimelineDialog from '../components/pc-tracker/EventTimelineDialog';
-import MetricCard from '../ui/MetricCard';
 import PageHeader from '../ui/PageHeader';
 import type {
   ActivityClassificationSuggestion,
@@ -223,15 +222,6 @@ export default function PcTrackerPage() {
     applyMutation.mutate({ id: activeSuggestion.id, request, requestId });
   }
 
-  const metrics = [
-    ['记录时长', data?.metrics?.totalRecordedDuration ?? '-'],
-    ['输入时长', data?.metrics?.activeInputDuration ?? '-'],
-    ['空闲时长', data?.metrics?.idleDuration ?? '-'],
-    ['输入总量', ((data?.metrics?.totalKeyPresses ?? 0) + (data?.metrics?.totalClicks ?? 0)).toLocaleString('zh-CN')],
-    ['应用数', data?.metrics?.activeAppCount ?? '-'],
-    ['切换频率', data?.metrics ? data.metrics.switchFrequency.toFixed(1) : '-'],
-  ] as const;
-
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-4 pb-8">
       <PageHeader
@@ -253,29 +243,34 @@ export default function PcTrackerPage() {
 
       <PcReviewSummary summary={data} pendingSuggestions={suggestions} />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
-        <ProductivityDashboardPanel />
-      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,0.9fr)]">
+        <AnalysisCard
+          title="分类时间线"
+          subtitle="按小时分组的甘特图时间线，悬停查看详情"
+          actions={
+            <button
+              type="button"
+              onClick={() => setTimelineDialogOpen(true)}
+              className="pim-button-primary h-8 px-3 text-xs font-medium"
+            >
+              查看详情
+            </button>
+          }
+        >
+          <CategoryTimeline
+            timeline={data?.timeline || []}
+          />
+        </AnalysisCard>
 
-      <AnalysisCard title="分类建议" subtitle="处理高置信度聚类，快速写入纠错规则">
-        <ClassificationActionQueue
+        <ContextConfirmationPanel
           suggestions={suggestions}
           isLoading={suggestionsLoading}
           onPreview={handleCorrectSuggestion}
           onReject={suggestion => rejectMutation.mutate(suggestion.id)}
         />
-      </AnalysisCard>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {metrics.map(([label, value], index) => (
-          <MetricCard
-            key={label}
-            label={label}
-            value={value}
-            tone={index === 3 ? 'activity' : index === 5 ? 'primary' : 'neutral'}
-          />
-        ))}
       </div>
+
+      <ProductivityDashboardPanel />
 
       <AnalysisCard title="活动分析" subtitle="按时间块查看活动强度、切换频率和待分类缺口">
         <ActivityAnalysisHeatmap
@@ -304,24 +299,6 @@ export default function PcTrackerPage() {
       </div>
 
       <div className="space-y-4">
-        <AnalysisCard
-          title="分类时间线"
-          subtitle="按小时分组的甘特图时间线，悬停查看详情"
-          actions={
-            <button
-              type="button"
-              onClick={() => setTimelineDialogOpen(true)}
-              className="pim-button-primary h-8 px-3 text-xs font-medium"
-            >
-              查看详情
-            </button>
-          }
-        >
-          <CategoryTimeline
-            timeline={data?.timeline || []}
-          />
-        </AnalysisCard>
-
         <AnalysisCard title="键盘鼠标热力图" subtitle="108 键键盘、鼠标按键与快捷键统计">
           <KeyboardHeatmap keystats={data?.keystats || null} />
         </AnalysisCard>

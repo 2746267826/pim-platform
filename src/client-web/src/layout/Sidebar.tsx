@@ -10,6 +10,13 @@ import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/Confirm
 export const primaryNavItems = [
   { label: '今日', path: '/today', short: '今' },
   { label: '日历', path: '/calendar', short: '历' },
+  { label: 'Workbench', path: '/workbench', short: 'WB' },
+  { label: 'Confirmations', path: '/confirmations', short: 'CF' },
+  { label: 'Sync', path: '/sync', short: 'SY' },
+  { label: 'Data Center', path: '/data-center', short: 'DC' },
+  { label: 'Reminders', path: '/reminders', short: 'RM' },
+  { label: 'Reports', path: '/reports', short: 'RP' },
+  { label: 'Habits', path: '/habits', short: 'HB' },
   { label: '快速记录', path: '/quick-notes', short: '记' },
   { label: '文件', path: '/files', short: '文' },
   { label: '任务', path: '/tasks', short: '任' },

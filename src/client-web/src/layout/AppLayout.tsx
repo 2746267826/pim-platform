@@ -23,6 +23,13 @@ const FilesPage = lazy(() => import('../pages/FilesPage'));
 const MobileRecordsPage = lazy(() => import('../pages/MobileRecordsPage'));
 const HistoricalLocationPage = lazy(() => import('../pages/HistoricalLocationPage'));
 const QuickNoteFloatingPanel = lazy(() => import('../components/quick-notes/QuickNoteFloatingPanel'));
+const WorkbenchPage = lazy(() => import('../pages/WorkbenchPage'));
+const SyncPage = lazy(() => import('../pages/SyncPage'));
+const DataCenterPage = lazy(() => import('../pages/DataCenterPage'));
+const ConfirmationsPage = lazy(() => import('../pages/ConfirmationsPage'));
+const RemindersPage = lazy(() => import('../pages/RemindersPage'));
+const ReportsPage = lazy(() => import('../pages/ReportsPage'));
+const HabitsPage = lazy(() => import('../pages/HabitsPage'));
 
 function SuspenseFallback() {
   return <div className="h-full" aria-busy="true" />;
@@ -48,6 +55,13 @@ export default function AppLayout() {
             <Routes>
               <Route path="/today" element={<TodayPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/workbench" element={<WorkbenchPage />} />
+              <Route path="/sync" element={<SyncPage />} />
+              <Route path="/data-center" element={<DataCenterPage />} />
+              <Route path="/confirmations" element={<ConfirmationsPage />} />
+              <Route path="/reminders" element={<RemindersPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/habits" element={<HabitsPage />} />
               <Route path="/quick-notes" element={<QuickNotesPage />} />
               <Route path="/files" element={<FilesPage />} />
               <Route path="/timeline" element={<Navigate to="/calendar?view=timeline" replace />} />

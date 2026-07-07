@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
 import {
   calendarApiPaths,
   createOutlookDeviceCode,
@@ -19,6 +21,39 @@ import {
   operationsApiPaths,
   rejectOperation,
 } from '../../src/client-web/src/api/operations';
+
+function source(path: string) {
+  return readFileSync(path, 'utf8');
+}
+
+function assertSourceContains(path: string, snippets: string[]) {
+  const text = source(path);
+
+  for (const snippet of snippets) {
+    assert.ok(text.includes(snippet), `${path} should contain ${snippet}`);
+  }
+}
+
+assertSourceContains('src/client-web/src/layout/AppLayout.tsx', [
+  '/workbench',
+  '/sync',
+  '/data-center',
+  '/confirmations',
+  '/reminders',
+  '/reports',
+  '/habits',
+]);
+assertSourceContains('src/client-web/src/layout/Sidebar.tsx', [
+  '/workbench',
+  '/sync',
+  '/data-center',
+  '/confirmations',
+  '/reminders',
+  '/reports',
+  '/habits',
+]);
+assertSourceContains('src/client-web/src/pages/TodayPage.tsx', ['densityMode']);
+assertSourceContains('src/client-web/src/pages/CalendarPage.tsx', ['task-segments']);
 
 assert.equal(calendarApiPaths.taskSegments('task-1'), '/calendar/tasks/task-1/segments');
 assert.equal(

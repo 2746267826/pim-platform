@@ -7,31 +7,51 @@ import type { DateSelectArg, DatesSetArg, EventClickArg, EventContentArg, EventI
 import { format } from 'date-fns';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { getEvents, getTasks, planTask } from '../api/calendar';
+import { getCalendarLayers, getEvents, getTasks, planTask } from '../api/calendar';
 import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
 import PageHeader from '../ui/PageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
-import type { EventResponse, TaskResponse } from '../types';
+import type { CalendarLayerItem, EventResponse, TaskResponse } from '../types';
 
 type CalendarMode = 'timeline' | 'month';
+type CalendarLayerToggleId = 'events' | 'task-segments' | 'habits' | 'availability' | 'ai-placeholders';
 
 type CalendarDropArg = {
   draggedEl: HTMLElement;
   date: Date;
 };
 
+type CalendarEventProps =
+  | {
+      type: 'event';
+      raw: EventResponse;
+    }
+  | {
+      type: 'task';
+      raw: TaskResponse;
+    }
+  | {
+      type: 'layer';
+      raw: CalendarLayerItem;
+    };
+
 type CalendarEventInput = EventInput & {
-  extendedProps: {
-    type: 'event' | 'task';
-    raw: EventResponse | TaskResponse;
-  };
+  extendedProps: CalendarEventProps;
 };
 
 const CALENDAR_MODE_OPTIONS: Array<{ value: CalendarMode; label: string }> = [
   { value: 'timeline', label: '时间轴' },
   { value: 'month', label: '月视图' },
+];
+
+const CALENDAR_LAYER_OPTIONS: Array<{ value: CalendarLayerToggleId; label: string }> = [
+  { value: 'events', label: 'Events' },
+  { value: 'task-segments', label: 'Task segments' },
+  { value: 'habits', label: 'Habits' },
+  { value: 'availability', label: 'Availability' },
+  { value: 'ai-placeholders', label: 'AI placeholders' },
 ];
 
 export default function CalendarPage() {
@@ -48,6 +68,7 @@ export default function CalendarPage() {
   const [eventDefaultStart, setEventDefaultStart] = useState<string | undefined>();
   const [eventDefaultEnd, setEventDefaultEnd] = useState<string | undefined>();
   const [planTaskError, setPlanTaskError] = useState<string | null>(null);
+  const [enabledLayerIds, setEnabledLayerIds] = useState<CalendarLayerToggleId[]>(['events', 'task-segments']);
   const calendarRef = useRef<FullCalendar>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -85,6 +106,19 @@ export default function CalendarPage() {
     queryFn: () => getTasks(),
   });
 
+  const enabledLayerKey = enabledLayerIds.join(',');
+  const enabledLayerSet = useMemo(() => new Set(enabledLayerIds), [enabledLayerIds]);
+
+  const { data: calendarLayerData } = useQuery({
+    queryKey: ['calendar-layers', visibleRange.start, visibleRange.end, enabledLayerKey],
+    queryFn: () => getCalendarLayers({
+      start: visibleRange.start,
+      end: visibleRange.end,
+      layers: enabledLayerIds,
+    }),
+    refetchInterval: 60_000,
+  });
+
   const { hiddenCalendarIds } = useCalendarVisibility();
   const planTaskMutation = useMutation({
     mutationFn: ({ task, plannedStart }: { task: TaskResponse; plannedStart: string }) =>
@@ -110,9 +144,23 @@ export default function CalendarPage() {
     const visibleEvents = hiddenCalendarIds.size > 0
       ? events.filter(event => !hiddenCalendarIds.has(event.calendarId))
       : events;
+    const layerItems = calendarLayerData?.items ?? [];
 
-    return buildCalendarEvents(visibleEvents, tasks);
-  }, [events, hiddenCalendarIds, tasks]);
+    return buildCalendarEvents(
+      enabledLayerSet.has('events') ? visibleEvents : [],
+      tasks,
+      layerItems,
+      enabledLayerSet,
+    );
+  }, [calendarLayerData?.items, enabledLayerSet, events, hiddenCalendarIds, tasks]);
+
+  function toggleCalendarLayer(layerId: CalendarLayerToggleId) {
+    setEnabledLayerIds(current => (
+      current.includes(layerId)
+        ? current.filter(item => item !== layerId)
+        : [...current, layerId]
+    ));
+  }
 
   function handleModeChange(nextMode: CalendarMode) {
     const currentDate = calendarRef.current?.getApi().getDate() ?? new Date();
@@ -161,6 +209,10 @@ export default function CalendarPage() {
 
   const handleEventClick = useCallback((clickInfo: EventClickArg) => {
     const props = clickInfo.event.extendedProps as CalendarEventInput['extendedProps'];
+
+    if (props.type === 'layer') {
+      return;
+    }
 
     if (props.type === 'task') {
       setEditingTask(props.raw as TaskResponse);
@@ -226,6 +278,29 @@ export default function CalendarPage() {
           />
         }
       />
+
+      <section className="pim-panel flex flex-wrap items-center gap-2 p-3">
+        <span className="mr-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Layers</span>
+        {CALENDAR_LAYER_OPTIONS.map(layer => {
+          const active = enabledLayerSet.has(layer.value);
+
+          return (
+            <button
+              key={layer.value}
+              type="button"
+              onClick={() => toggleCalendarLayer(layer.value)}
+              aria-pressed={active}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                active
+                  ? 'border-blue-200 bg-blue-50 text-blue-700'
+                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              {layer.label}
+            </button>
+          );
+        })}
+      </section>
 
       <section className="calendar-board pim-panel min-h-0 flex-1 overflow-hidden p-3">
         {planTaskError && (
@@ -304,6 +379,24 @@ function formatCalendarTitle(date: Date, mode: CalendarMode): string {
 
 function renderCalendarEvent(arg: EventContentArg) {
   const props = arg.event.extendedProps as CalendarEventInput['extendedProps'];
+  if (props.type === 'layer') {
+    const raw = props.raw;
+    const isTaskSegment = raw.layer === 'task-segments';
+    const toneClass = isTaskSegment
+      ? 'calendar-event--quiet'
+      : raw.requiresConfirmation
+        ? 'calendar-event--warning'
+        : 'calendar-event--primary';
+
+    return (
+      <div className={`calendar-event-card ${toneClass} ${isTaskSegment ? 'pim-calendar-layer-task-segment' : 'pim-calendar-layer'}`}>
+        <span className="calendar-event-dot" />
+        <span className="calendar-event-title">{arg.event.title}</span>
+        {arg.timeText && <span className="calendar-event-time">{arg.timeText}</span>}
+      </div>
+    );
+  }
+
   const isTask = props.type === 'task';
   const raw = props.raw as Partial<TaskResponse & EventResponse>;
   const priority = isTask ? (raw.priority ?? 0) : 0;
@@ -338,7 +431,12 @@ function taskColor(priority: number): string {
   return '#F59E0B';
 }
 
-function buildCalendarEvents(events: EventResponse[], tasks: TaskResponse[]): CalendarEventInput[] {
+function buildCalendarEvents(
+  events: EventResponse[],
+  tasks: TaskResponse[],
+  layerItems: CalendarLayerItem[],
+  enabledLayerSet: Set<CalendarLayerToggleId>,
+): CalendarEventInput[] {
   return [
     ...events.map(event => ({
       id: event.id,
@@ -365,10 +463,28 @@ function buildCalendarEvents(events: EventResponse[], tasks: TaskResponse[]): Ca
         borderColor: color,
         extendedProps: {
           type: 'task' as const,
-          raw: task,
-        },
-      };
+        raw: task,
+      },
+    };
     }),
+    ...layerItems
+      .filter(item => enabledLayerSet.has(item.layer as CalendarLayerToggleId))
+      .filter(item => item.layer !== 'events')
+      .map(item => ({
+        id: `layer-${item.layer}-${item.id}`,
+        title: item.title,
+        start: item.startsAt,
+        end: item.endsAt,
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
+        classNames: item.layer === 'task-segments'
+          ? ['pim-calendar-layer-task-segment']
+          : ['pim-calendar-layer'],
+        extendedProps: {
+          type: 'layer' as const,
+          raw: item,
+        },
+      })),
   ];
 }
 

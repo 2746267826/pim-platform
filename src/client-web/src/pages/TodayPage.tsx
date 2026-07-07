@@ -1,17 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { getOutlookSyncBatches } from '../api/calendar';
+import { getPendingConfirmations } from '../api/operations';
 import { getTodaySectionRegistry } from '../api/today';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
 import PageHeader from '../ui/PageHeader';
 import EmptyState from '../ui/EmptyState';
+import SegmentedControl from '../ui/SegmentedControl';
 import TodaySectionHost, {
   isKnownTodaySectionKind,
   todaySectionOrder,
 } from '../components/today/TodaySectionHost';
 import type { ScheduledItem } from '../components/today/TodayScheduleList';
 import type { EventResponse, TaskResponse, TodaySectionKind, TodaySectionRegistryItem } from '../types';
+
+type DensityMode = 'standard' | 'dense' | 'focus';
+
+const densityModeOptions: Array<{ value: DensityMode; label: string }> = [
+  { value: 'standard', label: 'Standard' },
+  { value: 'dense', label: 'Dense' },
+  { value: 'focus', label: 'Focus' },
+];
 
 function useTodayDate() {
   const [today, setToday] = useState(() => new Date());
@@ -30,6 +41,13 @@ function useTodayDate() {
 
 function errorMessage(error: Error | null) {
   return error?.message || '请稍后重试。';
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return 'Not available';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
 }
 
 function RegistryErrorPanel({ error }: { error: Error | null }) {
@@ -67,6 +85,7 @@ export default function TodayPage() {
   const [editingTask, setEditingTask] = useState<TaskResponse | undefined>();
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventResponse | undefined>();
+  const [densityMode, setDensityMode] = useState<DensityMode>('standard');
 
   const {
     data: registry,
@@ -78,7 +97,25 @@ export default function TodayPage() {
     refetchInterval: 30000,
   });
 
+  const { data: pendingConfirmations = [] } = useQuery({
+    queryKey: ['today-pending-confirmations'],
+    queryFn: getPendingConfirmations,
+    refetchInterval: 30000,
+  });
+
+  const { data: outlookSyncBatches = [] } = useQuery({
+    queryKey: ['today-outlook-sync-batches'],
+    queryFn: getOutlookSyncBatches,
+    refetchInterval: 45000,
+  });
+
   const sections = useMemo(() => sortSections(registry?.sections ?? []), [registry?.sections]);
+  const compactItemLimit = densityMode === 'dense' ? 2 : 3;
+  const sectionGridClassName = densityMode === 'focus'
+    ? 'grid grid-cols-1 gap-4 xl:grid-cols-3'
+    : densityMode === 'dense'
+      ? 'grid grid-cols-1 gap-3 xl:grid-cols-4'
+      : 'grid grid-cols-1 gap-4 xl:grid-cols-4';
 
   function openTask(task: TaskResponse) {
     setEditingTask(task);
@@ -107,6 +144,14 @@ export default function TodayPage() {
       <PageHeader
         title="今日工作台"
         subtitle={`${dateStr} · 安排、PC 活动与待办任务`}
+        beforeActions={
+          <SegmentedControl
+            value={densityMode}
+            options={densityModeOptions}
+            onChange={setDensityMode}
+            ariaLabel="Today density"
+          />
+        }
         actions={
           <button
             type="button"
@@ -123,10 +168,74 @@ export default function TodayPage() {
 
       <RegistryErrorPanel error={registryError} />
 
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+        <section className="pim-panel min-w-0 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-950">Pending Confirmations</h2>
+              <p className="mt-1 text-xs text-slate-500">{pendingConfirmations.length} operations waiting for review</p>
+            </div>
+            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+              {densityMode}
+            </span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {pendingConfirmations.slice(0, compactItemLimit).map(item => (
+              <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 truncate text-sm font-medium text-slate-800">{item.summary}</p>
+                  <span className="shrink-0 text-[11px] font-semibold text-slate-500">{item.riskLevel}</span>
+                </div>
+                {densityMode !== 'focus' && (
+                  <p className="mt-1 truncate text-xs text-slate-500">{item.source} / {item.operationType}</p>
+                )}
+              </div>
+            ))}
+            {pendingConfirmations.length === 0 && (
+              <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-500">
+                No pending confirmations.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section className="pim-panel min-w-0 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-950">Outlook Sync Batches</h2>
+              <p className="mt-1 text-xs text-slate-500">{outlookSyncBatches.length} recent batches</p>
+            </div>
+            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">Outlook</span>
+          </div>
+          <div className="mt-3 space-y-2">
+            {outlookSyncBatches.slice(0, compactItemLimit).map(batch => (
+              <div key={batch.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 truncate text-sm font-medium text-slate-800">{batch.status}</p>
+                  <span className="shrink-0 text-[11px] font-semibold text-slate-500">
+                    {batch.failureCount} errors
+                  </span>
+                </div>
+                {densityMode !== 'focus' && (
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    {batch.provider} / read {batch.readCount} / confirmations {batch.confirmationCount} / {formatDateTime(batch.startedAt)}
+                  </p>
+                )}
+              </div>
+            ))}
+            {outlookSyncBatches.length === 0 && (
+              <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-500">
+                No Outlook sync batches.
+              </p>
+            )}
+          </div>
+        </section>
+      </div>
+
       {registryLoading ? (
         <EmptyState title="正在加载今日区块" description="今日页面会按区块独立加载数据。" />
       ) : (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+        <div className={sectionGridClassName}>
           {sections.map(section => (
             <div key={section.id} className={section.kind === 'pc.activity' ? 'xl:col-span-2' : undefined}>
               <TodaySectionHost

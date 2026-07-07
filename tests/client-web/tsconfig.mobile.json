@@ -8,6 +8,7 @@
   },
   "include": [
     "mobileApiPath.test.ts",
+    "mobileFormatting.test.ts",
     "mobileTypes.test.ts",
     "mobileNavigation.test.tsx",
     "mobileAnalyticsComponents.test.tsx",

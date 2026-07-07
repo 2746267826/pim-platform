@@ -1,5 +1,6 @@
 import { apiDelete, apiGet, apiPost, apiPut } from './client';
 import type { ApiResponse, PimHealthStatus } from '../types';
+import { MOBILE_LIFE_CATEGORY_LABELS } from '../components/mobile/mobileAnalyticsCopy';
 
 type QueryValue = string | number | boolean | null | undefined;
 
@@ -22,24 +23,7 @@ function pathSegment(value: string) {
 
 export const MOBILE_DEFAULT_TIMEZONE = 'Asia/Shanghai';
 
-export const MOBILE_LIFE_CATEGORIES = [
-  '社交沟通',
-  '短视频/娱乐',
-  '游戏',
-  '音乐/音频',
-  '阅读/资讯',
-  '学习',
-  '工作/生产力',
-  '工具/系统',
-  '浏览器/搜索',
-  '出行/地图',
-  '购物/外卖',
-  '金融/支付',
-  '健康/运动',
-  '相机/创作',
-  '生活服务',
-  '未分类',
-] as const;
+export const MOBILE_LIFE_CATEGORIES = MOBILE_LIFE_CATEGORY_LABELS;
 
 export type MobileLifeCategory = (typeof MOBILE_LIFE_CATEGORIES)[number];
 export type MobileAnalyticsGranularity = 'hour' | '30m' | '15m' | 'day';

@@ -72,9 +72,9 @@ export function formatDuration(seconds: number | null | undefined) {
   const safeSeconds = Math.max(0, Math.round(seconds ?? 0));
   const hours = Math.floor(safeSeconds / 3600);
   const minutes = Math.floor((safeSeconds % 3600) / 60);
-  if (hours > 0) return minutes > 0 ? `${hours} 小时 ${minutes} 分钟` : `${hours} 小时`;
-  if (minutes > 0) return `${minutes} 分钟`;
-  return safeSeconds > 0 ? `${safeSeconds} 秒` : '0 分钟';
+  if (hours > 0) return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`;
+  if (minutes > 0) return `${minutes}分钟`;
+  return safeSeconds > 0 ? `${safeSeconds}秒` : '0分钟';
 }
 
 export function formatCompactDuration(seconds: number | null | undefined) {

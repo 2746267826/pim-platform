@@ -13,7 +13,7 @@ const rangeStartUtc = '2026-07-01T16:00:00Z';
 const rangeEndUtc = '2026-07-08T16:00:00Z';
 
 const expectedLifeCategories = [
-  '社交沟通',
+  '社交通讯',
   '短视频/娱乐',
   '游戏',
   '音乐/音频',
@@ -73,11 +73,11 @@ assert.equal(
     rangeStartUtc,
     rangeEndUtc,
     timezone: MOBILE_DEFAULT_TIMEZONE,
-    category: '社交沟通',
+    category: '社交通讯',
     includeSystemNoise: false,
     granularity: '15m',
   }),
-  '/mobile/analytics/heatmap?rangeStartUtc=2026-07-01T16%3A00%3A00Z&rangeEndUtc=2026-07-08T16%3A00%3A00Z&timezone=Asia%2FShanghai&category=%E7%A4%BE%E4%BA%A4%E6%B2%9F%E9%80%9A&includeSystemNoise=false&granularity=15m',
+  '/mobile/analytics/heatmap?rangeStartUtc=2026-07-01T16%3A00%3A00Z&rangeEndUtc=2026-07-08T16%3A00%3A00Z&timezone=Asia%2FShanghai&category=%E7%A4%BE%E4%BA%A4%E9%80%9A%E8%AE%AF&includeSystemNoise=false&granularity=15m',
 );
 assert.equal(
   mobileApiPaths.analyticsTimelineBlocks({

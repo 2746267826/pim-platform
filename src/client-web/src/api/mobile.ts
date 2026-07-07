@@ -286,6 +286,7 @@ export interface MobileLocationBounds {
 }
 
 export interface MobileLocationPathPoint {
+  id?: string | null;
   latitude: number;
   longitude: number;
   recordedAtUtc?: string | null;
@@ -327,7 +328,7 @@ export interface MobileLocationSegment {
   maxAccuracyMeters: number;
   quality: MobileLocationQuality;
   qualityFlags: string[];
-  bounds: MobileLocationBounds;
+  bounds: MobileLocationBounds | null;
   path: MobileLocationPathPoint[];
 }
 
@@ -340,7 +341,7 @@ export interface MobileLocationTrack {
   durationSeconds: number;
   pointCount: number;
   segmentCount: number;
-  bounds: MobileLocationBounds;
+  bounds: MobileLocationBounds | null;
   qualityFlags: string[];
   segments: MobileLocationSegment[];
 }

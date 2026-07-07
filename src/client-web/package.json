@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:today": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/todayApiPath.test.ts && npm --prefix src/client-web exec tsc -- -p tests/client-web/tsconfig.today.json && npm --prefix src/client-web exec tsx -- tests/client-web/todayTypes.test.ts",
-    "test:files": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/filesApiPath.test.ts && npm --prefix src/client-web exec tsc -- -p tests/client-web/tsconfig.files.json && npm --prefix src/client-web exec tsx -- tests/client-web/filesTypes.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/filesLocalization.test.ts"
+    "test:files": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/filesApiPath.test.ts && npm --prefix src/client-web exec tsc -- -p tests/client-web/tsconfig.files.json && npm --prefix src/client-web exec tsx -- tests/client-web/filesTypes.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/filesLocalization.test.ts",
+    "test:schedule-workbench": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchApiPath.test.ts && npm --prefix src/client-web exec tsc -- -p tests/client-web/tsconfig.schedule-workbench.json && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchTypes.test.ts"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",

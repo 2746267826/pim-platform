@@ -2,14 +2,24 @@ import { apiGet, apiPost, apiPut, apiDelete } from './client';
 import type {
   ApiResponse,
   CalendarDeletePreviewResponse,
+  CalendarLayerQueryRequest,
+  CalendarLayerResponse,
   CalendarOperationResult,
   CalendarRecycleBinItem,
   CalendarResponse,
   CalendarRestorePreviewResponse,
+  CreateTaskExecutionSegmentRequest,
+  DataCenterQueryRequest,
+  DataCenterQueryResponse,
   EventResponse,
   ImportReport,
+  OutlookDeviceCodeRequestResponse,
+  OutlookSettingsResponse,
+  OutlookSyncBatchResponse,
   PagedResult,
+  TaskExecutionSegmentResponse,
   TaskResponse,
+  UpdateOutlookSettingsRequest,
 } from '../types';
 
 export type TaskMutationData = {
@@ -46,7 +56,7 @@ export interface GetTasksParams {
   pageSize?: number;
 }
 
-function appendQuery(path: string, params: Record<string, string | number | undefined>) {
+function appendQuery(path: string, params: Record<string, string | number | boolean | undefined>) {
   const searchParams = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) searchParams.set(key, String(value));
@@ -79,6 +89,35 @@ export const calendarApiPaths = {
   },
   taskPlan(id: string) {
     return `/calendar/tasks/${encodeURIComponent(id)}/plan`;
+  },
+  taskSegments(id: string) {
+    return `/calendar/tasks/${encodeURIComponent(id)}/segments`;
+  },
+  taskSegment(taskId: string, segmentId: string) {
+    return `/calendar/tasks/${encodeURIComponent(taskId)}/segments/${encodeURIComponent(segmentId)}`;
+  },
+  calendarLayers(params: CalendarLayerQueryRequest) {
+    return appendQuery('/calendar/layers', {
+      start: params.start,
+      end: params.end,
+      layers: params.layers?.join(','),
+      outlookOnly: params.outlookOnly,
+    });
+  },
+  dataCenterQuery() {
+    return '/calendar/data-center/query';
+  },
+  outlookSettings() {
+    return '/calendar/outlook/settings';
+  },
+  outlookDeviceCode() {
+    return '/calendar/outlook/device-code';
+  },
+  outlookSyncBatches() {
+    return '/calendar/outlook/sync/batches';
+  },
+  outlookSync() {
+    return '/calendar/outlook/sync';
   },
   taskBatchUpdate() {
     return '/calendar/tasks/batch-update';
@@ -235,6 +274,81 @@ export async function planTask(
   data: { plannedStart: string; plannedEnd?: string; estimatedDuration?: string }
 ) {
   const r = await apiPost<ApiResponse<TaskResponse>>(calendarApiPaths.taskPlan(id), data);
+  return r.data;
+}
+
+export async function listTaskExecutionSegments(taskId: string) {
+  const r = await apiGet<ApiResponse<TaskExecutionSegmentResponse[]>>(
+    calendarApiPaths.taskSegments(taskId)
+  );
+  return r.data;
+}
+
+export async function createTaskExecutionSegment(
+  taskId: string,
+  data: CreateTaskExecutionSegmentRequest
+) {
+  const r = await apiPost<ApiResponse<TaskExecutionSegmentResponse>>(
+    calendarApiPaths.taskSegments(taskId),
+    data
+  );
+  return r.data;
+}
+
+export async function deleteTaskExecutionSegment(taskId: string, segmentId: string) {
+  await apiDelete<ApiResponse<string>>(calendarApiPaths.taskSegment(taskId, segmentId));
+}
+
+export async function getCalendarLayers(params: CalendarLayerQueryRequest) {
+  const r = await apiGet<ApiResponse<CalendarLayerResponse>>(
+    calendarApiPaths.calendarLayers(params)
+  );
+  return r.data;
+}
+
+export async function queryDataCenter(data: DataCenterQueryRequest) {
+  const r = await apiPost<ApiResponse<DataCenterQueryResponse>>(
+    calendarApiPaths.dataCenterQuery(),
+    data
+  );
+  return r.data;
+}
+
+export async function getOutlookSettings() {
+  const r = await apiGet<ApiResponse<OutlookSettingsResponse>>(
+    calendarApiPaths.outlookSettings()
+  );
+  return r.data;
+}
+
+export async function updateOutlookSettings(data: UpdateOutlookSettingsRequest) {
+  const r = await apiPut<ApiResponse<OutlookSettingsResponse>>(
+    calendarApiPaths.outlookSettings(),
+    data
+  );
+  return r.data;
+}
+
+export async function createOutlookDeviceCode() {
+  const r = await apiPost<ApiResponse<OutlookDeviceCodeRequestResponse>>(
+    calendarApiPaths.outlookDeviceCode(),
+    {}
+  );
+  return r.data;
+}
+
+export async function runOutlookSync() {
+  const r = await apiPost<ApiResponse<OutlookSyncBatchResponse>>(
+    calendarApiPaths.outlookSync(),
+    {}
+  );
+  return r.data;
+}
+
+export async function getOutlookSyncBatches() {
+  const r = await apiGet<ApiResponse<OutlookSyncBatchResponse[]>>(
+    calendarApiPaths.outlookSyncBatches()
+  );
   return r.data;
 }
 

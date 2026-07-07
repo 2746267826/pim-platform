@@ -58,6 +58,172 @@ export interface TaskResponse {
   isInbox: boolean;
 }
 
+export type CalendarLayerId = 'events' | 'tasks' | 'task-segments';
+
+export type WorkbenchDensityMode = 'focus' | 'comfortable' | 'compact';
+
+export interface CreateTaskExecutionSegmentRequest {
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  source: string;
+  planningReason?: string | null;
+}
+
+export interface TaskExecutionSegmentResponse {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  source: string;
+  planningReason?: string | null;
+  confirmationId?: string | null;
+}
+
+export interface CalendarLayerQueryRequest {
+  start: string;
+  end: string;
+  layers?: Array<CalendarLayerId | string>;
+  outlookOnly?: boolean;
+}
+
+export interface CalendarLayerItem {
+  id: string;
+  layer: CalendarLayerId | string;
+  objectType: string;
+  objectId: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  source: string;
+  status: string;
+  color: string;
+  requiresConfirmation: boolean;
+}
+
+export interface CalendarLayerResponse {
+  start: string;
+  end: string;
+  items: CalendarLayerItem[];
+}
+
+export interface DataCenterQueryRequest {
+  search?: string | null;
+  objectType?: string | null;
+  source?: string | null;
+  pendingOnly: boolean;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface DataCenterItem {
+  objectType: string;
+  objectId: string;
+  title: string;
+  source: string;
+  status: string;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  summary: string;
+}
+
+export interface DataCenterQueryResponse {
+  items: DataCenterItem[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+}
+
+export interface OutlookSettingsResponse {
+  provider: string;
+  tenantId: string;
+  clientId?: string | null;
+  scopes: string;
+  status: string;
+  tokenHealth: string;
+  lastSyncedAt?: string | null;
+  lastError?: string | null;
+}
+
+export interface UpdateOutlookSettingsRequest {
+  tenantId: string;
+  clientId?: string | null;
+  scopes: string;
+}
+
+export interface OutlookDeviceCodeRequestResponse {
+  endpoint: string;
+  verificationUri: string;
+  userCode: string;
+  expiresAt: string;
+  message: string;
+}
+
+export interface OutlookSyncStep {
+  name: string;
+  status: string;
+  detail: string;
+  at: string;
+}
+
+export interface OutlookSyncBatchResponse {
+  id: string;
+  provider: string;
+  status: string;
+  readCount: number;
+  createdCount: number;
+  updatedCount: number;
+  conflictCount: number;
+  confirmationCount: number;
+  failureCount: number;
+  steps: OutlookSyncStep[];
+  errorSummary?: string | null;
+  startedAt: string;
+  finishedAt?: string | null;
+}
+
+export type OperationRiskLevel =
+  | 'Low'
+  | 'Medium'
+  | 'High'
+  | 'L0AutomaticArtifact'
+  | 'L1LowRiskAction'
+  | 'L2PimFactChange'
+  | 'L3ExternalSourceOrWriteback'
+  | 'L4BatchOrDestructiveGovernance';
+
+export type OperationConfirmationStatus =
+  | 'Pending'
+  | 'Confirmed'
+  | 'Rejected'
+  | 'Expired'
+  | 'Executed';
+
+export interface OperationConfirmation {
+  id: string;
+  requestedByUserId?: string | null;
+  operationType: string;
+  summary: string;
+  riskLevel: OperationRiskLevel;
+  source: string;
+  payloadJson: string;
+  previewJson: string;
+  status: OperationConfirmationStatus;
+  expiresAt: string;
+  createdAt: string;
+  confirmedAt?: string | null;
+  executedAt?: string | null;
+  resultJson?: string | null;
+  correlationId?: string | null;
+  changedFields?: string[] | null;
+  allowedActions?: string[] | null;
+  objectType?: string | null;
+  objectId?: string | null;
+  requiresSecondLevelConfirmation: boolean;
+}
+
 export interface PagedResult<T> {
   items: T[];
   page: number;

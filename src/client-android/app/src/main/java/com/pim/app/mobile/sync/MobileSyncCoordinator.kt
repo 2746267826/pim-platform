@@ -193,7 +193,7 @@ class MobileSyncCoordinator @Inject constructor(
                 throw IllegalStateException(gapResponse.message.ifBlank { "服务器缺口查询失败。" })
             }
 
-            val windows = gapData.windows.mapNotNull { window ->
+            val serverWindows = gapData.windows.mapNotNull { window ->
                 val originalStart = parseIsoMillis(window.windowStartUtc)
                 val originalEnd = parseIsoMillis(window.windowEndUtc)
                 clampGapWindow(
@@ -216,10 +216,13 @@ class MobileSyncCoordinator @Inject constructor(
                     }
                 }
             }
+            val windows = serverWindows.flatMap { window ->
+                splitGapWindowForUpload(window.windowStartUtc, window.windowEndUtc)
+            }
             logs.info(
                 "mobile-sync",
-                "服务器返回 ${windows.size} 个待补全窗口。",
-                mapOf("windowCount" to windows.size)
+                "服务器返回 ${serverWindows.size} 个缺口窗口，已拆为 ${windows.size} 个上传窗口。",
+                mapOf("serverWindowCount" to serverWindows.size, "uploadWindowCount" to windows.size)
             )
 
             var current = state(
@@ -375,7 +378,7 @@ class MobileSyncCoordinator @Inject constructor(
         eventIds: List<Long>,
         summaryIds: List<Long>
     ): MobileSyncState {
-        val batchId = "android-${System.currentTimeMillis()}-${windowStartUtc.hashCode()}"
+        val batchId = stableBatchId(deviceId, windowStartUtc, windowEndUtc)
         val request = MobileUsageEventsUploadRequest(
             deviceId,
             batchId,
@@ -837,6 +840,10 @@ class MobileSyncCoordinator @Inject constructor(
         return bytes.joinToString("") { "%02x".format(Locale.US, it) }
     }
 
+    private fun stableBatchId(deviceId: String, windowStartUtc: String, windowEndUtc: String): String {
+        return "android-${sha256("$deviceId|$windowStartUtc|$windowEndUtc").take(24)}"
+    }
+
     private data class DeviceIdentity(
         val deviceId: String,
         val androidIdHash: String?
@@ -848,7 +855,14 @@ class MobileSyncCoordinator @Inject constructor(
     }
 }
 
+private const val MAX_UPLOAD_WINDOW_MS = 2L * 60L * 60L * 1000L
+
 private data class ClampedGapWindow(
+    val windowStartUtc: Long,
+    val windowEndUtc: Long
+)
+
+data class UploadWindow(
     val windowStartUtc: Long,
     val windowEndUtc: Long
 )
@@ -870,6 +884,25 @@ private fun clampGapWindow(
     } else {
         null
     }
+}
+
+fun splitGapWindowForUpload(
+    windowStartUtc: Long,
+    windowEndUtc: Long
+): List<UploadWindow> {
+    if (windowStartUtc >= windowEndUtc) {
+        return emptyList()
+    }
+
+    val windows = mutableListOf<UploadWindow>()
+    var start = windowStartUtc
+    while (start < windowEndUtc) {
+        val end = minOf(start + MAX_UPLOAD_WINDOW_MS, windowEndUtc)
+        windows.add(UploadWindow(start, end))
+        start = end
+    }
+
+    return windows
 }
 
 private fun MobileIngestResponse.toState(

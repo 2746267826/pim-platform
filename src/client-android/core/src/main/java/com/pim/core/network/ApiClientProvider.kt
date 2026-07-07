@@ -93,6 +93,8 @@ class ApiClientProvider @Inject constructor(
 
     companion object {
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
-        private val refreshOkHttpClient = OkHttpClient.Builder().build()
+        private val refreshOkHttpClient = OkHttpClient.Builder()
+            .applyPimApiTimeouts()
+            .build()
     }
 }

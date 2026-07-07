@@ -6,6 +6,7 @@ import com.pim.core.models.RefreshRequest
 import com.pim.core.network.ApiClientProvider
 import com.pim.core.network.ApiService
 import com.pim.core.network.AuthInterceptor
+import com.pim.core.network.applyPimApiTimeouts
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -36,6 +37,7 @@ object CoreModule {
         apiClientProvider: dagger.Lazy<ApiClientProvider>
     ): OkHttpClient {
         return OkHttpClient.Builder()
+            .applyPimApiTimeouts()
             .addInterceptor(AuthInterceptor(tokenManager) {
                 val refreshToken = tokenManager.getRefreshToken()
                 if (refreshToken.isNullOrBlank()) {

@@ -21,6 +21,22 @@ function mutationError(error: unknown) {
   return error instanceof Error ? error.message : 'Request failed';
 }
 
+export const outlookSyncInvalidationKeys = [
+  ['outlook-settings'],
+  ['workbench-outlook-settings'],
+  ['outlook-sync-batches'],
+  ['workbench-outlook-sync-batches'],
+  ['today-outlook-sync-batches'],
+  ['pending-confirmations'],
+  ['workbench-pending-confirmations'],
+  ['today-pending-confirmations'],
+  ['workbench-calendar-layers'],
+  ['calendar-layers'],
+  ['today-sections'],
+  ['today-section'],
+  ['data-center-query'],
+] as const;
+
 export default function SyncPage() {
   const queryClient = useQueryClient();
   const [tenantId, setTenantId] = useState('common');
@@ -60,9 +76,9 @@ export default function SyncPage() {
   const syncMutation = useMutation({
     mutationFn: runOutlookSync,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['outlook-sync-batches'] });
-      queryClient.invalidateQueries({ queryKey: ['workbench-outlook-sync-batches'] });
-      queryClient.invalidateQueries({ queryKey: ['workbench-calendar-layers'] });
+      for (const queryKey of outlookSyncInvalidationKeys) {
+        queryClient.invalidateQueries({ queryKey });
+      }
     },
   });
 

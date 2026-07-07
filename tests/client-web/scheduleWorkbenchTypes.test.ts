@@ -14,7 +14,12 @@ import type {
 
 const riskLevel: OperationRiskLevel = 'L3ExternalSourceOrWriteback';
 const layerId: CalendarLayerId = 'task-segments';
+const habitLayerId: CalendarLayerId = 'habits';
+const availabilityLayerId: CalendarLayerId = 'availability';
+const aiPlaceholderLayerId: CalendarLayerId = 'ai-placeholders';
 const densityMode: WorkbenchDensityMode = 'focus';
+const denseDensityMode: WorkbenchDensityMode = 'dense';
+const standardDensityMode: WorkbenchDensityMode = 'standard';
 
 const taskSegment: TaskExecutionSegmentResponse = {
   id: 'segment-1',
@@ -133,7 +138,12 @@ const confirmation: OperationConfirmation = {
 
 assert.equal(riskLevel, 'L3ExternalSourceOrWriteback');
 assert.equal(layerId, 'task-segments');
+assert.equal(habitLayerId, 'habits');
+assert.equal(availabilityLayerId, 'availability');
+assert.equal(aiPlaceholderLayerId, 'ai-placeholders');
 assert.equal(densityMode, 'focus');
+assert.equal(denseDensityMode, 'dense');
+assert.equal(standardDensityMode, 'standard');
 
 void calendarLayers;
 void dataCenterQuery;

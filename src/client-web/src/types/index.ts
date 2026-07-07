@@ -58,9 +58,9 @@ export interface TaskResponse {
   isInbox: boolean;
 }
 
-export type CalendarLayerId = 'events' | 'tasks' | 'task-segments';
+export type CalendarLayerId = 'events' | 'tasks' | 'task-segments' | 'habits' | 'availability' | 'ai-placeholders';
 
-export type WorkbenchDensityMode = 'focus' | 'comfortable' | 'compact';
+export type WorkbenchDensityMode = 'standard' | 'dense' | 'focus';
 
 export interface CreateTaskExecutionSegmentRequest {
   startsAt: string;

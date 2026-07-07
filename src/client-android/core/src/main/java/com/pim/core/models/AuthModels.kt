@@ -1,7 +1,9 @@
 package com.pim.core.models
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
 
 @Serializable
 data class ApiResponse<T>(
@@ -16,7 +18,10 @@ data class AuthResponse(
     val accessToken: String,
     val refreshToken: String,
     val expiresAt: String,
-    val userInfo: UserInfo
+    @OptIn(ExperimentalSerializationApi::class)
+    @SerialName("user")
+    @JsonNames("userInfo")
+    val userInfo: UserInfo? = null
 )
 
 @Serializable

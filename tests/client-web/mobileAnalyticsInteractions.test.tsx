@@ -375,9 +375,14 @@ test('mobile records page integrates analytics queries and bucket-driven shared 
     'MOBILE_DEFAULT_TIMEZONE',
     'handleHeatmapBucketSelect',
     'bucket.bucketStartUtc',
+    'onCategorySelect={handleChartCategorySelect}',
+    'onAppSelect={handleChartAppSelect}',
     'displayNameOverride: rule.displayNameOverride ?? null',
     'isSystemNoise: rule.isSystemNoise ?? null',
   ]) {
     assert.equal(source.includes(text), true, `MobileRecordsPage should include: ${text}`);
   }
+
+  assert.equal(source.includes('setSelectedBucketRange({ startUtc: bucket.bucketStartUtc, endUtc: bucket.bucketEndUtc })'), false);
+  assert.equal(source.includes('setRangeStartDate(bucket.localDate)'), false);
 });

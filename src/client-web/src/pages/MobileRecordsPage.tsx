@@ -230,6 +230,16 @@ export default function MobileRecordsPage() {
     setExpandedSessionId(null);
   }
 
+  function handleChartCategorySelect(category: string) {
+    setSelectedCategory(category);
+    setSelectedBucketStartUtc(null);
+  }
+
+  function handleChartAppSelect(packageNameValue: string) {
+    setPackageName(packageNameValue);
+    setSelectedBucketStartUtc(null);
+  }
+
   function refresh() {
     void Promise.all([
       devicesQuery.refetch(),
@@ -299,7 +309,12 @@ export default function MobileRecordsPage() {
           />
           <MobileUsageBucketDetail cell={selectedHeatmapCell} />
         </section>
-        <MobileChartsGrid charts={chartsQuery.data ?? []} isLoading={chartsQuery.isLoading} />
+        <MobileChartsGrid
+          charts={chartsQuery.data ?? []}
+          isLoading={chartsQuery.isLoading}
+          onCategorySelect={handleChartCategorySelect}
+          onAppSelect={handleChartAppSelect}
+        />
         <div className="mx-auto grid max-w-[1500px] grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
           <div className="min-w-0 space-y-4">
             <MobileTimelineBlocks

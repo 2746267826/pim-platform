@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -70,6 +71,8 @@ import com.pim.app.location.LocationCaptureState
 import com.pim.app.location.LocationSnapshot
 import com.pim.app.location.LocationSubmissionPolicy
 import com.pim.app.mobile.logs.StructuredLogRepository
+import com.pim.app.mobile.sync.MobileSyncCoordinator
+import com.pim.app.mobile.sync.MobileSyncState
 import com.pim.core.auth.TokenManager
 import com.pim.core.models.LoginRequest
 import com.pim.core.network.ApiClientProvider
@@ -80,6 +83,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -156,7 +160,8 @@ fun PimAppScaffold(
                         uiState = uiState,
                         usagePermissionGranted = hasUsageAccess(context),
                         preciseLocationGranted = hasFineLocationPermission(context),
-                        onRefresh = statusViewModel::refresh
+                        onRefresh = statusViewModel::refresh,
+                        onSyncNow = statusViewModel::syncNow
                     )
                     PimTab.Usage -> UsageTab(context)
                     PimTab.Location -> LocationTab(
@@ -191,7 +196,8 @@ private fun StatusTab(
     uiState: MobileUiState,
     usagePermissionGranted: Boolean,
     preciseLocationGranted: Boolean,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onSyncNow: () -> Unit
 ) {
     Section(title = "运行状态") {
         StatusRow("Android 客户端", "已打开")
@@ -204,24 +210,40 @@ private fun StatusTab(
         StatusRow("后台保活", "未启用")
         StatusRow("定位", if (locationState.isCapturing) "采集中" else "待机")
         StatusRow("定位提交", locationState.submitStatus)
-        OutlinedButton(onClick = onRefresh) {
-            Icon(Icons.Filled.Refresh, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("刷新状态")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = onRefresh) {
+                Icon(Icons.Filled.Refresh, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("刷新状态")
+            }
+            Button(onClick = onSyncNow, enabled = !uiState.isSyncInProgress) {
+                Icon(Icons.Filled.Send, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (uiState.isSyncInProgress) "同步中" else "立即同步")
+            }
         }
     }
 
     Section(title = "同步与传输") {
-        StatusRow("阶段", uiState.phase)
-        StatusRow("进度", uiState.progressText)
+        StatusRow("阶段", phaseLabel(uiState.phase))
+        StatusRow("状态", if (uiState.isSyncInProgress) "进行中" else "空闲")
+        StatusRow("进度", localizedProgress(uiState.progressText))
+        StatusRow("服务器窗口", windowProgress(uiState))
+        StatusRow("当前窗口", currentWindowLabel(uiState))
+        StatusRow("本次采集", "事件 ${uiState.currentEventCount} / 汇总 ${uiState.currentSummaryCount} / App ${uiState.currentAppMetadataCount}")
+        StatusRow("最近批次", batchLabel(uiState))
+        StatusRow("心跳", uiState.heartbeatStatus ?: "暂无")
         StatusRow("已接收", uiState.acceptedCount.toString())
         StatusRow("已跳过", uiState.skippedCount.toString())
         StatusRow("已拒绝", uiState.rejectedCount.toString())
         StatusRow("失败", uiState.failedCount.toString())
+        StatusRow("待上传", "事件 ${uiState.pendingUsageEventCount} / 汇总 ${uiState.pendingUsageSummaryCount} / App ${uiState.pendingAppMetadataCount} / 定位 ${uiState.pendingLocationPointCount}")
+        StatusRow("本地诊断队列", "日志 ${uiState.pendingLogCount} / 设备 ${uiState.pendingDeviceProfileCount} / 批次 ${uiState.pendingSyncBatchCount}")
         StatusRow("待传队列", uiState.pendingQueueCount.toString())
         StatusRow("最近尝试", uiState.lastAttemptedUploadAt ?: "无")
         StatusRow("最近成功", uiState.lastSuccessfulUploadAt ?: "无")
         StatusRow("最近错误", uiState.lastError ?: "无")
+        StatusRow("详细错误", uiState.lastErrorDetail ?: "无")
     }
 
     Section(title = "最近日志") {
@@ -229,7 +251,7 @@ private fun StatusTab(
             Text("暂无日志。")
         } else {
             uiState.recentLogs.forEach { log ->
-                StatusRow("${log.level}/${log.tag}", "${formatTime(log.occurredAtUtc)}  ${log.message}")
+                StatusRow("${log.level}/${log.tag}", logDisplayMessage(log))
             }
         }
     }
@@ -450,8 +472,10 @@ private fun StatusRow(label: String, value: String) {
         Spacer(Modifier.width(16.dp))
         Text(
             text = value,
+            modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.End
         )
     }
 }
@@ -478,14 +502,33 @@ data class MobileUiState(
     val serverUrl: String = ServerSettingsStore.DEFAULT_BASE_URL,
     val appVersion: String = "未知",
     val isLoggedIn: Boolean = false,
-    val phase: String = "等待同步",
+    val phase: String = "waiting",
     val progressText: String = "打开 App 后会自动同步一次。",
+    val isSyncInProgress: Boolean = false,
     val acceptedCount: Int = 0,
     val skippedCount: Int = 0,
     val rejectedCount: Int = 0,
     val failedCount: Int = 0,
     val lastError: String? = null,
+    val lastErrorDetail: String? = null,
     val pendingQueueCount: Int = 0,
+    val pendingUsageEventCount: Int = 0,
+    val pendingUsageSummaryCount: Int = 0,
+    val pendingAppMetadataCount: Int = 0,
+    val pendingLocationPointCount: Int = 0,
+    val pendingSyncBatchCount: Int = 0,
+    val pendingLogCount: Int = 0,
+    val pendingDeviceProfileCount: Int = 0,
+    val gapWindowCount: Int = 0,
+    val currentWindowIndex: Int = 0,
+    val currentWindowStartUtc: String? = null,
+    val currentWindowEndUtc: String? = null,
+    val currentEventCount: Int = 0,
+    val currentSummaryCount: Int = 0,
+    val currentAppMetadataCount: Int = 0,
+    val lastBatchId: String? = null,
+    val lastBatchStatus: String? = null,
+    val heartbeatStatus: String? = null,
     val lastAttemptedUploadAt: String? = null,
     val lastSuccessfulUploadAt: String? = null,
     val recentLogs: List<MobileLogLine> = emptyList(),
@@ -497,8 +540,22 @@ data class MobileLogLine(
     val level: String,
     val tag: String,
     val message: String,
+    val throwablePreview: String?,
     val occurredAtUtc: Long
 )
+
+private data class PendingQueueCounts(
+    val usageEvents: Int,
+    val usageSummaries: Int,
+    val appMetadata: Int,
+    val locations: Int,
+    val syncBatches: Int,
+    val logs: Int,
+    val deviceProfiles: Int
+) {
+    val uploadable: Int
+        get() = usageEvents + usageSummaries + appMetadata + locations
+}
 
 @HiltViewModel
 class MobileStatusViewModel @Inject constructor(
@@ -507,9 +564,9 @@ class MobileStatusViewModel @Inject constructor(
     private val apiClientProvider: ApiClientProvider,
     private val serverSettingsStore: ServerSettingsStore,
     private val database: AppDatabase,
-    private val logs: StructuredLogRepository
+    private val logs: StructuredLogRepository,
+    private val mobileSyncCoordinator: MobileSyncCoordinator
 ) : ViewModel() {
-    private val prefs = context.getSharedPreferences("pim_mobile_sync_state", Context.MODE_PRIVATE)
     private val mobileDataDao = database.mobileDataDao()
 
     private val _state = MutableStateFlow(MobileUiState())
@@ -517,6 +574,45 @@ class MobileStatusViewModel @Inject constructor(
 
     init {
         refresh()
+        viewModelScope.launch {
+            mobileSyncCoordinator.currentState.collect { syncState ->
+                _state.update { current -> current.copyFromSync(syncState) }
+            }
+        }
+        viewModelScope.launch {
+            combine(
+                mobileDataDao.pendingUsageEventCount(),
+                mobileDataDao.pendingUsageSummaryCount(),
+                mobileDataDao.pendingAppMetadataCount(),
+                mobileDataDao.pendingLocationPointCount(),
+                mobileDataDao.pendingSyncBatchCount(),
+                mobileDataDao.pendingLogCount(),
+                mobileDataDao.pendingDeviceProfileCount()
+            ) { counts ->
+                PendingQueueCounts(
+                    usageEvents = counts[0],
+                    usageSummaries = counts[1],
+                    appMetadata = counts[2],
+                    locations = counts[3],
+                    syncBatches = counts[4],
+                    logs = counts[5],
+                    deviceProfiles = counts[6]
+                )
+            }.collect { counts ->
+                _state.update { current ->
+                    current.copy(
+                        pendingQueueCount = counts.uploadable,
+                        pendingUsageEventCount = counts.usageEvents,
+                        pendingUsageSummaryCount = counts.usageSummaries,
+                        pendingAppMetadataCount = counts.appMetadata,
+                        pendingLocationPointCount = counts.locations,
+                        pendingSyncBatchCount = counts.syncBatches,
+                        pendingLogCount = counts.logs,
+                        pendingDeviceProfileCount = counts.deviceProfiles
+                    )
+                }
+            }
+        }
         viewModelScope.launch {
             mobileDataDao.recentLogs().collect { logs ->
                 _state.update { current -> current.copy(recentLogs = logs.map { it.toLine() }) }
@@ -526,22 +622,21 @@ class MobileStatusViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            val pending = pendingQueueCount()
+            mobileSyncCoordinator.refreshPersistedState()
+            val pending = pendingQueueCounts()
             _state.update { current ->
                 current.copy(
                     serverUrl = serverSettingsStore.getBaseUrl(),
                     appVersion = appVersionDisplay(),
                     isLoggedIn = !tokenManager.getAccessToken().isNullOrBlank(),
-                    phase = prefs.getString("phase", null) ?: current.phase,
-                    progressText = prefs.getString("progress_text", null) ?: current.progressText,
-                    acceptedCount = prefs.getInt("accepted_count", current.acceptedCount),
-                    skippedCount = prefs.getInt("skipped_count", current.skippedCount),
-                    rejectedCount = prefs.getInt("rejected_count", current.rejectedCount),
-                    failedCount = prefs.getInt("failed_count", current.failedCount),
-                    lastError = prefs.getString("last_error", current.lastError),
-                    lastAttemptedUploadAt = prefs.getString("last_attempted_upload_at", current.lastAttemptedUploadAt),
-                    lastSuccessfulUploadAt = prefs.getString("last_successful_upload_at", current.lastSuccessfulUploadAt),
-                    pendingQueueCount = pending
+                    pendingQueueCount = pending.uploadable,
+                    pendingUsageEventCount = pending.usageEvents,
+                    pendingUsageSummaryCount = pending.usageSummaries,
+                    pendingAppMetadataCount = pending.appMetadata,
+                    pendingLocationPointCount = pending.locations,
+                    pendingSyncBatchCount = pending.syncBatches,
+                    pendingLogCount = pending.logs,
+                    pendingDeviceProfileCount = pending.deviceProfiles
                 )
             }
         }
@@ -549,7 +644,19 @@ class MobileStatusViewModel @Inject constructor(
 
     fun saveServerUrl(value: String) {
         val normalized = serverSettingsStore.setBaseUrl(value)
-        _state.update { it.copy(serverUrl = normalized) }
+        _state.update {
+            it.copy(
+                serverUrl = normalized,
+                phase = "server-updated",
+                progressText = "服务器地址已保存，请重新同步。",
+                lastError = null,
+                lastErrorDetail = null
+            )
+        }
+    }
+
+    fun syncNow() {
+        startSync("正在手动同步手机数据。")
     }
 
     fun login(username: String, password: String) {
@@ -573,9 +680,10 @@ class MobileStatusViewModel @Inject constructor(
                         it.copy(
                             isLoggedIn = true,
                             isLoginInProgress = false,
-                            loginStatus = "登录成功，已保存令牌。"
+                            loginStatus = "登录成功，正在同步手机数据。"
                         )
                     }
+                    startSync("登录成功，正在同步手机数据。")
                 },
                 onFailure = { error ->
                     val failureMessage = error.toCauseChainMessage()
@@ -605,14 +713,64 @@ class MobileStatusViewModel @Inject constructor(
         }
     }
 
-    private suspend fun pendingQueueCount(): Int {
-        return mobileDataDao.pendingUsageEventCount().first() +
-            mobileDataDao.pendingUsageSummaryCount().first() +
-            mobileDataDao.pendingAppMetadataCount().first() +
-            mobileDataDao.pendingLocationPointCount().first() +
-            mobileDataDao.pendingSyncBatchCount().first() +
-            mobileDataDao.pendingLogCount().first() +
-            mobileDataDao.pendingDeviceProfileCount().first()
+    private fun startSync(statusMessage: String) {
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    isLoggedIn = !tokenManager.getAccessToken().isNullOrBlank(),
+                    loginStatus = statusMessage
+                )
+            }
+
+            val syncState = mobileSyncCoordinator.syncOnOpen()
+            _state.update { current ->
+                current.copy(
+                    isLoggedIn = !tokenManager.getAccessToken().isNullOrBlank(),
+                    loginStatus = syncResultMessage(syncState),
+                    serverUrl = serverSettingsStore.getBaseUrl(),
+                    appVersion = appVersionDisplay()
+                ).copyFromSync(syncState)
+            }
+        }
+    }
+
+    private suspend fun pendingQueueCounts(): PendingQueueCounts {
+        return PendingQueueCounts(
+            usageEvents = mobileDataDao.pendingUsageEventCount().first(),
+            usageSummaries = mobileDataDao.pendingUsageSummaryCount().first(),
+            appMetadata = mobileDataDao.pendingAppMetadataCount().first(),
+            locations = mobileDataDao.pendingLocationPointCount().first(),
+            syncBatches = mobileDataDao.pendingSyncBatchCount().first(),
+            logs = mobileDataDao.pendingLogCount().first(),
+            deviceProfiles = mobileDataDao.pendingDeviceProfileCount().first()
+        )
+    }
+
+    private fun MobileUiState.copyFromSync(sync: MobileSyncState): MobileUiState {
+        return copy(
+            phase = sync.phase,
+            progressText = sync.progressText,
+            isSyncInProgress = sync.isInProgress,
+            acceptedCount = sync.acceptedCount,
+            skippedCount = sync.skippedCount,
+            rejectedCount = sync.rejectedCount,
+            failedCount = sync.failedCount,
+            lastError = sync.lastError,
+            lastErrorDetail = sync.lastErrorDetail,
+            pendingQueueCount = sync.pendingQueueCount,
+            gapWindowCount = sync.gapWindowCount,
+            currentWindowIndex = sync.currentWindowIndex,
+            currentWindowStartUtc = sync.currentWindowStartUtc,
+            currentWindowEndUtc = sync.currentWindowEndUtc,
+            currentEventCount = sync.currentEventCount,
+            currentSummaryCount = sync.currentSummaryCount,
+            currentAppMetadataCount = sync.currentAppMetadataCount,
+            lastBatchId = sync.lastBatchId,
+            lastBatchStatus = sync.lastBatchStatus,
+            heartbeatStatus = sync.heartbeatStatus,
+            lastAttemptedUploadAt = sync.lastAttemptedUploadAt,
+            lastSuccessfulUploadAt = sync.lastSuccessfulUploadAt
+        )
     }
 
     private fun MobileLogEntity.toLine(): MobileLogLine {
@@ -620,6 +778,7 @@ class MobileStatusViewModel @Inject constructor(
             level = level,
             tag = tag ?: "mobile",
             message = message,
+            throwablePreview = throwable?.lineSequence()?.firstOrNull(),
             occurredAtUtc = occurredAtUtc
         )
     }
@@ -660,6 +819,86 @@ private enum class PimTab(
     Usage("使用", Icons.Filled.Security),
     Location("定位", Icons.Filled.LocationOn),
     Settings("设置", Icons.Filled.Settings)
+}
+
+private fun phaseLabel(phase: String): String {
+    return when (phase) {
+        "waiting" -> "等待同步"
+        "server-updated" -> "服务器已更新"
+        "server-missing" -> "缺少服务器"
+        "auth-missing" -> "缺少登录"
+        "usage-permission-missing" -> "缺少使用权限"
+        "preparing" -> "准备中"
+        "gap-checking" -> "查询缺口"
+        "collecting" -> "采集中"
+        "uploading" -> "上传中"
+        "uploaded" -> "已上传"
+        "upload-failed" -> "上传失败"
+        "completed" -> "已完成"
+        "completed-with-errors" -> "完成但有错误"
+        "failed" -> "失败"
+        else -> phase
+    }
+}
+
+private fun localizedProgress(progress: String): String {
+    return when (progress) {
+        "Auth token missing; sync skipped." -> "缺少登录令牌，已跳过同步。请登录后重新同步。"
+        "Usage access is missing; sync skipped." -> "缺少应用使用情况权限，已跳过同步。"
+        "Checking server gaps." -> "正在询问服务器缺失时间窗。"
+        "Collecting server-requested windows." -> "正在采集服务器要求补全的窗口。"
+        "Uploading server-requested windows." -> "正在上传服务器要求补全的窗口。"
+        "Mobile sync completed." -> "手机同步已完成。"
+        "Mobile sync completed with upload errors." -> "手机同步已完成，但部分上传失败。"
+        "Mobile sync failed." -> "手机同步失败。"
+        "Usage batch uploaded." -> "使用记录批次已上传。"
+        else -> progress
+    }
+}
+
+private fun windowProgress(state: MobileUiState): String {
+    return if (state.gapWindowCount > 0) {
+        "第 ${state.currentWindowIndex.coerceAtLeast(0)} / ${state.gapWindowCount} 个"
+    } else {
+        "无待补全窗口"
+    }
+}
+
+private fun currentWindowLabel(state: MobileUiState): String {
+    val start = state.currentWindowStartUtc
+    val end = state.currentWindowEndUtc
+    return if (start.isNullOrBlank() || end.isNullOrBlank()) {
+        "无"
+    } else {
+        "$start 到 $end"
+    }
+}
+
+private fun batchLabel(state: MobileUiState): String {
+    val batchId = state.lastBatchId ?: return "无"
+    val status = state.lastBatchStatus ?: "未知"
+    return "${batchId.takeLast(18)} / $status"
+}
+
+private fun logDisplayMessage(log: MobileLogLine): String {
+    val throwable = log.throwablePreview
+    return if (throwable.isNullOrBlank()) {
+        "${formatTime(log.occurredAtUtc)}  ${log.message}"
+    } else {
+        "${formatTime(log.occurredAtUtc)}  ${log.message}\n$throwable"
+    }
+}
+
+private fun syncResultMessage(sync: MobileSyncState): String {
+    return when (sync.phase) {
+        "completed" -> "同步完成。"
+        "completed-with-errors" -> "同步完成，但有部分错误。"
+        "auth-missing" -> "请先登录后再同步。"
+        "usage-permission-missing" -> "请先授权应用使用情况权限。"
+        "server-missing" -> "请先配置服务器地址。"
+        "failed" -> "同步失败：${sync.lastErrorDetail ?: sync.lastError ?: "未知错误"}"
+        else -> "同步结束：${phaseLabel(sync.phase)}"
+    }
 }
 
 private fun hasUsageAccess(context: Context): Boolean {

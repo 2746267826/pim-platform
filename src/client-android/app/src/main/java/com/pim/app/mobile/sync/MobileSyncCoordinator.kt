@@ -25,8 +25,13 @@ import com.pim.core.models.MobileUsageEventsUploadRequest
 import com.pim.core.models.MobileUsageSummaryDto
 import com.pim.core.network.ApiService
 import com.pim.core.settings.ServerSettingsStore
+import com.pim.core.util.toCauseChainMessage
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
 import org.json.JSONObject
 import java.net.URI
 import java.security.MessageDigest
@@ -38,13 +43,24 @@ import javax.inject.Singleton
 data class MobileSyncState(
     val phase: String,
     val progressText: String,
+    val isInProgress: Boolean = false,
     val acceptedCount: Int = 0,
     val skippedCount: Int = 0,
     val rejectedCount: Int = 0,
     val failedCount: Int = 0,
     val lastError: String? = null,
+    val lastErrorDetail: String? = null,
     val pendingQueueCount: Int = 0,
     val gapWindowCount: Int = 0,
+    val currentWindowIndex: Int = 0,
+    val currentWindowStartUtc: String? = null,
+    val currentWindowEndUtc: String? = null,
+    val currentEventCount: Int = 0,
+    val currentSummaryCount: Int = 0,
+    val currentAppMetadataCount: Int = 0,
+    val lastBatchId: String? = null,
+    val lastBatchStatus: String? = null,
+    val heartbeatStatus: String? = null,
     val lastAttemptedUploadAt: String? = null,
     val lastSuccessfulUploadAt: String? = null
 )
@@ -62,8 +78,33 @@ class MobileSyncCoordinator @Inject constructor(
     private val serverSettingsStore: ServerSettingsStore
 ) {
     private val mobileDataDao = database.mobileDataDao()
+    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val syncMutex = Mutex()
+    private val _state = MutableStateFlow(readPersistedState())
+    val currentState: StateFlow<MobileSyncState> = _state.asStateFlow()
 
     suspend fun syncOnOpen(): MobileSyncState {
+        if (!syncMutex.tryLock()) {
+            val running = _state.value.copy(
+                isInProgress = true,
+                progressText = "同步正在进行中。"
+            )
+            persistState(running)
+            return running
+        }
+
+        return try {
+            runSyncOnOpen()
+        } finally {
+            syncMutex.unlock()
+        }
+    }
+
+    fun refreshPersistedState() {
+        _state.value = readPersistedState()
+    }
+
+    private suspend fun runSyncOnOpen(): MobileSyncState {
         val attemptedAt = nowIso()
         val serverUrl = configuredServerUrl()
         val deviceIdentity = deviceIdentity()
@@ -77,16 +118,16 @@ class MobileSyncCoordinator @Inject constructor(
                 usagePermissionGranted = hasUsageAccess,
                 attemptedAt = attemptedAt,
                 phase = "server-missing",
-                message = "Server URL is not configured."
+                message = "服务器地址未配置，已跳过同步。"
             )
         }
 
         if (!hasToken) {
-            logs.warn("mobile-sync", "Skipping sync because auth token is missing.")
+            logs.warn("mobile-sync", "缺少登录令牌，已跳过同步。")
             val authMissing = state(
                 phase = "auth-missing",
-                progressText = "Auth token missing; sync skipped.",
-                lastError = "Auth token missing",
+                progressText = "缺少登录令牌，已跳过同步。请登录后重新同步。",
+                lastError = "缺少登录令牌",
                 lastAttemptedUploadAt = attemptedAt
             )
             persistState(authMissing)
@@ -94,12 +135,12 @@ class MobileSyncCoordinator @Inject constructor(
         }
 
         if (!hasUsageAccess) {
-            logs.warn("mobile-sync", "Skipping usage sync because usage access is missing.")
+            logs.warn("mobile-sync", "缺少应用使用情况权限，已跳过使用记录同步。")
             val missingPermissionState = state(
                 phase = "usage-permission-missing",
-                progressText = "Usage access is missing; sync skipped.",
+                progressText = "缺少应用使用情况权限，已跳过同步。",
                 skippedCount = 1,
-                lastError = "Usage access permission missing",
+                lastError = "缺少应用使用情况权限",
                 lastAttemptedUploadAt = attemptedAt
             )
             persistState(missingPermissionState)
@@ -110,9 +151,18 @@ class MobileSyncCoordinator @Inject constructor(
         return try {
             logs.info(
                 "mobile-sync",
-                "Starting mobile sync on app open.",
+                "开始执行打开 App 后的手机同步。",
                 mapOf("deviceId" to deviceIdentity.deviceId, "serverUrl" to serverUrl)
             )
+
+            val preparing = state(
+                phase = "preparing",
+                progressText = "正在注册设备并准备同步。",
+                isInProgress = true,
+                pendingQueueCount = pendingQueueCount(),
+                lastAttemptedUploadAt = attemptedAt
+            )
+            persistState(preparing)
 
             val profile = buildDeviceProfile(deviceIdentity, nowUtc = System.currentTimeMillis())
             mobileDataDao.upsertDeviceProfile(profile)
@@ -123,7 +173,9 @@ class MobileSyncCoordinator @Inject constructor(
             val rangeStartUtc = rangeEndUtc - FOURTEEN_DAYS_MS
             val gapChecking = state(
                 phase = "gap-checking",
-                progressText = "Checking server gaps.",
+                progressText = "正在询问服务器缺失时间窗。",
+                isInProgress = true,
+                pendingQueueCount = pendingQueueCount(),
                 lastAttemptedUploadAt = attemptedAt
             )
             persistState(gapChecking)
@@ -138,7 +190,7 @@ class MobileSyncCoordinator @Inject constructor(
 
             val gapData = gapResponse.data
             if (gapResponse.code != 0 || gapData == null) {
-                throw IllegalStateException(gapResponse.message.ifBlank { "Gap check failed." })
+                throw IllegalStateException(gapResponse.message.ifBlank { "服务器缺口查询失败。" })
             }
 
             val windows = gapData.windows.mapNotNull { window ->
@@ -153,7 +205,7 @@ class MobileSyncCoordinator @Inject constructor(
                     if (clamped.windowStartUtc != originalStart || clamped.windowEndUtc != originalEnd) {
                         logs.warn(
                             "mobile-sync",
-                            "Clamped server gap window to Android 14-day bounds.",
+                            "服务器缺口窗口已按 Android 14 天补全上限裁剪。",
                             mapOf(
                                 "originalStartUtc" to window.windowStartUtc,
                                 "originalEndUtc" to window.windowEndUtc,
@@ -166,25 +218,42 @@ class MobileSyncCoordinator @Inject constructor(
             }
             logs.info(
                 "mobile-sync",
-                "Server gap check returned ${windows.size} windows.",
+                "服务器返回 ${windows.size} 个待补全窗口。",
                 mapOf("windowCount" to windows.size)
             )
 
             var current = state(
                 phase = "collecting",
-                progressText = "Collecting server-requested windows.",
+                progressText = "正在采集服务器要求补全的窗口。",
+                isInProgress = true,
                 gapWindowCount = windows.size,
+                pendingQueueCount = pendingQueueCount(),
                 lastAttemptedUploadAt = attemptedAt
             )
             persistState(current)
 
-            for (window in windows) {
+            for ((index, window) in windows.withIndex()) {
+                val windowStartUtc = iso(window.windowStartUtc)
+                val windowEndUtc = iso(window.windowEndUtc)
+                current = current.copy(
+                    phase = "collecting",
+                    progressText = "正在采集第 ${index + 1}/${windows.size} 个窗口。",
+                    isInProgress = true,
+                    currentWindowIndex = index + 1,
+                    currentWindowStartUtc = windowStartUtc,
+                    currentWindowEndUtc = windowEndUtc,
+                    gapWindowCount = windows.size,
+                    pendingQueueCount = pendingQueueCount(),
+                    lastAttemptedUploadAt = attemptedAt
+                )
+                persistState(current)
+
                 logs.info(
                     "mobile-sync",
-                    "Collecting usage for server gap window.",
+                    "正在采集服务器缺口窗口的使用记录。",
                     mapOf(
-                        "windowStartUtc" to iso(window.windowStartUtc),
-                        "windowEndUtc" to iso(window.windowEndUtc)
+                        "windowStartUtc" to windowStartUtc,
+                        "windowEndUtc" to windowEndUtc
                     )
                 )
 
@@ -197,10 +266,25 @@ class MobileSyncCoordinator @Inject constructor(
                     mobileDataDao.upsertAppMetadata(appMetadata)
                 }
 
+                current = current.copy(
+                    phase = "uploading",
+                    progressText = "正在上传第 ${index + 1}/${windows.size} 个窗口。",
+                    isInProgress = true,
+                    currentWindowIndex = index + 1,
+                    currentWindowStartUtc = windowStartUtc,
+                    currentWindowEndUtc = windowEndUtc,
+                    currentEventCount = collection.events.size,
+                    currentSummaryCount = collection.summaries.size,
+                    currentAppMetadataCount = appMetadata.size,
+                    pendingQueueCount = pendingQueueCount(),
+                    lastAttemptedUploadAt = attemptedAt
+                )
+                persistState(current)
+
                 val uploadState = uploadWindow(
                     deviceId = deviceIdentity.deviceId,
-                    windowStartUtc = iso(window.windowStartUtc),
-                    windowEndUtc = iso(window.windowEndUtc),
+                    windowStartUtc = windowStartUtc,
+                    windowEndUtc = windowEndUtc,
                     events = collection.events,
                     summaries = collection.summaries,
                     apps = appMetadata,
@@ -219,9 +303,18 @@ class MobileSyncCoordinator @Inject constructor(
                     progressText = if (hasUploadErrors) {
                         merged.lastError ?: uploadState.progressText
                     } else {
-                        "Uploading server-requested windows."
+                        "第 ${index + 1}/${windows.size} 个窗口上传完成。"
                     },
+                    isInProgress = true,
                     gapWindowCount = windows.size,
+                    currentWindowIndex = index + 1,
+                    currentWindowStartUtc = windowStartUtc,
+                    currentWindowEndUtc = windowEndUtc,
+                    currentEventCount = collection.events.size,
+                    currentSummaryCount = collection.summaries.size,
+                    currentAppMetadataCount = appMetadata.size,
+                    lastBatchId = uploadState.lastBatchId,
+                    lastBatchStatus = uploadState.lastBatchStatus,
                     pendingQueueCount = pendingQueueCount(),
                     lastAttemptedUploadAt = attemptedAt
                 )
@@ -231,10 +324,11 @@ class MobileSyncCoordinator @Inject constructor(
             val completed = current.copy(
                 phase = if (current.failedCount == 0) "completed" else "completed-with-errors",
                 progressText = if (current.failedCount == 0) {
-                    "Mobile sync completed."
+                    "手机同步已完成。"
                 } else {
-                    "Mobile sync completed with upload errors."
+                    "手机同步已完成，但部分上传失败。"
                 },
+                isInProgress = false,
                 pendingQueueCount = pendingQueueCount(),
                 lastSuccessfulUploadAt = if (current.failedCount == 0) nowIso() else current.lastSuccessfulUploadAt
             )
@@ -242,7 +336,7 @@ class MobileSyncCoordinator @Inject constructor(
             sendHeartbeat(deviceIdentity.deviceId, serverUrl, true, completed)
             logs.info(
                 "mobile-sync",
-                "Mobile sync completed.",
+                "手机同步已完成。",
                 mapOf(
                     "acceptedCount" to completed.acceptedCount,
                     "skippedCount" to completed.skippedCount,
@@ -252,15 +346,19 @@ class MobileSyncCoordinator @Inject constructor(
             )
             completed
         } catch (ex: Exception) {
-            val failed = state(
+            val previous = _state.value
+            val detail = ex.toCauseChainMessage()
+            val failed = previous.copy(
                 phase = "failed",
-                progressText = "Mobile sync failed.",
-                failedCount = 1,
+                progressText = "手机同步失败。",
+                isInProgress = false,
+                failedCount = maxOf(1, previous.failedCount),
                 lastError = ex.message ?: ex::class.java.simpleName,
+                lastErrorDetail = detail,
                 pendingQueueCount = pendingQueueCount(),
                 lastAttemptedUploadAt = attemptedAt
             )
-            logs.error("mobile-sync", "Mobile sync failed.", ex)
+            logs.error("mobile-sync", "手机同步失败：$detail", ex)
             persistState(failed)
             sendHeartbeat(deviceIdentity.deviceId, serverUrl, true, failed)
             failed
@@ -277,9 +375,10 @@ class MobileSyncCoordinator @Inject constructor(
         eventIds: List<Long>,
         summaryIds: List<Long>
     ): MobileSyncState {
+        val batchId = "android-${System.currentTimeMillis()}-${windowStartUtc.hashCode()}"
         val request = MobileUsageEventsUploadRequest(
             deviceId,
-            "android-${System.currentTimeMillis()}-${windowStartUtc.hashCode()}",
+            batchId,
             windowStartUtc,
             windowEndUtc,
             apps.map { it.toDto() },
@@ -302,6 +401,14 @@ class MobileSyncCoordinator @Inject constructor(
                 progressText = message,
                 failedCount = maxOf(1, events.size + summaries.size),
                 lastError = message,
+                lastErrorDetail = message,
+                currentWindowStartUtc = windowStartUtc,
+                currentWindowEndUtc = windowEndUtc,
+                currentEventCount = events.size,
+                currentSummaryCount = summaries.size,
+                currentAppMetadataCount = apps.size,
+                lastBatchId = batchId,
+                lastBatchStatus = "failed",
                 pendingQueueCount = pendingQueueCount()
             )
         }
@@ -309,7 +416,7 @@ class MobileSyncCoordinator @Inject constructor(
         markUsageSynced(eventIds, summaryIds, apps)
         logs.info(
             "mobile-sync",
-            "Uploaded usage window.",
+            "使用记录窗口已上传。",
             mapOf(
                 "windowStartUtc" to windowStartUtc,
                 "windowEndUtc" to windowEndUtc,
@@ -320,7 +427,14 @@ class MobileSyncCoordinator @Inject constructor(
             )
         )
 
-        return ingest.toState()
+        return ingest.toState(
+            batchId = batchId,
+            windowStartUtc = windowStartUtc,
+            windowEndUtc = windowEndUtc,
+            eventCount = events.size,
+            summaryCount = summaries.size,
+            appMetadataCount = apps.size
+        )
     }
 
     private suspend fun registerDevice(
@@ -351,7 +465,7 @@ class MobileSyncCoordinator @Inject constructor(
             throw IllegalStateException(message)
         }
 
-        logs.info("mobile-sync", "Registered Android device.", mapOf("deviceId" to identity.deviceId))
+        logs.info("mobile-sync", "Android 设备已注册。", mapOf("deviceId" to identity.deviceId))
     }
 
     private suspend fun markUsageSynced(
@@ -402,6 +516,7 @@ class MobileSyncCoordinator @Inject constructor(
             phase = phase,
             progressText = message,
             lastError = message,
+            lastErrorDetail = message,
             pendingQueueCount = pendingQueueCount(),
             lastAttemptedUploadAt = attemptedAt
         )
@@ -418,9 +533,12 @@ class MobileSyncCoordinator @Inject constructor(
     ) {
         try {
             heartbeatReporter.report(deviceId, serverUrl, usagePermissionGranted, state)
-            logs.info("mobile-heartbeat", "Reported Android heartbeat.", mapOf("phase" to state.phase))
+            persistState(state.copy(heartbeatStatus = "心跳上报成功"))
+            logs.info("mobile-heartbeat", "Android 心跳已上报。", mapOf("phase" to state.phase))
         } catch (ex: Exception) {
-            logs.error("mobile-heartbeat", "Android heartbeat failed.", ex)
+            val detail = ex.toCauseChainMessage()
+            persistState(state.copy(heartbeatStatus = "心跳上报失败", lastErrorDetail = detail))
+            logs.error("mobile-heartbeat", "Android 心跳上报失败：$detail", ex)
         }
     }
 
@@ -536,50 +654,109 @@ class MobileSyncCoordinator @Inject constructor(
     }
 
     private fun persistState(state: MobileSyncState) {
-        context.getSharedPreferences("pim_mobile_sync_state", Context.MODE_PRIVATE)
-            .edit()
+        prefs.edit()
             .putString("phase", state.phase)
             .putString("progress_text", state.progressText)
+            .putBoolean("is_in_progress", state.isInProgress)
             .putInt("accepted_count", state.acceptedCount)
             .putInt("skipped_count", state.skippedCount)
             .putInt("rejected_count", state.rejectedCount)
             .putInt("failed_count", state.failedCount)
             .putString("last_error", state.lastError)
+            .putString("last_error_detail", state.lastErrorDetail)
             .putInt("pending_queue_count", state.pendingQueueCount)
             .putInt("gap_window_count", state.gapWindowCount)
+            .putInt("current_window_index", state.currentWindowIndex)
+            .putString("current_window_start_utc", state.currentWindowStartUtc)
+            .putString("current_window_end_utc", state.currentWindowEndUtc)
+            .putInt("current_event_count", state.currentEventCount)
+            .putInt("current_summary_count", state.currentSummaryCount)
+            .putInt("current_app_metadata_count", state.currentAppMetadataCount)
+            .putString("last_batch_id", state.lastBatchId)
+            .putString("last_batch_status", state.lastBatchStatus)
+            .putString("heartbeat_status", state.heartbeatStatus)
             .putString("last_attempted_upload_at", state.lastAttemptedUploadAt)
             .putString("last_successful_upload_at", state.lastSuccessfulUploadAt)
             .commit()
+        _state.value = state
+    }
+
+    private fun readPersistedState(): MobileSyncState {
+        return MobileSyncState(
+            phase = prefs.getString("phase", null) ?: "waiting",
+            progressText = prefs.getString("progress_text", null) ?: "打开 App 后会自动同步一次。",
+            isInProgress = prefs.getBoolean("is_in_progress", false),
+            acceptedCount = prefs.getInt("accepted_count", 0),
+            skippedCount = prefs.getInt("skipped_count", 0),
+            rejectedCount = prefs.getInt("rejected_count", 0),
+            failedCount = prefs.getInt("failed_count", 0),
+            lastError = prefs.getString("last_error", null),
+            lastErrorDetail = prefs.getString("last_error_detail", null),
+            pendingQueueCount = prefs.getInt("pending_queue_count", 0),
+            gapWindowCount = prefs.getInt("gap_window_count", 0),
+            currentWindowIndex = prefs.getInt("current_window_index", 0),
+            currentWindowStartUtc = prefs.getString("current_window_start_utc", null),
+            currentWindowEndUtc = prefs.getString("current_window_end_utc", null),
+            currentEventCount = prefs.getInt("current_event_count", 0),
+            currentSummaryCount = prefs.getInt("current_summary_count", 0),
+            currentAppMetadataCount = prefs.getInt("current_app_metadata_count", 0),
+            lastBatchId = prefs.getString("last_batch_id", null),
+            lastBatchStatus = prefs.getString("last_batch_status", null),
+            heartbeatStatus = prefs.getString("heartbeat_status", null),
+            lastAttemptedUploadAt = prefs.getString("last_attempted_upload_at", null),
+            lastSuccessfulUploadAt = prefs.getString("last_successful_upload_at", null)
+        )
     }
 
     private fun previousSuccessfulUploadAt(): String? {
-        return context.getSharedPreferences("pim_mobile_sync_state", Context.MODE_PRIVATE)
-            .getString("last_successful_upload_at", null)
+        return prefs.getString("last_successful_upload_at", null)
     }
 
     private fun state(
         phase: String,
         progressText: String,
+        isInProgress: Boolean = false,
         acceptedCount: Int = 0,
         skippedCount: Int = 0,
         rejectedCount: Int = 0,
         failedCount: Int = 0,
         lastError: String? = null,
+        lastErrorDetail: String? = null,
         pendingQueueCount: Int = 0,
         gapWindowCount: Int = 0,
+        currentWindowIndex: Int = 0,
+        currentWindowStartUtc: String? = null,
+        currentWindowEndUtc: String? = null,
+        currentEventCount: Int = 0,
+        currentSummaryCount: Int = 0,
+        currentAppMetadataCount: Int = 0,
+        lastBatchId: String? = null,
+        lastBatchStatus: String? = null,
+        heartbeatStatus: String? = null,
         lastAttemptedUploadAt: String? = null,
         lastSuccessfulUploadAt: String? = null
     ): MobileSyncState {
         return MobileSyncState(
             phase = phase,
             progressText = progressText,
+            isInProgress = isInProgress,
             acceptedCount = acceptedCount,
             skippedCount = skippedCount,
             rejectedCount = rejectedCount,
             failedCount = failedCount,
             lastError = lastError,
+            lastErrorDetail = lastErrorDetail,
             pendingQueueCount = pendingQueueCount,
             gapWindowCount = gapWindowCount,
+            currentWindowIndex = currentWindowIndex,
+            currentWindowStartUtc = currentWindowStartUtc,
+            currentWindowEndUtc = currentWindowEndUtc,
+            currentEventCount = currentEventCount,
+            currentSummaryCount = currentSummaryCount,
+            currentAppMetadataCount = currentAppMetadataCount,
+            lastBatchId = lastBatchId,
+            lastBatchStatus = lastBatchStatus,
+            heartbeatStatus = heartbeatStatus,
             lastAttemptedUploadAt = lastAttemptedUploadAt,
             lastSuccessfulUploadAt = lastSuccessfulUploadAt ?: previousSuccessfulUploadAt()
         )
@@ -667,6 +844,7 @@ class MobileSyncCoordinator @Inject constructor(
 
     companion object {
         private const val FOURTEEN_DAYS_MS = 14L * 24L * 60L * 60L * 1000L
+        private const val PREFS_NAME = "pim_mobile_sync_state"
     }
 }
 
@@ -694,14 +872,28 @@ private fun clampGapWindow(
     }
 }
 
-private fun MobileIngestResponse.toState(): MobileSyncState {
+private fun MobileIngestResponse.toState(
+    batchId: String,
+    windowStartUtc: String,
+    windowEndUtc: String,
+    eventCount: Int,
+    summaryCount: Int,
+    appMetadataCount: Int
+): MobileSyncState {
     return MobileSyncState(
         phase = "uploaded",
-        progressText = "Usage batch uploaded.",
+        progressText = "使用记录批次已上传。",
         acceptedCount = acceptedCount,
         skippedCount = skippedCount,
         rejectedCount = rejectedCount,
-        failedCount = failedCount
+        failedCount = failedCount,
+        currentWindowStartUtc = windowStartUtc,
+        currentWindowEndUtc = windowEndUtc,
+        currentEventCount = eventCount,
+        currentSummaryCount = summaryCount,
+        currentAppMetadataCount = appMetadataCount,
+        lastBatchId = batchId,
+        lastBatchStatus = if (failedCount == 0) "completed" else "completed-with-errors"
     )
 }
 
@@ -711,7 +903,10 @@ private fun MobileSyncState.merge(other: MobileSyncState): MobileSyncState {
         skippedCount = skippedCount + other.skippedCount,
         rejectedCount = rejectedCount + other.rejectedCount,
         failedCount = failedCount + other.failedCount,
-        lastError = other.lastError ?: lastError
+        lastError = other.lastError ?: lastError,
+        lastErrorDetail = other.lastErrorDetail ?: lastErrorDetail,
+        lastBatchId = other.lastBatchId ?: lastBatchId,
+        lastBatchStatus = other.lastBatchStatus ?: lastBatchStatus
     )
 }
 

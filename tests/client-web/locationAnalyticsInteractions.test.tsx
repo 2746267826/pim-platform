@@ -204,6 +204,11 @@ test('historical location dashboard controls emit range, segment, and raw point 
     target: { value: '2026-07-03' },
   });
 
+  const endDateInput = findElement(tree, node => node.props?.['aria-label'] === '结束日期');
+  (endDateInput.props?.onChange as (event: { target: { value: string } }) => void)({
+    target: { value: '2026-07-09' },
+  });
+
   const includeRejectedToggle = findElement(tree, node => node.props?.['aria-label'] === '隐藏已拒绝点');
   (includeRejectedToggle.props?.onChange as (event: { target: { checked: boolean } }) => void)({
     target: { checked: false },
@@ -226,7 +231,10 @@ test('historical location dashboard controls emit range, segment, and raw point 
   (pointButton.props?.onClick as () => void)();
 
   assert.deepEqual(shortcutChanges, ['30d']);
-  assert.deepEqual(customRangeChanges, [{ startDate: '2026-07-03', endDate: '2026-07-08' }]);
+  assert.deepEqual(customRangeChanges, [
+    { startDate: '2026-07-03', endDate: '2026-07-08' },
+    { startDate: '2026-07-02', endDate: '2026-07-09' },
+  ]);
   assert.deepEqual(includeRejectedChanges, [true]);
   assert.deepEqual(segmentSelections, ['segment-move-1']);
   assert.deepEqual(pointSelections, ['point-1']);

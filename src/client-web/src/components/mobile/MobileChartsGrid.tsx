@@ -38,7 +38,14 @@ export default function MobileChartsGrid({
                     : null;
                 const content = (
                   <>
-                    <span className="truncate text-slate-600">{point.label}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-slate-600">{point.label}</span>
+                      {point.packageName && (
+                        <span className="mt-0.5 block truncate font-mono text-[11px] text-slate-400">
+                          {point.packageName}
+                        </span>
+                      )}
+                    </span>
                     <span className="h-3 overflow-hidden rounded bg-slate-100">
                       <span className="block h-full rounded bg-teal-500" style={{ width }} />
                     </span>

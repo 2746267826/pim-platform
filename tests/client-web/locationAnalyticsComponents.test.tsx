@@ -197,6 +197,7 @@ test('historical location dashboard renders accepted Chinese workbench baseline'
 
   assert.equal(html.includes('定位点列表'), false);
   assert.equal(html.includes('选中点详情'), false);
+  assert.equal(html.includes('aria-label="结束日期"'), true);
 });
 
 test('historical location map renders segment layers and marker styles', () => {

@@ -130,13 +130,22 @@ export default function HistoricalLocationDashboard({
 
           <label className="min-w-0 text-sm">
             <span className="mb-1 block text-xs font-semibold text-slate-500">范围</span>
-            <input
-              aria-label="开始日期"
-              type="date"
-              value={rangeStartDate}
-              onChange={event => onCustomRangeChange({ startDate: event.target.value, endDate: rangeEndDate })}
-              className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-700"
-            />
+            <span className="grid grid-cols-2 gap-2">
+              <input
+                aria-label="开始日期"
+                type="date"
+                value={rangeStartDate}
+                onChange={event => onCustomRangeChange({ startDate: event.target.value, endDate: rangeEndDate })}
+                className="h-9 min-w-0 rounded-md border border-slate-200 px-2 text-sm text-slate-700"
+              />
+              <input
+                aria-label="结束日期"
+                type="date"
+                value={rangeEndDate}
+                onChange={event => onCustomRangeChange({ startDate: rangeStartDate, endDate: event.target.value })}
+                className="h-9 min-w-0 rounded-md border border-slate-200 px-2 text-sm text-slate-700"
+              />
+            </span>
           </label>
 
           <label className="min-w-0 text-sm">

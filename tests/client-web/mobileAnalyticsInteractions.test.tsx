@@ -148,6 +148,9 @@ test('header shortcut and custom controls call shared range callbacks', () => {
   const thirtyDayButton = findElement(tree, node => textContent(node) === '30天');
   (thirtyDayButton.props?.onClick as () => void)();
 
+  const customButton = findElement(tree, node => textContent(node) === '自定义');
+  (customButton.props?.onClick as () => void)();
+
   const startDateInput = findElement(tree, node => node.props?.['aria-label'] === '开始日期');
   (startDateInput.props?.onChange as (event: { target: { value: string } }) => void)({
     target: { value: '2026-07-03' },
@@ -159,7 +162,10 @@ test('header shortcut and custom controls call shared range callbacks', () => {
   });
 
   assert.deepEqual(shortcutChanges, ['30d']);
-  assert.deepEqual(customChanges, [{ startDate: '2026-07-03', endDate: '2026-07-07' }]);
+  assert.deepEqual(customChanges, [
+    { startDate: '2026-07-01', endDate: '2026-07-07' },
+    { startDate: '2026-07-03', endDate: '2026-07-07' },
+  ]);
   assert.deepEqual(includeSystemNoiseChanges, [true]);
 });
 

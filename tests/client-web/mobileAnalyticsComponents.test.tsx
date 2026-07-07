@@ -365,6 +365,7 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
     assert.equal(html.includes(text), true, `analytics UI should include: ${text}`);
   }
 
+  assert.equal(html.includes('com.tencent.mm'), true, 'Top App 行应保留包名作为二级诊断信息');
   assert.equal(html.includes('深夜使用偏高'), true);
   assert.equal(html.includes('抖音'), true);
   assert.equal(html.includes('原始事件'), true);

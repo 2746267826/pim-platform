@@ -75,11 +75,16 @@ export default function MobileAnalyticsHeader({
                 </button>
               );
             })}
-            <span className={`flex min-w-16 items-center justify-center rounded px-3 text-sm font-medium ${
-              rangeShortcut === 'custom' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500'
-            }`}>
+            <button
+              type="button"
+              onClick={() => onCustomRangeChange({ startDate: rangeStartDate, endDate: rangeEndDate })}
+              className={`min-w-16 rounded px-3 text-sm font-medium ${
+                rangeShortcut === 'custom' ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-500 hover:bg-white'
+              }`}
+              aria-pressed={rangeShortcut === 'custom'}
+            >
               自定义
-            </span>
+            </button>
             </div>
             <span className="flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700">
               北京时间

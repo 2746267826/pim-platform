@@ -28,7 +28,9 @@ import MobileAppCatalogManager from '../components/mobile/MobileAppCatalogManage
 import MobileChartsGrid from '../components/mobile/MobileChartsGrid';
 import MobileInsightStrip from '../components/mobile/MobileInsightStrip';
 import MobileTimelineBlocks from '../components/mobile/MobileTimelineBlocks';
+import MobileUsageBucketDetail from '../components/mobile/MobileUsageBucketDetail';
 import MobileUsageHeatmap, { type MobileHeatmapGranularity } from '../components/mobile/MobileUsageHeatmap';
+import { buildHeatmapMatrix } from '../components/mobile/mobileHeatmapMatrix';
 import {
   buildMobileAnalyticsDateRange,
   toMobileAnalyticsUtcRange,
@@ -63,7 +65,6 @@ export default function MobileRecordsPage() {
   const [includeSystemNoise, setIncludeSystemNoise] = useState(false);
   const [granularity, setGranularity] = useState<MobileHeatmapGranularity>('hour');
   const [selectedBucketStartUtc, setSelectedBucketStartUtc] = useState<string | null>(null);
-  const [selectedBucketRange, setSelectedBucketRange] = useState<{ startUtc: string; endUtc: string } | null>(null);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
 
@@ -73,8 +74,8 @@ export default function MobileRecordsPage() {
   );
 
   const analyticsQuery = useMemo<MobileAnalyticsQuery>(() => ({
-    rangeStartUtc: selectedBucketRange?.startUtc ?? utcRange.rangeStartUtc,
-    rangeEndUtc: selectedBucketRange?.endUtc ?? utcRange.rangeEndUtc,
+    rangeStartUtc: utcRange.rangeStartUtc,
+    rangeEndUtc: utcRange.rangeEndUtc,
     timezone: MOBILE_DEFAULT_TIMEZONE,
     deviceId: selectedDeviceId || null,
     category: selectedCategory || null,
@@ -84,7 +85,6 @@ export default function MobileRecordsPage() {
   }), [
     includeSystemNoise,
     packageName,
-    selectedBucketRange,
     selectedCategory,
     selectedDeviceId,
     utcRange.rangeEndUtc,
@@ -191,6 +191,17 @@ export default function MobileRecordsPage() {
 
   const timelineBlocks = timelineBlocksQuery.data?.pages.flatMap(page => page.items) ?? [];
   const lastTimelinePage = timelineBlocksQuery.data?.pages.at(-1);
+  const heatmapMatrix = useMemo(
+    () => buildHeatmapMatrix(heatmapQuery.data ?? []),
+    [heatmapQuery.data],
+  );
+  const selectedHeatmapCell = useMemo(
+    () => heatmapMatrix.days
+      .flatMap(day => day.cells)
+      .find(cell => cell.bucketStartUtc === selectedBucketStartUtc)
+      ?? null,
+    [heatmapMatrix, selectedBucketStartUtc],
+  );
   const sessionsByBlock = expandedBlockId && sessionsQuery.data
     ? { [expandedBlockId]: sessionsQuery.data }
     : {};
@@ -204,7 +215,6 @@ export default function MobileRecordsPage() {
     setRangeStartDate(nextRange.startDate);
     setRangeEndDate(nextRange.endDate);
     setSelectedBucketStartUtc(null);
-    setSelectedBucketRange(null);
   }
 
   function handleCustomRangeChange(range: { startDate: string; endDate: string }) {
@@ -212,16 +222,10 @@ export default function MobileRecordsPage() {
     setRangeStartDate(range.startDate);
     setRangeEndDate(range.endDate);
     setSelectedBucketStartUtc(null);
-    setSelectedBucketRange(null);
   }
 
   function handleHeatmapBucketSelect(bucket: MobileHeatmapBucket) {
-    setRangeShortcut('custom');
-    setRangeStartDate(bucket.localDate);
-    setRangeEndDate(bucket.localDate);
     setSelectedBucketStartUtc(bucket.bucketStartUtc);
-    setSelectedBucketRange({ startUtc: bucket.bucketStartUtc, endUtc: bucket.bucketEndUtc });
-    setSelectedCategory(bucket.lifeCategory);
     setExpandedBlockId(null);
     setExpandedSessionId(null);
   }
@@ -276,7 +280,6 @@ export default function MobileRecordsPage() {
         onCategoryChange={value => {
           setSelectedCategory(value);
           setSelectedBucketStartUtc(null);
-          setSelectedBucketRange(null);
         }}
         onPackageNameChange={setPackageName}
         onIncludeSystemNoiseChange={setIncludeSystemNoise}
@@ -285,14 +288,17 @@ export default function MobileRecordsPage() {
 
       <main className="space-y-4 pt-4">
         <MobileInsightStrip overview={overviewQuery.data} isLoading={loading} />
-        <MobileUsageHeatmap
-          buckets={heatmapQuery.data ?? []}
-          granularity={granularity}
-          selectedBucketStartUtc={selectedBucketStartUtc}
-          isLoading={heatmapQuery.isLoading}
-          onGranularityChange={setGranularity}
-          onBucketSelect={handleHeatmapBucketSelect}
-        />
+        <section className="mx-auto grid max-w-[1500px] grid-cols-1 gap-4 px-4 sm:px-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <MobileUsageHeatmap
+            buckets={heatmapQuery.data ?? []}
+            granularity={granularity}
+            selectedBucketStartUtc={selectedBucketStartUtc}
+            isLoading={heatmapQuery.isLoading}
+            onGranularityChange={setGranularity}
+            onBucketSelect={handleHeatmapBucketSelect}
+          />
+          <MobileUsageBucketDetail cell={selectedHeatmapCell} />
+        </section>
         <MobileChartsGrid charts={chartsQuery.data ?? []} isLoading={chartsQuery.isLoading} />
         <div className="mx-auto grid max-w-[1500px] grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
           <div className="min-w-0 space-y-4">

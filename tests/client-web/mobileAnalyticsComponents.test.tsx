@@ -15,6 +15,8 @@ import type {
 import MobileAnalyticsHeader from '../../src/client-web/src/components/mobile/MobileAnalyticsHeader';
 import MobileInsightStrip from '../../src/client-web/src/components/mobile/MobileInsightStrip';
 import MobileUsageHeatmap from '../../src/client-web/src/components/mobile/MobileUsageHeatmap';
+import MobileUsageBucketDetail from '../../src/client-web/src/components/mobile/MobileUsageBucketDetail';
+import { buildHeatmapMatrix } from '../../src/client-web/src/components/mobile/mobileHeatmapMatrix';
 import MobileChartsGrid from '../../src/client-web/src/components/mobile/MobileChartsGrid';
 import MobileTimelineBlocks from '../../src/client-web/src/components/mobile/MobileTimelineBlocks';
 import MobileAnomalyPanel from '../../src/client-web/src/components/mobile/MobileAnomalyPanel';
@@ -284,6 +286,11 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
         onBucketSelect: () => undefined,
       }),
     ),
+    renderToStaticMarkup(
+      React.createElement(MobileUsageBucketDetail, {
+        cell: buildHeatmapMatrix(buckets).days[0].cells[22],
+      }),
+    ),
     renderToStaticMarkup(React.createElement(MobileChartsGrid, { charts, isLoading: false })),
     renderToStaticMarkup(
       React.createElement(MobileTimelineBlocks, {
@@ -331,7 +338,10 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
     '总使用时长',
     '日均',
     '目标',
-    '热力图',
+    '使用热力图',
+    '左侧是日期，顶部是小时',
+    '选中时段',
+    '40分钟',
     '分类占比',
     'Top App',
     '每日趋势',
@@ -351,5 +361,6 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
   assert.equal(html.includes('抖音'), true);
   assert.equal(html.includes('原始事件'), true);
   assert.equal(html.includes('加载更多'), true);
+  assert.equal(html.includes('重复小时数字墙'), false);
   assert.equal(html.includes('\u93B5\u5B2B\u6E80'), false, 'new analytics UI should not render mojibake mobile labels');
 });

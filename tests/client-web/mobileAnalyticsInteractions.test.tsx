@@ -12,6 +12,7 @@ import type {
 import MobileAnalyticsHeader from '../../src/client-web/src/components/mobile/MobileAnalyticsHeader';
 import MobileUsageHeatmap from '../../src/client-web/src/components/mobile/MobileUsageHeatmap';
 import MobileAppCatalogManager from '../../src/client-web/src/components/mobile/MobileAppCatalogManager';
+import { buildHeatmapMatrix } from '../../src/client-web/src/components/mobile/mobileHeatmapMatrix';
 import {
   buildMobileAnalyticsDateRange,
   toMobileAnalyticsUtcRange,
@@ -183,6 +184,38 @@ test('heatmap granularity controls and bucket click emit shared filter state', (
   assert.deepEqual(selectedBuckets, [bucket]);
 });
 
+test('heatmap matrix merges duplicate category buckets into one date hour cell', () => {
+  const duplicateHourBuckets: MobileHeatmapBucket[] = [
+    {
+      bucketStartUtc: '2026-07-06T12:00:00.000Z',
+      bucketEndUtc: '2026-07-06T13:00:00.000Z',
+      localDate: '2026-07-06',
+      localHour: 20,
+      lifeCategory: '短视频/娱乐',
+      foregroundSeconds: 1200,
+      qualityFlags: [],
+    },
+    {
+      bucketStartUtc: '2026-07-06T12:00:00.000Z',
+      bucketEndUtc: '2026-07-06T13:00:00.000Z',
+      localDate: '2026-07-06',
+      localHour: 20,
+      lifeCategory: '社交通讯',
+      foregroundSeconds: 600,
+      qualityFlags: ['fallback'],
+    },
+  ];
+
+  const matrix = buildHeatmapMatrix(duplicateHourBuckets);
+
+  assert.equal(matrix.days.length, 1);
+  assert.equal(matrix.days[0].cells.length, 24);
+  const cell = matrix.days[0].cells[20];
+  assert.equal(cell.foregroundSeconds, 1800);
+  assert.deepEqual(cell.categories.map(item => item.lifeCategory), ['短视频/娱乐', '社交通讯']);
+  assert.equal(cell.qualityFlags.includes('fallback'), true);
+});
+
 test('app catalog manager exposes override and batch rule callbacks', () => {
   const savedOverrides: MobileAppCatalogOverride[] = [];
   const deletedOverrides: string[] = [];
@@ -342,7 +375,6 @@ test('mobile records page integrates analytics queries and bucket-driven shared 
     'MOBILE_DEFAULT_TIMEZONE',
     'handleHeatmapBucketSelect',
     'bucket.bucketStartUtc',
-    'setSelectedCategory(bucket.lifeCategory)',
     'displayNameOverride: rule.displayNameOverride ?? null',
     'isSystemNoise: rule.isSystemNoise ?? null',
   ]) {

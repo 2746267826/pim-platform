@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   getMobileDevices,
@@ -65,41 +65,26 @@ export default function HistoricalLocationPage() {
     refetchInterval: 30000,
   });
 
+  const tracks = useMemo(() => tracksQuery.data ?? [], [tracksQuery.data]);
+  const segments = useMemo(() => tracks.flatMap(track => track.segments), [tracks]);
+  const effectiveSelectedSegmentId = selectedSegmentId && segments.some(segment => segment.id === selectedSegmentId)
+    ? selectedSegmentId
+    : segments[0]?.id ?? null;
+
   const pointsQuery = useQuery({
-    queryKey: ['mobile-location-analytics-segment-points', selectedSegmentId, locationQuery],
-    queryFn: () => getMobileLocationAnalyticsSegmentPoints(selectedSegmentId!, {
+    queryKey: ['mobile-location-analytics-segment-points', effectiveSelectedSegmentId, locationQuery],
+    queryFn: () => getMobileLocationAnalyticsSegmentPoints(effectiveSelectedSegmentId!, {
       ...locationQuery,
       pageSize: 100,
     }),
-    enabled: Boolean(selectedSegmentId),
+    enabled: Boolean(effectiveSelectedSegmentId),
     refetchInterval: 30000,
   });
 
-  const tracks = tracksQuery.data ?? [];
-  const points = pointsQuery.data?.items ?? [];
-
-  useEffect(() => {
-    const segments = tracks.flatMap(track => track.segments);
-    if (segments.length === 0) {
-      setSelectedSegmentId(null);
-      return;
-    }
-
-    if (!selectedSegmentId || !segments.some(segment => segment.id === selectedSegmentId)) {
-      setSelectedSegmentId(segments[0].id);
-    }
-  }, [tracks, selectedSegmentId]);
-
-  useEffect(() => {
-    if (points.length === 0) {
-      setSelectedPointId(null);
-      return;
-    }
-
-    if (!selectedPointId || !points.some(point => point.id === selectedPointId)) {
-      setSelectedPointId(points[0].id);
-    }
-  }, [points, selectedPointId]);
+  const points = useMemo(() => pointsQuery.data?.items ?? [], [pointsQuery.data]);
+  const effectiveSelectedPointId = selectedPointId && points.some(point => point.id === selectedPointId)
+    ? selectedPointId
+    : points[0]?.id ?? null;
 
   function applyShortcut(shortcut: MobileRangeShortcut) {
     const nextRange = buildMobileAnalyticsDateRange(shortcut);
@@ -156,8 +141,8 @@ export default function HistoricalLocationPage() {
       includeRejected={includeRejected}
       overview={overviewQuery.data}
       tracks={tracks}
-      selectedSegmentId={selectedSegmentId}
-      selectedPointId={selectedPointId}
+      selectedSegmentId={effectiveSelectedSegmentId}
+      selectedPointId={effectiveSelectedPointId}
       points={points}
       isLoading={devicesQuery.isLoading || overviewQuery.isLoading || tracksQuery.isLoading}
       isFetching={devicesQuery.isFetching || overviewQuery.isFetching || tracksQuery.isFetching || pointsQuery.isFetching}

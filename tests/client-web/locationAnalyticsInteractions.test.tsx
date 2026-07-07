@@ -245,7 +245,7 @@ test('historical location page uses analytics APIs and Beijing 7 day defaults', 
     "useState<MobileRangeShortcut>('7d')",
     'buildMobileAnalyticsDateRange',
     'toMobileAnalyticsUtcRange',
-    'enabled: Boolean(selectedSegmentId)',
+    'enabled: Boolean(effectiveSelectedSegmentId)',
     'setSelectedSegmentId',
   ]) {
     assert.equal(source.includes(text), true, `HistoricalLocationPage should include: ${text}`);

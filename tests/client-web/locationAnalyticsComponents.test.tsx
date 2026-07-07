@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import HistoricalLocationDashboard from '../../src/client-web/src/components/mobile/HistoricalLocationDashboard';
@@ -196,4 +197,30 @@ test('historical location dashboard renders accepted Chinese workbench baseline'
 
   assert.equal(html.includes('定位点列表'), false);
   assert.equal(html.includes('选中点详情'), false);
+});
+
+test('historical location map renders segment layers and marker styles', () => {
+  const leafletSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx'),
+    'utf8',
+  );
+  const cssSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/index.css'),
+    'utf8',
+  );
+
+  for (const text of [
+    'Polyline',
+    'selectedSegmentId',
+    'pathOptions',
+    '#2563eb',
+    '#e11d48',
+    '#14b8a6',
+    'pim-location-marker-selected',
+  ]) {
+    assert.equal(leafletSource.includes(text), true, `Leaflet map source should include: ${text}`);
+  }
+
+  assert.equal(cssSource.includes('.pim-location-marker span'), true);
+  assert.equal(cssSource.includes('.pim-location-marker-selected span'), true);
 });

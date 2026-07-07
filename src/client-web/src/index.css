@@ -253,3 +253,20 @@ textarea {
   background: linear-gradient(135deg, #ccfbf1, #f0fdfa);
   color: #0f766e;
 }
+
+.pim-location-marker span {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #2563eb;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.pim-location-marker-selected span {
+  width: 22px;
+  height: 22px;
+  background: #e11d48;
+  box-shadow: 0 0 0 6px rgba(225, 29, 72, 0.15), 0 4px 12px rgba(225, 29, 72, 0.35);
+}

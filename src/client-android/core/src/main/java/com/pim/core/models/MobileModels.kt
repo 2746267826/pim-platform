@@ -80,7 +80,8 @@ data class MobileAppMetadataDto(
     val installerPackageName: String? = null,
     val firstInstallTimeUtc: String,
     val lastUpdateTimeUtc: String,
-    val rawJson: String
+    val rawJson: String,
+    val collectedAtUtc: String? = null
 )
 
 @Serializable

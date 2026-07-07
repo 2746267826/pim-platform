@@ -1,26 +1,95 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  createMobileAppCategoryRule,
+  deleteMobileAppCatalogOverride,
+  deleteMobileAppCategoryRule,
+  getMobileAnalyticsCharts,
+  getMobileAnalyticsHeatmap,
+  getMobileAnalyticsOverview,
+  getMobileAnalyticsTimelineBlocks,
+  getMobileAppCatalogOverrides,
+  getMobileAppCategoryRules,
   getMobileDevices,
-  getMobileQuality,
-  getMobileSummary,
-  getMobileTimeline,
+  getMobileSessionEvents,
+  getMobileTimelineBlockSessions,
+  MOBILE_DEFAULT_TIMEZONE,
+  saveMobileAppCatalogOverride,
+  updateMobileAppCategoryRule,
+  type MobileAnalyticsQuery,
+  type MobileAppCatalogOverride,
+  type MobileAppCategoryRule,
+  type MobileAppCategoryRuleUpsertRequest,
+  type MobileHeatmapBucket,
 } from '../api/mobile';
-import MobileRecordsDashboard from '../components/mobile/MobileRecordsDashboard';
-
-function todayInputValue() {
-  return new Date().toISOString().slice(0, 10);
-}
+import MobileAnalyticsHeader from '../components/mobile/MobileAnalyticsHeader';
+import MobileAnomalyPanel from '../components/mobile/MobileAnomalyPanel';
+import MobileAppCatalogManager from '../components/mobile/MobileAppCatalogManager';
+import MobileChartsGrid from '../components/mobile/MobileChartsGrid';
+import MobileInsightStrip from '../components/mobile/MobileInsightStrip';
+import MobileTimelineBlocks from '../components/mobile/MobileTimelineBlocks';
+import MobileUsageHeatmap, { type MobileHeatmapGranularity } from '../components/mobile/MobileUsageHeatmap';
+import {
+  buildMobileAnalyticsDateRange,
+  toMobileAnalyticsUtcRange,
+  type MobileRangeShortcut,
+} from '../components/mobile/mobileFormatting';
 
 function errorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
   return error ? '手机记录加载失败，请稍后刷新。' : null;
 }
 
+function catalogMutationKeys() {
+  return [
+    ['mobile-app-catalog-overrides'],
+    ['mobile-app-category-rules'],
+    ['mobile-analytics-overview'],
+    ['mobile-analytics-charts'],
+    ['mobile-analytics-heatmap'],
+    ['mobile-analytics-timeline-blocks'],
+  ];
+}
+
 export default function MobileRecordsPage() {
-  const [date, setDate] = useState(todayInputValue);
+  const queryClient = useQueryClient();
+  const defaultRange = useMemo(() => buildMobileAnalyticsDateRange('7d'), []);
+  const [rangeShortcut, setRangeShortcut] = useState<MobileRangeShortcut>('7d');
+  const [rangeStartDate, setRangeStartDate] = useState(defaultRange.startDate);
+  const [rangeEndDate, setRangeEndDate] = useState(defaultRange.endDate);
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
-  const deviceId = selectedDeviceId || undefined;
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [packageName, setPackageName] = useState('');
+  const [includeSystemNoise, setIncludeSystemNoise] = useState(false);
+  const [granularity, setGranularity] = useState<MobileHeatmapGranularity>('hour');
+  const [selectedBucketStartUtc, setSelectedBucketStartUtc] = useState<string | null>(null);
+  const [selectedBucketRange, setSelectedBucketRange] = useState<{ startUtc: string; endUtc: string } | null>(null);
+  const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+
+  const utcRange = useMemo(
+    () => toMobileAnalyticsUtcRange({ startDate: rangeStartDate, endDate: rangeEndDate }),
+    [rangeStartDate, rangeEndDate],
+  );
+
+  const analyticsQuery = useMemo<MobileAnalyticsQuery>(() => ({
+    rangeStartUtc: selectedBucketRange?.startUtc ?? utcRange.rangeStartUtc,
+    rangeEndUtc: selectedBucketRange?.endUtc ?? utcRange.rangeEndUtc,
+    timezone: MOBILE_DEFAULT_TIMEZONE,
+    deviceId: selectedDeviceId || null,
+    category: selectedCategory || null,
+    packageName: packageName.trim() || null,
+    includeSystemNoise,
+    minDurationSeconds: includeSystemNoise ? 0 : 1,
+  }), [
+    includeSystemNoise,
+    packageName,
+    selectedBucketRange,
+    selectedCategory,
+    selectedDeviceId,
+    utcRange.rangeEndUtc,
+    utcRange.rangeStartUtc,
+  ]);
 
   const devicesQuery = useQuery({
     queryKey: ['mobile-devices'],
@@ -28,55 +97,251 @@ export default function MobileRecordsPage() {
     staleTime: 60000,
   });
 
-  const summaryQuery = useQuery({
-    queryKey: ['mobile-summary', date, deviceId ?? 'all'],
-    queryFn: () => getMobileSummary(date, deviceId),
-    enabled: Boolean(date),
+  const overviewQuery = useQuery({
+    queryKey: ['mobile-analytics-overview', analyticsQuery],
+    queryFn: () => getMobileAnalyticsOverview(analyticsQuery),
     refetchInterval: 30000,
   });
 
-  const timelineQuery = useQuery({
-    queryKey: ['mobile-timeline', date, deviceId ?? 'all'],
-    queryFn: () => getMobileTimeline(date, deviceId),
-    enabled: Boolean(date),
+  const heatmapQuery = useQuery({
+    queryKey: ['mobile-analytics-heatmap', analyticsQuery, granularity],
+    queryFn: () => getMobileAnalyticsHeatmap({ ...analyticsQuery, granularity }),
     refetchInterval: 30000,
   });
 
-  const qualityQuery = useQuery({
-    queryKey: ['mobile-quality', date, deviceId ?? 'all'],
-    queryFn: () => getMobileQuality(date, deviceId),
-    enabled: Boolean(date),
+  const chartsQuery = useQuery({
+    queryKey: ['mobile-analytics-charts', analyticsQuery],
+    queryFn: () => getMobileAnalyticsCharts(analyticsQuery),
     refetchInterval: 30000,
   });
+
+  const timelineBlocksQuery = useInfiniteQuery({
+    queryKey: ['mobile-analytics-timeline-blocks', analyticsQuery],
+    queryFn: ({ pageParam }) => getMobileAnalyticsTimelineBlocks({
+      ...analyticsQuery,
+      cursor: pageParam,
+      pageSize: 20,
+    }),
+    initialPageParam: null as string | null,
+    getNextPageParam: lastPage => lastPage.hasMore ? lastPage.nextCursor : undefined,
+  });
+
+  const overridesQuery = useQuery({
+    queryKey: ['mobile-app-catalog-overrides'],
+    queryFn: getMobileAppCatalogOverrides,
+  });
+
+  const rulesQuery = useQuery({
+    queryKey: ['mobile-app-category-rules'],
+    queryFn: getMobileAppCategoryRules,
+  });
+
+  const sessionsQuery = useQuery({
+    queryKey: ['mobile-timeline-block-sessions', expandedBlockId, analyticsQuery],
+    queryFn: () => getMobileTimelineBlockSessions(expandedBlockId ?? '', analyticsQuery),
+    enabled: Boolean(expandedBlockId),
+  });
+
+  const eventsQuery = useQuery({
+    queryKey: ['mobile-session-events', expandedSessionId],
+    queryFn: () => getMobileSessionEvents(expandedSessionId ?? ''),
+    enabled: Boolean(expandedSessionId),
+  });
+
+  function invalidateCatalogData() {
+    for (const queryKey of catalogMutationKeys()) {
+      void queryClient.invalidateQueries({ queryKey });
+    }
+  }
+
+  const saveOverrideMutation = useMutation({
+    mutationFn: (override: MobileAppCatalogOverride) => saveMobileAppCatalogOverride(override),
+    onSuccess: invalidateCatalogData,
+  });
+
+  const deleteOverrideMutation = useMutation({
+    mutationFn: (overridePackageName: string) => deleteMobileAppCatalogOverride(overridePackageName),
+    onSuccess: invalidateCatalogData,
+  });
+
+  const saveRuleMutation = useMutation({
+    mutationFn: (rule: MobileAppCategoryRule | MobileAppCategoryRuleUpsertRequest) => {
+      const payload: MobileAppCategoryRuleUpsertRequest = {
+        id: 'id' in rule ? rule.id : undefined,
+        ruleType: rule.ruleType,
+        pattern: rule.pattern,
+        lifeCategory: rule.lifeCategory,
+        priority: rule.priority,
+        isEnabled: rule.isEnabled,
+        displayNameOverride: rule.displayNameOverride ?? null,
+        isSystemNoise: rule.isSystemNoise ?? null,
+      };
+
+      return payload.id
+        ? updateMobileAppCategoryRule(payload.id, payload)
+        : createMobileAppCategoryRule(payload);
+    },
+    onSuccess: invalidateCatalogData,
+  });
+
+  const deleteRuleMutation = useMutation({
+    mutationFn: (ruleId: string) => deleteMobileAppCategoryRule(ruleId),
+    onSuccess: invalidateCatalogData,
+  });
+
+  const timelineBlocks = timelineBlocksQuery.data?.pages.flatMap(page => page.items) ?? [];
+  const lastTimelinePage = timelineBlocksQuery.data?.pages.at(-1);
+  const sessionsByBlock = expandedBlockId && sessionsQuery.data
+    ? { [expandedBlockId]: sessionsQuery.data }
+    : {};
+  const eventsBySession = expandedSessionId && eventsQuery.data
+    ? { [expandedSessionId]: eventsQuery.data }
+    : {};
+
+  function handleShortcutChange(shortcut: Exclude<MobileRangeShortcut, 'custom'>) {
+    const nextRange = buildMobileAnalyticsDateRange(shortcut);
+    setRangeShortcut(shortcut);
+    setRangeStartDate(nextRange.startDate);
+    setRangeEndDate(nextRange.endDate);
+    setSelectedBucketStartUtc(null);
+    setSelectedBucketRange(null);
+  }
+
+  function handleCustomRangeChange(range: { startDate: string; endDate: string }) {
+    setRangeShortcut('custom');
+    setRangeStartDate(range.startDate);
+    setRangeEndDate(range.endDate);
+    setSelectedBucketStartUtc(null);
+    setSelectedBucketRange(null);
+  }
+
+  function handleHeatmapBucketSelect(bucket: MobileHeatmapBucket) {
+    setRangeShortcut('custom');
+    setRangeStartDate(bucket.localDate);
+    setRangeEndDate(bucket.localDate);
+    setSelectedBucketStartUtc(bucket.bucketStartUtc);
+    setSelectedBucketRange({ startUtc: bucket.bucketStartUtc, endUtc: bucket.bucketEndUtc });
+    setSelectedCategory(bucket.lifeCategory);
+    setExpandedBlockId(null);
+    setExpandedSessionId(null);
+  }
 
   function refresh() {
     void Promise.all([
       devicesQuery.refetch(),
-      summaryQuery.refetch(),
-      timelineQuery.refetch(),
-      qualityQuery.refetch(),
+      overviewQuery.refetch(),
+      heatmapQuery.refetch(),
+      chartsQuery.refetch(),
+      timelineBlocksQuery.refetch(),
+      overridesQuery.refetch(),
+      rulesQuery.refetch(),
     ]);
   }
 
+  const loading = overviewQuery.isLoading
+    || heatmapQuery.isLoading
+    || chartsQuery.isLoading
+    || timelineBlocksQuery.isLoading;
+  const fetching = devicesQuery.isFetching
+    || overviewQuery.isFetching
+    || heatmapQuery.isFetching
+    || chartsQuery.isFetching
+    || timelineBlocksQuery.isFetching
+    || overridesQuery.isFetching
+    || rulesQuery.isFetching;
+  const pageError = errorMessage(devicesQuery.error)
+    ?? errorMessage(overviewQuery.error)
+    ?? errorMessage(heatmapQuery.error)
+    ?? errorMessage(chartsQuery.error)
+    ?? errorMessage(timelineBlocksQuery.error)
+    ?? errorMessage(overridesQuery.error)
+    ?? errorMessage(rulesQuery.error);
+
   return (
-    <MobileRecordsDashboard
-      date={date}
-      selectedDeviceId={selectedDeviceId}
-      devices={devicesQuery.data ?? []}
-      summary={summaryQuery.data}
-      timeline={timelineQuery.data}
-      quality={qualityQuery.data}
-      isLoading={devicesQuery.isLoading || summaryQuery.isLoading || timelineQuery.isLoading || qualityQuery.isLoading}
-      isFetching={devicesQuery.isFetching || summaryQuery.isFetching || timelineQuery.isFetching || qualityQuery.isFetching}
-      errorMessage={
-        errorMessage(devicesQuery.error)
-          ?? errorMessage(summaryQuery.error)
-          ?? errorMessage(timelineQuery.error)
-          ?? errorMessage(qualityQuery.error)
-      }
-      onDateChange={setDate}
-      onDeviceChange={setSelectedDeviceId}
-      onRefresh={refresh}
-    />
+    <div className="min-h-full bg-slate-50 pb-8">
+      <MobileAnalyticsHeader
+        rangeShortcut={rangeShortcut}
+        rangeStartDate={rangeStartDate}
+        rangeEndDate={rangeEndDate}
+        selectedDeviceId={selectedDeviceId}
+        devices={devicesQuery.data ?? []}
+        selectedCategory={selectedCategory}
+        packageName={packageName}
+        includeSystemNoise={includeSystemNoise}
+        isFetching={fetching}
+        errorMessage={pageError}
+        onShortcutChange={handleShortcutChange}
+        onCustomRangeChange={handleCustomRangeChange}
+        onDeviceChange={setSelectedDeviceId}
+        onCategoryChange={value => {
+          setSelectedCategory(value);
+          setSelectedBucketStartUtc(null);
+          setSelectedBucketRange(null);
+        }}
+        onPackageNameChange={setPackageName}
+        onIncludeSystemNoiseChange={setIncludeSystemNoise}
+        onRefresh={refresh}
+      />
+
+      <main className="space-y-4 pt-4">
+        <MobileInsightStrip overview={overviewQuery.data} isLoading={loading} />
+        <MobileUsageHeatmap
+          buckets={heatmapQuery.data ?? []}
+          granularity={granularity}
+          selectedBucketStartUtc={selectedBucketStartUtc}
+          isLoading={heatmapQuery.isLoading}
+          onGranularityChange={setGranularity}
+          onBucketSelect={handleHeatmapBucketSelect}
+        />
+        <MobileChartsGrid charts={chartsQuery.data ?? []} isLoading={chartsQuery.isLoading} />
+        <div className="mx-auto grid max-w-[1500px] grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="min-w-0 space-y-4">
+            <MobileTimelineBlocks
+              blocks={timelineBlocks}
+              sessionsByBlock={sessionsByBlock}
+              eventsBySession={eventsBySession}
+              expandedBlockId={expandedBlockId}
+              expandedSessionId={expandedSessionId}
+              hasMore={Boolean(lastTimelinePage?.hasMore)}
+              isLoading={timelineBlocksQuery.isLoading}
+              isLoadingMore={timelineBlocksQuery.isFetchingNextPage}
+              isLoadingSessions={sessionsQuery.isFetching}
+              isLoadingEvents={eventsQuery.isFetching}
+              onToggleBlock={blockId => {
+                setExpandedBlockId(blockId);
+                setExpandedSessionId(null);
+              }}
+              onToggleSession={setExpandedSessionId}
+              onLoadMore={() => {
+                if (timelineBlocksQuery.hasNextPage) void timelineBlocksQuery.fetchNextPage();
+              }}
+            />
+          </div>
+          <div className="min-w-0 space-y-4">
+            <MobileAnomalyPanel
+              anomalies={overviewQuery.data?.anomalies ?? []}
+              suggestions={overviewQuery.data?.suggestions ?? []}
+              quality={overviewQuery.data?.quality}
+              isLoading={overviewQuery.isLoading}
+            />
+            <MobileAppCatalogManager
+              overrides={overridesQuery.data ?? []}
+              rules={rulesQuery.data ?? []}
+              isLoading={overridesQuery.isLoading || rulesQuery.isLoading}
+              isSaving={
+                saveOverrideMutation.isPending
+                || deleteOverrideMutation.isPending
+                || saveRuleMutation.isPending
+                || deleteRuleMutation.isPending
+              }
+              onSaveOverride={override => saveOverrideMutation.mutate(override)}
+              onDeleteOverride={overridePackageName => deleteOverrideMutation.mutate(overridePackageName)}
+              onSaveRule={rule => saveRuleMutation.mutate(rule)}
+              onDeleteRule={ruleId => deleteRuleMutation.mutate(ruleId)}
+            />
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }

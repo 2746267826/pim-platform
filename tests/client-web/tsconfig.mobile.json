@@ -10,10 +10,15 @@
     "mobileApiPath.test.ts",
     "mobileTypes.test.ts",
     "mobileNavigation.test.tsx",
+    "mobileAnalyticsComponents.test.tsx",
+    "mobileAnalyticsInteractions.test.tsx",
     "../../src/client-web/node_modules/vite/client.d.ts",
     "../../src/client-web/src/api/client.ts",
     "../../src/client-web/src/api/mobile.ts",
+    "../../src/client-web/src/components/mobile/**/*.ts",
+    "../../src/client-web/src/components/mobile/**/*.tsx",
     "../../src/client-web/src/layout/Sidebar.tsx",
+    "../../src/client-web/src/pages/MobileRecordsPage.tsx",
     "../../src/client-web/src/types/index.ts"
   ]
 }

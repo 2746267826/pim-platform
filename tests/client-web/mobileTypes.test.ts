@@ -1,222 +1,225 @@
 import assert from 'node:assert/strict';
 import {
+  MOBILE_DEFAULT_TIMEZONE,
+  MOBILE_LIFE_CATEGORIES,
+  createMobileAppCategoryRule,
+  deleteMobileAppCatalogOverride,
+  deleteMobileAppCategoryRule,
+  deleteMobileUsageGoal,
+  getMobileAnalyticsCharts,
+  getMobileAnalyticsHeatmap,
+  getMobileAnalyticsOverview,
+  getMobileAnalyticsTimelineBlocks,
+  getMobileAppCatalogOverrides,
+  getMobileAppCategoryRules,
   getMobileDevices,
   getMobileLocationHistory,
   getMobileQuality,
+  getMobileSessionEvents,
   getMobileSummary,
   getMobileTimeline,
+  getMobileTimelineBlockSessions,
+  getMobileUsageGoals,
+  saveMobileAppCatalogOverride,
+  saveMobileUsageGoal,
+  updateMobileAppCategoryRule,
 } from '../../src/client-web/src/api/mobile';
 import type {
-  MobileAppUsageSummary,
+  MobileAnalyticsChart,
+  MobileAnalyticsOverview,
+  MobileAnalyticsQuery,
+  MobileAppCatalogOverride,
+  MobileAppCategoryRule,
   MobileDevice,
-  MobileLocationHistory,
-  MobileLocationHistoryParams,
-  MobileLocationPoint,
-  MobileQuality,
-  MobileQualityComponent,
-  MobileQualityIssue,
-  MobileSummary,
-  MobileSyncBatchSummary,
-  MobileTimeline,
-  MobileTimelineFallback,
-  MobileTimelineItem,
-  MobileTimelineSession,
+  MobileHeatmapBucket,
+  MobileLifeCategory,
+  MobileTimelineBlockPage,
+  MobileUsageGoal,
+  MobileUsageGoalUpsertRequest,
 } from '../../src/client-web/src/api/mobile';
 
 function acceptsDeviceReturn(result: ReturnType<typeof getMobileDevices>): Promise<MobileDevice[]> {
   return result;
 }
-
-function acceptsSummaryReturn(result: ReturnType<typeof getMobileSummary>): Promise<MobileSummary> {
+function acceptsOverviewReturn(result: ReturnType<typeof getMobileAnalyticsOverview>): Promise<MobileAnalyticsOverview> {
   return result;
 }
-
-function acceptsTimelineReturn(result: ReturnType<typeof getMobileTimeline>): Promise<MobileTimeline> {
+function acceptsHeatmapReturn(result: ReturnType<typeof getMobileAnalyticsHeatmap>): Promise<MobileHeatmapBucket[]> {
   return result;
 }
-
-function acceptsLocationHistoryReturn(
-  result: ReturnType<typeof getMobileLocationHistory>,
-): Promise<MobileLocationHistory> {
+function acceptsChartsReturn(result: ReturnType<typeof getMobileAnalyticsCharts>): Promise<MobileAnalyticsChart[]> {
   return result;
 }
-
-function acceptsQualityReturn(result: ReturnType<typeof getMobileQuality>): Promise<MobileQuality> {
+function acceptsTimelineBlocksReturn(result: ReturnType<typeof getMobileAnalyticsTimelineBlocks>): Promise<MobileTimelineBlockPage> {
+  return result;
+}
+function acceptsOverridesReturn(result: ReturnType<typeof getMobileAppCatalogOverrides>): Promise<MobileAppCatalogOverride[]> {
+  return result;
+}
+function acceptsRulesReturn(result: ReturnType<typeof getMobileAppCategoryRules>): Promise<MobileAppCategoryRule[]> {
+  return result;
+}
+function acceptsGoalsReturn(result: ReturnType<typeof getMobileUsageGoals>): Promise<MobileUsageGoal[]> {
   return result;
 }
 
 void acceptsDeviceReturn;
-void acceptsSummaryReturn;
-void acceptsTimelineReturn;
-void acceptsLocationHistoryReturn;
-void acceptsQualityReturn;
+void acceptsOverviewReturn;
+void acceptsHeatmapReturn;
+void acceptsChartsReturn;
+void acceptsTimelineBlocksReturn;
+void acceptsOverridesReturn;
+void acceptsRulesReturn;
+void acceptsGoalsReturn;
+void getMobileSummary;
+void getMobileTimeline;
+void getMobileLocationHistory;
+void getMobileQuality;
+void getMobileTimelineBlockSessions;
+void getMobileSessionEvents;
+void saveMobileAppCatalogOverride;
+void deleteMobileAppCatalogOverride;
+void createMobileAppCategoryRule;
+void updateMobileAppCategoryRule;
+void deleteMobileAppCategoryRule;
+void saveMobileUsageGoal;
+void deleteMobileUsageGoal;
 
-const device: MobileDevice = {
-  id: 'device-row-1',
-  deviceId: 'phone-main',
-  androidIdHash: 'hash-1',
-  displayName: 'Pixel 9',
-  manufacturer: 'Google',
-  brand: 'google',
-  model: 'Pixel 9',
-  androidVersion: '16',
-  sdkInt: 36,
-  appVersion: '1.0.0',
-  metadataJson: '{}',
-  firstSeenAt: '2026-07-06T00:00:00Z',
-  lastSeenAt: '2026-07-06T08:00:00Z',
-  lastHeartbeatAt: '2026-07-06T08:01:00Z',
-  lastSyncAt: '2026-07-06T08:02:00Z',
-  isActive: true,
+const typedLifeCategory: MobileLifeCategory = '短视频/娱乐';
+const analyticsQuery: MobileAnalyticsQuery = {
+  rangeStartUtc: '2026-07-01T16:00:00Z',
+  rangeEndUtc: '2026-07-08T16:00:00Z',
+  timezone: MOBILE_DEFAULT_TIMEZONE,
+  category: '社交沟通',
+  includeSystemNoise: false,
+  minDurationSeconds: 1,
+  granularity: 'hour',
+  pageSize: 50,
 };
 
-const app: MobileAppUsageSummary = {
-  packageName: 'com.example.reader',
-  displayName: 'Reader',
-  categoryName: 'Reading',
-  foregroundSeconds: 1800,
-  sessionCount: 2,
-  launchCount: 3,
-  lastUsedAt: '2026-07-06T08:00:00Z',
-  source: 'events',
-  share: 0.5,
-};
-
-const syncBatch: MobileSyncBatchSummary = {
-  id: 'batch-1',
-  deviceId: device.deviceId,
-  clientBatchId: 'client-batch-1',
-  sourceWindowStartUtc: '2026-07-06T00:00:00Z',
-  sourceWindowEndUtc: '2026-07-06T08:00:00Z',
-  submittedAtUtc: '2026-07-06T08:02:00Z',
-  status: 'succeeded',
-  acceptedEventCount: 4,
-  skippedEventCount: 0,
-  acceptedLocationCount: 1,
-  rejectedLocationCount: 0,
-  errorMessage: null,
-};
-
-const summary: MobileSummary = {
-  date: '2026-07-06',
-  deviceId: device.deviceId,
-  generatedAt: '2026-07-06T08:05:00Z',
+const overview: MobileAnalyticsOverview = {
+  range: {
+    rangeStartUtc: '2026-07-01T16:00:00Z',
+    rangeEndUtc: '2026-07-08T16:00:00Z',
+    timezone: MOBILE_DEFAULT_TIMEZONE,
+    localStartDate: '2026-07-02',
+    localEndDate: '2026-07-08',
+  },
+  generatedAt: '2026-07-08T10:00:00Z',
+  isStale: false,
   totalForegroundSeconds: 3600,
-  fallbackForegroundSeconds: 600,
-  appSwitchCount: 5,
-  appsUsed: 2,
-  completeness: 0.95,
-  lastSyncAt: syncBatch.submittedAtUtc,
-  appRanking: [app],
-  syncBatches: [syncBatch],
-  qualityIssueCount: 1,
+  dailyAverageSeconds: 600,
+  previousPeriodChange: 0.25,
+  highestUseLocalDate: '2026-07-08',
+  peakLocalHour: 21,
+  appCount: 12,
+  switchOrPickupCount: 42,
+  completeness: 0.94,
+  quality: {
+    usageEventsCoverage: 0.92,
+    fallbackShare: 0.08,
+    missingMetadataAppCount: 1,
+    systemNoiseShare: 0.03,
+    shortEventShare: 0.02,
+    failedOrPartialSyncBatchCount: 0,
+    lastSyncAt: '2026-07-08T09:59:00Z',
+    qualityFlags: [],
+  },
+  goalProgress: {
+    key: 'total-daily',
+    label: '每日手机总时长',
+    limitSeconds: 14400,
+    usedSeconds: 3600,
+    isOverLimit: false,
+    remainingSeconds: 10800,
+  },
+  anomalies: [{ code: 'night-use', severity: 'Warning', title: '夜间使用偏高', evidence: '22:00 后使用增加', drilldownTarget: 'heatmap:night' }],
+  suggestions: [{ code: 'short-video-night', text: '短视频/娱乐集中在 22:00 后', drilldownTarget: 'category:短视频/娱乐' }],
 };
 
-const session: MobileTimelineSession = {
-  kind: 'session',
-  id: 'session-1',
-  deviceId: device.deviceId,
-  packageName: app.packageName,
-  displayName: app.displayName,
-  start: '2026-07-06T07:00:00Z',
-  end: '2026-07-06T07:20:00Z',
-  durationSeconds: 1200,
-  source: 'events',
-  confidence: 0.98,
+const heatmapBucket: MobileHeatmapBucket = {
+  bucketStartUtc: '2026-07-06T13:00:00Z',
+  bucketEndUtc: '2026-07-06T14:00:00Z',
+  localDate: '2026-07-06',
+  localHour: 21,
+  lifeCategory: '社交沟通',
+  foregroundSeconds: 1800,
+  qualityFlags: [],
 };
 
-const fallback: MobileTimelineFallback = {
-  kind: 'fallback',
-  id: 'fallback-1',
-  deviceId: device.deviceId,
-  packageName: 'com.example.music',
-  displayName: 'Music',
-  start: '2026-07-06T07:20:00Z',
-  end: '2026-07-06T07:30:00Z',
-  durationSeconds: 600,
-  source: 'fallback',
-  reason: 'usage-events-missing',
+const chart: MobileAnalyticsChart = {
+  key: 'category-share',
+  title: '分类占比',
+  chartType: 'category-share',
+  unit: 'seconds',
+  points: [{ key: '社交沟通', label: '社交沟通', value: 1800, foregroundSeconds: 1800, lifeCategory: '社交沟通' }],
 };
 
-const timelineItems: MobileTimelineItem[] = [session, fallback];
-const timeline: MobileTimeline = {
-  date: '2026-07-06',
-  deviceId: device.deviceId,
-  generatedAt: '2026-07-06T08:05:00Z',
-  sessions: [session],
-  fallbackSummaries: [fallback],
-  items: timelineItems,
+const page: MobileTimelineBlockPage = {
+  items: [{
+    id: 'block-1',
+    startUtc: '2026-07-06T13:00:00Z',
+    endUtc: '2026-07-06T14:00:00Z',
+    localStart: '21:00',
+    localEnd: '22:00',
+    lifeCategory: '社交沟通',
+    foregroundSeconds: 1800,
+    sessionCount: 2,
+    appCount: 1,
+    topApps: [{ packageName: 'com.tencent.mobileqq', displayName: 'QQ', foregroundSeconds: 1200 }],
+    qualityFlags: [],
+  }],
+  nextCursor: null,
+  hasMore: false,
 };
 
-const locationPoint: MobileLocationPoint = {
-  id: 'point-1',
-  deviceId: device.deviceId,
-  recordedAtUtc: '2026-07-06T07:30:00Z',
-  submittedAtUtc: '2026-07-06T07:31:00Z',
-  latitude: 31.2304,
-  longitude: 121.4737,
-  horizontalAccuracyMeters: 9.4,
-  provider: 'gps',
-  sourceKind: 'manual',
-  altitudeMeters: 10,
-  verticalAccuracyMeters: 3,
-  speedMetersPerSecond: null,
-  speedAccuracyMetersPerSecond: null,
-  bearingDegrees: null,
-  bearingAccuracyDegrees: null,
-  isAutoSubmitted: false,
-  quality: 'high',
-  rawJson: '{}',
+const override: MobileAppCatalogOverride = {
+  packageName: 'com.tencent.mobileqq',
+  displayNameOverride: 'QQ',
+  lifeCategory: '社交沟通',
+  isSystemNoise: false,
+  hideShortEvents: false,
 };
 
-const historyParams: MobileLocationHistoryParams = {
-  start: '2026-07-06T00:00:00Z',
-  end: '2026-07-06T23:59:59Z',
-  deviceId: device.deviceId,
-  maxAccuracyMeters: 50,
+const rule: MobileAppCategoryRule = {
+  id: 'rule-1',
+  ruleType: 'package-prefix',
+  pattern: 'com.tencent.',
+  lifeCategory: '社交沟通',
+  priority: 100,
+  isEnabled: true,
 };
 
-const history: MobileLocationHistory = {
-  start: historyParams.start,
-  end: historyParams.end,
-  deviceId: historyParams.deviceId ?? null,
-  maxAccuracyMeters: historyParams.maxAccuracyMeters ?? 50,
-  points: [locationPoint],
+const usageGoal: MobileUsageGoal = {
+  id: 'goal-1',
+  scope: 'total-daily',
+  packageName: null,
+  lifeCategory: null,
+  label: '每日手机总时长',
+  limitSeconds: 14400,
+  isEnabled: true,
+  createdAt: '2026-07-08T10:00:00Z',
+  updatedAt: '2026-07-08T10:00:00Z',
 };
 
-const component: MobileQualityComponent = {
-  key: 'mobile-location',
-  name: 'Mobile location capture',
-  status: 'Warning',
-  message: 'One rejected point',
-  checkedAt: '2026-07-06T08:05:00Z',
-  details: { rejectedLocationCount: '1' },
+const usageGoalRequest: MobileUsageGoalUpsertRequest = {
+  scope: usageGoal.scope,
+  packageName: usageGoal.packageName,
+  lifeCategory: usageGoal.lifeCategory,
+  label: usageGoal.label,
+  limitSeconds: usageGoal.limitSeconds,
+  isEnabled: usageGoal.isEnabled,
 };
 
-const issue: MobileQualityIssue = {
-  code: 'mobile-location-rejected',
-  severity: 'Warning',
-  componentKey: component.key,
-  message: 'A location point was rejected by accuracy policy.',
-  nextStep: 'Submit a point with accuracy <= 50m.',
-};
-
-const quality: MobileQuality = {
-  overallStatus: 'Warning',
-  label: 'Warning',
-  message: 'Mobile data needs attention.',
-  checkedAt: '2026-07-06T08:05:00Z',
-  components: [
-    { ...component, key: 'android-heartbeat' },
-    { ...component, key: 'mobile-sync' },
-    { ...component, key: 'mobile-usage-coverage' },
-    component,
-  ],
-  issues: [issue],
-  nextSteps: ['Open the Android app and sync again.'],
-};
-
-assert.equal(summary.appRanking[0].packageName, app.packageName);
-assert.equal(timeline.items[1].kind, 'fallback');
-assert.equal(history.points[0].quality, 'high');
-assert.equal(quality.components.some(item => item.key === 'mobile-location'), true);
+assert.equal(MOBILE_DEFAULT_TIMEZONE, 'Asia/Shanghai');
+assert.equal(MOBILE_LIFE_CATEGORIES.includes('生活服务'), true);
+assert.equal(typedLifeCategory, '短视频/娱乐');
+assert.equal(analyticsQuery.category, '社交沟通');
+assert.equal(overview.goalProgress?.label, '每日手机总时长');
+assert.equal(overview.suggestions[0].drilldownTarget, 'category:短视频/娱乐');
+assert.equal(heatmapBucket.lifeCategory, '社交沟通');
+assert.equal(chart.points[0].label, '社交沟通');
+assert.equal(page.items[0].topApps[0].displayName, 'QQ');
+assert.equal(override.displayNameOverride, 'QQ');
+assert.equal(rule.priority, 100);
+assert.equal(usageGoalRequest.label, '每日手机总时长');

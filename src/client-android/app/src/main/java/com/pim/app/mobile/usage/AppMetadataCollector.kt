@@ -76,6 +76,7 @@ class AppMetadataCollector @Inject constructor(
                 collectedAtUtc = collectedAtUtc,
                 rawJson = JSONObject()
                     .put("packageName", packageName)
+                    .put("displayName", label)
                     .put("label", label)
                     .put("versionName", packageInfo.versionName ?: JSONObject.NULL)
                     .put("versionCode", versionCode)
@@ -136,7 +137,7 @@ class AppMetadataCollector @Inject constructor(
 
     private fun appCategory(appInfo: ApplicationInfo): Int? {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            appInfo.category
+            appInfo.category.takeUnless { it == ApplicationInfo.CATEGORY_UNDEFINED }
         } else {
             null
         }

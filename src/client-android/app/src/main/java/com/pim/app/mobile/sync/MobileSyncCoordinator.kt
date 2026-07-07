@@ -13,6 +13,7 @@ import com.pim.app.data.MobileSyncStatus
 import com.pim.app.data.MobileUsageEventEntity
 import com.pim.app.data.MobileUsageSummaryEntity
 import com.pim.app.mobile.logs.StructuredLogRepository
+import com.pim.app.mobile.usage.AppMetadataCollector
 import com.pim.app.mobile.usage.UsageAccessChecker
 import com.pim.app.mobile.usage.UsageEventCollector
 import com.pim.core.auth.TokenManager
@@ -72,6 +73,7 @@ class MobileSyncCoordinator @Inject constructor(
     private val tokenManager: TokenManager,
     private val usageAccessChecker: UsageAccessChecker,
     private val usageEventCollector: UsageEventCollector,
+    private val appMetadataCollector: AppMetadataCollector,
     private val database: AppDatabase,
     private val logs: StructuredLogRepository,
     private val heartbeatReporter: MobileHeartbeatReporter,
@@ -264,7 +266,7 @@ class MobileSyncCoordinator @Inject constructor(
                 val eventIds = mobileDataDao.insertUsageEvents(collection.events)
                 val summaryIds = mobileDataDao.insertUsageSummaries(collection.summaries)
                 val packageNames = packageNames(collection.events, collection.summaries)
-                val appMetadata = collectAppMetadata(packageNames)
+                val appMetadata = appMetadataCollector.collectForPackages(packageNames)
                 if (appMetadata.isNotEmpty()) {
                     mobileDataDao.upsertAppMetadata(appMetadata)
                 }
@@ -552,33 +554,6 @@ class MobileSyncCoordinator @Inject constructor(
             mobileDataDao.pendingLocationPointCount().first()
     }
 
-    private fun collectAppMetadata(packageNames: Set<String>): List<MobileAppMetadataEntity> {
-        val packageManager = context.packageManager
-        val collectedAtUtc = System.currentTimeMillis()
-        return packageNames.mapNotNull { packageName ->
-            try {
-                val packageInfo = packageInfo(packageManager, packageName)
-                val appInfo = applicationInfo(packageManager, packageName)
-                val label = appInfo.loadLabel(packageManager)?.toString().orEmpty()
-                MobileAppMetadataEntity(
-                    packageName = packageName,
-                    label = label.ifBlank { packageName },
-                    versionName = packageInfo.versionName,
-                    versionCode = versionCode(packageInfo),
-                    firstInstallTimeUtc = packageInfo.firstInstallTime,
-                    lastUpdateTimeUtc = packageInfo.lastUpdateTime,
-                    isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0,
-                    category = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) appInfo.category else null,
-                    installerPackageName = installerPackageName(packageManager, packageName),
-                    collectedAtUtc = collectedAtUtc,
-                    rawJson = appMetadataJson(packageName, packageInfo, appInfo, collectedAtUtc)
-                )
-            } catch (ex: Exception) {
-                null
-            }
-        }
-    }
-
     private fun buildDeviceProfile(
         identity: DeviceIdentity,
         nowUtc: Long
@@ -790,24 +765,6 @@ class MobileSyncCoordinator @Inject constructor(
         }
     }
 
-    private fun applicationInfo(packageManager: PackageManager, packageName: String): ApplicationInfo {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packageManager.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0))
-        } else {
-            @Suppress("DEPRECATION")
-            packageManager.getApplicationInfo(packageName, 0)
-        }
-    }
-
-    private fun installerPackageName(packageManager: PackageManager, packageName: String): String? {
-        return try {
-            @Suppress("DEPRECATION")
-            packageManager.getInstallerPackageName(packageName)
-        } catch (_: Exception) {
-            null
-        }
-    }
-
     private fun versionCode(packageInfo: PackageInfo): Long {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             packageInfo.longVersionCode
@@ -815,24 +772,6 @@ class MobileSyncCoordinator @Inject constructor(
             @Suppress("DEPRECATION")
             packageInfo.versionCode.toLong()
         }
-    }
-
-    private fun appMetadataJson(
-        packageName: String,
-        packageInfo: PackageInfo,
-        appInfo: ApplicationInfo,
-        collectedAtUtc: Long
-    ): String {
-        return JSONObject()
-            .put("packageName", packageName)
-            .put("versionName", packageInfo.versionName ?: JSONObject.NULL)
-            .put("versionCode", versionCode(packageInfo))
-            .put("firstInstallTimeUtc", packageInfo.firstInstallTime)
-            .put("lastUpdateTimeUtc", packageInfo.lastUpdateTime)
-            .put("isSystemApp", (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0)
-            .put("category", if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) appInfo.category else JSONObject.NULL)
-            .put("collectedAtUtc", collectedAtUtc)
-            .toString()
     }
 
     private fun sha256(value: String): String {
@@ -967,18 +906,48 @@ private fun MobileUsageSummaryEntity.toDto(): MobileUsageSummaryDto {
 }
 
 private fun MobileAppMetadataEntity.toDto(): MobileAppMetadataDto {
+    val categoryName = androidCategoryName(category)
     return MobileAppMetadataDto(
         packageName,
         label,
         versionName,
         versionCode,
         isSystemApp,
-        category?.toString(),
+        categoryName,
         installerPackageName,
         iso(firstInstallTimeUtc),
         iso(lastUpdateTimeUtc),
-        rawJson
+        mergeCategoryName(rawJson, categoryName),
+        iso(collectedAtUtc)
     )
+}
+
+private fun androidCategoryName(category: Int?): String? {
+    if (category == null) return null
+    return when (category) {
+        ApplicationInfo.CATEGORY_GAME -> "game"
+        ApplicationInfo.CATEGORY_AUDIO -> "audio"
+        ApplicationInfo.CATEGORY_VIDEO -> "video"
+        ApplicationInfo.CATEGORY_IMAGE -> "camera"
+        ApplicationInfo.CATEGORY_SOCIAL -> "social"
+        ApplicationInfo.CATEGORY_NEWS -> "news"
+        ApplicationInfo.CATEGORY_MAPS -> "maps"
+        ApplicationInfo.CATEGORY_PRODUCTIVITY -> "productivity"
+        else -> null
+    }
+}
+
+private fun mergeCategoryName(rawJson: String, categoryName: String?): String {
+    if (categoryName.isNullOrBlank()) return rawJson
+    return try {
+        JSONObject(rawJson)
+            .put("categoryName", categoryName)
+            .toString()
+    } catch (_: Exception) {
+        JSONObject()
+            .put("categoryName", categoryName)
+            .toString()
+    }
 }
 
 private fun packageNames(

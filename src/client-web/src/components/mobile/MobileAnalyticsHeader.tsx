@@ -144,10 +144,10 @@ export default function MobileAnalyticsHeader({
               <span>隐藏系统噪声</span>
               <span className="text-xs text-slate-500">{includeSystemNoise ? '关' : '开'}</span>
               <input
-                aria-label="显示系统与短事件"
+                aria-label="隐藏系统噪声"
                 type="checkbox"
-                checked={includeSystemNoise}
-                onChange={event => onIncludeSystemNoiseChange(event.target.checked)}
+                checked={!includeSystemNoise}
+                onChange={event => onIncludeSystemNoiseChange(!event.target.checked)}
                 className="h-4 w-4"
               />
             </span>

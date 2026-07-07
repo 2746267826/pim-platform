@@ -232,12 +232,18 @@ export default function MobileRecordsPage() {
 
   function handleChartCategorySelect(category: string) {
     setSelectedCategory(category);
+    setPackageName('');
     setSelectedBucketStartUtc(null);
+    setExpandedBlockId(null);
+    setExpandedSessionId(null);
   }
 
   function handleChartAppSelect(packageNameValue: string) {
     setPackageName(packageNameValue);
+    setSelectedCategory('');
     setSelectedBucketStartUtc(null);
+    setExpandedBlockId(null);
+    setExpandedSessionId(null);
   }
 
   function refresh() {

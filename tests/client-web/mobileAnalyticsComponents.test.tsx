@@ -360,7 +360,7 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
     '使用时间线',
     '应用管理',
     '批量规则',
-    '显示系统与短事件',
+    '隐藏系统噪声',
   ]) {
     assert.equal(html.includes(text), true, `analytics UI should include: ${text}`);
   }

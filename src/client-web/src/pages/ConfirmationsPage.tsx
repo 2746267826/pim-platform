@@ -19,9 +19,17 @@ function actionError(error: unknown) {
   return error instanceof Error ? error.message : 'Operation failed';
 }
 
+export function getConfirmActionState(requiresSecondLevel: boolean, secondLevelArmed: boolean) {
+  return {
+    label: requiresSecondLevel && secondLevelArmed ? 'Confirm final' : 'Confirm',
+    requiresArm: requiresSecondLevel && !secondLevelArmed,
+  };
+}
+
 export default function ConfirmationsPage() {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [secondLevelArmedId, setSecondLevelArmedId] = useState<string | null>(null);
 
   const { data: confirmations = [], isLoading } = useQuery({
     queryKey: ['pending-confirmations'],
@@ -34,6 +42,10 @@ export default function ConfirmationsPage() {
       setSelectedId(confirmations[0].id);
     }
   }, [confirmations, selectedId]);
+
+  useEffect(() => {
+    setSecondLevelArmedId(null);
+  }, [selectedId]);
 
   const { data: detail, isLoading: detailLoading } = useQuery({
     queryKey: ['confirmation-detail', selectedId],
@@ -61,6 +73,31 @@ export default function ConfirmationsPage() {
 
   const active = detail ?? confirmations.find(item => item.id === selectedId);
   const busy = confirmMutation.isPending || rejectMutation.isPending;
+  const confirmActionState = getConfirmActionState(
+    Boolean(active?.requiresSecondLevelConfirmation),
+    active !== undefined && secondLevelArmedId === active.id,
+  );
+
+  function handleConfirmActive() {
+    if (!active || busy) return;
+
+    if (confirmActionState.requiresArm) {
+      setSecondLevelArmedId(active.id);
+      return;
+    }
+
+    confirmMutation.mutate(active.id, {
+      onSuccess: () => setSecondLevelArmedId(null),
+    });
+  }
+
+  function handleRejectActive() {
+    if (!active || busy) return;
+
+    rejectMutation.mutate(active.id, {
+      onSuccess: () => setSecondLevelArmedId(null),
+    });
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-4 pb-8">
@@ -116,15 +153,15 @@ export default function ConfirmationsPage() {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => confirmMutation.mutate(active.id)}
+                  onClick={handleConfirmActive}
                   disabled={busy}
                   className="pim-button-primary px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Confirm
+                  {confirmActionState.label}
                 </button>
                 <button
                   type="button"
-                  onClick={() => rejectMutation.mutate(active.id)}
+                  onClick={handleRejectActive}
                   disabled={busy}
                   className="pim-button-secondary px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -136,6 +173,12 @@ export default function ConfirmationsPage() {
 
           {active ? (
             <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {active.requiresSecondLevelConfirmation && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 lg:col-span-2">
+                  Second-level confirmation required for this external-source operation.
+                  {secondLevelArmedId === active.id ? ' Final confirmation is armed.' : ' Review the detail fields before continuing.'}
+                </div>
+              )}
               <div className="rounded-lg border border-slate-200 bg-white p-3 lg:col-span-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Summary</p>
                 <p className="mt-2 text-sm font-medium text-slate-800">{active.summary}</p>

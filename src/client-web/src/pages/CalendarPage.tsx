@@ -431,7 +431,7 @@ function taskColor(priority: number): string {
   return '#F59E0B';
 }
 
-function buildCalendarEvents(
+export function buildCalendarEvents(
   events: EventResponse[],
   tasks: TaskResponse[],
   layerItems: CalendarLayerItem[],
@@ -451,7 +451,7 @@ function buildCalendarEvents(
         raw: event,
       },
     })),
-    ...tasks.filter(task => task.dtStart).map(task => {
+    ...(enabledLayerSet.has('task-segments') ? tasks : []).filter(task => task.dtStart).map(task => {
       const color = taskColor(task.priority);
 
       return {

@@ -309,14 +309,15 @@ export default function MobileRecordsPage() {
           />
           <MobileUsageBucketDetail cell={selectedHeatmapCell} />
         </section>
-        <MobileChartsGrid
-          charts={chartsQuery.data ?? []}
-          isLoading={chartsQuery.isLoading}
-          onCategorySelect={handleChartCategorySelect}
-          onAppSelect={handleChartAppSelect}
-        />
-        <div className="mx-auto grid max-w-[1500px] grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
-          <div className="min-w-0 space-y-4">
+        <section className="mx-auto max-w-[1500px] px-4 sm:px-6">
+          <MobileChartsGrid
+            charts={chartsQuery.data ?? []}
+            isLoading={chartsQuery.isLoading}
+            onCategorySelect={handleChartCategorySelect}
+            onAppSelect={handleChartAppSelect}
+          />
+        </section>
+        <section className="mx-auto max-w-[1500px] px-4 sm:px-6">
             <MobileTimelineBlocks
               blocks={timelineBlocks}
               sessionsByBlock={sessionsByBlock}
@@ -337,8 +338,8 @@ export default function MobileRecordsPage() {
                 if (timelineBlocksQuery.hasNextPage) void timelineBlocksQuery.fetchNextPage();
               }}
             />
-          </div>
-          <div className="min-w-0 space-y-4">
+        </section>
+        <div className="mx-auto grid max-w-[1500px] grid-cols-1 gap-4 px-4 sm:px-6 xl:grid-cols-2">
             <MobileAnomalyPanel
               anomalies={overviewQuery.data?.anomalies ?? []}
               suggestions={overviewQuery.data?.suggestions ?? []}
@@ -360,7 +361,6 @@ export default function MobileRecordsPage() {
               onSaveRule={rule => saveRuleMutation.mutate(rule)}
               onDeleteRule={ruleId => deleteRuleMutation.mutate(ruleId)}
             />
-          </div>
         </div>
       </main>
     </div>

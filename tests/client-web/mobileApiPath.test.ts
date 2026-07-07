@@ -52,6 +52,28 @@ assert.equal(
   mobileApiPaths.locationHistory({ start, end, deviceId, maxAccuracyMeters: 25 }),
   '/mobile/location/history?start=2026-07-06T00%3A00%3A00Z&end=2026-07-06T23%3A59%3A59Z&maxAccuracyMeters=25&deviceId=phone%2Fmain',
 );
+assert.equal(
+  mobileApiPaths.locationAnalyticsOverview({
+    rangeStartUtc,
+    rangeEndUtc,
+    timezone: MOBILE_DEFAULT_TIMEZONE,
+    maxAccuracyMeters: 50,
+    includeRejected: false,
+  }),
+  '/mobile/location/analytics/overview?rangeStartUtc=2026-07-01T16%3A00%3A00Z&rangeEndUtc=2026-07-08T16%3A00%3A00Z&timezone=Asia%2FShanghai&maxAccuracyMeters=50&includeRejected=false',
+);
+assert.equal(
+  mobileApiPaths.locationAnalyticsTracks({ timezone: MOBILE_DEFAULT_TIMEZONE }),
+  '/mobile/location/analytics/tracks?timezone=Asia%2FShanghai',
+);
+assert.equal(
+  mobileApiPaths.locationAnalyticsSegment('segment/一'),
+  '/mobile/location/analytics/segments/segment%2F%E4%B8%80',
+);
+assert.equal(
+  mobileApiPaths.locationAnalyticsSegmentPoints('segment/一', { pageSize: 20 }),
+  '/mobile/location/analytics/segments/segment%2F%E4%B8%80/points?pageSize=20',
+);
 assert.equal(mobileApiPaths.quality(), '/mobile/quality');
 assert.equal(
   mobileApiPaths.quality(day, deviceId),

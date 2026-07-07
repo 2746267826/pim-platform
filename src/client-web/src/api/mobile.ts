@@ -60,6 +60,30 @@ function withAnalyticsQuery(path: string, query: MobileAnalyticsQuery = {}) {
   ]);
 }
 
+export interface MobileLocationAnalyticsParams {
+  rangeStartUtc?: string | null;
+  rangeEndUtc?: string | null;
+  timezone?: string | null;
+  deviceId?: string | null;
+  maxAccuracyMeters?: number | null;
+  includeRejected?: boolean | null;
+  cursor?: string | null;
+  pageSize?: number | null;
+}
+
+function withLocationAnalyticsQuery(path: string, query: MobileLocationAnalyticsParams = {}) {
+  return withQuery(path, [
+    ['rangeStartUtc', query.rangeStartUtc],
+    ['rangeEndUtc', query.rangeEndUtc],
+    ['timezone', query.timezone],
+    ['deviceId', query.deviceId],
+    ['maxAccuracyMeters', query.maxAccuracyMeters],
+    ['includeRejected', query.includeRejected],
+    ['cursor', query.cursor],
+    ['pageSize', query.pageSize],
+  ]);
+}
+
 export interface MobileLocationHistoryParams {
   start: string;
   end: string;
@@ -93,6 +117,14 @@ export const mobileApiPaths = {
       ['maxAccuracyMeters', params.maxAccuracyMeters ?? 50],
       ['deviceId', params.deviceId],
     ]),
+  locationAnalyticsOverview: (query: MobileLocationAnalyticsParams = {}) =>
+    withLocationAnalyticsQuery('/mobile/location/analytics/overview', query),
+  locationAnalyticsTracks: (query: MobileLocationAnalyticsParams = {}) =>
+    withLocationAnalyticsQuery('/mobile/location/analytics/tracks', query),
+  locationAnalyticsSegment: (segmentId: string) =>
+    `/mobile/location/analytics/segments/${pathSegment(segmentId)}`,
+  locationAnalyticsSegmentPoints: (segmentId: string, query: MobileLocationAnalyticsParams = {}) =>
+    withLocationAnalyticsQuery(`/mobile/location/analytics/segments/${pathSegment(segmentId)}/points`, query),
   quality: (date?: string, deviceId?: string) =>
     withQuery('/mobile/quality', [
       ['date', date],
@@ -244,6 +276,79 @@ export interface MobileLocationHistory {
   deviceId: string | null;
   maxAccuracyMeters: number;
   points: MobileLocationPoint[];
+}
+
+export interface MobileLocationBounds {
+  minLatitude: number;
+  minLongitude: number;
+  maxLatitude: number;
+  maxLongitude: number;
+}
+
+export interface MobileLocationPathPoint {
+  latitude: number;
+  longitude: number;
+  recordedAtUtc?: string | null;
+  horizontalAccuracyMeters?: number | null;
+  quality?: MobileLocationQuality | string | null;
+}
+
+export type MobileLocationSegmentKind = 'move' | 'stay' | 'gap' | 'low-confidence' | string;
+
+export interface MobileLocationAnalyticsOverview {
+  range: MobileAnalyticsRange;
+  generatedAt: string;
+  pointCount: number;
+  usablePointCount: number;
+  rejectedPointCount: number;
+  activeSpanSeconds: number;
+  distanceMeters: number;
+  stayCount: number;
+  longestStaySeconds: number;
+  averageAccuracyMeters: number;
+  qualityIssueCount: number;
+  qualityFlags: string[];
+}
+
+export interface MobileLocationSegment {
+  id: string;
+  trackId: string;
+  deviceId: string;
+  kind: MobileLocationSegmentKind;
+  startUtc: string;
+  endUtc: string;
+  localStart: string;
+  localEnd: string;
+  durationSeconds: number;
+  distanceMeters: number;
+  pointCount: number;
+  averageSpeedMetersPerSecond: number;
+  averageAccuracyMeters: number;
+  maxAccuracyMeters: number;
+  quality: MobileLocationQuality;
+  qualityFlags: string[];
+  bounds: MobileLocationBounds;
+  path: MobileLocationPathPoint[];
+}
+
+export interface MobileLocationTrack {
+  id: string;
+  deviceId: string;
+  startUtc: string;
+  endUtc: string;
+  distanceMeters: number;
+  durationSeconds: number;
+  pointCount: number;
+  segmentCount: number;
+  bounds: MobileLocationBounds;
+  qualityFlags: string[];
+  segments: MobileLocationSegment[];
+}
+
+export interface MobileLocationSegmentPointPage {
+  items: MobileLocationPoint[];
+  nextCursor: string | null;
+  hasMore: boolean;
 }
 
 export interface MobileQualityComponent {
@@ -495,6 +600,33 @@ export function getMobileTimeline(date: string, deviceId?: string): Promise<Mobi
 
 export function getMobileLocationHistory(params: MobileLocationHistoryParams): Promise<MobileLocationHistory> {
   return apiGet<ApiResponse<MobileLocationHistory>>(mobileApiPaths.locationHistory(params)).then(r => r.data);
+}
+
+export function getMobileLocationAnalyticsOverview(
+  query: MobileLocationAnalyticsParams = {},
+): Promise<MobileLocationAnalyticsOverview> {
+  return apiGet<ApiResponse<MobileLocationAnalyticsOverview>>(
+    mobileApiPaths.locationAnalyticsOverview(query),
+  ).then(r => r.data);
+}
+
+export function getMobileLocationAnalyticsTracks(
+  query: MobileLocationAnalyticsParams = {},
+): Promise<MobileLocationTrack[]> {
+  return apiGet<ApiResponse<MobileLocationTrack[]>>(mobileApiPaths.locationAnalyticsTracks(query)).then(r => r.data);
+}
+
+export function getMobileLocationAnalyticsSegment(segmentId: string): Promise<MobileLocationSegment> {
+  return apiGet<ApiResponse<MobileLocationSegment>>(mobileApiPaths.locationAnalyticsSegment(segmentId)).then(r => r.data);
+}
+
+export function getMobileLocationAnalyticsSegmentPoints(
+  segmentId: string,
+  query: MobileLocationAnalyticsParams = {},
+): Promise<MobileLocationSegmentPointPage> {
+  return apiGet<ApiResponse<MobileLocationSegmentPointPage>>(
+    mobileApiPaths.locationAnalyticsSegmentPoints(segmentId, query),
+  ).then(r => r.data);
 }
 
 export function getMobileQuality(date?: string, deviceId?: string): Promise<MobileQuality> {

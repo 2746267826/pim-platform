@@ -5,6 +5,17 @@ plugins {
     kotlin("kapt")
 }
 
+val ciKeystoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
+val ciKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val ciKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
+val ciKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+val hasCiSigning = listOf(
+    ciKeystoreFile,
+    ciKeystorePassword,
+    ciKeyAlias,
+    ciKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.pim.app"
     compileSdk = 34
@@ -23,6 +34,28 @@ android {
     composeOptions { kotlinCompilerExtensionVersion = "1.5.5" }
     kotlinOptions {
         jvmTarget = "17"
+    }
+    signingConfigs {
+        if (hasCiSigning) {
+            create("ci") {
+                storeFile = file(ciKeystoreFile!!)
+                storePassword = ciKeystorePassword
+                keyAlias = ciKeyAlias
+                keyPassword = ciKeyPassword
+            }
+        }
+    }
+    buildTypes {
+        getByName("debug") {
+            if (hasCiSigning) {
+                signingConfig = signingConfigs.getByName("ci")
+            }
+        }
+        getByName("release") {
+            if (hasCiSigning) {
+                signingConfig = signingConfigs.getByName("ci")
+            }
+        }
     }
 }
 

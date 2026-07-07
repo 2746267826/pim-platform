@@ -17,9 +17,9 @@ export const MOBILE_LIFE_CATEGORY_LABELS = [
   '未分类',
 ] as const;
 
-export const MOBILE_MOJIBAKE_GUARDS = [
-  '鎵嬫満',
-  '鐑姏',
-  '鍘嗗彶',
-  '绀句氦娌',
+export const MOBILE_CHINESE_COPY_GUARDS = [
+  '手机记录',
+  '使用热力图',
+  '历史位置',
+  '社交通讯',
 ] as const;

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIM Today Density Prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --border: #dbe4ef;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    .prototype-shell {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .density-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.96);
+      padding: 12px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .density-title {
+      min-width: 0;
+    }
+    .density-title strong {
+      display: block;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+    .density-title span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .density-controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .density-button {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      color: #334155;
+      padding: 7px 12px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .density-button.active {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: #fff;
+    }
+    iframe {
+      display: block;
+      width: 100%;
+      height: calc(100vh - 65px);
+      border: 0;
+      background: #fff;
+    }
+    @media (max-width: 860px) {
+      .density-bar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .density-controls {
+        justify-content: flex-start;
+      }
+      iframe {
+        height: calc(100vh - 112px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-shell">
+    <header class="density-bar">
+      <div class="density-title">
+        <strong>Today 控制台 · 密度模式</strong>
+        <span id="density-description">默认标准密度：主信息完整，有足够呼吸感，适合每天长期使用。</span>
+      </div>
+      <div class="density-controls" aria-label="密度模式">
+        <button class="density-button" data-mode="standard">标准</button>
+        <button class="density-button" data-mode="compact">高密度</button>
+        <button class="density-button" data-mode="focus">专注</button>
+      </div>
+    </header>
+    <iframe id="preview" title="PIM Today 控制台完整页面" src="/files/today-command-center-complete-v1.html"></iframe>
+  </div>
+
+  <script>
+    const frame = document.getElementById('preview');
+    const description = document.getElementById('density-description');
+    const buttons = Array.from(document.querySelectorAll('[data-mode]'));
+    const descriptions = {
+      standard: '默认标准密度：主信息完整，有足够呼吸感，适合每天长期使用。',
+      compact: '高密度：压缩间距和时间轴高度，一屏容纳更多任务、建议、状态和计划段。',
+      focus: '专注：保留当前时间轴、下一个行动和必须确认的 AI 改动，隐藏次要分析。'
+    };
+
+    function getInjectedStyle(doc) {
+      let style = doc.getElementById('density-mode-style');
+      if (!style) {
+        style = doc.createElement('style');
+        style.id = 'density-mode-style';
+        doc.head.appendChild(style);
+      }
+      return style;
+    }
+
+    function cssForMode(mode) {
+      if (mode === 'compact') {
+        return `
+          body { --density-note: compact; }
+          .main { padding: 10px !important; gap: 10px !important; }
+          .topbar { min-height: 54px !important; padding: 9px 12px !important; }
+          h1 { font-size: 19px !important; }
+          .subtitle { font-size: 12px !important; }
+          .summary-strip { gap: 8px !important; }
+          .metric { padding: 8px 9px !important; }
+          .metric strong { font-size: 17px !important; }
+          .workspace { gap: 10px !important; grid-template-columns: minmax(0, 1.55fr) minmax(300px, .68fr) !important; }
+          .panel-header { padding: 9px 11px !important; }
+          .panel-body { padding: 9px 11px !important; }
+          .layer-controls { padding: 8px 11px !important; gap: 5px !important; }
+          .layer-chip { padding: 5px 8px !important; font-size: 11px !important; }
+          .schedule { min-height: 500px !important; padding: 10px !important; }
+          .times, .timeline { grid-template-rows: repeat(11, 42px) !important; }
+          .block { left: 12px !important; right: 12px !important; min-height: 34px !important; padding: 6px 8px !important; border-radius: 10px !important; }
+          .block strong { font-size: 12px !important; }
+          .block span { font-size: 10px !important; }
+          .task-list { gap: 6px !important; }
+          .task-row { padding: 7px !important; gap: 7px !important; }
+          .right-stack { gap: 9px !important; }
+          .drawer-preview .form-grid { gap: 7px !important; padding: 9px 11px !important; }
+        `;
+      }
+
+      if (mode === 'focus') {
+        return `
+          body { --density-note: focus; }
+          .summary-strip { display: none !important; }
+          .workspace { grid-template-columns: minmax(0, 1fr) 340px !important; }
+          .top-actions .btn:not(.primary):not(.warn) { display: none !important; }
+          .right-stack > .panel:nth-of-type(3),
+          .right-stack > .drawer-preview,
+          .right-stack > .panel:nth-of-type(5) { display: none !important; }
+          .right-stack > .panel:first-child .task-row:nth-child(n+3) { display: none !important; }
+          .right-stack > .panel:nth-child(2) .ai-card:nth-child(n+3) { display: none !important; }
+          .panel-note { color: #2563eb !important; }
+          .schedule { min-height: 650px !important; }
+          .layer-budget:not(:first-of-type),
+          .layer-habit,
+          .layer-ai:last-of-type { opacity: .22 !important; }
+          .block { box-shadow: 0 12px 30px rgba(15,23,42,.10) !important; }
+        `;
+      }
+
+      return '';
+    }
+
+    function applyDensity(mode) {
+      const doc = frame.contentDocument;
+      if (!doc) return;
+      getInjectedStyle(doc).textContent = cssForMode(mode);
+      description.textContent = descriptions[mode];
+      buttons.forEach(button => button.classList.toggle('active', button.dataset.mode === mode));
+    }
+
+    buttons.forEach(button => button.addEventListener('click', () => applyDensity(button.dataset.mode)));
+    frame.addEventListener('load', () => applyDensity('standard'));
+  </script>
+</body>
+</html>

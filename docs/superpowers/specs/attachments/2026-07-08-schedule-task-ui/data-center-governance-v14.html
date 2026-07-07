@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIM Data Center Governance</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --border: #dbe4ef;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --teal: #14b8a6;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --violet: #7c3aed;
+      --green-soft: #ccfbf1;
+      --blue-soft: #dbeafe;
+      --amber-soft: #fef3c7;
+      --red-soft: #fee2e2;
+      --violet-soft: #ede9fe;
+      --shadow: 0 18px 42px rgba(15, 23, 42, .10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 8% 4%, rgba(20, 184, 166, .12), transparent 28rem),
+        radial-gradient(circle at 88% 0%, rgba(37, 99, 235, .12), transparent 32rem),
+        var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    .page {
+      min-height: 100vh;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+    .header {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+      padding: 16px;
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) auto;
+      gap: 14px;
+      align-items: end;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.18;
+    }
+    .header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    button {
+      min-height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: #fff;
+      color: #334155;
+      padding: 8px 11px;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    button.danger { background: #fff1f2; border-color: #fecaca; color: #b91c1c; }
+    .layout {
+      display: grid;
+      grid-template-columns: 250px minmax(420px, 1fr) 340px;
+      gap: 14px;
+      align-items: start;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.94);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+    .panel-head small { color: var(--muted); font-size: 11px; font-weight: 850; }
+    .content {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .search {
+      min-height: 42px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 13px;
+      font-weight: 750;
+    }
+    .filters {
+      display: grid;
+      gap: 8px;
+    }
+    .filter {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .filter.active { background: var(--blue-soft); border-color: #93c5fd; color: #1d4ed8; }
+    .filter span:last-child { color: var(--muted); font-size: 11px; }
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: #475569;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .tag.blue { background: var(--blue-soft); color: #1d4ed8; border-color: #bfdbfe; }
+    .tag.green { background: var(--green-soft); color: #0f766e; border-color: #99f6e4; }
+    .tag.amber { background: var(--amber-soft); color: #b45309; border-color: #fde68a; }
+    .tag.red { background: var(--red-soft); color: #b91c1c; border-color: #fecaca; }
+    .tag.violet { background: var(--violet-soft); color: #5b21b6; border-color: #ddd6fe; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 9px;
+    }
+    .metric {
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      background: var(--surface-2);
+      padding: 10px;
+    }
+    .metric strong { display: block; font-size: 20px; line-height: 1; }
+    .metric small { color: var(--muted); font-size: 11px; font-weight: 850; }
+    .bulkbar {
+      border: 1px solid #bfdbfe;
+      border-radius: 14px;
+      background: #f8fbff;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+    .bulkbar strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .bulkbar small {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .bulk-actions {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .bulk-actions button {
+      min-height: 32px;
+      border-radius: 9px;
+      padding: 5px 8px;
+      font-size: 11px;
+    }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      overflow: hidden;
+    }
+    .table th,
+    .table td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .table th {
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 950;
+    }
+    .table tr.selected td { background: #f8fbff; }
+    .object {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .object-title {
+      border: 1px solid #bfdbfe;
+      border-radius: 14px;
+      background: #f8fbff;
+      padding: 13px;
+      display: grid;
+      gap: 8px;
+    }
+    .object-title h3 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.25;
+    }
+    .object-title p {
+      margin: 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .kv {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .cell {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+    }
+    .cell b {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .cell span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+    .timeline {
+      display: grid;
+      gap: 8px;
+    }
+    .audit {
+      display: grid;
+      grid-template-columns: 10px 1fr auto;
+      gap: 9px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+      align-items: start;
+    }
+    .audit i {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--teal);
+      margin-top: 5px;
+    }
+    .audit strong {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .audit small {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .audit time {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .rule-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .rule {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fff;
+      padding: 11px;
+    }
+    .rule strong {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .rule small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    @media (max-width: 1180px) {
+      .layout { grid-template-columns: 250px 1fr; }
+      .layout > .panel:last-child { grid-column: 1 / -1; }
+    }
+    @media (max-width: 860px) {
+      .page { padding: 12px; }
+      .header, .layout, .summary, .bulkbar, .rule-grid { grid-template-columns: 1fr; }
+      .actions, .bulk-actions { justify-content: flex-start; }
+    }
+    @media (max-width: 560px) {
+      .kv { grid-template-columns: 1fr; }
+      .audit { grid-template-columns: 10px 1fr; }
+      .audit time { grid-column: 2; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="header">
+      <div>
+        <h1>数据中心与批量治理：所有对象、来源、审计、回收站集中管理</h1>
+        <p>对象自己的页面负责日常工作；数据中心负责全局搜索、跨对象治理、来源批量管理、同步批次、审计导出、版本恢复和回收站。</p>
+      </div>
+      <div class="actions">
+        <button>导出审计</button>
+        <button>打开回收站</button>
+        <button>同步批次</button>
+        <button class="primary">新建治理视图</button>
+      </div>
+    </section>
+
+    <section class="layout">
+      <aside class="panel">
+        <div class="panel-head">
+          <h2>全局筛选</h2>
+          <small>跨对象</small>
+        </div>
+        <div class="content">
+          <div class="search">搜索名称、位置、Graph ID、审计批次</div>
+          <div class="filters">
+            <div class="filter active"><span>全部对象</span><span>248</span></div>
+            <div class="filter"><span>任务 / 子任务</span><span>86</span></div>
+            <div class="filter"><span>日程事件</span><span>64</span></div>
+            <div class="filter"><span>执行时间段</span><span>51</span></div>
+            <div class="filter"><span>习惯 / 例行</span><span>7</span></div>
+            <div class="filter"><span>Outlook 来源</span><span>29</span></div>
+            <div class="filter"><span>待确认</span><span>4</span></div>
+            <div class="filter"><span>回收站</span><span>13</span></div>
+          </div>
+          <div class="tag-row">
+            <span class="tag violet">Outlook</span>
+            <span class="tag blue">PIM</span>
+            <span class="tag">ICS</span>
+            <span class="tag amber">AI 建议</span>
+            <span class="tag red">高风险</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="panel">
+        <div class="panel-head">
+          <h2>治理结果</h2>
+          <small>批量操作先预检，再确认</small>
+        </div>
+        <div class="content">
+          <div class="summary">
+            <div class="metric"><strong>248</strong><small>对象</small></div>
+            <div class="metric"><strong>29</strong><small>Outlook 来源</small></div>
+            <div class="metric"><strong>4</strong><small>待确认</small></div>
+            <div class="metric"><strong>13</strong><small>可恢复</small></div>
+          </div>
+          <div class="bulkbar">
+            <div>
+              <strong>已选择 3 个 Outlook 来源日程</strong>
+              <small>批量改标签、暂停同步可预检；删除、写回、停止同步需要严格确认。</small>
+            </div>
+            <div class="bulk-actions">
+              <button>批量打标签</button>
+              <button>暂停同步</button>
+              <button>预检影响</button>
+              <button class="danger">停止同步</button>
+            </div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr><th>对象</th><th>类型</th><th>来源</th><th>状态</th><th>最近变更</th></tr>
+            </thead>
+            <tbody>
+              <tr class="selected">
+                <td>产品例会</td>
+                <td>日程事件</td>
+                <td><span class="tag violet">Outlook</span></td>
+                <td><span class="tag red">二级确认</span></td>
+                <td>地点冲突 / sync_0142</td>
+              </tr>
+              <tr>
+                <td>季度复盘材料</td>
+                <td>任务</td>
+                <td><span class="tag blue">PIM</span></td>
+                <td><span class="tag amber">待确认</span></td>
+                <td>执行段建议提前</td>
+              </tr>
+              <tr>
+                <td>步行与拉伸</td>
+                <td>习惯</td>
+                <td><span class="tag blue">PIM</span></td>
+                <td><span class="tag green">正常</span></td>
+                <td>今日已完成</td>
+              </tr>
+              <tr>
+                <td>供应商沟通</td>
+                <td>日程事件</td>
+                <td><span class="tag violet">Outlook</span></td>
+                <td><span class="tag green">已同步</span></td>
+                <td>Graph delta 新增</td>
+              </tr>
+              <tr>
+                <td>旧会议草稿</td>
+                <td>回收站</td>
+                <td><span class="tag">ICS</span></td>
+                <td><span class="tag">可恢复</span></td>
+                <td>重复导入后删除</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </main>
+
+      <aside class="panel">
+        <div class="panel-head">
+          <h2>对象详情</h2>
+          <small>事实 + 来源 + 审计</small>
+        </div>
+        <div class="object">
+          <div class="object-title">
+            <h3>产品例会</h3>
+            <p>Outlook 来源日程，当前存在地点字段冲突，写回前需要二级确认。</p>
+            <div class="tag-row">
+              <span class="tag violet">Graph event</span>
+              <span class="tag red">L3</span>
+              <span class="tag amber">sync_0142</span>
+            </div>
+          </div>
+          <div class="kv">
+            <div class="cell"><b>PIM ID</b><span>evt_20260708_0930</span></div>
+            <div class="cell"><b>Graph ID</b><span>AAMkAGVmMDEz...</span></div>
+            <div class="cell"><b>当前时间</b><span>09:30-10:20</span></div>
+            <div class="cell"><b>冲突字段</b><span>location, start/end</span></div>
+          </div>
+          <div class="timeline">
+            <div class="audit">
+              <i style="background:var(--red)"></i>
+              <div><strong>生成二级确认请求</strong><small>before/after 已记录，等待用户选择。</small></div>
+              <time>01:42</time>
+            </div>
+            <div class="audit">
+              <i style="background:var(--violet)"></i>
+              <div><strong>Graph delta 发现位置变更</strong><small>来源 Outlook，changeKey 已保存。</small></div>
+              <time>01:41</time>
+            </div>
+            <div class="audit">
+              <i style="background:var(--teal)"></i>
+              <div><strong>用户在 Web 修改时间</strong><small>人工确认通过，版本 v12。</small></div>
+              <time>01:35</time>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>数据中心职责</h2>
+        <small>和对象页面分工</small>
+      </div>
+      <div class="content">
+        <div class="rule-grid">
+          <div class="rule">
+            <strong>全局搜索与对象定位</strong>
+            <small>搜索任务、日程、习惯、位置、来源标签、Graph ID、审计批次和回收站记录。</small>
+          </div>
+          <div class="rule">
+            <strong>来源与同步批量治理</strong>
+            <small>Outlook 来源项可单独筛选、批量打标签、暂停同步、停止同步或进入冲突队列。</small>
+          </div>
+          <div class="rule">
+            <strong>回收站与版本恢复</strong>
+            <small>删除走软删除；恢复需要保留原始来源、审计链和外部同步策略。</small>
+          </div>
+          <div class="rule">
+            <strong>审计导出与风险预检</strong>
+            <small>批量操作先预览影响对象，高风险操作进入确认；审计记录可导出。</small>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIM Outlook Graph Sync</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --border: #dbe4ef;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --teal: #14b8a6;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --violet: #7c3aed;
+      --green-soft: #ccfbf1;
+      --blue-soft: #dbeafe;
+      --amber-soft: #fef3c7;
+      --red-soft: #fee2e2;
+      --violet-soft: #ede9fe;
+      --shadow: 0 18px 42px rgba(15, 23, 42, .10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 8% 4%, rgba(20, 184, 166, .12), transparent 28rem),
+        radial-gradient(circle at 88% 0%, rgba(37, 99, 235, .12), transparent 32rem),
+        var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    .page {
+      min-height: 100vh;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+    .header {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+      padding: 16px;
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) auto;
+      gap: 14px;
+      align-items: end;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.18;
+    }
+    .header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    button {
+      min-height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: #fff;
+      color: #334155;
+      padding: 8px 11px;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    button.danger { background: #fff1f2; border-color: #fecaca; color: #b91c1c; }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(320px, .82fr) minmax(460px, 1.18fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.94);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+    .panel-head small { color: var(--muted); font-size: 11px; font-weight: 850; }
+    .content {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+    .field label {
+      color: #334155;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .input {
+      min-height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: var(--surface-2);
+      color: #475569;
+      display: flex;
+      align-items: center;
+      padding: 0 11px;
+      font-size: 12px;
+      font-weight: 750;
+      overflow-wrap: anywhere;
+    }
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: #475569;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .tag.blue { background: var(--blue-soft); color: #1d4ed8; border-color: #bfdbfe; }
+    .tag.green { background: var(--green-soft); color: #0f766e; border-color: #99f6e4; }
+    .tag.amber { background: var(--amber-soft); color: #b45309; border-color: #fde68a; }
+    .tag.red { background: var(--red-soft); color: #b91c1c; border-color: #fecaca; }
+    .tag.violet { background: var(--violet-soft); color: #5b21b6; border-color: #ddd6fe; }
+    .device-card {
+      border: 1px solid #bfdbfe;
+      border-radius: 14px;
+      background: #f8fbff;
+      padding: 13px;
+      display: grid;
+      gap: 10px;
+    }
+    .device-card strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .code {
+      border: 1px dashed #93c5fd;
+      border-radius: 12px;
+      background: #fff;
+      color: #1d4ed8;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      font-weight: 950;
+      letter-spacing: 1px;
+    }
+    .code small {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0;
+      font-weight: 800;
+    }
+    .steps {
+      display: grid;
+      gap: 9px;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: 10px;
+      align-items: start;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      background: #fff;
+      padding: 10px;
+    }
+    .num {
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      background: var(--blue-soft);
+      color: #1d4ed8;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 950;
+    }
+    .step.done .num { background: var(--green-soft); color: #0f766e; }
+    .step.warn .num { background: var(--amber-soft); color: #b45309; }
+    .step.risk .num { background: var(--red-soft); color: #b91c1c; }
+    .step strong {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .step small {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .step time {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 9px;
+    }
+    .metric {
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      background: var(--surface-2);
+      padding: 10px;
+    }
+    .metric strong { display: block; font-size: 20px; line-height: 1; }
+    .metric small { color: var(--muted); font-size: 11px; font-weight: 850; }
+    .bottom {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 14px;
+    }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .table th,
+    .table td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .table th {
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 950;
+    }
+    .conflict {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .conflict-card {
+      border: 1px solid #fecaca;
+      border-radius: 14px;
+      background: #fff7f7;
+      padding: 13px;
+      display: grid;
+      gap: 8px;
+    }
+    .conflict-card strong {
+      display: block;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+    .conflict-card p {
+      margin: 0;
+      color: #7f1d1d;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .diff {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+    .diff-box {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+    }
+    .diff-box b {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .line {
+      display: grid;
+      grid-template-columns: 64px 1fr;
+      gap: 7px;
+      border-top: 1px solid #edf2f7;
+      padding: 5px 0;
+      font-size: 12px;
+    }
+    .line:first-of-type { border-top: 0; }
+    .line span:first-child { color: var(--muted); font-weight: 850; }
+    .line span:last-child { color: #0f172a; font-weight: 750; overflow-wrap: anywhere; }
+    .choice-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 7px;
+    }
+    .choice-grid button {
+      min-height: 34px;
+      padding: 6px 7px;
+      font-size: 11px;
+      border-radius: 9px;
+    }
+    @media (max-width: 1120px) {
+      .grid, .bottom { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      .page { padding: 12px; }
+      .header, .metrics, .diff { grid-template-columns: 1fr; }
+      .actions { justify-content: flex-start; }
+      .choice-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 520px) {
+      .step { grid-template-columns: 28px 1fr; }
+      .step time { grid-column: 2; }
+      .choice-grid { grid-template-columns: 1fr; }
+      .line { grid-template-columns: 1fr; gap: 2px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="header">
+      <div>
+        <h1>Outlook 双向同步：Graph 官方接口 + 全过程可见 + 来源项二级确认</h1>
+        <p>设置里配置 Client ID、Tenant、Scopes；使用微软设备代码流连接。读取可自动，写回和核心冲突必须进入确认，Outlook 来源项带独立标签和批量治理入口。</p>
+      </div>
+      <div class="actions">
+        <button>导入 ICS</button>
+        <button>导出 ICS</button>
+        <button>同步日志</button>
+        <button class="primary">开始 Graph 同步</button>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Microsoft Graph 设置</h2>
+          <small>用户可配置</small>
+        </div>
+        <div class="content">
+          <div class="field">
+            <label>Client ID</label>
+            <div class="input">00001111-aaaa-2222-bbbb-3333cccc4444</div>
+          </div>
+          <div class="field">
+            <label>Tenant</label>
+            <div class="input">common / organizations / 指定 tenant id</div>
+          </div>
+          <div class="field">
+            <label>Scopes</label>
+            <div class="tag-row">
+              <span class="tag blue">User.Read</span>
+              <span class="tag violet">Calendars.ReadWrite</span>
+              <span class="tag green">offline_access</span>
+              <span class="tag">openid</span>
+              <span class="tag">profile</span>
+            </div>
+          </div>
+          <div class="device-card">
+            <strong>设备代码连接</strong>
+            <div class="code">
+              <span>F7KQ-H4RP</span>
+              <small>microsoft.com/devicelogin</small>
+            </div>
+            <div class="tag-row">
+              <span class="tag amber">等待用户输入代码</span>
+              <span class="tag">轮询 token endpoint</span>
+              <span class="tag green">成功后保存刷新凭据</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>安全策略</label>
+            <div class="input">令牌加密保存；可断开连接；写回前二级确认；同步批次完整审计。</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>同步过程</h2>
+          <small>用户可看到每一步</small>
+        </div>
+        <div class="content">
+          <div class="metrics">
+            <div class="metric"><strong>18</strong><small>读取事件</small></div>
+            <div class="metric"><strong>4</strong><small>新增/更新</small></div>
+            <div class="metric"><strong>2</strong><small>冲突</small></div>
+            <div class="metric"><strong>0</strong><small>已写回</small></div>
+          </div>
+          <div class="steps">
+            <div class="step done">
+              <div class="num">1</div>
+              <div><strong>加载连接配置</strong><small>检查 Client ID、Tenant、Scopes、token 状态和最近 deltaLink。</small></div>
+              <time>完成</time>
+            </div>
+            <div class="step done">
+              <div class="num">2</div>
+              <div><strong>读取 calendarView delta</strong><small>初次全量按时间窗读取；后续使用 deltaLink / nextLink 增量拉取。</small></div>
+              <time>完成</time>
+            </div>
+            <div class="step done">
+              <div class="num">3</div>
+              <div><strong>映射 Graph 事件</strong><small>保存 Graph event id、etag、iCalUId、changeKey、来源标签和 PIM event id。</small></div>
+              <time>完成</time>
+            </div>
+            <div class="step warn">
+              <div class="num">4</div>
+              <div><strong>生成字段级差异</strong><small>名称、时间、位置、重复规则、参与人、删除状态分别比较。</small></div>
+              <time>2 冲突</time>
+            </div>
+            <div class="step risk">
+              <div class="num">5</div>
+              <div><strong>等待人工确认写回</strong><small>Outlook 来源项写回、删除、批量变更必须二级确认。</small></div>
+              <time>待处理</time>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="bottom">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>同步批次明细</h2>
+          <small>可审计、可重放、可导出</small>
+        </div>
+        <table class="table">
+          <thead>
+            <tr><th>项目</th><th>来源</th><th>动作</th><th>状态</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>产品例会</td>
+              <td><span class="tag violet">Outlook</span></td>
+              <td>位置从 线上 变为 会议室 B</td>
+              <td><span class="tag red">二级确认</span></td>
+            </tr>
+            <tr>
+              <td>季度复盘材料执行段</td>
+              <td><span class="tag blue">PIM</span></td>
+              <td>因 Outlook 会议冲突建议改期</td>
+              <td><span class="tag amber">人工确认</span></td>
+            </tr>
+            <tr>
+              <td>供应商沟通</td>
+              <td><span class="tag violet">Outlook</span></td>
+              <td>新增只读映射，打来源标签</td>
+              <td><span class="tag green">已同步</span></td>
+            </tr>
+            <tr>
+              <td>旧会议草稿</td>
+              <td><span class="tag">ICS</span></td>
+              <td>导入预检发现重复</td>
+              <td><span class="tag">已跳过</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>冲突处理</h2>
+          <small>AI 推荐，不自动解决</small>
+        </div>
+        <div class="conflict">
+          <div class="conflict-card">
+            <strong>同一字段双方都修改：时间 + 地点</strong>
+            <p>PIM 用户手动调整了时间，Outlook delta 又发现地点变化。系统停止自动合并，要求逐字段确认。</p>
+            <div class="tag-row">
+              <span class="tag red">核心字段冲突</span>
+              <span class="tag violet">Graph ID: AAMkAG...</span>
+              <span class="tag blue">PIM ID: evt_0930</span>
+            </div>
+          </div>
+          <div class="diff">
+            <div class="diff-box">
+              <b>PIM 版本</b>
+              <div class="line"><span>时间</span><span>09:30-10:20</span></div>
+              <div class="line"><span>位置</span><span>线上</span></div>
+              <div class="line"><span>修改者</span><span>用户 / Web</span></div>
+              <div class="line"><span>时间戳</span><span>2026-07-08 01:35</span></div>
+            </div>
+            <div class="diff-box">
+              <b>Outlook 版本</b>
+              <div class="line"><span>时间</span><span>09:00-09:50</span></div>
+              <div class="line"><span>位置</span><span>会议室 B</span></div>
+              <div class="line"><span>修改者</span><span>Outlook / Graph</span></div>
+              <div class="line"><span>时间戳</span><span>2026-07-08 01:41</span></div>
+            </div>
+          </div>
+          <div class="choice-grid">
+            <button>保留 PIM</button>
+            <button>采用 Outlook</button>
+            <button>逐字段合并</button>
+            <button>跳过本次</button>
+            <button class="danger">停止同步此项</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

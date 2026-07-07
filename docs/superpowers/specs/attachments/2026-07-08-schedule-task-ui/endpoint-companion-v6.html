@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIM Endpoint Companion Prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --border: #dbe4ef;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --green: #14b8a6;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --blue-soft: #dbeafe;
+      --green-soft: #ccfbf1;
+      --amber-soft: #fef3c7;
+      --red-soft: #fee2e2;
+      --shadow: 0 18px 48px rgba(15, 23, 42, .12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(20, 184, 166, .12), transparent 28rem),
+        radial-gradient(circle at 80% 0%, rgba(37, 99, 235, .12), transparent 32rem),
+        var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    .page {
+      min-height: 100vh;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .9);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+      padding: 14px 16px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+    .header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .segmented {
+      display: flex;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      padding: 4px;
+    }
+    .segmented button {
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: #475569;
+      padding: 7px 12px;
+      font-size: 13px;
+      font-weight: 850;
+    }
+    .segmented button.active {
+      background: var(--primary);
+      color: #fff;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 330px minmax(0, 1fr) 330px;
+      gap: 14px;
+      align-items: start;
+    }
+    .device-panel, .web-panel {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .94);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid #e7edf5;
+      background: #fbfdff;
+      padding: 12px 14px;
+    }
+    .panel-head strong {
+      font-size: 15px;
+    }
+    .panel-head span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .panel-body {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .desktop-shell {
+      border: 1px solid #dbe4ef;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #f8fafc 0%, #eef4fb 100%);
+      padding: 10px;
+      min-height: 470px;
+    }
+    .desktop-window {
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 18px 35px rgba(15, 23, 42, .14);
+    }
+    .window-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #e2e8f0;
+      background: #f8fafc;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 850;
+      color: #334155;
+    }
+    .traffic {
+      display: flex;
+      gap: 5px;
+    }
+    .traffic i {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #cbd5e1;
+    }
+    .desktop-content {
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+    }
+    .status-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+    }
+    .status-tile {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fff;
+      padding: 8px;
+    }
+    .status-tile span {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 850;
+    }
+    .status-tile strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 13px;
+    }
+    .notification {
+      border: 1px solid #bfdbfe;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #eff6ff 0%, #fff 100%);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .notification.warn {
+      border-color: #fed7aa;
+      background: linear-gradient(180deg, #fff7ed 0%, #fff 100%);
+    }
+    .notification.danger {
+      border-color: #fecaca;
+      background: linear-gradient(180deg, #fff1f2 0%, #fff 100%);
+    }
+    .label {
+      display: inline-flex;
+      width: fit-content;
+      border-radius: 999px;
+      background: var(--blue-soft);
+      color: #1d4ed8;
+      padding: 3px 7px;
+      font-size: 10px;
+      font-weight: 900;
+    }
+    .label.warn {
+      background: var(--amber-soft);
+      color: #a16207;
+    }
+    .label.danger {
+      background: var(--red-soft);
+      color: #b91c1c;
+    }
+    .notification strong {
+      font-size: 13px;
+      line-height: 1.25;
+    }
+    .notification p {
+      margin: 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+    .btn {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      color: #334155;
+      padding: 6px 9px;
+      font-size: 12px;
+      font-weight: 850;
+    }
+    .btn.primary {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: #fff;
+    }
+    .btn.danger {
+      border-color: #fecaca;
+      background: #fff1f2;
+      color: #b91c1c;
+    }
+    .detail-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+    }
+    .detail-card strong {
+      display: block;
+      font-size: 12px;
+    }
+    .detail-card dl {
+      display: grid;
+      grid-template-columns: 74px 1fr;
+      gap: 6px 8px;
+      margin: 8px 0 0;
+      font-size: 11px;
+    }
+    .detail-card dt {
+      color: #94a3b8;
+      font-weight: 850;
+    }
+    .detail-card dd {
+      margin: 0;
+      color: #334155;
+      font-weight: 750;
+    }
+    .web-panel {
+      min-height: 690px;
+    }
+    .web-frame {
+      margin: 14px;
+      border: 1px solid #dbe4ef;
+      border-radius: 16px;
+      min-height: 630px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .web-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid #e2e8f0;
+      background: #fbfdff;
+      padding: 12px 14px;
+    }
+    .web-top strong {
+      font-size: 16px;
+    }
+    .web-main {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 12px;
+      padding: 12px;
+    }
+    .timeline {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      background:
+        repeating-linear-gradient(to bottom, transparent 0, transparent 51px, #e7edf5 52px),
+        linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      min-height: 520px;
+      position: relative;
+      padding: 12px;
+    }
+    .time-block {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      border-radius: 12px;
+      padding: 9px 10px;
+      font-size: 12px;
+      font-weight: 850;
+      box-shadow: 0 12px 26px rgba(15, 23, 42, .08);
+    }
+    .time-block span {
+      display: block;
+      margin-top: 4px;
+      color: rgba(15, 23, 42, .62);
+      font-size: 11px;
+    }
+    .time-block.event { background: var(--blue-soft); color: #1d4ed8; }
+    .time-block.task { background: var(--amber-soft); color: #a16207; }
+    .time-block.ai { background: #e0f2fe; color: #0369a1; border: 1px dashed #7dd3fc; }
+    .web-side {
+      display: grid;
+      gap: 10px;
+    }
+    .side-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      background: #fff;
+      padding: 10px;
+    }
+    .side-card strong {
+      display: block;
+      font-size: 13px;
+    }
+    .side-card p {
+      margin: 5px 0 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .phone-frame {
+      width: 255px;
+      margin: 0 auto;
+      border: 10px solid #111827;
+      border-radius: 32px;
+      background: #111827;
+      box-shadow: 0 22px 45px rgba(15, 23, 42, .28);
+      overflow: hidden;
+    }
+    .phone-screen {
+      border-radius: 22px;
+      background: #f8fafc;
+      min-height: 520px;
+      overflow: hidden;
+    }
+    .phone-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fff;
+      padding: 9px 12px 7px;
+      font-size: 10px;
+      font-weight: 900;
+    }
+    .phone-appbar {
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 10px 12px;
+    }
+    .phone-appbar strong {
+      display: block;
+      font-size: 15px;
+    }
+    .phone-appbar span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+    }
+    .phone-body {
+      padding: 10px;
+      display: grid;
+      gap: 9px;
+    }
+    .mobile-notification {
+      border: 1px solid #dbe4ef;
+      border-radius: 16px;
+      background: #fff;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .mobile-notification.audit {
+      border-color: #fed7aa;
+      background: #fff7ed;
+    }
+    .mobile-notification strong {
+      font-size: 12px;
+      line-height: 1.3;
+    }
+    .mobile-notification p {
+      margin: 0;
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .mobile-actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+    .mobile-actions .btn {
+      padding: 7px 6px;
+      font-size: 11px;
+    }
+    .bottom-nav {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-top: 1px solid #e2e8f0;
+      background: #fff;
+      margin-top: 8px;
+    }
+    .bottom-nav span {
+      padding: 10px 0;
+      text-align: center;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 850;
+    }
+    .bottom-nav span.active {
+      color: var(--primary);
+    }
+    .principles {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .principle {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,.92);
+      padding: 11px;
+    }
+    .principle strong {
+      display: block;
+      font-size: 13px;
+    }
+    .principle p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    @media (max-width: 1180px) {
+      .grid { grid-template-columns: 1fr; }
+      .web-main { grid-template-columns: 1fr; }
+      .principles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div>
+        <h1>端侧 Companion 设计方向</h1>
+        <p>Windows 和 Android 保留采集/上传基础能力，新增原生通知、审计操作按钮和详情查看；复杂管理直接使用漂亮的内嵌 Web 体验。</p>
+      </div>
+      <div class="segmented" aria-label="端侧视图">
+        <button class="active">全局</button>
+        <button>Windows</button>
+        <button>Android</button>
+        <button>Web 壳</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <aside class="device-panel">
+        <div class="panel-head">
+          <strong>Windows Companion</strong>
+          <span>通知 + 审计动作</span>
+        </div>
+        <div class="panel-body">
+          <div class="desktop-shell">
+            <div class="desktop-window">
+              <div class="window-title">
+                <span>PIM Desktop</span>
+                <div class="traffic"><i></i><i></i><i></i></div>
+              </div>
+              <div class="desktop-content">
+                <div class="status-strip">
+                  <div class="status-tile"><span>采集</span><strong>正常</strong></div>
+                  <div class="status-tile"><span>上传</span><strong>12s 前</strong></div>
+                  <div class="status-tile"><span>提醒</span><strong>3 待办</strong></div>
+                </div>
+
+                <div class="notification warn">
+                  <span class="label warn">人工审计</span>
+                  <strong>Outlook 写回需要二级确认</strong>
+                  <p>“评审会议”将从 11:00 移到 14:30。此操作会写回 Microsoft Graph。</p>
+                  <div class="actions">
+                    <button class="btn">查看详情</button>
+                    <button class="btn danger">拒绝</button>
+                    <button class="btn primary">确认</button>
+                  </div>
+                </div>
+
+                <div class="notification">
+                  <span class="label">行动提醒</span>
+                  <strong>开始下一个任务段</strong>
+                  <p>任务：完善端侧 UI 细则 · 预计 45 分钟。不会自动修改计划。</p>
+                  <div class="actions">
+                    <button class="btn">稍后</button>
+                    <button class="btn">打开 Web</button>
+                    <button class="btn primary">开始</button>
+                  </div>
+                </div>
+
+                <div class="detail-card">
+                  <strong>详情面板</strong>
+                  <dl>
+                    <dt>来源</dt><dd>AI 建议 + Outlook Graph</dd>
+                    <dt>风险</dt><dd>会改动日程时间与外部日历</dd>
+                    <dt>审计</dt><dd>记录确认人、前后值、Graph event id</dd>
+                    <dt>入口</dt><dd>点击“查看详情”进入内嵌 Web 完整审计页</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <section class="web-panel">
+        <div class="panel-head">
+          <strong>漂亮的内嵌 Web 主体验</strong>
+          <span>复杂模块不重做原生 UI</span>
+        </div>
+        <div class="web-frame">
+          <div class="web-top">
+            <strong>Today 控制台</strong>
+            <div class="actions">
+              <button class="btn">任务</button>
+              <button class="btn">同步详情</button>
+              <button class="btn primary">审计队列</button>
+            </div>
+          </div>
+          <div class="web-main">
+            <div class="timeline">
+              <div class="time-block event" style="top:28px;height:64px;">Outlook 评审会议<span>特殊来源标签 · 二级确认保护</span></div>
+              <div class="time-block task" style="top:124px;height:82px;">任务执行段：端侧 UI 细则<span>可从 Windows/Android 通知开始或暂停</span></div>
+              <div class="time-block ai" style="top:246px;height:68px;">AI 建议占位<span>报告可自动生成；事实改动必须确认</span></div>
+              <div class="time-block task" style="top:360px;height:70px;">晚间复盘输入<span>可从移动端补充主观反馈</span></div>
+            </div>
+            <div class="web-side">
+              <div class="side-card">
+                <strong>审计队列</strong>
+                <p>3 个需要人工处理：Outlook 写回、任务时间重排、批量延期建议。</p>
+              </div>
+              <div class="side-card">
+                <strong>同步详情</strong>
+                <p>展示 Graph delta、上传队列、失败重试、字段级 diff 和冲突历史。</p>
+              </div>
+              <div class="side-card">
+                <strong>端侧能力边界</strong>
+                <p>Windows/Android 只做通知、快捷动作、详情跳转和采集状态；完整管理走 Web。</p>
+              </div>
+              <div class="side-card">
+                <strong>漂亮壳体验</strong>
+                <p>原生窗口负责系统集成、主题、通知、托盘/状态栏；内容区嵌入 Web。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="device-panel">
+        <div class="panel-head">
+          <strong>Android Companion</strong>
+          <span>移动通知 + 轻量确认</span>
+        </div>
+        <div class="panel-body">
+          <div class="phone-frame">
+            <div class="phone-screen">
+              <div class="phone-status"><span>09:41</span><span>5G 82%</span></div>
+              <div class="phone-appbar">
+                <strong>PIM Mobile</strong>
+                <span>采集正常 · 位置上传 1 分钟前</span>
+              </div>
+              <div class="phone-body">
+                <div class="mobile-notification audit">
+                  <span class="label warn">需要人工审计</span>
+                  <strong>确认任务延期建议</strong>
+                  <p>AI 建议把“接口验收清单”延期到明天 10:00，会改动任务时间。</p>
+                  <div class="mobile-actions">
+                    <button class="btn">详情</button>
+                    <button class="btn primary">确认</button>
+                  </div>
+                </div>
+
+                <div class="mobile-notification">
+                  <span class="label">提醒</span>
+                  <strong>你已到达健身房附近</strong>
+                  <p>习惯“晨间运动”可打卡，也可以打开 Web 查看计划。</p>
+                  <div class="mobile-actions">
+                    <button class="btn">打开</button>
+                    <button class="btn primary">打卡</button>
+                  </div>
+                </div>
+
+                <div class="mobile-notification">
+                  <span class="label">复盘输入</span>
+                  <strong>补充今天的主观状态</strong>
+                  <p>精力、心情、阻塞原因会进入日报，但不改动任务事实数据。</p>
+                  <div class="mobile-actions">
+                    <button class="btn">稍后</button>
+                    <button class="btn primary">填写</button>
+                  </div>
+                </div>
+              </div>
+              <div class="bottom-nav">
+                <span class="active">通知</span>
+                <span>Today</span>
+                <span>采集</span>
+                <span>我的</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="principles">
+      <div class="principle">
+        <strong>原生只做必要系统能力</strong>
+        <p>通知、托盘/状态栏、采集状态、上传状态、快捷确认、打开详情。</p>
+      </div>
+      <div class="principle">
+        <strong>复杂体验复用 Web</strong>
+        <p>Today、任务、日历、审计、Outlook 同步、报告都通过漂亮内嵌 Web 完成。</p>
+      </div>
+      <div class="principle">
+        <strong>所有审计动作可看详情</strong>
+        <p>通知不能只给“确认”。必须能查看字段差异、来源、风险和历史。</p>
+      </div>
+      <div class="principle">
+        <strong>端侧采集不覆盖事实</strong>
+        <p>PC/手机活动进入复盘和建议，不直接修改日程或任务核心数据。</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

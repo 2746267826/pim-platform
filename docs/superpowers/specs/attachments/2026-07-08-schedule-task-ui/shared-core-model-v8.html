@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIM Shared Core Model</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --border: #dbe4ef;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --teal: #14b8a6;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --violet: #7c3aed;
+      --green-soft: #ccfbf1;
+      --blue-soft: #dbeafe;
+      --amber-soft: #fef3c7;
+      --red-soft: #fee2e2;
+      --violet-soft: #ede9fe;
+      --shadow: 0 20px 50px rgba(15, 23, 42, .10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 8% 6%, rgba(20, 184, 166, .12), transparent 28rem),
+        radial-gradient(circle at 88% 0%, rgba(37, 99, 235, .12), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+    }
+    .sidebar {
+      border-right: 1px solid var(--border);
+      background: rgba(255,255,255,.88);
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 900;
+      font-size: 18px;
+    }
+    .mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--primary), var(--teal));
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 950;
+    }
+    .nav {
+      display: grid;
+      gap: 6px;
+    }
+    .nav a {
+      text-decoration: none;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 9px 10px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .nav a.active {
+      color: #0f172a;
+      background: var(--blue-soft);
+    }
+    .nav small {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .sync-card {
+      margin-top: auto;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface-2);
+      padding: 12px;
+    }
+    .sync-card strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .sync-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .main {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+    .topbar {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 12px 30px rgba(15,23,42,.06);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+    .topbar p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    button {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 10px;
+      padding: 9px 11px;
+      font-size: 13px;
+      font-weight: 850;
+      color: #334155;
+    }
+    button.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(420px, 1.15fr) minmax(340px, .85fr);
+      gap: 14px;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.94);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .panel h2 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.25;
+    }
+    .panel-head span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .canvas {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+    .entity-map {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .entity {
+      min-height: 90px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface-2);
+      padding: 11px;
+      display: grid;
+      gap: 6px;
+      align-content: start;
+    }
+    .entity.core { background: var(--blue-soft); border-color: #93c5fd; }
+    .entity.sync { background: var(--violet-soft); border-color: #c4b5fd; }
+    .entity.audit { background: var(--amber-soft); border-color: #fcd34d; }
+    .entity.auto { background: var(--green-soft); border-color: #5eead4; }
+    .entity strong {
+      font-size: 13px;
+      line-height: 1.25;
+    }
+    .entity small {
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      color: #334155;
+      padding: 6px 9px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+    }
+    .dot.teal { background: var(--teal); }
+    .dot.amber { background: var(--amber); }
+    .dot.violet { background: var(--violet); }
+    .dot.red { background: var(--red); }
+    .detail {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+    .object-title {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .object-title h3 {
+      margin: 0;
+      font-size: 19px;
+      line-height: 1.25;
+    }
+    .object-title p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .tag {
+      border-radius: 999px;
+      padding: 6px 9px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .tag.outlook { background: var(--violet-soft); color: #5b21b6; }
+    .tag.task { background: var(--blue-soft); color: #1d4ed8; }
+    .tag.risk { background: var(--red-soft); color: #b91c1c; }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .meta {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-2);
+      padding: 10px;
+    }
+    .meta b {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .meta span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .timeline {
+      display: grid;
+      gap: 8px;
+    }
+    .event {
+      display: grid;
+      grid-template-columns: 9px 1fr auto;
+      gap: 9px;
+      align-items: start;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: #fff;
+    }
+    .event i {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--teal);
+      margin-top: 5px;
+    }
+    .event strong {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .event small {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .event time {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .lower {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .table th,
+    .table td {
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      vertical-align: top;
+    }
+    .table th {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      background: var(--surface-2);
+    }
+    .process {
+      padding: 14px 16px 16px;
+      display: grid;
+      gap: 10px;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+    .num {
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      background: var(--blue-soft);
+      display: grid;
+      place-items: center;
+      color: #1d4ed8;
+      font-weight: 950;
+      font-size: 12px;
+    }
+    .step strong {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .step small {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    @media (max-width: 1050px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .grid, .lower { grid-template-columns: 1fr; }
+      .entity-map { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 620px) {
+      .main { padding: 12px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .actions { justify-content: flex-start; }
+      .entity-map, .meta-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><div class="mark">P</div><span>PIM Core</span></div>
+      <nav class="nav">
+        <a href="#">Today <small>混合入口</small></a>
+        <a href="#">任务 <small>3层</small></a>
+        <a href="#">日程 <small>5层</small></a>
+        <a class="active" href="#">数据中心 <small>核心</small></a>
+        <a href="#">提醒 <small>策略</small></a>
+        <a href="#">复盘报告 <small>自动</small></a>
+        <a href="#">同步 <small>Outlook</small></a>
+        <a href="#">审计 <small>确认</small></a>
+        <a href="#">设置 <small>Graph</small></a>
+      </nav>
+      <div class="sync-card">
+        <strong>实现治理</strong>
+        <p>独立新分支、goal 跟踪、多子代理并行、阶段 commit、本地验证与 GA 验证都会进入正式计划。</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="topbar">
+        <div>
+          <h1>共享核心模型：让任务、日程、同步、审计使用同一套事实层</h1>
+          <p>Web 是完整工作台；Windows 和 Android 是漂亮的采集/通知/内嵌 Web 壳；所有关键事实变更都回到同一确认与审计链路。</p>
+        </div>
+        <div class="actions">
+          <button>筛选来源</button>
+          <button>查看审计</button>
+          <button class="primary">打开对象图谱</button>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>对象关系图谱</h2>
+            <span>核心对象 + 自动产物 + 外部来源</span>
+          </div>
+          <div class="canvas">
+            <div class="legend">
+              <span class="pill"><i class="dot"></i>人工事实</span>
+              <span class="pill"><i class="dot teal"></i>自动采集/报告</span>
+              <span class="pill"><i class="dot violet"></i>外部同步</span>
+              <span class="pill"><i class="dot amber"></i>审计确认</span>
+              <span class="pill"><i class="dot red"></i>高风险二次确认</span>
+            </div>
+            <div class="entity-map">
+              <div class="entity core"><strong>领域 / 项目</strong><small>长期目标、责任范围、报告归属</small></div>
+              <div class="entity core"><strong>任务本 / 任务</strong><small>任务可拆子任务，也可拆多段执行时间</small></div>
+              <div class="entity core"><strong>日程事件</strong><small>承诺型时间块，和任务保持独立</small></div>
+              <div class="entity core"><strong>执行时间段</strong><small>任务、习惯、AI建议均投影到日历层</small></div>
+              <div class="entity auto"><strong>习惯 / 例行</strong><small>独立模型，可生成日历块、任务或清单</small></div>
+              <div class="entity auto"><strong>提醒 / 通知</strong><small>策略、渠道、免打扰、历史和操作按钮</small></div>
+              <div class="entity sync"><strong>Outlook 源标签</strong><small>Graph ID、delta token、批量管理、来源筛选</small></div>
+              <div class="entity audit"><strong>确认请求</strong><small>关键字段变更进入人工确认队列</small></div>
+              <div class="entity audit"><strong>审计版本</strong><small>before/after、actor、来源、批次、恢复</small></div>
+              <div class="entity auto"><strong>自动报告</strong><small>日报、周报、月报、项目复盘可自动生成</small></div>
+              <div class="entity sync"><strong>ICS 交换</strong><small>保留导入/导出，低优先于 Graph 双向同步</small></div>
+              <div class="entity audit"><strong>数据中心</strong><small>全局搜索、回收站、同步批次、批量治理</small></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>对象详情：同一页面承载事实、来源、确认</h2>
+            <span>示例任务</span>
+          </div>
+          <div class="detail">
+            <div class="object-title">
+              <div>
+                <h3>准备季度复盘材料</h3>
+                <p>所属：个人运营 / Q3 复盘。当前状态：进行中，等待数据同步完成。</p>
+              </div>
+              <span class="tag task">任务</span>
+            </div>
+            <div class="legend">
+              <span class="tag outlook">Outlook 关联</span>
+              <span class="tag risk">时间改动需确认</span>
+            </div>
+            <div class="meta-grid">
+              <div class="meta"><b>执行时间段</b><span>7月8日 09:30-10:10；7月9日 15:00-16:00</span></div>
+              <div class="meta"><b>位置 / 上下文</b><span>Web 工作台；Windows 采集 PC 活动；Android 采集移动上下文</span></div>
+              <div class="meta"><b>关键字段策略</b><span>名称、时间、位置、状态、重复规则改动必须人工确认</span></div>
+              <div class="meta"><b>自动产物策略</b><span>复盘报告、摘要、建议可自动生成，建议落地仍需确认</span></div>
+            </div>
+            <div class="timeline">
+              <div class="event">
+                <i></i>
+                <div><strong>AI 建议把第二段执行时间提前 30 分钟</strong><small>原因：Outlook 新增会议导致 15:30 冲突</small></div>
+                <time>待确认</time>
+              </div>
+              <div class="event">
+                <i style="background:var(--violet)"></i>
+                <div><strong>Outlook delta 同步发现关联事件变更</strong><small>Graph event id 已绑定，来源标签可批量筛选</small></div>
+                <time>01:42</time>
+              </div>
+              <div class="event">
+                <i style="background:var(--amber)"></i>
+                <div><strong>人工确认创建第一段执行时间</strong><small>记录 before/after、操作者、确认入口和请求批次</small></div>
+                <time>昨天</time>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="lower">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>统一治理表</h2>
+            <span>批量、回收、同步、审计不分散</span>
+          </div>
+          <table class="table">
+            <thead>
+              <tr><th>对象</th><th>来源</th><th>允许自动</th><th>必须确认</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>任务 / 子任务</td><td>Web、AI、Windows/Android</td><td>拆解建议、报告、摘要</td><td>名称、状态、时间段、归属</td></tr>
+              <tr><td>日程事件</td><td>PIM、Outlook、ICS</td><td>冲突检测、标签、同步预检</td><td>创建、改期、地点、删除、重复规则</td></tr>
+              <tr><td>习惯 / 例行</td><td>PIM</td><td>打卡统计、复盘摘要</td><td>周期、目标、自动生成规则</td></tr>
+              <tr><td>Outlook 来源项</td><td>Microsoft Graph</td><td>读取、差异展示、批量标记</td><td>写回 Outlook 需二级确认</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>工程协作约束</h2>
+            <span>进入实施计划时固化</span>
+          </div>
+          <div class="process">
+            <div class="step"><div class="num">1</div><div><strong>独立新分支工作</strong><small>从最新 master 拉出 `codex/...` 分支，避免污染当前可运行主线。</small></div></div>
+            <div class="step"><div class="num">2</div><div><strong>goal 模式追踪长任务</strong><small>把“大型日程任务体系重构”作为明确目标，记录预算、状态和阻塞。</small></div></div>
+            <div class="step"><div class="num">3</div><div><strong>多子代理并行</strong><small>按 Web UI、API/数据模型、Outlook 同步、Windows/Android 壳、测试文档拆分。</small></div></div>
+            <div class="step"><div class="num">4</div><div><strong>阶段性 commit 与验证</strong><small>每个可回滚里程碑提交；运行本地构建/测试，并在合适阶段用 GA/GitHub Actions 验证。</small></div></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIM Today Command Center Prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --surface-muted: #f8fafc;
+      --border: #dbe4ef;
+      --border-soft: #e7edf5;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --primary-soft: #dbeafe;
+      --task: #f59e0b;
+      --task-soft: #fef3c7;
+      --habit: #14b8a6;
+      --habit-soft: #ccfbf1;
+      --budget: #7c3aed;
+      --budget-soft: #ede9fe;
+      --ai: #0ea5e9;
+      --ai-soft: #e0f2fe;
+      --danger: #ef4444;
+      --danger-soft: #fee2e2;
+      --shadow: 0 18px 45px rgba(15, 23, 42, 0.10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    button, input { font: inherit; }
+    .app {
+      display: grid;
+      grid-template-columns: 236px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .sidebar {
+      border-right: 1px solid var(--border);
+      background: rgba(255, 255, 255, .94);
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .brand {
+      padding: 0 6px 10px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .brand small {
+      display: block;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .18em;
+    }
+    .brand strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 18px;
+    }
+    .nav, .book-list { display: grid; gap: 6px; }
+    .nav button, .book-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 38px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: #475569;
+      padding: 8px 10px;
+      text-align: left;
+      cursor: default;
+    }
+    .nav button.active {
+      background: #eff6ff;
+      color: #1d4ed8;
+      box-shadow: inset 0 0 0 1px rgba(37, 99, 235, .12);
+    }
+    .icon {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      background: #eef2f7;
+      color: #64748b;
+      font-size: 12px;
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+    .active .icon {
+      background: var(--primary);
+      color: white;
+    }
+    .side-section-title {
+      margin: 8px 6px 4px;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .16em;
+    }
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+    }
+    .book-row {
+      min-height: 30px;
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+    .main {
+      min-width: 0;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      min-height: 64px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      padding: 12px 16px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, .04);
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+    .subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .btn {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      color: #334155;
+      padding: 8px 10px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .btn.primary {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: white;
+    }
+    .btn.warn {
+      border-color: #fed7aa;
+      background: #fff7ed;
+      color: #c2410c;
+    }
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .metric {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      padding: 11px 12px;
+    }
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .metric strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 20px;
+      line-height: 1;
+    }
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.48fr) minmax(320px, .72fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border-soft);
+      background: #fbfdff;
+      padding: 12px 14px;
+    }
+    .panel-title {
+      font-size: 15px;
+      font-weight: 850;
+    }
+    .panel-note {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .layer-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .layer-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      color: #334155;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 750;
+      cursor: pointer;
+      user-select: none;
+    }
+    .layer-chip input { width: 14px; height: 14px; margin: 0; }
+    .schedule {
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr);
+      gap: 10px;
+      padding: 14px;
+      min-height: 640px;
+    }
+    .times {
+      display: grid;
+      grid-template-rows: repeat(11, 52px);
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 800;
+      text-align: right;
+      padding-right: 4px;
+    }
+    .timeline {
+      position: relative;
+      display: grid;
+      grid-template-rows: repeat(11, 52px);
+      border-left: 1px solid var(--border-soft);
+      background:
+        repeating-linear-gradient(to bottom, transparent 0, transparent 51px, var(--border-soft) 52px),
+        linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+    }
+    .block {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      min-height: 42px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      padding: 8px 10px;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, .07);
+      overflow: hidden;
+    }
+    .block strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.15;
+    }
+    .block span {
+      display: block;
+      margin-top: 4px;
+      color: rgba(15, 23, 42, .66);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .event { background: var(--primary-soft); border-color: #bfdbfe; color: #1d4ed8; }
+    .task { background: var(--task-soft); border-color: #fde68a; color: #a16207; }
+    .habit { background: var(--habit-soft); border-color: #99f6e4; color: #0f766e; }
+    .budget { background: var(--budget-soft); border-color: #ddd6fe; color: #6d28d9; box-shadow: none; opacity: .82; }
+    .ai { background: var(--ai-soft); border-color: #bae6fd; color: #0369a1; border-style: dashed; }
+    .muted-block { opacity: .38; }
+    .now-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 184px;
+      height: 2px;
+      background: var(--danger);
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, .10);
+    }
+    .now-line::before {
+      content: "现在 11:32";
+      position: absolute;
+      left: 10px;
+      top: -18px;
+      border-radius: 999px;
+      background: var(--danger);
+      color: #fff;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .right-stack {
+      display: grid;
+      gap: 12px;
+    }
+    .panel-body {
+      padding: 12px 14px;
+    }
+    .task-list {
+      display: grid;
+      gap: 8px;
+    }
+    .task-row {
+      display: grid;
+      grid-template-columns: 8px minmax(0, 1fr) auto;
+      gap: 9px;
+      align-items: start;
+      border: 1px solid var(--border-soft);
+      border-radius: 11px;
+      background: #fff;
+      padding: 9px;
+    }
+    .priority {
+      width: 8px;
+      height: 38px;
+      border-radius: 999px;
+      background: var(--task);
+    }
+    .priority.high { background: var(--danger); }
+    .priority.low { background: var(--habit); }
+    .task-row strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 6px;
+    }
+    .tag {
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #475569;
+      padding: 3px 7px;
+      font-size: 11px;
+      font-weight: 750;
+    }
+    .tag.red { background: var(--danger-soft); color: #b91c1c; }
+    .tag.blue { background: var(--primary-soft); color: #1d4ed8; }
+    .tag.green { background: var(--habit-soft); color: #0f766e; }
+    .tag.yellow { background: var(--task-soft); color: #a16207; }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #cbd5e1;
+      margin-top: 4px;
+    }
+    .ai-card {
+      border: 1px solid #bae6fd;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 100%);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .ai-card strong {
+      font-size: 13px;
+    }
+    .ai-card p {
+      margin: 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .confirm-actions {
+      display: flex;
+      gap: 7px;
+      justify-content: flex-end;
+    }
+    .mini-btn {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      padding: 5px 8px;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .mini-btn.primary {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: #fff;
+    }
+    .habit-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .habit-tile {
+      border: 1px solid var(--border-soft);
+      border-radius: 11px;
+      padding: 9px;
+      background: #fff;
+      min-height: 86px;
+    }
+    .habit-tile strong {
+      display: block;
+      font-size: 12px;
+    }
+    .progress {
+      height: 7px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+    .progress i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--habit);
+    }
+    .review-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .review-card {
+      border: 1px solid var(--border-soft);
+      border-radius: 11px;
+      background: #fff;
+      padding: 9px;
+    }
+    .review-card span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .review-card strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 15px;
+    }
+    .drawer-preview {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .drawer-preview header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-soft);
+      background: #fbfdff;
+      font-weight: 850;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 12px 14px;
+    }
+    .field {
+      display: grid;
+      gap: 5px;
+    }
+    .field.full { grid-column: 1 / -1; }
+    .field label {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .input-like {
+      min-height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #fff;
+      padding: 8px;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .hidden-layer { display: none; }
+    @media (max-width: 1180px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .workspace { grid-template-columns: 1fr; }
+      .summary-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <small>PIM</small>
+        <strong>个人中枢</strong>
+      </div>
+      <nav class="nav">
+        <button class="active"><span class="icon">今</span><span>Today 控制台</span></button>
+        <button><span class="icon">历</span><span>日历</span></button>
+        <button><span class="icon">任</span><span>任务工作台</span></button>
+        <button><span class="icon">习</span><span>习惯</span></button>
+        <button><span class="icon">智</span><span>AI 规划</span></button>
+        <button><span class="icon">报</span><span>复盘报告</span></button>
+        <button><span class="icon">设</span><span>设置</span></button>
+      </nav>
+
+      <div>
+        <div class="side-section-title">领域 / 项目</div>
+        <div class="book-list">
+          <div class="book-row"><span class="dot" style="background:#2563eb"></span><span>产品研发</span></div>
+          <div class="book-row"><span class="dot" style="background:#14b8a6"></span><span>个人健康</span></div>
+          <div class="book-row"><span class="dot" style="background:#f59e0b"></span><span>家庭事务</span></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="side-section-title">任务本</div>
+        <div class="book-list">
+          <div class="book-row"><span class="dot" style="background:#64748b"></span><span>收集箱</span></div>
+          <div class="book-row"><span class="dot" style="background:#ef4444"></span><span>本周承诺</span></div>
+          <div class="book-row"><span class="dot" style="background:#7c3aed"></span><span>等待中</span></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="side-section-title">日历本</div>
+        <div class="book-list">
+          <div class="book-row"><span class="dot" style="background:#2563eb"></span><span>工作日程</span></div>
+          <div class="book-row"><span class="dot" style="background:#14b8a6"></span><span>个人安排</span></div>
+          <div class="book-row"><span class="dot" style="background:#0ea5e9"></span><span>Outlook 导入</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="topbar">
+        <div>
+          <h1>Today 控制台</h1>
+          <div class="subtitle">2026-07-08 · 计划、任务、习惯、AI 建议和复盘入口</div>
+        </div>
+        <div class="top-actions">
+          <button class="btn">新建任务</button>
+          <button class="btn">新建日程</button>
+          <button class="btn warn">查看 3 个确认</button>
+          <button class="btn primary">生成今日计划</button>
+        </div>
+      </section>
+
+      <section class="summary-strip">
+        <div class="metric"><span>今日承诺</span><strong>8 项</strong></div>
+        <div class="metric"><span>已计划时间</span><strong>5.5h</strong></div>
+        <div class="metric"><span>逾期 / 阻塞</span><strong>2 / 1</strong></div>
+        <div class="metric"><span>习惯进度</span><strong>2/5</strong></div>
+        <div class="metric"><span>AI 可自动产出</span><strong>4 份</strong></div>
+      </section>
+
+      <section class="workspace">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">今日时间轴</div>
+              <div class="panel-note">完整时间图层，可按需隐藏事件、任务段、习惯、时间预算和 AI 占位</div>
+            </div>
+            <button class="btn">周视图</button>
+          </div>
+
+          <div class="layer-controls" aria-label="图层开关">
+            <label class="layer-chip"><input type="checkbox" data-layer="event" checked> 事件</label>
+            <label class="layer-chip"><input type="checkbox" data-layer="task" checked> 任务执行段</label>
+            <label class="layer-chip"><input type="checkbox" data-layer="habit" checked> 习惯</label>
+            <label class="layer-chip"><input type="checkbox" data-layer="budget" checked> 时间预算</label>
+            <label class="layer-chip"><input type="checkbox" data-layer="ai" checked> AI 建议占位</label>
+          </div>
+
+          <div class="schedule">
+            <div class="times">
+              <span>08:00</span><span>09:00</span><span>10:00</span><span>11:00</span><span>12:00</span>
+              <span>13:00</span><span>14:00</span><span>15:00</span><span>16:00</span><span>17:00</span><span>18:00</span>
+            </div>
+            <div class="timeline">
+              <div class="now-line"></div>
+              <article class="block budget layer-budget" style="top:4px;height:96px;right:45%;">
+                <strong>深度工作窗口</strong>
+                <span>08:00-10:00 · 优先安排高认知任务</span>
+              </article>
+              <article class="block habit layer-habit" style="top:20px;left:56%;height:42px;">
+                <strong>晨间运动</strong>
+                <span>习惯 · 已打卡 18 天连续</span>
+              </article>
+              <article class="block task layer-task" style="top:70px;height:78px;right:35%;">
+                <strong>任务段：完善日程任务蓝图</strong>
+                <span>产品研发 / 本周承诺 · 第 1/3 段</span>
+              </article>
+              <article class="block event layer-event" style="top:166px;height:58px;left:22%;">
+                <strong>评审会议</strong>
+                <span>工作日程 · 位置：线上会议室</span>
+              </article>
+              <article class="block ai layer-ai" style="top:236px;height:48px;right:42%;">
+                <strong>AI 建议：插入低能量任务</strong>
+                <span>需确认：将“整理收件箱”安排到 12:20</span>
+              </article>
+              <article class="block budget layer-budget" style="top:310px;height:92px;right:52%;">
+                <strong>弹性缓冲</strong>
+                <span>14:00-15:45 · 可放置沟通/短任务</span>
+              </article>
+              <article class="block task layer-task" style="top:320px;height:62px;left:50%;">
+                <strong>任务段：接口验收清单</strong>
+                <span>产品研发 / 待计划 · 第 2/2 段</span>
+              </article>
+              <article class="block event layer-event" style="top:414px;height:52px;right:28%;">
+                <strong>取快递 / 家庭事务</strong>
+                <span>个人安排 · 地点相关</span>
+              </article>
+              <article class="block habit layer-habit" style="top:480px;height:50px;left:42%;">
+                <strong>阅读 30 分钟</strong>
+                <span>习惯 · 可生成今日 checklist</span>
+              </article>
+              <article class="block ai layer-ai" style="top:548px;height:50px;right:38%;">
+                <strong>AI 建议：晚间复盘草稿</strong>
+                <span>自动产出报告，不改动任务事实数据</span>
+              </article>
+            </div>
+          </div>
+        </div>
+
+        <div class="right-stack">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">任务压力</div>
+              <div class="panel-note">状态模型 C</div>
+            </div>
+            <div class="panel-body task-list">
+              <div class="task-row">
+                <span class="priority high"></span>
+                <div>
+                  <strong>确认日程任务产品模型</strong>
+                  <div class="meta">
+                    <span class="tag red">逾期</span><span class="tag blue">已计划 2 段</span><span class="tag">产品研发</span>
+                  </div>
+                </div>
+                <span class="status-dot" style="background:#ef4444"></span>
+              </div>
+              <div class="task-row">
+                <span class="priority"></span>
+                <div>
+                  <strong>整理收集箱里的 12 条任务</strong>
+                  <div class="meta">
+                    <span class="tag yellow">待计划</span><span class="tag">收集箱</span>
+                  </div>
+                </div>
+                <span class="status-dot" style="background:#f59e0b"></span>
+              </div>
+              <div class="task-row">
+                <span class="priority low"></span>
+                <div>
+                  <strong>等待外部反馈：ICS 导入样例</strong>
+                  <div class="meta">
+                    <span class="tag">等待中</span><span class="tag">原因：委托</span>
+                  </div>
+                </div>
+                <span class="status-dot" style="background:#94a3b8"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">AI 主动助理</div>
+              <div class="panel-note">事实改动必须确认</div>
+            </div>
+            <div class="panel-body" style="display:grid;gap:9px;">
+              <div class="ai-card">
+                <strong>需要确认：重排 2 个任务执行段</strong>
+                <p>将“接口验收清单”从 15:00 移到 14:10；这是时间事实改动，需要人工确认。</p>
+                <div class="confirm-actions"><button class="mini-btn">查看差异</button><button class="mini-btn primary">确认</button></div>
+              </div>
+              <div class="ai-card">
+                <strong>需要确认：补全日程位置</strong>
+                <p>根据 Outlook 元数据推断“评审会议”为线上会议室；位置属于重要事实数据。</p>
+                <div class="confirm-actions"><button class="mini-btn">拒绝</button><button class="mini-btn primary">确认</button></div>
+              </div>
+              <div class="ai-card">
+                <strong>已自动生成：午间计划质量报告</strong>
+                <p>报告、摘要、复盘草稿属于新产物，可自动更新，不直接修改任务或日程。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">习惯与例行</div>
+              <div class="panel-note">独立模型，可投影</div>
+            </div>
+            <div class="panel-body habit-grid">
+              <div class="habit-tile"><strong>晨间运动</strong><span class="tag green">已打卡</span><div class="progress"><i style="width:100%"></i></div></div>
+              <div class="habit-tile"><strong>阅读</strong><span class="tag yellow">待执行</span><div class="progress"><i style="width:30%"></i></div></div>
+              <div class="habit-tile"><strong>睡眠记录</strong><span class="tag">自动记录</span><div class="progress"><i style="width:68%"></i></div></div>
+            </div>
+          </div>
+
+          <div class="drawer-preview">
+            <header>任务详情抽屉预览</header>
+            <div class="form-grid">
+              <div class="field full"><label>任务名称</label><div class="input-like">完善我们的日程和任务相关功能和 UI</div></div>
+              <div class="field"><label>领域 / 项目</label><div class="input-like">产品研发</div></div>
+              <div class="field"><label>任务本</label><div class="input-like">本周承诺</div></div>
+              <div class="field"><label>状态</label><div class="input-like">进行中 · 原因：主动推进</div></div>
+              <div class="field"><label>计划段</label><div class="input-like">3 段 · 2.5h</div></div>
+              <div class="field full"><label>Checklist</label><div class="input-like">确认模型 · 确认 UI · 写设计文档 · 写实施计划</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">晚间复盘入口</div>
+              <div class="panel-note">自动生成，可人工确认影响</div>
+            </div>
+            <div class="panel-body review-grid">
+              <div class="review-card"><span>完成预测</span><strong>72%</strong></div>
+              <div class="review-card"><span>计划偏差</span><strong>+38m</strong></div>
+              <div class="review-card"><span>延期候选</span><strong>2 项</strong></div>
+              <div class="review-card"><span>明日建议</span><strong>5 条</strong></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const layerInputs = document.querySelectorAll('[data-layer]');
+    function syncLayerVisibility() {
+      layerInputs.forEach(input => {
+        const layer = input.dataset.layer;
+        document.querySelectorAll('.layer-' + layer).forEach(node => {
+          node.classList.toggle('hidden-layer', !input.checked);
+        });
+      });
+    }
+    layerInputs.forEach(input => input.addEventListener('change', syncLayerVisibility));
+    syncLayerVisibility();
+  </script>
+</body>
+</html>

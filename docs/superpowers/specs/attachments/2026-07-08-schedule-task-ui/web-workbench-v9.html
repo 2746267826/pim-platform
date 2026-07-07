@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIM Web Workbench</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --border: #dbe4ef;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --teal: #14b8a6;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --violet: #7c3aed;
+      --green-soft: #ccfbf1;
+      --blue-soft: #dbeafe;
+      --amber-soft: #fef3c7;
+      --red-soft: #fee2e2;
+      --violet-soft: #ede9fe;
+      --shadow: 0 18px 42px rgba(15, 23, 42, .10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 6% 4%, rgba(20, 184, 166, .12), transparent 28rem),
+        radial-gradient(circle at 86% 0%, rgba(37, 99, 235, .12), transparent 32rem),
+        var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 216px minmax(0, 1fr) 320px;
+    }
+    .sidebar,
+    .rail {
+      background: rgba(255,255,255,.88);
+      border-color: var(--border);
+      padding: 16px 14px;
+    }
+    .sidebar { border-right: 1px solid var(--border); }
+    .rail {
+      border-left: 1px solid var(--border);
+      display: grid;
+      align-content: start;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+      font-weight: 950;
+      font-size: 18px;
+    }
+    .mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--primary), var(--teal));
+      display: grid;
+      place-items: center;
+      color: #fff;
+    }
+    .nav {
+      display: grid;
+      gap: 6px;
+    }
+    .nav a {
+      text-decoration: none;
+      color: #475569;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 850;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav a.active { background: var(--blue-soft); color: #0f172a; }
+    .nav small { color: var(--muted); font-size: 11px; }
+    .workspace {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) auto auto;
+      gap: 10px;
+      align-items: center;
+    }
+    .search {
+      min-height: 42px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .segmented {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 4px;
+      display: flex;
+      gap: 4px;
+    }
+    .segmented span {
+      min-width: 54px;
+      border-radius: 9px;
+      padding: 7px 9px;
+      text-align: center;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    .segmented .active { background: var(--primary); color: #fff; }
+    button {
+      min-height: 42px;
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 12px;
+      color: #334155;
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    button.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .hero {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: end;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.18;
+    }
+    .hero p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .metric-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .metric {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-2);
+      padding: 9px 10px;
+      min-width: 90px;
+    }
+    .metric strong { display: block; font-size: 18px; line-height: 1; }
+    .metric small { color: var(--muted); font-size: 11px; font-weight: 800; }
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(360px, .92fr) minmax(420px, 1.08fr);
+      gap: 12px;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.94);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .panel h2 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.2;
+    }
+    .panel-head small { color: var(--muted); font-size: 11px; font-weight: 850; }
+    .list {
+      padding: 12px;
+      display: grid;
+      gap: 9px;
+    }
+    .item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 11px;
+      display: grid;
+      gap: 8px;
+    }
+    .item.warn { border-color: #fcd34d; background: #fffdf5; }
+    .item.risk { border-color: #fecaca; background: #fff7f7; }
+    .item-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: start;
+    }
+    .item strong {
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .item p {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      border-radius: 999px;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      background: var(--surface-2);
+      color: #475569;
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .tag.blue { background: var(--blue-soft); color: #1d4ed8; border-color: #bfdbfe; }
+    .tag.green { background: var(--green-soft); color: #0f766e; border-color: #99f6e4; }
+    .tag.amber { background: var(--amber-soft); color: #b45309; border-color: #fde68a; }
+    .tag.red { background: var(--red-soft); color: #b91c1c; border-color: #fecaca; }
+    .tag.violet { background: var(--violet-soft); color: #5b21b6; border-color: #ddd6fe; }
+    .calendar {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .layers {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+    .layer {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      padding: 6px 9px;
+      font-size: 11px;
+      font-weight: 900;
+      color: #475569;
+    }
+    .layer.on { color: #0f172a; background: var(--blue-soft); border-color: #93c5fd; }
+    .day {
+      display: grid;
+      grid-template-columns: 58px 1fr;
+      gap: 10px;
+      align-items: stretch;
+    }
+    .times {
+      display: grid;
+      grid-template-rows: repeat(6, 52px);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+      padding-top: 2px;
+    }
+    .timeline {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: repeating-linear-gradient(to bottom, #fff, #fff 51px, #edf2f7 52px);
+      position: relative;
+      min-height: 312px;
+      overflow: hidden;
+    }
+    .block {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      border-radius: 12px;
+      padding: 8px 10px;
+      border: 1px solid;
+      font-size: 12px;
+      line-height: 1.25;
+      font-weight: 900;
+    }
+    .block small {
+      display: block;
+      margin-top: 3px;
+      font-weight: 750;
+      color: rgba(15,23,42,.66);
+    }
+    .event { top: 16px; height: 50px; background: var(--violet-soft); border-color: #c4b5fd; color: #4c1d95; }
+    .task { top: 82px; height: 82px; background: var(--blue-soft); border-color: #93c5fd; color: #1d4ed8; }
+    .habit { top: 178px; height: 38px; background: var(--green-soft); border-color: #5eead4; color: #0f766e; }
+    .suggestion { top: 235px; height: 54px; background: var(--amber-soft); border-color: #fcd34d; color: #92400e; border-style: dashed; }
+    .rail h2 {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.25;
+    }
+    .rail-section {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 12px 26px rgba(15,23,42,.06);
+      overflow: hidden;
+    }
+    .rail-section .head {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .rail-list {
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .rail-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-2);
+      padding: 10px;
+    }
+    .rail-item strong {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .rail-item small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .mini-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .mini-actions button {
+      min-height: 32px;
+      border-radius: 9px;
+      padding: 5px 8px;
+      font-size: 11px;
+    }
+    .reports {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .report-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px;
+    }
+    .report-card strong { display: block; font-size: 13px; line-height: 1.35; }
+    .report-card small { color: var(--muted); font-size: 11px; line-height: 1.35; }
+    @media (max-width: 1220px) {
+      .shell { grid-template-columns: 204px minmax(0,1fr); }
+      .rail { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--border); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 900px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .main-grid, .topbar, .hero { grid-template-columns: 1fr; }
+      .metric-row { justify-content: flex-start; }
+      .rail { grid-template-columns: 1fr; }
+      .reports { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      .workspace { padding: 12px; }
+      .reports { grid-template-columns: 1fr; }
+      .day { grid-template-columns: 44px 1fr; }
+      .topbar { gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><div class="mark">P</div><span>PIM</span></div>
+      <nav class="nav">
+        <a class="active" href="#">Today <small>12</small></a>
+        <a href="#">任务 <small>86</small></a>
+        <a href="#">日历 <small>5层</small></a>
+        <a href="#">习惯 <small>7</small></a>
+        <a href="#">提醒 <small>4</small></a>
+        <a href="#">报告 <small>新</small></a>
+        <a href="#">数据中心 <small>审计</small></a>
+        <a href="#">同步 <small>Outlook</small></a>
+        <a href="#">设置 <small>Graph</small></a>
+      </nav>
+    </aside>
+
+    <main class="workspace">
+      <div class="topbar">
+        <div class="search">搜索任务、日程、位置、Outlook 来源、审计记录</div>
+        <div class="segmented">
+          <span class="active">标准</span><span>高密</span><span>专注</span>
+        </div>
+        <button class="primary">新建</button>
+      </div>
+
+      <section class="hero">
+        <div>
+          <h1>今天：把承诺、执行、提醒和同步风险放在同一张桌面</h1>
+          <p>默认入口是 Today 控制台；所有关键事实变更从这里进入确认队列，报告和建议可以自动生成。</p>
+        </div>
+        <div class="metric-row">
+          <div class="metric"><strong>4</strong><small>待确认</small></div>
+          <div class="metric"><strong>3h20</strong><small>已规划执行</small></div>
+          <div class="metric"><strong>2</strong><small>Outlook 冲突</small></div>
+          <div class="metric"><strong>87%</strong><small>采集质量</small></div>
+        </div>
+      </section>
+
+      <section class="main-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>任务与确认队列</h2>
+            <small>任务可拆多段执行时间</small>
+          </div>
+          <div class="list">
+            <div class="item risk">
+              <div class="item-top">
+                <div>
+                  <strong>确认：季度复盘材料第二段提前至 14:30</strong>
+                  <p>AI 根据 Outlook 新会议检测到冲突；时间字段属于关键事实。</p>
+                </div>
+                <span class="tag red">需人工</span>
+              </div>
+              <div class="tag-row">
+                <span class="tag blue">任务执行段</span>
+                <span class="tag violet">Outlook 影响</span>
+                <span class="tag amber">字段差异</span>
+              </div>
+            </div>
+            <div class="item">
+              <div class="item-top">
+                <div>
+                  <strong>写完同步冲突处理规格</strong>
+                  <p>所属：PIM / Outlook 双向同步。拆为草稿、差异表、二级确认三段。</p>
+                </div>
+                <span class="tag blue">进行中</span>
+              </div>
+              <div class="tag-row">
+                <span class="tag">09:30-10:10</span>
+                <span class="tag">15:00-16:00</span>
+                <span class="tag green">报告可自动</span>
+              </div>
+            </div>
+            <div class="item warn">
+              <div class="item-top">
+                <div>
+                  <strong>等待 Windows 端采集上传完成</strong>
+                  <p>采集数据可缓存；除采集外所有操作保持在线。</p>
+                </div>
+                <span class="tag amber">等待</span>
+              </div>
+              <div class="tag-row">
+                <span class="tag">PC 活动</span>
+                <span class="tag">浏览器窗口</span>
+                <span class="tag">上传质量</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>日历多层视图</h2>
+            <small>可按层开关</small>
+          </div>
+          <div class="calendar">
+            <div class="layers">
+              <span class="layer on">日程事件</span>
+              <span class="layer on">任务执行段</span>
+              <span class="layer on">习惯例行</span>
+              <span class="layer">时间预算</span>
+              <span class="layer on">AI 建议占位</span>
+              <span class="layer">仅 Outlook</span>
+            </div>
+            <div class="day">
+              <div class="times">
+                <span>09:00</span><span>10:00</span><span>11:00</span><span>14:00</span><span>15:00</span><span>16:00</span>
+              </div>
+              <div class="timeline">
+                <div class="block event">Outlook 产品例会<small>来源标签：Microsoft Graph</small></div>
+                <div class="block task">季度复盘材料 / 第一执行段<small>任务保持任务，投影到日历</small></div>
+                <div class="block habit">步行与拉伸<small>习惯投影</small></div>
+                <div class="block suggestion">AI 建议占位：同步冲突复核<small>落地前需确认</small></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>报告与复盘</h2>
+          <small>自动生成，建议改动需确认</small>
+        </div>
+        <div class="list">
+          <div class="reports">
+            <div class="report-card"><strong>日报</strong><small>计划 vs 实际、提醒命中、采集质量</small></div>
+            <div class="report-card"><strong>周报</strong><small>项目进度、时间预算、阻塞原因</small></div>
+            <div class="report-card"><strong>月报</strong><small>习惯趋势、外部日程占用、产出汇总</small></div>
+            <div class="report-card"><strong>项目复盘</strong><small>里程碑、延期原因、下一步建议</small></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="rail">
+      <section class="rail-section">
+        <div class="head"><h2>提醒中心</h2><span class="tag red">4</span></div>
+        <div class="rail-list">
+          <div class="rail-item">
+            <strong>高风险操作待审计</strong>
+            <small>Outlook 来源事件地点变更，需打开详情。</small>
+            <div class="mini-actions"><button>详情</button><button class="primary">确认</button></div>
+          </div>
+          <div class="rail-item">
+            <strong>复盘报告已生成</strong>
+            <small>可以直接查看，不改变任务事实。</small>
+            <div class="mini-actions"><button>查看</button><button>归档</button></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rail-section">
+        <div class="head"><h2>Outlook 同步</h2><span class="tag violet">Graph</span></div>
+        <div class="rail-list">
+          <div class="rail-item">
+            <strong>设备代码连接</strong>
+            <small>设置中配置 Client ID、Tenant、Scopes，并用 Microsoft 链接与代码连接。</small>
+          </div>
+          <div class="rail-item">
+            <strong>同步批次 01:42</strong>
+            <small>读取 18，写回 0，冲突 2，跳过 1。</small>
+            <div class="mini-actions"><button>差异</button><button>日志</button></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rail-section">
+        <div class="head"><h2>端侧状态</h2><span class="tag green">在线</span></div>
+        <div class="rail-list">
+          <div class="rail-item">
+            <strong>Windows</strong>
+            <small>采集缓存 12 条；通知中心在线；内嵌 Web 可用。</small>
+          </div>
+          <div class="rail-item">
+            <strong>Android</strong>
+            <small>位置权限启用；使用情况采集 74%；通知动作在线。</small>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </div>
+</body>
+</html>

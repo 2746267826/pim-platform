@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIM Parallel Tracks Roadmap</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --border: #dbe4ef;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --green: #14b8a6;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --purple: #7c3aed;
+      --blue-soft: #dbeafe;
+      --green-soft: #ccfbf1;
+      --amber-soft: #fef3c7;
+      --red-soft: #fee2e2;
+      --purple-soft: #ede9fe;
+      --shadow: 0 18px 46px rgba(15, 23, 42, .11);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 8% 0%, rgba(20, 184, 166, .12), transparent 28rem),
+        radial-gradient(circle at 86% 0%, rgba(37, 99, 235, .12), transparent 30rem),
+        var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    .page {
+      min-height: 100vh;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+    .hero {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .92);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+      padding: 16px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+    .hero p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .badge {
+      display: inline-flex;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--border);
+      color: #334155;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 850;
+    }
+    .track-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .track {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255,255,255,.94);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      min-height: 520px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .track-head {
+      padding: 14px;
+      border-bottom: 1px solid #e7edf5;
+    }
+    .track-head strong {
+      display: block;
+      font-size: 15px;
+    }
+    .track-head span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+    .track-body {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+    .card {
+      border: 1px solid #e2e8f0;
+      border-radius: 13px;
+      background: #fff;
+      padding: 10px;
+    }
+    .card strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.25;
+    }
+    .card p {
+      margin: 5px 0 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .tag {
+      display: inline-flex;
+      width: fit-content;
+      margin-bottom: 7px;
+      border-radius: 999px;
+      padding: 3px 7px;
+      font-size: 10px;
+      font-weight: 900;
+    }
+    .tag.blue { background: var(--blue-soft); color: #1d4ed8; }
+    .tag.green { background: var(--green-soft); color: #0f766e; }
+    .tag.amber { background: var(--amber-soft); color: #a16207; }
+    .tag.red { background: var(--red-soft); color: #b91c1c; }
+    .tag.purple { background: var(--purple-soft); color: #6d28d9; }
+    .shared-core {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255,255,255,.95);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .core-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #e7edf5;
+      background: #fbfdff;
+    }
+    .core-head strong {
+      font-size: 16px;
+    }
+    .core-head span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .core-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      padding: 14px;
+    }
+    .core-item {
+      border: 1px solid #e2e8f0;
+      border-radius: 13px;
+      background: #fff;
+      padding: 10px;
+      min-height: 92px;
+    }
+    .core-item strong {
+      display: block;
+      font-size: 12px;
+    }
+    .core-item p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.42;
+    }
+    .approaches {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .approach {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 12px 30px rgba(15,23,42,.07);
+      padding: 14px;
+    }
+    .approach.recommended {
+      border-color: #93c5fd;
+      box-shadow: 0 20px 48px rgba(37, 99, 235, .15);
+    }
+    .approach h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+    .approach p {
+      margin: 7px 0 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    @media (max-width: 1180px) {
+      .track-grid, .approaches { grid-template-columns: 1fr; }
+      .core-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .hero { align-items: flex-start; flex-direction: column; }
+      .badge-row { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div>
+        <h1>并行分轨路线图</h1>
+        <p>完整设计不按开发成本裁剪，但需要用共享核心约束四条轨道：Web 规划闭环、Outlook Graph 同步、端侧 Companion、复盘报告。</p>
+      </div>
+      <div class="badge-row">
+        <span class="badge">附件 HTML 原型保留</span>
+        <span class="badge">核心事实改动必须确认</span>
+        <span class="badge">PIM 品牌统一视觉</span>
+      </div>
+    </section>
+
+    <section class="approaches">
+      <article class="approach recommended">
+        <span class="tag blue">推荐</span>
+        <h2>方案 1：共享核心 + 并行产品轨</h2>
+        <p>先定义统一对象模型、确认/审计、安全边界和 API，再让 Web、Outlook、端侧、报告四条轨道并行推进。最符合当前完整蓝图。</p>
+      </article>
+      <article class="approach">
+        <span class="tag amber">备选</span>
+        <h2>方案 2：体验先行 + 后补治理</h2>
+        <p>先把 Today、任务、日历、端侧体验做完整，再补 Outlook、审计和历史回放。视觉反馈快，但核心规则后补风险较高。</p>
+      </article>
+      <article class="approach">
+        <span class="tag purple">备选</span>
+        <h2>方案 3：同步/审计优先</h2>
+        <p>先打牢 Graph 同步、冲突、确认和历史系统，再扩展 UI。数据安全扎实，但用户可见体验会来得较晚。</p>
+      </article>
+    </section>
+
+    <section class="track-grid">
+      <article class="track">
+        <div class="track-head">
+          <strong>轨道 A · Web 规划闭环</strong>
+          <span>Today 控制台、日历图层、任务工作台、习惯、数据中心</span>
+        </div>
+        <div class="track-body">
+          <div class="card"><span class="tag blue">Today</span><strong>控制台式首页</strong><p>时间轴 + 任务压力 + AI 建议 + 提醒 + 复盘入口，支持密度切换。</p></div>
+          <div class="card"><span class="tag amber">任务</span><strong>领域/项目 + 任务本 + 任务 + checklist</strong><p>任何任务都可拆为多个执行段，状态包含原因和复盘结果。</p></div>
+          <div class="card"><span class="tag green">时间图层</span><strong>事件、任务段、习惯、时间预算、AI 占位</strong><p>所有图层可开关，允许只查看部分。</p></div>
+          <div class="card"><span class="tag purple">数据中心</span><strong>全局治理 + 专用对象页</strong><p>全局搜索、审计、回收站、同步批次、批量治理；对象页保留专业管理。</p></div>
+        </div>
+      </article>
+
+      <article class="track">
+        <div class="track-head">
+          <strong>轨道 B · Outlook Graph 同步</strong>
+          <span>ICS 保留，Outlook 使用 Microsoft Graph 双向同步</span>
+        </div>
+        <div class="track-body">
+          <div class="card"><span class="tag blue">连接</span><strong>设置 Client ID / Tenant / 权限</strong><p>使用设备代码连接：打开微软链接输入代码，状态过程完整呈现。</p></div>
+          <div class="card"><span class="tag green">同步</span><strong>Graph 增量同步与来源映射</strong><p>同步过程展示步骤、deltaLink、批次、冲突、写回队列和失败重试。</p></div>
+          <div class="card"><span class="tag amber">来源</span><strong>Outlook 特殊标签</strong><p>Outlook 日程可单独筛选、批量管理、查看 Graph event id 和来源元数据。</p></div>
+          <div class="card"><span class="tag red">确认</span><strong>冲突人工决策 + 二级确认</strong><p>双方都改核心字段时不自动覆盖；Outlook 来源操作额外二级确认。</p></div>
+        </div>
+      </article>
+
+      <article class="track">
+        <div class="track-head">
+          <strong>轨道 C · Windows / Android Companion</strong>
+          <span>漂亮端侧壳 + 采集上传 + 通知/审计操作</span>
+        </div>
+        <div class="track-body">
+          <div class="card"><span class="tag blue">端侧壳</span><strong>PIM 品牌感</strong><p>不是纯原生默认控件；视觉语言和 Web 一致，保留平台交互习惯。</p></div>
+          <div class="card"><span class="tag amber">通知</span><strong>低风险通知栏/Toast，高手险打开详情</strong><p>低风险可快捷操作，高风险必须进入审计中心或 Web 审计页。</p></div>
+          <div class="card"><span class="tag green">采集</span><strong>可插拔采集器</strong><p>Windows/Android 默认保守，未来可扩展设备状态、健康、会议、IDE、文件等。</p></div>
+          <div class="card"><span class="tag red">离线</span><strong>仅缓存采集数据</strong><p>通知确认、审计、任务/日程改动、复盘输入、Outlook 写回都必须在线。</p></div>
+        </div>
+      </article>
+
+      <article class="track">
+        <div class="track-head">
+          <strong>轨道 D · 复盘 / 报告 / AI 主动助理</strong>
+          <span>AI 可自动生成新产物，但事实改动必须确认</span>
+        </div>
+        <div class="track-body">
+          <div class="card"><span class="tag green">报告</span><strong>日报/周报/月报/项目复盘</strong><p>报告属于新产物，可自动生成和更新。</p></div>
+          <div class="card"><span class="tag blue">偏差</span><strong>计划 vs PC/手机实际活动</strong><p>用于复盘和建议，不直接覆盖任务/日程事实。</p></div>
+          <div class="card"><span class="tag amber">提醒</span><strong>完整提醒中枢</strong><p>基础提醒、智能提醒、行动按钮、策略、渠道、免打扰、历史和 AI 理由。</p></div>
+          <div class="card"><span class="tag red">确认</span><strong>AI 主动建议但不越权</strong><p>标题、时间、地点、状态、所属本、重复规则等核心事实数据必须人工确认。</p></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="shared-core">
+      <div class="core-head">
+        <strong>共享平台核心</strong>
+        <span>所有轨道共同依赖，先在设计文档中定清楚</span>
+      </div>
+      <div class="core-grid">
+        <div class="core-item"><strong>领域对象模型</strong><p>领域/项目、任务本、任务、执行段、事件、习惯、提醒、报告。</p></div>
+        <div class="core-item"><strong>确认与审计</strong><p>字段级 diff、二级确认、确认记录、AI 请求关联、历史回放。</p></div>
+        <div class="core-item"><strong>来源与同步</strong><p>Outlook/ICS/手工/AI 来源标记、批次、冲突和恢复。</p></div>
+        <div class="core-item"><strong>AI 安全边界</strong><p>报告自动生成；事实数据改动必须预览和确认。</p></div>
+        <div class="core-item"><strong>通知中枢</strong><p>策略、渠道、免打扰、提醒历史和端侧入口。</p></div>
+        <div class="core-item"><strong>附件原型索引</strong><p>所有 HTML UI 展示作为最终设计文档附件保留。</p></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

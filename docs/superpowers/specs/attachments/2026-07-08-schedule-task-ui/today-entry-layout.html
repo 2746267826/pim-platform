@@ -1,0 +1,278 @@
+<style>
+  .layout-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .layout-card {
+    border: 1px solid #d7e1ee;
+    border-radius: 14px;
+    background: #fff;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+  }
+  .layout-card:hover {
+    transform: translateY(-2px);
+    border-color: #2563eb;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+  }
+  .layout-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+  .layout-title {
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .pill {
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+  .mock-today {
+    padding: 12px;
+    min-height: 350px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  }
+  .bar {
+    height: 12px;
+    border-radius: 999px;
+    background: #dbeafe;
+  }
+  .bar.green { background: #ccfbf1; }
+  .bar.yellow { background: #fef3c7; }
+  .bar.red { background: #fee2e2; }
+  .mini-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    padding: 8px;
+  }
+  .mini-title {
+    margin-bottom: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #475569;
+  }
+  .small-line {
+    height: 8px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    margin-top: 6px;
+  }
+  .timeline {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 8px;
+  }
+  .time-col {
+    display: grid;
+    gap: 10px;
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .time-stack {
+    display: grid;
+    gap: 8px;
+  }
+  .event-block {
+    border-radius: 10px;
+    padding: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #1e293b;
+    background: #dbeafe;
+  }
+  .task-block {
+    background: #fef3c7;
+  }
+  .suggest-block {
+    background: #ccfbf1;
+  }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1.2fr .8fr;
+    gap: 10px;
+  }
+  .three-row {
+    display: grid;
+    gap: 10px;
+  }
+  .flow {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .stage {
+    display: grid;
+    grid-template-columns: 82px 1fr;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .stage-label {
+    border-radius: 10px;
+    background: #f1f5f9;
+    padding: 8px;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .layout-body {
+    padding: 14px;
+  }
+  .layout-body p {
+    margin: 0;
+    color: #475569;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  @media (max-width: 980px) {
+    .layout-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<h2>Today 混合入口更应该长什么样？</h2>
+<p class="subtitle">你已经选择 Today 作为首页，并同时承载日历时间轴、任务列表和智能建议。请比较这三种信息架构，点选最接近你想要的默认体验。</p>
+
+<div class="layout-grid">
+  <div class="layout-card card" data-choice="a-command-center" onclick="toggleSelect(this)">
+    <div class="layout-head">
+      <span class="layout-title">A. 控制台式首页</span>
+      <span class="pill">均衡</span>
+    </div>
+    <div class="mock-today">
+      <div class="mini-card" style="margin-bottom:10px;">
+        <div class="mini-title">今日状态</div>
+        <div class="bar"></div>
+        <div class="small-line" style="width:72%;"></div>
+      </div>
+      <div class="two-col">
+        <div class="mini-card">
+          <div class="mini-title">日程 + 已计划任务</div>
+          <div class="timeline">
+            <div class="time-col"><span>09</span><span>11</span><span>14</span><span>16</span></div>
+            <div class="time-stack">
+              <div class="event-block">会议 / 固定日程</div>
+              <div class="event-block task-block">深度任务时间块</div>
+              <div class="event-block suggest-block">建议插入任务</div>
+              <div class="event-block">生活安排</div>
+            </div>
+          </div>
+        </div>
+        <div class="three-row">
+          <div class="mini-card">
+            <div class="mini-title">待处理任务</div>
+            <div class="bar red"></div>
+            <div class="small-line"></div>
+            <div class="small-line" style="width:65%;"></div>
+          </div>
+          <div class="mini-card">
+            <div class="mini-title">智能建议</div>
+            <div class="bar green"></div>
+            <div class="small-line" style="width:78%;"></div>
+          </div>
+          <div class="mini-card">
+            <div class="mini-title">晚间复盘</div>
+            <div class="bar yellow"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="layout-body">
+      <p>适合每天打开后快速看全局：左侧是时间，右侧是任务压力、系统建议、复盘入口。日历和任务权重接近。</p>
+    </div>
+  </div>
+
+  <div class="layout-card card" data-choice="b-time-first" onclick="toggleSelect(this)">
+    <div class="layout-head">
+      <span class="layout-title">B. 时间轴优先</span>
+      <span class="pill">排程</span>
+    </div>
+    <div class="mock-today">
+      <div class="mini-card" style="margin-bottom:10px;">
+        <div class="mini-title">今日空闲与冲突</div>
+        <div class="bar green"></div>
+      </div>
+      <div class="timeline">
+        <div class="time-col"><span>08</span><span>10</span><span>12</span><span>14</span><span>16</span><span>19</span></div>
+        <div class="time-stack">
+          <div class="event-block">固定日程</div>
+          <div class="event-block task-block">任务：写方案</div>
+          <div class="event-block suggest-block">系统建议：补一段低能量任务</div>
+          <div class="event-block task-block">任务：沟通跟进</div>
+          <div class="event-block">个人安排</div>
+          <div class="event-block suggest-block">复盘提醒</div>
+        </div>
+      </div>
+      <div class="two-col" style="margin-top:10px;">
+        <div class="mini-card">
+          <div class="mini-title">未排任务</div>
+          <div class="small-line"></div>
+          <div class="small-line" style="width:72%;"></div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-title">计划质量</div>
+          <div class="bar yellow"></div>
+        </div>
+      </div>
+    </div>
+    <div class="layout-body">
+      <p>适合“所有重要任务都应该落到时间块”。首页几乎就是当天时间轴，任务列表和建议服务于排程。</p>
+    </div>
+  </div>
+
+  <div class="layout-card card" data-choice="c-loop-first" onclick="toggleSelect(this)">
+    <div class="layout-head">
+      <span class="layout-title">C. 闭环流程优先</span>
+      <span class="pill">计划-执行-复盘</span>
+    </div>
+    <div class="mock-today">
+      <div class="flow">
+        <div class="stage">
+          <div class="stage-label">上午计划</div>
+          <div class="mini-card">
+            <div class="mini-title">清空收集箱 / 选择今日承诺</div>
+            <div class="bar"></div>
+            <div class="small-line" style="width:78%;"></div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-label">白天执行</div>
+          <div class="mini-card">
+            <div class="mini-title">当前时间块 / 下一个任务 / 中断记录</div>
+            <div class="bar yellow"></div>
+            <div class="small-line"></div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-label">智能调整</div>
+          <div class="mini-card">
+            <div class="mini-title">根据空档、逾期、精力和历史行为改计划</div>
+            <div class="bar green"></div>
+            <div class="small-line" style="width:68%;"></div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-label">晚间复盘</div>
+          <div class="mini-card">
+            <div class="mini-title">完成、延期、未计划事项、明日建议</div>
+            <div class="bar red"></div>
+            <div class="small-line" style="width:82%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="layout-body">
+      <p>适合把 PIM 当成日常仪式：先计划，再执行，中途调整，最后复盘。日历和任务嵌在流程阶段里。</p>
+    </div>
+  </div>
+</div>

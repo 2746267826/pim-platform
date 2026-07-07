@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIM Architecture Delivery</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --border: #dbe4ef;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --teal: #14b8a6;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --violet: #7c3aed;
+      --green-soft: #ccfbf1;
+      --blue-soft: #dbeafe;
+      --amber-soft: #fef3c7;
+      --red-soft: #fee2e2;
+      --violet-soft: #ede9fe;
+      --shadow: 0 18px 42px rgba(15, 23, 42, .10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 8% 4%, rgba(20, 184, 166, .12), transparent 28rem),
+        radial-gradient(circle at 88% 0%, rgba(37, 99, 235, .12), transparent 32rem),
+        var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    .page {
+      min-height: 100vh;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+    .header {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+      padding: 16px;
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) auto;
+      gap: 14px;
+      align-items: end;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.18;
+    }
+    .header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    button {
+      min-height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: #fff;
+      color: #334155;
+      padding: 8px 11px;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(460px, 1.1fr) minmax(360px, .9fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.94);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+    .panel-head small { color: var(--muted); font-size: 11px; font-weight: 850; }
+    .content {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .architecture {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+    .lane {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface-2);
+      padding: 11px;
+      display: grid;
+      gap: 9px;
+      align-content: start;
+    }
+    .lane h3 {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.3;
+    }
+    .box {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+      min-height: 64px;
+    }
+    .box strong {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .box small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .box.blue { background: var(--blue-soft); border-color: #93c5fd; }
+    .box.green { background: var(--green-soft); border-color: #5eead4; }
+    .box.amber { background: var(--amber-soft); border-color: #fcd34d; }
+    .box.violet { background: var(--violet-soft); border-color: #c4b5fd; }
+    .box.red { background: var(--red-soft); border-color: #fecaca; }
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: #475569;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .tag.blue { background: var(--blue-soft); color: #1d4ed8; border-color: #bfdbfe; }
+    .tag.green { background: var(--green-soft); color: #0f766e; border-color: #99f6e4; }
+    .tag.amber { background: var(--amber-soft); color: #b45309; border-color: #fde68a; }
+    .tag.red { background: var(--red-soft); color: #b91c1c; border-color: #fecaca; }
+    .tag.violet { background: var(--violet-soft); color: #5b21b6; border-color: #ddd6fe; }
+    .track {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .track-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: start;
+    }
+    .track strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .track p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .checklist {
+      display: grid;
+      gap: 8px;
+    }
+    .check {
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: 9px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+    }
+    .num {
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      background: var(--blue-soft);
+      color: #1d4ed8;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 950;
+    }
+    .check strong {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .check small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .bottom {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .table th,
+    .table td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .table th {
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 950;
+    }
+    @media (max-width: 1120px) {
+      .layout, .bottom { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 840px) {
+      .page { padding: 12px; }
+      .header, .architecture { grid-template-columns: 1fr; }
+      .actions { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="header">
+      <div>
+        <h1>技术架构与交付治理：共享核心，多轨并行，阶段验证</h1>
+        <p>实现时必须在独立新分支工作，适合用 goal 模式追踪长目标，并用多子代理按轨道同步推进。每个里程碑都要 commit、构建、测试，并在合适阶段通过 GA/GitHub Actions 验证。</p>
+      </div>
+      <div class="actions">
+        <button>创建 goal</button>
+        <button>拆分子代理</button>
+        <button>本地验证</button>
+        <button class="primary">GA 验证</button>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>系统架构</h2>
+          <small>共享核心托住所有端</small>
+        </div>
+        <div class="content">
+          <div class="architecture">
+            <div class="lane">
+              <h3>体验层</h3>
+              <div class="box blue"><strong>Web 工作台</strong><small>Today、任务、日历、报告、数据中心、同步、审计。</small></div>
+              <div class="box green"><strong>Windows 壳</strong><small>采集、Toast、托盘审计中心、WebView。</small></div>
+              <div class="box green"><strong>Android 壳</strong><small>权限、通知动作、移动采集、WebView。</small></div>
+            </div>
+            <div class="lane">
+              <h3>共享业务核心</h3>
+              <div class="box blue"><strong>任务/日程/习惯模型</strong><small>任务执行段、日历多层、状态与原因。</small></div>
+              <div class="box amber"><strong>确认与审计服务</strong><small>风险分级、before/after、版本恢复、导出。</small></div>
+              <div class="box violet"><strong>同步编排服务</strong><small>Outlook Graph、ICS、来源标签、冲突队列。</small></div>
+              <div class="box green"><strong>报告与提醒服务</strong><small>自动产物、通知策略、复盘建议。</small></div>
+            </div>
+            <div class="lane">
+              <h3>外部与基础设施</h3>
+              <div class="box violet"><strong>Microsoft Graph</strong><small>设备代码流、calendarView delta、事件写回。</small></div>
+              <div class="box"><strong>本地采集缓存</strong><small>只缓存采集数据；其他操作在线。</small></div>
+              <div class="box red"><strong>风险与错误处理</strong><small>重试、幂等、冲突、令牌失效、审计补偿。</small></div>
+              <div class="box"><strong>CI / GA</strong><small>本地 build/test 后触发 GitHub Actions 验证。</small></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel">
+        <div class="panel-head">
+          <h2>实施治理</h2>
+          <small>正式计划必须写入</small>
+        </div>
+        <div class="content">
+          <div class="track">
+            <div class="track-head">
+              <div>
+                <strong>独立新分支</strong>
+                <p>从最新 master 拉出 `codex/...` 分支，不直接在主线做大型改动。</p>
+              </div>
+              <span class="tag blue">必须</span>
+            </div>
+          </div>
+          <div class="track">
+            <div class="track-head">
+              <div>
+                <strong>goal 模式</strong>
+                <p>把长目标、预算、阻塞和完成状态明确记录，避免大项目漂移。</p>
+              </div>
+              <span class="tag green">推荐</span>
+            </div>
+          </div>
+          <div class="track">
+            <div class="track-head">
+              <div>
+                <strong>多子代理并行</strong>
+                <p>Web、API、Outlook、Windows、Android、测试/文档分轨同步推进。</p>
+              </div>
+              <span class="tag violet">并行</span>
+            </div>
+          </div>
+          <div class="track">
+            <div class="track-head">
+              <div>
+                <strong>阶段 commit + 验证</strong>
+                <p>每个可回滚里程碑提交；运行 dotnet/npm 构建测试，合适阶段 GA 验证。</p>
+              </div>
+              <span class="tag amber">质量门</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="bottom">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>子代理轨道</h2>
+          <small>相互有接口契约</small>
+        </div>
+        <table class="table">
+          <thead><tr><th>轨道</th><th>产出</th><th>验证</th></tr></thead>
+          <tbody>
+            <tr><td>核心 API / 数据模型</td><td>任务段、来源、确认、审计、报告模型</td><td>dotnet test、迁移验证</td></tr>
+            <tr><td>Web 工作台</td><td>Today、日历多层、数据中心、审计 UI</td><td>npm build、Playwright 截图</td></tr>
+            <tr><td>Outlook 同步</td><td>Graph 设置、设备代码流、delta、冲突队列</td><td>Graph mock、幂等和错误测试</td></tr>
+            <tr><td>Windows / Android</td><td>采集、通知、WebView、权限与上传</td><td>端侧冒烟、在线边界测试</td></tr>
+            <tr><td>测试 / 文档</td><td>端到端用例、操作手册、发布说明</td><td>本地 + GA 验证清单</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>错误处理与测试</h2>
+          <small>不可省略</small>
+        </div>
+        <div class="content">
+          <div class="checklist">
+            <div class="check"><div class="num">1</div><div><strong>确认请求幂等</strong><small>重复同步、重复点击、网络重试不会重复写回或重复删除。</small></div></div>
+            <div class="check"><div class="num">2</div><div><strong>Graph token 与权限异常</strong><small>设备代码过期、刷新失败、权限不足时清楚提示并可重连。</small></div></div>
+            <div class="check"><div class="num">3</div><div><strong>冲突和审计补偿</strong><small>写回失败要保留待处理状态，不丢 before/after 和批次日志。</small></div></div>
+            <div class="check"><div class="num">4</div><div><strong>端侧在线边界</strong><small>采集可缓存；事实改动、审计确认、Outlook 写回必须在线。</small></div></div>
+            <div class="check"><div class="num">5</div><div><strong>构建与 GA 验证</strong><small>本地 `dotnet test Pim.sln`、`npm --prefix src/client-web run build`，再用 GA 验证主构建。</small></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIM Today Reminder Center Prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --border: #dbe4ef;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    .prototype-shell {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .prototype-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.96);
+      padding: 12px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .prototype-title strong {
+      display: block;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+    .prototype-title span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .prototype-controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .mode-button {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      color: #334155;
+      padding: 7px 12px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .mode-button.active {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: #fff;
+    }
+    iframe {
+      display: block;
+      width: 100%;
+      height: calc(100vh - 65px);
+      border: 0;
+      background: #fff;
+    }
+    @media (max-width: 860px) {
+      .prototype-bar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .prototype-controls {
+        justify-content: flex-start;
+      }
+      iframe {
+        height: calc(100vh - 112px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-shell">
+    <header class="prototype-bar">
+      <div class="prototype-title">
+        <strong>Today 控制台 · 完整提醒中枢</strong>
+        <span id="mode-description">默认标准密度：主信息完整，提醒中枢展示策略、渠道、历史和可确认动作。</span>
+      </div>
+      <div class="prototype-controls" aria-label="密度模式">
+        <button class="mode-button active" data-mode="standard">标准</button>
+        <button class="mode-button" data-mode="compact">高密度</button>
+        <button class="mode-button" data-mode="focus">专注</button>
+      </div>
+    </header>
+    <iframe id="preview" title="PIM Today 控制台完整页面" src="/files/today-command-center-complete-v1.html"></iframe>
+  </div>
+
+  <script>
+    const frame = document.getElementById('preview');
+    const description = document.getElementById('mode-description');
+    const buttons = Array.from(document.querySelectorAll('[data-mode]'));
+    const descriptions = {
+      standard: '默认标准密度：主信息完整，提醒中枢展示策略、渠道、历史和可确认动作。',
+      compact: '高密度：压缩间距和时间轴高度，一屏容纳更多任务、提醒、建议、状态和计划段。',
+      focus: '专注：保留当前时间轴、下一个行动、提醒中必须处理的确认项，隐藏次要分析。'
+    };
+
+    function ensureStyle(doc) {
+      let style = doc.getElementById('prototype-reminder-density-style');
+      if (!style) {
+        style = doc.createElement('style');
+        style.id = 'prototype-reminder-density-style';
+        doc.head.appendChild(style);
+      }
+      return style;
+    }
+
+    function injectReminderCenter(doc) {
+      if (doc.getElementById('reminder-center-panel')) return;
+
+      const rightStack = doc.querySelector('.right-stack');
+      if (!rightStack) return;
+
+      const panel = doc.createElement('div');
+      panel.className = 'panel reminder-panel';
+      panel.id = 'reminder-center-panel';
+      panel.innerHTML = `
+        <div class="panel-header">
+          <div class="panel-title">提醒中枢</div>
+          <div class="panel-note">策略 / 渠道 / 历史 / AI 理由</div>
+        </div>
+        <div class="panel-body reminder-body">
+          <div class="reminder-policy">
+            <div><strong>当前策略</strong><span>工作日 · 标准提醒 · 午休免打扰</span></div>
+            <button class="mini-btn">编辑策略</button>
+          </div>
+          <div class="reminder-grid">
+            <div class="reminder-item urgent">
+              <span class="reminder-kind">行动提醒</span>
+              <strong>11:45 前确认评审会议材料</strong>
+              <p>AI 理由：会议前 45 分钟，且任务仍为“待计划”。</p>
+              <div class="confirm-actions"><button class="mini-btn">稍后</button><button class="mini-btn primary">安排时间</button></div>
+            </div>
+            <div class="reminder-item">
+              <span class="reminder-kind">动态提醒</span>
+              <strong>14:10 是低冲突窗口</strong>
+              <p>建议把“接口验收清单”移动到这个窗口；会改动时间，需确认。</p>
+              <div class="confirm-actions"><button class="mini-btn">忽略</button><button class="mini-btn primary">查看变更</button></div>
+            </div>
+            <div class="reminder-item quiet">
+              <span class="reminder-kind">自动记录</span>
+              <strong>午间计划质量报告已生成</strong>
+              <p>新产物可自动更新，不修改日程或任务事实数据。</p>
+            </div>
+          </div>
+          <div class="channel-row">
+            <span class="tag blue">Web</span>
+            <span class="tag green">Windows Daemon</span>
+            <span class="tag">未来移动端</span>
+            <span class="tag yellow">免打扰 12:30-13:30</span>
+          </div>
+        </div>
+      `;
+
+      const aiPanel = Array.from(rightStack.children).find(node =>
+        node.textContent && node.textContent.includes('AI 主动助理')
+      );
+      if (aiPanel?.nextSibling) rightStack.insertBefore(panel, aiPanel.nextSibling);
+      else rightStack.appendChild(panel);
+
+      const metricStrip = doc.querySelector('.summary-strip');
+      if (metricStrip && !doc.getElementById('reminder-metric')) {
+        const metric = doc.createElement('div');
+        metric.className = 'metric';
+        metric.id = 'reminder-metric';
+        metric.innerHTML = '<span>提醒待处理</span><strong>5 条</strong>';
+        metricStrip.appendChild(metric);
+      }
+    }
+
+    function cssForMode(mode) {
+      const shared = `
+        .summary-strip { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+        .reminder-body { display: grid; gap: 10px; }
+        .reminder-policy {
+          display: flex; align-items: center; justify-content: space-between; gap: 8px;
+          border: 1px solid #dbe4ef; border-radius: 11px; background: #f8fafc; padding: 9px;
+        }
+        .reminder-policy strong, .reminder-policy span { display: block; }
+        .reminder-policy strong { font-size: 12px; }
+        .reminder-policy span { margin-top: 3px; color: #64748b; font-size: 11px; font-weight: 700; }
+        .reminder-grid { display: grid; gap: 8px; }
+        .reminder-item {
+          border: 1px solid #dbe4ef; border-radius: 12px; background: #fff; padding: 10px;
+        }
+        .reminder-item.urgent { border-color: #fed7aa; background: linear-gradient(180deg, #fff7ed 0%, #fff 100%); }
+        .reminder-item.quiet { border-color: #bbf7d0; background: linear-gradient(180deg, #f0fdf4 0%, #fff 100%); }
+        .reminder-kind {
+          display: inline-flex; border-radius: 999px; background: #e0f2fe; color: #0369a1;
+          padding: 3px 7px; font-size: 10px; font-weight: 850;
+        }
+        .reminder-item strong { display: block; margin-top: 7px; font-size: 13px; line-height: 1.25; }
+        .reminder-item p { margin: 5px 0 0; color: #475569; font-size: 12px; line-height: 1.45; }
+        .channel-row { display: flex; flex-wrap: wrap; gap: 6px; }
+      `;
+
+      if (mode === 'compact') {
+        return shared + `
+          .main { padding: 10px !important; gap: 10px !important; }
+          .topbar { min-height: 54px !important; padding: 9px 12px !important; }
+          h1 { font-size: 19px !important; }
+          .subtitle { font-size: 12px !important; }
+          .summary-strip { gap: 8px !important; }
+          .metric { padding: 8px 9px !important; }
+          .metric strong { font-size: 17px !important; }
+          .workspace { gap: 10px !important; grid-template-columns: minmax(0, 1.55fr) minmax(300px, .68fr) !important; }
+          .panel-header, .panel-body { padding: 9px 11px !important; }
+          .layer-controls { padding: 8px 11px !important; gap: 5px !important; }
+          .layer-chip { padding: 5px 8px !important; font-size: 11px !important; }
+          .schedule { min-height: 500px !important; padding: 10px !important; }
+          .times, .timeline { grid-template-rows: repeat(11, 42px) !important; }
+          .block { left: 12px !important; right: 12px !important; min-height: 34px !important; padding: 6px 8px !important; border-radius: 10px !important; }
+          .right-stack, .reminder-body, .reminder-grid { gap: 7px !important; }
+          .reminder-item, .reminder-policy { padding: 7px !important; }
+          .reminder-item p { display: none; }
+        `;
+      }
+
+      if (mode === 'focus') {
+        return shared + `
+          .summary-strip { display: none !important; }
+          .workspace { grid-template-columns: minmax(0, 1fr) 360px !important; }
+          .top-actions .btn:not(.primary):not(.warn) { display: none !important; }
+          .right-stack > .panel:nth-of-type(3),
+          .right-stack > .drawer-preview,
+          .right-stack > .panel:nth-of-type(5) { display: none !important; }
+          .right-stack > .panel:first-child .task-row:nth-child(n+3) { display: none !important; }
+          .right-stack > .panel:nth-child(2) .ai-card:nth-child(n+3) { display: none !important; }
+          .reminder-panel .reminder-item.quiet, .reminder-panel .channel-row { display: none !important; }
+          .reminder-panel { order: -1; border-color: #fed7aa !important; }
+          .panel-note { color: #2563eb !important; }
+          .schedule { min-height: 650px !important; }
+          .layer-budget:not(:first-of-type), .layer-habit, .layer-ai:last-of-type { opacity: .22 !important; }
+        `;
+      }
+
+      return shared;
+    }
+
+    function applyMode(mode) {
+      const doc = frame.contentDocument;
+      if (!doc) return;
+      injectReminderCenter(doc);
+      ensureStyle(doc).textContent = cssForMode(mode);
+      description.textContent = descriptions[mode];
+      buttons.forEach(button => button.classList.toggle('active', button.dataset.mode === mode));
+    }
+
+    buttons.forEach(button => button.addEventListener('click', () => applyMode(button.dataset.mode)));
+    frame.addEventListener('load', () => applyMode('standard'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIM AI Confirmation Audit</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --border: #dbe4ef;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --teal: #14b8a6;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --violet: #7c3aed;
+      --green-soft: #ccfbf1;
+      --blue-soft: #dbeafe;
+      --amber-soft: #fef3c7;
+      --red-soft: #fee2e2;
+      --violet-soft: #ede9fe;
+      --shadow: 0 18px 42px rgba(15, 23, 42, .10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 8% 0%, rgba(20, 184, 166, .12), transparent 29rem),
+        radial-gradient(circle at 88% 0%, rgba(37, 99, 235, .12), transparent 32rem),
+        var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    .page {
+      min-height: 100vh;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+    .header {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+      padding: 16px;
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) auto;
+      gap: 14px;
+      align-items: end;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.18;
+    }
+    .header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    button {
+      min-height: 38px;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      background: #fff;
+      color: #334155;
+      padding: 8px 11px;
+      font-size: 13px;
+      font-weight: 900;
+    }
+    button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    button.danger { background: #fff1f2; border-color: #fecaca; color: #b91c1c; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(260px, .72fr) minmax(440px, 1.28fr) minmax(280px, .78fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(255,255,255,.94);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    h2 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+    .panel-head small { color: var(--muted); font-size: 11px; font-weight: 850; }
+    .queue {
+      padding: 12px;
+      display: grid;
+      gap: 9px;
+    }
+    .request {
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      background: #fff;
+      padding: 11px;
+      display: grid;
+      gap: 8px;
+    }
+    .request.selected { border-color: #93c5fd; background: #f8fbff; }
+    .request.high { border-color: #fecaca; background: #fff7f7; }
+    .request.medium { border-color: #fde68a; background: #fffdf5; }
+    .request strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .request p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: #475569;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .tag.blue { background: var(--blue-soft); color: #1d4ed8; border-color: #bfdbfe; }
+    .tag.green { background: var(--green-soft); color: #0f766e; border-color: #99f6e4; }
+    .tag.amber { background: var(--amber-soft); color: #b45309; border-color: #fde68a; }
+    .tag.red { background: var(--red-soft); color: #b91c1c; border-color: #fecaca; }
+    .tag.violet { background: var(--violet-soft); color: #5b21b6; border-color: #ddd6fe; }
+    .detail {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .decision-card {
+      border: 1px solid #fecaca;
+      border-radius: 14px;
+      background: #fff7f7;
+      padding: 13px;
+      display: grid;
+      gap: 10px;
+    }
+    .decision-card h3 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.25;
+    }
+    .decision-card p {
+      margin: 4px 0 0;
+      color: #7f1d1d;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .diff {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .diff-box {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 11px;
+    }
+    .diff-box b {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 7px;
+    }
+    .line {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 8px;
+      font-size: 12px;
+      padding: 5px 0;
+      border-top: 1px solid #edf2f7;
+    }
+    .line:first-of-type { border-top: 0; }
+    .line span:first-child { color: var(--muted); font-weight: 850; }
+    .line span:last-child { color: #0f172a; font-weight: 750; }
+    .reason {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface-2);
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 10px;
+    }
+    .icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 9px;
+      background: var(--blue-soft);
+      display: grid;
+      place-items: center;
+      color: #1d4ed8;
+      font-weight: 950;
+      font-size: 12px;
+    }
+    .reason strong {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .reason small {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .action-bar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .risk-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .risk-table th,
+    .risk-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .risk-table th {
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 950;
+    }
+    .timeline {
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .audit {
+      display: grid;
+      grid-template-columns: 10px 1fr auto;
+      gap: 9px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px;
+      align-items: start;
+    }
+    .audit i {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--teal);
+      margin-top: 5px;
+    }
+    .audit strong {
+      display: block;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .audit small {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .audit time {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .bottom {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 1180px) {
+      .layout { grid-template-columns: 1fr 1fr; }
+      .layout > .panel:last-child { grid-column: 1 / -1; }
+    }
+    @media (max-width: 800px) {
+      .page { padding: 12px; }
+      .header, .layout, .bottom, .diff { grid-template-columns: 1fr; }
+      .toolbar { justify-content: flex-start; }
+      .action-bar { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 520px) {
+      .action-bar { grid-template-columns: 1fr; }
+      .line { grid-template-columns: 1fr; gap: 2px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="header">
+      <div>
+        <h1>AI、确认与审计：把“主动帮忙”和“事实安全”分开治理</h1>
+        <p>AI 可以自动读取、分析、生成报告和提出方案；一旦触及任务/日程关键事实，必须进入确认请求。Outlook 来源项和批量操作额外要求二级确认。</p>
+      </div>
+      <div class="toolbar">
+        <button>筛选风险</button>
+        <button>导出审计</button>
+        <button class="primary">查看确认详情</button>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>确认请求队列</h2>
+          <small>按风险和来源排序</small>
+        </div>
+        <div class="queue">
+          <div class="request selected high">
+            <strong>Outlook 来源事件：会议地点变更</strong>
+            <p>Graph 同步检测到 PIM 与 Outlook 同时修改核心字段。</p>
+            <div class="tag-row">
+              <span class="tag red">L3 二级确认</span>
+              <span class="tag violet">Outlook</span>
+              <span class="tag amber">冲突</span>
+            </div>
+          </div>
+          <div class="request medium">
+            <strong>任务执行段提前 30 分钟</strong>
+            <p>AI 建议避开新会议，修改时间字段。</p>
+            <div class="tag-row">
+              <span class="tag amber">L2 人工确认</span>
+              <span class="tag blue">任务</span>
+            </div>
+          </div>
+          <div class="request">
+            <strong>周报已自动生成</strong>
+            <p>自动产物，不改变事实数据，可直接查看或归档。</p>
+            <div class="tag-row">
+              <span class="tag green">L0 自动</span>
+              <span class="tag">报告</span>
+            </div>
+          </div>
+          <div class="request high">
+            <strong>批量删除 12 个 Outlook 来源日程</strong>
+            <p>外部写回 + 批量破坏性操作，必须打开详情。</p>
+            <div class="tag-row">
+              <span class="tag red">L4 严格确认</span>
+              <span class="tag violet">Graph 写回</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>确认详情</h2>
+          <small>字段级 diff + AI 理由 + 影响范围</small>
+        </div>
+        <div class="detail">
+          <div class="decision-card">
+            <div>
+              <h3>是否把“产品例会”的地点从 线上 改为 会议室 B？</h3>
+              <p>这是 Outlook 来源日程，且将写回 Microsoft Graph。确认后会记录二级确认、Graph event id、PIM event id、请求批次和操作者。</p>
+            </div>
+            <div class="tag-row">
+              <span class="tag red">核心字段：位置</span>
+              <span class="tag violet">Graph event: AAMkAG...</span>
+              <span class="tag blue">PIM event: evt_20260708_0930</span>
+            </div>
+          </div>
+
+          <div class="diff">
+            <div class="diff-box">
+              <b>当前 PIM</b>
+              <div class="line"><span>名称</span><span>产品例会</span></div>
+              <div class="line"><span>时间</span><span>7月8日 09:00-09:50</span></div>
+              <div class="line"><span>位置</span><span>线上</span></div>
+              <div class="line"><span>来源</span><span>Outlook / 已绑定</span></div>
+            </div>
+            <div class="diff-box">
+              <b>建议变更</b>
+              <div class="line"><span>名称</span><span>产品例会</span></div>
+              <div class="line"><span>时间</span><span>7月8日 09:00-09:50</span></div>
+              <div class="line"><span>位置</span><span>会议室 B</span></div>
+              <div class="line"><span>来源</span><span>Outlook delta / 写回 Graph</span></div>
+            </div>
+          </div>
+
+          <div class="reason">
+            <div class="icon">AI</div>
+            <div>
+              <strong>推荐：保留 Outlook 版本，但不要自动执行</strong>
+              <small>Outlook 版本较新，且同一组织会议通常以 Outlook 为准；由于这是地点核心字段和外部写回，必须由用户二级确认。</small>
+            </div>
+          </div>
+
+          <div class="action-bar">
+            <button>保留 PIM</button>
+            <button>采用 Outlook</button>
+            <button>合并副本</button>
+            <button class="danger">停止同步此项</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>审计时间线</h2>
+          <small>可恢复、可导出</small>
+        </div>
+        <div class="timeline">
+          <div class="audit">
+            <i style="background:var(--red)"></i>
+            <div><strong>生成二级确认请求</strong><small>actor: sync-service；source: Outlook delta；batch: sync_0142</small></div>
+            <time>01:42</time>
+          </div>
+          <div class="audit">
+            <i style="background:var(--violet)"></i>
+            <div><strong>读取 Graph 事件变更</strong><small>字段：location；etag 已记录；未写回</small></div>
+            <time>01:41</time>
+          </div>
+          <div class="audit">
+            <i style="background:var(--teal)"></i>
+            <div><strong>用户确认绑定 Outlook 来源</strong><small>记录 PIM event id 与 Graph event id</small></div>
+            <time>昨天</time>
+          </div>
+          <div class="audit">
+            <i style="background:var(--amber)"></i>
+            <div><strong>AI 创建冲突解释报告</strong><small>自动产物，无事实变更</small></div>
+            <time>昨天</time>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="bottom">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>风险分级规则</h2>
+          <small>所有端统一执行</small>
+        </div>
+        <table class="risk-table">
+          <thead><tr><th>级别</th><th>允许行为</th><th>确认要求</th></tr></thead>
+          <tbody>
+            <tr><td><span class="tag green">L0</span></td><td>生成报告、摘要、统计、建议草稿</td><td>无需确认；可撤销/归档</td></tr>
+            <tr><td><span class="tag blue">L1</span></td><td>提醒稍后、标记已读、打开详情</td><td>可通知内直接操作，保留历史</td></tr>
+            <tr><td><span class="tag amber">L2</span></td><td>修改 PIM 任务/日程关键事实</td><td>必须人工确认，展示字段 diff</td></tr>
+            <tr><td><span class="tag red">L3</span></td><td>Outlook 来源项写回或核心冲突</td><td>必须二级确认，展示外部影响</td></tr>
+            <tr><td><span class="tag red">L4</span></td><td>批量、删除、恢复、停止同步</td><td>严格确认，预览影响对象和可恢复路径</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>通知到详情的闭环</h2>
+          <small>Windows / Android / Web 一致</small>
+        </div>
+        <div class="timeline">
+          <div class="audit">
+            <i></i>
+            <div><strong>低风险：通知按钮可直接执行</strong><small>例如查看报告、稍后提醒、标记已读。</small></div>
+            <time>L1</time>
+          </div>
+          <div class="audit">
+            <i style="background:var(--amber)"></i>
+            <div><strong>中风险：打开确认详情页</strong><small>展示 before/after、AI 原因、影响范围和撤销路径。</small></div>
+            <time>L2</time>
+          </div>
+          <div class="audit">
+            <i style="background:var(--red)"></i>
+            <div><strong>高风险：必须 Web 审计页二级确认</strong><small>尤其是 Outlook 写回、批量删除、停止同步和重复规则变更。</small></div>
+            <time>L3+</time>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

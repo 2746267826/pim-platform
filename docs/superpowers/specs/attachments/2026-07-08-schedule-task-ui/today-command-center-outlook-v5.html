@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIM Today Outlook Sync Prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --border: #dbe4ef;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+    .prototype-shell {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .prototype-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.96);
+      padding: 12px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .prototype-title strong {
+      display: block;
+      font-size: 15px;
+      line-height: 1.25;
+    }
+    .prototype-title span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .prototype-controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .mode-button {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      color: #334155;
+      padding: 7px 12px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .mode-button.active {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: #fff;
+    }
+    iframe {
+      display: block;
+      width: 100%;
+      height: calc(100vh - 65px);
+      border: 0;
+      background: #fff;
+    }
+    @media (max-width: 860px) {
+      .prototype-bar { align-items: flex-start; flex-direction: column; }
+      .prototype-controls { justify-content: flex-start; }
+      iframe { height: calc(100vh - 112px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-shell">
+    <header class="prototype-bar">
+      <div class="prototype-title">
+        <strong>Today 控制台 · Outlook Graph 双向同步</strong>
+        <span id="mode-description">ICS 保留；Outlook 通过 Microsoft Graph 双向同步，连接、同步、来源管理和二级确认都可见。</span>
+      </div>
+      <div class="prototype-controls" aria-label="密度模式">
+        <button class="mode-button active" data-mode="standard">标准</button>
+        <button class="mode-button" data-mode="compact">高密度</button>
+        <button class="mode-button" data-mode="focus">专注</button>
+      </div>
+    </header>
+    <iframe id="preview" title="PIM Today 控制台完整页面" src="/files/today-command-center-complete-v1.html"></iframe>
+  </div>
+
+  <script>
+    const frame = document.getElementById('preview');
+    const description = document.getElementById('mode-description');
+    const buttons = Array.from(document.querySelectorAll('[data-mode]'));
+    const descriptions = {
+      standard: 'ICS 保留；Outlook 通过 Microsoft Graph 双向同步，连接、同步、来源管理和二级确认都可见。',
+      compact: '高密度：压缩同步步骤、提醒、复盘和任务压力，一屏查看更多操作队列。',
+      focus: '专注：突出 Outlook 写回确认、同步冲突和当前计划，隐藏长期报告。'
+    };
+
+    function ensureStyle(doc) {
+      let style = doc.getElementById('prototype-outlook-style');
+      if (!style) {
+        style = doc.createElement('style');
+        style.id = 'prototype-outlook-style';
+        doc.head.appendChild(style);
+      }
+      return style;
+    }
+
+    function injectSourceTags(doc) {
+      doc.querySelectorAll('.layer-event').forEach((eventBlock, index) => {
+        if (index > 1 || eventBlock.querySelector('.outlook-source-tag')) return;
+        const tag = doc.createElement('span');
+        tag.className = 'outlook-source-tag';
+        tag.textContent = 'Outlook';
+        eventBlock.appendChild(tag);
+      });
+    }
+
+    function injectOutlookCenter(doc) {
+      if (doc.getElementById('outlook-sync-panel')) return;
+      const rightStack = doc.querySelector('.right-stack');
+      if (!rightStack) return;
+
+      const panel = doc.createElement('div');
+      panel.className = 'panel outlook-panel';
+      panel.id = 'outlook-sync-panel';
+      panel.innerHTML = `
+        <div class="panel-header">
+          <div class="panel-title">Outlook Graph 同步</div>
+          <div class="panel-note">双向同步 · 二级确认 · 来源批量管理</div>
+        </div>
+        <div class="panel-body outlook-body">
+          <div class="graph-settings">
+            <div>
+              <strong>连接配置</strong>
+              <span>Client ID: 8f3e... · Tenant: common · 权限: Calendars.ReadWrite offline_access</span>
+            </div>
+            <button class="mini-btn">设置</button>
+          </div>
+
+          <div class="device-code-box">
+            <span class="sync-label">设备代码连接</span>
+            <strong>打开 microsoft.com/devicelogin 并输入代码</strong>
+            <div class="code-line"><span>ABCD-EFGH</span><button class="mini-btn primary">复制代码</button></div>
+            <p>连接状态会展示授权等待、已同意、令牌保存、首次同步四个阶段。</p>
+          </div>
+
+          <div class="sync-steps">
+            <div class="sync-step done"><span></span><strong>读取 Outlook 日历列表</strong><em>3 个日历 · 24 个事件</em></div>
+            <div class="sync-step done"><span></span><strong>拉取 calendarView/delta</strong><em>保存 deltaLink，下次增量同步</em></div>
+            <div class="sync-step active"><span></span><strong>检测冲突与来源映射</strong><em>2 个标题/时间冲突，1 个本地改动待确认</em></div>
+            <div class="sync-step"><span></span><strong>写回 Outlook</strong><em>二级确认后 PATCH / 删除 / 新建</em></div>
+          </div>
+
+          <div class="outlook-actions">
+            <button class="mini-btn">只看 Outlook 日程</button>
+            <button class="mini-btn">批量管理标签</button>
+            <button class="mini-btn primary">打开同步详情</button>
+          </div>
+        </div>
+      `;
+
+      const aiPanel = Array.from(rightStack.children).find(node => node.textContent && node.textContent.includes('AI 主动助理'));
+      if (aiPanel?.nextSibling) rightStack.insertBefore(panel, aiPanel.nextSibling);
+      else rightStack.appendChild(panel);
+
+      const confirmPanel = doc.createElement('div');
+      confirmPanel.className = 'panel outlook-confirm-panel';
+      confirmPanel.innerHTML = `
+        <div class="panel-header">
+          <div class="panel-title">Outlook 二级确认</div>
+          <div class="panel-note">来源于 Outlook 的日程操作更严格</div>
+        </div>
+        <div class="panel-body outlook-confirm-body">
+          <div class="confirm-warning">
+            <span class="sync-label">二级确认</span>
+            <strong>将“评审会议”从 11:00 移到 14:30</strong>
+            <p>会写回 Outlook 并可能触发会议更新。需要先确认 PIM 变更，再确认 Graph 写回。</p>
+            <div class="confirm-actions"><button class="mini-btn">取消</button><button class="mini-btn">确认 PIM 变更</button><button class="mini-btn primary">确认写回 Outlook</button></div>
+          </div>
+        </div>
+      `;
+      if (panel.nextSibling) rightStack.insertBefore(confirmPanel, panel.nextSibling);
+      else rightStack.appendChild(confirmPanel);
+
+      const metricStrip = doc.querySelector('.summary-strip');
+      if (metricStrip && !doc.getElementById('outlook-metric')) {
+        const metric = doc.createElement('div');
+        metric.className = 'metric';
+        metric.id = 'outlook-metric';
+        metric.innerHTML = '<span>Outlook 同步</span><strong>2 冲突</strong>';
+        metricStrip.appendChild(metric);
+      }
+    }
+
+    function cssForMode(mode) {
+      const shared = `
+        .summary-strip { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+        .outlook-body, .outlook-confirm-body { display: grid; gap: 10px; }
+        .graph-settings, .device-code-box, .confirm-warning {
+          border: 1px solid #dbe4ef; border-radius: 12px; background: #fff; padding: 10px;
+        }
+        .graph-settings {
+          display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #f8fafc;
+        }
+        .graph-settings strong, .graph-settings span, .device-code-box strong, .device-code-box p,
+        .confirm-warning strong, .confirm-warning p { display: block; }
+        .graph-settings strong, .device-code-box strong, .confirm-warning strong { font-size: 13px; line-height: 1.25; }
+        .graph-settings span, .device-code-box p, .confirm-warning p {
+          margin-top: 5px; color: #475569; font-size: 12px; line-height: 1.45; font-weight: 700;
+        }
+        .sync-label {
+          display: inline-flex; border-radius: 999px; background: #e0f2fe; color: #0369a1;
+          padding: 3px 7px; font-size: 10px; font-weight: 850; margin-bottom: 7px;
+        }
+        .code-line {
+          display: flex; align-items: center; justify-content: space-between; gap: 8px;
+          margin-top: 8px; border: 1px dashed #93c5fd; border-radius: 10px; background: #eff6ff; padding: 8px;
+        }
+        .code-line span { color: #1d4ed8; font-family: Consolas, monospace; font-weight: 900; letter-spacing: .12em; }
+        .sync-steps { display: grid; gap: 7px; }
+        .sync-step {
+          display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 8px; align-items: start;
+          border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; padding: 8px;
+        }
+        .sync-step > span { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; margin-top: 3px; }
+        .sync-step.done > span { background: #14b8a6; }
+        .sync-step.active { border-color: #fed7aa; background: #fff7ed; }
+        .sync-step.active > span { background: #f59e0b; }
+        .sync-step strong, .sync-step em { display: block; font-style: normal; }
+        .sync-step strong { font-size: 12px; }
+        .sync-step em { margin-top: 2px; color: #64748b; font-size: 11px; font-weight: 700; }
+        .outlook-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+        .confirm-warning { border-color: #fecaca; background: linear-gradient(180deg, #fff1f2 0%, #fff 100%); }
+        .outlook-source-tag {
+          display: inline-flex !important; width: fit-content; margin-top: 5px !important;
+          border-radius: 999px; background: rgba(37,99,235,.12); color: #1d4ed8 !important;
+          padding: 2px 6px; font-size: 10px !important; font-weight: 900;
+        }
+      `;
+
+      if (mode === 'compact') {
+        return shared + `
+          .main { padding: 10px !important; gap: 10px !important; }
+          .topbar { min-height: 54px !important; padding: 9px 12px !important; }
+          h1 { font-size: 19px !important; }
+          .summary-strip { gap: 8px !important; }
+          .metric { padding: 8px 9px !important; }
+          .metric strong { font-size: 17px !important; }
+          .workspace { gap: 10px !important; grid-template-columns: minmax(0, 1.55fr) minmax(330px, .7fr) !important; }
+          .panel-header, .panel-body { padding: 9px 11px !important; }
+          .schedule { min-height: 500px !important; padding: 10px !important; }
+          .times, .timeline { grid-template-rows: repeat(11, 42px) !important; }
+          .right-stack, .outlook-body, .sync-steps { gap: 7px !important; }
+          .graph-settings, .device-code-box, .confirm-warning, .sync-step { padding: 7px !important; }
+          .device-code-box p, .confirm-warning p { display: none; }
+        `;
+      }
+
+      if (mode === 'focus') {
+        return shared + `
+          .summary-strip { display: none !important; }
+          .workspace { grid-template-columns: minmax(0, 1fr) 380px !important; }
+          .top-actions .btn:not(.primary):not(.warn) { display: none !important; }
+          .right-stack > .panel:first-child .task-row:nth-child(n+3),
+          .right-stack > .panel:nth-child(2) .ai-card:nth-child(n+3),
+          .right-stack > .panel:nth-of-type(4),
+          .right-stack > .drawer-preview,
+          .right-stack > .panel:nth-of-type(6) { display: none !important; }
+          .outlook-panel, .outlook-confirm-panel { border-color: #fed7aa !important; }
+          .outlook-confirm-panel { order: -2; }
+          .outlook-panel { order: -1; }
+          .schedule { min-height: 650px !important; }
+        `;
+      }
+
+      return shared;
+    }
+
+    function applyMode(mode) {
+      const doc = frame.contentDocument;
+      if (!doc) return;
+      injectSourceTags(doc);
+      injectOutlookCenter(doc);
+      ensureStyle(doc).textContent = cssForMode(mode);
+      description.textContent = descriptions[mode];
+      buttons.forEach(button => button.classList.toggle('active', button.dataset.mode === mode));
+    }
+
+    buttons.forEach(button => button.addEventListener('click', () => applyMode(button.dataset.mode)));
+    frame.addEventListener('load', () => applyMode('standard'));
+  </script>
+</body>
+</html>

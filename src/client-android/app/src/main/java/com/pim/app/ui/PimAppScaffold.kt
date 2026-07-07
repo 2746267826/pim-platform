@@ -4,7 +4,9 @@ import android.Manifest
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -67,10 +69,12 @@ import com.pim.app.location.LocationCaptureRepository
 import com.pim.app.location.LocationCaptureState
 import com.pim.app.location.LocationSnapshot
 import com.pim.app.location.LocationSubmissionPolicy
+import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.core.auth.TokenManager
 import com.pim.core.models.LoginRequest
 import com.pim.core.network.ApiClientProvider
 import com.pim.core.settings.ServerSettingsStore
+import com.pim.core.util.toCauseChainMessage
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -191,6 +195,7 @@ private fun StatusTab(
 ) {
     Section(title = "运行状态") {
         StatusRow("Android 客户端", "已打开")
+        StatusRow("版本", uiState.appVersion)
         StatusRow("服务器", uiState.serverUrl)
         StatusRow("登录", if (uiState.isLoggedIn) "已登录" else "未登录")
         StatusRow("使用权限", if (usagePermissionGranted) "已授权" else "未授权")
@@ -367,6 +372,7 @@ private fun SettingsTab(
 
     Section(title = "登录") {
         StatusRow("当前状态", if (uiState.isLoggedIn) "已保存令牌" else "未登录")
+        StatusRow("应用版本", uiState.appVersion)
         OutlinedTextField(
             value = username,
             onValueChange = { username = it },
@@ -470,6 +476,7 @@ class LocationCaptureViewModel @Inject constructor(
 
 data class MobileUiState(
     val serverUrl: String = ServerSettingsStore.DEFAULT_BASE_URL,
+    val appVersion: String = "未知",
     val isLoggedIn: Boolean = false,
     val phase: String = "等待同步",
     val progressText: String = "打开 App 后会自动同步一次。",
@@ -499,7 +506,8 @@ class MobileStatusViewModel @Inject constructor(
     private val tokenManager: TokenManager,
     private val apiClientProvider: ApiClientProvider,
     private val serverSettingsStore: ServerSettingsStore,
-    private val database: AppDatabase
+    private val database: AppDatabase,
+    private val logs: StructuredLogRepository
 ) : ViewModel() {
     private val prefs = context.getSharedPreferences("pim_mobile_sync_state", Context.MODE_PRIVATE)
     private val mobileDataDao = database.mobileDataDao()
@@ -522,6 +530,7 @@ class MobileStatusViewModel @Inject constructor(
             _state.update { current ->
                 current.copy(
                     serverUrl = serverSettingsStore.getBaseUrl(),
+                    appVersion = appVersionDisplay(),
                     isLoggedIn = !tokenManager.getAccessToken().isNullOrBlank(),
                     phase = prefs.getString("phase", null) ?: current.phase,
                     progressText = prefs.getString("progress_text", null) ?: current.progressText,
@@ -569,11 +578,16 @@ class MobileStatusViewModel @Inject constructor(
                     }
                 },
                 onFailure = { error ->
+                    val failureMessage = error.toCauseChainMessage()
+                    runCatching {
+                        logs.error("mobile-auth", "登录失败：$failureMessage", error)
+                    }
                     _state.update {
                         it.copy(
                             isLoggedIn = false,
                             isLoginInProgress = false,
-                            loginStatus = "登录失败：${error.message ?: "未知错误"}"
+                            loginStatus = "登录失败：$failureMessage",
+                            lastError = failureMessage
                         )
                     }
                 }
@@ -608,6 +622,33 @@ class MobileStatusViewModel @Inject constructor(
             message = message,
             occurredAtUtc = occurredAtUtc
         )
+    }
+
+    private fun appVersionDisplay(): String {
+        return try {
+            val info = packageInfo(context.packageManager, context.packageName)
+            "${info.versionName ?: "unknown"} (${versionCode(info)})"
+        } catch (_: Exception) {
+            "unknown"
+        }
+    }
+
+    private fun packageInfo(packageManager: PackageManager, packageName: String): PackageInfo {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(packageName, 0)
+        }
+    }
+
+    private fun versionCode(packageInfo: PackageInfo): Long {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            packageInfo.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            packageInfo.versionCode.toLong()
+        }
     }
 }
 

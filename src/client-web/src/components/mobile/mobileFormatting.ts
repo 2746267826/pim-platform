@@ -74,7 +74,7 @@ export function formatDuration(seconds: number | null | undefined) {
   const minutes = Math.floor((safeSeconds % 3600) / 60);
   if (hours > 0) return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`;
   if (minutes > 0) return `${minutes}分钟`;
-  return safeSeconds > 0 ? `${safeSeconds}秒` : '0分钟';
+  return `${safeSeconds}秒`;
 }
 
 export function formatCompactDuration(seconds: number | null | undefined) {
@@ -87,7 +87,7 @@ export function formatCompactDuration(seconds: number | null | undefined) {
 }
 
 export function formatPercent(value: number | null | undefined) {
-  if (value === null || value === undefined || Number.isNaN(value)) return '-';
+  if (value === null || value === undefined || !Number.isFinite(value)) return '0%';
   return `${Math.round(value * 100)}%`;
 }
 

@@ -131,7 +131,7 @@ const charts: MobileAnalyticsChart[] = [
     chartType: 'category-share',
     unit: 'seconds',
     points: [
-      { key: 'social', label: '社交沟通', value: 3600, lifeCategory: '社交沟通' },
+      { key: 'social', label: '社交通讯', value: 3600, lifeCategory: '社交通讯' },
       { key: 'work', label: '工作/生产力', value: 2400, lifeCategory: '工作/生产力' },
     ],
   },
@@ -245,7 +245,7 @@ const rules: MobileAppCategoryRule[] = [
     id: 'rule-1',
     ruleType: 'package-prefix',
     pattern: 'com.tencent.',
-    lifeCategory: '社交沟通',
+    lifeCategory: '社交通讯',
     priority: 80,
     isEnabled: true,
   },

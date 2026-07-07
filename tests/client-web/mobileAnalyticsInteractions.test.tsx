@@ -99,7 +99,7 @@ const rule: MobileAppCategoryRule = {
   id: 'rule-1',
   ruleType: 'package-prefix',
   pattern: 'com.tencent.',
-  lifeCategory: '社交沟通',
+  lifeCategory: '社交通讯',
   priority: 80,
   isEnabled: true,
 };
@@ -291,7 +291,7 @@ test('app catalog manager creates new overrides and rules from forms', () => {
           ruleType: 'package-prefix',
           pattern: ' COM.TENCENT. ',
           displayNameOverride: ' 腾讯系 ',
-          lifeCategory: '社交沟通',
+          lifeCategory: '社交通讯',
           priority: '800',
           isEnabled: 'on',
         },
@@ -312,7 +312,7 @@ test('app catalog manager creates new overrides and rules from forms', () => {
   assert.deepEqual(savedRules, [{
     ruleType: 'package-prefix',
     pattern: 'com.tencent.',
-    lifeCategory: '社交沟通',
+    lifeCategory: '社交通讯',
     priority: 800,
     isEnabled: true,
     displayNameOverride: '腾讯系',

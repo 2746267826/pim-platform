@@ -90,7 +90,7 @@ const analyticsQuery: MobileAnalyticsQuery = {
   rangeStartUtc: '2026-07-01T16:00:00Z',
   rangeEndUtc: '2026-07-08T16:00:00Z',
   timezone: MOBILE_DEFAULT_TIMEZONE,
-  category: '社交沟通',
+  category: '社交通讯',
   includeSystemNoise: false,
   minDurationSeconds: 1,
   granularity: 'hour',
@@ -142,7 +142,7 @@ const heatmapBucket: MobileHeatmapBucket = {
   bucketEndUtc: '2026-07-06T14:00:00Z',
   localDate: '2026-07-06',
   localHour: 21,
-  lifeCategory: '社交沟通',
+  lifeCategory: '社交通讯',
   foregroundSeconds: 1800,
   qualityFlags: [],
 };
@@ -152,7 +152,7 @@ const chart: MobileAnalyticsChart = {
   title: '分类占比',
   chartType: 'category-share',
   unit: 'seconds',
-  points: [{ key: '社交沟通', label: '社交沟通', value: 1800, foregroundSeconds: 1800, lifeCategory: '社交沟通' }],
+  points: [{ key: '社交通讯', label: '社交通讯', value: 1800, foregroundSeconds: 1800, lifeCategory: '社交通讯' }],
 };
 
 const page: MobileTimelineBlockPage = {
@@ -162,7 +162,7 @@ const page: MobileTimelineBlockPage = {
     endUtc: '2026-07-06T14:00:00Z',
     localStart: '21:00',
     localEnd: '22:00',
-    lifeCategory: '社交沟通',
+    lifeCategory: '社交通讯',
     foregroundSeconds: 1800,
     sessionCount: 2,
     appCount: 1,
@@ -176,7 +176,7 @@ const page: MobileTimelineBlockPage = {
 const override: MobileAppCatalogOverride = {
   packageName: 'com.tencent.mobileqq',
   displayNameOverride: 'QQ',
-  lifeCategory: '社交沟通',
+  lifeCategory: '社交通讯',
   isSystemNoise: false,
   hideShortEvents: false,
 };
@@ -185,7 +185,7 @@ const rule: MobileAppCategoryRule = {
   id: 'rule-1',
   ruleType: 'package-prefix',
   pattern: 'com.tencent.',
-  lifeCategory: '社交沟通',
+  lifeCategory: '社交通讯',
   priority: 100,
   isEnabled: true,
 };
@@ -214,11 +214,11 @@ const usageGoalRequest: MobileUsageGoalUpsertRequest = {
 assert.equal(MOBILE_DEFAULT_TIMEZONE, 'Asia/Shanghai');
 assert.equal(MOBILE_LIFE_CATEGORIES.includes('生活服务'), true);
 assert.equal(typedLifeCategory, '短视频/娱乐');
-assert.equal(analyticsQuery.category, '社交沟通');
+assert.equal(analyticsQuery.category, '社交通讯');
 assert.equal(overview.goalProgress?.label, '每日手机总时长');
 assert.equal(overview.suggestions[0].drilldownTarget, 'category:短视频/娱乐');
-assert.equal(heatmapBucket.lifeCategory, '社交沟通');
-assert.equal(chart.points[0].label, '社交沟通');
+assert.equal(heatmapBucket.lifeCategory, '社交通讯');
+assert.equal(chart.points[0].label, '社交通讯');
 assert.equal(page.items[0].topApps[0].displayName, 'QQ');
 assert.equal(override.displayNameOverride, 'QQ');
 assert.equal(rule.priority, 100);

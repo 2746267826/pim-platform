@@ -22,4 +22,7 @@ assert.equal(utcRange.timezone, 'Asia/Shanghai');
 
 assert.equal(formatDuration(52 * 60), '52分钟');
 assert.equal(formatDuration(73 * 3600 + 23 * 60), '73小时23分钟');
+assert.equal(formatDuration(0), '0秒');
 assert.equal(formatPercent(0.68), '68%');
+assert.equal(formatPercent(Number.NaN), '0%');
+assert.equal(formatPercent(Number.POSITIVE_INFINITY), '0%');

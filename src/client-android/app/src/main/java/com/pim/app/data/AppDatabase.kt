@@ -10,11 +10,13 @@ import androidx.room.RoomDatabase
         MobileUsageSummaryEntity::class,
         MobileAppMetadataEntity::class,
         MobileLocationPointEntity::class,
+        MobileLocationDroppedDiagnosticEntity::class,
+        MobileLocationPolicyTransitionEntity::class,
         MobileSyncBatchEntity::class,
         MobileLogEntity::class,
         MobileDeviceProfileEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

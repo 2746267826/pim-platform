@@ -22,6 +22,15 @@ interface MobileDataDao {
     suspend fun insertLocationPoints(points: List<MobileLocationPointEntity>): List<Long>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLocationPoint(point: MobileLocationPointEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDroppedLocationDiagnostic(diagnostic: MobileLocationDroppedDiagnosticEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPolicyTransition(transition: MobileLocationPolicyTransitionEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSyncBatch(batch: MobileSyncBatchEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -142,6 +151,12 @@ interface MobileDataDao {
 
     @Query("SELECT * FROM mobile_logs ORDER BY occurred_at_utc DESC LIMIT :limit")
     fun recentLogs(limit: Int = 6): Flow<List<MobileLogEntity>>
+
+    @Query("SELECT * FROM mobile_location_dropped_diagnostics ORDER BY recorded_at_utc DESC LIMIT :limit")
+    fun recentDroppedLocationDiagnostics(limit: Int = 20): Flow<List<MobileLocationDroppedDiagnosticEntity>>
+
+    @Query("SELECT * FROM mobile_location_policy_transitions ORDER BY occurred_at_utc DESC LIMIT :limit")
+    fun recentPolicyTransitions(limit: Int = 20): Flow<List<MobileLocationPolicyTransitionEntity>>
 
     @Query(
         """

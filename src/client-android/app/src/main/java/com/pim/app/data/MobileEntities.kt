@@ -4,6 +4,10 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.pim.app.location.policy.LocationPolicyMode
+import com.pim.app.location.policy.PolicyDecision
+import com.pim.app.location.quality.QualityAcceptedLocation
+import com.pim.app.location.quality.RawLocationFix
 
 object MobileSyncStatus {
     const val PENDING = "pending"
@@ -108,11 +112,95 @@ data class MobileLocationPointEntity(
     @ColumnInfo(name = "source") val source: String,
     @ColumnInfo(name = "collected_at_utc") val collectedAtUtc: Long,
     @ColumnInfo(name = "raw_json") val rawJson: String,
+    @ColumnInfo(name = "submitted_at_utc") val submittedAtUtc: Long? = null,
+    @ColumnInfo(name = "policy_mode") val policyMode: String = LocationPolicyMode.PowerSavingNormal.name,
+    @ColumnInfo(name = "schedule_low_frequency") val scheduleLowFrequency: Boolean = false,
+    @ColumnInfo(name = "motion_state") val motionState: String? = null,
+    @ColumnInfo(name = "quality_flags") val qualityFlags: String = "[]",
     @ColumnInfo(name = "sync_status") val syncStatus: String = MobileSyncStatus.PENDING,
     @ColumnInfo(name = "last_error") val lastError: String? = null,
     @ColumnInfo(name = "created_at_utc") val createdAtUtc: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "updated_at_utc") val updatedAtUtc: Long = System.currentTimeMillis()
+) {
+    companion object {
+        fun fromAccepted(accepted: QualityAcceptedLocation, rawJson: String): MobileLocationPointEntity {
+            return MobileLocationPointEntity(
+                latitude = accepted.fix.latitude,
+                longitude = accepted.fix.longitude,
+                altitudeMeters = accepted.altitudeMeters,
+                accuracyMeters = accepted.fix.horizontalAccuracyMeters,
+                provider = accepted.fix.provider,
+                recordedAtUtc = accepted.fix.recordedAtMillis,
+                source = "auto",
+                collectedAtUtc = accepted.acceptedAtMillis,
+                rawJson = rawJson,
+                submittedAtUtc = accepted.acceptedAtMillis,
+                policyMode = accepted.fix.policyMode,
+                scheduleLowFrequency = accepted.fix.scheduleLowFrequency,
+                motionState = accepted.fix.motionSignal,
+                qualityFlags = accepted.qualityFlags.toJsonArrayString()
+            )
+        }
+    }
+}
+
+@Entity(
+    tableName = "mobile_location_dropped_diagnostics",
+    indices = [Index(value = ["recorded_at_utc"])]
 )
+data class MobileLocationDroppedDiagnosticEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "recorded_at_utc") val recordedAtUtc: Long,
+    @ColumnInfo(name = "provider") val provider: String?,
+    @ColumnInfo(name = "accuracy_meters") val accuracyMeters: Float?,
+    @ColumnInfo(name = "policy_mode") val policyMode: String,
+    @ColumnInfo(name = "reason") val reason: String,
+    @ColumnInfo(name = "created_at_utc") val createdAtUtc: Long = System.currentTimeMillis()
+) {
+    companion object {
+        fun fromDropped(
+            fix: RawLocationFix,
+            reason: String,
+            createdAtUtc: Long = System.currentTimeMillis()
+        ): MobileLocationDroppedDiagnosticEntity {
+            return MobileLocationDroppedDiagnosticEntity(
+                recordedAtUtc = fix.recordedAtMillis,
+                provider = fix.provider,
+                accuracyMeters = fix.horizontalAccuracyMeters,
+                policyMode = fix.policyMode,
+                reason = reason,
+                createdAtUtc = createdAtUtc
+            )
+        }
+    }
+}
+
+@Entity(
+    tableName = "mobile_location_policy_transitions",
+    indices = [Index(value = ["occurred_at_utc"])]
+)
+data class MobileLocationPolicyTransitionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "from_mode") val fromMode: String?,
+    @ColumnInfo(name = "to_mode") val toMode: String,
+    @ColumnInfo(name = "reason") val reason: String,
+    @ColumnInfo(name = "occurred_at_utc") val occurredAtUtc: Long
+) {
+    companion object {
+        fun fromDecision(
+            fromMode: LocationPolicyMode?,
+            decision: PolicyDecision,
+            occurredAtUtc: Long
+        ): MobileLocationPolicyTransitionEntity {
+            return MobileLocationPolicyTransitionEntity(
+                fromMode = fromMode?.name,
+                toMode = decision.mode.name,
+                reason = decision.reason,
+                occurredAtUtc = occurredAtUtc
+            )
+        }
+    }
+}
 
 @Entity(
     tableName = "mobile_sync_batches",
@@ -183,3 +271,9 @@ data class MobileDeviceProfileEntity(
     @ColumnInfo(name = "created_at_utc") val createdAtUtc: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "updated_at_utc") val updatedAtUtc: Long = System.currentTimeMillis()
 )
+
+private fun Set<String>.toJsonArrayString(): String {
+    return sorted().joinToString(prefix = "[", postfix = "]") { flag ->
+        "\"${flag.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+    }
+}

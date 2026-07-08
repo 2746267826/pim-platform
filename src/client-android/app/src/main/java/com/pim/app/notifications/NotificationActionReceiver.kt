@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.pim.app.location.service.ForegroundLocationController
+import com.pim.app.ui.shell.PimShellActivity
 import com.pim.core.network.ApiClientProvider
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -68,9 +69,17 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     }
                 }
             }
-            is NotificationRoute.OpenDetail,
+            is NotificationRoute.OpenDetail -> {
+                context.startActivity(
+                    PimShellActivity.intentFor(context, route.detailUrl)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
             NotificationRoute.RetryWhenOnline -> {
-                context.startActivity(foregroundLocationController.openStatusIntent())
+                context.startActivity(
+                    PimShellActivity.intentFor(context, "/endpoint-shell")
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
             }
         }
     }

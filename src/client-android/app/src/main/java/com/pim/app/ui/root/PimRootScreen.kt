@@ -20,8 +20,8 @@ import com.pim.app.ui.today.TodayScreen
 import com.pim.app.ui.tracks.TracksScreen
 
 @Composable
-fun PimRootScreen() {
-    var selected by rememberSaveable { mutableStateOf(PimDestination.Today) }
+fun PimRootScreen(initialDestination: PimDestination = PimDestination.Today) {
+    var selected by rememberSaveable(initialDestination.name) { mutableStateOf(initialDestination) }
 
     PimTheme {
         Scaffold(

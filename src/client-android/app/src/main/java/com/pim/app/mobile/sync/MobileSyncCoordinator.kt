@@ -6,6 +6,8 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import androidx.work.ExistingWorkPolicy
+import androidx.work.WorkManager
 import com.pim.app.data.AppDatabase
 import com.pim.app.data.MobileAppMetadataEntity
 import com.pim.app.data.MobileDeviceProfileEntity
@@ -77,7 +79,8 @@ class MobileSyncCoordinator @Inject constructor(
     private val database: AppDatabase,
     private val logs: StructuredLogRepository,
     private val heartbeatReporter: MobileHeartbeatReporter,
-    private val serverSettingsStore: ServerSettingsStore
+    private val serverSettingsStore: ServerSettingsStore,
+    private val locationUploadCoordinator: LocationUploadCoordinator
 ) {
     private val mobileDataDao = database.mobileDataDao()
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -146,8 +149,9 @@ class MobileSyncCoordinator @Inject constructor(
                 lastAttemptedUploadAt = attemptedAt
             )
             persistState(missingPermissionState)
-            sendHeartbeat(deviceIdentity.deviceId, serverUrl, false, missingPermissionState)
-            return missingPermissionState
+            val locationState = uploadQueuedLocations(missingPermissionState, attemptedAt)
+            sendHeartbeat(deviceIdentity.deviceId, serverUrl, false, locationState)
+            return locationState
         }
 
         return try {
@@ -326,6 +330,8 @@ class MobileSyncCoordinator @Inject constructor(
                 persistState(current)
             }
 
+            current = uploadQueuedLocations(current, attemptedAt)
+
             val completed = current.copy(
                 phase = if (current.failedCount == 0) "completed" else "completed-with-errors",
                 progressText = if (current.failedCount == 0) {
@@ -368,6 +374,67 @@ class MobileSyncCoordinator @Inject constructor(
             sendHeartbeat(deviceIdentity.deviceId, serverUrl, true, failed)
             failed
         }
+    }
+
+    private suspend fun uploadQueuedLocations(
+        current: MobileSyncState,
+        attemptedAt: String
+    ): MobileSyncState {
+        val updates = locationUploadCoordinator.uploadPending()
+        if (updates.syncedIds.isEmpty() && updates.failedIds.isEmpty()) {
+            val idle = current.copy(
+                pendingQueueCount = pendingQueueCount(),
+                lastAttemptedUploadAt = attemptedAt
+            )
+            persistState(idle)
+            return idle
+        }
+
+        if (updates.shouldRetry) {
+            enqueueLocationRetry()
+        }
+
+        val syncedCount = updates.syncedIds.size
+        val locationFailedCount = updates.failedIds.size
+        val next = current.copy(
+            phase = when {
+                updates.shouldRetry -> "location-upload-failed"
+                current.phase == "usage-permission-missing" -> current.phase
+                else -> "location-uploaded"
+            },
+            progressText = when {
+                updates.shouldRetry -> "定位队列上传失败，已安排网络重试。"
+                current.phase == "usage-permission-missing" ->
+                    "${current.progressText} 定位队列已同步 $syncedCount 条。"
+                else -> "定位队列已同步 $syncedCount 条。"
+            },
+            acceptedCount = current.acceptedCount + syncedCount,
+            failedCount = current.failedCount + locationFailedCount,
+            lastError = if (updates.shouldRetry) updates.failedReason ?: current.lastError else current.lastError,
+            lastErrorDetail = if (updates.shouldRetry) updates.failedReason ?: current.lastErrorDetail else current.lastErrorDetail,
+            pendingQueueCount = pendingQueueCount(),
+            lastAttemptedUploadAt = attemptedAt
+        )
+        persistState(next)
+
+        val details = mapOf(
+            "syncedCount" to syncedCount,
+            "failedCount" to locationFailedCount
+        )
+        if (updates.shouldRetry) {
+            logs.warn("mobile-location-sync", "定位队列上传未完成，已安排 WorkManager 重试。", details)
+        } else {
+            logs.info("mobile-location-sync", "定位队列上传完成。", details)
+        }
+        return next
+    }
+
+    private fun enqueueLocationRetry() {
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            LocationSyncWorker.WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            LocationSyncWorker.oneTimeRequest()
+        )
     }
 
     private suspend fun uploadWindow(

@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.pim.app.location.service.ForegroundLocationController
+import com.pim.app.mobile.sync.MobileSyncCoordinator
 import com.pim.app.ui.shell.PimShellActivity
 import com.pim.core.network.ApiClientProvider
 import dagger.hilt.android.AndroidEntryPoint
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
 class NotificationActionReceiver : BroadcastReceiver() {
     @Inject lateinit var apiClientProvider: ApiClientProvider
     @Inject lateinit var foregroundLocationController: ForegroundLocationController
+    @Inject lateinit var mobileSyncCoordinator: MobileSyncCoordinator
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
@@ -28,7 +30,14 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 return
             }
             ForegroundLocationController.ACTION_SYNC_NOW -> {
-                foregroundLocationController.syncNow()
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        mobileSyncCoordinator.syncOnOpen()
+                    } finally {
+                        pending.finish()
+                    }
+                }
                 return
             }
             ForegroundLocationController.ACTION_OPEN_STATUS -> {

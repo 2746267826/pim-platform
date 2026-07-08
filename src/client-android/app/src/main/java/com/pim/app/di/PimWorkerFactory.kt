@@ -5,13 +5,15 @@ import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import com.pim.app.daemon.UploadWorker
+import com.pim.app.mobile.sync.LocationSyncWorker
 import com.pim.app.sync.EndpointUploadWorker
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class PimWorkerFactory @Inject constructor(
-    private val uploadWorkerFactory: UploadWorker.Factory
+    private val uploadWorkerFactory: UploadWorker.Factory,
+    private val locationSyncWorkerFactory: LocationSyncWorker.Factory
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -22,6 +24,8 @@ class PimWorkerFactory @Inject constructor(
         return when (workerClassName) {
             UploadWorker::class.java.name ->
                 uploadWorkerFactory.create(appContext, workerParameters)
+            LocationSyncWorker::class.java.name ->
+                locationSyncWorkerFactory.create(appContext, workerParameters)
             EndpointUploadWorker::class.java.name ->
                 EndpointUploadWorker(appContext, workerParameters)
             else -> null

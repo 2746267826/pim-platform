@@ -31,6 +31,7 @@ const RemindersPage = lazy(() => import('../pages/RemindersPage'));
 const ReportsPage = lazy(() => import('../pages/ReportsPage'));
 const HabitsPage = lazy(() => import('../pages/HabitsPage'));
 const AuditTimelinePage = lazy(() => import('../pages/AuditTimelinePage'));
+const EndpointShellPage = lazy(() => import('../pages/EndpointShellPage'));
 
 function SuspenseFallback() {
   return <div className="h-full" aria-busy="true" />;
@@ -64,6 +65,7 @@ export default function AppLayout() {
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/habits" element={<HabitsPage />} />
               <Route path="/audit/:objectType/:objectId" element={<AuditTimelinePage />} />
+              <Route path="/endpoint-shell" element={<EndpointShellPage />} />
               <Route path="/quick-notes" element={<QuickNotesPage />} />
               <Route path="/files" element={<FilesPage />} />
               <Route path="/timeline" element={<Navigate to="/calendar?view=timeline" replace />} />

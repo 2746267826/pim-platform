@@ -25,7 +25,10 @@ class AndroidV2TextEncodingTest {
             "璁剧疆",
             "浠婃棩",
             "杞ㄨ抗",
-            "鏃ョ▼"
+            "鏃ョ▼",
+            "绔",
+            "鎸佺",
+            "鏉冮"
         )
         val offenders = roots
             .flatMap { root -> root.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList() }

@@ -26,17 +26,24 @@ fun StatusCenterScreen(modifier: Modifier = Modifier) {
         PimSection("API") {
             Text("API 地址：未配置")
             Text("登录状态：未登录")
+            Text("最近错误：无")
         }
         PimSection("权限") {
             Text("通知、前台定位、后台定位、使用情况和活动识别权限会在这里展示。")
         }
         PimSection("前台服务") {
             Text("持续采集：未开启")
-            Text("通知：等待开启")
+            Text("当前策略：省电档")
+            Text("下次定位：等待开启")
         }
         PimSection("上传队列") {
             Text("待上传定位：0")
+            Text("心跳：等待同步")
+            Text("同步尝试：暂无")
+        }
+        PimSection("最近日志") {
             Text("最近错误：无")
+            Text("最近丢弃原因：无")
         }
     }
 }

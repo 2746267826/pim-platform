@@ -12,6 +12,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,6 +35,7 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var username by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
+    var collectionEnabled by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -56,7 +58,7 @@ fun SettingsScreen(
             Text("支持公网 IP 或域名。")
             if (state.apiWarnings.contains("real-device-localhost")) {
                 Text(
-                    text = "在真机上 127.0.0.1 指向手机本机，通常无法连接你的服务器。",
+                    text = "真机上的 127.0.0.1 指向手机本机，通常无法连接你的服务器。",
                     color = MaterialTheme.colorScheme.tertiary
                 )
             }
@@ -102,13 +104,20 @@ fun SettingsScreen(
             state.loginStatus?.let { Text(it) }
         }
         PimSection("持续采集") {
-            Text("默认关闭，需要手动开启。")
+            Text("默认关闭，需要手动开启。缺少 API、登录或权限时保持关闭。")
+            Switch(checked = collectionEnabled, onCheckedChange = { collectionEnabled = it })
+            Text(if (collectionEnabled) "准备开启前台服务" else "当前未开启")
         }
         PimSection("省电档") {
             Text("常规间隔：3 分钟")
             Text("日程低频：15 分钟")
-            Text("移动间隔：1 分钟")
+            Text("移动观察：1 分钟")
+            Text("恢复阈值：100m")
             Text("上传精度：< 50m")
+            Text("高度等待：15 秒，仍缺失则上传空高度并标记质量。")
+        }
+        PimSection("权限") {
+            Text("通知、前台定位、后台定位、活动识别和使用情况访问会在状态中心逐项展示。")
         }
     }
 }

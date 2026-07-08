@@ -97,6 +97,57 @@ interface ApiService {
     @POST("mobile/location/points")
     suspend fun uploadMobileLocation(@Body request: MobileLocationPointRequest): ApiResponse<MobileLocationPointDto>
 
+    @GET("mobile/summary")
+    suspend fun getMobileSummary(
+        @Query("date") date: String? = null,
+        @Query("deviceId") deviceId: String? = null
+    ): ApiResponse<MobileUsageSummaryResponse>
+
+    @GET("mobile/timeline")
+    suspend fun getMobileTimeline(
+        @Query("date") date: String? = null,
+        @Query("deviceId") deviceId: String? = null
+    ): ApiResponse<MobileTimelineResponse>
+
+    @GET("mobile/quality")
+    suspend fun getMobileQuality(
+        @Query("deviceId") deviceId: String? = null
+    ): ApiResponse<MobileQualityResponse>
+
+    @GET("mobile/location/history")
+    suspend fun getMobileLocationHistory(
+        @Query("rangeStartUtc") rangeStartUtc: String? = null,
+        @Query("rangeEndUtc") rangeEndUtc: String? = null,
+        @Query("deviceId") deviceId: String? = null,
+        @Query("maxAccuracyMeters") maxAccuracyMeters: Double = 50.0,
+        @Query("includeRejected") includeRejected: Boolean = false,
+        @Query("cursor") cursor: String? = null,
+        @Query("pageSize") pageSize: Int? = null
+    ): ApiResponse<MobileLocationHistoryResponse>
+
+    @GET("mobile/location/analytics/overview")
+    suspend fun getMobileLocationOverview(
+        @Query("rangeStartUtc") rangeStartUtc: String,
+        @Query("rangeEndUtc") rangeEndUtc: String,
+        @Query("deviceId") deviceId: String? = null,
+        @Query("maxAccuracyMeters") maxAccuracyMeters: Double = 50.0
+    ): ApiResponse<MobileLocationAnalyticsOverviewResponse>
+
+    @GET("mobile/location/analytics/tracks")
+    suspend fun getMobileLocationTracks(
+        @Query("rangeStartUtc") rangeStartUtc: String,
+        @Query("rangeEndUtc") rangeEndUtc: String,
+        @Query("deviceId") deviceId: String? = null,
+        @Query("maxAccuracyMeters") maxAccuracyMeters: Double = 50.0
+    ): ApiResponse<List<MobileLocationTrackDto>>
+
+    @GET("mobile/location/analytics/segments/{segmentId}/points")
+    suspend fun getMobileLocationSegmentPoints(
+        @Path("segmentId") segmentId: String,
+        @Query("cursor") cursor: String? = null,
+        @Query("pageSize") pageSize: Int? = null
+    ): ApiResponse<MobileLocationSegmentPointPageDto>
+
     // Daemon
     @POST("daemon/heartbeat")
     suspend fun sendHeartbeat(@Body request: DaemonHeartbeatRequest): ApiResponse<DaemonHeartbeatDto>

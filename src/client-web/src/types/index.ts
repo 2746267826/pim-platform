@@ -151,6 +151,25 @@ export interface ReminderSummary {
   doNotDisturbEnd?: string | null;
   scheduledAt?: string;
   status: string;
+  escalationPolicy?: string | null;
+  deliveryHistory?: ReminderDelivery[];
+  responseHistory?: ReminderDelivery[];
+}
+
+export interface ReminderDelivery {
+  id: string;
+  reminderId: string;
+  channel: string;
+  status: string;
+  payloadJson: string;
+  createdAt: string;
+  respondedAt?: string | null;
+}
+
+export interface ReminderActionResponse {
+  kind: string;
+  status: string;
+  detailUrl?: string | null;
 }
 
 export interface CreateReminderRequest {
@@ -175,13 +194,15 @@ export interface GenerateReportRequest {
 export interface ReportArtifact {
   id: string;
   kind: string;
-  title: string;
+  title?: string;
   projectId?: string | null;
   riskLevel: OperationRiskLevel;
   contentMarkdown?: string;
   metricsJson?: string;
   generatedAt: string;
   status?: string;
+  suggestions?: ReportSuggestion[];
+  confirmationId?: string | null;
 }
 
 export interface ReportSuggestion {
@@ -381,6 +402,10 @@ export interface OutlookSettingsResponse {
   scopes: string;
   status: string;
   tokenHealth: string;
+  deltaLink?: string | null;
+  syncWindowDays?: number | null;
+  writebackDefault?: string | null;
+  conflictPolicy?: string | null;
   lastSyncedAt?: string | null;
   lastError?: string | null;
 }
@@ -460,6 +485,13 @@ export interface OperationConfirmation {
   objectType?: string | null;
   objectId?: string | null;
   requiresSecondLevelConfirmation: boolean;
+  beforeJson?: string | null;
+  afterJson?: string | null;
+  requiresStrictConfirmation?: boolean;
+  auditBatchId?: string | null;
+  aiRecommendation?: string | null;
+  externalEffect?: string | null;
+  recoveryPath?: string | null;
 }
 
 export interface PagedResult<T> {

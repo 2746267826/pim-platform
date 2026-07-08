@@ -30,6 +30,8 @@ import type {
   OutlookSettingsResponse,
   OutlookSyncBatchResponse,
   PagedResult,
+  ReminderActionResponse,
+  ReminderDelivery,
   ReminderSummary,
   ReportArtifact,
   RestorePreviewResponse,
@@ -166,6 +168,9 @@ export const calendarApiPaths = {
   },
   reminderAction(id: string, action: string) {
     return `/calendar/reminders/${encodeURIComponent(id)}/actions/${encodeURIComponent(action)}`;
+  },
+  reminderDeliveryLog() {
+    return '/calendar/reminders/delivery-log';
   },
   reports() {
     return '/calendar/reports';
@@ -481,6 +486,33 @@ export async function getReminders() {
 
 export async function createReminder(data: CreateReminderRequest) {
   const r = await apiPost<ApiResponse<ReminderSummary>>(calendarApiPaths.reminders(), data);
+  return r.data;
+}
+
+export async function snoozeReminder(id: string, scheduledAt?: string) {
+  const suffix = scheduledAt ? `?scheduledAt=${encodeURIComponent(scheduledAt)}` : '';
+  const r = await apiPost<ApiResponse<ReminderSummary>>(
+    `${calendarApiPaths.reminderSnooze(id)}${suffix}`,
+    {}
+  );
+  return r.data;
+}
+
+export async function dismissReminder(id: string) {
+  const r = await apiPost<ApiResponse<ReminderSummary>>(calendarApiPaths.reminderDismiss(id), {});
+  return r.data;
+}
+
+export async function handleReminderAction(id: string, action: string) {
+  const r = await apiPost<ApiResponse<ReminderActionResponse>>(
+    calendarApiPaths.reminderAction(id, action),
+    {}
+  );
+  return r.data;
+}
+
+export async function getReminderDeliveryLog() {
+  const r = await apiGet<ApiResponse<ReminderDelivery[]>>(calendarApiPaths.reminderDeliveryLog());
   return r.data;
 }
 

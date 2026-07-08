@@ -48,22 +48,37 @@ textarea {
   background: var(--pim-bg);
 }
 
+.pim-route-surface {
+  min-width: 0;
+}
+
 .pim-panel {
   background: var(--pim-surface);
   border: 1px solid var(--pim-border);
   border-radius: var(--pim-radius-lg);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .pim-card {
   background: var(--pim-surface);
   border: 1px solid var(--pim-border);
   border-radius: var(--pim-radius-md);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .pim-button-primary {
   background: var(--pim-primary);
   color: #ffffff;
   border-radius: 10px;
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
   transition: background-color 140ms ease, transform 140ms ease;
 }
 
@@ -76,6 +91,13 @@ textarea {
   color: var(--pim-text);
   border: 1px solid var(--pim-border);
   border-radius: 10px;
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
   transition: border-color 140ms ease, background-color 140ms ease;
 }
 
@@ -269,4 +291,31 @@ textarea {
   height: 22px;
   background: #e11d48;
   box-shadow: 0 0 0 6px rgba(225, 29, 72, 0.15), 0 4px 12px rgba(225, 29, 72, 0.35);
+}
+
+@media (max-width: 760px) {
+  .pim-shell {
+    height: auto;
+    min-height: 100vh;
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  .pim-shell > aside {
+    width: 100%;
+    max-height: 18rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--pim-border);
+  }
+
+  .pim-route-surface {
+    width: 100%;
+    overflow: visible;
+    padding: 0.75rem;
+  }
+
+  .pim-panel,
+  .pim-card {
+    border-radius: var(--pim-radius-sm);
+  }
 }

@@ -52,7 +52,7 @@ export default function AppLayout() {
     <CalendarVisibilityProvider>
       <div className="pim-shell h-screen flex overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-auto p-4">
+        <main className="pim-route-surface flex-1 overflow-auto p-4">
           <Suspense fallback={<SuspenseFallback />}>
             <Routes>
               <Route path="/today" element={<TodayPage />} />

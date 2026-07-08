@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ListenableWorker
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
@@ -26,27 +27,14 @@ class LocationSyncWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         return try {
             val updates = uploadCoordinator.uploadPending()
-            if (updates.shouldRetry) {
-                if (runAttemptCount < MAX_ATTEMPTS_BEFORE_FAILURE) {
-                    Result.retry()
-                } else {
-                    Result.failure()
-                }
-            } else {
-                Result.success()
-            }
+            LocationSyncWorkResultPlanner.fromUpdates(updates)
         } catch (_: Exception) {
-            if (runAttemptCount < MAX_ATTEMPTS_BEFORE_FAILURE) {
-                Result.retry()
-            } else {
-                Result.failure()
-            }
+            LocationSyncWorkResultPlanner.fromTransientFailure()
         }
     }
 
     companion object {
         const val WORK_NAME = "pim_location_upload"
-        private const val MAX_ATTEMPTS_BEFORE_FAILURE = 3
 
         fun oneTimeRequest(): OneTimeWorkRequest {
             val constraints = Constraints.Builder()
@@ -58,5 +46,19 @@ class LocationSyncWorker @AssistedInject constructor(
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
                 .build()
         }
+    }
+}
+
+object LocationSyncWorkResultPlanner {
+    fun fromUpdates(updates: LocationUploadStatusUpdates): ListenableWorker.Result {
+        return if (updates.shouldRetry) {
+            ListenableWorker.Result.retry()
+        } else {
+            ListenableWorker.Result.success()
+        }
+    }
+
+    fun fromTransientFailure(): ListenableWorker.Result {
+        return ListenableWorker.Result.retry()
     }
 }

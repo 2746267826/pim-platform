@@ -1,5 +1,6 @@
 package com.pim.app.mobile.sync
 
+import androidx.work.ListenableWorker
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -43,5 +44,26 @@ class LocationUploadCoordinatorTest {
         val updates = LocationUploadPlanner.planStatusUpdates(result)
 
         assertEquals(true, updates.shouldRetry)
+    }
+
+    @Test
+    fun syncWorkerRetriesPartialFailures() {
+        val updates = LocationUploadStatusUpdates(
+            syncedIds = emptyList(),
+            failedIds = listOf(9L),
+            failedReason = "network",
+            shouldRetry = true
+        )
+
+        val result = LocationSyncWorkResultPlanner.fromUpdates(updates)
+
+        assertEquals(ListenableWorker.Result.retry().javaClass, result.javaClass)
+    }
+
+    @Test
+    fun syncWorkerRetriesTransientExceptions() {
+        val result = LocationSyncWorkResultPlanner.fromTransientFailure()
+
+        assertEquals(ListenableWorker.Result.retry().javaClass, result.javaClass)
     }
 }

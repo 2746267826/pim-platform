@@ -14,6 +14,10 @@ import {
   getMobileAppCategoryRules,
   getMobileDevices,
   getMobileLocationHistory,
+  getMobileLocationAnalyticsOverview,
+  getMobileLocationAnalyticsSegment,
+  getMobileLocationAnalyticsSegmentPoints,
+  getMobileLocationAnalyticsTracks,
   getMobileQuality,
   getMobileSessionEvents,
   getMobileSummary,
@@ -33,6 +37,10 @@ import type {
   MobileDevice,
   MobileHeatmapBucket,
   MobileLifeCategory,
+  MobileLocationAnalyticsOverview,
+  MobileLocationSegment,
+  MobileLocationSegmentPointPage,
+  MobileLocationTrack,
   MobileTimelineBlockPage,
   MobileUsageGoal,
   MobileUsageGoalUpsertRequest,
@@ -62,6 +70,22 @@ function acceptsRulesReturn(result: ReturnType<typeof getMobileAppCategoryRules>
 function acceptsGoalsReturn(result: ReturnType<typeof getMobileUsageGoals>): Promise<MobileUsageGoal[]> {
   return result;
 }
+function acceptsLocationOverviewReturn(
+  result: ReturnType<typeof getMobileLocationAnalyticsOverview>,
+): Promise<MobileLocationAnalyticsOverview> {
+  return result;
+}
+function acceptsLocationTracksReturn(result: ReturnType<typeof getMobileLocationAnalyticsTracks>): Promise<MobileLocationTrack[]> {
+  return result;
+}
+function acceptsLocationSegmentReturn(result: ReturnType<typeof getMobileLocationAnalyticsSegment>): Promise<MobileLocationSegment> {
+  return result;
+}
+function acceptsLocationSegmentPointsReturn(
+  result: ReturnType<typeof getMobileLocationAnalyticsSegmentPoints>,
+): Promise<MobileLocationSegmentPointPage> {
+  return result;
+}
 
 void acceptsDeviceReturn;
 void acceptsOverviewReturn;
@@ -71,6 +95,10 @@ void acceptsTimelineBlocksReturn;
 void acceptsOverridesReturn;
 void acceptsRulesReturn;
 void acceptsGoalsReturn;
+void acceptsLocationOverviewReturn;
+void acceptsLocationTracksReturn;
+void acceptsLocationSegmentReturn;
+void acceptsLocationSegmentPointsReturn;
 void getMobileSummary;
 void getMobileTimeline;
 void getMobileLocationHistory;
@@ -90,7 +118,7 @@ const analyticsQuery: MobileAnalyticsQuery = {
   rangeStartUtc: '2026-07-01T16:00:00Z',
   rangeEndUtc: '2026-07-08T16:00:00Z',
   timezone: MOBILE_DEFAULT_TIMEZONE,
-  category: '社交沟通',
+  category: '社交通讯',
   includeSystemNoise: false,
   minDurationSeconds: 1,
   granularity: 'hour',
@@ -142,7 +170,7 @@ const heatmapBucket: MobileHeatmapBucket = {
   bucketEndUtc: '2026-07-06T14:00:00Z',
   localDate: '2026-07-06',
   localHour: 21,
-  lifeCategory: '社交沟通',
+  lifeCategory: '社交通讯',
   foregroundSeconds: 1800,
   qualityFlags: [],
 };
@@ -152,7 +180,7 @@ const chart: MobileAnalyticsChart = {
   title: '分类占比',
   chartType: 'category-share',
   unit: 'seconds',
-  points: [{ key: '社交沟通', label: '社交沟通', value: 1800, foregroundSeconds: 1800, lifeCategory: '社交沟通' }],
+  points: [{ key: '社交通讯', label: '社交通讯', value: 1800, foregroundSeconds: 1800, lifeCategory: '社交通讯' }],
 };
 
 const page: MobileTimelineBlockPage = {
@@ -162,7 +190,7 @@ const page: MobileTimelineBlockPage = {
     endUtc: '2026-07-06T14:00:00Z',
     localStart: '21:00',
     localEnd: '22:00',
-    lifeCategory: '社交沟通',
+    lifeCategory: '社交通讯',
     foregroundSeconds: 1800,
     sessionCount: 2,
     appCount: 1,
@@ -176,7 +204,7 @@ const page: MobileTimelineBlockPage = {
 const override: MobileAppCatalogOverride = {
   packageName: 'com.tencent.mobileqq',
   displayNameOverride: 'QQ',
-  lifeCategory: '社交沟通',
+  lifeCategory: '社交通讯',
   isSystemNoise: false,
   hideShortEvents: false,
 };
@@ -185,7 +213,7 @@ const rule: MobileAppCategoryRule = {
   id: 'rule-1',
   ruleType: 'package-prefix',
   pattern: 'com.tencent.',
-  lifeCategory: '社交沟通',
+  lifeCategory: '社交通讯',
   priority: 100,
   isEnabled: true,
 };
@@ -211,15 +239,80 @@ const usageGoalRequest: MobileUsageGoalUpsertRequest = {
   isEnabled: usageGoal.isEnabled,
 };
 
+const locationOverview: MobileLocationAnalyticsOverview = {
+  range: {
+    rangeStartUtc: '2026-07-01T16:00:00Z',
+    rangeEndUtc: '2026-07-08T16:00:00Z',
+    timezone: 'Asia/Shanghai',
+    localStartDate: '2026-07-02',
+    localEndDate: '2026-07-08',
+  },
+  generatedAt: '2026-07-08T00:12:00Z',
+  pointCount: 428,
+  usablePointCount: 391,
+  rejectedPointCount: 37,
+  activeSpanSeconds: 583200,
+  distanceMeters: 84600,
+  stayCount: 12,
+  longestStaySeconds: 12000,
+  averageAccuracyMeters: 18,
+  qualityIssueCount: 2,
+  qualityFlags: ['low-accuracy-cluster'],
+};
+
+const segment: MobileLocationSegment = {
+  id: 'segment-1',
+  trackId: 'track-1',
+  deviceId: 'pixel-8',
+  kind: 'move',
+  startUtc: '2026-07-07T10:20:00Z',
+  endUtc: '2026-07-07T11:05:00Z',
+  localStart: '2026-07-07 18:20',
+  localEnd: '2026-07-07 19:05',
+  durationSeconds: 2700,
+  distanceMeters: 7800,
+  pointCount: 36,
+  averageSpeedMetersPerSecond: 2.88,
+  averageAccuracyMeters: 14,
+  maxAccuracyMeters: 44,
+  quality: 'high',
+  qualityFlags: [],
+  bounds: { minLatitude: 31.2, minLongitude: 121.4, maxLatitude: 31.3, maxLongitude: 121.5 },
+  path: [],
+};
+
+const track: MobileLocationTrack = {
+  id: 'track-1',
+  deviceId: 'pixel-8',
+  startUtc: segment.startUtc,
+  endUtc: segment.endUtc,
+  distanceMeters: 7800,
+  durationSeconds: 2700,
+  pointCount: 36,
+  segmentCount: 1,
+  bounds: segment.bounds,
+  qualityFlags: [],
+  segments: [segment],
+};
+
+const locationPointPage: MobileLocationSegmentPointPage = {
+  items: [],
+  nextCursor: null,
+  hasMore: false,
+};
+
 assert.equal(MOBILE_DEFAULT_TIMEZONE, 'Asia/Shanghai');
 assert.equal(MOBILE_LIFE_CATEGORIES.includes('生活服务'), true);
 assert.equal(typedLifeCategory, '短视频/娱乐');
-assert.equal(analyticsQuery.category, '社交沟通');
+assert.equal(analyticsQuery.category, '社交通讯');
 assert.equal(overview.goalProgress?.label, '每日手机总时长');
 assert.equal(overview.suggestions[0].drilldownTarget, 'category:短视频/娱乐');
-assert.equal(heatmapBucket.lifeCategory, '社交沟通');
-assert.equal(chart.points[0].label, '社交沟通');
+assert.equal(heatmapBucket.lifeCategory, '社交通讯');
+assert.equal(chart.points[0].label, '社交通讯');
 assert.equal(page.items[0].topApps[0].displayName, 'QQ');
 assert.equal(override.displayNameOverride, 'QQ');
 assert.equal(rule.priority, 100);
 assert.equal(usageGoalRequest.label, '每日手机总时长');
+assert.equal(locationOverview.stayCount, 12);
+assert.equal(track.segments[0].id, 'segment-1');
+assert.equal(locationPointPage.hasMore, false);

@@ -39,8 +39,8 @@ export default function MobileTimelineBlocks({
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-slate-950">时间块</h2>
-        <span className="text-xs text-slate-500">块 - 会话 - 原始事件</span>
+        <h2 className="text-sm font-semibold text-slate-950">使用时间线</h2>
+        <span className="text-xs text-slate-500">按连续行为块展示，避免一次性塞入原始事件</span>
       </div>
       <div className="mt-4 space-y-3">
         {blocks.map(block => {

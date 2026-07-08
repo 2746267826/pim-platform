@@ -31,22 +31,43 @@ export default function MobileChartsGrid({
             <div className="mt-4 space-y-2">
               {chart.points.slice(0, 8).map(point => {
                 const width = `${Math.max(3, (point.value / maxValue) * 100)}%`;
-                return (
-                  <button
-                    key={point.key}
-                    type="button"
-                    onClick={() => {
-                      if (point.lifeCategory) onCategorySelect?.(point.lifeCategory);
-                      if (point.packageName) onAppSelect?.(point.packageName);
-                    }}
-                    className="grid w-full grid-cols-[minmax(96px,0.35fr)_1fr_auto] items-center gap-3 text-left text-xs"
-                  >
-                    <span className="truncate text-slate-600">{point.label}</span>
+                const handleSelect = point.lifeCategory && onCategorySelect
+                  ? () => onCategorySelect(point.lifeCategory!)
+                  : point.packageName && onAppSelect
+                    ? () => onAppSelect(point.packageName!)
+                    : null;
+                const content = (
+                  <>
+                    <span className="min-w-0">
+                      <span className="block truncate text-slate-600">{point.label}</span>
+                      {point.packageName && (
+                        <span className="mt-0.5 block truncate font-mono text-[11px] text-slate-400">
+                          {point.packageName}
+                        </span>
+                      )}
+                    </span>
                     <span className="h-3 overflow-hidden rounded bg-slate-100">
                       <span className="block h-full rounded bg-teal-500" style={{ width }} />
                     </span>
                     <span className="tabular-nums text-slate-500">{valueLabel(chart.unit, point.value)}</span>
+                  </>
+                );
+                return handleSelect ? (
+                  <button
+                    key={point.key}
+                    type="button"
+                    onClick={handleSelect}
+                    className="grid w-full grid-cols-[minmax(96px,0.35fr)_1fr_auto] items-center gap-3 text-left text-xs"
+                  >
+                    {content}
                   </button>
+                ) : (
+                  <div
+                    key={point.key}
+                    className="grid w-full grid-cols-[minmax(96px,0.35fr)_1fr_auto] items-center gap-3 text-left text-xs"
+                  >
+                    {content}
+                  </div>
                 );
               })}
             </div>

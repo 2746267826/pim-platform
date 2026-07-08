@@ -1,13 +1,20 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { MapContainer, Marker, Polyline, Popup, TileLayer } from 'react-leaflet';
-import type { MobileLocationPoint } from '../../api/mobile';
+import type { MobileLocationPathPoint, MobileLocationTrack } from '../../api/mobile';
 import { formatDateTime } from './mobileFormatting';
-import { formatAccuracyLabel, formatCoordinate, locationQualityLabel } from './locationFormatting';
+import {
+  formatAccuracyLabel,
+  formatCoordinate,
+  formatDistanceMeters,
+  segmentKindLabel,
+} from './locationFormatting';
 
 export interface HistoricalLocationLeafletMapProps {
-  points: MobileLocationPoint[];
+  tracks: MobileLocationTrack[];
+  selectedSegmentId?: string | null;
   selectedPointId?: string | null;
+  onSelectSegment?: (segmentId: string) => void;
   onSelectPoint?: (pointId: string) => void;
 }
 
@@ -18,42 +25,92 @@ const markerIcon = L.divIcon({
   iconAnchor: [9, 9],
 });
 
+const selectedMarkerIcon = L.divIcon({
+  className: 'pim-location-marker pim-location-marker-selected',
+  html: '<span></span>',
+  iconSize: [24, 24],
+  iconAnchor: [12, 12],
+});
+
+function allSegments(tracks: MobileLocationTrack[]) {
+  return tracks.flatMap(track => track.segments);
+}
+
+function pathPosition(point: MobileLocationPathPoint): [number, number] {
+  return [point.latitude, point.longitude];
+}
+
+function firstPosition(tracks: MobileLocationTrack[]): [number, number] {
+  const point = allSegments(tracks).flatMap(segment => segment.path)[0];
+  return point ? pathPosition(point) : [31.2304, 121.4737];
+}
+
+function segmentColor(kind: string, selected: boolean) {
+  if (selected) return '#e11d48';
+  return kind === 'move' ? '#2563eb' : '#14b8a6';
+}
+
 export default function HistoricalLocationLeafletMap({
-  points,
+  tracks,
+  selectedSegmentId,
   selectedPointId,
+  onSelectSegment,
   onSelectPoint,
 }: HistoricalLocationLeafletMapProps) {
-  const positions = points.map(point => [point.latitude, point.longitude] as [number, number]);
-  const center = positions[0] ?? [31.2304, 121.4737];
+  const segments = allSegments(tracks);
 
   return (
-    <MapContainer center={center} zoom={positions.length > 0 ? 13 : 5} className="h-full min-h-[360px] w-full">
+    <MapContainer center={firstPosition(tracks)} zoom={segments.length > 0 ? 13 : 5} className="h-full min-h-[420px] w-full">
       <TileLayer
         attribution="&copy; OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {positions.length > 1 && <Polyline positions={positions} pathOptions={{ color: '#2563eb', weight: 3 }} />}
-      {points.map(point => (
-        <Marker
-          key={point.id}
-          position={[point.latitude, point.longitude]}
-          icon={markerIcon}
-          opacity={point.id === selectedPointId ? 1 : 0.75}
-          eventHandlers={{ click: () => onSelectPoint?.(point.id) }}
-        >
-          <Popup>
-            <div>
-              <strong>{formatDateTime(point.recordedAtUtc)}</strong>
-              <br />
-              {formatCoordinate(point.latitude, point.longitude)}
-              <br />
-              误差 {formatAccuracyLabel(point.horizontalAccuracyMeters)}
-              <br />
-              质量 {locationQualityLabel(point.quality)}
-            </div>
-          </Popup>
-        </Marker>
-      ))}
+      {segments.map(segment => {
+        const selected = segment.id === selectedSegmentId;
+        const positions = segment.path.map(pathPosition);
+        return (
+          <Polyline
+            key={segment.id}
+            positions={positions}
+            pathOptions={{
+              color: segmentColor(segment.kind, selected),
+              weight: selected ? 5 : 3,
+              dashArray: segment.kind === 'move' ? undefined : '8 8',
+            }}
+            eventHandlers={{ click: () => onSelectSegment?.(segment.id) }}
+          />
+        );
+      })}
+      {segments.flatMap(segment => segment.path.map((point, index) => ({ segment, point, index }))).map(({ segment, point, index }) => {
+        const pointId = point.id ?? `${segment.id}-point-${index}`;
+        const selected = pointId === selectedPointId;
+        return (
+          <Marker
+            key={pointId}
+            position={pathPosition(point)}
+            icon={selected ? selectedMarkerIcon : markerIcon}
+            opacity={selected ? 1 : 0.76}
+            eventHandlers={{ click: () => {
+              onSelectSegment?.(segment.id);
+              onSelectPoint?.(pointId);
+            } }}
+          >
+            <Popup>
+              <div>
+                <strong>{segmentKindLabel(segment.kind)}片段</strong>
+                <br />
+                {point.recordedAtUtc ? formatDateTime(point.recordedAtUtc) : `${segment.localStart} 至 ${segment.localEnd}`}
+                <br />
+                {formatCoordinate(point.latitude, point.longitude)}
+                <br />
+                误差 {formatAccuracyLabel(point.horizontalAccuracyMeters)}
+                <br />
+                里程 {formatDistanceMeters(segment.distanceMeters)}
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
     </MapContainer>
   );
 }

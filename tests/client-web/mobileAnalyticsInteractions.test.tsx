@@ -7,11 +7,14 @@ import type {
   MobileAppCategoryRule,
   MobileAppCategoryRuleUpsertRequest,
   MobileDevice,
+  MobileAnalyticsChart,
   MobileHeatmapBucket,
 } from '../../src/client-web/src/api/mobile';
 import MobileAnalyticsHeader from '../../src/client-web/src/components/mobile/MobileAnalyticsHeader';
 import MobileUsageHeatmap from '../../src/client-web/src/components/mobile/MobileUsageHeatmap';
+import MobileChartsGrid from '../../src/client-web/src/components/mobile/MobileChartsGrid';
 import MobileAppCatalogManager from '../../src/client-web/src/components/mobile/MobileAppCatalogManager';
+import { buildHeatmapMatrix } from '../../src/client-web/src/components/mobile/mobileHeatmapMatrix';
 import {
   buildMobileAnalyticsDateRange,
   toMobileAnalyticsUtcRange,
@@ -99,7 +102,7 @@ const rule: MobileAppCategoryRule = {
   id: 'rule-1',
   ruleType: 'package-prefix',
   pattern: 'com.tencent.',
-  lifeCategory: '社交沟通',
+  lifeCategory: '社交通讯',
   priority: 80,
   isEnabled: true,
 };
@@ -145,19 +148,58 @@ test('header shortcut and custom controls call shared range callbacks', () => {
   const thirtyDayButton = findElement(tree, node => textContent(node) === '30天');
   (thirtyDayButton.props?.onClick as () => void)();
 
+  const customButton = findElement(tree, node => textContent(node) === '自定义');
+  (customButton.props?.onClick as () => void)();
+
   const startDateInput = findElement(tree, node => node.props?.['aria-label'] === '开始日期');
   (startDateInput.props?.onChange as (event: { target: { value: string } }) => void)({
     target: { value: '2026-07-03' },
   });
 
-  const includeCheckbox = findElement(tree, node => node.props?.['aria-label'] === '显示系统与短事件');
+  const includeCheckbox = findElement(tree, node => node.props?.['aria-label'] === '隐藏系统噪声');
   (includeCheckbox.props?.onChange as (event: { target: { checked: boolean } }) => void)({
-    target: { checked: true },
+    target: { checked: false },
   });
 
   assert.deepEqual(shortcutChanges, ['30d']);
-  assert.deepEqual(customChanges, [{ startDate: '2026-07-03', endDate: '2026-07-07' }]);
+  assert.deepEqual(customChanges, [
+    { startDate: '2026-07-01', endDate: '2026-07-07' },
+    { startDate: '2026-07-03', endDate: '2026-07-07' },
+  ]);
   assert.deepEqual(includeSystemNoiseChanges, [true]);
+});
+
+test('chart rows are only buttons when they can update filters', () => {
+  const categoryChanges: string[] = [];
+  const appChanges: string[] = [];
+  const chart: MobileAnalyticsChart = {
+    key: 'mixed',
+    title: '混合图表',
+    chartType: 'mixed',
+    unit: 'seconds',
+    points: [
+      { key: 'social', label: '社交通讯', value: 1800, lifeCategory: '社交通讯' },
+      { key: 'wechat', label: '微信', value: 1200, packageName: 'com.tencent.mm' },
+      { key: '09', label: '09:00', value: 600, localHour: 9 },
+    ],
+  };
+
+  const tree = MobileChartsGrid({
+    charts: [chart],
+    isLoading: false,
+    onCategorySelect: value => categoryChanges.push(value),
+    onAppSelect: value => appChanges.push(value),
+  });
+
+  const categoryButton = findElement(tree, node => textContent(node).includes('社交通讯') && typeof node.props?.onClick === 'function');
+  (categoryButton.props?.onClick as () => void)();
+  const appButton = findElement(tree, node => textContent(node).includes('微信') && typeof node.props?.onClick === 'function');
+  (appButton.props?.onClick as () => void)();
+  const inertRow = findElement(tree, node => textContent(node).includes('09:00'));
+
+  assert.deepEqual(categoryChanges, ['社交通讯']);
+  assert.deepEqual(appChanges, ['com.tencent.mm']);
+  assert.equal(typeof inertRow.props?.onClick, 'undefined');
 });
 
 test('heatmap granularity controls and bucket click emit shared filter state', () => {
@@ -181,6 +223,38 @@ test('heatmap granularity controls and bucket click emit shared filter state', (
 
   assert.deepEqual(granularities, ['30m']);
   assert.deepEqual(selectedBuckets, [bucket]);
+});
+
+test('heatmap matrix merges duplicate category buckets into one date hour cell', () => {
+  const duplicateHourBuckets: MobileHeatmapBucket[] = [
+    {
+      bucketStartUtc: '2026-07-06T12:00:00.000Z',
+      bucketEndUtc: '2026-07-06T13:00:00.000Z',
+      localDate: '2026-07-06',
+      localHour: 20,
+      lifeCategory: '短视频/娱乐',
+      foregroundSeconds: 1200,
+      qualityFlags: [],
+    },
+    {
+      bucketStartUtc: '2026-07-06T12:00:00.000Z',
+      bucketEndUtc: '2026-07-06T13:00:00.000Z',
+      localDate: '2026-07-06',
+      localHour: 20,
+      lifeCategory: '社交通讯',
+      foregroundSeconds: 600,
+      qualityFlags: ['fallback'],
+    },
+  ];
+
+  const matrix = buildHeatmapMatrix(duplicateHourBuckets);
+
+  assert.equal(matrix.days.length, 1);
+  assert.equal(matrix.days[0].cells.length, 24);
+  const cell = matrix.days[0].cells[20];
+  assert.equal(cell.foregroundSeconds, 1800);
+  assert.deepEqual(cell.categories.map(item => item.lifeCategory), ['短视频/娱乐', '社交通讯']);
+  assert.equal(cell.qualityFlags.includes('fallback'), true);
 });
 
 test('app catalog manager exposes override and batch rule callbacks', () => {
@@ -291,7 +365,7 @@ test('app catalog manager creates new overrides and rules from forms', () => {
           ruleType: 'package-prefix',
           pattern: ' COM.TENCENT. ',
           displayNameOverride: ' 腾讯系 ',
-          lifeCategory: '社交沟通',
+          lifeCategory: '社交通讯',
           priority: '800',
           isEnabled: 'on',
         },
@@ -312,7 +386,7 @@ test('app catalog manager creates new overrides and rules from forms', () => {
   assert.deepEqual(savedRules, [{
     ruleType: 'package-prefix',
     pattern: 'com.tencent.',
-    lifeCategory: '社交沟通',
+    lifeCategory: '社交通讯',
     priority: 800,
     isEnabled: true,
     displayNameOverride: '腾讯系',
@@ -342,10 +416,16 @@ test('mobile records page integrates analytics queries and bucket-driven shared 
     'MOBILE_DEFAULT_TIMEZONE',
     'handleHeatmapBucketSelect',
     'bucket.bucketStartUtc',
-    'setSelectedCategory(bucket.lifeCategory)',
+    'onCategorySelect={handleChartCategorySelect}',
+    'onAppSelect={handleChartAppSelect}',
+    "setPackageName('')",
+    "setSelectedCategory('')",
     'displayNameOverride: rule.displayNameOverride ?? null',
     'isSystemNoise: rule.isSystemNoise ?? null',
   ]) {
     assert.equal(source.includes(text), true, `MobileRecordsPage should include: ${text}`);
   }
+
+  assert.equal(source.includes('setSelectedBucketRange({ startUtc: bucket.bucketStartUtc, endUtc: bucket.bucketEndUtc })'), false);
+  assert.equal(source.includes('setRangeStartDate(bucket.localDate)'), false);
 });

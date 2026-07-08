@@ -15,6 +15,8 @@ import type {
 import MobileAnalyticsHeader from '../../src/client-web/src/components/mobile/MobileAnalyticsHeader';
 import MobileInsightStrip from '../../src/client-web/src/components/mobile/MobileInsightStrip';
 import MobileUsageHeatmap from '../../src/client-web/src/components/mobile/MobileUsageHeatmap';
+import MobileUsageBucketDetail from '../../src/client-web/src/components/mobile/MobileUsageBucketDetail';
+import { buildHeatmapMatrix } from '../../src/client-web/src/components/mobile/mobileHeatmapMatrix';
 import MobileChartsGrid from '../../src/client-web/src/components/mobile/MobileChartsGrid';
 import MobileTimelineBlocks from '../../src/client-web/src/components/mobile/MobileTimelineBlocks';
 import MobileAnomalyPanel from '../../src/client-web/src/components/mobile/MobileAnomalyPanel';
@@ -131,7 +133,7 @@ const charts: MobileAnalyticsChart[] = [
     chartType: 'category-share',
     unit: 'seconds',
     points: [
-      { key: 'social', label: '社交沟通', value: 3600, lifeCategory: '社交沟通' },
+      { key: 'social', label: '社交通讯', value: 3600, lifeCategory: '社交通讯' },
       { key: 'work', label: '工作/生产力', value: 2400, lifeCategory: '工作/生产力' },
     ],
   },
@@ -245,7 +247,7 @@ const rules: MobileAppCategoryRule[] = [
     id: 'rule-1',
     ruleType: 'package-prefix',
     pattern: 'com.tencent.',
-    lifeCategory: '社交沟通',
+    lifeCategory: '社交通讯',
     priority: 80,
     isEnabled: true,
   },
@@ -282,6 +284,11 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
         isLoading: false,
         onGranularityChange: () => undefined,
         onBucketSelect: () => undefined,
+      }),
+    ),
+    renderToStaticMarkup(
+      React.createElement(MobileUsageBucketDetail, {
+        cell: buildHeatmapMatrix(buckets).days[0].cells[22],
       }),
     ),
     renderToStaticMarkup(React.createElement(MobileChartsGrid, { charts, isLoading: false })),
@@ -328,10 +335,21 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
     '7天',
     '30天',
     '自定义',
+    '北京时间',
+    '设备',
+    '分类',
+    'App',
+    '噪声',
+    '粒度',
+    '范围',
     '总使用时长',
     '日均',
     '目标',
-    '热力图',
+    'App 数',
+    '使用热力图',
+    '左侧是日期，顶部是小时',
+    '选中时段',
+    '40分钟',
     '分类占比',
     'Top App',
     '每日趋势',
@@ -339,17 +357,19 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
     '分类趋势',
     '切换趋势',
     '异常与建议',
-    '时间块',
+    '使用时间线',
     '应用管理',
     '批量规则',
-    '显示系统与短事件',
+    '隐藏系统噪声',
   ]) {
     assert.equal(html.includes(text), true, `analytics UI should include: ${text}`);
   }
 
+  assert.equal(html.includes('com.tencent.mm'), true, 'Top App 行应保留包名作为二级诊断信息');
   assert.equal(html.includes('深夜使用偏高'), true);
   assert.equal(html.includes('抖音'), true);
   assert.equal(html.includes('原始事件'), true);
   assert.equal(html.includes('加载更多'), true);
+  assert.equal(html.includes('重复小时数字墙'), false);
   assert.equal(html.includes('\u93B5\u5B2B\u6E80'), false, 'new analytics UI should not render mojibake mobile labels');
 });

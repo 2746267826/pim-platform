@@ -48,7 +48,10 @@ export default function MobileAppRanking({
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h3 className="truncate text-sm font-semibold text-slate-950">{app.displayName || app.packageName}</h3>
-                        <p className="mt-1 text-xs text-slate-500">{app.categoryName || app.packageName}</p>
+                        {app.categoryName && <p className="mt-1 text-xs text-slate-500">{app.categoryName}</p>}
+                        {(app.displayName !== app.packageName || !app.categoryName) && (
+                          <p className="mt-1 truncate font-mono text-xs text-slate-400">{app.packageName}</p>
+                        )}
                       </div>
                       <span className="text-sm font-semibold text-slate-950">{formatDuration(app.foregroundSeconds)}</span>
                     </div>

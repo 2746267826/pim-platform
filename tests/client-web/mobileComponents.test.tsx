@@ -5,7 +5,9 @@ import { createRequire } from 'node:module';
 import type {
   MobileAppUsageSummary,
   MobileDevice,
+  MobileLocationAnalyticsOverview,
   MobileLocationPoint,
+  MobileLocationTrack,
   MobileQuality,
   MobileSyncBatchSummary,
   MobileTimelineItem,
@@ -176,6 +178,80 @@ const locationPoints: MobileLocationPoint[] = [
     isAutoSubmitted: false,
     quality: 'usable',
     rawJson: '{}',
+  },
+];
+
+const locationOverview: MobileLocationAnalyticsOverview = {
+  range: {
+    rangeStartUtc: '2026-07-05T16:00:00Z',
+    rangeEndUtc: '2026-07-06T16:00:00Z',
+    timezone: 'Asia/Shanghai',
+    localStartDate: '2026-07-06',
+    localEndDate: '2026-07-06',
+  },
+  generatedAt: '2026-07-06T09:05:00Z',
+  pointCount: 2,
+  usablePointCount: 2,
+  rejectedPointCount: 0,
+  activeSpanSeconds: 3600,
+  distanceMeters: 360,
+  stayCount: 1,
+  longestStaySeconds: 1800,
+  averageAccuracyMeters: 34,
+  qualityIssueCount: 0,
+  qualityFlags: [],
+};
+
+const locationTracks: MobileLocationTrack[] = [
+  {
+    id: 'track-mobile-components',
+    deviceId: device.deviceId,
+    startUtc: '2026-07-06T00:15:00Z',
+    endUtc: '2026-07-06T01:15:00Z',
+    distanceMeters: 360,
+    durationSeconds: 3600,
+    pointCount: 2,
+    segmentCount: 1,
+    bounds: {
+      minLatitude: 31.2304,
+      minLongitude: 121.4737,
+      maxLatitude: 31.231,
+      maxLongitude: 121.475,
+    },
+    qualityFlags: [],
+    segments: [
+      {
+        id: 'segment-mobile-components',
+        trackId: 'track-mobile-components',
+        deviceId: device.deviceId,
+        kind: 'move',
+        startUtc: '2026-07-06T00:15:00Z',
+        endUtc: '2026-07-06T01:15:00Z',
+        localStart: '2026-07-06 08:15',
+        localEnd: '2026-07-06 09:15',
+        durationSeconds: 3600,
+        distanceMeters: 360,
+        pointCount: 2,
+        averageSpeedMetersPerSecond: 0.1,
+        averageAccuracyMeters: 34,
+        maxAccuracyMeters: 58,
+        quality: 'usable',
+        qualityFlags: [],
+        bounds: {
+          minLatitude: 31.2304,
+          minLongitude: 121.4737,
+          maxLatitude: 31.231,
+          maxLongitude: 121.475,
+        },
+        path: locationPoints.map(point => ({
+          latitude: point.latitude,
+          longitude: point.longitude,
+          recordedAtUtc: point.recordedAtUtc,
+          horizontalAccuracyMeters: point.horizontalAccuracyMeters,
+          quality: point.quality,
+        })),
+      },
+    ],
   },
 ];
 
@@ -359,48 +435,56 @@ async function main() {
       })
     );
 
-    assert.equal(html.includes('1 小时 1 分钟'), true);
+    assert.equal(html.includes('1小时1分钟'), true);
     assert.equal(html.includes('95%'), true);
-    assert.equal(html.includes('回退汇总 10 分钟'), true);
+    assert.equal(html.includes('回退汇总 10分钟'), true);
   });
 
   test('historical location dashboard renders Chinese controls, map shell, point details, and list metadata', () => {
     const html = renderToStaticMarkup(
       React.createElement(HistoricalLocationDashboard, {
-        start: '2026-07-06T00:00',
-        end: '2026-07-06T23:59',
+        rangeShortcut: '7d',
+        rangeStartDate: '2026-07-06',
+        rangeEndDate: '2026-07-06',
         selectedDeviceId: device.deviceId,
         devices: [device],
         maxAccuracyMeters: 100,
-        points: locationPoints,
+        includeRejected: false,
+        overview: locationOverview,
+        tracks: locationTracks,
+        selectedSegmentId: 'segment-mobile-components',
         selectedPointId: 'point-1',
+        points: locationPoints,
         isLoading: false,
         isFetching: false,
         errorMessage: null,
-        onStartChange: () => undefined,
-        onEndChange: () => undefined,
+        onShortcutChange: () => undefined,
+        onCustomRangeChange: () => undefined,
         onDeviceChange: () => undefined,
         onMaxAccuracyChange: () => undefined,
+        onIncludeRejectedChange: () => undefined,
         onRefresh: () => undefined,
+        onSelectSegment: () => undefined,
         onSelectPoint: () => undefined,
       })
     );
 
     for (const text of [
       '历史位置',
-      '时间范围',
+      '今天',
+      '7天',
+      '30天',
+      '自定义',
+      '北京时间',
       '设备',
       '最大误差',
       '刷新',
-      'OpenStreetMap',
-      '按时间连线',
-      '定位点列表',
-      '选中点详情',
-      '记录时间',
-      '提交时间',
+      '定位点',
+      '轨迹地图',
+      '选中片段',
+      '停留与移动时间线',
+      '原始点明细',
       '误差',
-      '提供方',
-      '来源',
       '坐标',
       '质量',
       '可信',
@@ -410,7 +494,7 @@ async function main() {
       assert.equal(html.includes(text), true, `historical location UI should include: ${text}`);
     }
 
-    assert.equal(html.includes('data-point-count="2"'), true);
+    assert.equal(html.includes('data-track-count="1"'), true);
     assert.equal(html.includes('recorded'), false);
     assert.equal(html.includes('submitted'), false);
   });

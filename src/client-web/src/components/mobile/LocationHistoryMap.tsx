@@ -1,22 +1,39 @@
 import { useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
-import type { MobileLocationPoint } from '../../api/mobile';
-import { formatAccuracyLabel, formatCoordinate } from './locationFormatting';
+import type { MobileLocationTrack } from '../../api/mobile';
+import {
+  formatAccuracyLabel,
+  formatDistanceMeters,
+  segmentKindLabel,
+} from './locationFormatting';
 import type { HistoricalLocationLeafletMapProps } from './HistoricalLocationLeafletMap';
 
 export interface LocationHistoryMapProps {
-  points: MobileLocationPoint[];
+  tracks: MobileLocationTrack[];
+  selectedSegmentId?: string | null;
   selectedPointId?: string | null;
+  onSelectSegment?: (segmentId: string) => void;
   onSelectPoint?: (pointId: string) => void;
 }
 
+function allSegments(tracks: MobileLocationTrack[]) {
+  return tracks.flatMap(track => track.segments);
+}
+
 export default function LocationHistoryMap({
-  points,
+  tracks,
+  selectedSegmentId,
   selectedPointId,
+  onSelectSegment,
   onSelectPoint,
 }: LocationHistoryMapProps) {
   const [LeafletMap, setLeafletMap] = useState<ComponentType<HistoricalLocationLeafletMapProps> | null>(null);
-  const selectedPoint = points.find(point => point.id === selectedPointId) ?? points[0];
+  const segments = allSegments(tracks);
+  const selectedSegment = segments.find(segment => segment.id === selectedSegmentId) ?? segments[0];
+  const totalDistance = tracks.reduce((sum, track) => sum + track.distanceMeters, 0);
+  const averageAccuracy = segments.length === 0
+    ? 0
+    : segments.reduce((sum, segment) => sum + segment.averageAccuracyMeters, 0) / segments.length;
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -33,29 +50,37 @@ export default function LocationHistoryMap({
 
   return (
     <section
-      className="overflow-hidden rounded-lg border border-slate-200 bg-white"
-      data-point-count={points.length}
+      className="overflow-hidden rounded-md border border-slate-200 bg-white"
+      data-track-count={tracks.length}
     >
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 p-4">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-slate-950">历史位置</h2>
-          <p className="mt-1 text-xs text-slate-500">OpenStreetMap 底图，按时间连线</p>
+          <h2 className="text-sm font-semibold text-slate-950">轨迹地图</h2>
+          <p className="mt-1 text-xs text-slate-500">轨迹线、停留点、误差和质量状态在地图上联动。</p>
         </div>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
-          {points.length} 个定位点
-        </span>
+        <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">{tracks.length} 条轨迹</span>
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">{formatDistanceMeters(totalDistance)}</span>
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5">平均误差 {formatAccuracyLabel(averageAccuracy)}</span>
+        </div>
       </div>
 
-      <div className="h-[420px] min-h-[360px] bg-slate-100">
+      <div className="h-[500px] min-h-[420px] bg-slate-100">
         {LeafletMap ? (
-          <LeafletMap points={points} selectedPointId={selectedPointId} onSelectPoint={onSelectPoint} />
+          <LeafletMap
+            tracks={tracks}
+            selectedSegmentId={selectedSegmentId}
+            selectedPointId={selectedPointId}
+            onSelectSegment={onSelectSegment}
+            onSelectPoint={onSelectPoint}
+          />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm text-slate-600">
-            <p className="font-medium text-slate-950">OpenStreetMap</p>
-            <p>浏览器中加载地图瓦片、标记和按时间连线。</p>
-            {selectedPoint && (
-              <p className="font-mono text-xs">
-                {formatCoordinate(selectedPoint.latitude, selectedPoint.longitude)} · {formatAccuracyLabel(selectedPoint.horizontalAccuracyMeters)}
+            <p className="font-medium text-slate-950">轨迹地图</p>
+            <p>浏览器中加载底图后显示轨迹线、停留点、误差圈和低质量提示。</p>
+            {selectedSegment && (
+              <p className="text-xs text-slate-500">
+                当前片段：{segmentKindLabel(selectedSegment.kind)} / {formatDistanceMeters(selectedSegment.distanceMeters)} / {selectedSegment.pointCount} 点
               </p>
             )}
           </div>

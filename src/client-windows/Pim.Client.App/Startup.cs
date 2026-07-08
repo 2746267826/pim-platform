@@ -15,6 +15,9 @@ public static class Startup
         services.AddSingleton<AwCollectorService>();
         services.AddSingleton<KeyStatsCollectorService>();
         services.AddSingleton<DaemonHeartbeatReporter>();
+        services.AddSingleton<Pim.Client.Core.Services.NotificationActionRouter>();
+        services.AddSingleton<EndpointCollectionBoundaryService>();
+        services.AddSingleton<NotificationActionRouter>();
         services.AddSingleton<TrayIcon>();
 
         return services.BuildServiceProvider();

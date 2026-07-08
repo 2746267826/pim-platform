@@ -75,6 +75,9 @@ public partial class App : Application
                     Logger.Warn("Login skipped; daemon running without API access, uploads will fail");
             }
 
+            ShowMainShellWindow();
+            Logger.Info("Companion shell window shown");
+
             var awCollector = Services.GetRequiredService<AwCollectorService>();
             awCollector.Log = msg => Logger.Info(msg);
             awCollector.Start();
@@ -94,6 +97,28 @@ public partial class App : Application
         {
             Logger.Error("Fatal daemon startup error", ex);
             Shutdown();
+        }
+    }
+
+    internal static void ShowMainShellWindow(string? route = null)
+    {
+        var existing = Current.Windows.OfType<MainShellWindow>().FirstOrDefault();
+        if (existing is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(route))
+            {
+                existing.OpenRoute(route);
+            }
+
+            existing.Activate();
+            return;
+        }
+
+        var shell = new MainShellWindow();
+        shell.Show();
+        if (!string.IsNullOrWhiteSpace(route))
+        {
+            shell.OpenRoute(route);
         }
     }
 

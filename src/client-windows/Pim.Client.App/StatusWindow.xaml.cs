@@ -278,6 +278,16 @@ public partial class StatusWindow : Window
         }
     }
 
+    private void OnOpenShell(object sender, RoutedEventArgs e)
+    {
+        App.ShowMainShellWindow("/today");
+    }
+
+    private void OnOpenNotifications(object sender, RoutedEventArgs e)
+    {
+        App.ShowMainShellWindow("/confirmations");
+    }
+
     private void OnClose(object sender, RoutedEventArgs e)
     {
         Close();

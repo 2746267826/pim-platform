@@ -26,13 +26,21 @@ public class TrayIcon : IDisposable
 
         _notifyIcon.ContextMenuStrip.Items.Add("状态：运行中，点击打开详情", null, (_, _) => ShowStatusWindow());
         _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        _notifyIcon.ContextMenuStrip.Items.Add("打开 Web 工作台", null, (_, _) => OpenShell("/today"));
+        _notifyIcon.ContextMenuStrip.Items.Add("任务 / 日历", null, (_, _) => OpenShell("/calendar"));
+        _notifyIcon.ContextMenuStrip.Items.Add("报告中心", null, (_, _) => OpenShell("/reports"));
+        _notifyIcon.ContextMenuStrip.Items.Add("Outlook 同步", null, (_, _) => OpenShell("/sync"));
+        _notifyIcon.ContextMenuStrip.Items.Add("Data Center", null, (_, _) => OpenShell("/data-center"));
+        _notifyIcon.ContextMenuStrip.Items.Add("审计中心", null, (_, _) => OpenShell("/confirmations"));
+        _notifyIcon.ContextMenuStrip.Items.Add("通知中心", null, (_, _) => OpenShell("/confirmations"));
+        _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         _notifyIcon.ContextMenuStrip.Items.Add("登录...", null, (_, _) => ShowLogin());
         _notifyIcon.ContextMenuStrip.Items.Add("立即同步", null, async (_, _) => await TriggerSyncAsync());
         _notifyIcon.ContextMenuStrip.Items.Add("回填最近 14 天 ActivityWatch", null, async (_, _) => await TriggerAwBackfillAsync());
         _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         _notifyIcon.ContextMenuStrip.Items.Add("退出", null, (_, _) => ConfirmAndExit());
 
-        _notifyIcon.DoubleClick += (_, _) => ShowStatusWindow();
+        _notifyIcon.DoubleClick += (_, _) => OpenShell("/today");
     }
 
     private static Icon LoadIcon()
@@ -63,6 +71,11 @@ public class TrayIcon : IDisposable
         }
 
         new StatusWindow().Show();
+    }
+
+    private static void OpenShell(string route)
+    {
+        System.Windows.Application.Current.Dispatcher.Invoke(() => App.ShowMainShellWindow(route));
     }
 
     private static void ShowLogin()

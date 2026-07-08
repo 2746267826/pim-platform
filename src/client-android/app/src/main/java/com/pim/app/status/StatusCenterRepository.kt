@@ -12,8 +12,10 @@ import com.pim.core.settings.ServerSettingsStore
 import com.pim.core.settings.ServerUrlValidator
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 
 @Singleton
 class StatusCenterRepository @Inject constructor(
@@ -22,7 +24,8 @@ class StatusCenterRepository @Inject constructor(
     private val tokenManager: TokenManager,
     private val trackingSettingsStore: TrackingSettingsStore,
     private val database: AppDatabase,
-    private val syncCoordinator: MobileSyncCoordinator
+    private val syncCoordinator: MobileSyncCoordinator,
+    private val refreshSignal: StatusRefreshSignal
 ) {
     private val dao: MobileDataDao = database.mobileDataDao()
 
@@ -31,8 +34,9 @@ class StatusCenterRepository @Inject constructor(
             queueSnapshotFlow(),
             diagnosticSnapshotFlow(),
             syncCoordinator.currentState,
-            ForegroundLocationService.runtimeState
-        ) { queues, diagnostics, sync, runtime ->
+            ForegroundLocationService.runtimeState,
+            refreshSignal.version
+        ) { queues, diagnostics, sync, runtime, _ ->
             val mergedDiagnostics = diagnostics.copy(
                 lastHeartbeatStatus = sync.heartbeatStatus,
                 lastLogMessage = diagnostics.lastLogMessage ?: sync.lastError,
@@ -42,7 +46,11 @@ class StatusCenterRepository @Inject constructor(
             )
             val snapshot = buildSnapshot(queues, mergedDiagnostics, runtime)
             StatusCenterState(snapshot, StatusIssuePlanner.plan(snapshot))
-        }
+        }.flowOn(Dispatchers.IO)
+    }
+
+    fun requestRefresh() {
+        refreshSignal.requestRefresh()
     }
 
     fun snapshotNow(

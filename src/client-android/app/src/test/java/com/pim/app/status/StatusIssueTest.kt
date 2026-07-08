@@ -2,8 +2,10 @@ package com.pim.app.status
 
 import com.pim.app.location.service.ForegroundLocationRuntimeState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 
 class StatusIssueTest {
     @Test
@@ -116,5 +118,43 @@ class StatusIssueTest {
         assertEquals(StatusActionRoute.TriggerSync, StatusActionRouter.route(StatusActionTarget.Sync))
         assertEquals(StatusActionRoute.StayOnStatus, StatusActionRouter.route(StatusActionTarget.Queue))
         assertEquals(StatusActionRoute.StayOnStatus, StatusActionRouter.route(StatusActionTarget.Status))
+    }
+
+    @Test
+    fun syncActionRunnerRunsMobileSyncAndRefreshesStatus() = runBlocking {
+        var synced = false
+        var refreshed = false
+        val runner = StatusSyncActionRunner(
+            syncNow = { synced = true },
+            refresh = { refreshed = true }
+        )
+
+        runner.run(StatusActionRoute.TriggerSync)
+
+        assertTrue(synced)
+        assertTrue(refreshed)
+    }
+
+    @Test
+    fun syncActionRunnerIgnoresNonSyncRoutes() = runBlocking {
+        var synced = false
+        val runner = StatusSyncActionRunner(
+            syncNow = { synced = true },
+            refresh = {}
+        )
+
+        runner.run(StatusActionRoute.OpenSettings)
+
+        assertFalse(synced)
+    }
+
+    @Test
+    fun refreshSignalStartsAtZeroAndAdvances() {
+        val signal = StatusRefreshSignal()
+
+        assertEquals(0L, signal.version.value)
+        signal.requestRefresh()
+
+        assertEquals(1L, signal.version.value)
     }
 }

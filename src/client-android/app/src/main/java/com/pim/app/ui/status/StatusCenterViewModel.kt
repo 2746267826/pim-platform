@@ -2,21 +2,24 @@ package com.pim.app.ui.status
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pim.app.location.service.ForegroundLocationController
+import com.pim.app.mobile.sync.MobileSyncCoordinator
 import com.pim.app.status.StatusCenterRepository
 import com.pim.app.status.StatusCenterState
 import com.pim.app.status.StatusActionTarget
+import com.pim.app.status.StatusActionRoute
 import com.pim.app.status.StatusIssue
+import com.pim.app.status.StatusSyncActionRunner
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 @HiltViewModel
 class StatusCenterViewModel @Inject constructor(
-    repository: StatusCenterRepository,
-    private val foregroundLocationController: ForegroundLocationController
+    private val repository: StatusCenterRepository,
+    private val mobileSyncCoordinator: MobileSyncCoordinator
 ) : ViewModel() {
     val state: StateFlow<StatusCenterState> = repository.observe()
         .stateIn(
@@ -26,10 +29,20 @@ class StatusCenterViewModel @Inject constructor(
         )
 
     fun onIssueAction(issue: StatusIssue): StatusActionTarget {
+        repository.requestRefresh()
         return issue.target
     }
 
     fun syncNow() {
-        foregroundLocationController.syncNow()
+        viewModelScope.launch {
+            StatusSyncActionRunner(
+                syncNow = { mobileSyncCoordinator.syncOnOpen() },
+                refresh = { repository.requestRefresh() }
+            ).run(StatusActionRoute.TriggerSync)
+        }
+    }
+
+    fun refresh() {
+        repository.requestRefresh()
     }
 }

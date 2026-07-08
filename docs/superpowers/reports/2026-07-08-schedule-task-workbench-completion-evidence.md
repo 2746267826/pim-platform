@@ -2,7 +2,7 @@
 
 ## Local Verification
 
-- `dotnet test Pim.sln`: PASS, 728 tests passed.
+- `dotnet test Pim.sln`: PASS, 736 tests passed.
 - `npm --prefix src/client-web run test:schedule-workbench-complete`: PASS.
 - `npm --prefix src/client-web run build`: PASS, with the existing Vite large chunk warning.
 - `dotnet publish src/client-windows/Pim.Client.App/Pim.Client.App.csproj -c Release -o publish/PimDaemon -r win-x64 --self-contained true`: PASS.
@@ -12,11 +12,11 @@
 
 ## GitHub Actions
 
-- Build API: https://github.com/2746267826/pim-platform/actions/runs/28930874153 success.
-- Build Web Client: https://github.com/2746267826/pim-platform/actions/runs/28930873745 success.
-- Build Windows Client: https://github.com/2746267826/pim-platform/actions/runs/28930873665 success.
-- Build Android APK: https://github.com/2746267826/pim-platform/actions/runs/28930873884 success.
-- Push-triggered validation also passed for API, Web, Windows, and Android on branch `codex/schedule-task-complete-system`.
+- Build API: https://github.com/2746267826/pim-platform/actions/runs/28935297212 success.
+- Build Web Client: https://github.com/2746267826/pim-platform/actions/runs/28935177675 success.
+- Build Windows Client: https://github.com/2746267826/pim-platform/actions/runs/28935297244 success.
+- Build Android APK: https://github.com/2746267826/pim-platform/actions/runs/28935298838 success.
+- Validation passed on branch `codex/schedule-task-complete-system` at `2a16c66e17738369d8101e632c22591a81568677`.
 
 ## Browser Visual Evidence
 

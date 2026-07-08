@@ -56,6 +56,8 @@ export interface TaskResponse {
   plannedEnd?: string;
   status: string;
   isInbox: boolean;
+  sortOrder?: number;
+  subTasks?: TaskResponse[];
 }
 
 export type TaskPlanningState =

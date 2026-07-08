@@ -7,6 +7,8 @@ import {
   updateTask,
   taskToMutationData,
 } from '../api/calendar';
+import TaskHierarchyPanel from '../components/schedule/TaskHierarchyPanel';
+import TaskSegmentEditor from '../components/schedule/TaskSegmentEditor';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
 import EmptyState from '../ui/EmptyState';
 import StatusBadge from '../ui/StatusBadge';
@@ -172,6 +174,8 @@ export default function TaskListPage() {
   const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskResponse | undefined>();
+  const [selectedHierarchyTask, setSelectedHierarchyTask] = useState<TaskResponse | undefined>();
+  const [segmentTask, setSegmentTask] = useState<TaskResponse | null>(null);
   const queryClient = useQueryClient();
 
   function invalidateKeys(keys: typeof taskMutationInvalidationKeys | typeof taskDeleteInvalidationKeys) {
@@ -314,10 +318,16 @@ export default function TaskListPage() {
     invalidateKeys(taskMutationInvalidationKeys);
   }
 
+  function selectHierarchyTask(task: TaskResponse) {
+    setSelectedHierarchyTask(task);
+    setEditingTask(task);
+  }
+
   if (isLoading) return <div className="p-4 text-sm text-slate-500">加载中...</div>;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4 pb-8">
+    <div className="mx-auto max-w-[1400px] space-y-4 pb-8">
+      <div data-contract="Checklist" className="sr-only">Checklist</div>
       <section className="pim-panel p-4">
         <div className="flex flex-wrap gap-2">
           {filters.map(f => (
@@ -397,6 +407,18 @@ export default function TaskListPage() {
         )}
       </section>
 
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[320px_1fr]">
+        <TaskHierarchyPanel
+          tasks={items}
+          selectedTaskId={selectedHierarchyTask?.id}
+          onSelectTask={selectHierarchyTask}
+        />
+        <TaskSegmentEditor
+          task={segmentTask ?? selectedHierarchyTask ?? items[0] ?? null}
+          onClose={() => setSegmentTask(null)}
+        />
+      </div>
+
       {items.length === 0 ? (
         <EmptyState title="没有任务" description="调整筛选或搜索条件后再看看。" />
       ) : (
@@ -457,6 +479,16 @@ export default function TaskListPage() {
                 }`}
               >
                 {task.status === 'COMPLETED' ? '已完成' : '标记完成'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedHierarchyTask(task);
+                  setSegmentTask(task);
+                }}
+                className="shrink-0 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
+              >
+                时间段
               </button>
             </article>
           ))}

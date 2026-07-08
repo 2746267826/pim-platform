@@ -19,9 +19,9 @@ import type { EventResponse, TaskResponse, TodaySectionKind, TodaySectionRegistr
 type DensityMode = 'standard' | 'dense' | 'focus';
 
 const densityModeOptions: Array<{ value: DensityMode; label: string }> = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'dense', label: 'Dense' },
-  { value: 'focus', label: 'Focus' },
+  { value: 'standard', label: '标准' },
+  { value: 'dense', label: '高密度' },
+  { value: 'focus', label: '专注' },
 ];
 
 function useTodayDate() {
@@ -142,14 +142,14 @@ export default function TodayPage() {
   return (
     <div className="mx-auto max-w-[1500px] space-y-4 pb-8">
       <PageHeader
-        title="今日工作台"
-        subtitle={`${dateStr} · 安排、PC 活动与待办任务`}
+        title="日程任务工作台"
+        subtitle={`${dateStr} · 日程承诺、任务执行、提醒队列与报告`}
         beforeActions={
           <SegmentedControl
             value={densityMode}
             options={densityModeOptions}
             onChange={setDensityMode}
-            ariaLabel="Today density"
+            ariaLabel="今日密度"
           />
         }
         actions={
@@ -168,12 +168,12 @@ export default function TodayPage() {
 
       <RegistryErrorPanel error={registryError} />
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
         <section className="pim-panel min-w-0 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold text-slate-950">Pending Confirmations</h2>
-              <p className="mt-1 text-xs text-slate-500">{pendingConfirmations.length} operations waiting for review</p>
+              <h2 className="text-sm font-semibold text-slate-950">待确认</h2>
+              <p className="mt-1 text-xs text-slate-500">{pendingConfirmations.length} 个操作等待复核</p>
             </div>
             <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
               {densityMode}
@@ -193,7 +193,7 @@ export default function TodayPage() {
             ))}
             {pendingConfirmations.length === 0 && (
               <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-500">
-                No pending confirmations.
+                暂无待确认操作。
               </p>
             )}
           </div>
@@ -202,10 +202,10 @@ export default function TodayPage() {
         <section className="pim-panel min-w-0 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold text-slate-950">Outlook Sync Batches</h2>
-              <p className="mt-1 text-xs text-slate-500">{outlookSyncBatches.length} recent batches</p>
+              <h2 className="text-sm font-semibold text-slate-950">微软同步</h2>
+              <p className="mt-1 text-xs text-slate-500">{outlookSyncBatches.length} 个最近批次</p>
             </div>
-            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">Outlook</span>
+            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">同步</span>
           </div>
           <div className="mt-3 space-y-2">
             {outlookSyncBatches.slice(0, compactItemLimit).map(batch => (
@@ -213,22 +213,48 @@ export default function TodayPage() {
                 <div className="flex items-start justify-between gap-2">
                   <p className="min-w-0 truncate text-sm font-medium text-slate-800">{batch.status}</p>
                   <span className="shrink-0 text-[11px] font-semibold text-slate-500">
-                    {batch.failureCount} errors
+                    {batch.failureCount} 个错误
                   </span>
                 </div>
                 {densityMode !== 'focus' && (
                   <p className="mt-1 truncate text-xs text-slate-500">
-                    {batch.provider} / read {batch.readCount} / confirmations {batch.confirmationCount} / {formatDateTime(batch.startedAt)}
+                    {batch.provider} / 读取 {batch.readCount} / 确认 {batch.confirmationCount} / {formatDateTime(batch.startedAt)}
                   </p>
                 )}
               </div>
             ))}
             {outlookSyncBatches.length === 0 && (
               <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-500">
-                No Outlook sync batches.
+                暂无微软同步批次。
               </p>
             )}
           </div>
+        </section>
+
+        <section className="pim-panel min-w-0 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-950">提醒队列</h2>
+              <p className="mt-1 text-xs text-slate-500">展示即将触发、已暂停与需升级的提醒。</p>
+            </div>
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">提醒</span>
+          </div>
+          <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-500">
+            提醒区块会从今日注册表加载，支持低风险直接处理与高风险打开详情。
+          </p>
+        </section>
+
+        <section className="pim-panel min-w-0 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-950">报告</h2>
+              <p className="mt-1 text-xs text-slate-500">日报、周报、月报与项目报告可在此进入。</p>
+            </div>
+            <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">报告</span>
+          </div>
+          <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-500">
+            报告建议不会直接改动事实，后续动作会进入确认中心。
+          </p>
         </section>
       </div>
 

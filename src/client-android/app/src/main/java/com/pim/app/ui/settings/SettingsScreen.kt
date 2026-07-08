@@ -3,18 +3,38 @@ package com.pim.app.ui.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pim.app.ui.components.PimSection
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier) {
+fun SettingsScreen(
+    modifier: Modifier = Modifier,
+    viewModel: SettingsViewModel = hiltViewModel()
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    var username by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -24,11 +44,62 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     ) {
         Text("设置", style = MaterialTheme.typography.headlineSmall)
         PimSection("API 地址") {
-            Text("示例：https://pim.example.com/api/v1/")
+            OutlinedTextField(
+                value = state.apiAddress,
+                onValueChange = viewModel::updateApiAddress,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("API 地址") },
+                placeholder = { Text("https://pim.example.com/api/v1/") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None)
+            )
             Text("支持公网 IP 或域名。")
+            if (state.apiWarnings.contains("real-device-localhost")) {
+                Text(
+                    text = "在真机上 127.0.0.1 指向手机本机，通常无法连接你的服务器。",
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+            state.apiError?.let { reason ->
+                Text("地址问题：$reason", color = MaterialTheme.colorScheme.error)
+            }
+            state.apiStatus?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+            Button(onClick = viewModel::saveApiAddress) {
+                Text("保存")
+            }
+            OutlinedButton(onClick = viewModel::testConnection) {
+                Text("测试连接")
+            }
         }
         PimSection("账号") {
-            Text("登录后才可以同步和上传。")
+            Text(if (state.isLoggedIn) "当前状态：已登录" else "当前状态：未登录")
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("用户名") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None)
+            )
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("密码") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None)
+            )
+            Button(
+                onClick = { viewModel.login(username, password) },
+                enabled = !state.isBusy
+            ) {
+                Text(if (state.isBusy) "登录中" else "登录")
+            }
+            OutlinedButton(onClick = viewModel::logout) {
+                Text("退出登录")
+            }
+            state.loginStatus?.let { Text(it) }
         }
         PimSection("持续采集") {
             Text("默认关闭，需要手动开启。")

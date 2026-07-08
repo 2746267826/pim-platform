@@ -29,7 +29,7 @@ for (const route of [
   '/habits',
   '/reminders',
   '/reports',
-  '/sync',
+  '/settings/sync',
   '/data-center',
   '/confirmations',
   '/audit/:objectType/:objectId',

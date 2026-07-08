@@ -14,12 +14,33 @@ import SegmentedControl from '../ui/SegmentedControl';
 type DensityMode = 'standard' | 'dense' | 'focus';
 
 const densityOptions: Array<{ value: DensityMode; label: string }> = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'dense', label: 'Dense' },
-  { value: 'focus', label: 'Focus' },
+  { value: 'standard', label: '标准' },
+  { value: 'dense', label: '紧凑' },
+  { value: 'focus', label: '专注' },
 ];
 
 const dashboardLayers = ['events', 'task-segments', 'habits', 'availability', 'ai-placeholders'];
+const layerLabels: Record<string, string> = {
+  events: '日程事件',
+  'task-segments': '任务时间段',
+  habits: '习惯',
+  availability: '可用时间',
+  'ai-placeholders': '智能占位',
+};
+const statusLabels: Record<string, string> = {
+  Unknown: '未知',
+  None: '无',
+  Healthy: '正常',
+  Warning: '警告',
+  Failed: '失败',
+  missing: '缺失',
+  healthy: '正常',
+  connected: '已连接',
+  'not-connected': '未连接',
+  pending: '等待中',
+  completed: '已完成',
+  failed: '失败',
+};
 
 function todayRange() {
   const start = new Date();
@@ -34,10 +55,20 @@ function todayRange() {
 }
 
 function formatDateTime(value?: string | null) {
-  if (!value) return 'Not available';
+  if (!value) return '不可用';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
+  return date.toLocaleString('zh-CN');
+}
+
+function formatStatus(value?: string | null) {
+  if (!value) return '未知';
+  return statusLabels[value] ?? value;
+}
+
+function formatProvider(value?: string | null) {
+  if (!value) return '微软日历';
+  return value.toLowerCase() === 'outlook' ? '微软日历' : value;
 }
 
 function compactNumber(value: number | undefined) {
@@ -98,23 +129,23 @@ export default function WorkbenchPage() {
   return (
     <div className={`mx-auto w-full max-w-[1500px] ${pageSpacingClassName} pb-8`}>
       <PageHeader
-        title="Schedule Workbench"
-        subtitle="Operational dashboard for calendar layers, confirmations, Outlook sync, reminders, and reporting."
+        title="日程工作台"
+        subtitle="集中查看日程图层、确认队列、微软日历同步、提醒和报告运行状态。"
         beforeActions={
           <SegmentedControl
             value={densityMode}
             options={densityOptions}
             onChange={setDensityMode}
-            ariaLabel="Workbench density"
+            ariaLabel="工作台密度"
           />
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Link to="/status" className="pim-button-secondary px-3 py-2 text-sm">
-              Status
+              状态
             </Link>
             <Link to="/data-center" className="pim-button-primary px-3 py-2 text-sm">
-              Data Center
+              数据中心
             </Link>
           </div>
         }
@@ -122,25 +153,25 @@ export default function WorkbenchPage() {
 
       <section className={`grid grid-cols-1 gap-3 ${focus ? 'lg:grid-cols-3' : 'md:grid-cols-2 xl:grid-cols-4'}`}>
         <DashboardMetric
-          label="Schedule layers"
+          label="日程图层"
           value={compactNumber(layerData?.items.length)}
-          detail={layersLoading ? 'Loading layer index' : `${dashboardLayers.length} configured layers`}
+          detail={layersLoading ? '正在加载图层索引' : `${dashboardLayers.length} 个图层已配置`}
         />
         <DashboardMetric
-          label="Pending confirmations"
+          label="待确认操作"
           value={compactNumber(confirmations.length)}
-          detail={confirmationsLoading ? 'Loading operations queue' : 'Operations waiting for review'}
+          detail={confirmationsLoading ? '正在加载确认队列' : '等待复核的操作'}
         />
         <DashboardMetric
-          label="Outlook sync"
-          value={settings?.status ?? 'Unknown'}
-          detail={`Token: ${settings?.tokenHealth ?? 'Unknown'}`}
+          label="微软日历同步"
+          value={formatStatus(settings?.status)}
+          detail={`令牌：${formatStatus(settings?.tokenHealth)}`}
         />
         {!focus && (
           <DashboardMetric
-            label="Last sync batch"
-            value={latestBatch?.status ?? 'None'}
-            detail={latestBatch ? formatDateTime(latestBatch.startedAt) : 'No sync batches returned'}
+            label="最近同步批次"
+            value={formatStatus(latestBatch?.status)}
+            detail={latestBatch ? formatDateTime(latestBatch.startedAt) : '暂无同步批次'}
           />
         )}
       </section>
@@ -149,17 +180,17 @@ export default function WorkbenchPage() {
         <section className="pim-panel min-w-0 p-4 xl:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-sm font-semibold text-slate-950">Schedule Layers</h2>
-              <p className="mt-1 text-xs text-slate-500">Today range: {formatDateTime(range.start)} to {formatDateTime(range.end)}</p>
+              <h2 className="text-sm font-semibold text-slate-950">日程图层</h2>
+              <p className="mt-1 text-xs text-slate-500">今日范围：{formatDateTime(range.start)} 至 {formatDateTime(range.end)}</p>
             </div>
             <Link to="/calendar" className="pim-button-secondary px-3 py-1.5 text-sm">
-              Open Calendar
+              打开日历
             </Link>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {dashboardLayers.map(layer => (
               <div key={layer} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                <p className="truncate text-xs font-semibold text-slate-700">{layer}</p>
+                <p className="truncate text-xs font-semibold text-slate-700">{layerLabels[layer]}</p>
                 <p className="mt-1 text-lg font-semibold text-slate-950">{layerCounts.get(layer) ?? 0}</p>
               </div>
             ))}
@@ -168,9 +199,9 @@ export default function WorkbenchPage() {
 
         <section className="pim-panel min-w-0 p-4">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-950">Pending Confirmations</h2>
+            <h2 className="text-sm font-semibold text-slate-950">待确认操作</h2>
             <Link to="/confirmations" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-              Review all
+              查看全部
             </Link>
           </div>
           <div className="mt-3 space-y-2">
@@ -191,7 +222,7 @@ export default function WorkbenchPage() {
             ))}
             {confirmations.length === 0 && (
               <p className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
-                No pending confirmations.
+                暂无待确认操作。
               </p>
             )}
           </div>
@@ -201,23 +232,23 @@ export default function WorkbenchPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <section className="pim-panel min-w-0 p-4">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-950">Outlook Sync</h2>
-            <Link to="/sync" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-              Configure
+            <h2 className="text-sm font-semibold text-slate-950">微软日历同步</h2>
+            <Link to="/settings/sync" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
+              配置
             </Link>
           </div>
           <dl className="mt-3 grid grid-cols-1 gap-2 text-sm">
             <div className="rounded-lg bg-slate-50 px-3 py-2">
-              <dt className="text-xs text-slate-400">Provider</dt>
-              <dd className="font-medium text-slate-800">{settings?.provider ?? 'outlook'}</dd>
+              <dt className="text-xs text-slate-400">提供方</dt>
+              <dd className="font-medium text-slate-800">{formatProvider(settings?.provider)}</dd>
             </div>
             <div className="rounded-lg bg-slate-50 px-3 py-2">
-              <dt className="text-xs text-slate-400">Last synced</dt>
+              <dt className="text-xs text-slate-400">最近同步</dt>
               <dd className="font-medium text-slate-800">{formatDateTime(settings?.lastSyncedAt)}</dd>
             </div>
             {settings?.lastError && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700">
-                <dt className="text-xs font-semibold">Last error</dt>
+                <dt className="text-xs font-semibold">最近错误</dt>
                 <dd className="mt-1 text-sm">{settings.lastError}</dd>
               </div>
             )}
@@ -226,25 +257,25 @@ export default function WorkbenchPage() {
 
         <section className="pim-panel min-w-0 p-4">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-950">Reminders</h2>
+            <h2 className="text-sm font-semibold text-slate-950">提醒</h2>
             <Link to="/reminders" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-              Open
+              打开
             </Link>
           </div>
           <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
-            Reminder rules and delivery queues will appear here when configured.
+            配置提醒规则后，这里会显示触发规则和发送队列。
           </p>
         </section>
 
         <section className="pim-panel min-w-0 p-4">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-950">Reports</h2>
+            <h2 className="text-sm font-semibold text-slate-950">报告</h2>
             <Link to="/reports" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-              Open
+              打开
             </Link>
           </div>
           <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
-            Operational exports and report runs will appear here when data is available.
+            有报告数据后，这里会显示导出记录和报告运行情况。
           </p>
         </section>
       </div>
@@ -252,19 +283,19 @@ export default function WorkbenchPage() {
       <section className="pim-panel p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-slate-950">Endpoints And Status Links</h2>
-            <p className="mt-1 text-xs text-slate-500">Current shell links to the API contracts used by this dashboard.</p>
+            <h2 className="text-sm font-semibold text-slate-950">端点与状态链接</h2>
+            <p className="mt-1 text-xs text-slate-500">当前界面使用的接口契约与状态入口。</p>
           </div>
           <Link to="/status" className="pim-button-secondary px-3 py-1.5 text-sm">
-            System Status
+            系统状态
           </Link>
         </div>
         <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
           {[
-            ['Calendar layers', calendarApiPaths.calendarLayers({ start: range.start, end: range.end, layers: dashboardLayers })],
-            ['Outlook settings', calendarApiPaths.outlookSettings()],
-            ['Sync batches', calendarApiPaths.outlookSyncBatches()],
-            ['Pending confirmations', operationsApiPaths.pendingConfirmations()],
+            ['日程图层', calendarApiPaths.calendarLayers({ start: range.start, end: range.end, layers: dashboardLayers })],
+            ['微软日历设置', calendarApiPaths.outlookSettings()],
+            ['同步批次', calendarApiPaths.outlookSyncBatches()],
+            ['待确认操作', operationsApiPaths.pendingConfirmations()],
           ].map(([label, endpoint]) => (
             <div key={label} className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
               <p className="text-xs font-semibold text-slate-600">{label}</p>

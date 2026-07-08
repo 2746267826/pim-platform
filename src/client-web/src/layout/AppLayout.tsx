@@ -58,7 +58,7 @@ export default function AppLayout() {
               <Route path="/today" element={<TodayPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/workbench" element={<WorkbenchPage />} />
-              <Route path="/sync" element={<SyncPage />} />
+              <Route path="/sync" element={<Navigate to="/settings/sync" replace />} />
               <Route path="/data-center" element={<DataCenterPage />} />
               <Route path="/confirmations" element={<ConfirmationsPage />} />
               <Route path="/reminders" element={<RemindersPage />} />
@@ -77,6 +77,7 @@ export default function AppLayout() {
               <Route path="/location-history" element={<HistoricalLocationPage />} />
               <Route path="/status" element={<StatusPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings/sync" element={<SyncPage />} />
               <Route path="/settings/ai" element={<AiSettingsPage />} />
               <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
               <Route path="/settings/recycle-bin" element={<RecycleBinPage />} />

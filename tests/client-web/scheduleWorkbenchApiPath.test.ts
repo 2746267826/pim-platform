@@ -36,7 +36,7 @@ function assertSourceContains(path: string, snippets: string[]) {
 
 assertSourceContains('src/client-web/src/layout/AppLayout.tsx', [
   '/workbench',
-  '/sync',
+  '/settings/sync',
   '/data-center',
   '/confirmations',
   '/reminders',
@@ -45,7 +45,6 @@ assertSourceContains('src/client-web/src/layout/AppLayout.tsx', [
 ]);
 assertSourceContains('src/client-web/src/layout/Sidebar.tsx', [
   '/workbench',
-  '/sync',
   '/data-center',
   '/confirmations',
   '/reminders',

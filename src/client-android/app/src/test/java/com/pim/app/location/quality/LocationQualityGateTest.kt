@@ -49,6 +49,14 @@ class LocationQualityGateTest {
     }
 
     @Test
+    fun accuracyAboveFiftyMetersIsDropped() {
+        val result = gate.evaluate(fix(horizontalAccuracyMeters = 80.0f), nowMillis = 2_000L)
+
+        assertTrue(result is QualityDecision.Drop)
+        assertEquals("horizontal-accuracy-too-low", (result as QualityDecision.Drop).reason)
+    }
+
+    @Test
     fun nonFiniteAccuracyIsDropped() {
         val result = gate.evaluate(fix(horizontalAccuracyMeters = Float.NaN), nowMillis = 2_000L)
 

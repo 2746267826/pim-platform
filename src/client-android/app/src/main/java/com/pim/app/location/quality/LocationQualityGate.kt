@@ -9,7 +9,9 @@ data class RawLocationFix(
     val recordedAtMillis: Long,
     val policyMode: String,
     val scheduleLowFrequency: Boolean,
-    val motionSignal: String
+    val motionSignal: String,
+    val speedMetersPerSecond: Float? = null,
+    val bearingDegrees: Float? = null
 )
 
 data class QualityAcceptedLocation(

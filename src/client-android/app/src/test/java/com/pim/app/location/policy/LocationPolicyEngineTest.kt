@@ -21,6 +21,16 @@ class LocationPolicyEngineTest {
     }
 
     @Test
+    fun collectionDisabledHasNoNextExpectedLocation() {
+        val engine = LocationPolicyEngine(policy)
+
+        val decision = engine.reduce(LocationPolicyInput(nowMillis = now, collectionEnabled = false))
+
+        assertEquals(LocationPolicyMode.Off, decision.mode)
+        assertEquals(Long.MAX_VALUE, decision.nextExpectedLocationAtMillis)
+    }
+
+    @Test
     fun currentScheduleWithLocationEntersLowFrequency() {
         val engine = LocationPolicyEngine(policy)
 
@@ -59,6 +69,27 @@ class LocationPolicyEngineTest {
 
         assertEquals(LocationPolicyMode.MovementRecovery, recovered.mode)
         assertEquals(policy.movementIntervalMillis, recovered.requestIntervalMillis)
+    }
+
+    @Test
+    fun sameScheduleIdWithChangedWindowResetsRecoveryState() {
+        val longSchedule = schedule.copy(endsAtMillis = now + 180_000L)
+        val engine = LocationPolicyEngine(policy)
+        engine.reduce(LocationPolicyInput(nowMillis = now, collectionEnabled = true, currentScheduleWindow = longSchedule))
+        engine.onAcceptedLocation(PolicyLocation(31.230416, 121.473701, now))
+        engine.onAcceptedLocation(PolicyLocation(31.232000, 121.473701, now + 60_000L))
+        engine.reduce(LocationPolicyInput(nowMillis = now + 61_000L, collectionEnabled = true, currentScheduleWindow = longSchedule))
+
+        val updatedSameIdSchedule = longSchedule.copy(locationText = "上海市徐汇区", startsAtMillis = now + 70_000L)
+        val decision = engine.reduce(
+            LocationPolicyInput(
+                nowMillis = now + 71_000L,
+                collectionEnabled = true,
+                currentScheduleWindow = updatedSameIdSchedule
+            )
+        )
+
+        assertEquals(LocationPolicyMode.ScheduleLowFrequency, decision.mode)
     }
 
     @Test

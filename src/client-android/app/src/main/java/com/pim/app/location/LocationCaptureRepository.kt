@@ -12,9 +12,17 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import androidx.core.content.ContextCompat
+import com.pim.app.location.quality.AltitudeWaitCoordinator
+import com.pim.app.location.quality.QualityAcceptedLocation
+import com.pim.app.location.quality.RawLocationFix
 import com.pim.core.models.MobileLocationPointRequest
 import com.pim.core.network.ApiService
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.security.MessageDigest
+import java.time.Instant
+import java.util.Locale
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,12 +34,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
-import java.security.MessageDigest
-import java.time.Instant
-import java.util.Locale
-import javax.inject.Inject
-import javax.inject.Singleton
 
 data class LocationSnapshot(
     val latitude: Double,
@@ -63,6 +67,7 @@ class LocationCaptureRepository @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    private val qualityCoordinator = AltitudeWaitCoordinator()
 
     private var listener: LocationListener? = null
     private var startedAtElapsedMs: Long = 0L
@@ -204,51 +209,64 @@ class LocationCaptureRepository @Inject constructor(
         }
 
         if (decision.shouldAutoSubmit) {
-            _state.update { it.copy(autoSubmitted = true) }
             scope.launch { submitSnapshot(snapshot, isAutoSubmitted = true) }
         }
     }
 
     private suspend fun submitSnapshot(snapshot: LocationSnapshot, isAutoSubmitted: Boolean) {
         if (state.value.isSubmitting) return
-        val accuracy = snapshot.horizontalAccuracyMeters
-        if (accuracy == null || accuracy > 50f) {
-            val reason = LocationSubmissionPolicy.decide(accuracy, state.value.autoSubmitted).reason
+
+        var acceptedLocation: QualityAcceptedLocation? = null
+        var droppedReason: String? = null
+        qualityCoordinator.handleFix(
+            fix = snapshot.toRawLocationFix(),
+            onAccepted = { acceptedLocation = it },
+            onDropped = { _, reason -> droppedReason = reason }
+        )
+
+        val accepted = acceptedLocation
+        if (accepted == null) {
             _state.update {
                 it.copy(
                     submitStatus = "未提交",
-                    inlineReason = reason
+                    inlineReason = droppedReason?.toLocationMessage()
                 )
             }
             return
         }
+        if (state.value.isSubmitting) return
 
         _state.update {
             it.copy(
                 isSubmitting = true,
-                submitStatus = if (isAutoSubmitted) "误差 <=10m，自动提交中..." else "手动提交中...",
+                submitStatus = if (isAutoSubmitted) {
+                    "误差符合要求，自动提交中..."
+                } else {
+                    "手动提交中..."
+                },
                 inlineReason = null
             )
         }
 
         val result = withContext(Dispatchers.IO) {
             runCatching {
+                val fix = accepted.fix
                 val request = MobileLocationPointRequest(
                     deviceId = deviceId(),
-                    recordedAtUtc = Instant.ofEpochMilli(snapshot.timeMillis).toString(),
-                    latitude = snapshot.latitude,
-                    longitude = snapshot.longitude,
-                    horizontalAccuracyMeters = accuracy.toDouble(),
-                    provider = snapshot.provider,
+                    recordedAtUtc = Instant.ofEpochMilli(fix.recordedAtMillis).toString(),
+                    latitude = fix.latitude,
+                    longitude = fix.longitude,
+                    horizontalAccuracyMeters = fix.horizontalAccuracyMeters!!.toDouble(),
+                    provider = fix.provider,
                     sourceKind = snapshot.source,
-                    altitudeMeters = snapshot.altitudeMeters,
+                    altitudeMeters = accepted.altitudeMeters,
                     verticalAccuracyMeters = null,
-                    speedMetersPerSecond = snapshot.speedMetersPerSecond?.toDouble(),
+                    speedMetersPerSecond = fix.speedMetersPerSecond?.toDouble(),
                     speedAccuracyMetersPerSecond = null,
-                    bearingDegrees = snapshot.bearingDegrees?.toDouble(),
+                    bearingDegrees = fix.bearingDegrees?.toDouble(),
                     bearingAccuracyDegrees = null,
                     isAutoSubmitted = isAutoSubmitted,
-                    rawJson = rawJson(snapshot, isAutoSubmitted)
+                    rawJson = rawJson(accepted, snapshot.source, isAutoSubmitted)
                 )
                 val response = apiService.uploadMobileLocation(request)
                 if (response.code != 0 || response.data == null) {
@@ -261,6 +279,7 @@ class LocationCaptureRepository @Inject constructor(
         _state.update {
             it.copy(
                 isSubmitting = false,
+                autoSubmitted = it.autoSubmitted || (isAutoSubmitted && result.isSuccess),
                 submitStatus = result.fold(
                     onSuccess = { if (isAutoSubmitted) "自动提交成功" else "手动提交成功" },
                     onFailure = { error -> "提交失败：${error.message ?: "未知错误"}" }
@@ -269,6 +288,20 @@ class LocationCaptureRepository @Inject constructor(
             )
         }
     }
+
+    private fun LocationSnapshot.toRawLocationFix(): RawLocationFix = RawLocationFix(
+        latitude = latitude,
+        longitude = longitude,
+        horizontalAccuracyMeters = horizontalAccuracyMeters,
+        altitudeMeters = altitudeMeters,
+        provider = provider,
+        recordedAtMillis = timeMillis,
+        policyMode = "PowerSavingNormal",
+        scheduleLowFrequency = false,
+        motionSignal = "Unknown",
+        speedMetersPerSecond = speedMetersPerSecond,
+        bearingDegrees = bearingDegrees
+    )
 
     private fun enabledProviders(): List<String> {
         val ordered = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
@@ -281,20 +314,35 @@ class LocationCaptureRepository @Inject constructor(
         return fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED
     }
 
-    private fun rawJson(snapshot: LocationSnapshot, isAutoSubmitted: Boolean): String {
+    private fun rawJson(
+        accepted: QualityAcceptedLocation,
+        source: String,
+        isAutoSubmitted: Boolean
+    ): String {
+        val fix = accepted.fix
         return JSONObject()
-            .put("latitude", snapshot.latitude)
-            .put("longitude", snapshot.longitude)
-            .put("horizontalAccuracyMeters", snapshot.horizontalAccuracyMeters?.toDouble() ?: JSONObject.NULL)
-            .put("provider", snapshot.provider)
-            .put("source", snapshot.source)
-            .put("altitudeMeters", snapshot.altitudeMeters ?: JSONObject.NULL)
-            .put("speedMetersPerSecond", snapshot.speedMetersPerSecond?.toDouble() ?: JSONObject.NULL)
-            .put("bearingDegrees", snapshot.bearingDegrees?.toDouble() ?: JSONObject.NULL)
-            .put("recordedAtUnixMs", snapshot.timeMillis)
+            .put("latitude", fix.latitude)
+            .put("longitude", fix.longitude)
+            .put("horizontalAccuracyMeters", fix.horizontalAccuracyMeters?.toDouble() ?: JSONObject.NULL)
+            .put("provider", fix.provider)
+            .put("source", source)
+            .put("altitudeMeters", accepted.altitudeMeters ?: JSONObject.NULL)
+            .put("speedMetersPerSecond", fix.speedMetersPerSecond?.toDouble() ?: JSONObject.NULL)
+            .put("bearingDegrees", fix.bearingDegrees?.toDouble() ?: JSONObject.NULL)
+            .put("recordedAtUnixMs", fix.recordedAtMillis)
             .put("submittedAtUnixMs", System.currentTimeMillis())
             .put("isAutoSubmitted", isAutoSubmitted)
+            .put("policyMode", fix.policyMode)
+            .put("scheduleLowFrequency", fix.scheduleLowFrequency)
+            .put("motionSignal", fix.motionSignal)
+            .put("qualityFlags", JSONArray(accepted.qualityFlags.sorted()))
             .toString()
+    }
+
+    private fun String.toLocationMessage(): String = when (this) {
+        "missing-horizontal-accuracy" -> "缺少水平精度信息，不能提交。"
+        "horizontal-accuracy-too-low" -> "误差必须小于 50 米，不能提交。"
+        else -> this
     }
 
     private fun deviceId(): String {

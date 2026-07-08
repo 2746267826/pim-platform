@@ -57,6 +57,38 @@ class AltitudeWaitCoordinatorTest {
         assertEquals(listOf("horizontal-accuracy-too-low"), dropped)
     }
 
+    @Test
+    fun laterAltitudeFixBeforeDeadlineCancelsNullAltitudeTimeout() = runBlocking {
+        var now = 1_000L
+        val accepted = mutableListOf<QualityAcceptedLocation>()
+        val dropped = mutableListOf<String>()
+        lateinit var coordinator: AltitudeWaitCoordinator
+        coordinator = AltitudeWaitCoordinator(
+            gate = LocationQualityGate(maxAccuracyMetersExclusive = 50f, altitudeWaitTimeoutMillis = 15_000L),
+            nowMillis = { now },
+            delayMillis = { millis ->
+                now += millis / 2
+                coordinator.handleFix(
+                    fix(horizontalAccuracyMeters = 18f, altitudeMeters = 12.5, recordedAtMillis = now),
+                    onAccepted = { accepted += it },
+                    onDropped = { _, reason -> dropped += reason }
+                )
+                now += millis / 2
+            }
+        )
+
+        coordinator.handleFix(
+            fix(horizontalAccuracyMeters = 18f, altitudeMeters = null, recordedAtMillis = 1_000L),
+            onAccepted = { accepted += it },
+            onDropped = { _, reason -> dropped += reason }
+        )
+
+        assertTrue(dropped.isEmpty())
+        assertEquals(1, accepted.size)
+        assertEquals(12.5, accepted.single().altitudeMeters!!, 0.001)
+        assertTrue(accepted.single().qualityFlags.isEmpty())
+    }
+
     private fun fix(
         horizontalAccuracyMeters: Float?,
         altitudeMeters: Double? = null,

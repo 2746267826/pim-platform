@@ -3,7 +3,7 @@ package com.pim.app.location.policy
 class LocationPolicyEngine(
     private val policy: TrackingPolicy
 ) {
-    private var activeScheduleId: String? = null
+    private var activeScheduleKey: ScheduleKey? = null
     private var scheduleAnchorLocation: PolicyLocation? = null
     private var movementRecoveryActive: Boolean = false
 
@@ -15,7 +15,8 @@ class LocationPolicyEngine(
                 intervalMillis = 0L,
                 nowMillis = input.nowMillis,
                 reason = "连续采集未开启",
-                scheduleLowFrequency = false
+                scheduleLowFrequency = false,
+                nextExpectedLocationAtMillis = Long.MAX_VALUE
             )
         }
 
@@ -28,8 +29,9 @@ class LocationPolicyEngine(
             return normalDecision(input.nowMillis, "默认省电档")
         }
 
-        if (activeScheduleId != activeSchedule.id) {
-            activeScheduleId = activeSchedule.id
+        val scheduleKey = ScheduleKey.from(activeSchedule)
+        if (activeScheduleKey != scheduleKey) {
+            activeScheduleKey = scheduleKey
             scheduleAnchorLocation = null
             movementRecoveryActive = false
         }
@@ -58,7 +60,7 @@ class LocationPolicyEngine(
     }
 
     fun onAcceptedLocation(location: PolicyLocation) {
-        activeScheduleId ?: return
+        activeScheduleKey ?: return
         val anchor = scheduleAnchorLocation
         if (anchor == null) {
             scheduleAnchorLocation = location
@@ -94,17 +96,18 @@ class LocationPolicyEngine(
         intervalMillis: Long,
         nowMillis: Long,
         reason: String,
-        scheduleLowFrequency: Boolean
+        scheduleLowFrequency: Boolean,
+        nextExpectedLocationAtMillis: Long = nowMillis + intervalMillis
     ): PolicyDecision = PolicyDecision(
         mode = mode,
         requestIntervalMillis = intervalMillis,
-        nextExpectedLocationAtMillis = nowMillis + intervalMillis,
+        nextExpectedLocationAtMillis = nextExpectedLocationAtMillis,
         reason = reason,
         scheduleLowFrequency = scheduleLowFrequency
     )
 
     private fun resetScheduleState() {
-        activeScheduleId = null
+        activeScheduleKey = null
         scheduleAnchorLocation = null
         movementRecoveryActive = false
     }
@@ -116,5 +119,21 @@ class LocationPolicyEngine(
         MotionSignal.InVehicle -> true
         MotionSignal.Unknown,
         MotionSignal.Still -> false
+    }
+
+    private data class ScheduleKey(
+        val id: String,
+        val locationText: String,
+        val startsAtMillis: Long,
+        val endsAtMillis: Long
+    ) {
+        companion object {
+            fun from(window: ScheduleWindow): ScheduleKey = ScheduleKey(
+                id = window.id,
+                locationText = window.locationText,
+                startsAtMillis = window.startsAtMillis,
+                endsAtMillis = window.endsAtMillis
+            )
+        }
     }
 }

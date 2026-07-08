@@ -129,6 +129,8 @@ data class MobileLocationPointEntity(
                 longitude = accepted.fix.longitude,
                 altitudeMeters = accepted.altitudeMeters,
                 accuracyMeters = accepted.fix.horizontalAccuracyMeters,
+                speedMetersPerSecond = accepted.fix.speedMetersPerSecond,
+                bearingDegrees = accepted.fix.bearingDegrees,
                 provider = accepted.fix.provider,
                 recordedAtUtc = accepted.fix.recordedAtMillis,
                 source = "auto",

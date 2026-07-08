@@ -21,6 +21,12 @@ const settingsLinks = [
     to: '/settings/pc-data',
   },
   {
+    title: '同步设置',
+    description: '配置微软日历连接、设备代码登录、同步批次与冲突策略',
+    label: '同步',
+    to: '/settings/sync',
+  },
+  {
     title: 'AI 设置',
     description: 'LiteLLM 状态、用量、请求日志与详情',
     label: 'AI',

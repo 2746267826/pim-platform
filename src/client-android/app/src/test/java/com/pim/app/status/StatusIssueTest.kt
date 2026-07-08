@@ -76,6 +76,8 @@ class StatusIssueTest {
         assertEquals("定位精度不达标", issues.getValue("location-accuracy-rejected").title)
         assertEquals("上传队列积压", issues.getValue("upload-queue-backlog").title)
         assertEquals("最近错误", issues.getValue("recent-error").title)
+        assertEquals("当前策略", issues.getValue("current-policy-state").title)
+        assertEquals("最近丢弃定位", issues.getValue("location-dropped-recent").title)
     }
 
     @Test

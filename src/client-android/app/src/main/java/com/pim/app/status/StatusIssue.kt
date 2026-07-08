@@ -201,6 +201,25 @@ data class StatusIssue(
             actionLabel = "查看状态",
             target = StatusActionTarget.Status
         )
+
+        fun currentPolicyState(mode: String): StatusIssue = StatusIssue(
+            code = "current-policy-state",
+            severity = StatusSeverity.Info,
+            title = "当前策略",
+            message = "当前定位策略为 $mode。",
+            actionLabel = "查看状态",
+            target = StatusActionTarget.Status
+        )
+
+        fun recentDroppedLocation(reason: String, lastOccurredAtMillis: Long?): StatusIssue = StatusIssue(
+            code = "location-dropped-recent",
+            severity = StatusSeverity.Info,
+            title = "最近丢弃定位",
+            message = "最近一次丢弃原因：$reason。",
+            lastOccurredAtMillis = lastOccurredAtMillis,
+            actionLabel = "查看状态",
+            target = StatusActionTarget.Status
+        )
     }
 }
 
@@ -350,6 +369,10 @@ object StatusIssuePlanner {
             issues += StatusIssue.foregroundServiceNotRunning()
         }
 
+        if (snapshot.tracking.currentPolicyMode.isNotBlank()) {
+            issues += StatusIssue.currentPolicyState(snapshot.tracking.currentPolicyMode)
+        }
+
         when (snapshot.diagnostics.lastDroppedReason) {
             "missing-horizontal-accuracy",
             "horizontal-accuracy-too-low" -> issues += StatusIssue.locationAccuracyRejected(
@@ -358,6 +381,9 @@ object StatusIssuePlanner {
             "altitude-missing-timeout" -> issues += StatusIssue.altitudeMissingTimeout(
                 snapshot.diagnostics.lastDroppedAtMillis
             )
+        }
+        snapshot.diagnostics.lastDroppedReason?.takeIf { it.isNotBlank() }?.let { reason ->
+            issues += StatusIssue.recentDroppedLocation(reason, snapshot.diagnostics.lastDroppedAtMillis)
         }
 
         if (snapshot.queues.pendingLocationPoints >= LOCATION_QUEUE_BACKLOG_THRESHOLD) {

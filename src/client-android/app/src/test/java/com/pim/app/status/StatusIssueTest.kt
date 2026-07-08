@@ -75,6 +75,7 @@ class StatusIssueTest {
         assertEquals("前台定位服务未运行", issues.getValue("foreground-service-not-running").title)
         assertEquals("定位精度不达标", issues.getValue("location-accuracy-rejected").title)
         assertEquals("上传队列积压", issues.getValue("upload-queue-backlog").title)
+        assertEquals("最近错误", issues.getValue("recent-error").title)
     }
 
     @Test
@@ -103,5 +104,15 @@ class StatusIssueTest {
         )
 
         assertEquals(listOf("first", "second"), diagnostics.recentLogMessages)
+    }
+
+    @Test
+    fun actionRouterMapsTargetsToVisibleActions() {
+        assertEquals(StatusActionRoute.OpenSettings, StatusActionRouter.route(StatusActionTarget.Settings))
+        assertEquals(StatusActionRoute.OpenSettings, StatusActionRouter.route(StatusActionTarget.Login))
+        assertEquals(StatusActionRoute.OpenSettings, StatusActionRouter.route(StatusActionTarget.Permissions))
+        assertEquals(StatusActionRoute.TriggerSync, StatusActionRouter.route(StatusActionTarget.Sync))
+        assertEquals(StatusActionRoute.StayOnStatus, StatusActionRouter.route(StatusActionTarget.Queue))
+        assertEquals(StatusActionRoute.StayOnStatus, StatusActionRouter.route(StatusActionTarget.Status))
     }
 }

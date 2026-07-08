@@ -2,6 +2,7 @@ package com.pim.app.ui.status
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pim.app.location.service.ForegroundLocationController
 import com.pim.app.status.StatusCenterRepository
 import com.pim.app.status.StatusCenterState
 import com.pim.app.status.StatusActionTarget
@@ -14,7 +15,8 @@ import kotlinx.coroutines.flow.stateIn
 
 @HiltViewModel
 class StatusCenterViewModel @Inject constructor(
-    repository: StatusCenterRepository
+    repository: StatusCenterRepository,
+    private val foregroundLocationController: ForegroundLocationController
 ) : ViewModel() {
     val state: StateFlow<StatusCenterState> = repository.observe()
         .stateIn(
@@ -24,8 +26,10 @@ class StatusCenterViewModel @Inject constructor(
         )
 
     fun onIssueAction(issue: StatusIssue): StatusActionTarget {
-        // Navigation and Android permission request surfaces stay owned by the screen layer.
-        // Keeping the target here makes status rows actionable without starting requests from repositories.
         return issue.target
+    }
+
+    fun syncNow() {
+        foregroundLocationController.syncNow()
     }
 }

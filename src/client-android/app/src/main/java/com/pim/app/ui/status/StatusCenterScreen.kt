@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pim.app.status.StatusActionRoute
+import com.pim.app.status.StatusActionRouter
 import com.pim.app.status.StatusCenterState
 import com.pim.app.status.StatusIssue
 import com.pim.app.status.StatusSeverity
@@ -27,13 +29,22 @@ import com.pim.app.ui.components.PimSection
 @Composable
 fun StatusCenterScreen(
     modifier: Modifier = Modifier,
+    onOpenSettings: () -> Unit = {},
+    onOpenStatus: () -> Unit = {},
     viewModel: StatusCenterViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     StatusCenterContent(
         state = state,
         modifier = modifier,
-        onIssueAction = { issue -> viewModel.onIssueAction(issue) }
+        onIssueAction = { issue ->
+            when (StatusActionRouter.route(viewModel.onIssueAction(issue))) {
+                StatusActionRoute.OpenSettings -> onOpenSettings()
+                StatusActionRoute.TriggerSync -> viewModel.syncNow()
+                StatusActionRoute.StayOnStatus -> onOpenStatus()
+                StatusActionRoute.None -> Unit
+            }
+        }
     )
 }
 

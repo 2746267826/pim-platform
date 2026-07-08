@@ -18,6 +18,25 @@ enum class StatusActionTarget {
     None
 }
 
+enum class StatusActionRoute {
+    OpenSettings,
+    TriggerSync,
+    StayOnStatus,
+    None
+}
+
+object StatusActionRouter {
+    fun route(target: StatusActionTarget): StatusActionRoute = when (target) {
+        StatusActionTarget.Settings,
+        StatusActionTarget.Login,
+        StatusActionTarget.Permissions -> StatusActionRoute.OpenSettings
+        StatusActionTarget.Sync -> StatusActionRoute.TriggerSync
+        StatusActionTarget.Status,
+        StatusActionTarget.Queue -> StatusActionRoute.StayOnStatus
+        StatusActionTarget.None -> StatusActionRoute.None
+    }
+}
+
 data class StatusIssue(
     val code: String,
     val severity: StatusSeverity,
@@ -172,6 +191,15 @@ data class StatusIssue(
             message = message?.takeIf { it.isNotBlank() } ?: "最近一次心跳或同步状态上报失败。",
             actionLabel = "重新同步",
             target = StatusActionTarget.Sync
+        )
+
+        fun recentError(message: String): StatusIssue = StatusIssue(
+            code = "recent-error",
+            severity = StatusSeverity.Info,
+            title = "最近错误",
+            message = message,
+            actionLabel = "查看状态",
+            target = StatusActionTarget.Status
         )
     }
 }
@@ -339,6 +367,12 @@ object StatusIssuePlanner {
         val heartbeat = snapshot.diagnostics.lastHeartbeatStatus.orEmpty()
         if (heartbeat.contains("fail", ignoreCase = true) || heartbeat.contains("失败")) {
             issues += StatusIssue.heartbeatFailure(snapshot.diagnostics.lastLogMessage)
+        }
+
+        val recentError = snapshot.diagnostics.recentLogMessages.firstOrNull()
+            ?: snapshot.diagnostics.lastLogMessage
+        if (!recentError.isNullOrBlank()) {
+            issues += StatusIssue.recentError(recentError)
         }
 
         return issues.distinctBy { it.code }

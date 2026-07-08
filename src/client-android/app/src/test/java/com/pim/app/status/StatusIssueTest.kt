@@ -1,5 +1,6 @@
 package com.pim.app.status
 
+import com.pim.app.location.service.ForegroundLocationRuntimeState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,8 +18,11 @@ class StatusIssueTest {
         assertTrue(issues.contains("upload-queue-backlog"))
 
         assertEquals("去设置", StatusIssue.apiAddressMissing().actionLabel)
-        assertEquals("去授权", StatusIssue.backgroundLocationMissing().actionLabel)
-        assertEquals("查看队列", StatusIssue.uploadQueueBacklog(18).actionLabel)
+        assertEquals("去设置", StatusIssue.backgroundLocationMissing().actionLabel)
+        assertEquals("去设置", StatusIssue.foregroundServiceNotRunning().actionLabel)
+        assertEquals("去设置", StatusIssue.locationAccuracyRejected().actionLabel)
+        assertEquals("去设置", StatusIssue.altitudeMissingTimeout().actionLabel)
+        assertEquals("去设置", StatusIssue.uploadQueueBacklog(18).actionLabel)
     }
 
     @Test
@@ -59,7 +63,8 @@ class StatusIssueTest {
                 lastDroppedReason = "horizontal-accuracy-too-low",
                 lastDroppedAtMillis = 1_000L,
                 lastLogMessage = "timeout",
-                lastHeartbeatStatus = "failed"
+                lastHeartbeatStatus = "failed",
+                recentLogMessages = listOf("timeout", "retry scheduled")
             )
         )
 
@@ -70,5 +75,33 @@ class StatusIssueTest {
         assertEquals("前台定位服务未运行", issues.getValue("foreground-service-not-running").title)
         assertEquals("定位精度不达标", issues.getValue("location-accuracy-rejected").title)
         assertEquals("上传队列积压", issues.getValue("upload-queue-backlog").title)
+    }
+
+    @Test
+    fun trackingSnapshotUsesForegroundServiceRuntimeState() {
+        val runtime = ForegroundLocationRuntimeState(
+            isRunning = true,
+            currentPolicyMode = "ScheduleLowFrequency",
+            nextExpectedLocationAtMillis = 2_000L
+        )
+
+        val tracking = StatusTrackingMapper.fromRuntime("power-saving", runtime)
+
+        assertEquals("power-saving", tracking.profile)
+        assertEquals("ScheduleLowFrequency", tracking.currentPolicyMode)
+        assertEquals(2_000L, tracking.nextExpectedLocationAtMillis)
+    }
+
+    @Test
+    fun diagnosticSnapshotKeepsRecentLogs() {
+        val diagnostics = DiagnosticSnapshot(
+            lastDroppedReason = null,
+            lastDroppedAtMillis = null,
+            lastLogMessage = "first",
+            lastHeartbeatStatus = null,
+            recentLogMessages = listOf("first", "second")
+        )
+
+        assertEquals(listOf("first", "second"), diagnostics.recentLogMessages)
     }
 }

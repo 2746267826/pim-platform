@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -29,13 +30,18 @@ fun StatusCenterScreen(
     viewModel: StatusCenterViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    StatusCenterContent(state = state, modifier = modifier)
+    StatusCenterContent(
+        state = state,
+        modifier = modifier,
+        onIssueAction = { issue -> viewModel.onIssueAction(issue) }
+    )
 }
 
 @Composable
 private fun StatusCenterContent(
     state: StatusCenterState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onIssueAction: (StatusIssue) -> Unit = {}
 ) {
     val snapshot = state.snapshot
     Column(
@@ -52,7 +58,7 @@ private fun StatusCenterContent(
                 Text("当前没有阻塞问题。")
             } else {
                 state.issues.forEach { issue ->
-                    StatusIssueRow(issue)
+                    StatusIssueRow(issue, onAction = { onIssueAction(issue) })
                 }
             }
         }
@@ -90,12 +96,18 @@ private fun StatusCenterContent(
             Text("最近丢弃原因：${snapshot.diagnostics.lastDroppedReason ?: "无"}")
             Text("心跳状态：${snapshot.diagnostics.lastHeartbeatStatus ?: "等待同步"}")
             Text("最近错误：${snapshot.diagnostics.lastLogMessage ?: "无"}")
+            snapshot.diagnostics.recentLogMessages.take(5).forEach { message ->
+                Text("日志：$message", style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }
 
 @Composable
-private fun StatusIssueRow(issue: StatusIssue) {
+private fun StatusIssueRow(
+    issue: StatusIssue,
+    onAction: () -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -109,11 +121,9 @@ private fun StatusIssueRow(issue: StatusIssue) {
             )
             Text(issue.message, style = MaterialTheme.typography.bodySmall)
         }
-        Text(
-            text = issue.actionLabel,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary
-        )
+        TextButton(onClick = onAction) {
+            Text(issue.actionLabel)
+        }
     }
 }
 

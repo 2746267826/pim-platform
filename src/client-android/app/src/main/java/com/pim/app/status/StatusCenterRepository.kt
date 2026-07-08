@@ -3,6 +3,7 @@ package com.pim.app.status
 import com.pim.app.data.AppDatabase
 import com.pim.app.data.MobileDataDao
 import com.pim.app.location.service.ForegroundLocationService
+import com.pim.app.location.service.ForegroundLocationRuntimeState
 import com.pim.app.mobile.sync.MobileSyncCoordinator
 import com.pim.app.permissions.PermissionStatusRepository
 import com.pim.app.settings.TrackingSettingsStore
@@ -29,28 +30,34 @@ class StatusCenterRepository @Inject constructor(
         return combine(
             queueSnapshotFlow(),
             diagnosticSnapshotFlow(),
-            syncCoordinator.currentState
-        ) { queues, diagnostics, sync ->
+            syncCoordinator.currentState,
+            ForegroundLocationService.runtimeState
+        ) { queues, diagnostics, sync, runtime ->
             val mergedDiagnostics = diagnostics.copy(
                 lastHeartbeatStatus = sync.heartbeatStatus,
-                lastLogMessage = diagnostics.lastLogMessage ?: sync.lastError
+                lastLogMessage = diagnostics.lastLogMessage ?: sync.lastError,
+                recentLogMessages = diagnostics.recentLogMessages.ifEmpty {
+                    listOfNotNull(sync.lastError)
+                }
             )
-            val snapshot = buildSnapshot(queues, mergedDiagnostics)
+            val snapshot = buildSnapshot(queues, mergedDiagnostics, runtime)
             StatusCenterState(snapshot, StatusIssuePlanner.plan(snapshot))
         }
     }
 
     fun snapshotNow(
         queues: QueueStatusSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0),
-        diagnostics: DiagnosticSnapshot = DiagnosticSnapshot(null, null, null, null)
+        diagnostics: DiagnosticSnapshot = DiagnosticSnapshot(null, null, null, null),
+        runtime: ForegroundLocationRuntimeState = ForegroundLocationService.runtimeState.value
     ): StatusCenterState {
-        val snapshot = buildSnapshot(queues, diagnostics)
+        val snapshot = buildSnapshot(queues, diagnostics, runtime)
         return StatusCenterState(snapshot, StatusIssuePlanner.plan(snapshot))
     }
 
     private fun buildSnapshot(
         queues: QueueStatusSnapshot,
-        diagnostics: DiagnosticSnapshot
+        diagnostics: DiagnosticSnapshot,
+        runtime: ForegroundLocationRuntimeState
     ): StatusCenterSnapshot {
         val baseUrl = serverSettingsStore.getBaseUrl()
         val validation = ServerUrlValidator.validate(baseUrl)
@@ -69,13 +76,9 @@ class StatusCenterRepository @Inject constructor(
             ),
             service = ForegroundServiceSnapshot(
                 continuousCollectionEnabled = settings.continuousCollectionEnabled,
-                serviceRunning = ForegroundLocationService.isRunning()
+                serviceRunning = runtime.isRunning
             ),
-            tracking = TrackingPolicySnapshot(
-                profile = settings.profile,
-                currentPolicyMode = "PowerSavingNormal",
-                nextExpectedLocationAtMillis = null
-            ),
+            tracking = StatusTrackingMapper.fromRuntime(settings.profile, runtime),
             queues = queues,
             diagnostics = diagnostics
         )
@@ -108,7 +111,7 @@ class StatusCenterRepository @Inject constructor(
     private fun diagnosticSnapshotFlow(): Flow<DiagnosticSnapshot> {
         return combine(
             dao.recentDroppedLocationDiagnostics(limit = 1),
-            dao.recentLogs(limit = 1)
+            dao.recentLogs(limit = 6)
         ) { dropped, logs ->
             val latestDrop = dropped.firstOrNull()
             val latestLog = logs.firstOrNull()
@@ -116,7 +119,8 @@ class StatusCenterRepository @Inject constructor(
                 lastDroppedReason = latestDrop?.reason,
                 lastDroppedAtMillis = latestDrop?.recordedAtUtc,
                 lastLogMessage = latestLog?.message,
-                lastHeartbeatStatus = null
+                lastHeartbeatStatus = null,
+                recentLogMessages = logs.map { it.message }
             )
         }
     }

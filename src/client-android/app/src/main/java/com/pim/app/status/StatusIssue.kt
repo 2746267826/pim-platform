@@ -1,5 +1,7 @@
 package com.pim.app.status
 
+import com.pim.app.location.service.ForegroundLocationRuntimeState
+
 enum class StatusSeverity {
     Info,
     Warning,
@@ -85,7 +87,7 @@ data class StatusIssue(
             severity = StatusSeverity.Warning,
             title = "通知未授权",
             message = "持续采集需要显示包含采集状态的常驻通知。",
-            actionLabel = "去授权",
+            actionLabel = "去设置",
             target = StatusActionTarget.Permissions
         )
 
@@ -103,7 +105,7 @@ data class StatusIssue(
             severity = StatusSeverity.Critical,
             title = "后台定位未授权",
             message = "持续采集需要“始终允许”定位权限。",
-            actionLabel = "去授权",
+            actionLabel = "去设置",
             target = StatusActionTarget.Permissions
         )
 
@@ -130,7 +132,7 @@ data class StatusIssue(
             severity = StatusSeverity.Critical,
             title = "前台定位服务未运行",
             message = "持续采集已开启，但前台定位服务没有运行。",
-            actionLabel = "查看状态",
+            actionLabel = "去设置",
             target = StatusActionTarget.Status
         )
 
@@ -140,7 +142,7 @@ data class StatusIssue(
             title = "定位精度不达标",
             message = "最近有定位点因水平精度缺失或大于等于 50m 被丢弃。",
             lastOccurredAtMillis = lastOccurredAtMillis,
-            actionLabel = "查看详情",
+            actionLabel = "去设置",
             target = StatusActionTarget.Status
         )
 
@@ -150,7 +152,7 @@ data class StatusIssue(
             title = "高度等待超时",
             message = "最近有定位点等待 15 秒后仍缺少高度，已按 null 高度并附带质量标记处理。",
             lastOccurredAtMillis = lastOccurredAtMillis,
-            actionLabel = "查看详情",
+            actionLabel = "去设置",
             target = StatusActionTarget.Status
         )
 
@@ -159,7 +161,7 @@ data class StatusIssue(
             severity = StatusSeverity.Warning,
             title = "上传队列积压",
             message = "当前有 $count 条定位记录等待上传。",
-            actionLabel = "查看队列",
+            actionLabel = "去设置",
             target = StatusActionTarget.Queue
         )
 
@@ -228,8 +230,20 @@ data class DiagnosticSnapshot(
     val lastDroppedReason: String?,
     val lastDroppedAtMillis: Long?,
     val lastLogMessage: String?,
-    val lastHeartbeatStatus: String?
+    val lastHeartbeatStatus: String?,
+    val recentLogMessages: List<String> = emptyList()
 )
+
+object StatusTrackingMapper {
+    fun fromRuntime(
+        profile: String,
+        runtime: ForegroundLocationRuntimeState
+    ): TrackingPolicySnapshot = TrackingPolicySnapshot(
+        profile = profile,
+        currentPolicyMode = runtime.currentPolicyMode,
+        nextExpectedLocationAtMillis = runtime.nextExpectedLocationAtMillis
+    )
+}
 
 data class StatusCenterSnapshot(
     val permissions: PermissionStatusSnapshot,

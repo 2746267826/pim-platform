@@ -39,6 +39,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -73,8 +76,8 @@ class ForegroundLocationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        running = true
         manager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        publishRuntimeState(isRunning = true)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -102,7 +105,7 @@ class ForegroundLocationService : Service() {
     override fun onDestroy() {
         stopCollection()
         scope.cancel()
-        running = false
+        _runtimeState.value = ForegroundLocationRuntimeState(isRunning = false)
         super.onDestroy()
     }
 
@@ -119,6 +122,7 @@ class ForegroundLocationService : Service() {
                 collectionEnabled = settings.continuousCollectionEnabled
             )
         )
+        publishRuntimeState()
         startForeground(LocationNotificationRenderer.NOTIFICATION_ID, notification())
 
         if (!settings.continuousCollectionEnabled) {
@@ -290,8 +294,23 @@ class ForegroundLocationService : Service() {
     )
 
     private fun updateNotification() {
+        publishRuntimeState()
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         notificationManager.notify(LocationNotificationRenderer.NOTIFICATION_ID, notification())
+    }
+
+    private fun publishRuntimeState(isRunning: Boolean = isRunning()) {
+        _runtimeState.value = ForegroundLocationRuntimeState(
+            isRunning = isRunning,
+            currentPolicyMode = currentDecision.mode.name,
+            nextExpectedLocationAtMillis = currentDecision.nextExpectedLocationAtMillis
+                .takeUnless { it == Long.MAX_VALUE },
+            lastAcceptedLocationText = lastAcceptedLocationText,
+            lastAccuracyText = lastAccuracyText,
+            pendingUploadCount = pendingUploadCount,
+            apiState = apiState,
+            lastDroppedReason = lastDroppedReason
+        )
     }
 
     private fun enabledProviders(): List<String> {
@@ -335,10 +354,10 @@ class ForegroundLocationService : Service() {
     }
 
     companion object {
-        @Volatile
-        private var running: Boolean = false
+        private val _runtimeState = MutableStateFlow(ForegroundLocationRuntimeState())
+        val runtimeState: StateFlow<ForegroundLocationRuntimeState> = _runtimeState.asStateFlow()
 
-        fun isRunning(): Boolean = running
+        fun isRunning(): Boolean = runtimeState.value.isRunning
 
         val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     }

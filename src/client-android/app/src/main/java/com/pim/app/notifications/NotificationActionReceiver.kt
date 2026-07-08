@@ -3,19 +3,39 @@ package com.pim.app.notifications
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.pim.app.ui.shell.PimShellActivity
+import com.pim.app.location.service.ForegroundLocationController
 import com.pim.core.network.ApiClientProvider
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class NotificationActionReceiver : BroadcastReceiver() {
     @Inject lateinit var apiClientProvider: ApiClientProvider
+    @Inject lateinit var foregroundLocationController: ForegroundLocationController
 
     override fun onReceive(context: Context, intent: Intent) {
+        when (intent.action) {
+            ForegroundLocationController.ACTION_PAUSE_COLLECTION -> {
+                foregroundLocationController.stop()
+                return
+            }
+            ForegroundLocationController.ACTION_RESUME_COLLECTION -> {
+                foregroundLocationController.start()
+                return
+            }
+            ForegroundLocationController.ACTION_SYNC_NOW -> {
+                foregroundLocationController.syncNow()
+                return
+            }
+            ForegroundLocationController.ACTION_OPEN_STATUS -> {
+                context.startActivity(foregroundLocationController.openStatusIntent())
+                return
+            }
+        }
+
         val action = intent.getStringExtra(EXTRA_ACTION).orEmpty()
         val riskLevel = intent.getStringExtra(EXTRA_RISK_LEVEL).orEmpty()
         val confirmationId = intent.getStringExtra(EXTRA_CONFIRMATION_ID)
@@ -48,17 +68,9 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     }
                 }
             }
-            is NotificationRoute.OpenDetail -> {
-                context.startActivity(
-                    PimShellActivity.intentFor(context, route.detailUrl)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
-            }
+            is NotificationRoute.OpenDetail,
             NotificationRoute.RetryWhenOnline -> {
-                context.startActivity(
-                    PimShellActivity.intentFor(context, "/endpoint-shell")
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                )
+                context.startActivity(foregroundLocationController.openStatusIntent())
             }
         }
     }

@@ -38,6 +38,10 @@
             android:name=".notifications.NotificationActionReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".location.motion.MotionTransitionReceiver"
+            android:exported="false" />
+
         <service
             android:name=".location.service.ForegroundLocationService"
             android:exported="false"

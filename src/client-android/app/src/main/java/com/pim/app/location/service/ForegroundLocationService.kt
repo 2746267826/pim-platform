@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.os.Looper
@@ -111,11 +112,23 @@ class ForegroundLocationService : Service() {
     }
 
     private fun startCollection(enableCollection: Boolean) {
-        val settings = if (enableCollection) {
-            trackingSettingsStore.setContinuousCollectionEnabled(true)
-        } else {
-            trackingSettingsStore.read()
+        if (!hasRequiredLocationPermissions()) {
+            trackingSettingsStore.setContinuousCollectionEnabled(false)
+            currentDecision = currentDecision.copy(
+                mode = LocationPolicyMode.Off,
+                requestIntervalMillis = 0L,
+                nextExpectedLocationAtMillis = Long.MAX_VALUE,
+                reason = "缺少精确或后台定位权限",
+                scheduleLowFrequency = false
+            )
+            lastDroppedReason = "缺少精确或后台定位权限"
+            publishRuntimeState(isRunning = false)
+            stopCollection()
+            stopSelf()
+            return
         }
+
+        val settings = if (enableCollection) trackingSettingsStore.setContinuousCollectionEnabled(true) else trackingSettingsStore.read()
         policyEngine = LocationPolicyEngine(settings.toTrackingPolicy())
         currentDecision = policyEngine!!.reduce(
             LocationPolicyInput(
@@ -128,18 +141,13 @@ class ForegroundLocationService : Service() {
 
         if (!settings.continuousCollectionEnabled) {
             lastDroppedReason = "连续采集未开启"
-            updateNotification()
             stopCollection()
             stopSelf()
             return
         }
-        if (!hasAnyLocationPermission()) {
-            lastDroppedReason = "缺少定位权限"
-            updateNotification()
-            return
-        }
 
         refreshScheduleWindows()
+        motionSignalRepository.registerActivityTransitions()
         requestLocationUpdates(currentDecision.requestIntervalMillis)
     }
 
@@ -147,11 +155,19 @@ class ForegroundLocationService : Service() {
         listener?.let { manager.removeUpdates(it) }
         listener = null
         registeredIntervalMillis = null
+        runCatching { motionSignalRepository.unregisterActivityTransitions() }
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
     private fun runManualSync() {
         val stopAfterSync = listener == null && !trackingSettingsStore.read().continuousCollectionEnabled
+        if (!hasRequiredLocationPermissions()) {
+            apiState = "缺少定位权限"
+            lastDroppedReason = "缺少精确或后台定位权限"
+            publishRuntimeState(isRunning = false)
+            stopSelf()
+            return
+        }
         apiState = "同步中"
         startForeground(LocationNotificationRenderer.NOTIFICATION_ID, notification())
         updateNotification()
@@ -347,10 +363,17 @@ class ForegroundLocationService : Service() {
             .filter { manager.isProviderEnabled(it) }
     }
 
-    private fun hasAnyLocationPermission(): Boolean {
+    private fun hasRequiredLocationPermissions(): Boolean {
         val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-        val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-        return fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED
+        val background = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_BACKGROUND_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+        return fine == PackageManager.PERMISSION_GRANTED && background
     }
 
     private fun nextExpectedLocationText(decision: PolicyDecision): String {

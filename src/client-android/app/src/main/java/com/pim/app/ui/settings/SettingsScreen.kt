@@ -35,7 +35,6 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var username by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    var collectionEnabled by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -105,8 +104,12 @@ fun SettingsScreen(
         }
         PimSection("持续采集") {
             Text("默认关闭，需要手动开启。缺少 API、登录或权限时保持关闭。")
-            Switch(checked = collectionEnabled, onCheckedChange = { collectionEnabled = it })
-            Text(if (collectionEnabled) "准备开启前台服务" else "当前未开启")
+            Switch(
+                checked = state.continuousCollectionEnabled,
+                onCheckedChange = viewModel::setContinuousCollectionEnabled
+            )
+            Text(if (state.continuousCollectionEnabled) "当前已开启" else "当前未开启")
+            state.collectionStatus?.let { Text(it) }
         }
         PimSection("省电档") {
             Text("常规间隔：3 分钟")

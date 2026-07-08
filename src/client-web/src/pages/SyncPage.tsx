@@ -4,9 +4,12 @@ import {
   createOutlookDeviceCode,
   getOutlookSettings,
   getOutlookSyncBatches,
+  pollOutlookDeviceCode,
+  queryDataCenter,
   runOutlookSync,
   updateOutlookSettings,
 } from '../api/calendar';
+import OutlookConflictResolver from '../components/schedule/OutlookConflictResolver';
 import type { UpdateOutlookSettingsRequest } from '../types';
 import PageHeader from '../ui/PageHeader';
 
@@ -18,7 +21,7 @@ function formatDateTime(value?: string | null) {
 }
 
 function mutationError(error: unknown) {
-  return error instanceof Error ? error.message : 'Request failed';
+  return error instanceof Error ? error.message : '请求失败';
 }
 
 export const outlookSyncInvalidationKeys = [
@@ -54,6 +57,21 @@ export default function SyncPage() {
     refetchInterval: 45_000,
   });
 
+  const { data: conflictData } = useQuery({
+    queryKey: ['sync-conflicts', 'outlook'],
+    queryFn: () => queryDataCenter({
+      search: null,
+      objectType: 'sync-conflict',
+      source: 'outlook',
+      pendingOnly: false,
+      page: 1,
+      pageSize: 25,
+    }),
+    refetchInterval: 45_000,
+  });
+
+  const conflictItems = conflictData?.items ?? [];
+
   useEffect(() => {
     if (!settings) return;
     setTenantId(settings.tenantId || 'common');
@@ -71,6 +89,14 @@ export default function SyncPage() {
 
   const deviceCodeMutation = useMutation({
     mutationFn: createOutlookDeviceCode,
+  });
+
+  const pollDeviceCodeMutation = useMutation({
+    mutationFn: pollOutlookDeviceCode,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['outlook-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['workbench-outlook-settings'] });
+    },
   });
 
   const syncMutation = useMutation({
@@ -94,8 +120,8 @@ export default function SyncPage() {
   return (
     <div className="mx-auto w-full max-w-[1300px] space-y-4 pb-8">
       <PageHeader
-        title="Outlook Sync"
-        subtitle="Configure Microsoft device authorization, run sync, and inspect batch steps."
+        title="微软同步"
+        subtitle="配置设备代码连接、令牌健康、增量状态、回写默认值与冲突治理。"
         actions={
           <button
             type="button"
@@ -103,7 +129,7 @@ export default function SyncPage() {
             disabled={syncMutation.isPending}
             className="pim-button-primary px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {syncMutation.isPending ? 'Running sync' : 'Run sync'}
+            {syncMutation.isPending ? '同步中' : '运行同步'}
           </button>
         }
       />
@@ -112,13 +138,13 @@ export default function SyncPage() {
         <section className="pim-panel min-w-0 p-4 xl:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h2 className="text-sm font-semibold text-slate-950">Outlook Settings</h2>
+              <h2 className="text-sm font-semibold text-slate-950">同步设置</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Status: {settingsLoading ? 'Loading' : settings?.status ?? 'Unknown'} / Token: {settings?.tokenHealth ?? 'Unknown'}
+                状态：{settingsLoading ? '加载中' : settings?.status ?? '未知'} / tokenHealth：{settings?.tokenHealth ?? '未知'}
               </p>
             </div>
             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-              Source: Outlook
+              来源：Outlook
             </span>
           </div>
 
@@ -156,9 +182,9 @@ export default function SyncPage() {
                 disabled={settingsMutation.isPending}
                 className="pim-button-primary px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {settingsMutation.isPending ? 'Saving' : 'Save settings'}
+                {settingsMutation.isPending ? '保存中' : '保存设置'}
               </button>
-              <p className="text-xs text-slate-500">Last synced: {formatDateTime(settings?.lastSyncedAt)}</p>
+              <p className="text-xs text-slate-500">上次同步：{formatDateTime(settings?.lastSyncedAt)}</p>
             </div>
             {settingsMutation.isError && (
               <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 lg:col-span-3">
@@ -170,14 +196,14 @@ export default function SyncPage() {
 
         <section className="pim-panel min-w-0 p-4">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-950">Device Code</h2>
+            <h2 className="text-sm font-semibold text-slate-950">设备代码</h2>
             <button
               type="button"
               onClick={() => deviceCodeMutation.mutate()}
               disabled={deviceCodeMutation.isPending}
               className="pim-button-secondary px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Request code
+              请求代码
             </button>
           </div>
           {deviceCodeMutation.data ? (
@@ -188,20 +214,38 @@ export default function SyncPage() {
                 rel="noreferrer"
                 className="block rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
               >
-                Open Microsoft sign-in
+                打开微软验证链接
               </a>
               <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                <p className="text-xs font-semibold text-slate-500">User code</p>
+                <p className="text-xs font-semibold text-slate-500">用户代码</p>
                 <p className="mt-1 font-mono text-xl font-semibold tracking-[0.18em] text-slate-950">
                   {deviceCodeMutation.data.userCode}
                 </p>
               </div>
               <p className="text-xs leading-5 text-slate-500">{deviceCodeMutation.data.message}</p>
-              <p className="text-xs text-slate-400">Expires: {formatDateTime(deviceCodeMutation.data.expiresAt)}</p>
+              <p className="text-xs text-slate-400">过期时间：{formatDateTime(deviceCodeMutation.data.expiresAt)}</p>
+              <button
+                type="button"
+                onClick={() => deviceCodeMutation.data?.deviceCode && pollDeviceCodeMutation.mutate(deviceCodeMutation.data.deviceCode)}
+                disabled={pollDeviceCodeMutation.isPending || !deviceCodeMutation.data.deviceCode}
+                className="pim-button-primary w-full px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {pollDeviceCodeMutation.isPending ? '正在完成连接' : '完成连接'}
+              </button>
+              {pollDeviceCodeMutation.data && (
+                <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                  tokenHealth: {pollDeviceCodeMutation.data.tokenHealth}
+                </p>
+              )}
+              {pollDeviceCodeMutation.isError && (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {mutationError(pollDeviceCodeMutation.error)}
+                </p>
+              )}
             </div>
           ) : (
             <p className="mt-4 rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
-              Request a device code to connect a Microsoft account.
+              请求设备代码以连接微软账号。
             </p>
           )}
           {deviceCodeMutation.isError && (
@@ -212,11 +256,27 @@ export default function SyncPage() {
         </section>
       </div>
 
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+        {[
+          ['令牌健康', settings?.tokenHealth ?? '未知'],
+          ['deltaLink 增量状态', settings?.deltaLink ?? '未记录'],
+          ['writeback 回写默认值', settings?.writebackDefault ?? '需要确认'],
+          ['冲突策略', settings?.conflictPolicy ?? '人工复核'],
+        ].map(([label, value]) => (
+          <section key={label} className="pim-card p-4">
+            <p className="text-[11px] font-semibold text-slate-400">{label}</p>
+            <p className="mt-2 truncate text-sm font-semibold text-slate-900">{value}</p>
+          </section>
+        ))}
+      </div>
+
+      <OutlookConflictResolver conflicts={conflictItems} />
+
       <section className="pim-panel min-w-0 overflow-hidden p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-semibold text-slate-950">Sync Batches</h2>
-            <p className="mt-1 text-xs text-slate-500">Counts, errors, and step traces returned by the Outlook sync API.</p>
+            <h2 className="text-sm font-semibold text-slate-950">同步批次</h2>
+            <p className="mt-1 text-xs text-slate-500">同步窗口、来源标签、步骤计数与错误轨迹。</p>
           </div>
           {syncMutation.isError && (
             <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
@@ -227,11 +287,11 @@ export default function SyncPage() {
 
         {batchesLoading ? (
           <p className="mt-4 rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
-            Loading sync batches.
+            正在加载同步批次。
           </p>
         ) : syncBatches.length === 0 ? (
           <p className="mt-4 rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
-            No Outlook sync batches have been recorded.
+            暂无微软同步批次。
           </p>
         ) : (
           <div className="mt-4 space-y-3">
@@ -240,14 +300,14 @@ export default function SyncPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-950">{batch.status}</p>
-                    <p className="mt-1 text-xs text-slate-500">Source: {batch.provider} / Started: {formatDateTime(batch.startedAt)}</p>
+                    <p className="mt-1 text-xs text-slate-500">来源标签：{batch.provider} / 开始：{formatDateTime(batch.startedAt)}</p>
                   </div>
                   <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">read {batch.readCount}</span>
-                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">created {batch.createdCount}</span>
-                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">updated {batch.updatedCount}</span>
-                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">conflicts {batch.conflictCount}</span>
-                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-red-700">errors {batch.failureCount}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">读取 {batch.readCount}</span>
+                    <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">创建 {batch.createdCount}</span>
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">更新 {batch.updatedCount}</span>
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">冲突 {batch.conflictCount}</span>
+                    <span className="rounded-full bg-red-50 px-2 py-0.5 text-red-700">错误 {batch.failureCount}</span>
                   </div>
                 </div>
                 {batch.errorSummary && (

@@ -56,11 +56,270 @@ export interface TaskResponse {
   plannedEnd?: string;
   status: string;
   isInbox: boolean;
+  sortOrder?: number;
+  subTasks?: TaskResponse[];
 }
 
-export type CalendarLayerId = 'events' | 'tasks' | 'task-segments' | 'habits' | 'availability' | 'ai-placeholders';
+export type TaskPlanningState =
+  | 'Inbox'
+  | 'ToPlan'
+  | 'Planned'
+  | 'InProgress'
+  | 'Waiting'
+  | 'Blocked'
+  | 'Deferred'
+  | 'Paused'
+  | 'Completed'
+  | 'Cancelled';
+
+export type CalendarLayerId = 'events' | 'task-segments' | 'habits' | 'availability' | 'ai-placeholders';
+
+export type EndpointPlatform = 'windows' | 'android';
+
+export type NotificationActionResult = 'Executed' | 'OpenDetailRequired' | 'Rejected' | 'Failed';
 
 export type WorkbenchDensityMode = 'standard' | 'dense' | 'focus';
+
+export interface DomainProject {
+  id: string;
+  name: string;
+  description?: string | null;
+  status: string;
+}
+
+export interface CreateDomainProjectRequest {
+  name: string;
+  description?: string | null;
+  status?: string | null;
+}
+
+export interface TaskBook {
+  id: string;
+  domainProjectId?: string | null;
+  name: string;
+  kind: string;
+  status: string;
+}
+
+export interface CreateTaskBookRequest {
+  domainProjectId?: string | null;
+  name: string;
+  kind?: string | null;
+  status?: string | null;
+}
+
+export interface TaskChecklistItem {
+  id: string;
+  taskId: string;
+  title: string;
+  isDone: boolean;
+  sortOrder: number;
+}
+
+export interface AddTaskChecklistItemRequest {
+  title: string;
+  sortOrder?: number | null;
+}
+
+export interface HabitRoutine {
+  id: string;
+  title: string;
+  cadence: 'Daily' | 'Weekly' | 'Monthly' | string;
+  source: string;
+  status: string;
+}
+
+export interface CreateHabitRequest {
+  title: string;
+  description?: string | null;
+  cadence?: string | null;
+  source?: string | null;
+  status?: string | null;
+  ruleJson?: string | null;
+}
+
+export interface ReminderSummary {
+  id: string;
+  relatedObjectType?: string;
+  relatedObjectId?: string;
+  title: string;
+  body?: string;
+  triggerReason?: string;
+  riskLevel: OperationRiskLevel;
+  channels: string[];
+  doNotDisturbStart?: string | null;
+  doNotDisturbEnd?: string | null;
+  scheduledAt?: string;
+  status: string;
+  escalationPolicy?: string | null;
+  deliveryHistory?: ReminderDelivery[];
+  responseHistory?: ReminderDelivery[];
+}
+
+export interface ReminderDelivery {
+  id: string;
+  reminderId: string;
+  channel: string;
+  status: string;
+  payloadJson: string;
+  createdAt: string;
+  respondedAt?: string | null;
+}
+
+export interface ReminderActionResponse {
+  kind: string;
+  status: string;
+  detailUrl?: string | null;
+}
+
+export interface CreateReminderRequest {
+  relatedObjectType: string;
+  relatedObjectId: string;
+  title: string;
+  body?: string;
+  triggerReason?: string;
+  riskLevel?: OperationRiskLevel;
+  channels?: string[];
+  doNotDisturbStart?: string | null;
+  doNotDisturbEnd?: string | null;
+  scheduledAt: string;
+}
+
+export interface GenerateReportRequest {
+  kind: 'Daily' | 'Weekly' | 'Monthly' | 'Project' | string;
+  date: string;
+  projectId?: string | null;
+}
+
+export interface ReportArtifact {
+  id: string;
+  kind: string;
+  title?: string;
+  projectId?: string | null;
+  riskLevel: OperationRiskLevel;
+  contentMarkdown?: string;
+  metricsJson?: string;
+  generatedAt: string;
+  status?: string;
+  suggestions?: ReportSuggestion[];
+  confirmationId?: string | null;
+}
+
+export interface ReportSuggestion {
+  id: string;
+  reportId: string;
+  action: string;
+  summary: string;
+  status: string;
+  confirmationId?: string | null;
+}
+
+export interface SyncConflict {
+  id: string;
+  provider: string;
+  objectType: string;
+  objectId: string;
+  graphEventId?: string | null;
+  conflictKind?: string;
+  changedFields: string[];
+  status: string;
+  resolvedConfirmationId?: string | null;
+}
+
+export interface AuditVersion {
+  id: string;
+  objectType: string;
+  objectId: string;
+  confirmationId?: string | null;
+  source?: string;
+  actor?: string;
+  beforeJson: string;
+  afterJson: string;
+  changedFields: string[];
+  changedFieldsJson?: string;
+  createdAt: string;
+}
+
+export interface AuditTimelineResponse {
+  items: AuditVersion[];
+}
+
+export interface AuditExportResponse {
+  fileName: string;
+  contentType: string;
+  content: string;
+}
+
+export interface RestorePreviewResponse {
+  objectType: string;
+  objectId: string;
+  summary: string;
+  requiresConfirmation: boolean;
+  changedFields: string[];
+}
+
+export interface DataCenterObjectRef {
+  objectType: string;
+  objectId: string;
+}
+
+export interface DataCenterBatchOperationRequest {
+  action: string;
+  objects: DataCenterObjectRef[];
+  reason?: string | null;
+}
+
+export interface DataCenterBatchPreviewResponse {
+  riskLevel: OperationRiskLevel;
+  requiresStrictConfirmation: boolean;
+  summary: string;
+  affectedObjectTypes: string[];
+  affectedCount: number;
+}
+
+export interface DataCenterBatchExecutionResponse {
+  confirmationId: string;
+  status: string;
+  affectedCount: number;
+}
+
+export interface EndpointStatus {
+  deviceId: string;
+  platform: EndpointPlatform;
+  uploadStatus: PimHealthStatus | string;
+  collectionCacheCount: number;
+  onlineOnlyBlockedCount: number;
+  lastHeartbeatAt?: string | null;
+}
+
+export interface EndpointHeartbeatRequest {
+  platform: EndpointPlatform;
+  appVersion?: string | null;
+  uploadStatus?: string | null;
+  collectionCacheCount?: number;
+}
+
+export interface EndpointCollectionQuality {
+  deviceId: string;
+  platform: EndpointPlatform;
+  uploadStatus: PimHealthStatus | string;
+  issueCount: number;
+  checkedAt: string;
+}
+
+export interface EndpointNotificationActionRequest {
+  action: string;
+  riskLevel: OperationRiskLevel;
+  confirmationId?: string | null;
+  relatedObjectType?: string | null;
+  relatedObjectId?: string | null;
+}
+
+export interface EndpointNotificationActionResponse {
+  result: NotificationActionResult;
+  detailUrl?: string | null;
+  message?: string | null;
+}
 
 export interface CreateTaskExecutionSegmentRequest {
   startsAt: string;
@@ -143,6 +402,10 @@ export interface OutlookSettingsResponse {
   scopes: string;
   status: string;
   tokenHealth: string;
+  deltaLink?: string | null;
+  syncWindowDays?: number | null;
+  writebackDefault?: string | null;
+  conflictPolicy?: string | null;
   lastSyncedAt?: string | null;
   lastError?: string | null;
 }
@@ -159,6 +422,7 @@ export interface OutlookDeviceCodeRequestResponse {
   userCode: string;
   expiresAt: string;
   message: string;
+  deviceCode?: string | null;
 }
 
 export interface OutlookSyncStep {
@@ -222,6 +486,13 @@ export interface OperationConfirmation {
   objectType?: string | null;
   objectId?: string | null;
   requiresSecondLevelConfirmation: boolean;
+  beforeJson?: string | null;
+  afterJson?: string | null;
+  requiresStrictConfirmation?: boolean;
+  auditBatchId?: string | null;
+  aiRecommendation?: string | null;
+  externalEffect?: string | null;
+  recoveryPath?: string | null;
 }
 
 export interface PagedResult<T> {

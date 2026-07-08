@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Pim.Client.Core;
+using Pim.Client.Core.Models;
 
 namespace Pim.Client.Core.Services;
 
@@ -76,6 +77,28 @@ public class ApiClient
     {
         _httpClient.DefaultRequestHeaders.Authorization = null;
     }
+
+    public Task<ApiResponse<List<EndpointStatusDto>>?> GetEndpointStatusesAsync(CancellationToken ct = default)
+        => GetAsync<ApiResponse<List<EndpointStatusDto>>>("/endpoints", ct);
+
+    public Task<ApiResponse<EndpointCollectionQualityDto>?> GetEndpointCollectionQualityAsync(
+        string deviceId,
+        CancellationToken ct = default)
+        => GetAsync<ApiResponse<EndpointCollectionQualityDto>>(
+            $"/endpoints/{Uri.EscapeDataString(deviceId)}/collection-quality",
+            ct);
+
+    public Task<ApiResponse<EndpointNotificationActionResponseDto>?> SendEndpointNotificationActionAsync(
+        string deviceId,
+        EndpointNotificationActionRequestDto request,
+        CancellationToken ct = default)
+        => PostAsync<ApiResponse<EndpointNotificationActionResponseDto>>(
+            $"/endpoints/{Uri.EscapeDataString(deviceId)}/notification-actions",
+            request,
+            ct);
+
+    public static string BuildConfirmationDetailPath(string confirmationId)
+        => $"/confirmations/{Uri.EscapeDataString(confirmationId)}";
 
     public async Task<T?> GetAsync<T>(string endpoint, CancellationToken ct = default)
     {

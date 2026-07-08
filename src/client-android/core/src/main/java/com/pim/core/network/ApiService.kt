@@ -100,4 +100,11 @@ interface ApiService {
     // Daemon
     @POST("daemon/heartbeat")
     suspend fun sendHeartbeat(@Body request: DaemonHeartbeatRequest): ApiResponse<DaemonHeartbeatDto>
+
+    // Endpoint shell
+    @POST("endpoints/{deviceId}/notification-actions")
+    suspend fun sendEndpointNotificationAction(
+        @Path("deviceId") deviceId: String,
+        @Body request: EndpointNotificationActionRequestDto
+    ): ApiResponse<EndpointNotificationActionResponseDto>
 }

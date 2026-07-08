@@ -11,12 +11,13 @@ import { getCalendarLayers, getEvents, getTasks, planTask } from '../api/calenda
 import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
+import CalendarLayerToolbar from '../components/schedule/CalendarLayerToolbar';
 import PageHeader from '../ui/PageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
-import type { CalendarLayerItem, EventResponse, TaskResponse } from '../types';
+import type { CalendarLayerId, CalendarLayerItem, EventResponse, TaskResponse } from '../types';
 
 type CalendarMode = 'timeline' | 'month';
-type CalendarLayerToggleId = 'events' | 'task-segments' | 'habits' | 'availability' | 'ai-placeholders';
+type CalendarLayerToggleId = CalendarLayerId;
 
 type CalendarDropArg = {
   draggedEl: HTMLElement;
@@ -47,11 +48,11 @@ const CALENDAR_MODE_OPTIONS: Array<{ value: CalendarMode; label: string }> = [
 ];
 
 const CALENDAR_LAYER_OPTIONS: Array<{ value: CalendarLayerToggleId; label: string }> = [
-  { value: 'events', label: 'Events' },
-  { value: 'task-segments', label: 'Task segments' },
-  { value: 'habits', label: 'Habits' },
-  { value: 'availability', label: 'Availability' },
-  { value: 'ai-placeholders', label: 'AI placeholders' },
+  { value: 'events', label: '日程' },
+  { value: 'task-segments', label: '任务时间段' },
+  { value: 'habits', label: '习惯' },
+  { value: 'availability', label: '可用时间' },
+  { value: 'ai-placeholders', label: '智能占位' },
 ];
 
 export default function CalendarPage() {
@@ -69,6 +70,7 @@ export default function CalendarPage() {
   const [eventDefaultEnd, setEventDefaultEnd] = useState<string | undefined>();
   const [planTaskError, setPlanTaskError] = useState<string | null>(null);
   const [enabledLayerIds, setEnabledLayerIds] = useState<CalendarLayerToggleId[]>(['events', 'task-segments']);
+  const [outlookOnly, setOutlookOnly] = useState(false);
   const calendarRef = useRef<FullCalendar>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -110,11 +112,12 @@ export default function CalendarPage() {
   const enabledLayerSet = useMemo(() => new Set(enabledLayerIds), [enabledLayerIds]);
 
   const { data: calendarLayerData } = useQuery({
-    queryKey: ['calendar-layers', visibleRange.start, visibleRange.end, enabledLayerKey],
+    queryKey: ['calendar-layers', visibleRange.start, visibleRange.end, enabledLayerKey, outlookOnly],
     queryFn: () => getCalendarLayers({
       start: visibleRange.start,
       end: visibleRange.end,
       layers: enabledLayerIds,
+      outlookOnly,
     }),
     refetchInterval: 60_000,
   });
@@ -279,28 +282,13 @@ export default function CalendarPage() {
         }
       />
 
-      <section className="pim-panel flex flex-wrap items-center gap-2 p-3">
-        <span className="mr-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Layers</span>
-        {CALENDAR_LAYER_OPTIONS.map(layer => {
-          const active = enabledLayerSet.has(layer.value);
-
-          return (
-            <button
-              key={layer.value}
-              type="button"
-              onClick={() => toggleCalendarLayer(layer.value)}
-              aria-pressed={active}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                active
-                  ? 'border-blue-200 bg-blue-50 text-blue-700'
-                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-              }`}
-            >
-              {layer.label}
-            </button>
-          );
-        })}
-      </section>
+      <CalendarLayerToolbar
+        options={CALENDAR_LAYER_OPTIONS}
+        activeLayerIds={enabledLayerIds}
+        outlookOnly={outlookOnly}
+        onToggleLayer={toggleCalendarLayer}
+        onToggleOutlookOnly={setOutlookOnly}
+      />
 
       <section className="calendar-board pim-panel min-h-0 flex-1 overflow-hidden p-3">
         {planTaskError && (

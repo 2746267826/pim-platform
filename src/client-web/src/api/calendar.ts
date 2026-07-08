@@ -8,15 +8,35 @@ import type {
   CalendarRecycleBinItem,
   CalendarResponse,
   CalendarRestorePreviewResponse,
+  AddTaskChecklistItemRequest,
+  AuditExportResponse,
   CreateTaskExecutionSegmentRequest,
+  CreateDomainProjectRequest,
+  CreateHabitRequest,
+  CreateReminderRequest,
+  CreateTaskBookRequest,
+  DataCenterBatchExecutionResponse,
+  DataCenterBatchOperationRequest,
+  DataCenterBatchPreviewResponse,
   DataCenterQueryRequest,
   DataCenterQueryResponse,
+  DomainProject,
   EventResponse,
+  GenerateReportRequest,
+  HabitRoutine,
   ImportReport,
+  OperationConfirmation,
   OutlookDeviceCodeRequestResponse,
   OutlookSettingsResponse,
   OutlookSyncBatchResponse,
   PagedResult,
+  ReminderActionResponse,
+  ReminderDelivery,
+  ReminderSummary,
+  ReportArtifact,
+  RestorePreviewResponse,
+  TaskBook,
+  TaskChecklistItem,
   TaskExecutionSegmentResponse,
   TaskResponse,
   UpdateOutlookSettingsRequest,
@@ -107,11 +127,74 @@ export const calendarApiPaths = {
   dataCenterQuery() {
     return '/calendar/data-center/query';
   },
+  dataCenterBatchPreview() {
+    return '/calendar/data-center/batch/preview';
+  },
+  dataCenterBatchRequestConfirmation() {
+    return '/calendar/data-center/batch/request-confirmation';
+  },
+  dataCenterBatchExecute() {
+    return '/calendar/data-center/batch/execute';
+  },
+  dataCenterAuditExport() {
+    return '/calendar/data-center/audit/export';
+  },
+  dataCenterRestorePreview() {
+    return '/calendar/data-center/restore/preview';
+  },
+  dataCenterRestoreRequestConfirmation() {
+    return '/calendar/data-center/restore/request-confirmation';
+  },
+  projects() {
+    return '/calendar/projects';
+  },
+  taskBooks() {
+    return '/calendar/task-books';
+  },
+  taskChecklist(id: string) {
+    return `/calendar/tasks/${encodeURIComponent(id)}/checklist`;
+  },
+  habits() {
+    return '/calendar/habits';
+  },
+  reminders() {
+    return '/calendar/reminders';
+  },
+  reminderSnooze(id: string) {
+    return `/calendar/reminders/${encodeURIComponent(id)}/snooze`;
+  },
+  reminderDismiss(id: string) {
+    return `/calendar/reminders/${encodeURIComponent(id)}/dismiss`;
+  },
+  reminderAction(id: string, action: string) {
+    return `/calendar/reminders/${encodeURIComponent(id)}/actions/${encodeURIComponent(action)}`;
+  },
+  reminderDeliveryLog() {
+    return '/calendar/reminders/delivery-log';
+  },
+  reports() {
+    return '/calendar/reports';
+  },
+  generateReport() {
+    return '/calendar/reports/generate';
+  },
+  report(id: string) {
+    return `/calendar/reports/${encodeURIComponent(id)}`;
+  },
+  archiveReport(id: string) {
+    return `/calendar/reports/${encodeURIComponent(id)}/archive`;
+  },
+  requestReportSuggestionAction(id: string) {
+    return `/calendar/reports/suggestions/${encodeURIComponent(id)}/request-action`;
+  },
   outlookSettings() {
     return '/calendar/outlook/settings';
   },
   outlookDeviceCode() {
     return '/calendar/outlook/device-code';
+  },
+  outlookDeviceCodePoll() {
+    return '/calendar/outlook/device-code/poll';
   },
   outlookSyncBatches() {
     return '/calendar/outlook/sync/batches';
@@ -314,6 +397,156 @@ export async function queryDataCenter(data: DataCenterQueryRequest) {
   return r.data;
 }
 
+export async function previewDataCenterBatch(data: DataCenterBatchOperationRequest) {
+  const r = await apiPost<ApiResponse<DataCenterBatchPreviewResponse>>(
+    calendarApiPaths.dataCenterBatchPreview(),
+    data
+  );
+  return r.data;
+}
+
+export async function requestDataCenterBatchConfirmation(data: DataCenterBatchOperationRequest) {
+  const r = await apiPost<ApiResponse<OperationConfirmation>>(
+    calendarApiPaths.dataCenterBatchRequestConfirmation(),
+    data
+  );
+  return r.data;
+}
+
+export async function executeDataCenterBatch(confirmationId: string) {
+  const r = await apiPost<ApiResponse<DataCenterBatchExecutionResponse>>(
+    calendarApiPaths.dataCenterBatchExecute(),
+    { confirmationId }
+  );
+  return r.data;
+}
+
+export async function getAuditExport() {
+  const r = await apiGet<ApiResponse<AuditExportResponse>>(
+    calendarApiPaths.dataCenterAuditExport()
+  );
+  return r.data;
+}
+
+export async function previewDataCenterRestore(auditVersionId: string, reason?: string | null) {
+  const r = await apiPost<ApiResponse<RestorePreviewResponse>>(
+    calendarApiPaths.dataCenterRestorePreview(),
+    { auditVersionId, reason }
+  );
+  return r.data;
+}
+
+export async function requestDataCenterRestoreConfirmation(auditVersionId: string, reason?: string | null) {
+  const r = await apiPost<ApiResponse<OperationConfirmation>>(
+    calendarApiPaths.dataCenterRestoreRequestConfirmation(),
+    { auditVersionId, reason }
+  );
+  return r.data;
+}
+
+export async function getProjects() {
+  const r = await apiGet<ApiResponse<DomainProject[]>>(calendarApiPaths.projects());
+  return r.data;
+}
+
+export async function createProject(data: CreateDomainProjectRequest) {
+  const r = await apiPost<ApiResponse<DomainProject>>(calendarApiPaths.projects(), data);
+  return r.data;
+}
+
+export async function getTaskBooks() {
+  const r = await apiGet<ApiResponse<TaskBook[]>>(calendarApiPaths.taskBooks());
+  return r.data;
+}
+
+export async function createTaskBook(data: CreateTaskBookRequest) {
+  const r = await apiPost<ApiResponse<TaskBook>>(calendarApiPaths.taskBooks(), data);
+  return r.data;
+}
+
+export async function addTaskChecklistItem(taskId: string, data: AddTaskChecklistItemRequest) {
+  const r = await apiPost<ApiResponse<TaskChecklistItem>>(
+    calendarApiPaths.taskChecklist(taskId),
+    data
+  );
+  return r.data;
+}
+
+export async function getHabits() {
+  const r = await apiGet<ApiResponse<HabitRoutine[]>>(calendarApiPaths.habits());
+  return r.data;
+}
+
+export async function createHabit(data: CreateHabitRequest) {
+  const r = await apiPost<ApiResponse<HabitRoutine>>(calendarApiPaths.habits(), data);
+  return r.data;
+}
+
+export async function getReminders() {
+  const r = await apiGet<ApiResponse<ReminderSummary[]>>(calendarApiPaths.reminders());
+  return r.data;
+}
+
+export async function createReminder(data: CreateReminderRequest) {
+  const r = await apiPost<ApiResponse<ReminderSummary>>(calendarApiPaths.reminders(), data);
+  return r.data;
+}
+
+export async function snoozeReminder(id: string, scheduledAt?: string) {
+  const suffix = scheduledAt ? `?scheduledAt=${encodeURIComponent(scheduledAt)}` : '';
+  const r = await apiPost<ApiResponse<ReminderSummary>>(
+    `${calendarApiPaths.reminderSnooze(id)}${suffix}`,
+    {}
+  );
+  return r.data;
+}
+
+export async function dismissReminder(id: string) {
+  const r = await apiPost<ApiResponse<ReminderSummary>>(calendarApiPaths.reminderDismiss(id), {});
+  return r.data;
+}
+
+export async function handleReminderAction(id: string, action: string) {
+  const r = await apiPost<ApiResponse<ReminderActionResponse>>(
+    calendarApiPaths.reminderAction(id, action),
+    {}
+  );
+  return r.data;
+}
+
+export async function getReminderDeliveryLog() {
+  const r = await apiGet<ApiResponse<ReminderDelivery[]>>(calendarApiPaths.reminderDeliveryLog());
+  return r.data;
+}
+
+export async function getReports() {
+  const r = await apiGet<ApiResponse<ReportArtifact[]>>(calendarApiPaths.reports());
+  return r.data;
+}
+
+export async function getReport(id: string) {
+  const r = await apiGet<ApiResponse<ReportArtifact>>(calendarApiPaths.report(id));
+  return r.data;
+}
+
+export async function generateReport(data: GenerateReportRequest) {
+  const r = await apiPost<ApiResponse<ReportArtifact>>(calendarApiPaths.generateReport(), data);
+  return r.data;
+}
+
+export async function archiveReport(id: string) {
+  const r = await apiPost<ApiResponse<ReportArtifact>>(calendarApiPaths.archiveReport(id), {});
+  return r.data;
+}
+
+export async function requestReportSuggestionAction(id: string) {
+  const r = await apiPost<ApiResponse<OperationConfirmation>>(
+    calendarApiPaths.requestReportSuggestionAction(id),
+    {}
+  );
+  return r.data;
+}
+
 export async function getOutlookSettings() {
   const r = await apiGet<ApiResponse<OutlookSettingsResponse>>(
     calendarApiPaths.outlookSettings()
@@ -333,6 +566,14 @@ export async function createOutlookDeviceCode() {
   const r = await apiPost<ApiResponse<OutlookDeviceCodeRequestResponse>>(
     calendarApiPaths.outlookDeviceCode(),
     {}
+  );
+  return r.data;
+}
+
+export async function pollOutlookDeviceCode(deviceCode: string) {
+  const r = await apiPost<ApiResponse<OutlookSettingsResponse>>(
+    calendarApiPaths.outlookDeviceCodePoll(),
+    { deviceCode }
   );
   return r.data;
 }

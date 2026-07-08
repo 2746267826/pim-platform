@@ -28,6 +28,7 @@ public class AuthService
     public string? CurrentUserId { get; private set; }
     public string? CurrentUsername { get; private set; }
     public string? CurrentDisplayName { get; private set; }
+    public string? CurrentAccessToken => _accessToken;
 
     public string ServerUrl
     {

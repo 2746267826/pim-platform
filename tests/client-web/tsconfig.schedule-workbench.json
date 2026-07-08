@@ -6,6 +6,7 @@
     "typeRoots": ["../../src/client-web/node_modules/@types"]
   },
   "include": [
-    "./scheduleWorkbenchTypes.test.ts"
+    "./scheduleWorkbenchTypes.test.ts",
+    "./scheduleWorkbenchCompletionTypes.test.ts"
   ]
 }

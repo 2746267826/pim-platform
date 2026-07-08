@@ -73,6 +73,7 @@ class ForegroundLocationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        running = true
         manager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
     }
 
@@ -101,6 +102,7 @@ class ForegroundLocationService : Service() {
     override fun onDestroy() {
         stopCollection()
         scope.cancel()
+        running = false
         super.onDestroy()
     }
 
@@ -332,7 +334,12 @@ class ForegroundLocationService : Service() {
         else -> this
     }
 
-    private companion object {
+    companion object {
+        @Volatile
+        private var running: Boolean = false
+
+        fun isRunning(): Boolean = running
+
         val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     }
 }

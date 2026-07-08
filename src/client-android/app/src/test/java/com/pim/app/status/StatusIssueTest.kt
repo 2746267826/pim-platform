@@ -1,0 +1,74 @@
+package com.pim.app.status
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class StatusIssueTest {
+    @Test
+    fun requiredIssuesHaveReadableActionLabels() {
+        val issues = StatusIssue.requiredIssueCodes()
+
+        assertTrue(issues.contains("api-address-missing"))
+        assertTrue(issues.contains("background-location-missing"))
+        assertTrue(issues.contains("foreground-service-not-running"))
+        assertTrue(issues.contains("location-accuracy-rejected"))
+        assertTrue(issues.contains("altitude-missing-timeout"))
+        assertTrue(issues.contains("upload-queue-backlog"))
+
+        assertEquals("去设置", StatusIssue.apiAddressMissing().actionLabel)
+        assertEquals("去授权", StatusIssue.backgroundLocationMissing().actionLabel)
+        assertEquals("查看队列", StatusIssue.uploadQueueBacklog(18).actionLabel)
+    }
+
+    @Test
+    fun snapshotPlannerAddsActionableBlockingIssues() {
+        val snapshot = StatusCenterSnapshot(
+            permissions = PermissionStatusSnapshot(
+                notificationGranted = false,
+                preciseLocationGranted = true,
+                backgroundLocationGranted = false,
+                usageAccessGranted = true,
+                activityRecognitionGranted = false
+            ),
+            api = ApiConnectionSnapshot(
+                address = "",
+                isValid = false,
+                reasonCode = "missing",
+                warnings = emptySet()
+            ),
+            auth = AuthStatusSnapshot(hasAccessToken = false, isExpired = false),
+            service = ForegroundServiceSnapshot(
+                continuousCollectionEnabled = true,
+                serviceRunning = false
+            ),
+            tracking = TrackingPolicySnapshot(
+                profile = "power-saving",
+                currentPolicyMode = "PowerSavingNormal",
+                nextExpectedLocationAtMillis = null
+            ),
+            queues = QueueStatusSnapshot(
+                pendingLocationPoints = 12,
+                pendingUsageEvents = 0,
+                pendingUsageSummaries = 0,
+                pendingAppMetadata = 0,
+                pendingLogs = 0,
+                pendingDeviceProfile = 0
+            ),
+            diagnostics = DiagnosticSnapshot(
+                lastDroppedReason = "horizontal-accuracy-too-low",
+                lastDroppedAtMillis = 1_000L,
+                lastLogMessage = "timeout",
+                lastHeartbeatStatus = "failed"
+            )
+        )
+
+        val issues = StatusIssuePlanner.plan(snapshot).associateBy { it.code }
+
+        assertEquals("配置 API 地址", issues.getValue("api-address-missing").title)
+        assertEquals("后台定位未授权", issues.getValue("background-location-missing").title)
+        assertEquals("前台定位服务未运行", issues.getValue("foreground-service-not-running").title)
+        assertEquals("定位精度不达标", issues.getValue("location-accuracy-rejected").title)
+        assertEquals("上传队列积压", issues.getValue("upload-queue-backlog").title)
+    }
+}

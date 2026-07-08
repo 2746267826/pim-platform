@@ -21,7 +21,7 @@ class ForegroundLocationController @Inject constructor(
     }
 
     fun syncNow() {
-        context.startService(serviceIntent(ACTION_SYNC_NOW))
+        ContextCompat.startForegroundService(context, serviceIntent(ACTION_SYNC_NOW))
     }
 
     fun openStatusIntent(): Intent {

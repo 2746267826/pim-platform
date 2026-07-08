@@ -24,6 +24,7 @@ import com.pim.app.location.policy.ScheduleWindow
 import com.pim.app.location.quality.AltitudeWaitCoordinator
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
+import com.pim.app.mobile.sync.MobileSyncCoordinator
 import com.pim.app.notifications.LocationNotificationRenderer
 import com.pim.app.notifications.LocationNotificationState
 import com.pim.app.schedule.ScheduleWindowRepository
@@ -35,6 +36,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,6 +55,7 @@ class ForegroundLocationService : Service() {
     @Inject lateinit var locationQueueRepository: LocationQueueRepository
     @Inject lateinit var motionSignalRepository: MotionSignalRepository
     @Inject lateinit var scheduleWindowRepository: ScheduleWindowRepository
+    @Inject lateinit var mobileSyncCoordinator: MobileSyncCoordinator
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val qualityCoordinator = AltitudeWaitCoordinator()
@@ -89,9 +92,7 @@ class ForegroundLocationService : Service() {
                 return START_NOT_STICKY
             }
             ForegroundLocationController.ACTION_SYNC_NOW -> {
-                apiState = "等待同步"
-                refreshScheduleWindows()
-                updateNotification()
+                runManualSync()
             }
             ForegroundLocationController.ACTION_RESUME_COLLECTION,
             ForegroundLocationController.ACTION_START_COLLECTION -> startCollection(enableCollection = true)
@@ -147,6 +148,34 @@ class ForegroundLocationService : Service() {
         listener = null
         registeredIntervalMillis = null
         stopForeground(STOP_FOREGROUND_REMOVE)
+    }
+
+    private fun runManualSync() {
+        val stopAfterSync = listener == null && !trackingSettingsStore.read().continuousCollectionEnabled
+        apiState = "同步中"
+        startForeground(LocationNotificationRenderer.NOTIFICATION_ID, notification())
+        updateNotification()
+
+        scope.launch {
+            try {
+                val state = withContext(Dispatchers.IO) {
+                    mobileSyncCoordinator.syncOnOpen()
+                }
+                pendingUploadCount = state.pendingQueueCount
+                apiState = if (state.lastError == null) "同步完成" else "同步失败"
+                updateNotification()
+            } catch (ex: CancellationException) {
+                throw ex
+            } catch (_: Exception) {
+                apiState = "同步失败"
+                updateNotification()
+            } finally {
+                if (stopAfterSync) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
+            }
+        }
     }
 
     private fun refreshScheduleWindows() {

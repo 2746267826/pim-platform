@@ -15,11 +15,13 @@ import java.time.Instant
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 
 data class LocationUploadBatchResult(
     val syncedIds: List<Long>,
     val failedIds: List<Long>,
-    val errorMessage: String?
+    val errorMessage: String?,
+    val retryableFailedIds: List<Long> = emptyList()
 )
 
 data class LocationUploadStatusUpdates(
@@ -35,7 +37,7 @@ object LocationUploadPlanner {
             syncedIds = result.syncedIds,
             failedIds = result.failedIds,
             failedReason = result.errorMessage,
-            shouldRetry = result.failedIds.isNotEmpty()
+            shouldRetry = result.retryableFailedIds.isNotEmpty()
         )
     }
 }
@@ -58,6 +60,7 @@ class LocationUploadCoordinator @Inject constructor(
 
         val synced = mutableListOf<Long>()
         val failed = mutableListOf<Long>()
+        val retryableFailed = mutableListOf<Long>()
         var lastError: String? = null
         val deviceId = deviceId()
 
@@ -78,13 +81,15 @@ class LocationUploadCoordinator @Inject constructor(
                     lastError = response.message.ifBlank { "location upload failed" }
                 }
             } catch (ex: Exception) {
+                if (ex is CancellationException) throw ex
                 failed += row.id
+                retryableFailed += row.id
                 lastError = ex.message ?: ex::class.java.simpleName
             }
         }
 
         val updates = LocationUploadPlanner.planStatusUpdates(
-            LocationUploadBatchResult(synced, failed, lastError)
+            LocationUploadBatchResult(synced, failed, lastError, retryableFailed)
         )
         applyStatusUpdates(updates)
         return updates

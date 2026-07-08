@@ -38,12 +38,28 @@ class LocationUploadCoordinatorTest {
         val result = LocationUploadBatchResult(
             syncedIds = emptyList(),
             failedIds = listOf(9L),
-            errorMessage = "network"
+            errorMessage = "network",
+            retryableFailedIds = listOf(9L)
         )
 
         val updates = LocationUploadPlanner.planStatusUpdates(result)
 
         assertEquals(true, updates.shouldRetry)
+    }
+
+    @Test
+    fun nonRetryableFailureDoesNotScheduleWorkerRetry() {
+        val result = LocationUploadBatchResult(
+            syncedIds = emptyList(),
+            failedIds = listOf(10L),
+            errorMessage = "missing-horizontal-accuracy",
+            retryableFailedIds = emptyList()
+        )
+
+        val updates = LocationUploadPlanner.planStatusUpdates(result)
+
+        assertEquals(listOf(10L), updates.failedIds)
+        assertEquals(false, updates.shouldRetry)
     }
 
     @Test

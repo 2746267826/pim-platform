@@ -13,6 +13,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 
 class LocationSyncWorker @AssistedInject constructor(
     @Assisted context: Context,
@@ -28,7 +29,8 @@ class LocationSyncWorker @AssistedInject constructor(
         return try {
             val updates = uploadCoordinator.uploadPending()
             LocationSyncWorkResultPlanner.fromUpdates(updates)
-        } catch (_: Exception) {
+        } catch (ex: Exception) {
+            if (ex is CancellationException) throw ex
             LocationSyncWorkResultPlanner.fromTransientFailure()
         }
     }

@@ -11,6 +11,7 @@ import {
   getAuditExport,
   getProjects,
   getReports,
+  pollOutlookDeviceCode,
   previewDataCenterBatch,
   requestReportSuggestionAction,
 } from '../../src/client-web/src/api/calendar';
@@ -38,6 +39,7 @@ assert.equal(calendarApiPaths.reports(), '/calendar/reports');
 assert.equal(calendarApiPaths.generateReport(), '/calendar/reports/generate');
 assert.equal(calendarApiPaths.archiveReport('report-1'), '/calendar/reports/report-1/archive');
 assert.equal(calendarApiPaths.requestReportSuggestionAction('suggestion-1'), '/calendar/reports/suggestions/suggestion-1/request-action');
+assert.equal(calendarApiPaths.outlookDeviceCodePoll(), '/calendar/outlook/device-code/poll');
 assert.equal(calendarApiPaths.dataCenterBatchPreview(), '/calendar/data-center/batch/preview');
 assert.equal(calendarApiPaths.dataCenterAuditExport(), '/calendar/data-center/audit/export');
 assert.equal(operationsApiPaths.confirmSecondLevel('abc'), '/operations/confirmations/abc/confirm-second-level');
@@ -88,35 +90,39 @@ async function main() {
   await assert.rejects(() => requestReportSuggestionAction('suggestion-1'), requestCaptured);
   assert.equal(requests[9].url, '/api/v1/calendar/reports/suggestions/suggestion-1/request-action');
 
+  await assert.rejects(() => pollOutlookDeviceCode('device-code'), requestCaptured);
+  assert.equal(requests[10].url, '/api/v1/calendar/outlook/device-code/poll');
+  assert.equal(requests[10].init?.method, 'POST');
+
   await assert.rejects(() => previewDataCenterBatch({ action: 'archive', objects: [{ objectType: 'task', objectId: 't1' }] }), requestCaptured);
-  assert.equal(requests[10].url, '/api/v1/calendar/data-center/batch/preview');
+  assert.equal(requests[11].url, '/api/v1/calendar/data-center/batch/preview');
 
   await assert.rejects(() => getAuditExport(), requestCaptured);
-  assert.equal(requests[11].url, '/api/v1/calendar/data-center/audit/export');
+  assert.equal(requests[12].url, '/api/v1/calendar/data-center/audit/export');
 
   await assert.rejects(() => confirmOperationSecondLevel('abc'), requestCaptured);
-  assert.equal(requests[12].url, '/api/v1/operations/confirmations/abc/confirm-second-level');
+  assert.equal(requests[13].url, '/api/v1/operations/confirmations/abc/confirm-second-level');
 
   await assert.rejects(() => confirmOperationStrict('abc'), requestCaptured);
-  assert.equal(requests[13].url, '/api/v1/operations/confirmations/abc/confirm-strict');
+  assert.equal(requests[14].url, '/api/v1/operations/confirmations/abc/confirm-strict');
 
   await assert.rejects(() => getAuditTimeline('task', 't1'), requestCaptured);
-  assert.equal(requests[14].url, '/api/v1/operations/audit/task/t1');
+  assert.equal(requests[15].url, '/api/v1/operations/audit/task/t1');
 
   await assert.rejects(() => getRestorePreview('audit-1'), requestCaptured);
-  assert.equal(requests[15].url, '/api/v1/operations/audit/audit-1/restore-preview');
+  assert.equal(requests[16].url, '/api/v1/operations/audit/audit-1/restore-preview');
 
   await assert.rejects(() => listEndpointStatuses(), requestCaptured);
-  assert.equal(requests[16].url, '/api/v1/endpoints');
+  assert.equal(requests[17].url, '/api/v1/endpoints');
 
   await assert.rejects(() => heartbeatEndpoint('win-1', { platform: 'windows' }), requestCaptured);
-  assert.equal(requests[17].url, '/api/v1/endpoints/win-1/heartbeat');
+  assert.equal(requests[18].url, '/api/v1/endpoints/win-1/heartbeat');
 
   await assert.rejects(() => getEndpointCollectionQuality('win-1'), requestCaptured);
-  assert.equal(requests[18].url, '/api/v1/endpoints/win-1/collection-quality');
+  assert.equal(requests[19].url, '/api/v1/endpoints/win-1/collection-quality');
 
   await assert.rejects(() => handleEndpointNotificationAction('win-1', { action: 'dismiss', riskLevel: 'L1LowRiskAction' }), requestCaptured);
-  assert.equal(requests[19].url, '/api/v1/endpoints/win-1/notification-actions');
+  assert.equal(requests[20].url, '/api/v1/endpoints/win-1/notification-actions');
 }
 
 main().catch((error: unknown) => {

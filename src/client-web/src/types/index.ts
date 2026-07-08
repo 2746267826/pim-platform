@@ -422,6 +422,7 @@ export interface OutlookDeviceCodeRequestResponse {
   userCode: string;
   expiresAt: string;
   message: string;
+  deviceCode?: string | null;
 }
 
 export interface OutlookSyncStep {

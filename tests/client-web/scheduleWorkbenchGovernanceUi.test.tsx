@@ -12,6 +12,7 @@ function assertPageSourceContains(path: string, snippets: string[]) {
 assertPageSourceContains('src/client-web/src/pages/SyncPage.tsx', [
   '设备代码',
   'tokenHealth',
+  'pollOutlookDeviceCode',
   'OutlookConflictResolver',
   'deltaLink',
   'writeback',

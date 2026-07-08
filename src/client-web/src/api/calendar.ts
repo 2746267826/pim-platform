@@ -193,6 +193,9 @@ export const calendarApiPaths = {
   outlookDeviceCode() {
     return '/calendar/outlook/device-code';
   },
+  outlookDeviceCodePoll() {
+    return '/calendar/outlook/device-code/poll';
+  },
   outlookSyncBatches() {
     return '/calendar/outlook/sync/batches';
   },
@@ -563,6 +566,14 @@ export async function createOutlookDeviceCode() {
   const r = await apiPost<ApiResponse<OutlookDeviceCodeRequestResponse>>(
     calendarApiPaths.outlookDeviceCode(),
     {}
+  );
+  return r.data;
+}
+
+export async function pollOutlookDeviceCode(deviceCode: string) {
+  const r = await apiPost<ApiResponse<OutlookSettingsResponse>>(
+    calendarApiPaths.outlookDeviceCodePoll(),
+    { deviceCode }
   );
   return r.data;
 }

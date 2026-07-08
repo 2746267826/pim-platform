@@ -4,6 +4,7 @@ import {
   createOutlookDeviceCode,
   getOutlookSettings,
   getOutlookSyncBatches,
+  pollOutlookDeviceCode,
   queryDataCenter,
   runOutlookSync,
   updateOutlookSettings,
@@ -88,6 +89,14 @@ export default function SyncPage() {
 
   const deviceCodeMutation = useMutation({
     mutationFn: createOutlookDeviceCode,
+  });
+
+  const pollDeviceCodeMutation = useMutation({
+    mutationFn: pollOutlookDeviceCode,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['outlook-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['workbench-outlook-settings'] });
+    },
   });
 
   const syncMutation = useMutation({
@@ -215,6 +224,24 @@ export default function SyncPage() {
               </div>
               <p className="text-xs leading-5 text-slate-500">{deviceCodeMutation.data.message}</p>
               <p className="text-xs text-slate-400">过期时间：{formatDateTime(deviceCodeMutation.data.expiresAt)}</p>
+              <button
+                type="button"
+                onClick={() => deviceCodeMutation.data?.deviceCode && pollDeviceCodeMutation.mutate(deviceCodeMutation.data.deviceCode)}
+                disabled={pollDeviceCodeMutation.isPending || !deviceCodeMutation.data.deviceCode}
+                className="pim-button-primary w-full px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {pollDeviceCodeMutation.isPending ? '正在完成连接' : '完成连接'}
+              </button>
+              {pollDeviceCodeMutation.data && (
+                <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                  tokenHealth: {pollDeviceCodeMutation.data.tokenHealth}
+                </p>
+              )}
+              {pollDeviceCodeMutation.isError && (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {mutationError(pollDeviceCodeMutation.error)}
+                </p>
+              )}
             </div>
           ) : (
             <p className="mt-4 rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">

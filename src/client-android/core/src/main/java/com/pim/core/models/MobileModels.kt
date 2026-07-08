@@ -266,9 +266,11 @@ data class MobileQualityIssueDto(
 
 @Serializable
 data class MobileAnalyticsRangeDto(
-    val startUtc: String,
-    val endUtc: String,
-    val timezone: String? = null
+    val rangeStartUtc: String,
+    val rangeEndUtc: String,
+    val timezone: String,
+    val localStartDate: String,
+    val localEndDate: String
 )
 
 @Serializable

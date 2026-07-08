@@ -111,7 +111,10 @@ interface ApiService {
 
     @GET("mobile/quality")
     suspend fun getMobileQuality(
-        @Query("deviceId") deviceId: String? = null
+        @Query("date") date: String? = null,
+        @Query("deviceId") deviceId: String? = null,
+        @Query("rangeStartUtc") rangeStartUtc: String? = null,
+        @Query("rangeEndUtc") rangeEndUtc: String? = null
     ): ApiResponse<MobileQualityResponse>
 
     @GET("mobile/location/history")
@@ -144,6 +147,12 @@ interface ApiService {
     @GET("mobile/location/analytics/segments/{segmentId}/points")
     suspend fun getMobileLocationSegmentPoints(
         @Path("segmentId") segmentId: String,
+        @Query("rangeStartUtc") rangeStartUtc: String? = null,
+        @Query("rangeEndUtc") rangeEndUtc: String? = null,
+        @Query("timezone") timezone: String? = null,
+        @Query("deviceId") deviceId: String? = null,
+        @Query("maxAccuracyMeters") maxAccuracyMeters: Double = 50.0,
+        @Query("includeRejected") includeRejected: Boolean = false,
         @Query("cursor") cursor: String? = null,
         @Query("pageSize") pageSize: Int? = null
     ): ApiResponse<MobileLocationSegmentPointPageDto>

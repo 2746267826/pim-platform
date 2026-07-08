@@ -16,6 +16,10 @@ class MobileQueryApiContractTest {
         assertTrue(api.contains("@GET(\"mobile/location/analytics/overview\")"))
         assertTrue(api.contains("@GET(\"mobile/location/analytics/tracks\")"))
         assertTrue(api.contains("@GET(\"mobile/location/analytics/segments/{segmentId}/points\")"))
+        assertTrue(api.contains("@Query(\"date\") date: String? = null"))
+        assertTrue(api.contains("@Query(\"rangeStartUtc\") rangeStartUtc: String? = null"))
+        assertTrue(api.contains("@Query(\"rangeEndUtc\") rangeEndUtc: String? = null"))
+        assertTrue(api.contains("@Query(\"timezone\") timezone: String? = null"))
     }
 
     @Test
@@ -36,6 +40,10 @@ class MobileQueryApiContractTest {
         )) {
             assertTrue("$name must exist", models.contains("data class $name"))
         }
+        assertTrue(models.contains("val rangeStartUtc: String"))
+        assertTrue(models.contains("val rangeEndUtc: String"))
+        assertTrue(models.contains("val localStartDate: String"))
+        assertTrue(models.contains("val localEndDate: String"))
     }
 
     private fun repoFile(vararg parts: String): File {

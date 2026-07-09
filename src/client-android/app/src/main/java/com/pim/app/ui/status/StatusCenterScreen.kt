@@ -44,6 +44,7 @@ fun StatusCenterScreen(
         onIssueAction = { issue ->
             when (StatusActionRouter.route(viewModel.onIssueAction(issue))) {
                 StatusActionRoute.OpenSettings -> onOpenSettings()
+                StatusActionRoute.OpenPermissions -> onOpenSettings()
                 StatusActionRoute.TriggerSync -> viewModel.syncNow()
                 StatusActionRoute.StayOnStatus -> onOpenStatus()
                 StatusActionRoute.None -> Unit

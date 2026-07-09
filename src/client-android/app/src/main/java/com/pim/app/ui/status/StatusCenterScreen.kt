@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -24,6 +25,7 @@ import com.pim.app.status.StatusActionRoute
 import com.pim.app.status.StatusActionRouter
 import com.pim.app.status.StatusCenterState
 import com.pim.app.status.StatusIssue
+import com.pim.app.status.StatusPermissionNavigator
 import com.pim.app.status.StatusSeverity
 import com.pim.app.ui.components.PimSection
 
@@ -34,6 +36,7 @@ fun StatusCenterScreen(
     onOpenStatus: () -> Unit = {},
     viewModel: StatusCenterViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.refresh()
     }
@@ -44,6 +47,7 @@ fun StatusCenterScreen(
         onIssueAction = { issue ->
             when (StatusActionRouter.route(viewModel.onIssueAction(issue))) {
                 StatusActionRoute.OpenSettings -> onOpenSettings()
+                StatusActionRoute.OpenPermissions -> StatusPermissionNavigator.open(context, issue)
                 StatusActionRoute.TriggerSync -> viewModel.syncNow()
                 StatusActionRoute.StayOnStatus -> onOpenStatus()
                 StatusActionRoute.None -> Unit

@@ -48,7 +48,8 @@ fun StatusCenterScreen(
                 StatusActionRoute.StayOnStatus -> onOpenStatus()
                 StatusActionRoute.None -> Unit
             }
-        }
+        },
+        onOpenStatus = onOpenStatus
     )
 }
 
@@ -56,7 +57,8 @@ fun StatusCenterScreen(
 private fun StatusCenterContent(
     state: StatusCenterState,
     modifier: Modifier = Modifier,
-    onIssueAction: (StatusIssue) -> Unit = {}
+    onIssueAction: (StatusIssue) -> Unit = {},
+    onOpenStatus: () -> Unit = {}
 ) {
     val snapshot = state.snapshot
     Column(

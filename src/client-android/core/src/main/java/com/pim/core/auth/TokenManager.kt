@@ -26,11 +26,12 @@ class TokenManager(context: Context) {
         prefs = p
     }
 
-    fun saveTokens(accessToken: String, refreshToken: String) {
+    fun saveTokens(accessToken: String, refreshToken: String, expiresAt: String? = null) {
+        val expiryMillis = parseExpiry(expiresAt)
         prefs.edit()
             .putString("access_token", accessToken)
             .putString("refresh_token", refreshToken)
-            .putLong("expires_at", System.currentTimeMillis() + 15 * 60 * 1000)
+            .putLong("expires_at", expiryMillis)
             .apply()
     }
 
@@ -39,8 +40,22 @@ class TokenManager(context: Context) {
 
     fun isExpired(): Boolean {
         val expiresAt = prefs.getLong("expires_at", 0)
-        return System.currentTimeMillis() >= expiresAt
+        // Refresh when less than 5 minutes remaining to avoid edge cases
+        return System.currentTimeMillis() >= expiresAt - 5 * 60 * 1000L
     }
 
     fun clear() = prefs.edit().clear().apply()
+
+    private fun parseExpiry(serverExpiresAt: String?): Long {
+        if (serverExpiresAt.isNullOrBlank()) {
+            // Fallback: 24 hours if server didn't send expiry
+            return System.currentTimeMillis() + 24 * 60 * 60 * 1000L
+        }
+        return try {
+            java.time.Instant.parse(serverExpiresAt).toEpochMilli()
+        } catch (e: Exception) {
+            Log.w("TokenManager", "Failed to parse server expiresAt: $serverExpiresAt", e)
+            System.currentTimeMillis() + 24 * 60 * 60 * 1000L
+        }
+    }
 }

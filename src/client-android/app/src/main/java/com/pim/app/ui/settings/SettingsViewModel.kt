@@ -130,7 +130,7 @@ class SettingsViewModel @Inject constructor(
                 if (response.code != 0 || auth == null) {
                     error(response.message.ifBlank { "登录失败。" })
                 }
-                tokenManager.saveTokens(auth.accessToken, auth.refreshToken)
+                tokenManager.saveTokens(auth.accessToken, auth.refreshToken, auth.expiresAt)
             }.fold(
                 onSuccess = {
                     _state.update {

@@ -105,6 +105,18 @@ private fun StatusCenterContent(
             Text("待上传应用信息：${snapshot.queues.pendingAppMetadata}")
             Text("待上传日志：${snapshot.queues.pendingLogs}")
             Text("总待处理：${snapshot.queues.pendingUploadTotal}")
+
+            androidx.compose.material3.Button(
+                onClick = { onOpenStatus() },
+                modifier = Modifier.padding(top = 8.dp),
+                enabled = snapshot.queues.pendingUploadTotal > 0
+            ) {
+                Text("立即同步")
+            }
+
+            if (snapshot.diagnostics.lastLogMessage == "手机同步已完成。" && snapshot.queues.pendingUploadTotal == 0) {
+                Text("上次同步：${snapshot.diagnostics.lastLogMessage}", style = MaterialTheme.typography.bodySmall)
+            }
         }
 
         PimSection("最近诊断") {

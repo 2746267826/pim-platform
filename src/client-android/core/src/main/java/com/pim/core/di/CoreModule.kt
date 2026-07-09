@@ -46,7 +46,7 @@ object CoreModule {
                     runCatching {
                         val response = apiClientProvider.get().refreshApiService().refresh(RefreshRequest(refreshToken))
                         if (response.code == 0 && response.data != null) {
-                            tokenManager.saveTokens(response.data.accessToken, response.data.refreshToken)
+                            tokenManager.saveTokens(response.data.accessToken, response.data.refreshToken, response.data.expiresAt)
                             true
                         } else {
                             false

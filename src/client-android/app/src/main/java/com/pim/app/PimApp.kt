@@ -19,19 +19,15 @@ class PimApp : Application(), Configuration.Provider {
         super.onCreate()
         // Schedule background periodic sync for mobile data upload
         MobileSyncWorker.schedule(this)
-    }
-
-    override val workManagerConfiguration: Configuration
-        get() = Configuration.Builder()
-            .setWorkerFactory(workerFactory)
-            .build()
-
-    override fun onCreate() {
-        super.onCreate()
         // Register periodic sync on app startup; KEEP makes this idempotent.
         runCatching { scheduleUploadWorker(this) }
             .onFailure { error ->
                 Timber.e(error, "Failed to schedule periodic upload worker")
             }
     }
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
 }

@@ -199,6 +199,10 @@ const page: MobileTimelineBlockPage = {
   }],
   nextCursor: null,
   hasMore: false,
+  page: 1,
+  pageSize: 20,
+  totalCount: 1,
+  totalPages: 1,
 };
 
 const override: MobileAppCatalogOverride = {
@@ -310,6 +314,7 @@ assert.equal(overview.suggestions[0].drilldownTarget, 'category:短视频/娱乐
 assert.equal(heatmapBucket.lifeCategory, '社交通讯');
 assert.equal(chart.points[0].label, '社交通讯');
 assert.equal(page.items[0].topApps[0].displayName, 'QQ');
+assert.equal(page.totalPages, 1);
 assert.equal(override.displayNameOverride, 'QQ');
 assert.equal(rule.priority, 100);
 assert.equal(usageGoalRequest.label, '每日手机总时长');

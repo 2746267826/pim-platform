@@ -11,15 +11,20 @@ export interface MobileTimelineBlocksProps {
   eventsBySession: Record<string, MobileSessionEvent[]>;
   expandedBlockId?: string | null;
   expandedSessionId?: string | null;
-  hasMore: boolean;
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
   isLoading?: boolean;
-  isLoadingMore?: boolean;
   isLoadingSessions?: boolean;
   isLoadingEvents?: boolean;
   onToggleBlock: (blockId: string) => void;
   onToggleSession: (sessionId: string) => void;
-  onLoadMore: () => void;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
 }
+
+const pageSizeOptions = [10, 20, 50, 100];
 
 export default function MobileTimelineBlocks({
   blocks,
@@ -27,20 +32,49 @@ export default function MobileTimelineBlocks({
   eventsBySession,
   expandedBlockId = null,
   expandedSessionId = null,
-  hasMore,
+  page,
+  pageSize,
+  totalCount,
+  totalPages,
   isLoading = false,
-  isLoadingMore = false,
   isLoadingSessions = false,
   isLoadingEvents = false,
   onToggleBlock,
   onToggleSession,
-  onLoadMore,
+  onPageChange,
+  onPageSizeChange,
 }: MobileTimelineBlocksProps) {
+  const safeTotalPages = Math.max(1, totalPages);
+  const canGoPrevious = page > 1;
+  const canGoNext = page < safeTotalPages;
+  const visiblePages = Array.from(
+    { length: Math.min(5, safeTotalPages) },
+    (_, index) => Math.max(1, Math.min(page - 2, safeTotalPages - 4)) + index,
+  ).filter(value => value <= safeTotalPages);
+
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-slate-950">使用时间线</h2>
-        <span className="text-xs text-slate-500">按连续行为块展示，避免一次性塞入原始事件</span>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-950">使用时间线</h2>
+          <p className="mt-1 text-xs text-slate-500">按连续行为块展示，避免一次性塞入原始事件</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+          <span>{totalCount} 个时间块</span>
+          <label className="flex items-center gap-2">
+            <span>每页</span>
+            <select
+              aria-label="每页数量"
+              value={pageSize}
+              onChange={event => onPageSizeChange(Number(event.target.value))}
+              className="h-8 rounded border border-slate-200 bg-white px-2 text-xs text-slate-700"
+            >
+              {pageSizeOptions.map(option => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
       <div className="mt-4 space-y-3">
         {blocks.map(block => {
@@ -107,16 +141,44 @@ export default function MobileTimelineBlocks({
       </div>
       {isLoading && <p className="mt-3 text-xs text-slate-500">正在加载时间块</p>}
       {!isLoading && blocks.length === 0 && <p className="mt-3 text-xs text-slate-500">暂无时间块数据</p>}
-      {hasMore && (
-        <button
-          type="button"
-          onClick={onLoadMore}
-          disabled={isLoadingMore}
-          className="mt-4 h-9 rounded-md border border-slate-200 px-3 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-        >
-          {isLoadingMore ? '加载中' : '加载更多'}
-        </button>
-      )}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+        <span className="text-xs text-slate-500">第 {Math.min(page, safeTotalPages)} / {safeTotalPages} 页</span>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="上一页"
+            onClick={() => onPageChange(page - 1)}
+            disabled={!canGoPrevious || isLoading}
+            className="h-8 w-8 rounded border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ‹
+          </button>
+          {visiblePages.map(item => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => onPageChange(item)}
+              disabled={isLoading}
+              className={`h-8 min-w-8 rounded border px-2 text-xs font-medium ${
+                item === page
+                  ? 'border-slate-950 bg-slate-950 text-white'
+                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-label="下一页"
+            onClick={() => onPageChange(page + 1)}
+            disabled={!canGoNext || isLoading}
+            className="h-8 w-8 rounded border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ›
+          </button>
+        </div>
+      </div>
     </section>
   );
 }

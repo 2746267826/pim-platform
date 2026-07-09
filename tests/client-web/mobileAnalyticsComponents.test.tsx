@@ -299,12 +299,15 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
         eventsBySession: { [session.id]: [event] },
         expandedBlockId: block.id,
         expandedSessionId: session.id,
-        hasMore: true,
+        page: 2,
+        pageSize: 20,
+        totalCount: 45,
+        totalPages: 3,
         isLoading: false,
-        isLoadingMore: false,
         onToggleBlock: () => undefined,
         onToggleSession: () => undefined,
-        onLoadMore: () => undefined,
+        onPageChange: () => undefined,
+        onPageSizeChange: () => undefined,
       }),
     ),
     renderToStaticMarkup(
@@ -369,7 +372,8 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
   assert.equal(html.includes('深夜使用偏高'), true);
   assert.equal(html.includes('抖音'), true);
   assert.equal(html.includes('原始事件'), true);
-  assert.equal(html.includes('加载更多'), true);
+  assert.equal(html.includes('第 2 / 3 页'), true);
+  assert.equal(html.includes('加载更多'), false);
   assert.equal(html.includes('重复小时数字墙'), false);
   assert.equal(html.includes('\u93B5\u5B2B\u6E80'), false, 'new analytics UI should not render mojibake mobile labels');
 });

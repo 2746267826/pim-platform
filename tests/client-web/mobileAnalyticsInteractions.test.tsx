@@ -13,6 +13,7 @@ import type {
 import MobileAnalyticsHeader from '../../src/client-web/src/components/mobile/MobileAnalyticsHeader';
 import MobileUsageHeatmap from '../../src/client-web/src/components/mobile/MobileUsageHeatmap';
 import MobileChartsGrid from '../../src/client-web/src/components/mobile/MobileChartsGrid';
+import MobileTimelineBlocks from '../../src/client-web/src/components/mobile/MobileTimelineBlocks';
 import MobileAppCatalogManager from '../../src/client-web/src/components/mobile/MobileAppCatalogManager';
 import { buildHeatmapMatrix } from '../../src/client-web/src/components/mobile/mobileHeatmapMatrix';
 import {
@@ -257,6 +258,40 @@ test('heatmap matrix merges duplicate category buckets into one date hour cell',
   assert.equal(cell.qualityFlags.includes('fallback'), true);
 });
 
+test('timeline blocks expose page and page size controls', () => {
+  const pages: number[] = [];
+  const pageSizes: number[] = [];
+
+  const tree = MobileTimelineBlocks({
+    blocks: [],
+    sessionsByBlock: {},
+    eventsBySession: {},
+    page: 2,
+    pageSize: 20,
+    totalCount: 45,
+    totalPages: 3,
+    isLoading: false,
+    onToggleBlock: () => undefined,
+    onToggleSession: () => undefined,
+    onPageChange: value => pages.push(value),
+    onPageSizeChange: value => pageSizes.push(value),
+  });
+
+  const previous = findElement(tree, node => node.props?.['aria-label'] === '上一页');
+  const next = findElement(tree, node => node.props?.['aria-label'] === '下一页');
+  const pageSizeSelect = findElement(tree, node => node.props?.['aria-label'] === '每页数量');
+
+  (previous.props?.onClick as () => void)();
+  (next.props?.onClick as () => void)();
+  (pageSizeSelect.props?.onChange as (event: { target: { value: string } }) => void)({
+    target: { value: '50' },
+  });
+
+  assert.deepEqual(pages, [1, 3]);
+  assert.deepEqual(pageSizes, [50]);
+  assert.equal(textContent(tree).includes('加载更多'), false);
+});
+
 test('app catalog manager exposes override and batch rule callbacks', () => {
   const savedOverrides: MobileAppCatalogOverride[] = [];
   const deletedOverrides: string[] = [];
@@ -416,6 +451,10 @@ test('mobile records page integrates analytics queries and bucket-driven shared 
     'MOBILE_DEFAULT_TIMEZONE',
     'handleHeatmapBucketSelect',
     'bucket.bucketStartUtc',
+    'timelinePage',
+    'timelinePageSize',
+    'onPageChange={setTimelinePage}',
+    'onPageSizeChange={handleTimelinePageSizeChange}',
     'onCategorySelect={handleChartCategorySelect}',
     'onAppSelect={handleChartAppSelect}',
     "setPackageName('')",

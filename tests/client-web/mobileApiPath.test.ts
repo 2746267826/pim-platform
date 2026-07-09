@@ -105,9 +105,10 @@ assert.equal(
   mobileApiPaths.analyticsTimelineBlocks({
     timezone: MOBILE_DEFAULT_TIMEZONE,
     includeSystemNoise: false,
+    page: 2,
     pageSize: 50,
   }),
-  '/mobile/analytics/timeline-blocks?timezone=Asia%2FShanghai&includeSystemNoise=false&pageSize=50',
+  '/mobile/analytics/timeline-blocks?timezone=Asia%2FShanghai&includeSystemNoise=false&page=2&pageSize=50',
 );
 assert.equal(
   mobileApiPaths.timelineBlockSessions('block/一', {

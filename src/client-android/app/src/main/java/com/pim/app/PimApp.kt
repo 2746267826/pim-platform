@@ -6,6 +6,7 @@ import com.pim.app.daemon.scheduleUploadWorker
 import com.pim.app.di.PimWorkerFactory
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
+import timber.log.Timber
 
 @HiltAndroidApp
 class PimApp : Application(), Configuration.Provider {
@@ -20,8 +21,10 @@ class PimApp : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        // 注册周期上传任务。KEEP 策略保证重复调用幂等。
-        // WorkManager 在没有网络时会等待，所以即使首次启动无网络也无副作用。
+        // Register periodic sync on app startup; KEEP makes this idempotent.
         runCatching { scheduleUploadWorker(this) }
+            .onFailure { error ->
+                Timber.e(error, "Failed to schedule periodic upload worker")
+            }
     }
 }

@@ -20,6 +20,7 @@ enum class StatusActionTarget {
 
 enum class StatusActionRoute {
     OpenSettings,
+    OpenPermissions,
     TriggerSync,
     StayOnStatus,
     None
@@ -28,8 +29,8 @@ enum class StatusActionRoute {
 object StatusActionRouter {
     fun route(target: StatusActionTarget): StatusActionRoute = when (target) {
         StatusActionTarget.Settings,
-        StatusActionTarget.Login,
-        StatusActionTarget.Permissions -> StatusActionRoute.OpenSettings
+        StatusActionTarget.Login -> StatusActionRoute.OpenSettings
+        StatusActionTarget.Permissions -> StatusActionRoute.OpenPermissions
         StatusActionTarget.Sync -> StatusActionRoute.TriggerSync
         StatusActionTarget.Status,
         StatusActionTarget.Queue -> StatusActionRoute.StayOnStatus

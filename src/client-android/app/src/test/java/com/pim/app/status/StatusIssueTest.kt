@@ -114,7 +114,7 @@ class StatusIssueTest {
     fun actionRouterMapsTargetsToVisibleActions() {
         assertEquals(StatusActionRoute.OpenSettings, StatusActionRouter.route(StatusActionTarget.Settings))
         assertEquals(StatusActionRoute.OpenSettings, StatusActionRouter.route(StatusActionTarget.Login))
-        assertEquals(StatusActionRoute.OpenSettings, StatusActionRouter.route(StatusActionTarget.Permissions))
+        assertEquals(StatusActionRoute.OpenPermissions, StatusActionRouter.route(StatusActionTarget.Permissions))
         assertEquals(StatusActionRoute.TriggerSync, StatusActionRouter.route(StatusActionTarget.Sync))
         assertEquals(StatusActionRoute.StayOnStatus, StatusActionRouter.route(StatusActionTarget.Queue))
         assertEquals(StatusActionRoute.StayOnStatus, StatusActionRouter.route(StatusActionTarget.Status))

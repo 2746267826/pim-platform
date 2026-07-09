@@ -12,12 +12,19 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pim.app.ui.components.PimSection
 
 @Composable
-fun TodayScreen(modifier: Modifier = Modifier) {
+fun TodayScreen(
+    modifier: Modifier = Modifier,
+    viewModel: TodayViewModel = hiltViewModel()
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -27,8 +34,8 @@ fun TodayScreen(modifier: Modifier = Modifier) {
     ) {
         Text("今日概览", style = MaterialTheme.typography.headlineSmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AssistChip(onClick = {}, label = { Text("持续采集：未开启") })
-            AssistChip(onClick = {}, label = { Text("API：待连接") })
+            AssistChip(onClick = {}, label = { Text(state.collectionStatusLabel) })
+            AssistChip(onClick = {}, label = { Text(state.apiStatusLabel) })
         }
         PimSection("今日轨迹") {
             Text("地图预览将在这里展示今日轨迹、停留点和移动方向。")

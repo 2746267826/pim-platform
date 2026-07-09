@@ -23,7 +23,7 @@ class AndroidV2LoginFlowContractTest {
         val saveIndex = source.indexOf("saveApiAddress()", validationIndex)
         val loginIndex = source.indexOf("apiClientProvider.refreshApiService().login", saveIndex)
         val requestIndex = source.indexOf("LoginRequest(username.trim(), password)", loginIndex)
-        val tokenIndex = source.indexOf("tokenManager.saveTokens(auth.accessToken, auth.refreshToken)", requestIndex)
+        val tokenIndex = source.indexOf("tokenManager.saveTokens(auth.accessToken, auth.refreshToken, auth.expiresAt)", requestIndex)
 
         assertTrue("login must validate the current API address", validationIndex >= 0)
         assertTrue("login must save the validated API address before creating the API client", saveIndex > validationIndex)

@@ -1,12 +1,15 @@
 package com.pim.app.daemon
 
 import android.content.Context
-import android.provider.Settings
-import androidx.work.*
-import com.pim.app.data.AppUsageDao
-import com.pim.core.models.AppUsageEntry
-import com.pim.core.models.UploadBatch
-import com.pim.core.network.ApiService
+import androidx.work.BackoffPolicy
+import androidx.work.Constraints
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
+import com.pim.app.mobile.sync.MobileSyncCoordinator
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
@@ -18,8 +21,7 @@ class UploadWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     @ApplicationContext private val appContext: Context,
-    private val dao: AppUsageDao,
-    private val api: ApiService
+    private val mobileSyncCoordinator: MobileSyncCoordinator
 ) : CoroutineWorker(context, params) {
 
     @AssistedFactory
@@ -28,48 +30,19 @@ class UploadWorker @AssistedInject constructor(
     }
 
     override suspend fun doWork(): Result {
-        Timber.d("UploadWorker starting")
-        try {
-            val unsynced = dao.getUnsynced(500)
-            if (unsynced.isEmpty()) {
-                Timber.d("No unsynced records")
-                return Result.success()
-            }
-
-            val deviceId = Settings.Secure.getString(
-                appContext.contentResolver, Settings.Secure.ANDROID_ID)
-
-            val batch = UploadBatch(
-                deviceId = deviceId,
-                entries = unsynced.map {
-                    AppUsageEntry(
-                        packageName = it.packageName,
-                        startTime = it.startTime,
-                        endTime = it.endTime,
-                        durationMs = it.durationMs,
-                        lastTimeUsed = it.lastTimeUsed
-                    )
-                }
-            )
-
-            val response = api.uploadStats(batch)
-            if (response.code == 0) {
-                val ids = unsynced.map { it.id }
-                dao.markSynced(ids)
-                Timber.d("Uploaded ${ids.size} records, accepted ${response.data ?: 0}")
-
-                val cutoff = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000L
-                dao.deleteSyncedOlderThan(cutoff)
-
-                return Result.success()
-            } else {
-                Timber.w("Upload rejected: ${response.message}")
-                return Result.retry()
-            }
+        Timber.d("UploadWorker starting periodic mobile sync")
+        return try {
+            val state = mobileSyncCoordinator.syncOnOpen()
+            Timber.d("UploadWorker finished: phase=${state.phase} failed=${state.failedCount}")
+            if (state.failedCount > 0 && runAttemptCount < 3) Result.retry() else Result.success()
         } catch (e: Exception) {
             Timber.e(e, "UploadWorker failed")
-            return if (runAttemptCount < 3) Result.retry() else Result.failure()
+            if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
+    }
+
+    companion object {
+        const val WORK_NAME = "pim_upload"
     }
 }
 
@@ -84,5 +57,13 @@ fun scheduleUploadWorker(context: Context) {
         .build()
 
     WorkManager.getInstance(context)
-        .enqueueUniquePeriodicWork("pim_upload", ExistingPeriodicWorkPolicy.KEEP, request)
+        .enqueueUniquePeriodicWork(
+            UploadWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
+}
+
+fun cancelUploadWorker(context: Context) {
+    WorkManager.getInstance(context).cancelUniqueWork(UploadWorker.WORK_NAME)
 }

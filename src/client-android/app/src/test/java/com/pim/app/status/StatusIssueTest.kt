@@ -116,7 +116,7 @@ class StatusIssueTest {
         assertEquals(StatusActionRoute.OpenSettings, StatusActionRouter.route(StatusActionTarget.Login))
         assertEquals(StatusActionRoute.OpenPermissions, StatusActionRouter.route(StatusActionTarget.Permissions))
         assertEquals(StatusActionRoute.TriggerSync, StatusActionRouter.route(StatusActionTarget.Sync))
-        assertEquals(StatusActionRoute.StayOnStatus, StatusActionRouter.route(StatusActionTarget.Queue))
+        assertEquals(StatusActionRoute.TriggerSync, StatusActionRouter.route(StatusActionTarget.Queue))
         assertEquals(StatusActionRoute.StayOnStatus, StatusActionRouter.route(StatusActionTarget.Status))
     }
 

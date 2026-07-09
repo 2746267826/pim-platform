@@ -5,8 +5,6 @@ import android.content.SharedPreferences
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
-import java.time.Instant
-import java.time.format.DateTimeParseException
 
 class TokenManager(context: Context) {
     private val prefs: SharedPreferences
@@ -28,57 +26,36 @@ class TokenManager(context: Context) {
         prefs = p
     }
 
-    fun saveTokens(accessToken: String, refreshToken: String) {
-        saveTokens(accessToken, refreshToken, defaultExpiresAtMillis())
-    }
-
-    fun saveTokens(accessToken: String, refreshToken: String, expiresAtMillis: Long) {
-        val safeExpiry = if (expiresAtMillis > 0L) expiresAtMillis else defaultExpiresAtMillis()
+    fun saveTokens(accessToken: String, refreshToken: String, expiresAt: String? = null) {
+        val expiryMillis = parseExpiry(expiresAt)
         prefs.edit()
             .putString("access_token", accessToken)
             .putString("refresh_token", refreshToken)
-            .putLong("expires_at", safeExpiry)
+            .putLong("expires_at", expiryMillis)
             .apply()
-    }
-
-    fun saveTokens(accessToken: String, refreshToken: String, expiresAtIso: String?) {
-        saveTokens(accessToken, refreshToken, TokenExpiry.parseIsoToMillis(expiresAtIso) ?: 0L)
     }
 
     fun getAccessToken(): String? = prefs.getString("access_token", null)
     fun getRefreshToken(): String? = prefs.getString("refresh_token", null)
 
-    fun expiresAtMillis(): Long = prefs.getLong("expires_at", 0)
-
     fun isExpired(): Boolean {
         val expiresAt = prefs.getLong("expires_at", 0)
-        if (expiresAt <= 0L) return getAccessToken().isNullOrBlank()
-        // 提前 30 秒判定过期，避免请求途中刚好到期被服务端拒绝。
-        return System.currentTimeMillis() >= expiresAt - SAFETY_MARGIN_MS
-    }
-
-    private fun defaultExpiresAtMillis(): Long =
-        System.currentTimeMillis() + DEFAULT_ACCESS_TOKEN_TTL_MS
-
-    private companion object {
-        const val DEFAULT_ACCESS_TOKEN_TTL_MS = 15L * 60L * 1000L
-        const val SAFETY_MARGIN_MS = 30L * 1000L
+        // Refresh when less than 5 minutes remaining to avoid edge cases
+        return System.currentTimeMillis() >= expiresAt - 5 * 60 * 1000L
     }
 
     fun clear() = prefs.edit().clear().apply()
-}
 
-object TokenExpiry {
-    fun parseIsoToMillis(expiresAt: String?): Long? {
-        if (expiresAt.isNullOrBlank()) return null
+    private fun parseExpiry(serverExpiresAt: String?): Long {
+        if (serverExpiresAt.isNullOrBlank()) {
+            // Fallback: 24 hours if server didn't send expiry
+            return System.currentTimeMillis() + 24 * 60 * 60 * 1000L
+        }
         return try {
-            Instant.parse(expiresAt).toEpochMilli()
-        } catch (_: DateTimeParseException) {
-            try {
-                Instant.parse(expiresAt.replace(' ', 'T')).toEpochMilli()
-            } catch (_: DateTimeParseException) {
-                null
-            }
+            java.time.Instant.parse(serverExpiresAt).toEpochMilli()
+        } catch (e: Exception) {
+            Log.w("TokenManager", "Failed to parse server expiresAt: $serverExpiresAt", e)
+            System.currentTimeMillis() + 24 * 60 * 60 * 1000L
         }
     }
 }

@@ -1,8 +1,6 @@
 package com.pim.core.di
 
 import android.content.Context
-import android.util.Log
-import com.pim.core.auth.TokenExpiry
 import com.pim.core.auth.TokenManager
 import com.pim.core.models.RefreshRequest
 import com.pim.core.network.ApiClientProvider
@@ -43,37 +41,17 @@ object CoreModule {
             .addInterceptor(AuthInterceptor(tokenManager) {
                 val refreshToken = tokenManager.getRefreshToken()
                 if (refreshToken.isNullOrBlank()) {
-                    Log.w("PimAuth", "access token expired and no refresh token available; clearing session")
-                    tokenManager.clear()
                     false
                 } else {
                     runCatching {
-                        val response = apiClientProvider.get().refreshApiService()
-                            .refresh(RefreshRequest(refreshToken))
-                        val data = response.data
-                        if (response.code == 0 && data != null) {
-                            val expiresAtMillis = TokenExpiry.parseIsoToMillis(data.expiresAt)
-                            tokenManager.saveTokens(
-                                data.accessToken,
-                                data.refreshToken,
-                                expiresAtMillis ?: 0L
-                            )
+                        val response = apiClientProvider.get().refreshApiService().refresh(RefreshRequest(refreshToken))
+                        if (response.code == 0 && response.data != null) {
+                            tokenManager.saveTokens(response.data.accessToken, response.data.refreshToken, response.data.expiresAt)
                             true
                         } else {
-                            Log.w("PimAuth", "refresh rejected by server (code=${response.code}); clearing session")
-                            tokenManager.clear()
                             false
                         }
-                    }.getOrElse { ex ->
-                        if (ex is retrofit2.HttpException && ex.code() in setOf(401, 403)) {
-                            Log.w("PimAuth", "refresh token rejected (${ex.code()}); clearing session")
-                            tokenManager.clear()
-                            false
-                        } else {
-                            Log.w("PimAuth", "refresh call failed; keeping tokens for next attempt", ex)
-                            false
-                        }
-                    }
+                    }.getOrDefault(false)
                 }
             })
             .build()

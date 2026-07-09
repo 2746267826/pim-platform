@@ -31,9 +31,9 @@ object StatusActionRouter {
         StatusActionTarget.Settings,
         StatusActionTarget.Login -> StatusActionRoute.OpenSettings
         StatusActionTarget.Permissions -> StatusActionRoute.OpenPermissions
-        StatusActionTarget.Sync -> StatusActionRoute.TriggerSync
-        StatusActionTarget.Status,
-        StatusActionTarget.Queue -> StatusActionRoute.StayOnStatus
+        StatusActionTarget.Sync,
+        StatusActionTarget.Queue -> StatusActionRoute.TriggerSync
+        StatusActionTarget.Status -> StatusActionRoute.StayOnStatus
         StatusActionTarget.None -> StatusActionRoute.None
     }
 }

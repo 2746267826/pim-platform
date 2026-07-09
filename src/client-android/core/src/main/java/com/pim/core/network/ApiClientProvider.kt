@@ -2,6 +2,7 @@ package com.pim.core.network
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.pim.core.settings.ServerSettingsStore
+import com.pim.core.settings.ServerUrlValidator
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -60,8 +61,12 @@ class ApiClientProvider @Inject constructor(
     }
 
     private fun createApiService(baseUrl: String, client: OkHttpClient): ApiService {
+        val validation = ServerUrlValidator.validate(baseUrl)
+        check(validation.isValid) {
+            "API address is not configured or invalid: ${validation.reasonCode ?: "unknown"}"
+        }
         return Retrofit.Builder()
-            .baseUrl(baseUrl)
+            .baseUrl(validation.normalizedUrl)
             .client(client)
             .addConverterFactory(json.asConverterFactory(JSON_MEDIA_TYPE))
             .build()

@@ -25,14 +25,12 @@ class ServerSettingsStore @Inject constructor(
     }
 
     companion object {
-        const val DEFAULT_BASE_URL = "http://127.0.0.1:5858/api/v1/"
+        const val DEFAULT_BASE_URL = ""
         const val KEY_SERVER_BASE_URL = "server_base_url"
         private const val PREFS_NAME = "pim_server_settings"
 
         fun normalizeBaseUrl(value: String?): String {
-            val trimmed = value?.trim().orEmpty()
-            if (trimmed.isBlank()) return DEFAULT_BASE_URL
-            return trimmed.trimEnd('/') + "/"
+            return ServerUrlValidator.validate(value).normalizedUrl
         }
     }
 }

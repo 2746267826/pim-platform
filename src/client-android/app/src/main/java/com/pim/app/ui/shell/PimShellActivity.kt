@@ -27,30 +27,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.pim.app.daemon.DataCollector
 import com.pim.app.ui.permissions.PermissionCenterScreen
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class PimShellActivity : AppCompatActivity() {
-    @Inject lateinit var collector: DataCollector
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        collector.start()
         val initialRoute = intent.getStringExtra(EXTRA_ROUTE) ?: "/today"
         setContent {
             PimShellScreen(initialRoute = initialRoute)
         }
-    }
-
-    override fun onDestroy() {
-        if (::collector.isInitialized) {
-            collector.stop()
-        }
-        super.onDestroy()
     }
 
     companion object {

@@ -86,6 +86,7 @@ dependencies {
     implementation("com.jakewharton.timber:timber:5.0.1")
 
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
     // Custom PimWorkerFactory replaces @HiltWorker/HiltWorkerFactory — no androidx.hilt:hilt-work needed
 
     implementation("androidx.room:room-runtime:2.6.1")
@@ -109,4 +110,5 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("androidx.room:room-testing:2.6.1")
 }

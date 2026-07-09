@@ -154,3 +154,199 @@ data class MobileLocationPointDto(
     val quality: String,
     val rawJson: String
 )
+
+@Serializable
+data class MobileAppUsageSummaryDto(
+    val packageName: String,
+    val displayName: String,
+    val categoryName: String? = null,
+    val foregroundSeconds: Long,
+    val sessionCount: Int,
+    val launchCount: Int,
+    val lastUsedAt: String? = null,
+    val source: String,
+    val share: Double
+)
+
+@Serializable
+data class MobileSyncBatchSummaryDto(
+    val id: String,
+    val deviceId: String,
+    val clientBatchId: String,
+    val sourceWindowStartUtc: String,
+    val sourceWindowEndUtc: String,
+    val submittedAtUtc: String,
+    val status: String,
+    val acceptedEventCount: Int,
+    val skippedEventCount: Int,
+    val acceptedLocationCount: Int,
+    val rejectedLocationCount: Int,
+    val errorMessage: String? = null
+)
+
+@Serializable
+data class MobileUsageSummaryResponse(
+    val date: String,
+    val deviceId: String? = null,
+    val generatedAt: String,
+    val totalForegroundSeconds: Long,
+    val fallbackForegroundSeconds: Long,
+    val appSwitchCount: Int,
+    val appsUsed: Int,
+    val completeness: Double,
+    val lastSyncAt: String? = null,
+    val appRanking: List<MobileAppUsageSummaryDto> = emptyList(),
+    val syncBatches: List<MobileSyncBatchSummaryDto> = emptyList(),
+    val qualityIssueCount: Int
+)
+
+@Serializable
+data class MobileTimelineItemDto(
+    val id: String,
+    val kind: String,
+    val deviceId: String,
+    val packageName: String,
+    val displayName: String,
+    val start: String,
+    val end: String? = null,
+    val durationSeconds: Long,
+    val source: String,
+    val confidence: Double,
+    val reason: String
+)
+
+@Serializable
+data class MobileTimelineResponse(
+    val date: String,
+    val deviceId: String? = null,
+    val generatedAt: String,
+    val sessions: List<MobileTimelineItemDto> = emptyList(),
+    val fallbackSummaries: List<MobileTimelineItemDto> = emptyList(),
+    val items: List<MobileTimelineItemDto> = emptyList()
+)
+
+@Serializable
+data class MobileLocationHistoryResponse(
+    val start: String? = null,
+    val end: String? = null,
+    val deviceId: String? = null,
+    val maxAccuracyMeters: Double,
+    val points: List<MobileLocationPointDto> = emptyList()
+)
+
+@Serializable
+data class MobileQualityResponse(
+    val overallStatus: String,
+    val label: String,
+    val message: String,
+    val checkedAt: String,
+    val components: List<MobileQualityComponentDto> = emptyList(),
+    val issues: List<MobileQualityIssueDto> = emptyList(),
+    val nextSteps: List<String> = emptyList()
+)
+
+@Serializable
+data class MobileQualityComponentDto(
+    val key: String,
+    val name: String,
+    val status: String,
+    val message: String,
+    val checkedAt: String,
+    val details: Map<String, String> = emptyMap()
+)
+
+@Serializable
+data class MobileQualityIssueDto(
+    val code: String,
+    val severity: String,
+    val componentKey: String,
+    val message: String,
+    val nextStep: String? = null
+)
+
+@Serializable
+data class MobileAnalyticsRangeDto(
+    val rangeStartUtc: String,
+    val rangeEndUtc: String,
+    val timezone: String,
+    val localStartDate: String,
+    val localEndDate: String
+)
+
+@Serializable
+data class MobileGeoBoundsDto(
+    val minLatitude: Double,
+    val minLongitude: Double,
+    val maxLatitude: Double,
+    val maxLongitude: Double
+)
+
+@Serializable
+data class MobileLocationAnalyticsOverviewResponse(
+    val range: MobileAnalyticsRangeDto,
+    val generatedAt: String,
+    val pointCount: Int,
+    val usablePointCount: Int,
+    val rejectedPointCount: Int,
+    val activeSpanSeconds: Long,
+    val distanceMeters: Double,
+    val stayCount: Int,
+    val longestStaySeconds: Long,
+    val averageAccuracyMeters: Double,
+    val qualityIssueCount: Int,
+    val qualityFlags: List<String> = emptyList()
+)
+
+@Serializable
+data class MobileLocationPathPointDto(
+    val id: String,
+    val recordedAtUtc: String,
+    val latitude: Double,
+    val longitude: Double,
+    val horizontalAccuracyMeters: Double,
+    val quality: String
+)
+
+@Serializable
+data class MobileLocationSegmentDto(
+    val id: String,
+    val trackId: String,
+    val deviceId: String,
+    val kind: String,
+    val startUtc: String,
+    val endUtc: String,
+    val localStart: String,
+    val localEnd: String,
+    val durationSeconds: Long,
+    val distanceMeters: Double,
+    val pointCount: Int,
+    val averageSpeedMetersPerSecond: Double,
+    val averageAccuracyMeters: Double,
+    val maxAccuracyMeters: Double,
+    val quality: String,
+    val qualityFlags: List<String> = emptyList(),
+    val bounds: MobileGeoBoundsDto? = null,
+    val path: List<MobileLocationPathPointDto> = emptyList()
+)
+
+@Serializable
+data class MobileLocationTrackDto(
+    val id: String,
+    val deviceId: String,
+    val startUtc: String,
+    val endUtc: String,
+    val distanceMeters: Double,
+    val durationSeconds: Long,
+    val pointCount: Int,
+    val segmentCount: Int,
+    val bounds: MobileGeoBoundsDto? = null,
+    val qualityFlags: List<String> = emptyList(),
+    val segments: List<MobileLocationSegmentDto> = emptyList()
+)
+
+@Serializable
+data class MobileLocationSegmentPointPageDto(
+    val items: List<MobileLocationPointDto> = emptyList(),
+    val nextCursor: String? = null,
+    val hasMore: Boolean
+)

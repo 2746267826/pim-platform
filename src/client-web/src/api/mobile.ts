@@ -40,6 +40,7 @@ export interface MobileAnalyticsQuery {
   minDurationSeconds?: number | null;
   granularity?: MobileAnalyticsGranularity | null;
   cursor?: string | null;
+  page?: number | null;
   pageSize?: number | null;
 }
 
@@ -56,6 +57,7 @@ function withAnalyticsQuery(path: string, query: MobileAnalyticsQuery = {}) {
     ['minDurationSeconds', query.minDurationSeconds],
     ['granularity', query.granularity],
     ['cursor', query.cursor],
+    ['page', query.page],
     ['pageSize', query.pageSize],
   ]);
 }
@@ -507,6 +509,10 @@ export interface MobileTimelineBlockPage {
   items: MobileTimelineBlock[];
   nextCursor: string | null;
   hasMore: boolean;
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
 }
 
 export interface MobileTimelineBlockSession {

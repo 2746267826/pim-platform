@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createMobileAppCategoryRule,
   deleteMobileAppCatalogOverride,
@@ -67,6 +67,8 @@ export default function MobileRecordsPage() {
   const [selectedBucketStartUtc, setSelectedBucketStartUtc] = useState<string | null>(null);
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
   const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+  const [timelinePage, setTimelinePage] = useState(1);
+  const [timelinePageSize, setTimelinePageSize] = useState(20);
 
   const utcRange = useMemo(
     () => toMobileAnalyticsUtcRange({ startDate: rangeStartDate, endDate: rangeEndDate }),
@@ -115,15 +117,13 @@ export default function MobileRecordsPage() {
     refetchInterval: 30000,
   });
 
-  const timelineBlocksQuery = useInfiniteQuery({
-    queryKey: ['mobile-analytics-timeline-blocks', analyticsQuery],
-    queryFn: ({ pageParam }) => getMobileAnalyticsTimelineBlocks({
+  const timelineBlocksQuery = useQuery({
+    queryKey: ['mobile-analytics-timeline-blocks', analyticsQuery, timelinePage, timelinePageSize],
+    queryFn: () => getMobileAnalyticsTimelineBlocks({
       ...analyticsQuery,
-      cursor: pageParam,
-      pageSize: 20,
+      page: timelinePage,
+      pageSize: timelinePageSize,
     }),
-    initialPageParam: null as string | null,
-    getNextPageParam: lastPage => lastPage.hasMore ? lastPage.nextCursor : undefined,
   });
 
   const overridesQuery = useQuery({
@@ -189,8 +189,8 @@ export default function MobileRecordsPage() {
     onSuccess: invalidateCatalogData,
   });
 
-  const timelineBlocks = timelineBlocksQuery.data?.pages.flatMap(page => page.items) ?? [];
-  const lastTimelinePage = timelineBlocksQuery.data?.pages.at(-1);
+  const timelineBlocks = timelineBlocksQuery.data?.items ?? [];
+  const timelinePageData = timelineBlocksQuery.data;
   const heatmapMatrix = useMemo(
     () => buildHeatmapMatrix(heatmapQuery.data ?? []),
     [heatmapQuery.data],
@@ -209,12 +209,18 @@ export default function MobileRecordsPage() {
     ? { [expandedSessionId]: eventsQuery.data }
     : {};
 
+  useEffect(() => {
+    setExpandedBlockId(null);
+    setExpandedSessionId(null);
+  }, [analyticsQuery, timelinePage, timelinePageSize]);
+
   function handleShortcutChange(shortcut: Exclude<MobileRangeShortcut, 'custom'>) {
     const nextRange = buildMobileAnalyticsDateRange(shortcut);
     setRangeShortcut(shortcut);
     setRangeStartDate(nextRange.startDate);
     setRangeEndDate(nextRange.endDate);
     setSelectedBucketStartUtc(null);
+    setTimelinePage(1);
   }
 
   function handleCustomRangeChange(range: { startDate: string; endDate: string }) {
@@ -222,6 +228,7 @@ export default function MobileRecordsPage() {
     setRangeStartDate(range.startDate);
     setRangeEndDate(range.endDate);
     setSelectedBucketStartUtc(null);
+    setTimelinePage(1);
   }
 
   function handleHeatmapBucketSelect(bucket: MobileHeatmapBucket) {
@@ -236,6 +243,7 @@ export default function MobileRecordsPage() {
     setSelectedBucketStartUtc(null);
     setExpandedBlockId(null);
     setExpandedSessionId(null);
+    setTimelinePage(1);
   }
 
   function handleChartAppSelect(packageNameValue: string) {
@@ -244,6 +252,36 @@ export default function MobileRecordsPage() {
     setSelectedBucketStartUtc(null);
     setExpandedBlockId(null);
     setExpandedSessionId(null);
+    setTimelinePage(1);
+  }
+
+  function handleDeviceChange(deviceId: string) {
+    setSelectedDeviceId(deviceId);
+    setSelectedBucketStartUtc(null);
+    setTimelinePage(1);
+  }
+
+  function handleHeaderCategoryChange(category: string) {
+    setSelectedCategory(category);
+    setSelectedBucketStartUtc(null);
+    setTimelinePage(1);
+  }
+
+  function handlePackageNameChange(value: string) {
+    setPackageName(value);
+    setSelectedBucketStartUtc(null);
+    setTimelinePage(1);
+  }
+
+  function handleIncludeSystemNoiseChange(value: boolean) {
+    setIncludeSystemNoise(value);
+    setSelectedBucketStartUtc(null);
+    setTimelinePage(1);
+  }
+
+  function handleTimelinePageSizeChange(pageSize: number) {
+    setTimelinePageSize(pageSize);
+    setTimelinePage(1);
   }
 
   function refresh() {
@@ -292,13 +330,10 @@ export default function MobileRecordsPage() {
         errorMessage={pageError}
         onShortcutChange={handleShortcutChange}
         onCustomRangeChange={handleCustomRangeChange}
-        onDeviceChange={setSelectedDeviceId}
-        onCategoryChange={value => {
-          setSelectedCategory(value);
-          setSelectedBucketStartUtc(null);
-        }}
-        onPackageNameChange={setPackageName}
-        onIncludeSystemNoiseChange={setIncludeSystemNoise}
+        onDeviceChange={handleDeviceChange}
+        onCategoryChange={handleHeaderCategoryChange}
+        onPackageNameChange={handlePackageNameChange}
+        onIncludeSystemNoiseChange={handleIncludeSystemNoiseChange}
         onRefresh={refresh}
       />
 
@@ -330,9 +365,11 @@ export default function MobileRecordsPage() {
               eventsBySession={eventsBySession}
               expandedBlockId={expandedBlockId}
               expandedSessionId={expandedSessionId}
-              hasMore={Boolean(lastTimelinePage?.hasMore)}
+              page={timelinePageData?.page ?? timelinePage}
+              pageSize={timelinePageData?.pageSize ?? timelinePageSize}
+              totalCount={timelinePageData?.totalCount ?? 0}
+              totalPages={timelinePageData?.totalPages ?? 0}
               isLoading={timelineBlocksQuery.isLoading}
-              isLoadingMore={timelineBlocksQuery.isFetchingNextPage}
               isLoadingSessions={sessionsQuery.isFetching}
               isLoadingEvents={eventsQuery.isFetching}
               onToggleBlock={blockId => {
@@ -340,9 +377,8 @@ export default function MobileRecordsPage() {
                 setExpandedSessionId(null);
               }}
               onToggleSession={setExpandedSessionId}
-              onLoadMore={() => {
-                if (timelineBlocksQuery.hasNextPage) void timelineBlocksQuery.fetchNextPage();
-              }}
+              onPageChange={setTimelinePage}
+              onPageSizeChange={handleTimelinePageSizeChange}
             />
         </section>
         <div className="mx-auto grid max-w-[1500px] grid-cols-1 gap-4 px-4 sm:px-6 xl:grid-cols-2">

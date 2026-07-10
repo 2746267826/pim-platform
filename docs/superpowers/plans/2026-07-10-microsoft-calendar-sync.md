@@ -791,7 +791,7 @@ public sealed class OutlookMsalAuthenticationTests
 
         var raw = await db.Set<OutlookConnectionEntity>().AsNoTracking().SingleAsync();
         Assert.NotNull(raw.MsalCacheEncrypted);
-        Assert.DoesNotContain(new byte[] { 1, 2, 3, 4 }, raw.MsalCacheEncrypted!);
+        Assert.DoesNotContain<byte>([1, 2, 3, 4], raw.MsalCacheEncrypted!);
         Assert.Equal(new byte[] { 1, 2, 3, 4 }, await store.LoadAsync(connection.Id, CancellationToken.None));
     }
 
@@ -1047,7 +1047,7 @@ public sealed class MsalPublicClientAdapter : IMsalPublicClientAdapter
         CancellationToken ct)
     {
         var app = Build(context);
-        BindCache(app.UserTokenCache, context.ConnectionId, ct);
+        BindCache(app.UserTokenCache, context.ConnectionId);
         var accounts = await app.GetAccountsAsync();
         var account = accounts.SingleOrDefault(item => item.HomeAccountId.Identifier == context.HomeAccountId)
             ?? accounts.SingleOrDefault();
@@ -1072,7 +1072,7 @@ public sealed class MsalPublicClientAdapter : IMsalPublicClientAdapter
         CancellationToken ct)
     {
         var app = Build(context);
-        BindCache(app.UserTokenCache, context.ConnectionId, ct);
+        BindCache(app.UserTokenCache, context.ConnectionId);
         var result = await app.AcquireTokenWithDeviceCode(
                 OutlookAuthScopes.Required,
                 code => onPrompt(new OutlookDeviceCodePrompt(
@@ -1089,17 +1089,17 @@ public sealed class MsalPublicClientAdapter : IMsalPublicClientAdapter
             .WithAuthority(context.Authority)
             .Build();
 
-    private void BindCache(ITokenCache tokenCache, Guid connectionId, CancellationToken outerToken)
+    private void BindCache(ITokenCache tokenCache, Guid connectionId)
     {
         tokenCache.SetBeforeAccessAsync(async args =>
         {
-            var bytes = await _cacheStore.LoadAsync(connectionId, outerToken);
+            var bytes = await _cacheStore.LoadAsync(connectionId, args.CancellationToken);
             if (bytes is { Length: > 0 }) args.TokenCache.DeserializeMsalV3(bytes, shouldClearExistingCache: true);
         });
         tokenCache.SetAfterAccessAsync(async args =>
         {
             if (args.HasStateChanged)
-                await _cacheStore.SaveAsync(connectionId, args.TokenCache.SerializeMsalV3(), outerToken);
+                await _cacheStore.SaveAsync(connectionId, args.TokenCache.SerializeMsalV3(), args.CancellationToken);
         });
     }
 
@@ -1193,6 +1193,8 @@ public sealed class MsalOutlookAuthCoordinator : IOutlookAccessTokenProvider
     }
 }
 ```
+
+保持 `OutlookConnectionLock` 为 singleton；`OutlookTokenCacheStore`、`IMsalPublicClientAdapter` 和 `IOutlookAccessTokenProvider` 必须注册为 scoped，因为它们共享同一个 scoped `PimDbContext`。cache callback 与 coordinator 分别保存不同状态转换时都会递增 `Version`，不要假设一次成功认证只递增一次。singleton lock 只串行单个进程，跨 API 实例仍以数据库并发令牌为准。
 
 - [ ] **Step 9: 运行认证测试**
 

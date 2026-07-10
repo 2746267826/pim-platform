@@ -6,45 +6,50 @@ import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 
-class TokenManager(context: Context) {
-    private val prefs: SharedPreferences
-
-    init {
-        val p = try {
-            val masterKey = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
-            EncryptedSharedPreferences.create(
-                "pim_auth",
-                masterKey,
-                context,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        } catch (e: Exception) {
-            Log.w("TokenManager", "EncryptedSharedPreferences failed, falling back to plain SharedPreferences", e)
-            context.getSharedPreferences("pim_auth_fallback", Context.MODE_PRIVATE)
-        }
-        prefs = p
+class TokenManager(context: Context) : AuthSessionStore {
+    private val prefs: SharedPreferences = try {
+        val masterKey = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+        EncryptedSharedPreferences.create(
+            "pim_auth",
+            masterKey,
+            context,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    } catch (e: Exception) {
+        Log.e(TAG, "Secure token storage initialization failed")
+        throw IllegalStateException("Secure token storage is unavailable", e)
     }
 
     fun saveTokens(accessToken: String, refreshToken: String, expiresAt: String? = null) {
-        val expiryMillis = parseExpiry(expiresAt)
+        save(accessToken, refreshToken, parseExpiry(expiresAt))
+    }
+
+    override fun save(accessToken: String, refreshToken: String, expiresAtUtcMillis: Long) {
         prefs.edit()
             .putString("access_token", accessToken)
             .putString("refresh_token", refreshToken)
-            .putLong("expires_at", expiryMillis)
+            .putLong("expires_at", expiresAtUtcMillis)
             .apply()
     }
 
-    fun getAccessToken(): String? = prefs.getString("access_token", null)
-    fun getRefreshToken(): String? = prefs.getString("refresh_token", null)
+    override fun accessToken(): String? = prefs.getString("access_token", null)
 
-    fun isExpired(): Boolean {
-        val expiresAt = prefs.getLong("expires_at", 0)
-        // Refresh when less than 5 minutes remaining to avoid edge cases
-        return System.currentTimeMillis() >= expiresAt - 5 * 60 * 1000L
+    override fun refreshToken(): String? = prefs.getString("refresh_token", null)
+
+    override fun expiresAtUtcMillis(): Long? {
+        return if (prefs.contains("expires_at")) prefs.getLong("expires_at", 0L) else null
     }
 
-    fun clear() = prefs.edit().clear().apply()
+    fun getAccessToken(): String? = accessToken()
+
+    fun isExpired(): Boolean {
+        return expiresAtUtcMillis()?.let { System.currentTimeMillis() >= it } ?: true
+    }
+
+    override fun clear() {
+        prefs.edit().clear().apply()
+    }
 
     private fun parseExpiry(serverExpiresAt: String?): Long {
         if (serverExpiresAt.isNullOrBlank()) {
@@ -53,9 +58,13 @@ class TokenManager(context: Context) {
         }
         return try {
             java.time.Instant.parse(serverExpiresAt).toEpochMilli()
-        } catch (e: Exception) {
-            Log.w("TokenManager", "Failed to parse server expiresAt: $serverExpiresAt", e)
+        } catch (_: Exception) {
+            Log.w(TAG, "Failed to parse server token expiry")
             System.currentTimeMillis() + 24 * 60 * 60 * 1000L
         }
+    }
+
+    private companion object {
+        const val TAG = "TokenManager"
     }
 }

@@ -29,13 +29,17 @@
 - `src/modules/Pim.Module.Calendar/Entities/OutlookAuthorizationSessionEntity.cs`：仅保存 UI 可见的设备授权会话状态。
 - `src/modules/Pim.Module.Calendar/Entities/OutlookCalendarBindingEntity.cs`：Graph calendar 到 PIM calendar 的逐日历绑定和游标。
 - `src/modules/Pim.Module.Calendar/Entities/OutlookOperationExecutionEntity.cs`：确认后的 durable execution/outbox。
-- `src/modules/Pim.Module.Calendar/Services/OutlookConnectionLock.cs`：按 connection 串行认证和同步。
+- `src/modules/Pim.Module.Calendar/Services/OutlookTokenCacheLock.cs`：按 connection 串行 MSAL cache 与认证。
+- `src/modules/Pim.Module.Calendar/Services/OutlookSyncConnectionLock.cs`：独立串行同步 run，避免 Graph 取 token 时重入认证锁。
 - `src/modules/Pim.Module.Calendar/Services/OutlookTokenCacheStore.cs`：Data Protection 加密的 MSAL V3 cache blob 存取。
 - `src/modules/Pim.Module.Calendar/Services/MsalPublicClientAdapter.cs`：唯一直接依赖 MSAL 的 public-client 适配器。
 - `src/modules/Pim.Module.Calendar/Services/MsalOutlookAuthCoordinator.cs`：静默 token、重新授权状态与设备授权会话编排。
 - `src/modules/Pim.Module.Calendar/Services/OutlookAuthorizationSessionRunner.cs`：持有可取消的长时 MSAL device-code acquisition task。
 - `src/modules/Pim.Module.Calendar/Services/GraphCalendarModels.cs`：内部 Graph JSON DTO，不泄漏到领域/API。
-- `src/modules/Pim.Module.Calendar/Services/GraphCalendarClient.cs`：Graph REST 请求、分页、nextLink 校验与安全的 401 重放。
+- `src/modules/Pim.Module.Calendar/Services/MicrosoftGraphUri.cs`：新旧 Graph client 共用的严格 `https://graph.microsoft.com/v1.0` URL 解析器。
+- `src/modules/Pim.Module.Calendar/Services/OutlookGraphAuthenticationHandler.cs`：每次读取尝试重新取 token，并在第二次 401 后并发安全地标记重新授权。
+- `src/modules/Pim.Module.Calendar/Services/OutlookGraphTransportRegistration.cs`：注册共享三次预算的读取 pipeline 与无重试写 client。
+- `src/modules/Pim.Module.Calendar/Services/GraphCalendarClient.cs`：Graph REST 请求、分页、nextLink 校验与读写边界。
 - `src/modules/Pim.Module.Calendar/Services/OutlookCalendarDiscoveryService.cs`：calendarGroups、分组日历和根日历发现与去重。
 - `src/modules/Pim.Module.Calendar/Services/OutlookEventMapper.cs`：UTC、全天日期和 recurrence 映射。
 - `src/modules/Pim.Module.Calendar/Services/OutlookEventProjectionService.cs`：远端事件 upsert、变更确认和删除核验。
@@ -737,7 +741,7 @@ Expected: commit 不包含 `bin/`、`obj/` 或临时 snapshot migration。
 ## Task 4: 用加密 MSAL cache 替换手工 refresh token
 
 **Files:**
-- Create: `src/modules/Pim.Module.Calendar/Services/OutlookConnectionLock.cs`
+- Create: `src/modules/Pim.Module.Calendar/Services/OutlookTokenCacheLock.cs`
 - Create: `src/modules/Pim.Module.Calendar/Services/OutlookTokenCacheStore.cs`
 - Create: `src/modules/Pim.Module.Calendar/Services/MsalPublicClientAdapter.cs`
 - Create: `src/modules/Pim.Module.Calendar/Services/MsalOutlookAuthCoordinator.cs`
@@ -769,6 +773,7 @@ Create `tests/Pim.UnitTests/Calendar/OutlookMsalAuthenticationTests.cs`:
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Pim.Infrastructure.Data;
 using Pim.Module.Calendar.Entities;
 using Pim.Module.Calendar.Services;
@@ -781,18 +786,23 @@ public sealed class OutlookMsalAuthenticationTests
     [Fact]
     public async Task CacheStore_EncryptsWholeMsalBlob()
     {
-        await using var db = CreateDb();
+        await using var services = CreateServices();
         var connection = Connection();
-        db.Set<OutlookConnectionEntity>().Add(connection);
-        await db.SaveChangesAsync();
-        var store = new OutlookTokenCacheStore(db, new TestSecretProtector());
+        await SeedAsync(services, connection);
+        var store = new OutlookTokenCacheStore(
+            services.GetRequiredService<IServiceScopeFactory>(),
+            new TestSecretProtector());
+        var snapshot = await store.LoadAsync(connection.Id, CancellationToken.None);
 
-        await store.SaveAsync(connection.Id, [1, 2, 3, 4], CancellationToken.None);
+        await store.SaveAsync(connection.Id, [1, 2, 3, 4], snapshot.Version, CancellationToken.None);
 
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<PimDbContext>();
         var raw = await db.Set<OutlookConnectionEntity>().AsNoTracking().SingleAsync();
         Assert.NotNull(raw.MsalCacheEncrypted);
         Assert.DoesNotContain<byte>([1, 2, 3, 4], raw.MsalCacheEncrypted!);
-        Assert.Equal(new byte[] { 1, 2, 3, 4 }, await store.LoadAsync(connection.Id, CancellationToken.None));
+        Assert.Equal(new byte[] { 1, 2, 3, 4 },
+            (await store.LoadAsync(connection.Id, CancellationToken.None)).Blob);
     }
 
     [Fact]
@@ -805,7 +815,7 @@ public sealed class OutlookMsalAuthenticationTests
         var coordinator = new MsalOutlookAuthCoordinator(
             db,
             new FakeMsalClient { SilentException = new OutlookReauthenticationRequiredException("interaction_required") },
-            new OutlookConnectionLock());
+            new OutlookTokenCacheLock());
 
         await Assert.ThrowsAsync<OutlookReauthenticationRequiredException>(() =>
             coordinator.AcquireAccessTokenAsync(connection.Id, false, CancellationToken.None));
@@ -832,6 +842,23 @@ public sealed class OutlookMsalAuthenticationTests
         return new PimDbContext(new DbContextOptionsBuilder<PimDbContext>()
             .UseInMemoryDatabase($"outlook-msal-{Guid.NewGuid()}")
             .Options);
+    }
+
+    private static ServiceProvider CreateServices()
+    {
+        PimDbContext.RegisterModuleAssembly(typeof(OutlookConnectionEntity).Assembly);
+        var services = new ServiceCollection();
+        services.AddDbContext<PimDbContext>(options =>
+            options.UseInMemoryDatabase($"outlook-msal-store-{Guid.NewGuid()}"));
+        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+    }
+
+    private static async Task SeedAsync(ServiceProvider services, OutlookConnectionEntity connection)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<PimDbContext>();
+        db.Add(connection);
+        await db.SaveChangesAsync();
     }
 }
 
@@ -877,14 +904,14 @@ Expected: FAIL，编译错误指向 `OutlookTokenCacheStore`、`IMsalPublicClien
 
 - [ ] **Step 4: 实现按 connection 的异步互斥锁**
 
-Create `src/modules/Pim.Module.Calendar/Services/OutlookConnectionLock.cs`:
+Create `src/modules/Pim.Module.Calendar/Services/OutlookTokenCacheLock.cs`:
 
 ```csharp
 using System.Collections.Concurrent;
 
 namespace Pim.Module.Calendar.Services;
 
-public sealed class OutlookConnectionLock
+public sealed class OutlookTokenCacheLock
 {
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _locks = new();
 
@@ -911,70 +938,103 @@ public sealed class OutlookConnectionLock
 Create `src/modules/Pim.Module.Calendar/Services/OutlookTokenCacheStore.cs`:
 
 ```csharp
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Pim.Infrastructure.Data;
 using Pim.Infrastructure.Secrets;
 using Pim.Module.Calendar.Entities;
 
 namespace Pim.Module.Calendar.Services;
 
+public sealed record OutlookTokenCacheSnapshot(byte[]? Blob, long Version);
+
 public sealed class OutlookTokenCacheStore
 {
-    private readonly PimDbContext _db;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ISecretProtector _protector;
 
-    public OutlookTokenCacheStore(PimDbContext db, ISecretProtector protector)
+    public OutlookTokenCacheStore(IServiceScopeFactory scopeFactory, ISecretProtector protector)
     {
-        _db = db;
+        _scopeFactory = scopeFactory;
         _protector = protector;
     }
 
-    public async Task<byte[]?> LoadAsync(Guid connectionId, CancellationToken ct)
+    public async Task<OutlookTokenCacheSnapshot> LoadAsync(Guid connectionId, CancellationToken ct)
     {
-        var encrypted = await _db.Set<OutlookConnectionEntity>()
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<PimDbContext>();
+        var stored = await db.Set<OutlookConnectionEntity>()
             .Where(connection => connection.Id == connectionId)
-            .Select(connection => connection.MsalCacheEncrypted)
+            .Select(connection => new { connection.MsalCacheEncrypted, connection.Version })
             .SingleAsync(ct);
-        if (encrypted is not { Length: > 0 }) return null;
+        if (stored.MsalCacheEncrypted is not { Length: > 0 })
+            return new OutlookTokenCacheSnapshot(null, stored.Version);
 
         try
         {
-            var protectedText = Encoding.UTF8.GetString(encrypted);
-            return Convert.FromBase64String(_protector.Unprotect(protectedText));
+            var protectedText = Encoding.UTF8.GetString(stored.MsalCacheEncrypted);
+            var blob = Convert.FromBase64String(_protector.Unprotect(protectedText));
+            return new OutlookTokenCacheSnapshot(blob, stored.Version);
         }
         catch (Exception exception) when (exception is FormatException or CryptographicException)
         {
-            throw new OutlookTokenCacheCorruptedException(exception);
+            throw new OutlookTokenCacheCorruptedException();
         }
     }
 
-    public async Task SaveAsync(Guid connectionId, byte[] cacheBlob, CancellationToken ct)
+    public async Task<OutlookTokenCacheSnapshot> SaveAsync(
+        Guid connectionId,
+        byte[] cacheBlob,
+        long expectedVersion,
+        CancellationToken ct)
     {
-        var connection = await _db.Set<OutlookConnectionEntity>().SingleAsync(item => item.Id == connectionId, ct);
         var protectedText = _protector.Protect(Convert.ToBase64String(cacheBlob));
-        connection.MsalCacheEncrypted = Encoding.UTF8.GetBytes(protectedText);
-        connection.Version++;
+        var encrypted = Encoding.UTF8.GetBytes(protectedText);
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<PimDbContext>();
+        var connection = await db.Set<OutlookConnectionEntity>().SingleAsync(item => item.Id == connectionId, ct);
+        if (connection.Version != expectedVersion)
+            throw new OutlookTokenCacheConcurrencyException();
+
+        db.Entry(connection).Property(item => item.Version).OriginalValue = expectedVersion;
+        connection.MsalCacheEncrypted = encrypted;
+        connection.Version = checked(expectedVersion + 1);
         connection.UpdatedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new OutlookTokenCacheConcurrencyException();
+        }
+
+        return new OutlookTokenCacheSnapshot(cacheBlob.ToArray(), connection.Version);
     }
 
     public async Task ClearAsync(Guid connectionId, CancellationToken ct)
     {
-        var connection = await _db.Set<OutlookConnectionEntity>().SingleAsync(item => item.Id == connectionId, ct);
+        await using var scope = _scopeFactory.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<PimDbContext>();
+        var connection = await db.Set<OutlookConnectionEntity>().SingleAsync(item => item.Id == connectionId, ct);
+        if (connection.MsalCacheEncrypted is null && connection.HomeAccountId is null) return;
+
         connection.MsalCacheEncrypted = null;
         connection.HomeAccountId = null;
         connection.Version++;
         connection.UpdatedAt = DateTimeOffset.UtcNow;
-        await _db.SaveChangesAsync(ct);
+        await db.SaveChangesAsync(ct);
     }
 }
 
-public sealed class OutlookTokenCacheCorruptedException(Exception innerException)
-    : Exception("The encrypted MSAL token cache cannot be read.", innerException);
-```
+public sealed class OutlookTokenCacheCorruptedException()
+    : Exception("The encrypted MSAL token cache cannot be read.");
 
-Add `using System.Security.Cryptography;` to the file.
+public sealed class OutlookTokenCacheConcurrencyException()
+    : Exception("The Microsoft token cache changed during the operation.");
+```
 
 - [ ] **Step 6: 定义可替换的 MSAL adapter 契约**
 
@@ -996,19 +1056,37 @@ public sealed record OutlookAuthContext(
     string Authority,
     string? HomeAccountId);
 
-public sealed record OutlookDeviceCodePrompt(
-    string UserCode,
-    string VerificationUri,
-    DateTimeOffset ExpiresAt,
-    string Message);
+public sealed class OutlookDeviceCodePrompt(
+    string userCode,
+    string verificationUri,
+    DateTimeOffset expiresAt,
+    string message)
+{
+    public string UserCode { get; } = userCode;
+    public string VerificationUri { get; } = verificationUri;
+    public DateTimeOffset ExpiresAt { get; } = expiresAt;
+    public string Message { get; } = message;
+    public override string ToString()
+        => $"{nameof(OutlookDeviceCodePrompt)} {{ VerificationUri = {VerificationUri}, ExpiresAt = {ExpiresAt:O} }}";
+}
 
-public sealed record MsalAuthenticationResult(
-    string AccessToken,
-    string HomeAccountId,
-    string? Username,
-    string? DisplayName,
-    DateTimeOffset ExpiresOn,
-    IReadOnlyList<string> Scopes);
+public sealed class MsalAuthenticationResult(
+    string accessToken,
+    string homeAccountId,
+    string? username,
+    string? displayName,
+    DateTimeOffset expiresOn,
+    IReadOnlyList<string> scopes)
+{
+    public string AccessToken { get; } = accessToken;
+    public string HomeAccountId { get; } = homeAccountId;
+    public string? Username { get; } = username;
+    public string? DisplayName { get; } = displayName;
+    public DateTimeOffset ExpiresOn { get; } = expiresOn;
+    public IReadOnlyList<string> Scopes { get; } = scopes;
+    public override string ToString()
+        => $"{nameof(MsalAuthenticationResult)} {{ ExpiresOn = {ExpiresOn:O}, ScopeCount = {Scopes.Count} }}";
+}
 
 public interface IMsalPublicClientAdapter
 {
@@ -1046,11 +1124,13 @@ public sealed class MsalPublicClientAdapter : IMsalPublicClientAdapter
         bool forceRefresh,
         CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(context.HomeAccountId))
+            throw new OutlookReauthenticationRequiredException("account-anchor-missing");
         var app = Build(context);
         BindCache(app.UserTokenCache, context.ConnectionId);
-        var accounts = await app.GetAccountsAsync();
-        var account = accounts.SingleOrDefault(item => item.HomeAccountId.Identifier == context.HomeAccountId)
-            ?? accounts.SingleOrDefault();
+        var account = app is ClientApplicationBase concrete
+            ? await concrete.GetAccountAsync(context.HomeAccountId, ct)
+            : await app.GetAccountAsync(context.HomeAccountId);
         if (account is null) throw new OutlookReauthenticationRequiredException("account-missing");
 
         try
@@ -1091,15 +1171,31 @@ public sealed class MsalPublicClientAdapter : IMsalPublicClientAdapter
 
     private void BindCache(ITokenCache tokenCache, Guid connectionId)
     {
+        OutlookTokenCacheSnapshot? snapshot = null;
         tokenCache.SetBeforeAccessAsync(async args =>
         {
-            var bytes = await _cacheStore.LoadAsync(connectionId, args.CancellationToken);
-            if (bytes is { Length: > 0 }) args.TokenCache.DeserializeMsalV3(bytes, shouldClearExistingCache: true);
+            snapshot = await _cacheStore.LoadAsync(connectionId, args.CancellationToken);
+            if (snapshot.Blob is not { Length: > 0 }) return;
+            try
+            {
+                args.TokenCache.DeserializeMsalV3(snapshot.Blob, shouldClearExistingCache: true);
+            }
+            catch (MsalClientException exception) when (exception.ErrorCode == MsalError.JsonParseError)
+            {
+                throw new OutlookTokenCacheCorruptedException();
+            }
         });
         tokenCache.SetAfterAccessAsync(async args =>
         {
             if (args.HasStateChanged)
-                await _cacheStore.SaveAsync(connectionId, args.TokenCache.SerializeMsalV3(), args.CancellationToken);
+            {
+                snapshot ??= await _cacheStore.LoadAsync(connectionId, args.CancellationToken);
+                snapshot = await _cacheStore.SaveAsync(
+                    connectionId,
+                    args.TokenCache.SerializeMsalV3(),
+                    snapshot.Version,
+                    args.CancellationToken);
+            }
         });
     }
 
@@ -1132,69 +1228,123 @@ public interface IOutlookAccessTokenProvider
 
 public sealed class MsalOutlookAuthCoordinator : IOutlookAccessTokenProvider
 {
+    private const string ReauthenticationMessage = "Microsoft requires the account to be authorized again.";
+    private const string CacheCorruptedMessage = "The local Microsoft token cache cannot be decrypted.";
+
     private readonly PimDbContext _db;
     private readonly IMsalPublicClientAdapter _msal;
-    private readonly OutlookConnectionLock _connectionLock;
+    private readonly OutlookTokenCacheLock _tokenCacheLock;
 
     public MsalOutlookAuthCoordinator(
         PimDbContext db,
         IMsalPublicClientAdapter msal,
-        OutlookConnectionLock connectionLock)
+        OutlookTokenCacheLock tokenCacheLock)
     {
         _db = db;
         _msal = msal;
-        _connectionLock = connectionLock;
+        _tokenCacheLock = tokenCacheLock;
     }
 
     public async Task<string> AcquireAccessTokenAsync(Guid connectionId, bool forceRefresh, CancellationToken ct)
     {
-        await using var held = await _connectionLock.AcquireAsync(connectionId, ct);
+        await using var held = await _tokenCacheLock.AcquireAsync(connectionId, ct);
         var connection = await _db.Set<OutlookConnectionEntity>().SingleAsync(item => item.Id == connectionId, ct);
         if (string.IsNullOrWhiteSpace(connection.ClientId))
             throw new InvalidOperationException("Microsoft Client ID is not configured.");
 
+        var anchor = connection.HomeAccountId;
+        var context = new OutlookAuthContext(
+            connection.Id,
+            connection.ClientId,
+            connection.Authority,
+            anchor);
+
         try
         {
-            var result = await _msal.AcquireTokenSilentAsync(
-                new OutlookAuthContext(connection.Id, connection.ClientId, connection.Authority, connection.HomeAccountId),
-                forceRefresh,
-                ct);
-            connection.HomeAccountId = result.HomeAccountId;
-            connection.AccountDisplayName = result.DisplayName;
-            connection.AccountLoginHint = result.Username;
-            connection.Status = "connected";
-            connection.TokenHealth = "healthy";
-            connection.LastError = null;
-            connection.Version++;
-            connection.UpdatedAt = DateTimeOffset.UtcNow;
-            await _db.SaveChangesAsync(ct);
+            var result = await AcquireWithCacheRetryAsync(context, forceRefresh, ct);
+            await _db.Entry(connection).ReloadAsync(ct);
+            if (!string.Equals(result.HomeAccountId, anchor, StringComparison.Ordinal)
+                || !string.Equals(connection.HomeAccountId, anchor, StringComparison.Ordinal))
+                throw new OutlookReauthenticationRequiredException("account-changed");
+
+            await MarkConnectedAsync(connection, result, ct);
             return result.AccessToken;
         }
         catch (OutlookReauthenticationRequiredException)
         {
-            connection.Status = "reauth-required";
-            connection.TokenHealth = "interaction-required";
-            connection.LastError = "Microsoft requires the account to be authorized again.";
-            connection.Version++;
-            connection.UpdatedAt = DateTimeOffset.UtcNow;
-            await _db.SaveChangesAsync(ct);
+            await _db.Entry(connection).ReloadAsync(ct);
+            if (string.Equals(connection.HomeAccountId, anchor, StringComparison.Ordinal))
+                await MarkFailureAsync(connection, "interaction-required", ReauthenticationMessage, ct);
             throw;
         }
         catch (OutlookTokenCacheCorruptedException)
         {
-            connection.Status = "reauth-required";
-            connection.TokenHealth = "cache-corrupted";
-            connection.LastError = "The local Microsoft token cache cannot be decrypted.";
-            connection.Version++;
-            connection.UpdatedAt = DateTimeOffset.UtcNow;
-            await _db.SaveChangesAsync(ct);
+            await _db.Entry(connection).ReloadAsync(ct);
+            if (string.Equals(connection.HomeAccountId, anchor, StringComparison.Ordinal))
+                await MarkFailureAsync(connection, "cache-corrupted", CacheCorruptedMessage, ct);
             throw;
         }
+    }
+
+    private async Task<MsalAuthenticationResult> AcquireWithCacheRetryAsync(
+        OutlookAuthContext context,
+        bool forceRefresh,
+        CancellationToken ct)
+    {
+        try
+        {
+            return await _msal.AcquireTokenSilentAsync(context, forceRefresh, ct);
+        }
+        catch (OutlookTokenCacheConcurrencyException)
+        {
+            return await _msal.AcquireTokenSilentAsync(context, forceRefresh, ct);
+        }
+    }
+
+    private async Task MarkConnectedAsync(
+        OutlookConnectionEntity connection,
+        MsalAuthenticationResult result,
+        CancellationToken ct)
+    {
+        var changed = connection.AccountDisplayName != result.DisplayName
+            || connection.AccountLoginHint != result.Username
+            || connection.Status != "connected"
+            || connection.TokenHealth != "healthy"
+            || connection.LastError is not null;
+        if (!changed) return;
+
+        connection.AccountDisplayName = result.DisplayName;
+        connection.AccountLoginHint = result.Username;
+        connection.Status = "connected";
+        connection.TokenHealth = "healthy";
+        connection.LastError = null;
+        connection.Version++;
+        connection.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task MarkFailureAsync(
+        OutlookConnectionEntity connection,
+        string tokenHealth,
+        string lastError,
+        CancellationToken ct)
+    {
+        var changed = connection.Status != "reauth-required"
+            || connection.TokenHealth != tokenHealth
+            || connection.LastError != lastError;
+        if (!changed) return;
+
+        connection.Status = "reauth-required";
+        connection.TokenHealth = tokenHealth;
+        connection.LastError = lastError;
+        connection.Version++;
+        connection.UpdatedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync(ct);
     }
 }
 ```
 
-保持 `OutlookConnectionLock` 为 singleton；`OutlookTokenCacheStore`、`IMsalPublicClientAdapter` 和 `IOutlookAccessTokenProvider` 必须注册为 scoped，因为它们共享同一个 scoped `PimDbContext`。cache callback 与 coordinator 分别保存不同状态转换时都会递增 `Version`，不要假设一次成功认证只递增一次。singleton lock 只串行单个进程，跨 API 实例仍以数据库并发令牌为准。
+保持 `OutlookTokenCacheLock` 为 singleton；`OutlookTokenCacheStore` 使用 `IServiceScopeFactory` 创建独立 scope，绝不保存调用方的 ambient `PimDbContext`。`IMsalPublicClientAdapter` 与 `IOutlookAccessTokenProvider` 保持 scoped。singleton token lock 只串行单个进程，跨 API 实例仍以 cache snapshot 的 `Version` CAS 为准。
 
 - [ ] **Step 9: 运行认证测试**
 
@@ -1215,42 +1365,153 @@ git commit -m "feat: persist encrypted msal token cache"
 
 Expected: focused commit；旧 OAuth client 尚未删除，但后续新路径不再依赖它。
 
-## Task 5: 实现设备授权会话状态机
+## Task 5A: 强化授权会话数据库完整性
+
+**Files:**
+- Create: `src/Pim.Infrastructure/Data/Migrations/20260710001000_MicrosoftAuthorizationSessionIntegrity.cs`
+- Create: `src/Pim.Infrastructure/Data/Migrations/20260710001000_MicrosoftAuthorizationSessionIntegrity.Designer.cs`
+- Modify: `src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs`
+- Modify: `src/modules/Pim.Module.Calendar/Entities/OutlookAuthorizationSessionEntity.cs`
+- Modify: `src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs`
+- Modify: `tests/Pim.UnitTests/Calendar/OutlookPersistenceModelTests.cs`
+- Modify: `tests/Pim.UnitTests/Operations/PimDbContextModelCacheTests.cs`
+
+- [ ] **Step 1: 写会话外键、并发和单活约束失败测试**
+
+Append to `OutlookPersistenceModelTests.cs`:
+
+```csharp
+[Fact]
+public void MicrosoftSyncModel_AuthorizationSessionHasConnectionIntegrity()
+{
+    using var db = CreateDb();
+    var session = db.Model.FindEntityType(typeof(OutlookAuthorizationSessionEntity))!;
+
+    Assert.True(session.FindProperty(nameof(OutlookAuthorizationSessionEntity.Version))!.IsConcurrencyToken);
+    var connectionForeignKey = Assert.Single(session.GetForeignKeys(), foreignKey =>
+        foreignKey.PrincipalEntityType.ClrType == typeof(OutlookConnectionEntity));
+    Assert.Equal(DeleteBehavior.Cascade, connectionForeignKey.DeleteBehavior);
+    var activeConnection = Assert.Single(session.GetIndexes(), index =>
+        index.GetDatabaseName() == "UX_outlook_authorization_sessions_active_connection");
+    Assert.True(activeConnection.IsUnique);
+    Assert.Equal("\"status\" IN ('starting', 'waiting-for-user')", activeConnection.GetFilter());
+}
+```
+
+Append to `PimDbContextModelCacheTests.cs`:
+
+```csharp
+[Fact]
+public void MicrosoftAuthorizationSessionIntegrityMigration_HasStableIdentifierAndTargetModel()
+{
+    var migration = new Pim.Infrastructure.Data.Migrations.MicrosoftAuthorizationSessionIntegrity();
+    var attribute = migration.GetType().GetCustomAttributes(typeof(MigrationAttribute), false)
+        .Cast<MigrationAttribute>()
+        .Single();
+
+    Assert.Equal("20260710001000_MicrosoftAuthorizationSessionIntegrity", attribute.Id);
+    Assert.NotNull(migration.TargetModel.FindEntityType(typeof(OutlookAuthorizationSessionEntity)));
+}
+```
+
+Add `using Pim.Module.Calendar.Entities;` to the migration test file if absent.
+
+- [ ] **Step 2: 运行测试并确认约束缺失**
+
+Run:
+
+```powershell
+dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "FullyQualifiedName~MicrosoftSyncModel_AuthorizationSessionHasConnectionIntegrity|FullyQualifiedName~MicrosoftAuthorizationSessionIntegrityMigration"
+```
+
+Expected: FAIL，明确指出 `Version` 或 migration 类型不存在。
+
+- [ ] **Step 3: 增加会话并发字段和 EF 关系**
+
+Add to `OutlookAuthorizationSessionEntity`:
+
+```csharp
+[Column("version"), ConcurrencyCheck] public long Version { get; set; }
+```
+
+Add `using System.ComponentModel.DataAnnotations;` if `[ConcurrencyCheck]` is not already available. Extend `OutlookAuthorizationSessionEntityConfiguration.Configure`:
+
+```csharp
+builder.Property(entity => entity.Version).HasDefaultValue(0).IsConcurrencyToken();
+builder.HasOne<OutlookConnectionEntity>()
+    .WithMany()
+    .HasForeignKey(entity => entity.ConnectionId)
+    .OnDelete(DeleteBehavior.Cascade);
+builder.HasIndex(entity => entity.ConnectionId)
+    .IsUnique()
+    .HasFilter("\"status\" IN ('starting', 'waiting-for-user')")
+    .HasDatabaseName("UX_outlook_authorization_sessions_active_connection");
+```
+
+Keep the existing `(ConnectionId, Status)` index for status queries.
+
+- [ ] **Step 4: 生成标准确定性 migration 和 Designer**
+
+Run `dotnet ef migrations add MicrosoftAuthorizationSessionIntegrity --project src/Pim.Infrastructure --startup-project src/Pim.Api --output-dir Data/Migrations`. Rename the generated main and Designer files to the deterministic prefix `20260710001000` with `apply_patch`，and change only the Designer `[Migration]` ID to `20260710001000_MicrosoftAuthorizationSessionIntegrity`.
+
+The generated `Up` must contain these operations and names:
+
+```csharp
+migrationBuilder.AddColumn<long>(
+    name: "version",
+    table: "outlook_authorization_sessions",
+    type: "bigint",
+    nullable: false,
+    defaultValue: 0L);
+migrationBuilder.CreateIndex(
+    name: "UX_outlook_authorization_sessions_active_connection",
+    table: "outlook_authorization_sessions",
+    column: "connection_id",
+    unique: true,
+    filter: "\"status\" IN ('starting', 'waiting-for-user')");
+migrationBuilder.AddForeignKey(
+    name: "FK_outlook_authorization_sessions_outlook_connections_connection_id",
+    table: "outlook_authorization_sessions",
+    column: "connection_id",
+    principalTable: "outlook_connections",
+    principalColumn: "id",
+    onDelete: ReferentialAction.Cascade);
+```
+
+`Down` must drop the foreign key，then the filtered index，then `version`. Keep the generated snapshot update and the deterministic Designer `BuildTargetModel`.
+
+- [ ] **Step 5: 验证模型和提交 schema 检查点**
+
+Run:
+
+```powershell
+dotnet ef migrations has-pending-model-changes --project src/Pim.Infrastructure --startup-project src/Pim.Api
+dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "FullyQualifiedName~OutlookPersistenceModelTests|FullyQualifiedName~MicrosoftAuthorizationSessionIntegrityMigration"
+dotnet test Pim.sln --no-restore
+```
+
+Expected: no pending model changes；focused and full tests PASS。Then commit:
+
+```powershell
+git add src/modules/Pim.Module.Calendar/Entities/OutlookAuthorizationSessionEntity.cs src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs src/Pim.Infrastructure/Data/Migrations tests/Pim.UnitTests/Calendar/OutlookPersistenceModelTests.cs tests/Pim.UnitTests/Operations/PimDbContextModelCacheTests.cs
+git commit -m "fix: enforce microsoft authorization session integrity"
+```
+
+## Task 5B: 实现设备授权会话状态机
 
 **Files:**
 - Create: `src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs`
 - Create: `src/modules/Pim.Module.Calendar/Services/OutlookAuthorizationSessionRunner.cs`
 - Create: `tests/Pim.UnitTests/Calendar/OutlookAuthorizationSessionTests.cs`
-- Modify: `src/modules/Pim.Module.Calendar/Services/MsalOutlookAuthCoordinator.cs`
+- Modify: `src/modules/Pim.Module.Calendar/CalendarModule.cs`
+- Modify: `tests/Pim.UnitTests/Calendar/OutlookMsalAuthenticationTests.cs`
 
-- [ ] **Step 1: 定义设置和授权会话契约**
+- [ ] **Step 1: 定义授权会话契约**
 
-Create the beginning of `src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs`:
+Create the beginning of `src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs`. Task 5 only introduces the authorization-session contract；the replacement settings contracts stay in `CalendarDtos.cs` until Task 16 switches the legacy service and endpoints atomically.
 
 ```csharp
-using System.ComponentModel.DataAnnotations;
-
 namespace Pim.Module.Calendar.DTOs;
-
-public sealed record UpdateOutlookSettingsRequest(
-    [Required] string ClientId,
-    [Required] string AccountScope,
-    string? TenantId);
-
-public sealed record OutlookSettingsResponse(
-    string Provider,
-    string ClientId,
-    string AccountScope,
-    string TenantId,
-    string Authority,
-    IReadOnlyList<string> Scopes,
-    string Status,
-    string TokenHealth,
-    string? AccountDisplayName,
-    string? AccountLoginHint,
-    DateTimeOffset? LastSyncedAt,
-    DateTimeOffset? NextScheduledSyncAt,
-    string? LastError);
 
 public sealed record OutlookAuthorizationSessionResponse(
     Guid Id,
@@ -1265,8 +1526,6 @@ public sealed record OutlookAuthorizationSessionResponse(
     string? RecoveryAction);
 ```
 
-Remove the old Outlook settings/device-code records from `CalendarDtos.cs` only after all compilation references have moved to this file.
-
 - [ ] **Step 2: 写状态转换失败测试**
 
 Create `tests/Pim.UnitTests/Calendar/OutlookAuthorizationSessionTests.cs`:
@@ -1274,6 +1533,7 @@ Create `tests/Pim.UnitTests/Calendar/OutlookAuthorizationSessionTests.cs`:
 ```csharp
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Identity.Client;
 using Pim.Infrastructure.Data;
 using Pim.Module.Calendar.Entities;
 using Pim.Module.Calendar.Services;
@@ -1291,7 +1551,7 @@ public sealed class OutlookAuthorizationSessionTests
         var ids = await SeedAsync(provider);
         var runner = provider.GetRequiredService<OutlookAuthorizationSessionRunner>();
 
-        var waiting = await runner.StartAsync(ids.SessionId, CancellationToken.None);
+        var waiting = await runner.StartAsync(ids.SessionId, ids.UserId, CancellationToken.None);
         Assert.Equal("waiting-for-user", waiting.Status);
         Assert.Equal("ABCD-EFGH", waiting.UserCode);
 
@@ -1301,6 +1561,7 @@ public sealed class OutlookAuthorizationSessionTests
         var stored = await db.Set<OutlookAuthorizationSessionEntity>().SingleAsync();
         var connection = await db.Set<OutlookConnectionEntity>().SingleAsync();
         Assert.Equal("connected", stored.Status);
+        Assert.Null(stored.UserCode);
         Assert.Equal("home-account", connection.HomeAccountId);
         Assert.Empty(connection.AccessTokenEncrypted);
         Assert.Null(connection.RefreshTokenEncrypted);
@@ -1314,17 +1575,93 @@ public sealed class OutlookAuthorizationSessionTests
         await using var provider = services.BuildServiceProvider();
         var ids = await SeedAsync(provider);
         var runner = provider.GetRequiredService<OutlookAuthorizationSessionRunner>();
-        await runner.StartAsync(ids.SessionId, CancellationToken.None);
+        await runner.StartAsync(ids.SessionId, ids.UserId, CancellationToken.None);
 
         await runner.CancelAsync(ids.SessionId, ids.UserId, CancellationToken.None);
         await runner.WaitForCompletionAsync(ids.SessionId, CancellationToken.None);
 
         await using var scope = provider.CreateAsyncScope();
-        var status = await scope.ServiceProvider.GetRequiredService<PimDbContext>()
+        var stored = await scope.ServiceProvider.GetRequiredService<PimDbContext>()
             .Set<OutlookAuthorizationSessionEntity>()
-            .Select(item => item.Status)
             .SingleAsync();
-        Assert.Equal("canceled", status);
+        Assert.Equal("canceled", stored.Status);
+        Assert.Null(stored.UserCode);
+    }
+
+    [Fact]
+    public async Task Runner_DoubleStartInvokesAdapterOnce()
+    {
+        var msal = new BlockingMsalClient();
+        var services = Services(msal);
+        await using var provider = services.BuildServiceProvider();
+        var ids = await SeedAsync(provider);
+        var runner = provider.GetRequiredService<OutlookAuthorizationSessionRunner>();
+        await runner.StartAsync(ids.SessionId, ids.UserId, CancellationToken.None);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            runner.StartAsync(ids.SessionId, ids.UserId, CancellationToken.None));
+        Assert.Equal(1, msal.CallCount);
+        await runner.CancelAsync(ids.SessionId, ids.UserId, CancellationToken.None);
+        await runner.WaitForCompletionAsync(ids.SessionId, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Runner_RejectsWrongUserBeforeCallingAdapter()
+    {
+        var msal = new PromptingMsalClient();
+        var services = Services(msal);
+        await using var provider = services.BuildServiceProvider();
+        var ids = await SeedAsync(provider);
+        var runner = provider.GetRequiredService<OutlookAuthorizationSessionRunner>();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            runner.StartAsync(ids.SessionId, Guid.NewGuid(), CancellationToken.None));
+        Assert.Equal(0, msal.CallCount);
+    }
+
+    [Theory]
+    [InlineData("expired_token", "expired")]
+    [InlineData("authorization_declined", "canceled")]
+    public async Task Runner_MapsTerminalMsalStatusAndClearsCode(string errorCode, string expectedStatus)
+    {
+        var services = Services(new FailingMsalClient(errorCode));
+        await using var provider = services.BuildServiceProvider();
+        var ids = await SeedAsync(provider);
+        var runner = provider.GetRequiredService<OutlookAuthorizationSessionRunner>();
+
+        await runner.StartAsync(ids.SessionId, ids.UserId, CancellationToken.None);
+        await runner.WaitForCompletionAsync(ids.SessionId, CancellationToken.None);
+
+        await using var scope = provider.CreateAsyncScope();
+        var stored = await scope.ServiceProvider.GetRequiredService<PimDbContext>()
+            .Set<OutlookAuthorizationSessionEntity>().SingleAsync();
+        Assert.Equal(expectedStatus, stored.Status);
+        Assert.Null(stored.UserCode);
+    }
+
+    [Fact]
+    public async Task Runner_RestartCleanupFailsSessionAndClearsCode()
+    {
+        var services = Services(new PromptingMsalClient());
+        await using var provider = services.BuildServiceProvider();
+        var ids = await SeedAsync(provider);
+        await using (var scope = provider.CreateAsyncScope())
+        {
+            var session = await scope.ServiceProvider.GetRequiredService<PimDbContext>()
+                .Set<OutlookAuthorizationSessionEntity>().SingleAsync();
+            session.Status = "waiting-for-user";
+            session.UserCode = "ABCD-EFGH";
+            await scope.ServiceProvider.GetRequiredService<PimDbContext>().SaveChangesAsync();
+        }
+
+        var runner = provider.GetRequiredService<OutlookAuthorizationSessionRunner>();
+        Assert.Equal(1, await runner.FailInterruptedSessionsAsync(CancellationToken.None));
+
+        await using var verify = provider.CreateAsyncScope();
+        var stored = await verify.ServiceProvider.GetRequiredService<PimDbContext>()
+            .Set<OutlookAuthorizationSessionEntity>().SingleAsync();
+        Assert.Equal("failed", stored.Status);
+        Assert.Null(stored.UserCode);
     }
 }
 ```
@@ -1341,7 +1678,7 @@ private static ServiceCollection Services(IMsalPublicClientAdapter msal)
     var services = new ServiceCollection();
     services.AddDbContext<PimDbContext>(options => options.UseInMemoryDatabase(databaseName));
     services.AddSingleton<IMsalPublicClientAdapter>(msal);
-    services.AddSingleton<OutlookConnectionLock>();
+    services.AddSingleton<OutlookTokenCacheLock>();
     services.AddSingleton<OutlookAuthorizationSessionRunner>();
     return services;
 }
@@ -1371,13 +1708,16 @@ private static async Task<SeedResult> SeedAsync(ServiceProvider provider)
     return new SeedResult(userId, session.Id);
 }
 
-private sealed class PromptingMsalClient : FakeMsalClient
+private class PromptingMsalClient : FakeMsalClient
 {
+    public int CallCount { get; protected set; }
+
     public override async Task<MsalAuthenticationResult> AcquireTokenWithDeviceCodeAsync(
         OutlookAuthContext context,
         Func<OutlookDeviceCodePrompt, Task> onPrompt,
         CancellationToken ct)
     {
+        CallCount++;
         await onPrompt(new OutlookDeviceCodePrompt(
             "ABCD-EFGH",
             "https://microsoft.com/devicelogin",
@@ -1394,6 +1734,7 @@ private sealed class BlockingMsalClient : PromptingMsalClient
         Func<OutlookDeviceCodePrompt, Task> onPrompt,
         CancellationToken ct)
     {
+        CallCount++;
         await onPrompt(new OutlookDeviceCodePrompt(
             "ABCD-EFGH",
             "https://microsoft.com/devicelogin",
@@ -1430,30 +1771,39 @@ using Pim.Module.Calendar.Entities;
 
 namespace Pim.Module.Calendar.Services;
 
-public sealed class OutlookAuthorizationSessionRunner
+public sealed class OutlookAuthorizationSessionRunner : IAsyncDisposable
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ConcurrentDictionary<Guid, RunningSession> _running = new();
 
     public OutlookAuthorizationSessionRunner(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
 
-    public async Task<OutlookAuthorizationSessionEntity> StartAsync(Guid sessionId, CancellationToken requestToken)
+    public async Task<OutlookAuthorizationSessionEntity> StartAsync(
+        Guid sessionId,
+        Guid userId,
+        CancellationToken requestToken)
     {
         var ready = new TaskCompletionSource<OutlookAuthorizationSessionEntity>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var cancellation = new CancellationTokenSource();
-        var completion = RunAsync(sessionId, ready, cancellation.Token);
-        if (!_running.TryAdd(sessionId, new RunningSession(cancellation, completion)))
+        var running = new RunningSession();
+        if (!_running.TryAdd(sessionId, running))
         {
-            cancellation.Dispose();
+            running.Cancellation.Dispose();
             throw new InvalidOperationException("This Microsoft authorization session is already running.");
         }
 
-        _ = completion.ContinueWith(
-            _ => Remove(sessionId),
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-        return await ready.Task.WaitAsync(TimeSpan.FromSeconds(30), requestToken);
+        _ = ExecuteRegisteredAsync(sessionId, userId, ready, running);
+        try
+        {
+            return await ready.Task.WaitAsync(TimeSpan.FromSeconds(30), requestToken);
+        }
+        catch (TimeoutException)
+        {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<PimDbContext>();
+            var session = await db.Set<OutlookAuthorizationSessionEntity>().AsNoTracking()
+                .SingleAsync(item => item.Id == sessionId && item.UserId == userId, requestToken);
+            return Clone(session);
+        }
     }
 
     public async Task CancelAsync(Guid sessionId, Guid userId, CancellationToken ct)
@@ -1463,12 +1813,19 @@ public sealed class OutlookAuthorizationSessionRunner
         var session = await db.Set<OutlookAuthorizationSessionEntity>()
             .SingleAsync(item => item.Id == sessionId && item.UserId == userId, ct);
         if (session.Status is not ("starting" or "waiting-for-user")) return;
+        session.Status = "canceled";
+        session.UserCode = null;
+        session.ExpiresAt = null;
+        session.Version++;
+        session.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
         if (_running.TryGetValue(sessionId, out var running)) running.Cancellation.Cancel();
     }
 
     public async Task WaitForCompletionAsync(Guid sessionId, CancellationToken ct)
     {
-        if (_running.TryGetValue(sessionId, out var running)) await running.Completion.WaitAsync(ct);
+        if (_running.TryGetValue(sessionId, out var running))
+            await running.Completion.Task.WaitAsync(ct);
     }
 
     public async Task<int> FailInterruptedSessionsAsync(CancellationToken ct)
@@ -1483,18 +1840,50 @@ public sealed class OutlookAuthorizationSessionRunner
             session.Status = "failed";
             session.ErrorCode = "service-restarted";
             session.ErrorMessage = "PIM restarted while Microsoft authorization was waiting.";
+            session.UserCode = null;
+            session.ExpiresAt = null;
+            session.Version++;
             session.UpdatedAt = DateTimeOffset.UtcNow;
         }
         await db.SaveChangesAsync(ct);
         return interrupted.Count;
     }
 
-    private void Remove(Guid sessionId)
+    public async ValueTask DisposeAsync()
     {
-        if (_running.TryRemove(sessionId, out var running)) running.Cancellation.Dispose();
+        var running = _running.Values.ToArray();
+        foreach (var item in running) item.Cancellation.Cancel();
+        await Task.WhenAll(running.Select(item => item.Completion.Task));
     }
 
-    private sealed record RunningSession(CancellationTokenSource Cancellation, Task Completion);
+    private async Task ExecuteRegisteredAsync(
+        Guid sessionId,
+        Guid userId,
+        TaskCompletionSource<OutlookAuthorizationSessionEntity> ready,
+        RunningSession running)
+    {
+        try
+        {
+            await RunAsync(sessionId, userId, ready, running.Cancellation.Token);
+        }
+        catch (Exception exception)
+        {
+            ready.TrySetException(exception);
+        }
+        finally
+        {
+            running.Completion.TrySetResult();
+            if (((ICollection<KeyValuePair<Guid, RunningSession>>)_running)
+                .Remove(new KeyValuePair<Guid, RunningSession>(sessionId, running)))
+                running.Cancellation.Dispose();
+        }
+    }
+
+    private sealed class RunningSession
+    {
+        public CancellationTokenSource Cancellation { get; } = new();
+        public TaskCompletionSource Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
 }
 ```
 
@@ -1505,19 +1894,22 @@ Add `RunAsync` inside the runner:
 ```csharp
 private async Task RunAsync(
     Guid sessionId,
+    Guid userId,
     TaskCompletionSource<OutlookAuthorizationSessionEntity> ready,
     CancellationToken ct)
 {
     await using var scope = _scopeFactory.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<PimDbContext>();
     var msal = scope.ServiceProvider.GetRequiredService<IMsalPublicClientAdapter>();
-    var connectionLock = scope.ServiceProvider.GetRequiredService<OutlookConnectionLock>();
-    var session = await db.Set<OutlookAuthorizationSessionEntity>().SingleAsync(item => item.Id == sessionId, ct);
-    var connection = await db.Set<OutlookConnectionEntity>().SingleAsync(item => item.Id == session.ConnectionId, ct);
+    var tokenCacheLock = scope.ServiceProvider.GetRequiredService<OutlookTokenCacheLock>();
+    var session = await db.Set<OutlookAuthorizationSessionEntity>()
+        .SingleAsync(item => item.Id == sessionId && item.UserId == userId, ct);
+    var connection = await db.Set<OutlookConnectionEntity>()
+        .SingleAsync(item => item.Id == session.ConnectionId && item.UserId == userId, ct);
 
     try
     {
-        await using var held = await connectionLock.AcquireAsync(connection.Id, ct);
+        await using var held = await tokenCacheLock.AcquireAsync(connection.Id, ct);
         var result = await msal.AcquireTokenWithDeviceCodeAsync(
             new OutlookAuthContext(connection.Id, connection.ClientId!, connection.Authority, connection.HomeAccountId),
             async prompt =>
@@ -1526,6 +1918,7 @@ private async Task RunAsync(
                 session.VerificationUri = prompt.VerificationUri;
                 session.UserCode = prompt.UserCode;
                 session.ExpiresAt = prompt.ExpiresAt;
+                session.Version++;
                 session.UpdatedAt = DateTimeOffset.UtcNow;
                 await db.SaveChangesAsync(ct);
                 ready.TrySetResult(Clone(session));
@@ -1548,24 +1941,50 @@ private async Task RunAsync(
         session.AccountDisplayName = result.DisplayName;
         session.AccountLoginHint = result.Username;
         session.UserCode = null;
+        session.ExpiresAt = null;
+        session.Version++;
         session.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
         ready.TrySetResult(Clone(session));
     }
+    catch (DbUpdateConcurrencyException)
+    {
+        await db.Entry(session).ReloadAsync(CancellationToken.None);
+        ready.TrySetResult(Clone(session));
+    }
     catch (OperationCanceledException) when (ct.IsCancellationRequested)
     {
-        session.Status = "canceled";
-        session.UserCode = null;
-        session.UpdatedAt = DateTimeOffset.UtcNow;
-        await db.SaveChangesAsync(CancellationToken.None);
+        await db.Entry(session).ReloadAsync(CancellationToken.None);
+        if (session.Status is "starting" or "waiting-for-user")
+        {
+            session.Status = "canceled";
+            session.UserCode = null;
+            session.ExpiresAt = null;
+            session.Version++;
+            session.UpdatedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(CancellationToken.None);
+        }
         ready.TrySetResult(Clone(session));
     }
     catch (Exception exception)
     {
-        session.Status = exception is MsalClientException { ErrorCode: "device_code_expired" } ? "expired" : "failed";
+        await db.Entry(session).ReloadAsync(CancellationToken.None);
+        if (session.Status is not ("starting" or "waiting-for-user"))
+        {
+            ready.TrySetResult(Clone(session));
+            return;
+        }
         session.ErrorCode = MapErrorCode(exception);
+        session.Status = session.ErrorCode switch
+        {
+            "device-code-expired" => "expired",
+            "user-canceled" => "canceled",
+            _ => "failed"
+        };
         session.ErrorMessage = SafeMessage(session.ErrorCode);
         session.UserCode = null;
+        session.ExpiresAt = null;
+        session.Version++;
         session.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(CancellationToken.None);
         ready.TrySetResult(Clone(session));
@@ -1574,7 +1993,8 @@ private async Task RunAsync(
 
 private static string MapErrorCode(Exception exception) => exception switch
 {
-    MsalClientException { ErrorCode: "invalid_client" } => "invalid-client-id",
+    MsalException { ErrorCode: "invalid_client" } => "invalid-client-id",
+    MsalClientException { ErrorCode: "device_code_expired" } => "device-code-expired",
     MsalServiceException { ErrorCode: "unauthorized_client" } => "public-client-disabled",
     MsalServiceException { ErrorCode: "authorization_declined" } => "user-canceled",
     MsalServiceException { ErrorCode: "expired_token" } => "device-code-expired",
@@ -1616,7 +2036,49 @@ private static OutlookAuthorizationSessionEntity Clone(OutlookAuthorizationSessi
 
 Add `using Microsoft.Identity.Client;` to the runner. Do not log `UserCode`, `AccessToken`, cache bytes, or MSAL exception response bodies.
 
-- [ ] **Step 6: 运行授权会话测试**
+- [ ] **Step 6: 注册正确生命周期并在启动时清理中断会话**
+
+Add to `CalendarModule.RegisterServices` while keeping all legacy Outlook registrations until Task 17:
+
+```csharp
+services.AddSingleton<OutlookTokenCacheLock>();
+services.AddScoped<OutlookTokenCacheStore>();
+services.AddScoped<IMsalPublicClientAdapter, MsalPublicClientAdapter>();
+services.AddScoped<IOutlookAccessTokenProvider, MsalOutlookAuthCoordinator>();
+services.AddSingleton<OutlookAuthorizationSessionRunner>();
+```
+
+Replace the current no-op `InitializeAsync` so a restart cannot leave a stale device code visible:
+
+```csharp
+public async Task InitializeAsync(IServiceProvider serviceProvider)
+{
+    using var scope = serviceProvider.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<OutlookAuthorizationSessionRunner>()
+        .FailInterruptedSessionsAsync(CancellationToken.None);
+}
+
+private sealed class FailingMsalClient(string errorCode) : PromptingMsalClient
+{
+    public override async Task<MsalAuthenticationResult> AcquireTokenWithDeviceCodeAsync(
+        OutlookAuthContext context,
+        Func<OutlookDeviceCodePrompt, Task> onPrompt,
+        CancellationToken ct)
+    {
+        CallCount++;
+        await onPrompt(new OutlookDeviceCodePrompt(
+            "ABCD-EFGH",
+            "https://microsoft.com/devicelogin",
+            DateTimeOffset.UtcNow.AddMinutes(15),
+            "Open the page and enter the code."));
+        throw new MsalServiceException(errorCode, "Simulated device authorization failure.");
+    }
+}
+```
+
+`OutlookAuthorizationSessionRunner` implements `IAsyncDisposable`；the DI container therefore cancels and awaits all in-process device-code tasks during shutdown.
+
+- [ ] **Step 7: 运行授权会话测试**
 
 Run:
 
@@ -1624,12 +2086,12 @@ Run:
 dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --filter FullyQualifiedName~OutlookAuthorizationSessionTests
 ```
 
-Expected: PASS，测试覆盖 `waiting-for-user -> connected` 和 `waiting-for-user -> canceled`。
+Expected: PASS，测试覆盖 connected、API cancel、expired、authorization declined、错误用户、同 session 双启动、restart cleanup，且所有终态清除 `UserCode`。
 
-- [ ] **Step 7: 提交设备授权状态机**
+- [ ] **Step 8: 提交设备授权状态机**
 
 ```powershell
-git add src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs src/modules/Pim.Module.Calendar/Services tests/Pim.UnitTests/Calendar/OutlookAuthorizationSessionTests.cs tests/Pim.UnitTests/Calendar/OutlookMsalAuthenticationTests.cs
+git add src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs src/modules/Pim.Module.Calendar/Services/OutlookAuthorizationSessionRunner.cs src/modules/Pim.Module.Calendar/CalendarModule.cs tests/Pim.UnitTests/Calendar/OutlookAuthorizationSessionTests.cs tests/Pim.UnitTests/Calendar/OutlookMsalAuthenticationTests.cs
 git commit -m "feat: run microsoft device authorization sessions"
 ```
 
@@ -1639,18 +2101,29 @@ Expected: API 尚未暴露 session，但后端状态机可独立测试。
 
 **Files:**
 - Create: `src/modules/Pim.Module.Calendar/Services/GraphCalendarModels.cs`
+- Create: `src/modules/Pim.Module.Calendar/Services/MicrosoftGraphUri.cs`
+- Create: `src/modules/Pim.Module.Calendar/Services/OutlookGraphAuthenticationHandler.cs`
+- Create: `src/modules/Pim.Module.Calendar/Services/OutlookGraphTransportRegistration.cs`
 - Create: `src/modules/Pim.Module.Calendar/Services/GraphCalendarClient.cs`
 - Create: `tests/Pim.UnitTests/Calendar/GraphCalendarClientTests.cs`
 - Modify: `src/modules/Pim.Module.Calendar/CalendarModule.cs`
+- Modify: `src/modules/Pim.Module.Calendar/Services/MicrosoftGraphDeviceCodeClient.cs`
+- Modify: `src/modules/Pim.Module.Calendar/Services/MsalOutlookAuthCoordinator.cs`
+- Modify: `tests/Pim.UnitTests/Calendar/OutlookMsalAuthenticationTests.cs`
 
-- [ ] **Step 1: 写 endpoint/header/retry 失败测试**
+- [ ] **Step 1: 写 endpoint、共享预算、认证重放和 URL 边界失败测试**
 
 Create `tests/Pim.UnitTests/Calendar/GraphCalendarClientTests.cs`:
 
 ```csharp
+using System.Diagnostics;
 using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Pim.Module.Calendar.Services;
+using Polly.Timeout;
 using Xunit;
 
 namespace Pim.UnitTests.Calendar;
@@ -1664,46 +2137,239 @@ public sealed class GraphCalendarClientTests
             Json(HttpStatusCode.OK, """{"value":[],"@odata.nextLink":"https://graph.microsoft.com/v1.0/me/calendarGroups?$skiptoken=next"}"""),
             Json(HttpStatusCode.OK, """{"value":[]}""")
         ]);
-        var client = CreateClient(handler);
+        await using var fixture = CreateClient(handler);
 
-        var first = await client.GetCalendarGroupsPageAsync(Guid.NewGuid(), null, CancellationToken.None);
-        await client.GetCalendarGroupsPageAsync(Guid.NewGuid(), first.NextLink, CancellationToken.None);
+        var first = await fixture.Client.GetCalendarGroupsPageAsync(Guid.NewGuid(), null, CancellationToken.None);
+        await fixture.Client.GetCalendarGroupsPageAsync(Guid.NewGuid(), first.NextLink, CancellationToken.None);
 
         Assert.All(handler.Requests, request =>
         {
             Assert.Contains("outlook.timezone=\"UTC\"", request.Prefer);
             Assert.Contains("IdType=\"ImmutableId\"", request.Prefer);
             Assert.NotNull(request.ClientRequestId);
+            Assert.Equal("access-token", request.BearerToken);
         });
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            client.GetCalendarGroupsPageAsync(Guid.NewGuid(), "https://example.com/steal", CancellationToken.None));
+            fixture.Client.GetCalendarGroupsPageAsync(
+                Guid.NewGuid(),
+                "https://graph.microsoft.com.evil.invalid/v1.0/steal",
+                CancellationToken.None));
+        Assert.Equal(2, fixture.Tokens.Acquisitions.Count);
     }
 
     [Fact]
-    public async Task Read_Retries429And5xxAtMostThreeTotalAttempts()
+    public async Task Registration_DefaultsResolveWithoutOptionsValidationFailure()
+    {
+        var handler = new RecordingHandler([Json(HttpStatusCode.OK, """{"value":[]}""")]);
+        await using var fixture = CreateClient(handler);
+
+        var options = fixture.Services.GetRequiredService<IOptions<OutlookGraphTransportOptions>>().Value;
+        await fixture.Client.GetCalendarsPageAsync(Guid.NewGuid(), null, CancellationToken.None);
+
+        Assert.Equal(TimeSpan.FromSeconds(30), options.AttemptTimeout);
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task LegacyClient_RejectsNonGraphAbsoluteUrlBeforeSendingBearer()
+    {
+        var handler = new RecordingHandler([Json(HttpStatusCode.OK, """{"value":[]}""")]);
+        var services = new ServiceCollection();
+        services.AddHttpClient("outlook").ConfigurePrimaryHttpMessageHandler(() => handler);
+        await using var provider = services.BuildServiceProvider();
+        var legacy = new MicrosoftGraphDeviceCodeClient(
+            provider.GetRequiredService<IHttpClientFactory>());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => legacy.GetDeltaPageAsync(
+            "secret-token",
+            "https://example.com/steal",
+            CancellationToken.None));
+
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public async Task Read_SharesThreeAttemptBudgetAcrossTransientAnd401Failures()
     {
         var handler = new RecordingHandler([
             Json(HttpStatusCode.TooManyRequests, "{}", retryAfterSeconds: 0),
-            Json(HttpStatusCode.ServiceUnavailable, "{}"),
+            Json(HttpStatusCode.Unauthorized, "{}"),
             Json(HttpStatusCode.OK, """{"value":[]}""")
         ]);
-        var client = CreateClient(handler);
+        await using var fixture = CreateClient(handler);
 
-        await client.GetCalendarsPageAsync(Guid.NewGuid(), null, CancellationToken.None);
+        await fixture.Client.GetCalendarsPageAsync(Guid.NewGuid(), null, CancellationToken.None);
 
+        Assert.Equal(3, handler.Requests.Count);
+        Assert.Equal(new[] { false, false, true }, fixture.Tokens.Acquisitions.Select(item => item.ForceRefresh));
+    }
+
+    [Fact]
+    public async Task Read_Second401MarksCurrentAccountForReauthorization()
+    {
+        var handler = new RecordingHandler([
+            Json(HttpStatusCode.Unauthorized, "{}"),
+            Json(HttpStatusCode.Unauthorized, "{}")
+        ]);
+        await using var fixture = CreateClient(handler);
+
+        var error = await Assert.ThrowsAsync<GraphRequestException>(() =>
+            fixture.Client.GetCalendarsPageAsync(Guid.NewGuid(), null, CancellationToken.None));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, error.StatusCode);
+        Assert.Equal(new[] { false, true }, fixture.Tokens.Acquisitions.Select(item => item.ForceRefresh));
+        Assert.Single(fixture.Tokens.ReauthenticationMarks);
+    }
+
+    [Fact]
+    public async Task Read_ForceRefreshIsConsumedOnceAcrossLaterTransientRetry()
+    {
+        var handler = new RecordingHandler([
+            Json(HttpStatusCode.Unauthorized, "{}"),
+            Json(HttpStatusCode.ServiceUnavailable, "{}", retryAfterSeconds: 0),
+            Json(HttpStatusCode.OK, """{"value":[]}""")
+        ]);
+        await using var fixture = CreateClient(handler, configure: FastRetries);
+
+        await fixture.Client.GetCalendarsPageAsync(Guid.NewGuid(), null, CancellationToken.None);
+
+        Assert.Equal(new[] { false, true, false }, fixture.Tokens.Acquisitions.Select(item => item.ForceRefresh));
+        Assert.Empty(fixture.Tokens.ReauthenticationMarks);
+    }
+
+    [Fact]
+    public async Task Read_401AfterRefreshAndTransientFailureMarksReauthentication()
+    {
+        var handler = new RecordingHandler([
+            Json(HttpStatusCode.Unauthorized, "{}"),
+            Json(HttpStatusCode.ServiceUnavailable, "{}", retryAfterSeconds: 0),
+            Json(HttpStatusCode.Unauthorized, "{}")
+        ]);
+        await using var fixture = CreateClient(handler, configure: FastRetries);
+
+        await Assert.ThrowsAsync<GraphRequestException>(() =>
+            fixture.Client.GetCalendarsPageAsync(Guid.NewGuid(), null, CancellationToken.None));
+
+        Assert.Equal(new[] { false, true, false }, fixture.Tokens.Acquisitions.Select(item => item.ForceRefresh));
+        Assert.Single(fixture.Tokens.ReauthenticationMarks);
+    }
+
+    [Fact]
+    public async Task Read_RetriesConnectionTimeoutButNotCallerCancellation()
+    {
+        var connectionHandler = new RecordingHandler((attempt, request, ct) => attempt < 3
+            ? Task.FromException<HttpResponseMessage>(ConnectionTimeoutException())
+            : Task.FromResult(Json(HttpStatusCode.OK, """{"value":[]}""")));
+        await using (var fixture = CreateClient(connectionHandler, configure: FastRetries))
+        {
+            await fixture.Client.GetCalendarsPageAsync(Guid.NewGuid(), null, CancellationToken.None);
+            Assert.Equal(3, connectionHandler.Requests.Count);
+        }
+
+        var canceledHandler = new RecordingHandler(async (_, _, ct) =>
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            throw new InvalidOperationException("unreachable");
+        });
+        await using var canceledFixture = CreateClient(canceledHandler, configure: FastRetries);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(25));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            canceledFixture.Client.GetCalendarsPageAsync(Guid.NewGuid(), null, cts.Token));
+        Assert.Single(canceledHandler.Requests);
+    }
+
+    [Fact]
+    public async Task Read_AttemptTimeoutRetriesAtMostThreeTimes()
+    {
+        var handler = new RecordingHandler(async (_, _, ct) =>
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            throw new InvalidOperationException("unreachable");
+        });
+        await using var fixture = CreateClient(handler, configure: options =>
+        {
+            FastRetries(options);
+            options.AttemptTimeout = TimeSpan.FromMilliseconds(25);
+            options.TotalTimeout = TimeSpan.FromSeconds(1);
+        });
+
+        await Assert.ThrowsAsync<TimeoutRejectedException>(() =>
+            fixture.Client.GetCalendarsPageAsync(Guid.NewGuid(), null, CancellationToken.None));
         Assert.Equal(3, handler.Requests.Count);
     }
 
     [Fact]
-    public async Task Write_DoesNotTransparentlyRetry()
+    public async Task Read_HonorsRetryAfterHeader()
     {
-        var handler = new RecordingHandler([Json(HttpStatusCode.ServiceUnavailable, "{}")]);
-        var client = CreateClient(handler);
+        var handler = new RecordingHandler([
+            Json(HttpStatusCode.TooManyRequests, "{}", retryAfterSeconds: 1),
+            Json(HttpStatusCode.OK, """{"value":[]}""")
+        ]);
+        await using var fixture = CreateClient(handler, configure: FastRetries);
+        var stopwatch = Stopwatch.StartNew();
 
-        await Assert.ThrowsAsync<GraphRequestException>(() => client.PatchEventAsync(
-            Guid.NewGuid(), "calendar", "event", "etag", new GraphEventPatch("Title", null, null, null, null, false), CancellationToken.None));
+        await fixture.Client.GetCalendarsPageAsync(Guid.NewGuid(), null, CancellationToken.None);
 
-        Assert.Single(handler.Requests);
+        Assert.True(stopwatch.Elapsed >= TimeSpan.FromMilliseconds(900), stopwatch.Elapsed.ToString());
+        Assert.Equal(2, handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task Read_ErrorCapturesRequestIdsWithoutLeakingResponseBody()
+    {
+        var response = Json(HttpStatusCode.BadRequest, """{"error":{"message":"private event body"}}""");
+        response.Headers.TryAddWithoutValidation("request-id", "graph-request-id");
+        var handler = new RecordingHandler([response]);
+        await using var fixture = CreateClient(handler);
+
+        var error = await Assert.ThrowsAsync<GraphRequestException>(() =>
+            fixture.Client.GetCalendarsPageAsync(Guid.NewGuid(), null, CancellationToken.None));
+
+        Assert.Equal("graph-request-id", error.GraphRequestId);
+        Assert.False(string.IsNullOrWhiteSpace(error.ClientRequestId));
+        Assert.DoesNotContain("private event body", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("PATCH")]
+    [InlineData("DELETE")]
+    public async Task Write_DoesNotTransparentlyRetry(string method)
+    {
+        var writeHandler = new RecordingHandler([Json(HttpStatusCode.ServiceUnavailable, "{}")]);
+        await using var fixture = CreateClient(
+            new RecordingHandler([Json(HttpStatusCode.OK, """{"value":[]}""")]),
+            writeHandler);
+
+        if (method == "PATCH")
+        {
+            await Assert.ThrowsAsync<GraphRequestException>(() => fixture.Client.PatchEventAsync(
+                Guid.NewGuid(), "calendar", "event", "etag",
+                new GraphEventPatch("Title", null, null, null, null, false),
+                CancellationToken.None));
+        }
+        else
+        {
+            await Assert.ThrowsAsync<GraphRequestException>(() => fixture.Client.DeleteEventAsync(
+                Guid.NewGuid(), "calendar", "event", "etag", CancellationToken.None));
+        }
+
+        Assert.Single(writeHandler.Requests);
+    }
+
+    [Fact]
+    public async Task Write_401DoesNotReplayOrPrematurelyMarkReauthentication()
+    {
+        var writeHandler = new RecordingHandler([Json(HttpStatusCode.Unauthorized, "{}")]);
+        await using var fixture = CreateClient(
+            new RecordingHandler([Json(HttpStatusCode.OK, """{"value":[]}""")]),
+            writeHandler);
+
+        await Assert.ThrowsAsync<GraphRequestException>(() => fixture.Client.DeleteEventAsync(
+            Guid.NewGuid(), "calendar", "event", "etag", CancellationToken.None));
+
+        Assert.Single(writeHandler.Requests);
+        Assert.Single(fixture.Tokens.Acquisitions);
+        Assert.Empty(fixture.Tokens.ReauthenticationMarks);
     }
 }
 ```
@@ -1711,31 +2377,40 @@ public sealed class GraphCalendarClientTests
 Insert these helpers before the test class's closing brace:
 
 ```csharp
-private static IGraphCalendarClient CreateClient(RecordingHandler handler)
+private static GraphFixture CreateClient(
+    RecordingHandler readHandler,
+    RecordingHandler? writeHandler = null,
+    Action<OutlookGraphTransportOptions>? configure = null)
 {
+    var tokens = new RecordingTokenProvider();
     var services = new ServiceCollection();
-    services.AddSingleton<IOutlookAccessTokenProvider>(new FixedTokenProvider());
-    services.AddHttpClient(OutlookHttpClients.GraphRead, client => client.Timeout = Timeout.InfiniteTimeSpan)
-        .ConfigurePrimaryHttpMessageHandler(() => handler)
-        .AddStandardResilienceHandler(options =>
-        {
-            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(30);
-            options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(3);
-            options.Retry.MaxRetryAttempts = 2;
-            options.Retry.Delay = TimeSpan.Zero;
-            options.Retry.UseJitter = false;
-            options.Retry.ShouldRetryAfterHeader = true;
-            options.Retry.ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
-                .Handle<HttpRequestException>()
-                .Handle<TimeoutRejectedException>()
-                .HandleResult(response => response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests
-                    || (int)response.StatusCode >= 500);
-        });
-    services.AddHttpClient(OutlookHttpClients.GraphWrite, client => client.Timeout = TimeSpan.FromSeconds(30))
-        .ConfigurePrimaryHttpMessageHandler(() => handler);
-    services.AddTransient<IGraphCalendarClient, GraphCalendarClient>();
-    return services.BuildServiceProvider().GetRequiredService<IGraphCalendarClient>();
+    services.AddLogging();
+    services.AddScoped<IOutlookAccessTokenProvider>(_ => tokens);
+    services.AddOutlookGraphTransport();
+    if (configure is not null) services.Configure(configure);
+    services.AddHttpClient(OutlookHttpClients.GraphRead)
+        .ConfigurePrimaryHttpMessageHandler(() => readHandler);
+    services.AddHttpClient(OutlookHttpClients.GraphWrite)
+        .ConfigurePrimaryHttpMessageHandler(() => writeHandler ?? readHandler);
+    var provider = services.BuildServiceProvider(new ServiceProviderOptions
+    {
+        ValidateOnBuild = true,
+        ValidateScopes = true
+    });
+    return new GraphFixture(provider, tokens);
 }
+
+private static void FastRetries(OutlookGraphTransportOptions options)
+{
+    options.RetryDelay = TimeSpan.Zero;
+    options.UseJitter = false;
+}
+
+private static OperationCanceledException ConnectionTimeoutException()
+    => new("connect timed out", new TimeoutException(), CancellationToken.None)
+    {
+        Source = "System.Private.CoreLib"
+    };
 
 private static HttpResponseMessage Json(HttpStatusCode status, string body, int? retryAfterSeconds = null)
 {
@@ -1748,40 +2423,81 @@ private static HttpResponseMessage Json(HttpStatusCode status, string body, int?
     return response;
 }
 
-private sealed class FixedTokenProvider : IOutlookAccessTokenProvider
+private sealed class RecordingTokenProvider : IOutlookAccessTokenProvider
 {
-    public Task<string> AcquireAccessTokenAsync(Guid connectionId, bool forceRefresh, CancellationToken ct)
-        => Task.FromResult(forceRefresh ? "force-refreshed-token" : "access-token");
-}
+    public List<(Guid ConnectionId, bool ForceRefresh)> Acquisitions { get; } = [];
+    public List<(Guid ConnectionId, string HomeAccountId, long Version)> ReauthenticationMarks { get; } = [];
 
-private sealed record RecordedRequest(Uri? Uri, string Prefer, string? ClientRequestId);
-
-private sealed class RecordingHandler(IEnumerable<HttpResponseMessage> responses) : HttpMessageHandler
-{
-    private readonly Queue<HttpResponseMessage> _responses = new(responses);
-    public List<RecordedRequest> Requests { get; } = [];
-
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+    public Task<OutlookAccessTokenLease> AcquireAccessTokenAsync(
+        Guid connectionId,
+        bool forceRefresh,
+        CancellationToken ct)
     {
-        Requests.Add(new RecordedRequest(
-            request.RequestUri,
-            request.Headers.TryGetValues("Prefer", out var prefer) ? string.Join(',', prefer) : string.Empty,
-            request.Headers.TryGetValues("client-request-id", out var ids) ? ids.Single() : null));
-        if (_responses.Count == 0)
-            throw new InvalidOperationException("The test handler has no queued response.");
-        return Task.FromResult(_responses.Dequeue());
+        Acquisitions.Add((connectionId, forceRefresh));
+        return Task.FromResult(new OutlookAccessTokenLease(
+            forceRefresh ? "force-refreshed-token" : "access-token",
+            "home-account",
+            7));
+    }
+
+    public Task MarkGraphUnauthorizedAsync(
+        Guid connectionId,
+        string expectedHomeAccountId,
+        long expectedVersion,
+        CancellationToken ct)
+    {
+        ReauthenticationMarks.Add((connectionId, expectedHomeAccountId, expectedVersion));
+        return Task.CompletedTask;
     }
 }
-```
 
-Add these exact test usings:
+private sealed record RecordedRequest(
+    HttpMethod Method,
+    Uri? Uri,
+    string Prefer,
+    string? ClientRequestId,
+    string? BearerToken);
 
-```csharp
-using System.Net.Http.Headers;
-using System.Text;
-using Microsoft.Extensions.DependencyInjection;
-using Polly;
-using Polly.Timeout;
+private sealed class RecordingHandler : HttpMessageHandler
+{
+    private readonly Queue<HttpResponseMessage>? _responses;
+    private readonly Func<int, HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>>? _send;
+    public List<RecordedRequest> Requests { get; } = [];
+
+    public RecordingHandler(IEnumerable<HttpResponseMessage> responses)
+        => _responses = new Queue<HttpResponseMessage>(responses);
+
+    public RecordingHandler(Func<int, HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send)
+        => _send = send;
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+    {
+        Requests.Add(new RecordedRequest(
+            request.Method,
+            request.RequestUri,
+            request.Headers.TryGetValues("Prefer", out var prefer) ? string.Join(',', prefer) : string.Empty,
+            request.Headers.TryGetValues("client-request-id", out var ids) ? ids.Single() : null,
+            request.Headers.Authorization?.Parameter));
+        var response = _send is not null
+            ? await _send(Requests.Count, request, ct)
+            : _responses is { Count: > 0 }
+                ? _responses.Dequeue()
+                : throw new InvalidOperationException("The test handler has no queued response.");
+        response.RequestMessage ??= request;
+        return response;
+    }
+}
+
+private sealed class GraphFixture(
+    ServiceProvider services,
+    RecordingTokenProvider tokens) : IAsyncDisposable
+{
+    public ServiceProvider Services { get; } = services;
+    public RecordingTokenProvider Tokens { get; } = tokens;
+    public IGraphCalendarClient Client => Services.GetRequiredService<IGraphCalendarClient>();
+
+    public ValueTask DisposeAsync() => Services.DisposeAsync();
+}
 ```
 
 - [ ] **Step 2: 运行测试并确认 Graph client 不存在**
@@ -1792,7 +2508,7 @@ Run:
 dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --filter FullyQualifiedName~GraphCalendarClientTests
 ```
 
-Expected: FAIL，编译错误指向 Graph models/client。
+Expected: FAIL，编译错误指向 `GraphCalendarClient`、`OutlookAccessTokenLease`、`AddOutlookGraphTransport` 和 transport options。
 
 - [ ] **Step 3: 定义内部 Graph DTO**
 
@@ -1869,13 +2585,187 @@ public sealed record GraphEventPatch(
     [property: JsonPropertyName("isAllDay")] bool IsAllDay);
 ```
 
-- [ ] **Step 4: 定义 Graph client 接口和 URL 白名单**
+- [ ] **Step 4: 让 token 获取返回账户/version lease，并提供并发安全的 Graph 401 状态写入**
+
+In `MsalOutlookAuthCoordinator.cs`, replace the token-provider contract with:
+
+```csharp
+public sealed record OutlookAccessTokenLease(
+    string AccessToken,
+    string HomeAccountId,
+    long ConnectionVersion);
+
+public interface IOutlookAccessTokenProvider
+{
+    Task<OutlookAccessTokenLease> AcquireAccessTokenAsync(
+        Guid connectionId,
+        bool forceRefresh,
+        CancellationToken ct);
+
+    Task MarkGraphUnauthorizedAsync(
+        Guid connectionId,
+        string expectedHomeAccountId,
+        long expectedVersion,
+        CancellationToken ct);
+}
+```
+
+Change `MsalOutlookAuthCoordinator.AcquireAccessTokenAsync` to return `Task<OutlookAccessTokenLease>` and replace its success return with:
+
+```csharp
+await MarkConnectedAsync(connection, result, ct);
+return new OutlookAccessTokenLease(
+    result.AccessToken,
+    result.HomeAccountId,
+    connection.Version);
+```
+
+Add this public method to the coordinator. The account anchor and `Version` are both required so an old HTTP response cannot mark a newly authorized account as broken:
+
+```csharp
+public async Task MarkGraphUnauthorizedAsync(
+    Guid connectionId,
+    string expectedHomeAccountId,
+    long expectedVersion,
+    CancellationToken ct)
+{
+    await using var held = await _tokenCacheLock.AcquireAsync(connectionId, ct);
+    var connection = await _db.Set<OutlookConnectionEntity>()
+        .SingleAsync(item => item.Id == connectionId, ct);
+    await _db.Entry(connection).ReloadAsync(ct);
+    if (connection.Version != expectedVersion
+        || !string.Equals(
+            connection.HomeAccountId,
+            expectedHomeAccountId,
+            StringComparison.Ordinal))
+    {
+        return;
+    }
+
+    try
+    {
+        await MarkFailureAsync(
+            connection,
+            "graph-unauthorized",
+            "Microsoft Graph rejected the refreshed access token.",
+            ct);
+    }
+    catch (DbUpdateConcurrencyException)
+    {
+        // A newer authorization state won the race; do not overwrite it.
+    }
+}
+```
+
+Update the one token-value assertion in `OutlookMsalAuthenticationTests.cs` from `token` to `token.AccessToken`, then add these tests:
+
+```csharp
+[Fact]
+public async Task GraphUnauthorized_MarksMatchingLeaseForReauthentication()
+{
+    await using var db = CreateDb();
+    var connection = Connection();
+    db.Add(connection);
+    await db.SaveChangesAsync();
+    var coordinator = new MsalOutlookAuthCoordinator(
+        db,
+        new FakeMsalClient(),
+        new OutlookTokenCacheLock());
+    var lease = await coordinator.AcquireAccessTokenAsync(
+        connection.Id, false, CancellationToken.None);
+
+    await coordinator.MarkGraphUnauthorizedAsync(
+        connection.Id,
+        lease.HomeAccountId,
+        lease.ConnectionVersion,
+        CancellationToken.None);
+
+    await db.Entry(connection).ReloadAsync();
+    Assert.Equal("reauth-required", connection.Status);
+    Assert.Equal("graph-unauthorized", connection.TokenHealth);
+}
+
+[Fact]
+public async Task GraphUnauthorized_DoesNotOverwriteNewerAccountVersion()
+{
+    await using var db = CreateDb();
+    var connection = Connection();
+    db.Add(connection);
+    await db.SaveChangesAsync();
+    var coordinator = new MsalOutlookAuthCoordinator(
+        db,
+        new FakeMsalClient(),
+        new OutlookTokenCacheLock());
+    var lease = await coordinator.AcquireAccessTokenAsync(
+        connection.Id, false, CancellationToken.None);
+
+    connection.HomeAccountId = "new-home-account";
+    connection.Status = "connected";
+    connection.TokenHealth = "healthy";
+    connection.Version++;
+    await db.SaveChangesAsync();
+    await coordinator.MarkGraphUnauthorizedAsync(
+        connection.Id,
+        lease.HomeAccountId,
+        lease.ConnectionVersion,
+        CancellationToken.None);
+
+    await db.Entry(connection).ReloadAsync();
+    Assert.Equal("new-home-account", connection.HomeAccountId);
+    Assert.Equal("connected", connection.Status);
+    Assert.Equal("healthy", connection.TokenHealth);
+}
+```
+
+Use the existing `Connection()`, `CreateDb()`, and `FakeMsalClient` helpers rather than creating a second authentication fixture.
+
+- [ ] **Step 5: 定义严格 Graph URI resolver、DTO client 接口和 client shell**
+
+Create `src/modules/Pim.Module.Calendar/Services/MicrosoftGraphUri.cs`:
+
+```csharp
+namespace Pim.Module.Calendar.Services;
+
+internal static class MicrosoftGraphUri
+{
+    private static readonly Uri BaseUri = new("https://graph.microsoft.com/v1.0/");
+
+    public static Uri Resolve(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new InvalidOperationException("Graph URL is required.");
+
+        if (Uri.TryCreate(value, UriKind.Absolute, out var absolute))
+            return Validate(absolute);
+
+        if (!value.StartsWith("/", StringComparison.Ordinal) || value.StartsWith("//", StringComparison.Ordinal))
+            throw new InvalidOperationException("Graph relative URL must start with one slash.");
+        return Validate(new Uri(BaseUri, value[1..]));
+    }
+
+    private static Uri Validate(Uri uri)
+    {
+        if (uri.Scheme != Uri.UriSchemeHttps
+            || !string.Equals(uri.Host, "graph.microsoft.com", StringComparison.OrdinalIgnoreCase)
+            || !uri.IsDefaultPort
+            || !string.IsNullOrEmpty(uri.UserInfo)
+            || !uri.AbsolutePath.StartsWith("/v1.0/", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "Graph URL must stay under https://graph.microsoft.com/v1.0/.");
+        }
+
+        return uri;
+    }
+}
+```
+
+In `MicrosoftGraphDeviceCodeClient.cs`, replace `NormalizeGraphUrl` with `MicrosoftGraphUri.Resolve` and delete the permissive helper. This keeps the legacy client working until Task 17 without allowing an absolute attacker URL to receive a bearer token.
 
 Start `src/modules/Pim.Module.Calendar/Services/GraphCalendarClient.cs`:
 
 ```csharp
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -1914,104 +2804,252 @@ public sealed class GraphRequestException(
 
 public sealed class GraphCalendarClient : IGraphCalendarClient
 {
-    private const string BaseUrl = "https://graph.microsoft.com/v1.0";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly IHttpClientFactory _clients;
-    private readonly IOutlookAccessTokenProvider _tokens;
 
-    public GraphCalendarClient(IHttpClientFactory clients, IOutlookAccessTokenProvider tokens)
-    {
-        _clients = clients;
-        _tokens = tokens;
-    }
+    public GraphCalendarClient(IHttpClientFactory clients) => _clients = clients;
+}
+```
 
-    private static string SafeUrl(string url)
+- [ ] **Step 6: 实现每次尝试取 token 的认证 handler**
+
+Create `src/modules/Pim.Module.Calendar/Services/OutlookGraphAuthenticationHandler.cs`:
+
+```csharp
+using System.Net;
+using System.Net.Http.Headers;
+using Microsoft.Extensions.DependencyInjection;
+using Polly;
+
+namespace Pim.Module.Calendar.Services;
+
+internal static class OutlookGraphRequestOptions
+{
+    public static readonly HttpRequestOptionsKey<Guid> ConnectionId = new("outlook-connection-id");
+    public static readonly HttpRequestOptionsKey<bool> AllowAuthenticationReplay = new("outlook-auth-replay");
+}
+
+internal static class OutlookGraphResilienceProperties
+{
+    public static readonly ResiliencePropertyKey<bool> ForceRefreshNextAttempt = new("outlook-force-refresh-next");
+    public static readonly ResiliencePropertyKey<bool> AuthenticationReplayPerformed = new("outlook-auth-replay-performed");
+}
+
+internal sealed class OutlookGraphAuthenticationHandler(IServiceScopeFactory scopeFactory)
+    : DelegatingHandler
+{
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken ct)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var absolute)) return BaseUrl + (url.StartsWith('/') ? url : "/" + url);
-        if (absolute.Scheme != Uri.UriSchemeHttps || !string.Equals(absolute.Host, "graph.microsoft.com", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Graph nextLink must use https://graph.microsoft.com.");
-        return absolute.AbsoluteUri;
+        _ = MicrosoftGraphUri.Resolve(
+            request.RequestUri?.AbsoluteUri
+            ?? throw new InvalidOperationException("Graph request URI is required."));
+        if (!request.Options.TryGetValue(OutlookGraphRequestOptions.ConnectionId, out Guid connectionId))
+            throw new InvalidOperationException("Graph request is missing its connection ID.");
+
+        var resilienceContext = request.GetResilienceContext();
+        var forceRefresh = resilienceContext?.Properties.GetValue(
+            OutlookGraphResilienceProperties.ForceRefreshNextAttempt,
+            false) ?? false;
+        if (forceRefresh)
+        {
+            resilienceContext!.Properties.Set(
+                OutlookGraphResilienceProperties.ForceRefreshNextAttempt,
+                false);
+            resilienceContext.Properties.Set(
+                OutlookGraphResilienceProperties.AuthenticationReplayPerformed,
+                true);
+        }
+
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var tokens = scope.ServiceProvider.GetRequiredService<IOutlookAccessTokenProvider>();
+        var lease = await tokens.AcquireAccessTokenAsync(connectionId, forceRefresh, ct);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", lease.AccessToken);
+
+        var response = await base.SendAsync(request, ct);
+        if (response.StatusCode != HttpStatusCode.Unauthorized) return response;
+
+        var allowReplay = request.Options.TryGetValue(
+            OutlookGraphRequestOptions.AllowAuthenticationReplay,
+            out bool replay) && replay;
+        if (!allowReplay) return response;
+        if (resilienceContext is null)
+            throw new InvalidOperationException("Replayable Graph reads require a resilience context.");
+        var replayPerformed = resilienceContext?.Properties.GetValue(
+            OutlookGraphResilienceProperties.AuthenticationReplayPerformed,
+            false) ?? false;
+        if (!replayPerformed)
+        {
+            resilienceContext!.Properties.Set(
+                OutlookGraphResilienceProperties.ForceRefreshNextAttempt,
+                true);
+            return response;
+        }
+
+        await tokens.MarkGraphUnauthorizedAsync(
+            connectionId,
+            lease.HomeAccountId,
+            lease.ConnectionVersion,
+            ct);
+        return response;
     }
 }
 ```
 
-- [ ] **Step 5: 配置 read/write HttpClient 策略**
+The handler validates the final absolute URI before acquiring a token. It is placed inside the read resilience handler, so each retry invokes it again; it is also used by the write client, but writes set `AllowAuthenticationReplay = false` and therefore never resend.
 
-Replace the old `services.AddHttpClient("outlook")` registration in `CalendarModule.RegisterServices` with:
+- [ ] **Step 7: 注册单个读取 pipeline 和无重试写 client**
 
-```csharp
-services.AddHttpClient(OutlookHttpClients.GraphRead, client =>
-    {
-        client.BaseAddress = new Uri("https://graph.microsoft.com/v1.0/");
-        client.Timeout = Timeout.InfiniteTimeSpan;
-    })
-    .AddStandardResilienceHandler(options =>
-    {
-        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(30);
-        options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(3);
-        options.Retry.MaxRetryAttempts = 2;
-        options.Retry.BackoffType = DelayBackoffType.Exponential;
-        options.Retry.UseJitter = true;
-        options.Retry.ShouldRetryAfterHeader = true;
-        options.Retry.ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
-            .Handle<HttpRequestException>()
-            .Handle<TimeoutRejectedException>()
-            .HandleResult(response => response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests
-                || (int)response.StatusCode >= 500);
-    });
-services.AddHttpClient(OutlookHttpClients.GraphWrite, client =>
-{
-    client.BaseAddress = new Uri("https://graph.microsoft.com/v1.0/");
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
-```
-
-Add these usings to `CalendarModule.cs`:
+Create `src/modules/Pim.Module.Calendar/Services/OutlookGraphTransportRegistration.cs`:
 
 ```csharp
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using Polly;
-using Polly.Timeout;
+
+namespace Pim.Module.Calendar.Services;
+
+public sealed class OutlookGraphTransportOptions
+{
+    public TimeSpan AttemptTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan TotalTimeout { get; set; } = TimeSpan.FromMinutes(3);
+    public TimeSpan RetryDelay { get; set; } = TimeSpan.FromSeconds(1);
+    public bool UseJitter { get; set; } = true;
+}
+
+internal static class OutlookGraphTransportRegistration
+{
+    public static IServiceCollection AddOutlookGraphTransport(this IServiceCollection services)
+    {
+        services.AddOptions<OutlookGraphTransportOptions>()
+            .Validate(options => options.AttemptTimeout > TimeSpan.Zero, "Attempt timeout must be positive.")
+            .Validate(options => options.TotalTimeout > options.AttemptTimeout, "Total timeout must exceed one attempt.")
+            .Validate(options => options.RetryDelay >= TimeSpan.Zero, "Retry delay cannot be negative.");
+        services.AddTransient<OutlookGraphAuthenticationHandler>();
+        services.AddHttpClient(OutlookHttpClients.GraphRead, client =>
+            {
+                client.BaseAddress = new Uri("https://graph.microsoft.com/v1.0/");
+                client.Timeout = Timeout.InfiniteTimeSpan;
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                ConnectTimeout = TimeSpan.FromSeconds(10)
+            })
+            .AddResilienceHandler("outlook-graph-read-pipeline", (builder, context) =>
+            {
+                var configured = context.GetOptions<OutlookGraphTransportOptions>();
+                builder.AddTimeout(configured.TotalTimeout);
+                builder.AddRetry(new HttpRetryStrategyOptions
+                {
+                    MaxRetryAttempts = 2,
+                    Delay = configured.RetryDelay,
+                    BackoffType = DelayBackoffType.Exponential,
+                    UseJitter = configured.UseJitter,
+                    ShouldRetryAfterHeader = true,
+                    ShouldHandle = arguments => ValueTask.FromResult(
+                        HttpClientResiliencePredicates.IsTransient(
+                            arguments.Outcome,
+                            arguments.Context.CancellationToken)
+                        || IsFirstReplayableUnauthorized(
+                            arguments.Outcome.Result,
+                            arguments.Context)),
+                    OnRetry = arguments =>
+                    {
+                        arguments.Outcome.Result?.Dispose();
+                        return default;
+                    }
+                });
+                builder.AddTimeout(configured.AttemptTimeout);
+            })
+            .AddHttpMessageHandler<OutlookGraphAuthenticationHandler>();
+
+        services.AddHttpClient(OutlookHttpClients.GraphWrite, client =>
+            {
+                client.BaseAddress = new Uri("https://graph.microsoft.com/v1.0/");
+                client.Timeout = TimeSpan.FromSeconds(30);
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false,
+                ConnectTimeout = TimeSpan.FromSeconds(10)
+            })
+            .AddHttpMessageHandler<OutlookGraphAuthenticationHandler>();
+        services.AddTransient<IGraphCalendarClient, GraphCalendarClient>();
+        return services;
+    }
+
+    private static bool IsFirstReplayableUnauthorized(
+        HttpResponseMessage? response,
+        ResilienceContext context)
+    {
+        if (response?.StatusCode != HttpStatusCode.Unauthorized
+            || response.RequestMessage is not { } request)
+            return false;
+        var replay = request.Options.TryGetValue(
+            OutlookGraphRequestOptions.AllowAuthenticationReplay,
+            out bool allowed) && allowed;
+        var replayPerformed = context.Properties.GetValue(
+            OutlookGraphResilienceProperties.AuthenticationReplayPerformed,
+            false);
+        return replay && !replayPerformed;
+    }
+}
 ```
 
-- [ ] **Step 6: 实现读取请求、401 单次 force refresh 与错误元数据**
+In `CalendarModule.RegisterServices`, keep the legacy client until Task 17 but harden it against redirect-based bearer forwarding. Replace its one-line registration and add the new transport:
+
+```csharp
+services.AddHttpClient("outlook")
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false,
+        ConnectTimeout = TimeSpan.FromSeconds(10)
+    });
+services.AddOutlookGraphTransport();
+```
+
+Do not register `IGraphCalendarClient` again in Task 16. This custom pipeline deliberately omits the standard circuit breaker: a 30-second attempt timeout is valid, the retry budget is exactly two retries/three total sends, and 401 replay consumes the same budget as 408/429/5xx/connection/attempt-timeout failures. If a circuit breaker is added later, `Microsoft.Extensions.Http.Resilience` 8.10.0 requires its sampling duration to be at least twice the attempt timeout, so a 30-second attempt requires at least 60 seconds.
+
+- [ ] **Step 8: 实现读取请求 primitive、request options 与错误元数据**
 
 Add these methods inside `GraphCalendarClient`:
 
 ```csharp
 private async Task<HttpResponseMessage> SendReadAsync(Guid connectionId, string url, CancellationToken ct)
 {
-    for (var authAttempt = 0; authAttempt < 2; authAttempt++)
+    using var request = CreateRequest(
+        HttpMethod.Get,
+        url,
+        connectionId,
+        allowAuthenticationReplay: true,
+        out var clientRequestId);
+    var response = await _clients.CreateClient(OutlookHttpClients.GraphRead)
+        .SendAsync(request, ct);
+    if (!response.IsSuccessStatusCode)
     {
-        var token = await _tokens.AcquireAccessTokenAsync(connectionId, authAttempt == 1, ct);
-        var request = CreateRequest(HttpMethod.Get, url, token, out var clientRequestId);
-        var response = await _clients.CreateClient(OutlookHttpClients.GraphRead).SendAsync(request, ct);
-        request.Dispose();
-        if (response.StatusCode == HttpStatusCode.Unauthorized && authAttempt == 0)
-        {
-            response.Dispose();
-            continue;
-        }
-        if (!response.IsSuccessStatusCode)
-        {
-            var exception = Error(response, clientRequestId);
-            response.Dispose();
-            throw exception;
-        }
-        return response;
+        var exception = Error(response, clientRequestId);
+        response.Dispose();
+        throw exception;
     }
-    throw new InvalidOperationException("Graph authentication replay did not return a response.");
+    return response;
 }
 
 private static HttpRequestMessage CreateRequest(
     HttpMethod method,
     string url,
-    string accessToken,
+    Guid connectionId,
+    bool allowAuthenticationReplay,
     out string clientRequestId)
 {
     clientRequestId = Guid.NewGuid().ToString();
-    var request = new HttpRequestMessage(method, SafeUrl(url));
-    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+    var request = new HttpRequestMessage(method, MicrosoftGraphUri.Resolve(url));
+    request.Options.Set(OutlookGraphRequestOptions.ConnectionId, connectionId);
+    request.Options.Set(
+        OutlookGraphRequestOptions.AllowAuthenticationReplay,
+        allowAuthenticationReplay);
     request.Headers.TryAddWithoutValidation("Prefer", "outlook.timezone=\"UTC\"");
     request.Headers.TryAddWithoutValidation("Prefer", "IdType=\"ImmutableId\"");
     request.Headers.TryAddWithoutValidation("client-request-id", clientRequestId);
@@ -2037,9 +3075,9 @@ private async Task<T> ReadAsync<T>(Guid connectionId, string url, CancellationTo
 }
 ```
 
-The error message deliberately excludes the Graph body because it may contain event data. Log only connection/binding/run IDs, status, Graph request ID, client request ID, duration, and retry count.
+The error message deliberately excludes the Graph body because it may contain event data. Log only connection/binding/run IDs, status, Graph request ID, client request ID, duration, and retry count. There is no outer 401 loop: the one read pipeline owns all retries, so no outcome can reset the three-send budget.
 
-- [ ] **Step 7: 实现全部读取 endpoint**
+- [ ] **Step 9: 实现全部读取 endpoint**
 
 Add the public read methods:
 
@@ -2083,7 +3121,7 @@ public async Task<GraphEventDto?> GetEventAsync(Guid connectionId, string calend
 }
 ```
 
-- [ ] **Step 8: 实现无透明重试的 PATCH/DELETE**
+- [ ] **Step 10: 实现无透明重试的 PATCH/DELETE**
 
 Add the write path:
 
@@ -2120,14 +3158,15 @@ private async Task<HttpResponseMessage> SendWriteAsync(
     object? body,
     CancellationToken ct)
 {
-    var token = await _tokens.AcquireAccessTokenAsync(connectionId, false, ct);
     using var request = CreateRequest(method,
         $"/me/calendars/{Uri.EscapeDataString(calendarId)}/events/{Uri.EscapeDataString(eventId)}",
-        token,
+        connectionId,
+        allowAuthenticationReplay: false,
         out var clientRequestId);
     request.Headers.TryAddWithoutValidation("If-Match", etag);
     if (body is not null) request.Content = JsonContent.Create(body, options: JsonOptions);
-    var response = await _clients.CreateClient(OutlookHttpClients.GraphWrite).SendAsync(request, ct);
+    var response = await _clients.CreateClient(OutlookHttpClients.GraphWrite)
+        .SendAsync(request, ct);
     if (!response.IsSuccessStatusCode)
     {
         var exception = Error(response, clientRequestId);
@@ -2138,20 +3177,20 @@ private async Task<HttpResponseMessage> SendWriteAsync(
 }
 ```
 
-- [ ] **Step 9: 运行 Graph client 测试**
+- [ ] **Step 11: 运行认证与 Graph client 测试**
 
 Run:
 
 ```powershell
-dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --filter FullyQualifiedName~GraphCalendarClientTests
+dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --filter "FullyQualifiedName~GraphCalendarClientTests|FullyQualifiedName~OutlookMsalAuthenticationTests"
 ```
 
-Expected: PASS；读取最多发送 3 次，写入只发送 1 次，非 Graph host 被拒绝。
+Expected: PASS；读取最多发送 3 次，401 force refresh 只消费一次，第二次 401 只标记相同 account/version，caller cancellation 不重试，write 只发送 1 次，非 Graph host 在取 token 前被拒绝。
 
-- [ ] **Step 10: 提交 Graph transport**
+- [ ] **Step 12: 提交 Graph transport**
 
 ```powershell
-git add src/modules/Pim.Module.Calendar/CalendarModule.cs src/modules/Pim.Module.Calendar/Services/GraphCalendarModels.cs src/modules/Pim.Module.Calendar/Services/GraphCalendarClient.cs tests/Pim.UnitTests/Calendar/GraphCalendarClientTests.cs
+git add src/modules/Pim.Module.Calendar/CalendarModule.cs src/modules/Pim.Module.Calendar/Services/GraphCalendarModels.cs src/modules/Pim.Module.Calendar/Services/MicrosoftGraphUri.cs src/modules/Pim.Module.Calendar/Services/OutlookGraphAuthenticationHandler.cs src/modules/Pim.Module.Calendar/Services/OutlookGraphTransportRegistration.cs src/modules/Pim.Module.Calendar/Services/GraphCalendarClient.cs src/modules/Pim.Module.Calendar/Services/MicrosoftGraphDeviceCodeClient.cs src/modules/Pim.Module.Calendar/Services/MsalOutlookAuthCoordinator.cs tests/Pim.UnitTests/Calendar/GraphCalendarClientTests.cs tests/Pim.UnitTests/Calendar/OutlookMsalAuthenticationTests.cs
 git commit -m "feat: add resilient microsoft graph calendar client"
 ```
 
@@ -5334,6 +6373,7 @@ Expected: 两种用户要求的手动强制获取能力都有独立测试。
 ## Task 15: 编排批次、并发、取消与 Hangfire 调度
 
 **Files:**
+- Create: `src/modules/Pim.Module.Calendar/Services/OutlookSyncConnectionLock.cs`
 - Create: `src/modules/Pim.Module.Calendar/Services/OutlookCalendarSyncCoordinator.cs`
 - Create: `src/modules/Pim.Module.Calendar/Services/OutlookSyncJobs.cs`
 - Create: `tests/Pim.UnitTests/Calendar/OutlookSyncCoordinatorTests.cs`
@@ -5457,7 +6497,7 @@ private static ServiceProvider BuildProvider(CountingSyncService worker)
     services.AddDbContext<PimDbContext>(options => options.UseInMemoryDatabase(databaseName));
     services.AddSingleton(worker);
     services.AddSingleton<IOutlookCalendarSyncService>(worker);
-    services.AddSingleton<OutlookConnectionLock>();
+    services.AddSingleton<OutlookSyncConnectionLock>();
     services.AddSingleton<OutlookCalendarSyncCoordinator>();
     return services.BuildServiceProvider();
 }
@@ -5586,10 +6626,10 @@ public sealed class OutlookCalendarSyncCoordinator
     private static readonly HashSet<string> Modes = new(StringComparer.Ordinal)
         { "incremental", "rolling-baseline", "full-resources", "range-instances" };
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly OutlookConnectionLock _connectionLock;
+    private readonly OutlookSyncConnectionLock _connectionLock;
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _active = new();
 
-    public OutlookCalendarSyncCoordinator(IServiceScopeFactory scopeFactory, OutlookConnectionLock connectionLock)
+    public OutlookCalendarSyncCoordinator(IServiceScopeFactory scopeFactory, OutlookSyncConnectionLock connectionLock)
     {
         _scopeFactory = scopeFactory;
         _connectionLock = connectionLock;
@@ -5656,6 +6696,35 @@ public sealed class OutlookCalendarSyncCoordinator
 ```
 
 - [ ] **Step 6: 实现 connection 锁和最多两个 worker**
+
+Create `OutlookSyncConnectionLock.cs` as a separate keyed semaphore；it must never be reused by `MsalOutlookAuthCoordinator`:
+
+```csharp
+using System.Collections.Concurrent;
+
+namespace Pim.Module.Calendar.Services;
+
+public sealed class OutlookSyncConnectionLock
+{
+    private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _locks = new();
+
+    public async ValueTask<IAsyncDisposable> AcquireAsync(Guid connectionId, CancellationToken ct)
+    {
+        var gate = _locks.GetOrAdd(connectionId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct);
+        return new Releaser(gate);
+    }
+
+    private sealed class Releaser(SemaphoreSlim gate) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync()
+        {
+            gate.Release();
+            return ValueTask.CompletedTask;
+        }
+    }
+}
+```
 
 Add `ExecuteRunAsync`:
 
@@ -5946,7 +7015,7 @@ In `CalendarModule.RegisterServices`, register `TimeProvider.System`, all sync d
 
 ```csharp
 services.AddSingleton(TimeProvider.System);
-services.AddSingleton<OutlookConnectionLock>();
+services.AddSingleton<OutlookSyncConnectionLock>();
 services.AddSingleton<OutlookCalendarSyncCoordinator>();
 services.AddScoped<IOutlookCalendarSyncService, OutlookCalendarSyncService>();
 services.AddScoped<OutlookSyncJobs>();
@@ -6008,9 +7077,33 @@ Add to `tests/Pim.UnitTests/Pim.UnitTests.csproj`:
 
 Run `dotnet restore tests/Pim.UnitTests/Pim.UnitTests.csproj`; expected exit code 0.
 
-- [ ] **Step 2: 定义诊断 DTO**
+- [ ] **Step 2: 原子替换设置 DTO 并定义诊断 DTO**
 
-Append to `OutlookSyncDtos.cs`:
+Move `UpdateOutlookSettingsRequest` and `OutlookSettingsResponse` from `CalendarDtos.cs` to `OutlookSyncDtos.cs` only in this task，together with the facade and endpoint switch that updates all constructor and property references:
+
+```csharp
+public sealed record UpdateOutlookSettingsRequest(
+    [Required] string ClientId,
+    [Required] string AccountScope,
+    string? TenantId);
+
+public sealed record OutlookSettingsResponse(
+    string Provider,
+    string ClientId,
+    string AccountScope,
+    string TenantId,
+    string Authority,
+    IReadOnlyList<string> Scopes,
+    string Status,
+    string TokenHealth,
+    string? AccountDisplayName,
+    string? AccountLoginHint,
+    DateTimeOffset? LastSyncedAt,
+    DateTimeOffset? NextScheduledSyncAt,
+    string? LastError);
+```
+
+Add `using System.ComponentModel.DataAnnotations;` to `OutlookSyncDtos.cs`，then append:
 
 ```csharp
 public sealed record OutlookDiagnosticCheck(
@@ -6450,11 +7543,15 @@ public async Task<OutlookAuthorizationSessionResponse> StartAuthorizationAsync(G
     var active = await _db.Set<OutlookAuthorizationSessionEntity>()
         .Where(item => item.UserId == userId && (item.Status == "starting" || item.Status == "waiting-for-user"))
         .ToListAsync(ct);
-    foreach (var item in active) item.Status = "canceled";
+    foreach (var item in active)
+    {
+        await _sessions.CancelAsync(item.Id, userId, ct);
+        await _sessions.WaitForCompletionAsync(item.Id, ct);
+    }
     var session = new OutlookAuthorizationSessionEntity { UserId = userId, ConnectionId = connection.Id };
     _db.Add(session);
     await _db.SaveChangesAsync(ct);
-    return MapSession(await _sessions.StartAsync(session.Id, ct));
+    return MapSession(await _sessions.StartAsync(session.Id, userId, ct));
 }
 
 public async Task<OutlookAuthorizationSessionResponse> GetAuthorizationAsync(Guid userId, Guid sessionId, CancellationToken ct)
@@ -6507,7 +7604,9 @@ private Task<OutlookConnectionEntity> ConnectionAsync(Guid userId, CancellationT
     => _db.Set<OutlookConnectionEntity>().SingleAsync(item => item.UserId == userId, ct);
 
 private static OutlookAuthorizationSessionResponse MapSession(OutlookAuthorizationSessionEntity session) => new(
-    session.Id, session.Status, session.VerificationUri, session.UserCode, session.ExpiresAt,
+    session.Id, session.Status, session.VerificationUri,
+    session.Status == "waiting-for-user" ? session.UserCode : null,
+    session.ExpiresAt,
     session.AccountDisplayName, session.AccountLoginHint, session.ErrorCode, session.ErrorMessage,
     session.ErrorCode switch
     {
@@ -6589,11 +7688,6 @@ group.MapOutlookEndpoints();
 In `RegisterServices`, add all new scoped services and facade:
 
 ```csharp
-services.AddScoped<OutlookTokenCacheStore>();
-services.AddScoped<IMsalPublicClientAdapter, MsalPublicClientAdapter>();
-services.AddScoped<IOutlookAccessTokenProvider, MsalOutlookAuthCoordinator>();
-services.AddSingleton<OutlookAuthorizationSessionRunner>();
-services.AddScoped<IGraphCalendarClient, GraphCalendarClient>();
 services.AddScoped<OutlookEventMapper>();
 services.AddScoped<OutlookCalendarDiscoveryService>();
 services.AddScoped<OutlookEventProjectionService>();
@@ -6601,6 +7695,8 @@ services.AddScoped<OutlookChangePreviewService>();
 services.AddScoped<OutlookDiagnosticsService>();
 services.AddScoped<IOutlookSyncFacade, OutlookSyncFacade>();
 ```
+
+Keep the Task 5 registrations for `OutlookTokenCacheLock`、`OutlookTokenCacheStore`、`IMsalPublicClientAdapter`、`IOutlookAccessTokenProvider` and `OutlookAuthorizationSessionRunner`, plus the Task 6 `AddOutlookGraphTransport()` registration；do not register any of them a second time.
 
 Remove registrations for `OutlookSyncService`, `OutlookTokenService`, and `IMicrosoftGraphClient` after all compilation references have moved.
 

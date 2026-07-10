@@ -156,13 +156,14 @@ public sealed class OutlookPersistenceModelTests
     {
         PimDbContext.RegisterModuleAssembly(typeof(OutlookConnectionEntity).Assembly);
         var options = new DbContextOptionsBuilder<PimDbContext>()
-            .UseInMemoryDatabase($"outlook-model-{Guid.NewGuid()}")
+            .UseNpgsql("Host=localhost;Database=pim_model_tests")
             .Options;
         using var db = new PimDbContext(options);
 
         var connection = db.Model.FindEntityType(typeof(OutlookConnectionEntity))!;
         Assert.NotNull(connection.FindProperty(nameof(OutlookConnectionEntity.MsalCacheEncrypted)));
         Assert.NotNull(connection.FindProperty(nameof(OutlookConnectionEntity.HomeAccountId)));
+        Assert.True(connection.FindProperty(nameof(OutlookConnectionEntity.Version))!.IsConcurrencyToken);
         Assert.True(connection.FindIndex(connection.FindProperty(nameof(OutlookConnectionEntity.UserId))!)!.IsUnique);
 
         var binding = db.Model.FindEntityType(typeof(OutlookCalendarBindingEntity))!;
@@ -170,6 +171,12 @@ public sealed class OutlookPersistenceModelTests
             index.Properties.Select(property => property.Name).SequenceEqual([
                 nameof(OutlookCalendarBindingEntity.ConnectionId),
                 nameof(OutlookCalendarBindingEntity.GraphCalendarId)])).IsUnique);
+        Assert.Contains(binding.GetForeignKeys(), foreignKey =>
+            foreignKey.PrincipalEntityType.ClrType == typeof(OutlookConnectionEntity)
+            && foreignKey.DeleteBehavior == DeleteBehavior.Cascade);
+        Assert.Contains(binding.GetForeignKeys(), foreignKey =>
+            foreignKey.PrincipalEntityType.ClrType == typeof(CalendarEntity)
+            && foreignKey.DeleteBehavior == DeleteBehavior.Restrict);
 
         var execution = db.Model.FindEntityType(typeof(OutlookOperationExecutionEntity))!;
         Assert.True(execution.GetIndexes().Single(index =>
@@ -180,10 +187,20 @@ public sealed class OutlookPersistenceModelTests
         Assert.NotNull(conflict.FindIndex(conflict.FindProperty(nameof(SyncConflictEntity.SourceConfirmationId))!));
 
         var outlookEvent = db.Model.FindEntityType(typeof(EventEntity))!;
-        Assert.True(outlookEvent.GetIndexes().Single(index =>
+        var externalIdentity = outlookEvent.GetIndexes().Single(index =>
             index.Properties.Select(property => property.Name).SequenceEqual([
                 nameof(EventEntity.OutlookCalendarBindingId),
-                nameof(EventEntity.OutlookEventId)])).IsUnique);
+                nameof(EventEntity.OutlookEventId)]));
+        Assert.True(externalIdentity.IsUnique);
+        Assert.Equal(
+            "\"outlook_calendar_binding_id\" IS NOT NULL AND \"outlook_event_id\" IS NOT NULL AND \"deleted_at\" IS NULL",
+            externalIdentity.GetFilter());
+        Assert.Contains(outlookEvent.GetForeignKeys(), foreignKey =>
+            foreignKey.PrincipalEntityType.ClrType == typeof(OutlookCalendarBindingEntity)
+            && foreignKey.DeleteBehavior == DeleteBehavior.SetNull);
+        Assert.Contains(outlookEvent.GetForeignKeys(), foreignKey =>
+            foreignKey.PrincipalEntityType.ClrType == typeof(OutlookConnectionEntity)
+            && foreignKey.DeleteBehavior == DeleteBehavior.SetNull);
     }
 }
 ```
@@ -334,6 +351,8 @@ public string Authority { get; set; } = "https://login.microsoftonline.com/commo
 // EventEntity
 [Column("outlook_connection_id")] public Guid? OutlookConnectionId { get; set; }
 [Column("outlook_calendar_binding_id")] public Guid? OutlookCalendarBindingId { get; set; }
+[ForeignKey(nameof(OutlookCalendarBindingId))]
+public OutlookCalendarBindingEntity? OutlookCalendarBinding { get; set; }
 [Column("outlook_series_master_id"), MaxLength(512)] public string? OutlookSeriesMasterId { get; set; }
 [Column("outlook_event_type"), MaxLength(32)] public string? OutlookEventType { get; set; }
 [Column("original_start_time_zone"), MaxLength(128)] public string? OriginalStartTimeZone { get; set; }
@@ -358,7 +377,15 @@ builder.Property(c => c.IsVisible).HasDefaultValue(true);
 builder.Property(e => e.GraphRecurrenceJson).HasDefaultValue("{}");
 builder.HasIndex(e => new { e.OutlookCalendarBindingId, e.OutlookEventId })
     .IsUnique()
-    .HasFilter("\"outlook_calendar_binding_id\" IS NOT NULL AND \"outlook_event_id\" IS NOT NULL");
+    .HasFilter("\"outlook_calendar_binding_id\" IS NOT NULL AND \"outlook_event_id\" IS NOT NULL AND \"deleted_at\" IS NULL");
+builder.HasOne(e => e.OutlookCalendarBinding)
+    .WithMany()
+    .HasForeignKey(e => e.OutlookCalendarBindingId)
+    .OnDelete(DeleteBehavior.SetNull);
+builder.HasOne<OutlookConnectionEntity>()
+    .WithMany()
+    .HasForeignKey(e => e.OutlookConnectionId)
+    .OnDelete(DeleteBehavior.SetNull);
 
 builder.Property(o => o.Authority).HasDefaultValue("https://login.microsoftonline.com/common");
 builder.Property(o => o.Version).HasDefaultValue(0).IsConcurrencyToken();
@@ -523,7 +550,7 @@ public sealed class MicrosoftCalendarSync : Migration
 
         migrationBuilder.AddColumn<Guid>("source_confirmation_id", "sync_conflicts", nullable: true);
         migrationBuilder.CreateIndex(
-            "ix_sync_conflicts_source_confirmation_id",
+            "IX_sync_conflicts_source_confirmation_id",
             "sync_conflicts",
             "source_confirmation_id");
         migrationBuilder.Sql("""
@@ -541,19 +568,44 @@ public sealed class MicrosoftCalendarSync : Migration
         CreateOperationExecutions(migrationBuilder);
 
         migrationBuilder.CreateIndex(
-            "ix_events_outlook_calendar_binding_id_outlook_event_id",
+            "IX_events_outlook_calendar_binding_id_outlook_event_id",
             "events",
             ["outlook_calendar_binding_id", "outlook_event_id"],
             unique: true,
-            filter: "\"outlook_calendar_binding_id\" IS NOT NULL AND \"outlook_event_id\" IS NOT NULL");
+            filter: "\"outlook_calendar_binding_id\" IS NOT NULL AND \"outlook_event_id\" IS NOT NULL AND \"deleted_at\" IS NULL");
+        migrationBuilder.CreateIndex(
+            "IX_events_outlook_connection_id",
+            "events",
+            "outlook_connection_id");
+        migrationBuilder.AddForeignKey(
+            "FK_events_outlook_calendar_bindings_outlook_calendar_binding_id",
+            "events",
+            "outlook_calendar_binding_id",
+            "outlook_calendar_bindings",
+            principalColumn: "id",
+            onDelete: ReferentialAction.SetNull);
+        migrationBuilder.AddForeignKey(
+            "FK_events_outlook_connections_outlook_connection_id",
+            "events",
+            "outlook_connection_id",
+            "outlook_connections",
+            principalColumn: "id",
+            onDelete: ReferentialAction.SetNull);
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
     {
+        migrationBuilder.DropForeignKey(
+            "FK_events_outlook_calendar_bindings_outlook_calendar_binding_id",
+            "events");
+        migrationBuilder.DropForeignKey(
+            "FK_events_outlook_connections_outlook_connection_id",
+            "events");
         migrationBuilder.DropTable("outlook_operation_executions");
         migrationBuilder.DropTable("outlook_authorization_sessions");
         migrationBuilder.DropTable("outlook_calendar_bindings");
-        migrationBuilder.DropIndex("ix_events_outlook_calendar_binding_id_outlook_event_id", "events");
+        migrationBuilder.DropIndex("IX_events_outlook_calendar_binding_id_outlook_event_id", "events");
+        migrationBuilder.DropIndex("IX_events_outlook_connection_id", "events");
         migrationBuilder.Sql("""
             UPDATE sync_conflicts
             SET resolved_confirmation_id = source_confirmation_id
@@ -562,7 +614,7 @@ public sealed class MicrosoftCalendarSync : Migration
               AND resolved_confirmation_id IS NULL
               AND source_confirmation_id IS NOT NULL;
             """);
-        migrationBuilder.DropIndex("ix_sync_conflicts_source_confirmation_id", "sync_conflicts");
+        migrationBuilder.DropIndex("IX_sync_conflicts_source_confirmation_id", "sync_conflicts");
         migrationBuilder.DropColumn("source_confirmation_id", "sync_conflicts");
 
         foreach (var column in new[] { "outlook_connection_id", "outlook_calendar_binding_id", "outlook_series_master_id",
@@ -592,9 +644,9 @@ public sealed class MicrosoftCalendarSync : Migration
                 account_login_hint = table.Column<string>(maxLength: 255, nullable: true), error_code = table.Column<string>(maxLength: 128, nullable: true),
                 error_message = table.Column<string>(nullable: true), created_at = table.Column<DateTimeOffset>(nullable: false),
                 updated_at = table.Column<DateTimeOffset>(nullable: false)
-            }, constraints => constraints.PrimaryKey("pk_outlook_authorization_sessions", row => row.id));
-        migrationBuilder.CreateIndex("ix_outlook_authorization_sessions_user_id_created_at", "outlook_authorization_sessions", ["user_id", "created_at"]);
-        migrationBuilder.CreateIndex("ix_outlook_authorization_sessions_connection_id_status", "outlook_authorization_sessions", ["connection_id", "status"]);
+            }, constraints => constraints.PrimaryKey("PK_outlook_authorization_sessions", row => row.id));
+        migrationBuilder.CreateIndex("IX_outlook_authorization_sessions_user_id_created_at", "outlook_authorization_sessions", ["user_id", "created_at"]);
+        migrationBuilder.CreateIndex("IX_outlook_authorization_sessions_connection_id_status", "outlook_authorization_sessions", ["connection_id", "status"]);
     }
 
     private static void CreateCalendarBindings(MigrationBuilder migrationBuilder)
@@ -616,12 +668,12 @@ public sealed class MicrosoftCalendarSync : Migration
                 created_at = table.Column<DateTimeOffset>(nullable: false), updated_at = table.Column<DateTimeOffset>(nullable: false)
             }, constraints =>
             {
-                constraints.PrimaryKey("pk_outlook_calendar_bindings", row => row.id);
-                constraints.ForeignKey("fk_outlook_calendar_bindings_connections", row => row.connection_id, "outlook_connections", "id", onDelete: ReferentialAction.Cascade);
-                constraints.ForeignKey("fk_outlook_calendar_bindings_calendars", row => row.pim_calendar_id, "calendars", "id", onDelete: ReferentialAction.Restrict);
+                constraints.PrimaryKey("PK_outlook_calendar_bindings", row => row.id);
+                constraints.ForeignKey("FK_outlook_calendar_bindings_outlook_connections_connection_id", row => row.connection_id, "outlook_connections", "id", onDelete: ReferentialAction.Cascade);
+                constraints.ForeignKey("FK_outlook_calendar_bindings_calendars_pim_calendar_id", row => row.pim_calendar_id, "calendars", "id", onDelete: ReferentialAction.Restrict);
             });
-        migrationBuilder.CreateIndex("ix_outlook_calendar_bindings_connection_id_graph_calendar_id", "outlook_calendar_bindings", ["connection_id", "graph_calendar_id"], unique: true);
-        migrationBuilder.CreateIndex("ix_outlook_calendar_bindings_pim_calendar_id", "outlook_calendar_bindings", "pim_calendar_id", unique: true);
+        migrationBuilder.CreateIndex("IX_outlook_calendar_bindings_connection_id_graph_calendar_id", "outlook_calendar_bindings", ["connection_id", "graph_calendar_id"], unique: true);
+        migrationBuilder.CreateIndex("IX_outlook_calendar_bindings_pim_calendar_id", "outlook_calendar_bindings", "pim_calendar_id", unique: true);
     }
 
     private static void CreateOperationExecutions(MigrationBuilder migrationBuilder)
@@ -636,9 +688,9 @@ public sealed class MicrosoftCalendarSync : Migration
                 attempt_count = table.Column<int>(nullable: false), next_attempt_at = table.Column<DateTimeOffset>(nullable: true), last_error_code = table.Column<string>(maxLength: 128, nullable: true),
                 last_error_message = table.Column<string>(nullable: true), created_at = table.Column<DateTimeOffset>(nullable: false), updated_at = table.Column<DateTimeOffset>(nullable: false),
                 completed_at = table.Column<DateTimeOffset>(nullable: true)
-            }, constraints => constraints.PrimaryKey("pk_outlook_operation_executions", row => row.id));
-        migrationBuilder.CreateIndex("ix_outlook_operation_executions_confirmation_id", "outlook_operation_executions", "confirmation_id", unique: true);
-        migrationBuilder.CreateIndex("ix_outlook_operation_executions_state_next_attempt_at", "outlook_operation_executions", ["state", "next_attempt_at"]);
+            }, constraints => constraints.PrimaryKey("PK_outlook_operation_executions", row => row.id));
+        migrationBuilder.CreateIndex("IX_outlook_operation_executions_confirmation_id", "outlook_operation_executions", "confirmation_id", unique: true);
+        migrationBuilder.CreateIndex("IX_outlook_operation_executions_state_next_attempt_at", "outlook_operation_executions", ["state", "next_attempt_at"]);
     }
 }
 ```
@@ -8352,8 +8404,6 @@ Expected: Microsoft 配置页从原始字段表单变为可完成的工作流，
 **Files:**
 - Create: `src/client-web/src/components/outlook/OutlookWritebackDialog.tsx`
 - Create: `tests/client-web/outlookEventGovernanceUi.test.tsx`
-- Modify: `src/modules/Pim.Module.Calendar/Entities/EventEntity.cs`
-- Modify: `src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs`
 - Modify: `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs`
 - Modify: `src/modules/Pim.Module.Calendar/Services/CalendarService.cs`
 - Modify: `src/client-web/src/api/calendar.ts`
@@ -8365,21 +8415,7 @@ Expected: Microsoft 配置页从原始字段表单变为可完成的工作流，
 
 - [ ] **Step 1: 让 Event API 返回 binding 编辑能力和全天日期**
 
-Add navigation to `EventEntity`:
-
-```csharp
-[ForeignKey(nameof(OutlookCalendarBindingId))]
-public OutlookCalendarBindingEntity? OutlookCalendarBinding { get; set; }
-```
-
-Add relationship configuration:
-
-```csharp
-builder.HasOne(e => e.OutlookCalendarBinding)
-    .WithMany()
-    .HasForeignKey(e => e.OutlookCalendarBindingId)
-    .OnDelete(DeleteBehavior.SetNull);
-```
+Task 2 已创建 `EventEntity.OutlookCalendarBinding` navigation，并把 binding 与 connection 两个外键配置为 `DeleteBehavior.SetNull`；Task 3 已将相同约束写入数据库。
 
 Append to `EventResponse`:
 

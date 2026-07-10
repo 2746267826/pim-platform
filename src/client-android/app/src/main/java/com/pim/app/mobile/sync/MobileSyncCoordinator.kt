@@ -454,8 +454,8 @@ class MobileSyncCoordinator @Inject constructor(
             windowStartUtc,
             windowEndUtc,
             apps.map { it.toDto() },
-            events.map { it.toDto() },
-            summaries.map { it.toDto() }
+            events.mapIndexed { index, event -> event.toDto(eventIds[index].toString()) },
+            summaries.mapIndexed { index, summary -> summary.toDto(summaryIds[index].toString()) }
         )
 
         val response = api.uploadMobileUsage(request)
@@ -949,18 +949,19 @@ private fun MobileSyncState.merge(other: MobileSyncState): MobileSyncState {
     )
 }
 
-private fun MobileUsageEventEntity.toDto(): MobileUsageEventDto {
+internal fun MobileUsageEventEntity.toDto(clientItemKey: String = id.toString()): MobileUsageEventDto {
     return MobileUsageEventDto(
         packageName,
         eventName,
         iso(eventTimeUtc),
         className,
         iso(collectedAtUtc),
-        rawJson
+        rawJson,
+        clientItemKey
     )
 }
 
-private fun MobileUsageSummaryEntity.toDto(): MobileUsageSummaryDto {
+internal fun MobileUsageSummaryEntity.toDto(clientItemKey: String = id.toString()): MobileUsageSummaryDto {
     return MobileUsageSummaryDto(
         packageName,
         iso(windowStartUtc),
@@ -968,11 +969,12 @@ private fun MobileUsageSummaryEntity.toDto(): MobileUsageSummaryDto {
         totalTimeForegroundMs,
         iso(lastTimeUsedUtc),
         source.replace('_', '-'),
-        rawJson
+        rawJson,
+        clientItemKey
     )
 }
 
-private fun MobileAppMetadataEntity.toDto(): MobileAppMetadataDto {
+internal fun MobileAppMetadataEntity.toDto(): MobileAppMetadataDto {
     val categoryName = androidCategoryName(category)
     return MobileAppMetadataDto(
         packageName,
@@ -985,7 +987,8 @@ private fun MobileAppMetadataEntity.toDto(): MobileAppMetadataDto {
         iso(firstInstallTimeUtc),
         iso(lastUpdateTimeUtc),
         mergeCategoryName(rawJson, categoryName),
-        iso(collectedAtUtc)
+        iso(collectedAtUtc),
+        "$packageName@$versionCode"
     )
 }
 

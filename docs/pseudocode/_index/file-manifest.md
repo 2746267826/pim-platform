@@ -1,6 +1,6 @@
 ﻿# File Manifest
 
-Generated: 2026-07-12 22:27:42
+Generated: 2026-07-12 22:36:04
 Total: 775
 
 | Status | Source | Doc |
@@ -615,156 +615,156 @@ Total: 775
 | [x] | `tests/client-web/localizationSmoke.test.ts` | `docs/pseudocode/files/tests/client-web/localizationSmoke.test.ts.md` |
 | [x] | `tests/client-web/locationAnalyticsComponents.test.tsx` | `docs/pseudocode/files/tests/client-web/locationAnalyticsComponents.test.tsx.md` |
 | [x] | `tests/client-web/locationAnalyticsInteractions.test.tsx` | `docs/pseudocode/files/tests/client-web/locationAnalyticsInteractions.test.tsx.md` |
-| [ ] | `tests/client-web/mobileAnalyticsComponents.test.tsx` | `docs/pseudocode/files/tests/client-web/mobileAnalyticsComponents.test.tsx.md` |
-| [ ] | `tests/client-web/mobileAnalyticsInteractions.test.tsx` | `docs/pseudocode/files/tests/client-web/mobileAnalyticsInteractions.test.tsx.md` |
-| [ ] | `tests/client-web/mobileApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/mobileApiPath.test.ts.md` |
-| [ ] | `tests/client-web/mobileComponents.test.tsx` | `docs/pseudocode/files/tests/client-web/mobileComponents.test.tsx.md` |
-| [ ] | `tests/client-web/mobileFormatting.test.ts` | `docs/pseudocode/files/tests/client-web/mobileFormatting.test.ts.md` |
-| [ ] | `tests/client-web/mobileNavigation.test.tsx` | `docs/pseudocode/files/tests/client-web/mobileNavigation.test.tsx.md` |
-| [ ] | `tests/client-web/mobileTypes.test.ts` | `docs/pseudocode/files/tests/client-web/mobileTypes.test.ts.md` |
-| [ ] | `tests/client-web/outlookSyncInvalidation.test.ts` | `docs/pseudocode/files/tests/client-web/outlookSyncInvalidation.test.ts.md` |
-| [ ] | `tests/client-web/pcClassificationApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/pcClassificationApiPath.test.ts.md` |
-| [ ] | `tests/client-web/pcClassificationTypes.test.ts` | `docs/pseudocode/files/tests/client-web/pcClassificationTypes.test.ts.md` |
-| [ ] | `tests/client-web/pcQualityApiNormalization.test.ts` | `docs/pseudocode/files/tests/client-web/pcQualityApiNormalization.test.ts.md` |
-| [ ] | `tests/client-web/pcRecordsReviewLayout.test.tsx` | `docs/pseudocode/files/tests/client-web/pcRecordsReviewLayout.test.tsx.md` |
-| [ ] | `tests/client-web/pcRoute3ApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/pcRoute3ApiPath.test.ts.md` |
-| [ ] | `tests/client-web/pcRoute3Components.test.tsx` | `docs/pseudocode/files/tests/client-web/pcRoute3Components.test.tsx.md` |
-| [ ] | `tests/client-web/pcRoute3Types.test.ts` | `docs/pseudocode/files/tests/client-web/pcRoute3Types.test.ts.md` |
-| [ ] | `tests/client-web/quickNoteFloatingState.test.ts` | `docs/pseudocode/files/tests/client-web/quickNoteFloatingState.test.ts.md` |
-| [ ] | `tests/client-web/quickNotesApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/quickNotesApiPath.test.ts.md` |
-| [ ] | `tests/client-web/quickNotesAttachmentUrls.test.ts` | `docs/pseudocode/files/tests/client-web/quickNotesAttachmentUrls.test.ts.md` |
-| [ ] | `tests/client-web/quickNotesEntryBundle.test.ts` | `docs/pseudocode/files/tests/client-web/quickNotesEntryBundle.test.ts.md` |
-| [ ] | `tests/client-web/quickNotesTypes.test.ts` | `docs/pseudocode/files/tests/client-web/quickNotesTypes.test.ts.md` |
-| [ ] | `tests/client-web/recycleBinApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/recycleBinApiPath.test.ts.md` |
-| [ ] | `tests/client-web/scheduleWorkbenchApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchApiPath.test.ts.md` |
-| [ ] | `tests/client-web/scheduleWorkbenchChineseNavigation.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchChineseNavigation.test.ts.md` |
-| [ ] | `tests/client-web/scheduleWorkbenchCompletionApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchCompletionApiPath.test.ts.md` |
-| [ ] | `tests/client-web/scheduleWorkbenchCompletionTypes.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchCompletionTypes.test.ts.md` |
-| [ ] | `tests/client-web/scheduleWorkbenchE2e.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchE2e.test.ts.md` |
-| [ ] | `tests/client-web/scheduleWorkbenchFoundationParity.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchFoundationParity.test.ts.md` |
-| [ ] | `tests/client-web/scheduleWorkbenchGovernanceUi.test.tsx` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchGovernanceUi.test.tsx.md` |
-| [ ] | `tests/client-web/scheduleWorkbenchInteractions.test.tsx` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchInteractions.test.tsx.md` |
-| [ ] | `tests/client-web/scheduleWorkbenchLocalization.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchLocalization.test.ts.md` |
-| [ ] | `tests/client-web/scheduleWorkbenchScreenshots.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchScreenshots.test.ts.md` |
-| [ ] | `tests/client-web/scheduleWorkbenchTypes.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchTypes.test.ts.md` |
-| [ ] | `tests/client-web/scheduleWorkbenchVisualAudit.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchVisualAudit.test.ts.md` |
-| [ ] | `tests/client-web/statusApiNormalization.test.ts` | `docs/pseudocode/files/tests/client-web/statusApiNormalization.test.ts.md` |
-| [ ] | `tests/client-web/statusApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/statusApiPath.test.ts.md` |
-| [ ] | `tests/client-web/todayApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/todayApiPath.test.ts.md` |
-| [ ] | `tests/client-web/todayTypes.test.ts` | `docs/pseudocode/files/tests/client-web/todayTypes.test.ts.md` |
-| [ ] | `tests/Pim.UnitTests/Ai/AiConfigurationTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiConfigurationTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Ai/AiContractTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiContractTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Ai/AiEndpointPathTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiEndpointPathTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Ai/AiGatewayTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiGatewayTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Ai/AiPersistenceModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiPersistenceModelTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Ai/AiRedactorTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiRedactorTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Ai/AiRequestLogWriterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiRequestLogWriterTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Ai/AiSchemaRegistryTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiSchemaRegistryTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Ai/AiSchemaValidatorTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiSchemaValidatorTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Ai/AiUsageServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiUsageServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Api/CorrelationIdMiddlewareTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Api/CorrelationIdMiddlewareTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Api/ExceptionMiddlewareTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Api/ExceptionMiddlewareTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Api/VersionEndpointTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Api/VersionEndpointTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/CalendarAuditWriterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarAuditWriterTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/CalendarDeleteServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarDeleteServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/CalendarEndpointPathTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarEndpointPathTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/CalendarRecycleBinServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarRecycleBinServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/CalendarStage5ModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarStage5ModelTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/CalendarTaskPlanningTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarTaskPlanningTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/CalendarWorkbenchQueryTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarWorkbenchQueryTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/DataCenterCoverageTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/DataCenterCoverageTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/DataCenterGovernanceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/DataCenterGovernanceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/OutlookConflictResolutionTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookConflictResolutionTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/OutlookGraphDeltaSyncTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookGraphDeltaSyncTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/OutlookGraphDeviceCodeFlowTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookGraphDeviceCodeFlowTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/OutlookGraphSyncFoundationTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookGraphSyncFoundationTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/OutlookGraphTestDoubles.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookGraphTestDoubles.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/OutlookGraphWritebackTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookGraphWritebackTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/OutlookIcsCompletionTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookIcsCompletionTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/OutlookIcsServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookIcsServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/OutlookSourceGovernanceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookSourceGovernanceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/PlanningModelServiceCompletionTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/PlanningModelServiceCompletionTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/PlanningObjectModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/PlanningObjectModelTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/ReminderNotificationPayloadTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ReminderNotificationPayloadTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/ReminderServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ReminderServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/ReportServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ReportServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/ReportSuggestionConfirmationTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ReportSuggestionConfirmationTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/ScheduleWorkbenchFoundationParityTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ScheduleWorkbenchFoundationParityTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/ScheduleWorkbenchModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ScheduleWorkbenchModelTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Calendar/TaskExecutionSegmentServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/TaskExecutionSegmentServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/ClientWindows/ApiClientDefaultsTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/ApiClientDefaultsTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/ClientWindows/AwBucketSelectionTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/AwBucketSelectionTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/ClientWindows/DaemonHeartbeatReporterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/DaemonHeartbeatReporterTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/ClientWindows/KeyStatsCollectorUploadGateTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/KeyStatsCollectorUploadGateTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/ClientWindows/KeyStatsHealthProbeTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/KeyStatsHealthProbeTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/ClientWindows/KeyStatsProcessManagerTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/KeyStatsProcessManagerTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/ClientWindows/WindowsCompanionShellTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/WindowsCompanionShellTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/ClientWindows/WindowsDaemonPrimaryPathTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/WindowsDaemonPrimaryPathTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/ClientWindows/WindowsNotificationActionRouterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/WindowsNotificationActionRouterTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/ClientWindows/WindowsStatusCenterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/WindowsStatusCenterTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Files/FileAiServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileAiServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Files/FileChunkerTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileChunkerTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Files/FileEndpointPathTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileEndpointPathTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Files/FileIndexingServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileIndexingServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Files/FileModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileModelTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Files/FileModuleProjectReferenceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileModuleProjectReferenceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Files/FileOperationServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileOperationServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Files/FileProviderBindingServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileProviderBindingServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Files/NextcloudDavXmlParserTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/NextcloudDavXmlParserTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Files/NextcloudFileProviderAdapterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/NextcloudFileProviderAdapterTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Files/QdrantFileVectorStoreTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/QdrantFileVectorStoreTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileAnalyticsContractTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileAnalyticsContractTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileAnalyticsQueryServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileAnalyticsQueryServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileAppCatalogOverrideServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileAppCatalogOverrideServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileAppClassificationServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileAppClassificationServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileDeviceServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileDeviceServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileEndpointTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileEndpointTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileGapServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileGapServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileLocationAggregationServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileLocationAggregationServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileLocationQueryServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileLocationQueryServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileLocationServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileLocationServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileModelTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileModuleProjectReferenceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileModuleProjectReferenceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileQualityServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileQualityServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileSessionInterpreterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileSessionInterpreterTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileTestHelpers.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileTestHelpers.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileTimelineBlockServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileTimelineBlockServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileUsageAggregationServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileUsageAggregationServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileUsageGoalServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileUsageGoalServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileUsageIngestServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileUsageIngestServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileUsageQueryServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileUsageQueryServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Mobile/MobileWebContractTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileWebContractTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/AuditAndConfirmationServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/AuditAndConfirmationServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/AuditVersionServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/AuditVersionServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/DaemonHeartbeatServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/DaemonHeartbeatServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/EndpointBoundaryTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/EndpointBoundaryTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/HangfireJobStatusServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/HangfireJobStatusServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/InfrastructureServiceCollectionTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/InfrastructureServiceCollectionTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/PimDbContextModelCacheTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/PimDbContextModelCacheTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/PimMigrationAdoptionServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/PimMigrationAdoptionServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/PimPcTrackerModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/PimPcTrackerModelTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/ScheduleFactConfirmationGateTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/ScheduleFactConfirmationGateTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/ScheduleFactConfirmationPolicyTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/ScheduleFactConfirmationPolicyTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/ScheduleWorkbenchConfirmationContractTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/ScheduleWorkbenchConfirmationContractTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/Stage0ContractsTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/Stage0ContractsTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/Stage0PersistenceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/Stage0PersistenceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Operations/SystemStatusServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/SystemStatusServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/QuickNotes/QuickNoteAttachmentServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteAttachmentServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/QuickNotes/QuickNoteEndpointPathTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteEndpointPathTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/QuickNotes/QuickNoteMarkdownReferenceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteMarkdownReferenceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/QuickNotes/QuickNoteModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteModelTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/QuickNotes/QuickNoteServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/ActivityClassificationRecomputeServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassificationRecomputeServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/ActivityClassificationRuleEvaluatorTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassificationRuleEvaluatorTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/ActivityClassificationRuleServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassificationRuleServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/ActivityClassificationSettingsServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassificationSettingsServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/ActivityClassificationSnapshotServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassificationSnapshotServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/ActivityClassifierTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassifierTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/ActivitySuggestionServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivitySuggestionServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/ActivityTimelineSmoothingServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityTimelineSmoothingServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/ActivityUrlSanitizerTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityUrlSanitizerTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/AppKnowledgeContextServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/AppKnowledgeContextServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/AppKnowledgeSuggestionServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/AppKnowledgeSuggestionServiceTests.cs.md` |
+| [x] | `tests/client-web/mobileAnalyticsComponents.test.tsx` | `docs/pseudocode/files/tests/client-web/mobileAnalyticsComponents.test.tsx.md` |
+| [x] | `tests/client-web/mobileAnalyticsInteractions.test.tsx` | `docs/pseudocode/files/tests/client-web/mobileAnalyticsInteractions.test.tsx.md` |
+| [x] | `tests/client-web/mobileApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/mobileApiPath.test.ts.md` |
+| [x] | `tests/client-web/mobileComponents.test.tsx` | `docs/pseudocode/files/tests/client-web/mobileComponents.test.tsx.md` |
+| [x] | `tests/client-web/mobileFormatting.test.ts` | `docs/pseudocode/files/tests/client-web/mobileFormatting.test.ts.md` |
+| [x] | `tests/client-web/mobileNavigation.test.tsx` | `docs/pseudocode/files/tests/client-web/mobileNavigation.test.tsx.md` |
+| [x] | `tests/client-web/mobileTypes.test.ts` | `docs/pseudocode/files/tests/client-web/mobileTypes.test.ts.md` |
+| [x] | `tests/client-web/outlookSyncInvalidation.test.ts` | `docs/pseudocode/files/tests/client-web/outlookSyncInvalidation.test.ts.md` |
+| [x] | `tests/client-web/pcClassificationApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/pcClassificationApiPath.test.ts.md` |
+| [x] | `tests/client-web/pcClassificationTypes.test.ts` | `docs/pseudocode/files/tests/client-web/pcClassificationTypes.test.ts.md` |
+| [x] | `tests/client-web/pcQualityApiNormalization.test.ts` | `docs/pseudocode/files/tests/client-web/pcQualityApiNormalization.test.ts.md` |
+| [x] | `tests/client-web/pcRecordsReviewLayout.test.tsx` | `docs/pseudocode/files/tests/client-web/pcRecordsReviewLayout.test.tsx.md` |
+| [x] | `tests/client-web/pcRoute3ApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/pcRoute3ApiPath.test.ts.md` |
+| [x] | `tests/client-web/pcRoute3Components.test.tsx` | `docs/pseudocode/files/tests/client-web/pcRoute3Components.test.tsx.md` |
+| [x] | `tests/client-web/pcRoute3Types.test.ts` | `docs/pseudocode/files/tests/client-web/pcRoute3Types.test.ts.md` |
+| [x] | `tests/client-web/quickNoteFloatingState.test.ts` | `docs/pseudocode/files/tests/client-web/quickNoteFloatingState.test.ts.md` |
+| [x] | `tests/client-web/quickNotesApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/quickNotesApiPath.test.ts.md` |
+| [x] | `tests/client-web/quickNotesAttachmentUrls.test.ts` | `docs/pseudocode/files/tests/client-web/quickNotesAttachmentUrls.test.ts.md` |
+| [x] | `tests/client-web/quickNotesEntryBundle.test.ts` | `docs/pseudocode/files/tests/client-web/quickNotesEntryBundle.test.ts.md` |
+| [x] | `tests/client-web/quickNotesTypes.test.ts` | `docs/pseudocode/files/tests/client-web/quickNotesTypes.test.ts.md` |
+| [x] | `tests/client-web/recycleBinApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/recycleBinApiPath.test.ts.md` |
+| [x] | `tests/client-web/scheduleWorkbenchApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchApiPath.test.ts.md` |
+| [x] | `tests/client-web/scheduleWorkbenchChineseNavigation.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchChineseNavigation.test.ts.md` |
+| [x] | `tests/client-web/scheduleWorkbenchCompletionApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchCompletionApiPath.test.ts.md` |
+| [x] | `tests/client-web/scheduleWorkbenchCompletionTypes.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchCompletionTypes.test.ts.md` |
+| [x] | `tests/client-web/scheduleWorkbenchE2e.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchE2e.test.ts.md` |
+| [x] | `tests/client-web/scheduleWorkbenchFoundationParity.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchFoundationParity.test.ts.md` |
+| [x] | `tests/client-web/scheduleWorkbenchGovernanceUi.test.tsx` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchGovernanceUi.test.tsx.md` |
+| [x] | `tests/client-web/scheduleWorkbenchInteractions.test.tsx` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchInteractions.test.tsx.md` |
+| [x] | `tests/client-web/scheduleWorkbenchLocalization.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchLocalization.test.ts.md` |
+| [x] | `tests/client-web/scheduleWorkbenchScreenshots.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchScreenshots.test.ts.md` |
+| [x] | `tests/client-web/scheduleWorkbenchTypes.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchTypes.test.ts.md` |
+| [x] | `tests/client-web/scheduleWorkbenchVisualAudit.test.ts` | `docs/pseudocode/files/tests/client-web/scheduleWorkbenchVisualAudit.test.ts.md` |
+| [x] | `tests/client-web/statusApiNormalization.test.ts` | `docs/pseudocode/files/tests/client-web/statusApiNormalization.test.ts.md` |
+| [x] | `tests/client-web/statusApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/statusApiPath.test.ts.md` |
+| [x] | `tests/client-web/todayApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/todayApiPath.test.ts.md` |
+| [x] | `tests/client-web/todayTypes.test.ts` | `docs/pseudocode/files/tests/client-web/todayTypes.test.ts.md` |
+| [x] | `tests/Pim.UnitTests/Ai/AiConfigurationTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiConfigurationTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Ai/AiContractTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiContractTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Ai/AiEndpointPathTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiEndpointPathTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Ai/AiGatewayTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiGatewayTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Ai/AiPersistenceModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiPersistenceModelTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Ai/AiRedactorTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiRedactorTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Ai/AiRequestLogWriterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiRequestLogWriterTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Ai/AiSchemaRegistryTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiSchemaRegistryTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Ai/AiSchemaValidatorTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiSchemaValidatorTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Ai/AiUsageServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiUsageServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Api/CorrelationIdMiddlewareTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Api/CorrelationIdMiddlewareTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Api/ExceptionMiddlewareTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Api/ExceptionMiddlewareTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Api/VersionEndpointTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Api/VersionEndpointTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/CalendarAuditWriterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarAuditWriterTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/CalendarDeleteServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarDeleteServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/CalendarEndpointPathTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarEndpointPathTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/CalendarRecycleBinServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarRecycleBinServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/CalendarStage5ModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarStage5ModelTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/CalendarTaskPlanningTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarTaskPlanningTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/CalendarWorkbenchQueryTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarWorkbenchQueryTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/DataCenterCoverageTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/DataCenterCoverageTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/DataCenterGovernanceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/DataCenterGovernanceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/OutlookConflictResolutionTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookConflictResolutionTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/OutlookGraphDeltaSyncTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookGraphDeltaSyncTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/OutlookGraphDeviceCodeFlowTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookGraphDeviceCodeFlowTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/OutlookGraphSyncFoundationTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookGraphSyncFoundationTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/OutlookGraphTestDoubles.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookGraphTestDoubles.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/OutlookGraphWritebackTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookGraphWritebackTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/OutlookIcsCompletionTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookIcsCompletionTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/OutlookIcsServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookIcsServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/OutlookSourceGovernanceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookSourceGovernanceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/PlanningModelServiceCompletionTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/PlanningModelServiceCompletionTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/PlanningObjectModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/PlanningObjectModelTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/ReminderNotificationPayloadTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ReminderNotificationPayloadTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/ReminderServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ReminderServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/ReportServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ReportServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/ReportSuggestionConfirmationTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ReportSuggestionConfirmationTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/ScheduleWorkbenchFoundationParityTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ScheduleWorkbenchFoundationParityTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/ScheduleWorkbenchModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ScheduleWorkbenchModelTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Calendar/TaskExecutionSegmentServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Calendar/TaskExecutionSegmentServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/ClientWindows/ApiClientDefaultsTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/ApiClientDefaultsTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/ClientWindows/AwBucketSelectionTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/AwBucketSelectionTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/ClientWindows/DaemonHeartbeatReporterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/DaemonHeartbeatReporterTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/ClientWindows/KeyStatsCollectorUploadGateTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/KeyStatsCollectorUploadGateTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/ClientWindows/KeyStatsHealthProbeTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/KeyStatsHealthProbeTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/ClientWindows/KeyStatsProcessManagerTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/KeyStatsProcessManagerTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/ClientWindows/WindowsCompanionShellTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/WindowsCompanionShellTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/ClientWindows/WindowsDaemonPrimaryPathTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/WindowsDaemonPrimaryPathTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/ClientWindows/WindowsNotificationActionRouterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/WindowsNotificationActionRouterTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/ClientWindows/WindowsStatusCenterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/WindowsStatusCenterTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Files/FileAiServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileAiServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Files/FileChunkerTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileChunkerTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Files/FileEndpointPathTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileEndpointPathTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Files/FileIndexingServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileIndexingServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Files/FileModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileModelTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Files/FileModuleProjectReferenceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileModuleProjectReferenceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Files/FileOperationServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileOperationServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Files/FileProviderBindingServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/FileProviderBindingServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Files/NextcloudDavXmlParserTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/NextcloudDavXmlParserTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Files/NextcloudFileProviderAdapterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/NextcloudFileProviderAdapterTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Files/QdrantFileVectorStoreTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Files/QdrantFileVectorStoreTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileAnalyticsContractTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileAnalyticsContractTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileAnalyticsQueryServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileAnalyticsQueryServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileAppCatalogOverrideServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileAppCatalogOverrideServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileAppClassificationServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileAppClassificationServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileDeviceServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileDeviceServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileEndpointTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileEndpointTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileGapServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileGapServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileLocationAggregationServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileLocationAggregationServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileLocationQueryServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileLocationQueryServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileLocationServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileLocationServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileModelTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileModuleProjectReferenceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileModuleProjectReferenceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileQualityServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileQualityServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileSessionInterpreterTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileSessionInterpreterTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileTestHelpers.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileTestHelpers.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileTimelineBlockServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileTimelineBlockServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileUsageAggregationServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileUsageAggregationServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileUsageGoalServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileUsageGoalServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileUsageIngestServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileUsageIngestServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileUsageQueryServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileUsageQueryServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Mobile/MobileWebContractTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileWebContractTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/AuditAndConfirmationServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/AuditAndConfirmationServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/AuditVersionServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/AuditVersionServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/DaemonHeartbeatServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/DaemonHeartbeatServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/EndpointBoundaryTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/EndpointBoundaryTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/HangfireJobStatusServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/HangfireJobStatusServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/InfrastructureServiceCollectionTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/InfrastructureServiceCollectionTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/PimDbContextModelCacheTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/PimDbContextModelCacheTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/PimMigrationAdoptionServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/PimMigrationAdoptionServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/PimPcTrackerModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/PimPcTrackerModelTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/ScheduleFactConfirmationGateTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/ScheduleFactConfirmationGateTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/ScheduleFactConfirmationPolicyTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/ScheduleFactConfirmationPolicyTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/ScheduleWorkbenchConfirmationContractTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/ScheduleWorkbenchConfirmationContractTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/Stage0ContractsTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/Stage0ContractsTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/Stage0PersistenceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/Stage0PersistenceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Operations/SystemStatusServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Operations/SystemStatusServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/QuickNotes/QuickNoteAttachmentServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteAttachmentServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/QuickNotes/QuickNoteEndpointPathTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteEndpointPathTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/QuickNotes/QuickNoteMarkdownReferenceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteMarkdownReferenceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/QuickNotes/QuickNoteModelTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteModelTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/QuickNotes/QuickNoteServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/ActivityClassificationRecomputeServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassificationRecomputeServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/ActivityClassificationRuleEvaluatorTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassificationRuleEvaluatorTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/ActivityClassificationRuleServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassificationRuleServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/ActivityClassificationSettingsServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassificationSettingsServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/ActivityClassificationSnapshotServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassificationSnapshotServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/ActivityClassifierTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassifierTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/ActivitySuggestionServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivitySuggestionServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/ActivityTimelineSmoothingServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityTimelineSmoothingServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/ActivityUrlSanitizerTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityUrlSanitizerTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/AppKnowledgeContextServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/AppKnowledgeContextServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/AppKnowledgeSuggestionServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/AppKnowledgeSuggestionServiceTests.cs.md` |
 | [ ] | `tests/Pim.UnitTests/Services/AppNameNormalizerTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/AppNameNormalizerTests.cs.md` |
 | [ ] | `tests/Pim.UnitTests/Services/CalendarServiceUiCreationTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/CalendarServiceUiCreationTests.cs.md` |
 | [ ] | `tests/Pim.UnitTests/Services/ClassificationRuleDraftServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ClassificationRuleDraftServiceTests.cs.md` |

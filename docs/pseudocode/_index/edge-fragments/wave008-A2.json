@@ -1,0 +1,41 @@
+{
+  "slot": "A2",
+  "wave": "wave008",
+  "nodes": [
+    { "id": "tests/client-web/mobileAnalyticsInteractions.test.tsx", "label": "mobileAnalyticsInteractions.test", "path": "tests/client-web/mobileAnalyticsInteractions.test.tsx", "doc": "docs/pseudocode/files/tests/client-web/mobileAnalyticsInteractions.test.tsx.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/client-web/pcRecordsReviewLayout.test.tsx", "label": "pcRecordsReviewLayout.test", "path": "tests/client-web/pcRecordsReviewLayout.test.tsx", "doc": "docs/pseudocode/files/tests/client-web/pcRecordsReviewLayout.test.tsx.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/client-web/scheduleWorkbenchApiPath.test.ts", "label": "scheduleWorkbenchApiPath.test", "path": "tests/client-web/scheduleWorkbenchApiPath.test.ts", "doc": "docs/pseudocode/files/tests/client-web/scheduleWorkbenchApiPath.test.ts.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/client-web/scheduleWorkbenchTypes.test.ts", "label": "scheduleWorkbenchTypes.test", "path": "tests/client-web/scheduleWorkbenchTypes.test.ts", "doc": "docs/pseudocode/files/tests/client-web/scheduleWorkbenchTypes.test.ts.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Ai/AiPersistenceModelTests.cs", "label": "AiPersistenceModelTests", "path": "tests/Pim.UnitTests/Ai/AiPersistenceModelTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiPersistenceModelTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Calendar/CalendarDeleteServiceTests.cs", "label": "CalendarDeleteServiceTests", "path": "tests/Pim.UnitTests/Calendar/CalendarDeleteServiceTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarDeleteServiceTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Calendar/OutlookGraphDeviceCodeFlowTests.cs", "label": "OutlookGraphDeviceCodeFlowTests", "path": "tests/Pim.UnitTests/Calendar/OutlookGraphDeviceCodeFlowTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookGraphDeviceCodeFlowTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Calendar/ReminderServiceTests.cs", "label": "ReminderServiceTests", "path": "tests/Pim.UnitTests/Calendar/ReminderServiceTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ReminderServiceTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/ClientWindows/KeyStatsHealthProbeTests.cs", "label": "KeyStatsHealthProbeTests", "path": "tests/Pim.UnitTests/ClientWindows/KeyStatsHealthProbeTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/KeyStatsHealthProbeTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Files/FileModelTests.cs", "label": "FileModelTests", "path": "tests/Pim.UnitTests/Files/FileModelTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Files/FileModelTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Mobile/MobileAppClassificationServiceTests.cs", "label": "MobileAppClassificationServiceTests", "path": "tests/Pim.UnitTests/Mobile/MobileAppClassificationServiceTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileAppClassificationServiceTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Mobile/MobileSessionInterpreterTests.cs", "label": "MobileSessionInterpreterTests", "path": "tests/Pim.UnitTests/Mobile/MobileSessionInterpreterTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileSessionInterpreterTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Operations/DaemonHeartbeatServiceTests.cs", "label": "DaemonHeartbeatServiceTests", "path": "tests/Pim.UnitTests/Operations/DaemonHeartbeatServiceTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Operations/DaemonHeartbeatServiceTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Operations/Stage0ContractsTests.cs", "label": "Stage0ContractsTests", "path": "tests/Pim.UnitTests/Operations/Stage0ContractsTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Operations/Stage0ContractsTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Services/ActivityClassificationRuleServiceTests.cs", "label": "ActivityClassificationRuleServiceTests", "path": "tests/Pim.UnitTests/Services/ActivityClassificationRuleServiceTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassificationRuleServiceTests.cs.md", "layer": "tests", "kind": "test" }
+  ],
+  "edges": [
+    { "from": "tests/client-web/mobileAnalyticsInteractions.test.tsx", "to": "src/client-web/src/components/mobile/MobileAnalyticsHeader.tsx", "type": "tests" },
+    { "from": "tests/client-web/mobileAnalyticsInteractions.test.tsx", "to": "src/client-web/src/pages/MobileRecordsPage.tsx", "type": "tests" },
+    { "from": "tests/client-web/pcRecordsReviewLayout.test.tsx", "to": "src/client-web/src/components/pc-tracker/PcReviewSummary.tsx", "type": "tests" },
+    { "from": "tests/client-web/scheduleWorkbenchApiPath.test.ts", "to": "src/client-web/src/api/calendar.ts", "type": "tests" },
+    { "from": "tests/client-web/scheduleWorkbenchApiPath.test.ts", "to": "src/client-web/src/api/operations.ts", "type": "tests" },
+    { "from": "tests/client-web/scheduleWorkbenchTypes.test.ts", "to": "src/client-web/src/types/index.ts", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Ai/AiPersistenceModelTests.cs", "to": "src/Pim.Infrastructure/Data/Entities", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/CalendarDeleteServiceTests.cs", "to": "src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/OutlookGraphDeviceCodeFlowTests.cs", "to": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/ReminderServiceTests.cs", "to": "src/modules/Pim.Module.Calendar/Services/ReminderService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/ClientWindows/KeyStatsHealthProbeTests.cs", "to": "Pim.Client.Core.Services.KeyStatsHealthProbe", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Files/FileModelTests.cs", "to": "src/modules/Pim.Module.Files/Entities", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Mobile/MobileAppClassificationServiceTests.cs", "to": "src/modules/Pim.Module.Mobile/Services/MobileAppClassificationService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Mobile/MobileSessionInterpreterTests.cs", "to": "src/modules/Pim.Module.Mobile/Services/MobileSessionInterpreter.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Operations/DaemonHeartbeatServiceTests.cs", "to": "src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Operations/Stage0ContractsTests.cs", "to": "src/Pim.Core/Operations", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Services/ActivityClassificationRuleServiceTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRuleService.cs", "type": "tests" }
+  ]
+}
+```

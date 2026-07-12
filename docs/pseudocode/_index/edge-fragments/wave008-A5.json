@@ -1,0 +1,39 @@
+{
+  "slot": "A5",
+  "wave": "wave008",
+  "nodes": [
+    { "id": "tests/client-web/mobileFormatting.test.ts", "label": "mobileFormatting.test", "path": "tests/client-web/mobileFormatting.test.ts", "doc": "docs/pseudocode/files/tests/client-web/mobileFormatting.test.ts.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/client-web/pcRoute3Types.test.ts", "label": "pcRoute3Types.test", "path": "tests/client-web/pcRoute3Types.test.ts", "doc": "docs/pseudocode/files/tests/client-web/pcRoute3Types.test.ts.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/client-web/scheduleWorkbenchCompletionTypes.test.ts", "label": "scheduleWorkbenchCompletionTypes.test", "path": "tests/client-web/scheduleWorkbenchCompletionTypes.test.ts", "doc": "docs/pseudocode/files/tests/client-web/scheduleWorkbenchCompletionTypes.test.ts.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/client-web/statusApiPath.test.ts", "label": "statusApiPath.test", "path": "tests/client-web/statusApiPath.test.ts", "doc": "docs/pseudocode/files/tests/client-web/statusApiPath.test.ts.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Ai/AiSchemaRegistryTests.cs", "label": "AiSchemaRegistryTests", "path": "tests/Pim.UnitTests/Ai/AiSchemaRegistryTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiSchemaRegistryTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Calendar/CalendarStage5ModelTests.cs", "label": "CalendarStage5ModelTests", "path": "tests/Pim.UnitTests/Calendar/CalendarStage5ModelTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarStage5ModelTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Calendar/OutlookGraphWritebackTests.cs", "label": "OutlookGraphWritebackTests", "path": "tests/Pim.UnitTests/Calendar/OutlookGraphWritebackTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookGraphWritebackTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Calendar/ScheduleWorkbenchFoundationParityTests.cs", "label": "ScheduleWorkbenchFoundationParityTests", "path": "tests/Pim.UnitTests/Calendar/ScheduleWorkbenchFoundationParityTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ScheduleWorkbenchFoundationParityTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/ClientWindows/WindowsDaemonPrimaryPathTests.cs", "label": "WindowsDaemonPrimaryPathTests", "path": "tests/Pim.UnitTests/ClientWindows/WindowsDaemonPrimaryPathTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/WindowsDaemonPrimaryPathTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Files/FileProviderBindingServiceTests.cs", "label": "FileProviderBindingServiceTests", "path": "tests/Pim.UnitTests/Files/FileProviderBindingServiceTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Files/FileProviderBindingServiceTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Mobile/MobileGapServiceTests.cs", "label": "MobileGapServiceTests", "path": "tests/Pim.UnitTests/Mobile/MobileGapServiceTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileGapServiceTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Mobile/MobileUsageAggregationServiceTests.cs", "label": "MobileUsageAggregationServiceTests", "path": "tests/Pim.UnitTests/Mobile/MobileUsageAggregationServiceTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileUsageAggregationServiceTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Operations/InfrastructureServiceCollectionTests.cs", "label": "InfrastructureServiceCollectionTests", "path": "tests/Pim.UnitTests/Operations/InfrastructureServiceCollectionTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Operations/InfrastructureServiceCollectionTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/QuickNotes/QuickNoteAttachmentServiceTests.cs", "label": "QuickNoteAttachmentServiceTests", "path": "tests/Pim.UnitTests/QuickNotes/QuickNoteAttachmentServiceTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteAttachmentServiceTests.cs.md", "layer": "tests", "kind": "test" },
+    { "id": "tests/Pim.UnitTests/Services/ActivityClassifierTests.cs", "label": "ActivityClassifierTests", "path": "tests/Pim.UnitTests/Services/ActivityClassifierTests.cs", "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassifierTests.cs.md", "layer": "tests", "kind": "test" }
+  ],
+  "edges": [
+    { "from": "tests/client-web/mobileFormatting.test.ts", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "tests" },
+    { "from": "tests/client-web/pcRoute3Types.test.ts", "to": "src/client-web/src/types/index.ts", "type": "tests" },
+    { "from": "tests/client-web/scheduleWorkbenchCompletionTypes.test.ts", "to": "src/client-web/src/types/index.ts", "type": "tests" },
+    { "from": "tests/client-web/statusApiPath.test.ts", "to": "src/client-web/src/api/status.ts", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Ai/AiSchemaRegistryTests.cs", "to": "src/Pim.Infrastructure/Ai/AiSchemaRegistry.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/CalendarStage5ModelTests.cs", "to": "src/modules/Pim.Module.Calendar/Entities", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/OutlookGraphWritebackTests.cs", "to": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/ScheduleWorkbenchFoundationParityTests.cs", "to": "src/Pim.Core/Operations", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/ClientWindows/WindowsDaemonPrimaryPathTests.cs", "to": "src/client-windows/Pim.Client.App/TrayIcon.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Files/FileProviderBindingServiceTests.cs", "to": "src/modules/Pim.Module.Files/Services/FileProviderBindingService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Mobile/MobileGapServiceTests.cs", "to": "src/modules/Pim.Module.Mobile/Services/MobileGapService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Mobile/MobileUsageAggregationServiceTests.cs", "to": "src/modules/Pim.Module.Mobile/Services/MobileUsageAggregationService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Operations/InfrastructureServiceCollectionTests.cs", "to": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/QuickNotes/QuickNoteAttachmentServiceTests.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Services/ActivityClassifierTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/ActivityClassifier.cs", "type": "tests" }
+  ]
+}
+```

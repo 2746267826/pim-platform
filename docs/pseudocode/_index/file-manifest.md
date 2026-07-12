@@ -1,6 +1,6 @@
 ﻿# File Manifest
 
-Generated: 2026-07-12 22:06:00
+Generated: 2026-07-12 22:10:13
 Total: 775
 
 | Status | Source | Doc |
@@ -378,86 +378,86 @@ Total: 775
 | [x] | `src/modules/Pim.Module.Files/Services/HashingFileEmbeddingService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/HashingFileEmbeddingService.cs.md` |
 | [x] | `src/modules/Pim.Module.Files/Services/IFileEmbeddingService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/IFileEmbeddingService.cs.md` |
 | [x] | `src/modules/Pim.Module.Files/Services/QdrantFileVectorStore.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/QdrantFileVectorStore.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/DTOs/MobileAnalyticsDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/DTOs/MobileAnalyticsDtos.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/DTOs/MobileLocationAnalyticsDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/DTOs/MobileLocationAnalyticsDtos.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileAppCatalogEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileAppCatalogEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileAppCatalogOverrideEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileAppCatalogOverrideEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileAppCategoryRuleEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileAppCategoryRuleEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileDeviceEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileDeviceEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileEntityConfigurations.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileEntityConfigurations.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileLocationPointEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileLocationPointEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileSyncBatchEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileSyncBatchEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileTimelineBlockEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileTimelineBlockEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileUsageAggregateEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileUsageAggregateEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileUsageEventEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileUsageEventEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileUsageGoalEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileUsageGoalEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileUsageSessionEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileUsageSessionEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Entities/MobileUsageSummaryEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileUsageSummaryEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/MobileModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/MobileModule.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileAnalyticsQueryService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileAnalyticsQueryService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileAppCatalogOverrideService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileAppCatalogOverrideService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileAppClassificationService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileAppClassificationService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileDeviceService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileDeviceService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileGapService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileGapService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileLocationAggregationService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileLocationAggregationService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileLocationQueryService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileLocationQueryService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileLocationService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileLocationService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileQualityService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileQualityService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileSessionInterpreter.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileSessionInterpreter.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileSyncBatchEnvelopeCodec.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileSyncBatchEnvelopeCodec.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileTimelineBlockService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileTimelineBlockService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileUsageAggregationService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileUsageAggregationService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileUsageGoalService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileUsageGoalService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileUsageQueryService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileUsageQueryService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Services/MobileUserContext.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileUserContext.cs.md` |
-| [ ] | `src/modules/Pim.Module.Mobile/Testing/MobileEndpointTestCompat.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Testing/MobileEndpointTestCompat.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/DTOs/ActivityClassificationDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/DTOs/ActivityClassificationDtos.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/DTOs/PcQualityDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/DTOs/PcQualityDtos.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/DTOs/PcTrackerDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/DTOs/PcTrackerDtos.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/DTOs/Phase2Dtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/DTOs/Phase2Dtos.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/ActivityCategoryRuleEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/ActivityCategoryRuleEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationAuditEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationAuditEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationSettingsEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationSettingsEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationSuggestionEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationSuggestionEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/AppCategoryEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/AppCategoryEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/AppKnowledgeContextEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/AppKnowledgeContextEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/AppSignatureEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/AppSignatureEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/AwBucketEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/AwBucketEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/AwEventEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/AwEventEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/EntityConfigurations.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/EntityConfigurations.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/KeystatsAppBreakdownEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/KeystatsAppBreakdownEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/KeystatsDailyEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/KeystatsDailyEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/KeystatsKeyCountEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/KeystatsKeyCountEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/KeystatsSampleEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/KeystatsSampleEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Entities/PcCategoryEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/PcCategoryEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/PcTrackerModule.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRecomputeService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRecomputeService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRecordKey.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRecordKey.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRuleEvaluator.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRuleEvaluator.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRuleService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRuleService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSettingsService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSettingsService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassifier.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassifier.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/ActivitySuggestionService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivitySuggestionService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/ActivityTimelineSmoothingService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityTimelineSmoothingService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/ActivityUrlSanitizer.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityUrlSanitizer.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/AppKnowledgeContextService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/AppKnowledgeContextService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/AppKnowledgeSuggestionService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/AppKnowledgeSuggestionService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/AppNameNormalizer.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/AppNameNormalizer.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/AppSignatureService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/AppSignatureService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/ClassificationRuleDraftService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ClassificationRuleDraftService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/KeystatsDeltaCalculator.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/KeystatsDeltaCalculator.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/PcActivityAnalysisService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcActivityAnalysisService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/PcActivityRecordKeyService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcActivityRecordKeyService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/PcCategoryService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcCategoryService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/PcProductivityService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcProductivityService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/PcTrackerQualityService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcTrackerQualityService.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/PcTrackerSchemaInitializer.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcTrackerSchemaInitializer.cs.md` |
-| [ ] | `src/modules/Pim.Module.PcTracker/Services/PcTrackerService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcTrackerService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/DTOs/MobileAnalyticsDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/DTOs/MobileAnalyticsDtos.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/DTOs/MobileLocationAnalyticsDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/DTOs/MobileLocationAnalyticsDtos.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileAppCatalogEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileAppCatalogEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileAppCatalogOverrideEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileAppCatalogOverrideEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileAppCategoryRuleEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileAppCategoryRuleEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileDeviceEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileDeviceEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileEntityConfigurations.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileEntityConfigurations.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileLocationPointEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileLocationPointEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileSyncBatchEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileSyncBatchEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileTimelineBlockEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileTimelineBlockEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileUsageAggregateEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileUsageAggregateEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileUsageEventEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileUsageEventEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileUsageGoalEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileUsageGoalEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileUsageSessionEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileUsageSessionEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Entities/MobileUsageSummaryEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileUsageSummaryEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/MobileModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/MobileModule.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileAnalyticsQueryService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileAnalyticsQueryService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileAppCatalogOverrideService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileAppCatalogOverrideService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileAppClassificationService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileAppClassificationService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileDeviceService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileDeviceService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileGapService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileGapService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileLocationAggregationService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileLocationAggregationService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileLocationQueryService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileLocationQueryService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileLocationService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileLocationService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileQualityService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileQualityService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileSessionInterpreter.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileSessionInterpreter.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileSyncBatchEnvelopeCodec.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileSyncBatchEnvelopeCodec.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileTimelineBlockService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileTimelineBlockService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileUsageAggregationService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileUsageAggregationService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileUsageGoalService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileUsageGoalService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileUsageQueryService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileUsageQueryService.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Services/MobileUserContext.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileUserContext.cs.md` |
+| [x] | `src/modules/Pim.Module.Mobile/Testing/MobileEndpointTestCompat.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/Testing/MobileEndpointTestCompat.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/DTOs/ActivityClassificationDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/DTOs/ActivityClassificationDtos.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/DTOs/PcQualityDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/DTOs/PcQualityDtos.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/DTOs/PcTrackerDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/DTOs/PcTrackerDtos.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/DTOs/Phase2Dtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/DTOs/Phase2Dtos.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/ActivityCategoryRuleEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/ActivityCategoryRuleEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationAuditEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationAuditEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationSettingsEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationSettingsEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationSuggestionEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationSuggestionEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/AppCategoryEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/AppCategoryEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/AppKnowledgeContextEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/AppKnowledgeContextEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/AppSignatureEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/AppSignatureEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/AwBucketEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/AwBucketEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/AwEventEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/AwEventEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/EntityConfigurations.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/EntityConfigurations.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/KeystatsAppBreakdownEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/KeystatsAppBreakdownEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/KeystatsDailyEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/KeystatsDailyEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/KeystatsKeyCountEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/KeystatsKeyCountEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/KeystatsSampleEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/KeystatsSampleEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Entities/PcCategoryEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/PcCategoryEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/PcTrackerModule.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRecomputeService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRecomputeService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRecordKey.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRecordKey.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRuleEvaluator.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRuleEvaluator.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRuleService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRuleService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSettingsService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSettingsService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/ActivityClassifier.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassifier.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/ActivitySuggestionService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivitySuggestionService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/ActivityTimelineSmoothingService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityTimelineSmoothingService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/ActivityUrlSanitizer.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityUrlSanitizer.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/AppKnowledgeContextService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/AppKnowledgeContextService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/AppKnowledgeSuggestionService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/AppKnowledgeSuggestionService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/AppNameNormalizer.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/AppNameNormalizer.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/AppSignatureService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/AppSignatureService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/ClassificationRuleDraftService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ClassificationRuleDraftService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/KeystatsDeltaCalculator.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/KeystatsDeltaCalculator.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/PcActivityAnalysisService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcActivityAnalysisService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/PcActivityRecordKeyService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcActivityRecordKeyService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/PcCategoryService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcCategoryService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/PcProductivityService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcProductivityService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/PcTrackerQualityService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcTrackerQualityService.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/PcTrackerSchemaInitializer.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcTrackerSchemaInitializer.cs.md` |
+| [x] | `src/modules/Pim.Module.PcTracker/Services/PcTrackerService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcTrackerService.cs.md` |
 | [ ] | `src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs.md` |
 | [ ] | `src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs.md` |
 | [ ] | `src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs.md` |

@@ -69,20 +69,63 @@
 ### 源资产
 
 - 目录：`branding/`
-- 主源：`branding/pim-mark.svg` — **四色拼 P**
-  - 色值：`#f25022`、`#7fba00`、`#00a4ef`、`#ffb900`
-  - 白/透明底，适配系统图标遮罩
+- 主源：`branding/pim-mark.svg` — **四色拼 P**（用户在 brainstorm 中选定的方案 **C · p-mosaic**）
 - 说明：`branding/README.md`（色值、导出命令、禁止手改派生文件）
+- **锁定规则：** 实现时 `branding/pim-mark.svg` 必须与下方「规范 SVG」在几何与色值上一致；仅允许统一缩放 viewBox/画布，**禁止**改比例、圆角、颜色或元素相对位置。派生 ICO/PNG 只能从该源导出。
 
-### 几何（四色拼 P）
+### 色板（锁定）
 
-与已确认视觉一致：
+| Token | Hex | 用途 |
+|-------|-----|------|
+| `ms-red` | `#f25022` | 上横块（P 顶横） |
+| `ms-green` | `#7fba00` | 中横块（P 腰横） |
+| `ms-blue` | `#00a4ef` | 左侧竖条（P 竖干） |
+| `ms-yellow` | `#ffb900` | 右下圆点 |
+| 画布底 | 透明（导出到需要白底的平台时再垫 `#ffffff`） | Web/Windows/Android 按平台规范 |
 
-- 左侧竖条：`#00a4ef`
-- 上横块：`#f25022`
-- 中横块：`#7fba00`
-- 右下圆点：`#ffb900`
-- 整体构成可识别的 **P** 字形
+预览与选型时使用**白底**；源 SVG 本体保持透明底以便系统遮罩与深色托盘。
+
+### 几何规范（viewBox `0 0 72 72`，与选型稿一致）
+
+| 元素 | 形状 | 参数（用户单位） | 填充 |
+|------|------|------------------|------|
+| 左竖条 | `rect` | `x=10 y=8 w=18 h=56 rx=4` | `#00a4ef` |
+| 上横块 | `rect` | `x=28 y=8 w=30 h=18 rx=4` | `#f25022` |
+| 中横块 | `rect` | `x=28 y=28 w=26 h=16 rx=4` | `#7fba00` |
+| 右下点 | `circle` | `cx=52 cy=52 r=10` | `#ffb900` |
+
+整体读作字母 **P**。圆角统一 `rx=4`（圆除外）。
+
+### 规范 SVG（实现必须落盘为 `branding/pim-mark.svg`）
+
+以下为 brainstorm 选定稿 **C · 四色拼 P** 的完整源（实现复制时不得改 path/坐标/颜色）。
+
+仓库内冻结副本（与下方内容相同）：
+
+[`docs/superpowers/specs/attachments/2026-07-12-version-icons/pim-mark-locked.svg`](../attachments/2026-07-12-version-icons/pim-mark-locked.svg)
+
+```svg
+<svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72" fill="none">
+  <!-- PIM mark: four-color mosaic P (locked 2026-07-12) -->
+  <rect x="10" y="8" width="18" height="56" rx="4" fill="#00a4ef"/>
+  <rect x="28" y="8" width="30" height="18" rx="4" fill="#f25022"/>
+  <rect x="28" y="28" width="26" height="16" rx="4" fill="#7fba00"/>
+  <circle cx="52" cy="52" r="10" fill="#ffb900"/>
+</svg>
+```
+
+### 选型记录（防止回退到未选方案）
+
+| 代号 | 名称 | 结果 |
+|------|------|------|
+| A | 软圆四格 | 未选 |
+| B | 紧凑四格 | 未选 |
+| **C** | **四色拼 P** | **已选（最终）** |
+| D | 四色环 | 未选 |
+| E | 四色层级条 | 未选 |
+| F | 四格叠字 P | 未选 |
+
+早期否决：纯字母 P 渐变底、日历点、分层节点；以及非白底预览方向。色板来自用户对「微软四色」的明确偏好。
 
 ### 派生产物
 

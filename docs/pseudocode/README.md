@@ -19,3 +19,4 @@
 2. 读某文件伪代码：`files/<源相对路径>.md`
 3. 浏览关系：打开 `graphs/interactive/index.html`（需本地 HTTP 或允许 file 协议读 JSON）
 4. 分层静态图：`graphs/overview.mmd.md` 与 `graphs/layers/*.md`
+5. 可视化工作台：[`viewer/`](viewer/) — `cd docs/pseudocode/viewer && npm install && npm run dev`

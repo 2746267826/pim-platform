@@ -5,12 +5,15 @@
   <title>PIM Pseudocode Graph</title>
   <style>
     body { margin: 0; font-family: sans-serif; }
+    #banner { padding: 8px 12px; background: #0f172a; color: #e2e8f0; font-size: 14px; }
+    #banner a { color: #93c5fd; }
     #toolbar { padding: 8px; border-bottom: 1px solid #ccc; display: flex; gap: 8px; }
     #meta { padding: 4px 8px; color: #444; }
-    canvas { display: block; width: 100vw; height: calc(100vh - 64px); }
+    canvas { display: block; width: 100vw; height: calc(100vh - 100px); }
   </style>
 </head>
 <body>
+  <div id="banner">新工作台：<a href="../../viewer/">打开 Pseudocode Viewer</a></div>
   <div id="toolbar">
     <input id="q" placeholder="搜索节点 id/label" style="width: 280px" />
     <select id="layer"><option value="">全部 layer</option></select>

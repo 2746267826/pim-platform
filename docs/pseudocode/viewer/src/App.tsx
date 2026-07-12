@@ -6,6 +6,8 @@ import { FileTree } from './components/FileTree';
 import { DocViewer } from './components/DocViewer';
 import { EdgePanel } from './components/EdgePanel';
 import { GraphMode } from './modes/GraphMode';
+import { PipelineCanvas } from './modes/PipelineCanvas';
+import type { PipelineStart } from './lib/pipeline';
 
 export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -39,6 +41,12 @@ export default function App() {
 
   if (error) return <div className="error-page">{error}</div>;
   if (!catalog) return <div className="muted">加载 catalog…</div>;
+
+  const pipelineInitial: PipelineStart = selectedId
+    ? { kind: 'file', id: selectedId }
+    : catalog.nodes[0]
+      ? { kind: 'file', id: catalog.nodes[0].id }
+      : { kind: 'api', id: catalog.apiIndex[0]?.path || '/' };
 
   return (
     <div className="app-shell">
@@ -79,8 +87,17 @@ export default function App() {
           onOpenInRead={openInRead}
         />
       )}
-      {/* PipelineCanvas mounted in Task 6 when pipelineOpen */}
-      {pipelineOpen ? null : null}
+      {pipelineOpen ? (
+        <PipelineCanvas
+          catalog={catalog}
+          initial={pipelineInitial}
+          onClose={() => setPipelineOpen(false)}
+          onOpenFile={(id) => {
+            setSelectedId(id);
+            setMode('read');
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -282,3 +282,198 @@ button.linkish {
 button.linkish:hover {
   filter: brightness(0.9);
 }
+
+.pipeline-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 25, 23, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+.pipeline-panel {
+  width: min(1100px, 94vw);
+  height: min(80vh, 860px);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(28, 25, 23, 0.12);
+}
+.pipeline-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: #f3efe6;
+  font-family: var(--serif);
+}
+.pipeline-panel > header button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 13px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.pipeline-panel > header button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.pipeline-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.pipeline-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.pipeline-controls select,
+.pipeline-controls input[type='number'],
+.pipeline-controls input[type='text'],
+.pipeline-controls input:not([type]) {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 13px;
+}
+.pipeline-controls button,
+.pipeline-controls a {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 13px;
+  padding: 5px 10px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.pipeline-controls button:hover,
+.pipeline-controls a:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.pipeline-steps {
+  display: flex;
+  gap: 10px;
+  overflow: auto;
+  padding: 12px;
+  flex: 1;
+  background: var(--paper);
+}
+.step-card {
+  min-width: 220px;
+  max-width: 260px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  background: #fff;
+  flex-shrink: 0;
+}
+.step-card > header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-bottom: 6px;
+}
+.step-card p {
+  margin: 6px 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.step-card ul {
+  margin: 6px 0 0;
+  padding-left: 1.1em;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.step-idx {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4em;
+  height: 1.4em;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: #fef3c7;
+  color: #92400e;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+.primary {
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fffefb;
+  font-family: var(--serif);
+  font-size: 13px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.primary:hover {
+  filter: brightness(1.05);
+}
+.linkish {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.linkish:hover {
+  filter: brightness(0.9);
+}
+.error-page {
+  padding: 24px;
+  color: #b91c1c;
+  font-family: var(--mono);
+  font-size: 14px;
+  background: var(--paper);
+  min-height: 100%;
+}
+.search {
+  flex: 1;
+  min-width: 140px;
+  max-width: 320px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 13px;
+}
+.search:focus {
+  outline: 1px solid var(--accent);
+  border-color: var(--accent);
+}
+.search::placeholder {
+  color: var(--muted);
+}

@@ -1,6 +1,6 @@
 ﻿# File Manifest
 
-Generated: 2026-07-12 22:02:40
+Generated: 2026-07-12 22:06:00
 Total: 775
 
 | Status | Source | Doc |
@@ -312,72 +312,72 @@ Total: 775
 | [ ] | `src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs.md` |
 | [ ] | `src/client-windows/Pim.Client.Core/Services/NotificationActionRouter.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/NotificationActionRouter.cs.md` |
 | [ ] | `src/client-windows/Pim.Client.Core/Services/StatusCenterEvaluator.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/StatusCenterEvaluator.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/CalendarModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/CalendarModule.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/AiPlanningPlaceholderEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/AiPlanningPlaceholderEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/AvailabilityWindowEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/AvailabilityWindowEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/CalendarEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/CalendarEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/DomainProjectEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/DomainProjectEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/EventEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/EventEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/HabitOccurrenceEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/HabitOccurrenceEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/HabitRoutineEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/HabitRoutineEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/OutlookConnectionEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/OutlookConnectionEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/OutlookSyncBatchEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/OutlookSyncBatchEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/PendingConfirmationEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/PendingConfirmationEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/ReminderDeliveryEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/ReminderDeliveryEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/ReminderEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/ReminderEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/ReportArtifactEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/ReportArtifactEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/ReportSuggestionEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/ReportSuggestionEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/SchedulingFeedbackEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/SchedulingFeedbackEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/SyncConflictEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/SyncConflictEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/TaskBookEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/TaskBookEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/TaskChecklistItemEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/TaskChecklistItemEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/TaskEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/TaskEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Entities/TaskExecutionSegmentEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/TaskExecutionSegmentEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Search/CalendarSearchProvider.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Search/CalendarSearchProvider.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/CalendarAuditWriter.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/CalendarAuditWriter.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/CalendarRecycleBinService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/CalendarRecycleBinService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/CalendarService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/CalendarService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/DataCenterGovernanceService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/DataCenterGovernanceService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/DataCenterQueryService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/DataCenterQueryService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/IcsService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/IcsService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/MicrosoftGraphDeviceCodeClient.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/MicrosoftGraphDeviceCodeClient.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/OutlookConflictService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/OutlookConflictService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/OutlookGraphModels.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/OutlookGraphModels.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/OutlookIcsService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/OutlookIcsService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/OutlookTokenService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/OutlookTokenService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/RecurrenceService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/RecurrenceService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/ReminderService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/ReminderService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/ReportService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/ReportService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/ScheduleFactConfirmationPolicy.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/ScheduleFactConfirmationPolicy.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/SchedulingAlgorithms.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/SchedulingAlgorithms.cs.md` |
-| [ ] | `src/modules/Pim.Module.Calendar/Services/SchedulingEngine.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/SchedulingEngine.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/DTOs/FileDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/DTOs/FileDtos.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Entities/FileAiResultEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileAiResultEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Entities/FileChunkEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileChunkEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Entities/FileEntityConfigurations.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileEntityConfigurations.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Entities/FileIndexJobEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileIndexJobEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Entities/FileItemEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileItemEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Entities/FileProviderEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileProviderEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Entities/FileSuggestionEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileSuggestionEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Entities/FileVersionEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileVersionEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/FilesModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/FilesModule.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Providers/IFileProviderAdapter.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Providers/IFileProviderAdapter.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Providers/NextcloudDavXmlParser.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Providers/NextcloudDavXmlParser.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Providers/NextcloudFileProviderAdapter.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Providers/NextcloudFileProviderAdapter.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Providers/NextcloudOptions.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Providers/NextcloudOptions.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Services/FileAiService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/FileAiService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Services/FileChunker.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/FileChunker.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Services/FileIndexingService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/FileIndexingService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Services/FileOperationService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/FileOperationService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Services/FileProviderBindingService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/FileProviderBindingService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Services/HashingFileEmbeddingService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/HashingFileEmbeddingService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Services/IFileEmbeddingService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/IFileEmbeddingService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Files/Services/QdrantFileVectorStore.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/QdrantFileVectorStore.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/CalendarModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/CalendarModule.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/AiPlanningPlaceholderEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/AiPlanningPlaceholderEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/AvailabilityWindowEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/AvailabilityWindowEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/CalendarEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/CalendarEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/DomainProjectEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/DomainProjectEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/EventEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/EventEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/HabitOccurrenceEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/HabitOccurrenceEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/HabitRoutineEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/HabitRoutineEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/OutlookConnectionEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/OutlookConnectionEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/OutlookSyncBatchEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/OutlookSyncBatchEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/PendingConfirmationEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/PendingConfirmationEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/ReminderDeliveryEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/ReminderDeliveryEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/ReminderEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/ReminderEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/ReportArtifactEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/ReportArtifactEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/ReportSuggestionEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/ReportSuggestionEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/SchedulingFeedbackEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/SchedulingFeedbackEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/SyncConflictEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/SyncConflictEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/TaskBookEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/TaskBookEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/TaskChecklistItemEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/TaskChecklistItemEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/TaskEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/TaskEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Entities/TaskExecutionSegmentEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/TaskExecutionSegmentEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Search/CalendarSearchProvider.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Search/CalendarSearchProvider.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/CalendarAuditWriter.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/CalendarAuditWriter.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/CalendarRecycleBinService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/CalendarRecycleBinService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/CalendarService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/CalendarService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/DataCenterGovernanceService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/DataCenterGovernanceService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/DataCenterQueryService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/DataCenterQueryService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/IcsService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/IcsService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/MicrosoftGraphDeviceCodeClient.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/MicrosoftGraphDeviceCodeClient.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/OutlookConflictService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/OutlookConflictService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/OutlookGraphModels.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/OutlookGraphModels.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/OutlookIcsService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/OutlookIcsService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/OutlookTokenService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/OutlookTokenService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/RecurrenceService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/RecurrenceService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/ReminderService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/ReminderService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/ReportService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/ReportService.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/ScheduleFactConfirmationPolicy.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/ScheduleFactConfirmationPolicy.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/SchedulingAlgorithms.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/SchedulingAlgorithms.cs.md` |
+| [x] | `src/modules/Pim.Module.Calendar/Services/SchedulingEngine.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/SchedulingEngine.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/DTOs/FileDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/DTOs/FileDtos.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Entities/FileAiResultEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileAiResultEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Entities/FileChunkEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileChunkEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Entities/FileEntityConfigurations.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileEntityConfigurations.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Entities/FileIndexJobEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileIndexJobEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Entities/FileItemEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileItemEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Entities/FileProviderEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileProviderEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Entities/FileSuggestionEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileSuggestionEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Entities/FileVersionEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileVersionEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/FilesModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/FilesModule.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Providers/IFileProviderAdapter.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Providers/IFileProviderAdapter.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Providers/NextcloudDavXmlParser.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Providers/NextcloudDavXmlParser.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Providers/NextcloudFileProviderAdapter.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Providers/NextcloudFileProviderAdapter.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Providers/NextcloudOptions.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Providers/NextcloudOptions.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Services/FileAiService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/FileAiService.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Services/FileChunker.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/FileChunker.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Services/FileIndexingService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/FileIndexingService.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Services/FileOperationService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/FileOperationService.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Services/FileProviderBindingService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/FileProviderBindingService.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Services/HashingFileEmbeddingService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/HashingFileEmbeddingService.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Services/IFileEmbeddingService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/IFileEmbeddingService.cs.md` |
+| [x] | `src/modules/Pim.Module.Files/Services/QdrantFileVectorStore.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Files/Services/QdrantFileVectorStore.cs.md` |
 | [ ] | `src/modules/Pim.Module.Mobile/DTOs/MobileAnalyticsDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/DTOs/MobileAnalyticsDtos.cs.md` |
 | [ ] | `src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs.md` |
 | [ ] | `src/modules/Pim.Module.Mobile/DTOs/MobileLocationAnalyticsDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Mobile/DTOs/MobileLocationAnalyticsDtos.cs.md` |
@@ -477,20 +477,20 @@ Total: 775
 | [x] | `src/Pim.Api/DTOs/AuthDtos.cs` | `docs/pseudocode/files/src/Pim.Api/DTOs/AuthDtos.cs.md` |
 | [x] | `src/Pim.Api/Endpoints/AiEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/AiEndpoints.cs.md` |
 | [x] | `src/Pim.Api/Endpoints/AuthEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/AuthEndpoints.cs.md` |
-| [ ] | `src/Pim.Api/Endpoints/DaemonEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/DaemonEndpoints.cs.md` |
-| [ ] | `src/Pim.Api/Endpoints/EndpointEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/EndpointEndpoints.cs.md` |
-| [ ] | `src/Pim.Api/Endpoints/OperationsEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/OperationsEndpoints.cs.md` |
-| [ ] | `src/Pim.Api/Endpoints/StatusEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/StatusEndpoints.cs.md` |
-| [ ] | `src/Pim.Api/Endpoints/TodayEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/TodayEndpoints.cs.md` |
-| [ ] | `src/Pim.Api/Endpoints/VersionEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/VersionEndpoints.cs.md` |
-| [ ] | `src/Pim.Api/Infrastructure/CorrelationIdMiddleware.cs` | `docs/pseudocode/files/src/Pim.Api/Infrastructure/CorrelationIdMiddleware.cs.md` |
-| [ ] | `src/Pim.Api/Infrastructure/HangfireAuthorizationFilter.cs` | `docs/pseudocode/files/src/Pim.Api/Infrastructure/HangfireAuthorizationFilter.cs.md` |
-| [ ] | `src/Pim.Api/Middleware/ExceptionMiddleware.cs` | `docs/pseudocode/files/src/Pim.Api/Middleware/ExceptionMiddleware.cs.md` |
-| [ ] | `src/Pim.Api/ModuleRegistry.cs` | `docs/pseudocode/files/src/Pim.Api/ModuleRegistry.cs.md` |
-| [ ] | `src/Pim.Api/Program.cs` | `docs/pseudocode/files/src/Pim.Api/Program.cs.md` |
-| [ ] | `src/Pim.Api/Search/SearchEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Search/SearchEndpoints.cs.md` |
-| [ ] | `src/Pim.Api/Today/TodaySectionProviders.cs` | `docs/pseudocode/files/src/Pim.Api/Today/TodaySectionProviders.cs.md` |
-| [ ] | `src/Pim.Api/Today/TodaySectionService.cs` | `docs/pseudocode/files/src/Pim.Api/Today/TodaySectionService.cs.md` |
+| [x] | `src/Pim.Api/Endpoints/DaemonEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/DaemonEndpoints.cs.md` |
+| [x] | `src/Pim.Api/Endpoints/EndpointEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/EndpointEndpoints.cs.md` |
+| [x] | `src/Pim.Api/Endpoints/OperationsEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/OperationsEndpoints.cs.md` |
+| [x] | `src/Pim.Api/Endpoints/StatusEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/StatusEndpoints.cs.md` |
+| [x] | `src/Pim.Api/Endpoints/TodayEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/TodayEndpoints.cs.md` |
+| [x] | `src/Pim.Api/Endpoints/VersionEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/VersionEndpoints.cs.md` |
+| [x] | `src/Pim.Api/Infrastructure/CorrelationIdMiddleware.cs` | `docs/pseudocode/files/src/Pim.Api/Infrastructure/CorrelationIdMiddleware.cs.md` |
+| [x] | `src/Pim.Api/Infrastructure/HangfireAuthorizationFilter.cs` | `docs/pseudocode/files/src/Pim.Api/Infrastructure/HangfireAuthorizationFilter.cs.md` |
+| [x] | `src/Pim.Api/Middleware/ExceptionMiddleware.cs` | `docs/pseudocode/files/src/Pim.Api/Middleware/ExceptionMiddleware.cs.md` |
+| [x] | `src/Pim.Api/ModuleRegistry.cs` | `docs/pseudocode/files/src/Pim.Api/ModuleRegistry.cs.md` |
+| [x] | `src/Pim.Api/Program.cs` | `docs/pseudocode/files/src/Pim.Api/Program.cs.md` |
+| [x] | `src/Pim.Api/Search/SearchEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Search/SearchEndpoints.cs.md` |
+| [x] | `src/Pim.Api/Today/TodaySectionProviders.cs` | `docs/pseudocode/files/src/Pim.Api/Today/TodaySectionProviders.cs.md` |
+| [x] | `src/Pim.Api/Today/TodaySectionService.cs` | `docs/pseudocode/files/src/Pim.Api/Today/TodaySectionService.cs.md` |
 | [x] | `src/Pim.Core/Ai/AiDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/AiDtos.cs.md` |
 | [x] | `src/Pim.Core/Ai/AiEnums.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/AiEnums.cs.md` |
 | [x] | `src/Pim.Core/Ai/IAiGateway.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/IAiGateway.cs.md` |

@@ -1,107 +1,113 @@
 {
+  "slot": "A10",
   "nodes": [
     {
-      "id": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs",
-      "label": "AiRequestLogEntity",
-      "path": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs.md",
-      "layer": "infrastructure",
+      "id": "src/Pim.Api/ModuleRegistry.cs",
+      "label": "ModuleRegistry",
+      "path": "src/Pim.Api/ModuleRegistry.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Api/ModuleRegistry.cs.md",
+      "layer": "api",
+      "kind": "other"
+    },
+    {
+      "id": "src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs",
+      "label": "CalendarEntityConfigurations",
+      "path": "src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs.md",
+      "layer": "module.calendar",
       "kind": "entity"
     },
     {
-      "id": "src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs",
-      "label": "Stage0OperationsTables.Designer",
-      "path": "src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs.md",
-      "layer": "infrastructure",
-      "kind": "other"
+      "id": "src/modules/Pim.Module.Calendar/Entities/ReportArtifactEntity.cs",
+      "label": "ReportArtifactEntity",
+      "path": "src/modules/Pim.Module.Calendar/Entities/ReportArtifactEntity.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/ReportArtifactEntity.cs.md",
+      "layer": "module.calendar",
+      "kind": "entity"
     },
     {
-      "id": "src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs",
-      "label": "AddFilesModule.Designer",
-      "path": "src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs.md",
-      "layer": "infrastructure",
-      "kind": "other"
-    },
-    {
-      "id": "src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs",
-      "label": "AddTaskExecutionSegments.Designer",
-      "path": "src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs.md",
-      "layer": "infrastructure",
-      "kind": "other"
-    },
-    {
-      "id": "src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs",
-      "label": "AddOutlookSyncConflicts.Designer",
-      "path": "src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs.md",
-      "layer": "infrastructure",
-      "kind": "other"
-    },
-    {
-      "id": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs",
-      "label": "PimMigrationAdoptionService",
-      "path": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs.md",
-      "layer": "infrastructure",
+      "id": "src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs",
+      "label": "CalendarDeleteService",
+      "path": "src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs.md",
+      "layer": "module.calendar",
       "kind": "service"
     },
     {
-      "id": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs",
-      "label": "OperationConfirmationService",
-      "path": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Operations/OperationConfirmationService.cs.md",
-      "layer": "infrastructure",
+      "id": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs",
+      "label": "OutlookSyncService",
+      "path": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs.md",
+      "layer": "module.calendar",
       "kind": "service"
     },
     {
-      "id": "src/Pim.Api/Endpoints/AuthEndpoints.cs",
-      "label": "AuthEndpoints",
-      "path": "src/Pim.Api/Endpoints/AuthEndpoints.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Api/Endpoints/AuthEndpoints.cs.md",
-      "layer": "api",
-      "kind": "endpoint"
+      "id": "src/modules/Pim.Module.Files/Entities/FileAiResultEntity.cs",
+      "label": "FileAiResultEntity",
+      "path": "src/modules/Pim.Module.Files/Entities/FileAiResultEntity.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Files/Entities/FileAiResultEntity.cs.md",
+      "layer": "module.files",
+      "kind": "entity"
+    },
+    {
+      "id": "src/modules/Pim.Module.Files/Providers/NextcloudDavXmlParser.cs",
+      "label": "NextcloudDavXmlParser",
+      "path": "src/modules/Pim.Module.Files/Providers/NextcloudDavXmlParser.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Files/Providers/NextcloudDavXmlParser.cs.md",
+      "layer": "module.files",
+      "kind": "other"
+    },
+    {
+      "id": "src/modules/Pim.Module.Files/Services/QdrantFileVectorStore.cs",
+      "label": "QdrantFileVectorStore",
+      "path": "src/modules/Pim.Module.Files/Services/QdrantFileVectorStore.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Files/Services/QdrantFileVectorStore.cs.md",
+      "layer": "module.files",
+      "kind": "service"
     }
   ],
   "edges": [
-    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "to": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Ai/AiUsageService.cs", "to": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs", "type": "depends_on" },
-    { "from": "tests/Pim.UnitTests/Ai/AiRequestLogWriterTests.cs", "to": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs", "type": "tests" },
-    { "from": "tests/Pim.UnitTests/Ai/AiPersistenceModelTests.cs", "to": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs", "type": "tests" },
+    { "from": "src/Pim.Api/ModuleRegistry.cs", "to": "src/Pim.Core/Modules/IModule.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Program.cs", "to": "src/Pim.Api/ModuleRegistry.cs", "type": "calls" },
+    { "from": "src/Pim.Api/ModuleRegistry.cs", "to": "src/modules/Pim.Module.Calendar/CalendarModule.cs", "type": "calls" },
+    { "from": "src/Pim.Api/ModuleRegistry.cs", "to": "src/modules/Pim.Module.Files/FilesModule.cs", "type": "calls" },
 
-    { "from": "src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs", "to": "src/modules/Pim.Module.Calendar/Entities/CalendarEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs", "to": "src/modules/Pim.Module.Calendar/Entities/EventEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs", "to": "src/modules/Pim.Module.Calendar/Entities/TaskEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs", "to": "src/modules/Pim.Module.Calendar/Entities/ReportArtifactEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/modules/Pim.Module.Calendar/Entities/CalendarEntityConfigurations.cs", "type": "depends_on" },
 
-    { "from": "src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Entities/ReportArtifactEntity.cs", "to": "src/Pim.Core/Data/ISoftDeletable.cs", "type": "implements" },
+    { "from": "src/modules/Pim.Module.Calendar/Entities/ReportArtifactEntity.cs", "to": "src/modules/Pim.Module.Calendar/Entities/ReportSuggestionEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/ReportService.cs", "to": "src/modules/Pim.Module.Calendar/Entities/ReportArtifactEntity.cs", "type": "depends_on" },
 
-    { "from": "src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs", "to": "src/Pim.Infrastructure/Auth/CurrentUserService.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs", "to": "src/modules/Pim.Module.Calendar/Services/CalendarAuditWriter.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs", "to": "src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs", "to": "src/Pim.Core/Exceptions/DomainException.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/CalendarModule.cs", "to": "src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs", "type": "depends_on" },
 
-    { "from": "src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs", "to": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs", "to": "src/modules/Pim.Module.Calendar/Services/OutlookTokenService.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs", "to": "src/modules/Pim.Module.Calendar/Services/MicrosoftGraphDeviceCodeClient.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs", "to": "src/Pim.Infrastructure/Audit/AuditVersionService.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs", "to": "src/modules/Pim.Module.Calendar/Entities/EventEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs", "to": "src/modules/Pim.Module.Calendar/Entities/SyncConflictEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/CalendarModule.cs", "to": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs", "type": "depends_on" },
 
-    { "from": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "calls" },
-    { "from": "src/Pim.Api/Program.cs", "to": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs", "type": "calls" },
-    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs", "type": "depends_on" },
-    { "from": "tests/Pim.UnitTests/Operations/PimMigrationAdoptionServiceTests.cs", "to": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs", "type": "tests" },
+    { "from": "src/modules/Pim.Module.Files/Entities/FileAiResultEntity.cs", "to": "src/modules/Pim.Module.Files/Entities/FileItemEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Files/Entities/FileAiResultEntity.cs", "to": "src/modules/Pim.Module.Files/Entities/FileVersionEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Files/Services/FileAiService.cs", "to": "src/modules/Pim.Module.Files/Entities/FileAiResultEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Files/Entities/FileEntityConfigurations.cs", "to": "src/modules/Pim.Module.Files/Entities/FileAiResultEntity.cs", "type": "depends_on" },
 
-    { "from": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "to": "src/Pim.Core/Operations/ConfirmationDtos.cs", "type": "implements" },
-    { "from": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "to": "src/Pim.Core/Operations/OperationEnums.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "to": "src/Pim.Core/Exceptions/DomainException.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Endpoints/OperationsEndpoints.cs", "to": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "type": "calls" },
-    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "type": "depends_on" },
-    { "from": "tests/Pim.UnitTests/Operations/AuditAndConfirmationServiceTests.cs", "to": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "type": "tests" },
+    { "from": "src/modules/Pim.Module.Files/Providers/NextcloudDavXmlParser.cs", "to": "src/Pim.Core/Exceptions/DomainException.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Files/Providers/NextcloudFileProviderAdapter.cs", "to": "src/modules/Pim.Module.Files/Providers/NextcloudDavXmlParser.cs", "type": "calls" },
 
-    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Infrastructure/Auth/JwtService.cs", "type": "calls" },
-    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Infrastructure/Auth/PasswordHasher.cs", "type": "calls" },
-    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Program.cs", "to": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "type": "calls" }
+    { "from": "src/modules/Pim.Module.Files/Services/QdrantFileVectorStore.cs", "to": "src/modules/Pim.Module.Files/Services/IFileEmbeddingService.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Files/Services/FileIndexingService.cs", "to": "src/modules/Pim.Module.Files/Services/QdrantFileVectorStore.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Files/FilesModule.cs", "to": "src/modules/Pim.Module.Files/Services/QdrantFileVectorStore.cs", "type": "depends_on" }
   ]
 }

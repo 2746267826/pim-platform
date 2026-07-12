@@ -32,6 +32,21 @@ class ServerUrlValidatorTest {
     }
 
     @Test
+    fun rejectsAnythingTheEndpointResolverCannotUse() {
+        val invalidUrls = listOf(
+            "https://pim.example.com/v1",
+            "https://pim.example.com/api/v1/extra",
+            "https://pim.example.com/api/v1?tenant=x",
+            "https://pim.example.com/api/v1#fragment",
+            "https://user:secret@pim.example.com/api/v1"
+        )
+
+        invalidUrls.forEach { url ->
+            assertFalse(url, ServerUrlValidator.validate(url).isValid)
+        }
+    }
+
+    @Test
     fun realDeviceLocalhostReceivesWarning() {
         val result = ServerUrlValidator.validate("http://127.0.0.1:5858/api/v1/")
 

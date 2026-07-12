@@ -26,6 +26,9 @@ import com.pim.app.status.StatusCenterState
 import com.pim.app.status.StatusIssue
 import com.pim.app.status.StatusSeverity
 import com.pim.app.ui.components.PimSection
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.yield
 
 @Composable
 fun StatusCenterScreen(
@@ -34,8 +37,11 @@ fun StatusCenterScreen(
     onOpenStatus: () -> Unit = {},
     viewModel: StatusCenterViewModel = hiltViewModel()
 ) {
-    LaunchedEffect(Unit) {
-        viewModel.refresh()
+    LaunchedEffect(viewModel) {
+        while (isActive) {
+            val delayMillis = viewModel.refreshConnectionForVisibleScreen()
+            if (delayMillis > 0L) delay(delayMillis) else yield()
+        }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     StatusCenterContent(
@@ -106,7 +112,6 @@ private fun StatusCenterContent(
             Text("待上传定位：${snapshot.queues.pendingLocationPoints}")
             Text("待上传使用记录：${snapshot.queues.pendingUsageEvents + snapshot.queues.pendingUsageSummaries}")
             Text("待上传应用信息：${snapshot.queues.pendingAppMetadata}")
-            Text("待上传日志：${snapshot.queues.pendingLogs}")
             Text("总待处理：${snapshot.queues.pendingUploadTotal}")
 
             androidx.compose.material3.Button(

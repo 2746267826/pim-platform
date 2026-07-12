@@ -2,6 +2,7 @@ package com.pim.core.network
 
 import com.pim.core.models.*
 import okhttp3.RequestBody
+import retrofit2.Response
 import retrofit2.http.*
 
 interface ApiService {
@@ -13,7 +14,7 @@ interface ApiService {
     suspend fun register(@Body request: RegisterRequest): ApiResponse<AuthResponse>
 
     @POST("auth/refresh")
-    suspend fun refresh(@Body request: RefreshRequest): ApiResponse<AuthResponse>
+    suspend fun refresh(@Body request: RefreshRequest): Response<ApiResponse<AuthResponse>>
 
     // Calendars
     @GET("calendar/calendars")

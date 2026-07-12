@@ -14,6 +14,7 @@ object MobileSyncStatus {
     const val SYNCING = "syncing"
     const val SYNCED = "synced"
     const val FAILED = "failed"
+    const val REJECTED = "rejected"
 }
 
 @Entity(

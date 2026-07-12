@@ -24,17 +24,30 @@ public sealed class DaemonHeartbeatReporter
         string serverUrl,
         DateTimeOffset? lastSuccessfulUploadAt,
         DateTimeOffset? lastAttemptedUploadAt,
-        string? lastError)
+        string? lastError,
+        int? uploadQueueCount = null,
+        string activityWatchState = "Unknown",
+        string keyStatsState = "Unknown",
+        object? statusDetails = null)
     {
         var normalizedServerUrl = ApiClient.NormalizeServerUrl(
             string.IsNullOrWhiteSpace(serverUrl)
                 ? ClientDefaults.DefaultServerUrl
                 : serverUrl);
-        var statusJson = JsonSerializer.Serialize(new
+
+        var statusPayload = new Dictionary<string, object?>
         {
-            machine = Environment.MachineName,
-            process = "pim-windows-daemon"
-        });
+            ["machine"] = Environment.MachineName,
+            ["process"] = "pim-windows-daemon"
+        };
+
+        if (statusDetails is not null)
+        {
+            foreach (var prop in statusDetails.GetType().GetProperties())
+            {
+                statusPayload[prop.Name] = prop.GetValue(statusDetails);
+            }
+        }
 
         return new DaemonHeartbeatRequest(
             deviceId,
@@ -46,10 +59,10 @@ public sealed class DaemonHeartbeatReporter
             lastSuccessfulUploadAt,
             lastAttemptedUploadAt,
             lastError,
-            null,
-            "Unknown",
-            "Unknown",
+            uploadQueueCount,
+            activityWatchState,
+            keyStatsState,
             false,
-            statusJson);
+            JsonSerializer.Serialize(statusPayload));
     }
 }

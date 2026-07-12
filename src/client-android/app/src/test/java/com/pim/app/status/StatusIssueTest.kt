@@ -157,4 +157,18 @@ class StatusIssueTest {
 
         assertEquals(1L, signal.version.value)
     }
+
+    @Test
+    fun pendingUploadTotalExcludesLogs() {
+        val queues = QueueStatusSnapshot(
+            pendingLocationPoints = 10,
+            pendingUsageEvents = 5,
+            pendingUsageSummaries = 3,
+            pendingAppMetadata = 2,
+            pendingLogs = 99,
+            pendingDeviceProfile = 1,
+            pendingSyncBatches = 0
+        )
+        assertEquals(10 + 5 + 3 + 2 + 1 + 0, queues.pendingUploadTotal)
+    }
 }

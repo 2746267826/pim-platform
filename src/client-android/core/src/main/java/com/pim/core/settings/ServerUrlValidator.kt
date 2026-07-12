@@ -1,7 +1,5 @@
 package com.pim.core.settings
 
-import java.net.URI
-
 data class ServerUrlValidationResult(
     val input: String,
     val normalizedUrl: String,
@@ -22,16 +20,10 @@ object ServerUrlValidator {
             )
         }
 
-        val uri = runCatching { URI(input) }.getOrNull()
-            ?: return invalid(input, "invalid-url")
-        val scheme = uri.scheme?.lowercase()
-        if (scheme != "http" && scheme != "https") {
-            return invalid(input, "invalid-scheme")
-        }
-        val host = uri.host?.lowercase()
-        if (host.isNullOrBlank()) {
-            return invalid(input, "missing-host")
-        }
+        val endpoints = runCatching { PimServerEndpoints.from(input) }.getOrNull()
+            ?: return invalid(input, "invalid-api-url")
+        val scheme = endpoints.apiBaseUrl.scheme
+        val host = endpoints.apiBaseUrl.host.lowercase()
 
         val warnings = buildSet {
             if (host == "127.0.0.1" || host == "localhost" || host == "::1" || host == "[::1]") {
@@ -44,7 +36,7 @@ object ServerUrlValidator {
 
         return ServerUrlValidationResult(
             input = input,
-            normalizedUrl = input.trimEnd('/') + "/",
+            normalizedUrl = endpoints.apiBaseUrl.toString(),
             isValid = true,
             warnings = warnings
         )

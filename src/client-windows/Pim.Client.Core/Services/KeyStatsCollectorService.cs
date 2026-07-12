@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Pim.Client.Core.Models;
@@ -11,18 +12,27 @@ public sealed class KeyStatsCollectorService : IDisposable
 
     private readonly HttpClient _keyStats;
     private readonly ApiClient _api;
+    private readonly KeyStatsProcessManager _processManager;
     private readonly CancellationTokenSource _cts = new();
     private static readonly object LockObj = new();
     private DateTime? _lastUploadTime;
     private string? _lastUploadError;
+    private KeyStatsHealthResult? _lastHealth;
+    private string? _lastSkipReason;
+    private KeyStatsCounterSnapshot? _previousSnapshot;
 
     public Action<string>? Log { get; set; }
     public DateTime? LastUploadTime { get { lock (LockObj) return _lastUploadTime; } }
     public string? LastUploadError { get { lock (LockObj) return _lastUploadError; } }
+    public KeyStatsHealthResult? LastHealth { get { lock (LockObj) return _lastHealth; } }
+    public string? LastSkipReason { get { lock (LockObj) return _lastSkipReason; } }
 
-    public KeyStatsCollectorService(ApiClient api)
+    public static bool ShouldUpload(KeyStatsHealthResult health) => health.CanUpload;
+
+    public KeyStatsCollectorService(ApiClient api, KeyStatsProcessManager? processManager = null)
     {
         _api = api;
+        _processManager = processManager ?? new KeyStatsProcessManager();
         _keyStats = new HttpClient
         {
             BaseAddress = new Uri(KeyStatsBase),
@@ -68,6 +78,42 @@ public sealed class KeyStatsCollectorService : IDisposable
         {
             var stats = await _keyStats.GetFromJsonAsync<KeyStatsSnapshot>("/api/stats/", _cts.Token);
             if (stats is null) return;
+
+            var snapshot = new KeyStatsCounterSnapshot(
+                stats.KeyPresses,
+                stats.LeftClicks,
+                stats.RightClicks,
+                stats.MiddleClicks,
+                stats.SideBackClicks,
+                stats.SideForwardClicks,
+                stats.MouseDistance,
+                stats.ScrollDistance);
+
+            KeyStatsCounterSnapshot? previous;
+            lock (LockObj) { previous = _previousSnapshot; }
+
+            var currentSessionId = Process.GetCurrentProcess().SessionId;
+            var processes = _processManager.ListProcesses(currentSessionId);
+            var health = KeyStatsHealthProbe.Evaluate(
+                processes,
+                currentSessionId,
+                snapshot,
+                previous,
+                apiError: null);
+
+            lock (LockObj)
+            {
+                _previousSnapshot = snapshot;
+                _lastHealth = health;
+                _lastSkipReason = health.SkipReason;
+            }
+
+            if (!ShouldUpload(health))
+            {
+                lock (LockObj) { _lastUploadError = health.SummaryZh; }
+                Log?.Invoke($"[KeyStatsCollector] Skip upload: {health.SummaryZh} (reason: {health.SkipReason})");
+                return;
+            }
 
             var sample = new KeystatsSampleUploadPayload(
                 stats.DeviceId,

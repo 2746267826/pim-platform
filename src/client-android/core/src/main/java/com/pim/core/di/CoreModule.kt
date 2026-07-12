@@ -1,11 +1,15 @@
 package com.pim.core.di
 
 import android.content.Context
+import com.pim.core.auth.AuthRefreshOperation
+import com.pim.core.auth.AuthSessionStore
+import com.pim.core.auth.ServerBoundLoginTransport
 import com.pim.core.auth.TokenManager
-import com.pim.core.models.RefreshRequest
 import com.pim.core.network.ApiClientProvider
 import com.pim.core.network.ApiService
 import com.pim.core.network.AuthInterceptor
+import com.pim.core.network.AuthRefreshCoordinator
+import com.pim.core.network.RetrofitAuthRefreshOperation
 import com.pim.core.network.applyPimApiTimeouts
 import dagger.Module
 import dagger.Provides
@@ -28,32 +32,58 @@ object CoreModule {
 
     @Provides
     @Singleton
+    fun provideAuthSessionStore(tokenManager: TokenManager): AuthSessionStore {
+        return tokenManager
+    }
+
+    @Provides
+    @Singleton
+    fun provideServerBoundLoginTransport(
+        apiClientProvider: dagger.Lazy<ApiClientProvider>
+    ): ServerBoundLoginTransport {
+        return ServerBoundLoginTransport { serverIdentity, request ->
+            apiClientProvider.get()
+                .refreshApiServiceForServer(serverIdentity)
+                .login(request)
+        }
+    }
+
+    @Provides
+    @Singleton
     fun provideJson(): Json = Json { ignoreUnknownKeys = true }
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(
-        tokenManager: TokenManager,
+    fun provideAuthRefreshOperation(
         apiClientProvider: dagger.Lazy<ApiClientProvider>
+    ): AuthRefreshOperation {
+        return RetrofitAuthRefreshOperation(
+            refreshCall = { serverIdentity, request ->
+                apiClientProvider.get()
+                    .refreshApiServiceForServer(serverIdentity)
+                    .refresh(request)
+            }
+        )
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthRefreshCoordinator(
+        sessionStore: AuthSessionStore,
+        refreshOperation: AuthRefreshOperation
+    ): AuthRefreshCoordinator {
+        return AuthRefreshCoordinator(sessionStore, refreshOperation)
+    }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(
+        sessionStore: AuthSessionStore,
+        refreshCoordinator: AuthRefreshCoordinator
     ): OkHttpClient {
         return OkHttpClient.Builder()
             .applyPimApiTimeouts()
-            .addInterceptor(AuthInterceptor(tokenManager) {
-                val refreshToken = tokenManager.getRefreshToken()
-                if (refreshToken.isNullOrBlank()) {
-                    false
-                } else {
-                    runCatching {
-                        val response = apiClientProvider.get().refreshApiService().refresh(RefreshRequest(refreshToken))
-                        if (response.code == 0 && response.data != null) {
-                            tokenManager.saveTokens(response.data.accessToken, response.data.refreshToken, response.data.expiresAt)
-                            true
-                        } else {
-                            false
-                        }
-                    }.getOrDefault(false)
-                }
-            })
+            .addInterceptor(AuthInterceptor(sessionStore, refreshCoordinator))
             .build()
     }
 

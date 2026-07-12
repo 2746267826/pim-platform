@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.dagger.hilt.android")
     kotlin("kapt")
+    kotlin("plugin.serialization")
 }
 
 val ciKeystoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
@@ -25,6 +26,12 @@ android {
         targetSdk = 34
         versionCode = System.getenv("CI_VERSION_CODE")?.toIntOrNull() ?: 1
         versionName = System.getenv("CI_APP_VERSION") ?: "0.0.0(local)"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments["room.schemaLocation"] = "$projectDir/schemas"
+            }
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -34,6 +41,10 @@ android {
     composeOptions { kotlinCompilerExtensionVersion = "1.5.15" }
     kotlinOptions {
         jvmTarget = "17"
+    }
+    sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
     signingConfigs {
         if (hasCiSigning) {
@@ -99,6 +110,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.8.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.6.2")
+    implementation("androidx.lifecycle:lifecycle-process:2.6.2")
     implementation("androidx.navigation:navigation-compose:2.7.5")
 
     implementation("com.google.dagger:hilt-android:2.51.1")
@@ -110,5 +122,16 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("androidx.work:work-testing:2.9.0")
     testImplementation("androidx.room:room-testing:2.6.1")
+    testImplementation("androidx.test:core-ktx:1.5.0")
+    testImplementation("org.robolectric:robolectric:4.12.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test:runner:1.5.2")
+    androidTestImplementation("androidx.test:rules:1.5.0")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.5.4")
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
+    debugImplementation("androidx.compose.ui:ui-test-manifest:1.5.4")
 }

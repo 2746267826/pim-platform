@@ -1,42 +1,42 @@
 ﻿# File Manifest
 
-Generated: 2026-07-12 22:15:36
+Generated: 2026-07-12 22:21:41
 Total: 775
 
 | Status | Source | Doc |
 | --- | --- | --- |
-| [ ] | `src/client-android/app/src/androidTest/java/com/pim/app/AndroidInstrumentationSmokeTest.kt` | `docs/pseudocode/files/src/client-android/app/src/androidTest/java/com/pim/app/AndroidInstrumentationSmokeTest.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/daemon/PimDaemonService.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/daemon/PimDaemonService.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/daemon/StatusActivity.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/daemon/StatusActivity.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/data/MobileDataModule.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/MobileDataModule.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/LocationSubmissionPolicy.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/LocationSubmissionPolicy.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/PimServerUrls.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/PimServerUrls.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/policy/GeoDistance.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/policy/GeoDistance.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/quality/LocationQualityGate.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/quality/LocationQualityGate.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/MainActivity.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/MainActivity.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt.md` |
+| [x] | `src/client-android/app/src/androidTest/java/com/pim/app/AndroidInstrumentationSmokeTest.kt` | `docs/pseudocode/files/src/client-android/app/src/androidTest/java/com/pim/app/AndroidInstrumentationSmokeTest.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/daemon/PimDaemonService.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/daemon/PimDaemonService.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/daemon/StatusActivity.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/daemon/StatusActivity.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/data/MobileDataModule.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/MobileDataModule.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/LocationSubmissionPolicy.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/LocationSubmissionPolicy.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/PimServerUrls.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/PimServerUrls.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/policy/GeoDistance.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/policy/GeoDistance.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/quality/LocationQualityGate.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/quality/LocationQualityGate.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/MainActivity.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/MainActivity.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt.md` |
 | [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt.md` |
 | [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncScheduler.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncScheduler.kt.md` |
 | [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt.md` |
@@ -195,94 +195,94 @@ Total: 775
 | [x] | `src/client-web/src/components/pc-classification/ClassificationRecomputePanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRecomputePanel.tsx.md` |
 | [x] | `src/client-web/src/components/pc-classification/ClassificationRuleEditor.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRuleEditor.tsx.md` |
 | [x] | `src/client-web/src/components/pc-classification/ClassificationRuleTable.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRuleTable.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/CategoryTimeline.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/CategoryTimeline.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/ClassificationActionQueue.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ClassificationActionQueue.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/ClassificationSuggestionPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ClassificationSuggestionPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/ContextConfirmationPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ContextConfirmationPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/DateDimensionBar.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/DateDimensionBar.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/EventTimelineDialog.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/EventTimelineDialog.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/PcDetailQueryPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/PcDetailQueryPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/PcQualitySummary.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/PcQualitySummary.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/PcReviewSummary.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/PcReviewSummary.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/ProductivityDashboard.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ProductivityDashboard.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/QuickClassificationDialog.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/QuickClassificationDialog.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts` | `docs/pseudocode/files/src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts.md` |
-| [ ] | `src/client-web/src/components/quick-notes/QuickNoteEditor.tsx` | `docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteEditor.tsx.md` |
-| [ ] | `src/client-web/src/components/quick-notes/QuickNoteFloatingButton.tsx` | `docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteFloatingButton.tsx.md` |
-| [ ] | `src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/quick-notes/quickNoteFloatingState.ts` | `docs/pseudocode/files/src/client-web/src/components/quick-notes/quickNoteFloatingState.ts.md` |
-| [ ] | `src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx` | `docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx.md` |
-| [ ] | `src/client-web/src/components/schedule/BeforeAfterDiff.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/BeforeAfterDiff.tsx.md` |
-| [ ] | `src/client-web/src/components/schedule/CalendarLayerToolbar.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/CalendarLayerToolbar.tsx.md` |
-| [ ] | `src/client-web/src/components/schedule/DataCenterBatchPreview.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/DataCenterBatchPreview.tsx.md` |
-| [ ] | `src/client-web/src/components/schedule/HabitRoutineEditor.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/HabitRoutineEditor.tsx.md` |
-| [ ] | `src/client-web/src/components/schedule/OutlookConflictResolver.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/OutlookConflictResolver.tsx.md` |
-| [ ] | `src/client-web/src/components/schedule/StrictConfirmationPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/StrictConfirmationPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/schedule/TaskHierarchyPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/TaskHierarchyPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/schedule/TaskSegmentEditor.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/TaskSegmentEditor.tsx.md` |
-| [ ] | `src/client-web/src/components/status/MobileDiagnosticsPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/status/MobileDiagnosticsPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/status/SidebarStatusIndicator.tsx` | `docs/pseudocode/files/src/client-web/src/components/status/SidebarStatusIndicator.tsx.md` |
-| [ ] | `src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx.md` |
-| [ ] | `src/client-web/src/components/today/TodayHealthSection.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodayHealthSection.tsx.md` |
-| [ ] | `src/client-web/src/components/today/TodayPcOverview.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodayPcOverview.tsx.md` |
-| [ ] | `src/client-web/src/components/today/TodayPcQualitySection.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodayPcQualitySection.tsx.md` |
-| [ ] | `src/client-web/src/components/today/TodayScheduleList.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodayScheduleList.tsx.md` |
-| [ ] | `src/client-web/src/components/today/TodaySectionHost.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodaySectionHost.tsx.md` |
-| [ ] | `src/client-web/src/components/today/TodayTaskColumn.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodayTaskColumn.tsx.md` |
-| [ ] | `src/client-web/src/context/CalendarVisibilityContext.tsx` | `docs/pseudocode/files/src/client-web/src/context/CalendarVisibilityContext.tsx.md` |
-| [ ] | `src/client-web/src/dialogs/common.tsx` | `docs/pseudocode/files/src/client-web/src/dialogs/common.tsx.md` |
-| [ ] | `src/client-web/src/dialogs/EventEditorDialog.tsx` | `docs/pseudocode/files/src/client-web/src/dialogs/EventEditorDialog.tsx.md` |
-| [ ] | `src/client-web/src/dialogs/TaskEditorDialog.tsx` | `docs/pseudocode/files/src/client-web/src/dialogs/TaskEditorDialog.tsx.md` |
-| [ ] | `src/client-web/src/i18n/scheduleWorkbench.zh-CN.ts` | `docs/pseudocode/files/src/client-web/src/i18n/scheduleWorkbench.zh-CN.ts.md` |
-| [ ] | `src/client-web/src/layout/AppLayout.tsx` | `docs/pseudocode/files/src/client-web/src/layout/AppLayout.tsx.md` |
-| [ ] | `src/client-web/src/layout/Sidebar.tsx` | `docs/pseudocode/files/src/client-web/src/layout/Sidebar.tsx.md` |
-| [ ] | `src/client-web/src/main.tsx` | `docs/pseudocode/files/src/client-web/src/main.tsx.md` |
-| [ ] | `src/client-web/src/pages/AiSettingsPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/AiSettingsPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/AppKnowledgeBasePage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/AppKnowledgeBasePage.tsx.md` |
-| [ ] | `src/client-web/src/pages/AuditTimelinePage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/AuditTimelinePage.tsx.md` |
-| [ ] | `src/client-web/src/pages/CalendarDataManager.tsx` | `docs/pseudocode/files/src/client-web/src/pages/CalendarDataManager.tsx.md` |
-| [ ] | `src/client-web/src/pages/CalendarPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/CalendarPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/CategoryTreePage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/CategoryTreePage.tsx.md` |
-| [ ] | `src/client-web/src/pages/ConfirmationsPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/ConfirmationsPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/DataCenterPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/DataCenterPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/EndpointShellPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/EndpointShellPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/FilesPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/FilesPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/HabitsPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/HabitsPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/HistoricalLocationPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/HistoricalLocationPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/MobileRecordsPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/MobileRecordsPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/PcClassificationPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/PcClassificationPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/PcDetailQueryPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/PcDetailQueryPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/PcTrackerPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/PcTrackerPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/QuickNotesPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/QuickNotesPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/RecycleBinPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/RecycleBinPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/RemindersPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/RemindersPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/ReportsPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/ReportsPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/SettingsPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/SettingsPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/StatusPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/StatusPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/SyncPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/SyncPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/TaskListPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/TaskListPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/TodayPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/TodayPage.tsx.md` |
-| [ ] | `src/client-web/src/pages/WorkbenchPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/WorkbenchPage.tsx.md` |
-| [ ] | `src/client-web/src/panels/InboxPanel.tsx` | `docs/pseudocode/files/src/client-web/src/panels/InboxPanel.tsx.md` |
-| [ ] | `src/client-web/src/types/index.ts` | `docs/pseudocode/files/src/client-web/src/types/index.ts.md` |
-| [ ] | `src/client-web/src/ui/ConfirmActionDialog.tsx` | `docs/pseudocode/files/src/client-web/src/ui/ConfirmActionDialog.tsx.md` |
-| [ ] | `src/client-web/src/ui/confirmActionDialogModel.ts` | `docs/pseudocode/files/src/client-web/src/ui/confirmActionDialogModel.ts.md` |
-| [ ] | `src/client-web/src/ui/EditorDrawer.tsx` | `docs/pseudocode/files/src/client-web/src/ui/EditorDrawer.tsx.md` |
-| [ ] | `src/client-web/src/ui/EmptyState.tsx` | `docs/pseudocode/files/src/client-web/src/ui/EmptyState.tsx.md` |
-| [ ] | `src/client-web/src/ui/MetricCard.tsx` | `docs/pseudocode/files/src/client-web/src/ui/MetricCard.tsx.md` |
-| [ ] | `src/client-web/src/ui/OperationResultBanner.tsx` | `docs/pseudocode/files/src/client-web/src/ui/OperationResultBanner.tsx.md` |
-| [ ] | `src/client-web/src/ui/PageHeader.tsx` | `docs/pseudocode/files/src/client-web/src/ui/PageHeader.tsx.md` |
-| [ ] | `src/client-web/src/ui/SegmentedControl.tsx` | `docs/pseudocode/files/src/client-web/src/ui/SegmentedControl.tsx.md` |
-| [ ] | `src/client-web/src/ui/StatusBadge.tsx` | `docs/pseudocode/files/src/client-web/src/ui/StatusBadge.tsx.md` |
-| [ ] | `src/client-web/src/utils/pcBusinessDay.ts` | `docs/pseudocode/files/src/client-web/src/utils/pcBusinessDay.ts.md` |
-| [ ] | `src/client-web/tailwind.config.ts` | `docs/pseudocode/files/src/client-web/tailwind.config.ts.md` |
-| [ ] | `src/client-web/vite.config.ts` | `docs/pseudocode/files/src/client-web/vite.config.ts.md` |
+| [x] | `src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/CategoryTimeline.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/CategoryTimeline.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/ClassificationActionQueue.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ClassificationActionQueue.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/ClassificationSuggestionPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ClassificationSuggestionPanel.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/ContextConfirmationPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ContextConfirmationPanel.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/DateDimensionBar.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/DateDimensionBar.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/EventTimelineDialog.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/EventTimelineDialog.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/PcDetailQueryPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/PcDetailQueryPanel.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/PcQualitySummary.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/PcQualitySummary.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/PcReviewSummary.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/PcReviewSummary.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/ProductivityDashboard.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ProductivityDashboard.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/QuickClassificationDialog.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/QuickClassificationDialog.tsx.md` |
+| [x] | `src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx.md` |
+| [x] | `src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts` | `docs/pseudocode/files/src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts.md` |
+| [x] | `src/client-web/src/components/quick-notes/QuickNoteEditor.tsx` | `docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteEditor.tsx.md` |
+| [x] | `src/client-web/src/components/quick-notes/QuickNoteFloatingButton.tsx` | `docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteFloatingButton.tsx.md` |
+| [x] | `src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx.md` |
+| [x] | `src/client-web/src/components/quick-notes/quickNoteFloatingState.ts` | `docs/pseudocode/files/src/client-web/src/components/quick-notes/quickNoteFloatingState.ts.md` |
+| [x] | `src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx` | `docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx.md` |
+| [x] | `src/client-web/src/components/schedule/BeforeAfterDiff.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/BeforeAfterDiff.tsx.md` |
+| [x] | `src/client-web/src/components/schedule/CalendarLayerToolbar.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/CalendarLayerToolbar.tsx.md` |
+| [x] | `src/client-web/src/components/schedule/DataCenterBatchPreview.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/DataCenterBatchPreview.tsx.md` |
+| [x] | `src/client-web/src/components/schedule/HabitRoutineEditor.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/HabitRoutineEditor.tsx.md` |
+| [x] | `src/client-web/src/components/schedule/OutlookConflictResolver.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/OutlookConflictResolver.tsx.md` |
+| [x] | `src/client-web/src/components/schedule/StrictConfirmationPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/StrictConfirmationPanel.tsx.md` |
+| [x] | `src/client-web/src/components/schedule/TaskHierarchyPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/TaskHierarchyPanel.tsx.md` |
+| [x] | `src/client-web/src/components/schedule/TaskSegmentEditor.tsx` | `docs/pseudocode/files/src/client-web/src/components/schedule/TaskSegmentEditor.tsx.md` |
+| [x] | `src/client-web/src/components/status/MobileDiagnosticsPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/status/MobileDiagnosticsPanel.tsx.md` |
+| [x] | `src/client-web/src/components/status/SidebarStatusIndicator.tsx` | `docs/pseudocode/files/src/client-web/src/components/status/SidebarStatusIndicator.tsx.md` |
+| [x] | `src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx.md` |
+| [x] | `src/client-web/src/components/today/TodayHealthSection.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodayHealthSection.tsx.md` |
+| [x] | `src/client-web/src/components/today/TodayPcOverview.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodayPcOverview.tsx.md` |
+| [x] | `src/client-web/src/components/today/TodayPcQualitySection.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodayPcQualitySection.tsx.md` |
+| [x] | `src/client-web/src/components/today/TodayScheduleList.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodayScheduleList.tsx.md` |
+| [x] | `src/client-web/src/components/today/TodaySectionHost.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodaySectionHost.tsx.md` |
+| [x] | `src/client-web/src/components/today/TodayTaskColumn.tsx` | `docs/pseudocode/files/src/client-web/src/components/today/TodayTaskColumn.tsx.md` |
+| [x] | `src/client-web/src/context/CalendarVisibilityContext.tsx` | `docs/pseudocode/files/src/client-web/src/context/CalendarVisibilityContext.tsx.md` |
+| [x] | `src/client-web/src/dialogs/common.tsx` | `docs/pseudocode/files/src/client-web/src/dialogs/common.tsx.md` |
+| [x] | `src/client-web/src/dialogs/EventEditorDialog.tsx` | `docs/pseudocode/files/src/client-web/src/dialogs/EventEditorDialog.tsx.md` |
+| [x] | `src/client-web/src/dialogs/TaskEditorDialog.tsx` | `docs/pseudocode/files/src/client-web/src/dialogs/TaskEditorDialog.tsx.md` |
+| [x] | `src/client-web/src/i18n/scheduleWorkbench.zh-CN.ts` | `docs/pseudocode/files/src/client-web/src/i18n/scheduleWorkbench.zh-CN.ts.md` |
+| [x] | `src/client-web/src/layout/AppLayout.tsx` | `docs/pseudocode/files/src/client-web/src/layout/AppLayout.tsx.md` |
+| [x] | `src/client-web/src/layout/Sidebar.tsx` | `docs/pseudocode/files/src/client-web/src/layout/Sidebar.tsx.md` |
+| [x] | `src/client-web/src/main.tsx` | `docs/pseudocode/files/src/client-web/src/main.tsx.md` |
+| [x] | `src/client-web/src/pages/AiSettingsPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/AiSettingsPage.tsx.md` |
+| [x] | `src/client-web/src/pages/AppKnowledgeBasePage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/AppKnowledgeBasePage.tsx.md` |
+| [x] | `src/client-web/src/pages/AuditTimelinePage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/AuditTimelinePage.tsx.md` |
+| [x] | `src/client-web/src/pages/CalendarDataManager.tsx` | `docs/pseudocode/files/src/client-web/src/pages/CalendarDataManager.tsx.md` |
+| [x] | `src/client-web/src/pages/CalendarPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/CalendarPage.tsx.md` |
+| [x] | `src/client-web/src/pages/CategoryTreePage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/CategoryTreePage.tsx.md` |
+| [x] | `src/client-web/src/pages/ConfirmationsPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/ConfirmationsPage.tsx.md` |
+| [x] | `src/client-web/src/pages/DataCenterPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/DataCenterPage.tsx.md` |
+| [x] | `src/client-web/src/pages/EndpointShellPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/EndpointShellPage.tsx.md` |
+| [x] | `src/client-web/src/pages/FilesPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/FilesPage.tsx.md` |
+| [x] | `src/client-web/src/pages/HabitsPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/HabitsPage.tsx.md` |
+| [x] | `src/client-web/src/pages/HistoricalLocationPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/HistoricalLocationPage.tsx.md` |
+| [x] | `src/client-web/src/pages/MobileRecordsPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/MobileRecordsPage.tsx.md` |
+| [x] | `src/client-web/src/pages/PcClassificationPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/PcClassificationPage.tsx.md` |
+| [x] | `src/client-web/src/pages/PcDetailQueryPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/PcDetailQueryPage.tsx.md` |
+| [x] | `src/client-web/src/pages/PcTrackerPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/PcTrackerPage.tsx.md` |
+| [x] | `src/client-web/src/pages/QuickNotesPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/QuickNotesPage.tsx.md` |
+| [x] | `src/client-web/src/pages/RecycleBinPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/RecycleBinPage.tsx.md` |
+| [x] | `src/client-web/src/pages/RemindersPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/RemindersPage.tsx.md` |
+| [x] | `src/client-web/src/pages/ReportsPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/ReportsPage.tsx.md` |
+| [x] | `src/client-web/src/pages/SettingsPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/SettingsPage.tsx.md` |
+| [x] | `src/client-web/src/pages/StatusPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/StatusPage.tsx.md` |
+| [x] | `src/client-web/src/pages/SyncPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/SyncPage.tsx.md` |
+| [x] | `src/client-web/src/pages/TaskListPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/TaskListPage.tsx.md` |
+| [x] | `src/client-web/src/pages/TodayPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/TodayPage.tsx.md` |
+| [x] | `src/client-web/src/pages/WorkbenchPage.tsx` | `docs/pseudocode/files/src/client-web/src/pages/WorkbenchPage.tsx.md` |
+| [x] | `src/client-web/src/panels/InboxPanel.tsx` | `docs/pseudocode/files/src/client-web/src/panels/InboxPanel.tsx.md` |
+| [x] | `src/client-web/src/types/index.ts` | `docs/pseudocode/files/src/client-web/src/types/index.ts.md` |
+| [x] | `src/client-web/src/ui/ConfirmActionDialog.tsx` | `docs/pseudocode/files/src/client-web/src/ui/ConfirmActionDialog.tsx.md` |
+| [x] | `src/client-web/src/ui/confirmActionDialogModel.ts` | `docs/pseudocode/files/src/client-web/src/ui/confirmActionDialogModel.ts.md` |
+| [x] | `src/client-web/src/ui/EditorDrawer.tsx` | `docs/pseudocode/files/src/client-web/src/ui/EditorDrawer.tsx.md` |
+| [x] | `src/client-web/src/ui/EmptyState.tsx` | `docs/pseudocode/files/src/client-web/src/ui/EmptyState.tsx.md` |
+| [x] | `src/client-web/src/ui/MetricCard.tsx` | `docs/pseudocode/files/src/client-web/src/ui/MetricCard.tsx.md` |
+| [x] | `src/client-web/src/ui/OperationResultBanner.tsx` | `docs/pseudocode/files/src/client-web/src/ui/OperationResultBanner.tsx.md` |
+| [x] | `src/client-web/src/ui/PageHeader.tsx` | `docs/pseudocode/files/src/client-web/src/ui/PageHeader.tsx.md` |
+| [x] | `src/client-web/src/ui/SegmentedControl.tsx` | `docs/pseudocode/files/src/client-web/src/ui/SegmentedControl.tsx.md` |
+| [x] | `src/client-web/src/ui/StatusBadge.tsx` | `docs/pseudocode/files/src/client-web/src/ui/StatusBadge.tsx.md` |
+| [x] | `src/client-web/src/utils/pcBusinessDay.ts` | `docs/pseudocode/files/src/client-web/src/utils/pcBusinessDay.ts.md` |
+| [x] | `src/client-web/tailwind.config.ts` | `docs/pseudocode/files/src/client-web/tailwind.config.ts.md` |
+| [x] | `src/client-web/vite.config.ts` | `docs/pseudocode/files/src/client-web/vite.config.ts.md` |
 | [x] | `src/client-windows/Pim.Client.App/App.xaml.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/App.xaml.cs.md` |
 | [x] | `src/client-windows/Pim.Client.App/AutoStartManager.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/AutoStartManager.cs.md` |
 | [x] | `src/client-windows/Pim.Client.App/DaemonConfig.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/DaemonConfig.cs.md` |

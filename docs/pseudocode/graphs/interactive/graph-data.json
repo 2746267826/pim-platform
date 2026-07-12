@@ -1,6 +1,262 @@
 ﻿{
     "nodes":  [
                   {
+                      "id":  "src/client-android/app/src/androidTest/java/com/pim/app/AndroidInstrumentationSmokeTest.kt",
+                      "label":  "AndroidInstrumentationSmokeTest",
+                      "path":  "src/client-android/app/src/androidTest/java/com/pim/app/AndroidInstrumentationSmokeTest.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/androidTest/java/com/pim/app/AndroidInstrumentationSmokeTest.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/daemon/PimDaemonService.kt",
+                      "label":  "PimDaemonService",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/daemon/PimDaemonService.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/daemon/PimDaemonService.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "entrypoint"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/daemon/StatusActivity.kt",
+                      "label":  "StatusActivity",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/daemon/StatusActivity.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/daemon/StatusActivity.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+                      "label":  "AppDatabase",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt",
+                      "label":  "AppUsageDao",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt",
+                      "label":  "AppUsageEntity",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "dto"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+                      "label":  "MobileDataDao",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/data/MobileDataModule.kt",
+                      "label":  "MobileDataModule",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/data/MobileDataModule.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/MobileDataModule.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt",
+                      "label":  "MobileSyncStatus",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "entity"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt",
+                      "label":  "PimDatabaseMigrations",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+                      "label":  "AnonymousProbeClient",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "entrypoint"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt",
+                      "label":  "PimWorkerFactory",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt",
+                      "label":  "LocationCaptureRepository",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt",
+                      "label":  "LocationQueueRepository",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/LocationSubmissionPolicy.kt",
+                      "label":  "LocationSubmissionPolicy",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/LocationSubmissionPolicy.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/LocationSubmissionPolicy.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt",
+                      "label":  "MotionSignalRepository",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/PimServerUrls.kt",
+                      "label":  "PimServerUrls",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/PimServerUrls.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/PimServerUrls.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/policy/GeoDistance.kt",
+                      "label":  "GeoDistance",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/policy/GeoDistance.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/policy/GeoDistance.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt",
+                      "label":  "LocationPolicyEngine",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt",
+                      "label":  "LocationPolicyMode",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "dto"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt",
+                      "label":  "AltitudeWaitCoordinator",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/quality/LocationQualityGate.kt",
+                      "label":  "RawLocationFix",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/quality/LocationQualityGate.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/quality/LocationQualityGate.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt",
+                      "label":  "ForegroundLocationController",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt",
+                      "label":  "ForegroundLocationRuntimeState",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "dto"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt",
+                      "label":  "ForegroundLocationService",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/MainActivity.kt",
+                      "label":  "MainActivity",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/MainActivity.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/MainActivity.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt",
+                      "label":  "StructuredLogRepository",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt",
+                      "label":  "MobileOverview",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt",
+                      "label":  "LocationUploadBatchResult",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt",
+                      "label":  "MobileAcknowledgementItem",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt",
+                      "label":  "MobileHeartbeatReporter",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+                      "label":  "MobileSyncState",
+                      "path":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+                      "doc":  "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt.md",
+                      "layer":  "client-android",
+                      "kind":  "service"
+                  },
+                  {
                       "id":  "src/client-web/eslint.config.js",
                       "label":  "eslint.config",
                       "path":  "src/client-web/eslint.config.js",
@@ -439,6 +695,710 @@
                       "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRuleTable.tsx.md",
                       "layer":  "client-web",
                       "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx",
+                      "label":  "ActivityAnalysisHeatmap",
+                      "path":  "src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx",
+                      "label":  "ActivityHeatmap",
+                      "path":  "src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/CategoryTimeline.tsx",
+                      "label":  "CategoryTimeline",
+                      "path":  "src/client-web/src/components/pc-tracker/CategoryTimeline.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/CategoryTimeline.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/ClassificationActionQueue.tsx",
+                      "label":  "ClassificationActionQueue",
+                      "path":  "src/client-web/src/components/pc-tracker/ClassificationActionQueue.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ClassificationActionQueue.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx",
+                      "label":  "ClassificationPreviewDialog",
+                      "path":  "src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/ClassificationSuggestionPanel.tsx",
+                      "label":  "ClassificationSuggestionPanel",
+                      "path":  "src/client-web/src/components/pc-tracker/ClassificationSuggestionPanel.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ClassificationSuggestionPanel.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/ContextConfirmationPanel.tsx",
+                      "label":  "ContextConfirmationPanel",
+                      "path":  "src/client-web/src/components/pc-tracker/ContextConfirmationPanel.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ContextConfirmationPanel.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx",
+                      "label":  "DailyActivityPanel",
+                      "path":  "src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/DateDimensionBar.tsx",
+                      "label":  "DateDimensionBar",
+                      "path":  "src/client-web/src/components/pc-tracker/DateDimensionBar.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/DateDimensionBar.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/EventTimelineDialog.tsx",
+                      "label":  "EventTimelineDialog",
+                      "path":  "src/client-web/src/components/pc-tracker/EventTimelineDialog.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/EventTimelineDialog.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx",
+                      "label":  "KeyboardHeatmap",
+                      "path":  "src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/PcDetailQueryPanel.tsx",
+                      "label":  "PcDetailQueryPanel",
+                      "path":  "src/client-web/src/components/pc-tracker/PcDetailQueryPanel.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/PcDetailQueryPanel.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/PcQualitySummary.tsx",
+                      "label":  "PcQualitySummary",
+                      "path":  "src/client-web/src/components/pc-tracker/PcQualitySummary.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/PcQualitySummary.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/PcReviewSummary.tsx",
+                      "label":  "PcReviewSummary",
+                      "path":  "src/client-web/src/components/pc-tracker/PcReviewSummary.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/PcReviewSummary.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/ProductivityDashboard.tsx",
+                      "label":  "ProductivityDashboard",
+                      "path":  "src/client-web/src/components/pc-tracker/ProductivityDashboard.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ProductivityDashboard.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/QuickClassificationDialog.tsx",
+                      "label":  "QuickClassificationDialog",
+                      "path":  "src/client-web/src/components/pc-tracker/QuickClassificationDialog.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/QuickClassificationDialog.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx",
+                      "label":  "RuleImpactPreviewPanel",
+                      "path":  "src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts",
+                      "label":  "extractQuickNoteAttachmentIds",
+                      "path":  "src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts.md",
+                      "layer":  "client-web",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/quick-notes/QuickNoteEditor.tsx",
+                      "label":  "QuickNoteEditor",
+                      "path":  "src/client-web/src/components/quick-notes/QuickNoteEditor.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteEditor.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/quick-notes/QuickNoteFloatingButton.tsx",
+                      "label":  "QuickNoteFloatingButton",
+                      "path":  "src/client-web/src/components/quick-notes/QuickNoteFloatingButton.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteFloatingButton.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx",
+                      "label":  "QuickNoteFloatingPanel",
+                      "path":  "src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/quick-notes/quickNoteFloatingState.ts",
+                      "label":  "quickNoteFloatingState",
+                      "path":  "src/client-web/src/components/quick-notes/quickNoteFloatingState.ts",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/quick-notes/quickNoteFloatingState.ts.md",
+                      "layer":  "client-web",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx",
+                      "label":  "QuickNoteMarkdownPreview",
+                      "path":  "src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/schedule/BeforeAfterDiff.tsx",
+                      "label":  "BeforeAfterDiff",
+                      "path":  "src/client-web/src/components/schedule/BeforeAfterDiff.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/schedule/BeforeAfterDiff.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/schedule/CalendarLayerToolbar.tsx",
+                      "label":  "CalendarLayerToolbar",
+                      "path":  "src/client-web/src/components/schedule/CalendarLayerToolbar.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/schedule/CalendarLayerToolbar.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/schedule/DataCenterBatchPreview.tsx",
+                      "label":  "DataCenterBatchPreview",
+                      "path":  "src/client-web/src/components/schedule/DataCenterBatchPreview.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/schedule/DataCenterBatchPreview.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/schedule/HabitRoutineEditor.tsx",
+                      "label":  "HabitRoutineEditor",
+                      "path":  "src/client-web/src/components/schedule/HabitRoutineEditor.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/schedule/HabitRoutineEditor.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/schedule/OutlookConflictResolver.tsx",
+                      "label":  "OutlookConflictResolver",
+                      "path":  "src/client-web/src/components/schedule/OutlookConflictResolver.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/schedule/OutlookConflictResolver.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/schedule/StrictConfirmationPanel.tsx",
+                      "label":  "StrictConfirmationPanel",
+                      "path":  "src/client-web/src/components/schedule/StrictConfirmationPanel.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/schedule/StrictConfirmationPanel.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/schedule/TaskHierarchyPanel.tsx",
+                      "label":  "TaskHierarchyPanel",
+                      "path":  "src/client-web/src/components/schedule/TaskHierarchyPanel.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/schedule/TaskHierarchyPanel.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/schedule/TaskSegmentEditor.tsx",
+                      "label":  "TaskSegmentEditor",
+                      "path":  "src/client-web/src/components/schedule/TaskSegmentEditor.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/schedule/TaskSegmentEditor.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/status/MobileDiagnosticsPanel.tsx",
+                      "label":  "MobileDiagnosticsPanel",
+                      "path":  "src/client-web/src/components/status/MobileDiagnosticsPanel.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/status/MobileDiagnosticsPanel.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/status/SidebarStatusIndicator.tsx",
+                      "label":  "SidebarStatusIndicator",
+                      "path":  "src/client-web/src/components/status/SidebarStatusIndicator.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/status/SidebarStatusIndicator.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx",
+                      "label":  "TodayClassificationSuggestionsSection",
+                      "path":  "src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/today/TodayHealthSection.tsx",
+                      "label":  "TodayHealthSection",
+                      "path":  "src/client-web/src/components/today/TodayHealthSection.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/today/TodayHealthSection.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/today/TodayPcOverview.tsx",
+                      "label":  "TodayPcOverview",
+                      "path":  "src/client-web/src/components/today/TodayPcOverview.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/today/TodayPcOverview.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/today/TodayPcQualitySection.tsx",
+                      "label":  "TodayPcQualitySection",
+                      "path":  "src/client-web/src/components/today/TodayPcQualitySection.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/today/TodayPcQualitySection.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/today/TodayScheduleList.tsx",
+                      "label":  "TodayScheduleList",
+                      "path":  "src/client-web/src/components/today/TodayScheduleList.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/today/TodayScheduleList.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/today/TodaySectionHost.tsx",
+                      "label":  "TodaySectionHost",
+                      "path":  "src/client-web/src/components/today/TodaySectionHost.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/today/TodaySectionHost.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/components/today/TodayTaskColumn.tsx",
+                      "label":  "TodayTaskColumn",
+                      "path":  "src/client-web/src/components/today/TodayTaskColumn.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/components/today/TodayTaskColumn.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/context/CalendarVisibilityContext.tsx",
+                      "label":  "CalendarVisibilityContext",
+                      "path":  "src/client-web/src/context/CalendarVisibilityContext.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/context/CalendarVisibilityContext.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-web/src/dialogs/common.tsx",
+                      "label":  "dialogs/common",
+                      "path":  "src/client-web/src/dialogs/common.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/dialogs/common.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/dialogs/EventEditorDialog.tsx",
+                      "label":  "EventEditorDialog",
+                      "path":  "src/client-web/src/dialogs/EventEditorDialog.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/dialogs/EventEditorDialog.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/dialogs/TaskEditorDialog.tsx",
+                      "label":  "TaskEditorDialog",
+                      "path":  "src/client-web/src/dialogs/TaskEditorDialog.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/dialogs/TaskEditorDialog.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/i18n/scheduleWorkbench.zh-CN.ts",
+                      "label":  "scheduleWorkbench.zh-CN",
+                      "path":  "src/client-web/src/i18n/scheduleWorkbench.zh-CN.ts",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/i18n/scheduleWorkbench.zh-CN.ts.md",
+                      "layer":  "client-web",
+                      "kind":  "dto"
+                  },
+                  {
+                      "id":  "src/client-web/src/layout/AppLayout.tsx",
+                      "label":  "AppLayout",
+                      "path":  "src/client-web/src/layout/AppLayout.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/layout/AppLayout.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "entrypoint"
+                  },
+                  {
+                      "id":  "src/client-web/src/layout/Sidebar.tsx",
+                      "label":  "Sidebar",
+                      "path":  "src/client-web/src/layout/Sidebar.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/layout/Sidebar.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/main.tsx",
+                      "label":  "main",
+                      "path":  "src/client-web/src/main.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/main.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "entrypoint"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/AiSettingsPage.tsx",
+                      "label":  "AiSettingsPage",
+                      "path":  "src/client-web/src/pages/AiSettingsPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/AiSettingsPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+                      "label":  "AppKnowledgeBasePage",
+                      "path":  "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/AppKnowledgeBasePage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/AuditTimelinePage.tsx",
+                      "label":  "AuditTimelinePage",
+                      "path":  "src/client-web/src/pages/AuditTimelinePage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/AuditTimelinePage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/CalendarDataManager.tsx",
+                      "label":  "CalendarDataManager",
+                      "path":  "src/client-web/src/pages/CalendarDataManager.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/CalendarDataManager.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/CalendarPage.tsx",
+                      "label":  "CalendarPage",
+                      "path":  "src/client-web/src/pages/CalendarPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/CalendarPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/CategoryTreePage.tsx",
+                      "label":  "CategoryTreePage",
+                      "path":  "src/client-web/src/pages/CategoryTreePage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/CategoryTreePage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/ConfirmationsPage.tsx",
+                      "label":  "ConfirmationsPage",
+                      "path":  "src/client-web/src/pages/ConfirmationsPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/ConfirmationsPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/DataCenterPage.tsx",
+                      "label":  "DataCenterPage",
+                      "path":  "src/client-web/src/pages/DataCenterPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/DataCenterPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/EndpointShellPage.tsx",
+                      "label":  "EndpointShellPage",
+                      "path":  "src/client-web/src/pages/EndpointShellPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/EndpointShellPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/FilesPage.tsx",
+                      "label":  "FilesPage",
+                      "path":  "src/client-web/src/pages/FilesPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/FilesPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/HabitsPage.tsx",
+                      "label":  "HabitsPage",
+                      "path":  "src/client-web/src/pages/HabitsPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/HabitsPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/HistoricalLocationPage.tsx",
+                      "label":  "HistoricalLocationPage",
+                      "path":  "src/client-web/src/pages/HistoricalLocationPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/HistoricalLocationPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/MobileRecordsPage.tsx",
+                      "label":  "MobileRecordsPage",
+                      "path":  "src/client-web/src/pages/MobileRecordsPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/MobileRecordsPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/PcClassificationPage.tsx",
+                      "label":  "PcClassificationPage",
+                      "path":  "src/client-web/src/pages/PcClassificationPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/PcClassificationPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/PcDetailQueryPage.tsx",
+                      "label":  "PcDetailQueryPage",
+                      "path":  "src/client-web/src/pages/PcDetailQueryPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/PcDetailQueryPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/PcTrackerPage.tsx",
+                      "label":  "PcTrackerPage",
+                      "path":  "src/client-web/src/pages/PcTrackerPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/PcTrackerPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/QuickNotesPage.tsx",
+                      "label":  "QuickNotesPage",
+                      "path":  "src/client-web/src/pages/QuickNotesPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/QuickNotesPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/RecycleBinPage.tsx",
+                      "label":  "RecycleBinPage",
+                      "path":  "src/client-web/src/pages/RecycleBinPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/RecycleBinPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/RemindersPage.tsx",
+                      "label":  "RemindersPage",
+                      "path":  "src/client-web/src/pages/RemindersPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/RemindersPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/ReportsPage.tsx",
+                      "label":  "ReportsPage",
+                      "path":  "src/client-web/src/pages/ReportsPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/ReportsPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/SettingsPage.tsx",
+                      "label":  "SettingsPage",
+                      "path":  "src/client-web/src/pages/SettingsPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/SettingsPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/StatusPage.tsx",
+                      "label":  "StatusPage",
+                      "path":  "src/client-web/src/pages/StatusPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/StatusPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/SyncPage.tsx",
+                      "label":  "SyncPage",
+                      "path":  "src/client-web/src/pages/SyncPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/SyncPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/TaskListPage.tsx",
+                      "label":  "TaskListPage",
+                      "path":  "src/client-web/src/pages/TaskListPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/TaskListPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/TodayPage.tsx",
+                      "label":  "TodayPage",
+                      "path":  "src/client-web/src/pages/TodayPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/TodayPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/pages/WorkbenchPage.tsx",
+                      "label":  "WorkbenchPage",
+                      "path":  "src/client-web/src/pages/WorkbenchPage.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/pages/WorkbenchPage.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/panels/InboxPanel.tsx",
+                      "label":  "InboxPanel",
+                      "path":  "src/client-web/src/panels/InboxPanel.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/panels/InboxPanel.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/types/index.ts",
+                      "label":  "ApiResponse",
+                      "path":  "src/client-web/src/types/index.ts",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/types/index.ts.md",
+                      "layer":  "client-web",
+                      "kind":  "dto"
+                  },
+                  {
+                      "id":  "src/client-web/src/ui/ConfirmActionDialog.tsx",
+                      "label":  "ConfirmActionDialog",
+                      "path":  "src/client-web/src/ui/ConfirmActionDialog.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/ui/ConfirmActionDialog.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/ui/confirmActionDialogModel.ts",
+                      "label":  "getDeleteTargetTypeLabel",
+                      "path":  "src/client-web/src/ui/confirmActionDialogModel.ts",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/ui/confirmActionDialogModel.ts.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/ui/EditorDrawer.tsx",
+                      "label":  "EditorDrawer",
+                      "path":  "src/client-web/src/ui/EditorDrawer.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/ui/EditorDrawer.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/ui/EmptyState.tsx",
+                      "label":  "EmptyState",
+                      "path":  "src/client-web/src/ui/EmptyState.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/ui/EmptyState.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/ui/MetricCard.tsx",
+                      "label":  "MetricCard",
+                      "path":  "src/client-web/src/ui/MetricCard.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/ui/MetricCard.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/ui/OperationResultBanner.tsx",
+                      "label":  "OperationResultBanner",
+                      "path":  "src/client-web/src/ui/OperationResultBanner.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/ui/OperationResultBanner.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/ui/PageHeader.tsx",
+                      "label":  "PageHeader",
+                      "path":  "src/client-web/src/ui/PageHeader.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/ui/PageHeader.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/ui/SegmentedControl.tsx",
+                      "label":  "SegmentedControl",
+                      "path":  "src/client-web/src/ui/SegmentedControl.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/ui/SegmentedControl.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/ui/StatusBadge.tsx",
+                      "label":  "StatusBadge",
+                      "path":  "src/client-web/src/ui/StatusBadge.tsx",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/ui/StatusBadge.tsx.md",
+                      "layer":  "client-web",
+                      "kind":  "ui"
+                  },
+                  {
+                      "id":  "src/client-web/src/utils/pcBusinessDay.ts",
+                      "label":  "getPcBusinessDate",
+                      "path":  "src/client-web/src/utils/pcBusinessDay.ts",
+                      "doc":  "docs/pseudocode/files/src/client-web/src/utils/pcBusinessDay.ts.md",
+                      "layer":  "client-web",
+                      "kind":  "service"
+                  },
+                  {
+                      "id":  "src/client-web/tailwind.config.ts",
+                      "label":  "tailwind.config",
+                      "path":  "src/client-web/tailwind.config.ts",
+                      "doc":  "docs/pseudocode/files/src/client-web/tailwind.config.ts.md",
+                      "layer":  "client-web",
+                      "kind":  "other"
+                  },
+                  {
+                      "id":  "src/client-web/vite.config.ts",
+                      "label":  "defineConfig",
+                      "path":  "src/client-web/vite.config.ts",
+                      "doc":  "docs/pseudocode/files/src/client-web/vite.config.ts.md",
+                      "layer":  "client-web",
+                      "kind":  "other"
                   },
                   {
                       "id":  "src/client-windows/Pim.Client.App/App.xaml.cs",
@@ -2963,6 +3923,151 @@
               ],
     "edges":  [
                   {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeService.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeStore.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/MainActivity.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/MainActivity.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncScheduler.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/mobile/usage/AppMetadataCollector.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageAccessChecker.kt",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+                      "to":  "src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageEventCollector.kt",
+                      "type":  "depends_on"
+                  },
+                  {
                       "from":  "src/client-web/eslint.config.js",
                       "to":  "eslint-plugin-react-hooks",
                       "type":  "depends_on"
@@ -3778,8 +4883,498 @@
                       "type":  "depends_on"
                   },
                   {
+                      "from":  "src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx",
+                      "to":  "src/client-web/src/types/index.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx",
+                      "to":  "src/client-web/src/types/index.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/CategoryTimeline.tsx",
+                      "to":  "src/client-web/src/types/index.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/ClassificationActionQueue.tsx",
+                      "to":  "src/client-web/src/types/index.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx",
+                      "to":  "src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx",
+                      "to":  "src/client-web/src/types/index.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/ClassificationSuggestionPanel.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/ContextConfirmationPanel.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/DateDimensionBar.tsx",
+                      "to":  "src/client-web/src/utils/pcBusinessDay.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/EventTimelineDialog.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx",
+                      "to":  "src/client-web/src/types/index.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/PcDetailQueryPanel.tsx",
+                      "to":  "src/client-web/src/api/pcTracker.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/PcQualitySummary.tsx",
+                      "to":  "src/client-web/src/ui/StatusBadge.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/PcReviewSummary.tsx",
+                      "to":  "src/client-web/src/types/index.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/ProductivityDashboard.tsx",
+                      "to":  "src/client-web/src/api/pcTracker.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/QuickClassificationDialog.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/quick-notes/QuickNoteEditor.tsx",
+                      "to":  "src/client-web/src/api/quickNotes.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/quick-notes/QuickNoteEditor.tsx",
+                      "to":  "src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx",
+                      "to":  "src/client-web/src/api/quickNotes.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx",
+                      "to":  "src/client-web/src/components/quick-notes/QuickNoteEditor.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx",
+                      "to":  "src/client-web/src/components/quick-notes/quickNoteFloatingState.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx",
+                      "to":  "src/client-web/src/api/quickNotes.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/schedule/CalendarLayerToolbar.tsx",
+                      "to":  "src/client-web/src/types/index.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/schedule/DataCenterBatchPreview.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/schedule/DataCenterBatchPreview.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/schedule/HabitRoutineEditor.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/schedule/OutlookConflictResolver.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/schedule/StrictConfirmationPanel.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/schedule/TaskHierarchyPanel.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/schedule/TaskSegmentEditor.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/status/MobileDiagnosticsPanel.tsx",
+                      "to":  "src/client-web/src/ui/StatusBadge.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/status/SidebarStatusIndicator.tsx",
+                      "to":  "src/client-web/src/api/status.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx",
+                      "to":  "src/client-web/src/ui/EmptyState.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx",
+                      "to":  "src/client-web/src/ui/StatusBadge.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayHealthSection.tsx",
+                      "to":  "src/client-web/src/ui/EmptyState.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayHealthSection.tsx",
+                      "to":  "src/client-web/src/ui/StatusBadge.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayPcOverview.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayPcOverview.tsx",
+                      "to":  "src/client-web/src/ui/EmptyState.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayPcOverview.tsx",
+                      "to":  "src/client-web/src/ui/MetricCard.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayPcOverview.tsx",
+                      "to":  "src/client-web/src/ui/StatusBadge.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayPcOverview.tsx",
+                      "to":  "src/client-web/src/utils/pcBusinessDay.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayPcQualitySection.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayPcQualitySection.tsx",
+                      "to":  "src/client-web/src/ui/EmptyState.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayPcQualitySection.tsx",
+                      "to":  "src/client-web/src/ui/StatusBadge.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayScheduleList.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayScheduleList.tsx",
+                      "to":  "src/client-web/src/ui/EmptyState.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayScheduleList.tsx",
+                      "to":  "src/client-web/src/ui/StatusBadge.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodaySectionHost.tsx",
+                      "to":  "src/client-web/src/api/today.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodaySectionHost.tsx",
+                      "to":  "src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodaySectionHost.tsx",
+                      "to":  "src/client-web/src/components/today/TodayHealthSection.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodaySectionHost.tsx",
+                      "to":  "src/client-web/src/components/today/TodayPcOverview.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodaySectionHost.tsx",
+                      "to":  "src/client-web/src/components/today/TodayPcQualitySection.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodaySectionHost.tsx",
+                      "to":  "src/client-web/src/components/today/TodayScheduleList.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodaySectionHost.tsx",
+                      "to":  "src/client-web/src/components/today/TodayTaskColumn.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodaySectionHost.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodaySectionHost.tsx",
+                      "to":  "src/client-web/src/ui/EmptyState.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayTaskColumn.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayTaskColumn.tsx",
+                      "to":  "src/client-web/src/ui/EmptyState.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/components/today/TodayTaskColumn.tsx",
+                      "to":  "src/client-web/src/ui/StatusBadge.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/dialogs/EventEditorDialog.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/dialogs/TaskEditorDialog.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/dialogs/TaskEditorDialog.tsx",
+                      "to":  "src/client-web/src/ui/ConfirmActionDialog.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/dialogs/TaskEditorDialog.tsx",
+                      "to":  "src/client-web/src/ui/EditorDrawer.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/auth/AuthContext.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/components/quick-notes/QuickNoteFloatingButton.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/context/CalendarVisibilityContext.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/layout/Sidebar.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/pages/AiSettingsPage.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/pages/CalendarDataManager.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/pages/CalendarPage.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/pages/CategoryTreePage.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/pages/PcDetailQueryPage.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/pages/PcTrackerPage.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/pages/RecycleBinPage.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/pages/SettingsPage.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/pages/StatusPage.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/pages/TaskListPage.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/pages/TodayPage.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/AppLayout.tsx",
+                      "to":  "src/client-web/src/panels/InboxPanel.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
                       "from":  "src/client-web/src/layout/Sidebar.tsx",
                       "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/Sidebar.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/Sidebar.tsx",
+                      "to":  "src/client-web/src/auth/AuthContext.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/Sidebar.tsx",
+                      "to":  "src/client-web/src/components/status/SidebarStatusIndicator.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/Sidebar.tsx",
+                      "to":  "src/client-web/src/context/CalendarVisibilityContext.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/layout/Sidebar.tsx",
+                      "to":  "src/client-web/src/ui/ConfirmActionDialog.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/main.tsx",
+                      "to":  "src/client-web/src/App.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/AiSettingsPage.tsx",
+                      "to":  "src/client-web/src/api/ai.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/AiSettingsPage.tsx",
+                      "to":  "src/client-web/src/components/ai/AiRequestDetailPanel.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/AiSettingsPage.tsx",
+                      "to":  "src/client-web/src/components/ai/AiRequestLogTable.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/AiSettingsPage.tsx",
+                      "to":  "src/client-web/src/components/ai/AiStatusPanel.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/AiSettingsPage.tsx",
+                      "to":  "src/client-web/src/components/ai/AiUsageOverview.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/AiSettingsPage.tsx",
+                      "to":  "src/client-web/src/ui/PageHeader.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+                      "to":  "src/client-web/src/api/appKnowledge.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+                      "to":  "src/client-web/src/api/appSignatures.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+                      "to":  "src/client-web/src/components/app-knowledge/AppKnowledgeContextList.tsx",
                       "type":  "depends_on"
                   },
                   {
@@ -3788,8 +5383,48 @@
                       "type":  "depends_on"
                   },
                   {
+                      "from":  "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+                      "to":  "src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+                      "to":  "src/client-web/src/ui/PageHeader.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/AuditTimelinePage.tsx",
+                      "to":  "src/client-web/src/api/operations.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/AuditTimelinePage.tsx",
+                      "to":  "src/client-web/src/components/schedule/BeforeAfterDiff.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/CalendarDataManager.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
                       "from":  "src/client-web/src/pages/CalendarPage.tsx",
                       "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/CalendarPage.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/CalendarPage.tsx",
+                      "to":  "src/client-web/src/context/CalendarVisibilityContext.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/CategoryTreePage.tsx",
+                      "to":  "src/client-web/src/api/pcTracker.ts",
                       "type":  "depends_on"
                   },
                   {
@@ -3798,8 +5433,103 @@
                       "type":  "depends_on"
                   },
                   {
+                      "from":  "src/client-web/src/pages/CategoryTreePage.tsx",
+                      "to":  "src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/ConfirmationsPage.tsx",
+                      "to":  "src/client-web/src/api/operations.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/ConfirmationsPage.tsx",
+                      "to":  "src/client-web/src/components/schedule/BeforeAfterDiff.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/ConfirmationsPage.tsx",
+                      "to":  "src/client-web/src/components/schedule/StrictConfirmationPanel.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
                       "from":  "src/client-web/src/pages/DataCenterPage.tsx",
                       "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/DataCenterPage.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/DataCenterPage.tsx",
+                      "to":  "src/client-web/src/components/schedule/DataCenterBatchPreview.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/DataCenterPage.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/DataCenterPage.tsx",
+                      "to":  "src/client-web/src/ui/PageHeader.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/EndpointShellPage.tsx",
+                      "to":  "src/client-web/src/api/endpoints.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/EndpointShellPage.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/EndpointShellPage.tsx",
+                      "to":  "src/client-web/src/ui/PageHeader.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/FilesPage.tsx",
+                      "to":  "src/client-web/src/api/files.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/FilesPage.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/FilesPage.tsx",
+                      "to":  "src/client-web/src/ui/PageHeader.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/HabitsPage.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/HabitsPage.tsx",
+                      "to":  "src/client-web/src/components/schedule/HabitRoutineEditor.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/HabitsPage.tsx",
+                      "to":  "src/client-web/src/ui/PageHeader.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/HabitsPage.tsx",
+                      "to":  "src/client-web/src/ui/SegmentedControl.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/HistoricalLocationPage.tsx",
+                      "to":  "src/client-web/src/api/mobile.ts",
                       "type":  "depends_on"
                   },
                   {
@@ -3808,9 +5538,29 @@
                       "type":  "calls"
                   },
                   {
+                      "from":  "src/client-web/src/pages/HistoricalLocationPage.tsx",
+                      "to":  "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/HistoricalLocationPage.tsx",
+                      "to":  "src/client-web/src/components/mobile/mobileFormatting.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/MobileRecordsPage.tsx",
+                      "to":  "src/client-web/src/api/mobile.ts",
+                      "type":  "depends_on"
+                  },
+                  {
                       "from":  "src/client-web/src/pages/MobileRecordsPage.tsx",
                       "to":  "src/client-web/src/components/mobile/MobileAnalyticsHeader.tsx",
                       "type":  "calls"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/PcClassificationPage.tsx",
+                      "to":  "src/client-web/src/api/pcTracker.ts",
+                      "type":  "depends_on"
                   },
                   {
                       "from":  "src/client-web/src/pages/PcClassificationPage.tsx",
@@ -3818,8 +5568,218 @@
                       "type":  "depends_on"
                   },
                   {
+                      "from":  "src/client-web/src/pages/PcTrackerPage.tsx",
+                      "to":  "src/client-web/src/api/appKnowledge.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/PcTrackerPage.tsx",
+                      "to":  "src/client-web/src/api/pcTracker.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/PcTrackerPage.tsx",
+                      "to":  "src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/PcTrackerPage.tsx",
+                      "to":  "src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/QuickNotesPage.tsx",
+                      "to":  "src/client-web/src/api/quickNotes.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/QuickNotesPage.tsx",
+                      "to":  "src/client-web/src/components/quick-notes/QuickNoteEditor.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/QuickNotesPage.tsx",
+                      "to":  "src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/RecycleBinPage.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/RecycleBinPage.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/RecycleBinPage.tsx",
+                      "to":  "src/client-web/src/ui/EmptyState.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/RecycleBinPage.tsx",
+                      "to":  "src/client-web/src/ui/OperationResultBanner.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/RecycleBinPage.tsx",
+                      "to":  "src/client-web/src/ui/PageHeader.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/RemindersPage.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/RemindersPage.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/RemindersPage.tsx",
+                      "to":  "src/client-web/src/ui/PageHeader.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/RemindersPage.tsx",
+                      "to":  "src/client-web/src/ui/SegmentedControl.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/ReportsPage.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/ReportsPage.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/ReportsPage.tsx",
+                      "to":  "src/client-web/src/ui/PageHeader.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/ReportsPage.tsx",
+                      "to":  "src/client-web/src/ui/SegmentedControl.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/SettingsPage.tsx",
+                      "to":  "src/client-web/src/ui/PageHeader.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/StatusPage.tsx",
+                      "to":  "src/client-web/src/api/mobile.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/StatusPage.tsx",
+                      "to":  "src/client-web/src/api/pcTracker.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/StatusPage.tsx",
+                      "to":  "src/client-web/src/api/status.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/StatusPage.tsx",
+                      "to":  "src/client-web/src/components/pc-tracker/PcQualitySummary.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/StatusPage.tsx",
+                      "to":  "src/client-web/src/components/status/MobileDiagnosticsPanel.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/StatusPage.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/StatusPage.tsx",
+                      "to":  "src/client-web/src/ui/PageHeader.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/SyncPage.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/SyncPage.tsx",
+                      "to":  "src/client-web/src/components/schedule/OutlookConflictResolver.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
                       "from":  "src/client-web/src/pages/TaskListPage.tsx",
                       "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/TaskListPage.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/TaskListPage.tsx",
+                      "to":  "src/client-web/src/components/schedule/TaskSegmentEditor.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/TodayPage.tsx",
+                      "to":  "src/client-web/src/api/today.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/TodayPage.tsx",
+                      "to":  "src/client-web/src/components/today/TodaySectionHost.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/WorkbenchPage.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/pages/WorkbenchPage.tsx",
+                      "to":  "src/client-web/src/api/operations.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/panels/InboxPanel.tsx",
+                      "to":  "src/client-web/src/api/calendar.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/panels/InboxPanel.tsx",
+                      "to":  "src/client-web/src/dialogs/EventEditorDialog.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/panels/InboxPanel.tsx",
+                      "to":  "src/client-web/src/dialogs/TaskEditorDialog.tsx",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/ui/ConfirmActionDialog.tsx",
+                      "to":  "src/client-web/src/types",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/ui/ConfirmActionDialog.tsx",
+                      "to":  "src/client-web/src/ui/confirmActionDialogModel.ts",
+                      "type":  "depends_on"
+                  },
+                  {
+                      "from":  "src/client-web/src/ui/confirmActionDialogModel.ts",
+                      "to":  "src/client-web/src/types",
                       "type":  "depends_on"
                   },
                   {

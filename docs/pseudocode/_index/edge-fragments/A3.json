@@ -2,41 +2,94 @@
   "slot": "A3",
   "nodes": [
     {
-      "id": "src/Pim.Core/Ai/IAiGateway.cs",
-      "label": "IAiGateway",
-      "path": "src/Pim.Core/Ai/IAiGateway.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Core/Ai/IAiGateway.cs.md",
-      "layer": "core",
+      "id": "src/Pim.Infrastructure/Ai/InMemoryAiSchemaRegistry.cs",
+      "label": "InMemoryAiSchemaRegistry",
+      "path": "src/Pim.Infrastructure/Ai/InMemoryAiSchemaRegistry.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Ai/InMemoryAiSchemaRegistry.cs.md",
+      "layer": "infrastructure",
       "kind": "service"
     },
     {
-      "id": "src/Pim.Core/Modules/ISearchProvider.cs",
-      "label": "ISearchProvider",
-      "path": "src/Pim.Core/Modules/ISearchProvider.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Core/Modules/ISearchProvider.cs.md",
-      "layer": "core",
+      "id": "src/Pim.Infrastructure/Data/Entities/LoginAttemptEntity.cs",
+      "label": "LoginAttemptEntity",
+      "path": "src/Pim.Infrastructure/Data/Entities/LoginAttemptEntity.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/LoginAttemptEntity.cs.md",
+      "layer": "infrastructure",
+      "kind": "entity"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.cs",
+      "label": "AddQuickNotes",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.cs",
+      "label": "AddPcAppKnowledgeContexts",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.cs",
+      "label": "CompletePlanningObjectModel",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260708070711_AddReportArtifacts.cs",
+      "label": "AddReportArtifacts",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260708070711_AddReportArtifacts.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708070711_AddReportArtifacts.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs",
+      "label": "EndpointStatusService",
+      "path": "src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs.md",
+      "layer": "infrastructure",
       "kind": "service"
     },
     {
-      "id": "src/Pim.Infrastructure/Ai/AiChatClientFactory.cs",
-      "label": "AiChatClientFactory",
-      "path": "src/Pim.Infrastructure/Ai/AiChatClientFactory.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiChatClientFactory.cs.md",
+      "id": "src/Pim.Infrastructure/Secrets/DataProtectionSecretProtector.cs",
+      "label": "DataProtectionSecretProtector",
+      "path": "src/Pim.Infrastructure/Secrets/DataProtectionSecretProtector.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Secrets/DataProtectionSecretProtector.cs.md",
       "layer": "infrastructure",
       "kind": "service"
     }
   ],
   "edges": [
-    { "from": "src/Pim.Core/Ai/IAiGateway.cs", "to": "src/Pim.Core/Ai/AiDtos.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Ai/AiGateway.cs", "to": "src/Pim.Core/Ai/IAiGateway.cs", "type": "implements" },
-    { "from": "src/Pim.Infrastructure/Ai/DisabledAiGateway.cs", "to": "src/Pim.Core/Ai/IAiGateway.cs", "type": "implements" },
-    { "from": "src/Pim.Api/Endpoints/AiEndpoints.cs", "to": "src/Pim.Core/Ai/IAiGateway.cs", "type": "calls" },
-    { "from": "src/modules/Pim.Module.Files/Services/FileAiService.cs", "to": "src/Pim.Core/Ai/IAiGateway.cs", "type": "calls" },
-    { "from": "src/modules/Pim.Module.Calendar/Search/CalendarSearchProvider.cs", "to": "src/Pim.Core/Modules/ISearchProvider.cs", "type": "implements" },
-    { "from": "src/Pim.Api/Search/SearchEndpoints.cs", "to": "src/Pim.Core/Modules/ISearchProvider.cs", "type": "calls" },
-    { "from": "src/Pim.Infrastructure/Ai/AiChatClientFactory.cs", "to": "src/Pim.Infrastructure/Ai/AiOptions.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Ai/AiChatClientFactory.cs", "to": "Microsoft.Extensions.AI", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Ai/AiChatClientFactory.cs", "to": "OpenAI", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Ai/AiGateway.cs", "to": "src/Pim.Infrastructure/Ai/AiChatClientFactory.cs", "type": "calls" }
+    { "from": "src/Pim.Infrastructure/Ai/InMemoryAiSchemaRegistry.cs", "to": "src/Pim.Core/Ai/IAiSchemaRegistry.cs", "type": "implements" },
+    { "from": "src/Pim.Infrastructure/Ai/InMemoryAiSchemaRegistry.cs", "to": "src/Pim.Core/Ai/AiDtos.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Entities/LoginAttemptEntity.cs", "to": "src/Pim.Infrastructure/Data/Entities/UserEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/Pim.Infrastructure/Data/Entities/LoginAttemptEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Infrastructure/Data/Entities/LoginAttemptEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.cs", "to": "Microsoft.EntityFrameworkCore.Migrations", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.cs", "to": "src/modules/Pim.Module.QuickNotes", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.cs", "to": "Microsoft.EntityFrameworkCore.Migrations", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.cs", "to": "src/modules/Pim.Module.PcTracker", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.cs", "to": "Microsoft.EntityFrameworkCore.Migrations", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.cs", "to": "src/Pim.Core/Planning/PlanningDtos.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260708070711_AddReportArtifacts.cs", "to": "Microsoft.EntityFrameworkCore.Migrations", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs", "to": "src/Pim.Core/Endpoints/EndpointDtos.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs", "to": "src/Pim.Core/Exceptions/DomainException.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs", "to": "src/Pim.Infrastructure/Auth/ICurrentUserService.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Endpoints/EndpointEndpoints.cs", "to": "src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs", "type": "calls" },
+    { "from": "src/Pim.Api/Today/TodaySectionProviders.cs", "to": "src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs", "type": "calls" },
+    { "from": "src/Pim.Infrastructure/Secrets/DataProtectionSecretProtector.cs", "to": "src/Pim.Infrastructure/Secrets/ISecretProtector.cs", "type": "implements" },
+    { "from": "src/Pim.Infrastructure/Secrets/DataProtectionSecretProtector.cs", "to": "Microsoft.AspNetCore.DataProtection", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Infrastructure/Secrets/DataProtectionSecretProtector.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Files/Services/FileProviderBindingService.cs", "to": "src/Pim.Infrastructure/Secrets/ISecretProtector.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/OutlookTokenService.cs", "to": "src/Pim.Infrastructure/Secrets/ISecretProtector.cs", "type": "calls" }
   ]
 }

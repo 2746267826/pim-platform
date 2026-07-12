@@ -1,6 +1,6 @@
 ﻿# File Manifest
 
-Generated: 2026-07-12 21:58:22
+Generated: 2026-07-12 22:02:40
 Total: 775
 
 | Status | Source | Doc |
@@ -474,9 +474,9 @@ Total: 775
 | [ ] | `src/modules/Pim.Module.Stats/Entities/AppUsageEntityConfiguration.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/Entities/AppUsageEntityConfiguration.cs.md` |
 | [ ] | `src/modules/Pim.Module.Stats/Services/StatsService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/Services/StatsService.cs.md` |
 | [ ] | `src/modules/Pim.Module.Stats/StatsModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/StatsModule.cs.md` |
-| [ ] | `src/Pim.Api/DTOs/AuthDtos.cs` | `docs/pseudocode/files/src/Pim.Api/DTOs/AuthDtos.cs.md` |
-| [ ] | `src/Pim.Api/Endpoints/AiEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/AiEndpoints.cs.md` |
-| [ ] | `src/Pim.Api/Endpoints/AuthEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/AuthEndpoints.cs.md` |
+| [x] | `src/Pim.Api/DTOs/AuthDtos.cs` | `docs/pseudocode/files/src/Pim.Api/DTOs/AuthDtos.cs.md` |
+| [x] | `src/Pim.Api/Endpoints/AiEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/AiEndpoints.cs.md` |
+| [x] | `src/Pim.Api/Endpoints/AuthEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/AuthEndpoints.cs.md` |
 | [ ] | `src/Pim.Api/Endpoints/DaemonEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/DaemonEndpoints.cs.md` |
 | [ ] | `src/Pim.Api/Endpoints/EndpointEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/EndpointEndpoints.cs.md` |
 | [ ] | `src/Pim.Api/Endpoints/OperationsEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/OperationsEndpoints.cs.md` |
@@ -521,83 +521,83 @@ Total: 775
 | [x] | `src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs.md` |
 | [x] | `src/Pim.Infrastructure/Ai/AiSchemaRegistry.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiSchemaRegistry.cs.md` |
 | [x] | `src/Pim.Infrastructure/Ai/AiSchemaValidator.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiSchemaValidator.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Ai/AiUsageService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiUsageService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Ai/DisabledAiGateway.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/DisabledAiGateway.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Ai/InMemoryAiSchemaRegistry.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/InMemoryAiSchemaRegistry.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Audit/AuditVersionEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Audit/AuditVersionEntity.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Audit/AuditVersionService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Audit/AuditVersionService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Auth/CurrentUserService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Auth/CurrentUserService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Auth/JwtService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Auth/JwtService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Auth/PasswordHasher.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Auth/PasswordHasher.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Entities/AiProviderSettingEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/AiProviderSettingEntity.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Entities/AuditLogEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/AuditLogEntity.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Entities/DaemonHeartbeatEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/DaemonHeartbeatEntity.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Entities/LoginAttemptEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/LoginAttemptEntity.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Entities/OperationConfirmationEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/OperationConfirmationEntity.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Entities/RefreshTokenEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/RefreshTokenEntity.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Entities/UserEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/UserEntity.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260525194000_AddPcActivityClassificationPersistence.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260525194000_AddPcActivityClassificationPersistence.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260525194000_AddPcActivityClassificationPersistence.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260525194000_AddPcActivityClassificationPersistence.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260526144517_Stage5CalendarTaskLoop.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260526144517_Stage5CalendarTaskLoop.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260526144517_Stage5CalendarTaskLoop.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260526144517_Stage5CalendarTaskLoop.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260705122322_AddPcRoute3ClassificationMetadata.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260705122322_AddPcRoute3ClassificationMetadata.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260705122322_AddPcRoute3ClassificationMetadata.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260705122322_AddPcRoute3ClassificationMetadata.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260706161439_AddMobileModule.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260706161439_AddMobileModule.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260706161439_AddMobileModule.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260706161439_AddMobileModule.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260707195645_AddOutlookGraphSyncFoundation.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707195645_AddOutlookGraphSyncFoundation.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260707195645_AddOutlookGraphSyncFoundation.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707195645_AddOutlookGraphSyncFoundation.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708051006_AddAuditVersions.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708051006_AddAuditVersions.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708051006_AddAuditVersions.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708051006_AddAuditVersions.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708070054_AddReminderService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708070054_AddReminderService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708070054_AddReminderService.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708070054_AddReminderService.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708070711_AddReportArtifacts.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708070711_AddReportArtifacts.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708070711_AddReportArtifacts.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708070711_AddReportArtifacts.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708094627_AddEndpointStatusPersistence.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708094627_AddEndpointStatusPersistence.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/20260708094627_AddEndpointStatusPersistence.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708094627_AddEndpointStatusPersistence.Designer.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/PimDbContext.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/PimDbContext.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/PimDbContextModelCacheKeyFactory.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/PimDbContextModelCacheKeyFactory.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Endpoints/EndpointNotificationActionEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Endpoints/EndpointNotificationActionEntity.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Endpoints/EndpointStatusEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Endpoints/EndpointStatusEntity.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Extensions/AuthExtensions.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Extensions/AuthExtensions.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Operations/AuditLogService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/AuditLogService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Operations/NoopBackgroundJobStatusService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/NoopBackgroundJobStatusService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Operations/OperationConfirmationService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/OperationConfirmationService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Operations/Stage0DiagnosticJob.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/Stage0DiagnosticJob.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Operations/SystemStatusService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/SystemStatusService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Secrets/DataProtectionSecretProtector.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Secrets/DataProtectionSecretProtector.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Secrets/ISecretProtector.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Secrets/ISecretProtector.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Storage/KopiaService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Storage/KopiaService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Storage/MinioStorage.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Storage/MinioStorage.cs.md` |
-| [ ] | `src/Pim.Infrastructure/TextExtraction/TikaClient.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/TextExtraction/TikaClient.cs.md` |
+| [x] | `src/Pim.Infrastructure/Ai/AiUsageService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiUsageService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Ai/DisabledAiGateway.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/DisabledAiGateway.cs.md` |
+| [x] | `src/Pim.Infrastructure/Ai/InMemoryAiSchemaRegistry.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/InMemoryAiSchemaRegistry.cs.md` |
+| [x] | `src/Pim.Infrastructure/Audit/AuditVersionEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Audit/AuditVersionEntity.cs.md` |
+| [x] | `src/Pim.Infrastructure/Audit/AuditVersionService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Audit/AuditVersionService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Auth/CurrentUserService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Auth/CurrentUserService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Auth/JwtService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Auth/JwtService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Auth/PasswordHasher.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Auth/PasswordHasher.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Entities/AiProviderSettingEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/AiProviderSettingEntity.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Entities/AuditLogEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/AuditLogEntity.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Entities/DaemonHeartbeatEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/DaemonHeartbeatEntity.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Entities/LoginAttemptEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/LoginAttemptEntity.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Entities/OperationConfirmationEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/OperationConfirmationEntity.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Entities/RefreshTokenEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/RefreshTokenEntity.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Entities/UserEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/UserEntity.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260525194000_AddPcActivityClassificationPersistence.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260525194000_AddPcActivityClassificationPersistence.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260525194000_AddPcActivityClassificationPersistence.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260525194000_AddPcActivityClassificationPersistence.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260526045819_AddQuickNotes.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260526144517_Stage5CalendarTaskLoop.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260526144517_Stage5CalendarTaskLoop.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260526144517_Stage5CalendarTaskLoop.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260526144517_Stage5CalendarTaskLoop.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260705122322_AddPcRoute3ClassificationMetadata.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260705122322_AddPcRoute3ClassificationMetadata.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260705122322_AddPcRoute3ClassificationMetadata.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260705122322_AddPcRoute3ClassificationMetadata.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260706071950_AddPcAppKnowledgeContexts.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260706161439_AddMobileModule.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260706161439_AddMobileModule.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260706161439_AddMobileModule.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260706161439_AddMobileModule.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260707195645_AddOutlookGraphSyncFoundation.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707195645_AddOutlookGraphSyncFoundation.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260707195645_AddOutlookGraphSyncFoundation.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707195645_AddOutlookGraphSyncFoundation.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708044845_CompletePlanningObjectModel.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708051006_AddAuditVersions.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708051006_AddAuditVersions.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708051006_AddAuditVersions.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708051006_AddAuditVersions.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708070054_AddReminderService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708070054_AddReminderService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708070054_AddReminderService.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708070054_AddReminderService.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708070711_AddReportArtifacts.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708070711_AddReportArtifacts.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708070711_AddReportArtifacts.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708070711_AddReportArtifacts.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708094627_AddEndpointStatusPersistence.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708094627_AddEndpointStatusPersistence.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/20260708094627_AddEndpointStatusPersistence.Designer.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708094627_AddEndpointStatusPersistence.Designer.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/PimDbContext.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/PimDbContext.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/PimDbContextModelCacheKeyFactory.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/PimDbContextModelCacheKeyFactory.cs.md` |
+| [x] | `src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Endpoints/EndpointNotificationActionEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Endpoints/EndpointNotificationActionEntity.cs.md` |
+| [x] | `src/Pim.Infrastructure/Endpoints/EndpointStatusEntity.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Endpoints/EndpointStatusEntity.cs.md` |
+| [x] | `src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Extensions/AuthExtensions.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Extensions/AuthExtensions.cs.md` |
+| [x] | `src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs.md` |
+| [x] | `src/Pim.Infrastructure/Operations/AuditLogService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/AuditLogService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Operations/NoopBackgroundJobStatusService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/NoopBackgroundJobStatusService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Operations/OperationConfirmationService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/OperationConfirmationService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Operations/Stage0DiagnosticJob.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/Stage0DiagnosticJob.cs.md` |
+| [x] | `src/Pim.Infrastructure/Operations/SystemStatusService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Operations/SystemStatusService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Secrets/DataProtectionSecretProtector.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Secrets/DataProtectionSecretProtector.cs.md` |
+| [x] | `src/Pim.Infrastructure/Secrets/ISecretProtector.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Secrets/ISecretProtector.cs.md` |
+| [x] | `src/Pim.Infrastructure/Storage/KopiaService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Storage/KopiaService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Storage/MinioStorage.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Storage/MinioStorage.cs.md` |
+| [x] | `src/Pim.Infrastructure/TextExtraction/TikaClient.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/TextExtraction/TikaClient.cs.md` |
 | [ ] | `tests/client-web/appKnowledgeApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/appKnowledgeApiPath.test.ts.md` |
 | [ ] | `tests/client-web/appKnowledgeComponents.test.tsx` | `docs/pseudocode/files/tests/client-web/appKnowledgeComponents.test.tsx.md` |
 | [ ] | `tests/client-web/appKnowledgeNavigation.test.tsx` | `docs/pseudocode/files/tests/client-web/appKnowledgeNavigation.test.tsx.md` |

@@ -1,38 +1,107 @@
 {
   "nodes": [
     {
-      "id": "src/Pim.Core/Endpoints/EndpointDtos.cs",
-      "label": "EndpointDtos",
-      "path": "src/Pim.Core/Endpoints/EndpointDtos.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Core/Endpoints/EndpointDtos.cs.md",
-      "layer": "core",
-      "kind": "dto"
+      "id": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs",
+      "label": "AiRequestLogEntity",
+      "path": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs.md",
+      "layer": "infrastructure",
+      "kind": "entity"
     },
     {
-      "id": "src/Pim.Core/Planning/PlanningDtos.cs",
-      "label": "PlanningDtos",
-      "path": "src/Pim.Core/Planning/PlanningDtos.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Core/Planning/PlanningDtos.cs.md",
-      "layer": "core",
-      "kind": "dto"
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs",
+      "label": "Stage0OperationsTables.Designer",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
     },
     {
-      "id": "src/Pim.Infrastructure/Ai/AiSchemaValidator.cs",
-      "label": "AiSchemaValidator",
-      "path": "src/Pim.Infrastructure/Ai/AiSchemaValidator.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiSchemaValidator.cs.md",
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs",
+      "label": "AddFilesModule.Designer",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs",
+      "label": "AddTaskExecutionSegments.Designer",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs",
+      "label": "AddOutlookSyncConflicts.Designer",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs",
+      "label": "PimMigrationAdoptionService",
+      "path": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs.md",
       "layer": "infrastructure",
       "kind": "service"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs",
+      "label": "OperationConfirmationService",
+      "path": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Operations/OperationConfirmationService.cs.md",
+      "layer": "infrastructure",
+      "kind": "service"
+    },
+    {
+      "id": "src/Pim.Api/Endpoints/AuthEndpoints.cs",
+      "label": "AuthEndpoints",
+      "path": "src/Pim.Api/Endpoints/AuthEndpoints.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Api/Endpoints/AuthEndpoints.cs.md",
+      "layer": "api",
+      "kind": "endpoint"
     }
   ],
   "edges": [
-    { "from": "src/Pim.Infrastructure/Endpoints/EndpointStatusService.cs", "to": "src/Pim.Core/Endpoints/EndpointDtos.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Endpoints/EndpointEndpoints.cs", "to": "src/Pim.Core/Endpoints/EndpointDtos.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Today/TodaySectionProviders.cs", "to": "src/Pim.Core/Endpoints/EndpointDtos.cs", "type": "depends_on" },
-    { "from": "tests/Pim.UnitTests/Operations/EndpointBoundaryTests.cs", "to": "src/Pim.Core/Endpoints/EndpointDtos.cs", "type": "tests" },
-    { "from": "src/Pim.Core/Planning/PlanningDtos.cs", "to": "src/Pim.Core/Planning/PlanningEnums.cs", "type": "depends_on" },
-    { "from": "src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs", "to": "src/Pim.Core/Planning/PlanningDtos.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Ai/AiGateway.cs", "to": "src/Pim.Infrastructure/Ai/AiSchemaValidator.cs", "type": "calls" },
-    { "from": "tests/Pim.UnitTests/Ai/AiSchemaValidatorTests.cs", "to": "src/Pim.Infrastructure/Ai/AiSchemaValidator.cs", "type": "tests" }
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "to": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Ai/AiUsageService.cs", "to": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs", "type": "depends_on" },
+    { "from": "tests/Pim.UnitTests/Ai/AiRequestLogWriterTests.cs", "to": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Ai/AiPersistenceModelTests.cs", "to": "src/Pim.Infrastructure/Data/Entities/AiRequestLogEntity.cs", "type": "tests" },
+
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260524170037_Stage0OperationsTables.Designer.cs", "type": "depends_on" },
+
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260527042125_AddFilesModule.Designer.cs", "type": "depends_on" },
+
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260707192023_AddTaskExecutionSegments.Designer.cs", "type": "depends_on" },
+
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260708065651_AddOutlookSyncConflicts.Designer.cs", "type": "depends_on" },
+
+    { "from": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "calls" },
+    { "from": "src/Pim.Api/Program.cs", "to": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs", "type": "calls" },
+    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs", "type": "depends_on" },
+    { "from": "tests/Pim.UnitTests/Operations/PimMigrationAdoptionServiceTests.cs", "to": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs", "type": "tests" },
+
+    { "from": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "to": "src/Pim.Core/Operations/ConfirmationDtos.cs", "type": "implements" },
+    { "from": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "to": "src/Pim.Core/Operations/OperationEnums.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "to": "src/Pim.Core/Exceptions/DomainException.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Endpoints/OperationsEndpoints.cs", "to": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "type": "calls" },
+    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "type": "depends_on" },
+    { "from": "tests/Pim.UnitTests/Operations/AuditAndConfirmationServiceTests.cs", "to": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "type": "tests" },
+
+    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Infrastructure/Auth/JwtService.cs", "type": "calls" },
+    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Infrastructure/Auth/PasswordHasher.cs", "type": "calls" },
+    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Program.cs", "to": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "type": "calls" }
   ]
 }

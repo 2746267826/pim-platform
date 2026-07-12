@@ -1,49 +1,100 @@
 {
+  "slot": "A8",
   "nodes": [
     {
-      "id": "src/Pim.Core/Common/PagedResult.cs",
-      "label": "PagedResult<T>",
-      "path": "src/Pim.Core/Common/PagedResult.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Core/Common/PagedResult.cs.md",
-      "layer": "core",
-      "kind": "dto"
+      "id": "src/Pim.Infrastructure/Auth/PasswordHasher.cs",
+      "label": "PasswordHasher",
+      "path": "src/Pim.Infrastructure/Auth/PasswordHasher.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Auth/PasswordHasher.cs.md",
+      "layer": "infrastructure",
+      "kind": "service"
     },
     {
-      "id": "src/Pim.Core/Operations/OperationEnums.cs",
-      "label": "OperationEnums",
-      "path": "src/Pim.Core/Operations/OperationEnums.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Core/Operations/OperationEnums.cs.md",
-      "layer": "core",
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.Designer.cs",
+      "label": "BaselineExistingSchema.Designer",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.Designer.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.Designer.cs.md",
+      "layer": "infrastructure",
       "kind": "other"
     },
     {
-      "id": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs",
-      "label": "AiRequestLogWriter",
-      "path": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs.md",
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.Designer.cs",
+      "label": "AddAiGateway.Designer",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.Designer.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.Designer.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.Designer.cs",
+      "label": "AddMobileAnalytics.Designer",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.Designer.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.Designer.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.Designer.cs",
+      "label": "CompleteOutlookGraphSync.Designer",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.Designer.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.Designer.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/PimDbContext.cs",
+      "label": "PimDbContext",
+      "path": "src/Pim.Infrastructure/Data/PimDbContext.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/PimDbContext.cs.md",
+      "layer": "infrastructure",
+      "kind": "entity"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs",
+      "label": "HangfireJobStatusService",
+      "path": "src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs.md",
       "layer": "infrastructure",
       "kind": "service"
+    },
+    {
+      "id": "src/Pim.Api/DTOs/AuthDtos.cs",
+      "label": "AuthDtos",
+      "path": "src/Pim.Api/DTOs/AuthDtos.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Api/DTOs/AuthDtos.cs.md",
+      "layer": "api",
+      "kind": "dto"
     }
   ],
   "edges": [
-    { "from": "src/Pim.Infrastructure/Ai/AiUsageService.cs", "to": "src/Pim.Core/Common/PagedResult.cs", "type": "depends_on" },
-    { "from": "src/Pim.Core/Ai/IAiUsageService.cs", "to": "src/Pim.Core/Common/PagedResult.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Endpoints/AiEndpoints.cs", "to": "src/Pim.Core/Common/PagedResult.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Search/SearchEndpoints.cs", "to": "src/Pim.Core/Common/PagedResult.cs", "type": "depends_on" },
-    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs", "to": "src/Pim.Core/Common/PagedResult.cs", "type": "depends_on" },
-    { "from": "src/modules/Pim.Module.Calendar/Services/CalendarService.cs", "to": "src/Pim.Core/Common/PagedResult.cs", "type": "depends_on" },
-    { "from": "src/modules/Pim.Module.Calendar/Services/CalendarRecycleBinService.cs", "to": "src/Pim.Core/Common/PagedResult.cs", "type": "depends_on" },
-    { "from": "src/modules/Pim.Module.Files/Services/FileOperationService.cs", "to": "src/Pim.Core/Common/PagedResult.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Operations/SystemStatusService.cs", "to": "src/Pim.Core/Operations/OperationEnums.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "to": "src/Pim.Core/Operations/OperationEnums.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Today/TodaySectionProviders.cs", "to": "src/Pim.Core/Operations/OperationEnums.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "to": "src/Pim.Core/Ai/AiEnums.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Auth/PasswordHasher.cs", "to": "BCrypt.Net.BCrypt", "type": "calls" },
+    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Infrastructure/Auth/PasswordHasher.cs", "type": "calls" },
+    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Api/DTOs/AuthDtos.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs", "to": "src/Pim.Core/Operations/BackgroundJobDtos.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs", "to": "src/Pim.Core/Operations/OperationEnums.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs", "to": "Hangfire.JobStorage", "type": "calls" },
+    { "from": "src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs", "to": "Pim.Core.Operations.IBackgroundJobStatusService", "type": "implements" },
+    { "from": "src/Pim.Infrastructure/Operations/SystemStatusService.cs", "to": "src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Infrastructure/Operations/HangfireJobStatusService.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "Microsoft.EntityFrameworkCore.DbContext", "type": "extends" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/Pim.Infrastructure/Data/Entities", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/Pim.Infrastructure/Data/PimDbContextModelCacheKeyFactory.cs", "type": "depends_on" },
     { "from": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "to": "src/Pim.Infrastructure/Data/Entities", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "to": "src/Pim.Infrastructure/Ai/AiRedactor.cs", "type": "calls" },
-    { "from": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "calls" },
-    { "from": "src/Pim.Infrastructure/Ai/AiGateway.cs", "to": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "type": "calls" },
-    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "type": "depends_on" },
-    { "from": "tests/Pim.UnitTests/Ai/AiRequestLogWriterTests.cs", "to": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "type": "tests" }
+    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/CalendarModule.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Files/FilesModule.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.PcTracker/PcTrackerModule.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "calls" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.Designer.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.Designer.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.Designer.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.Designer.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.Designer.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.Designer.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.Designer.cs", "to": "src/modules/Pim.Module.Mobile/Entities", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.Designer.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.Designer.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.Designer.cs", "to": "src/modules/Pim.Module.Calendar/Entities", "type": "depends_on" }
   ]
 }

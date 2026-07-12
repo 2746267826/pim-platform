@@ -20,8 +20,21 @@ if ($pending.Count -eq 0) {
   throw "No pending rows parsed from manifest. Check Status/path format. Sample:`n$($sample -join "`n")"
 }
 
-$take = [Math]::Min($pending.Count, 10 * $WaveSizePerSlot)
-$slice = @($pending | Select-Object -First $take)
+function Get-PriorityScore([string]$p) {
+  if ($p -like 'src/Pim.Core/*') { return 0 }
+  if ($p -like 'src/Pim.Infrastructure/*') { return 1 }
+  if ($p -like 'src/Pim.Api/*') { return 2 }
+  if ($p -like 'src/modules/*') { return 3 }
+  if ($p -like 'src/client-windows/*') { return 4 }
+  if ($p -like 'src/client-web/*') { return 5 }
+  if ($p -like 'src/client-android/*') { return 6 }
+  if ($p -like 'tests/*') { return 7 }
+  return 8
+}
+
+$ordered = @($pending | Sort-Object @{ Expression = { Get-PriorityScore $_ } }, @{ Expression = { $_ } })
+$take = [Math]::Min($ordered.Count, 10 * $WaveSizePerSlot)
+$slice = @($ordered | Select-Object -First $take)
 $slots = @{}
 for ($i = 0; $i -lt 10; $i++) { $slots["A$($i+1)"] = @() }
 for ($i = 0; $i -lt $slice.Count; $i++) {

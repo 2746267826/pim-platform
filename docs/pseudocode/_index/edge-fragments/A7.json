@@ -1,51 +1,92 @@
 {
+  "slot": "A7",
   "nodes": [
     {
-      "id": "src/Pim.Core/Common/ApiResponse.cs",
-      "label": "ApiResponse<T>",
-      "path": "src/Pim.Core/Common/ApiResponse.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Core/Common/ApiResponse.cs.md",
-      "layer": "core",
-      "kind": "dto"
+      "id": "src/Pim.Infrastructure/Auth/JwtService.cs",
+      "label": "JwtService",
+      "path": "src/Pim.Infrastructure/Auth/JwtService.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Auth/JwtService.cs.md",
+      "layer": "infrastructure",
+      "kind": "service"
     },
     {
-      "id": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs",
-      "label": "DaemonHeartbeatDtos",
-      "path": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Core/Operations/DaemonHeartbeatDtos.cs.md",
-      "layer": "core",
-      "kind": "dto"
-    },
-    {
-      "id": "src/Pim.Infrastructure/Ai/AiRedactor.cs",
-      "label": "AiRedactor",
-      "path": "src/Pim.Infrastructure/Ai/AiRedactor.cs",
-      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiRedactor.cs.md",
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.cs",
+      "label": "BaselineExistingSchema",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.cs.md",
       "layer": "infrastructure",
       "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.cs",
+      "label": "AddAiGateway",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.cs",
+      "label": "AddMobileAnalytics",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.cs",
+      "label": "CompleteOutlookGraphSync",
+      "path": "src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs",
+      "label": "PimDbContextModelSnapshot",
+      "path": "src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs",
+      "label": "DaemonHeartbeatService",
+      "path": "src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs.md",
+      "layer": "infrastructure",
+      "kind": "service"
+    },
+    {
+      "id": "src/Pim.Infrastructure/TextExtraction/TikaClient.cs",
+      "label": "TikaClient",
+      "path": "src/Pim.Infrastructure/TextExtraction/TikaClient.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/TextExtraction/TikaClient.cs.md",
+      "layer": "infrastructure",
+      "kind": "service"
     }
   ],
   "edges": [
-    { "from": "src/Pim.Api/Middleware/ExceptionMiddleware.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Endpoints/DaemonEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Endpoints/AiEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Endpoints/StatusEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Endpoints/TodayEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Endpoints/OperationsEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/Pim.Api/Endpoints/EndpointEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/modules/Pim.Module.Stats/StatsModule.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/modules/Pim.Module.Mobile/MobileModule.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/modules/Pim.Module.Calendar/CalendarModule.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
-    { "from": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "to": "src/Pim.Core/Operations/OperationEnums.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Auth/JwtService.cs", "to": "Microsoft.IdentityModel.Tokens", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Infrastructure/Auth/JwtService.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Extensions/AuthExtensions.cs", "to": "src/Pim.Infrastructure/Auth/JwtService.cs", "type": "calls" },
+    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Infrastructure/Auth/JwtService.cs", "type": "calls" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.cs", "to": "Microsoft.EntityFrameworkCore.Migrations", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260524000000_BaselineExistingSchema.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.cs", "to": "Microsoft.EntityFrameworkCore.Migrations", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260527025542_AddAiGateway.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.cs", "to": "Microsoft.EntityFrameworkCore.Migrations", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260707145521_AddMobileAnalytics.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.cs", "to": "Microsoft.EntityFrameworkCore.Migrations", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs", "to": "src/Pim.Infrastructure/Data/Migrations/20260708065004_CompleteOutlookGraphSync.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/Migrations/PimDbContextModelSnapshot.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
     { "from": "src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs", "to": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "type": "implements" },
-    { "from": "src/Pim.Api/Endpoints/DaemonEndpoints.cs", "to": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "type": "depends_on" },
-    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "type": "depends_on" },
-    { "from": "src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs", "to": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "type": "depends_on" },
-    { "from": "tests/Pim.UnitTests/Operations/DaemonHeartbeatServiceTests.cs", "to": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "type": "tests" },
-    { "from": "tests/Pim.UnitTests/ClientWindows/DaemonHeartbeatReporterTests.cs", "to": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "type": "tests" },
-    { "from": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "to": "src/Pim.Infrastructure/Ai/AiRedactor.cs", "type": "calls" },
-    { "from": "tests/Pim.UnitTests/Ai/AiRedactorTests.cs", "to": "src/Pim.Infrastructure/Ai/AiRedactor.cs", "type": "tests" }
+    { "from": "src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs", "to": "src/Pim.Core/Exceptions/DomainException.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Endpoints/DaemonEndpoints.cs", "to": "src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs", "type": "calls" },
+    { "from": "tests/Pim.UnitTests/Operations/DaemonHeartbeatServiceTests.cs", "to": "src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs", "type": "tests" },
+    { "from": "src/Pim.Infrastructure/TextExtraction/TikaClient.cs", "to": "System.Net.Http.HttpClient", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Infrastructure/TextExtraction/TikaClient.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Files/Services/FileIndexingService.cs", "to": "src/Pim.Infrastructure/TextExtraction/TikaClient.cs", "type": "calls" }
   ]
 }

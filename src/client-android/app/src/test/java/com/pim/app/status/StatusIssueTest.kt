@@ -171,4 +171,80 @@ class StatusIssueTest {
         )
         assertEquals(10 + 5 + 3 + 2 + 1 + 0, queues.pendingUploadTotal)
     }
+
+    @Test
+    fun snapshotPlannerAddsBatteryOptimizationIssue() {
+        val snapshot = StatusCenterSnapshot(
+            permissions = PermissionStatusSnapshot(
+                notificationGranted = true,
+                preciseLocationGranted = true,
+                backgroundLocationGranted = true,
+                usageAccessGranted = true,
+                activityRecognitionGranted = true,
+                batteryOptimizationGranted = false
+            ),
+            api = ApiConnectionSnapshot(
+                address = "https://valid.example",
+                isValid = true,
+                reasonCode = null,
+                warnings = emptySet()
+            ),
+            auth = AuthStatusSnapshot(hasAccessToken = true, isExpired = false),
+            service = ForegroundServiceSnapshot(
+                continuousCollectionEnabled = true,
+                serviceRunning = true
+            ),
+            tracking = TrackingPolicySnapshot(
+                profile = "power-saving",
+                currentPolicyMode = "PowerSavingNormal",
+                nextExpectedLocationAtMillis = null
+            ),
+            queues = QueueStatusSnapshot(0, 0, 0, 0, 0, 0),
+            diagnostics = DiagnosticSnapshot(null, null, null, null)
+        )
+
+        val issues = StatusIssuePlanner.plan(snapshot).associateBy { it.code }
+
+        assertTrue(issues.containsKey("battery-optimization-missing"))
+        val issue = issues.getValue("battery-optimization-missing")
+        assertEquals(StatusSeverity.Warning, issue.severity)
+        assertTrue(issue.title.contains("电池") || issue.title.contains("优化"))
+        assertEquals(StatusActionTarget.Permissions, issue.target)
+    }
+
+    @Test
+    fun batteryOptimizationGrantedDoesNotProduceIssue() {
+        val snapshot = StatusCenterSnapshot(
+            permissions = PermissionStatusSnapshot(
+                notificationGranted = true,
+                preciseLocationGranted = true,
+                backgroundLocationGranted = true,
+                usageAccessGranted = true,
+                activityRecognitionGranted = true,
+                batteryOptimizationGranted = true
+            ),
+            api = ApiConnectionSnapshot(
+                address = "https://valid.example",
+                isValid = true,
+                reasonCode = null,
+                warnings = emptySet()
+            ),
+            auth = AuthStatusSnapshot(hasAccessToken = true, isExpired = false),
+            service = ForegroundServiceSnapshot(
+                continuousCollectionEnabled = true,
+                serviceRunning = true
+            ),
+            tracking = TrackingPolicySnapshot(
+                profile = "power-saving",
+                currentPolicyMode = "PowerSavingNormal",
+                nextExpectedLocationAtMillis = null
+            ),
+            queues = QueueStatusSnapshot(0, 0, 0, 0, 0, 0),
+            diagnostics = DiagnosticSnapshot(null, null, null, null)
+        )
+
+        val issues = StatusIssuePlanner.plan(snapshot).associateBy { it.code }
+
+        assertFalse("battery-optimization-missing must not appear when granted", issues.containsKey("battery-optimization-missing"))
+    }
 }

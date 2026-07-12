@@ -508,6 +508,66 @@ class SettingsServerMutationTest {
         assertTrue(fixture.trackingSettings.read().continuousCollectionEnabled)
     }
 
+    @Test
+    fun missingRecommendedPermissionDoesNotBlockCollection() {
+        val fixture = fixture()
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(application).denyPermissions(Manifest.permission.ACTIVITY_RECOGNITION)
+        drainStartedServices(application)
+        fixture.viewModel.setContinuousCollectionEnabled(false)
+        drainStartedServices(application)
+
+        fixture.viewModel.setContinuousCollectionEnabled(true)
+
+        val state = fixture.viewModel.state.value
+        assertTrue(state.continuousCollectionEnabled)
+        val intent = shadowOf(application).nextStartedService
+        assertNotNull("service must start when only recommended permission is missing", intent)
+        assertEquals(ForegroundLocationController.ACTION_START_COLLECTION, intent?.action)
+    }
+
+    @Test
+    fun onResumeRestartsCollectionWhenHardPermissionsRestored() {
+        val fixture = fixture()
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        drainStartedServices(application)
+
+        shadowOf(application).denyPermissions(
+            Manifest.permission.POST_NOTIFICATIONS,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        )
+        fixture.viewModel.onResume()
+
+        assertTrue("collection intent must persist", fixture.viewModel.state.value.continuousCollectionEnabled)
+        assertNull("service must not start when hard permissions missing", shadowOf(application).nextStartedService)
+
+        shadowOf(application).grantPermissions(
+            Manifest.permission.POST_NOTIFICATIONS,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        )
+        fixture.viewModel.onResume()
+
+        val intent = shadowOf(application).nextStartedService
+        assertNotNull("service must restart after hard permissions restored", intent)
+        assertEquals(ForegroundLocationController.ACTION_START_COLLECTION, intent?.action)
+    }
+
+    @Test
+    fun onResumeDoesNotStartWhenHardPermissionStillMissing() {
+        val fixture = fixture()
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        drainStartedServices(application)
+
+        shadowOf(application).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        fixture.viewModel.onResume()
+
+        val state = fixture.viewModel.state.value
+        assertTrue("collection intent must persist", state.continuousCollectionEnabled)
+        assertNull("service must not start when notification permission missing", shadowOf(application).nextStartedService)
+    }
+
     private fun drainStartedServices(application: Application) {
         while (shadowOf(application).nextStartedService != null) {
             // Drain intents left by earlier actions in the shared Robolectric application.

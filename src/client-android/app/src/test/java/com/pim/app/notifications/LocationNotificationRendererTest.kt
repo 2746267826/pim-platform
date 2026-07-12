@@ -1,22 +1,26 @@
 package com.pim.app.notifications
 
+import android.app.Application
+import android.app.Notification
+import androidx.test.core.app.ApplicationProvider
+import com.pim.app.TestPimApp
 import com.pim.app.location.policy.LocationPolicyMode
+import com.pim.app.location.service.ForegroundLocationController
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], application = TestPimApp::class)
 class LocationNotificationRendererTest {
     @Test
     fun collapsedTextShowsStrategyNextAccuracyQueueAndApi() {
         val text = LocationNotificationRenderer.collapsedText(
-            state = LocationNotificationState(
-                mode = LocationPolicyMode.ScheduleLowFrequency,
-                nextExpectedLocationText = "12 分钟后",
-                lastAcceptedLocationText = "21:24",
-                lastAccuracyText = "18m",
-                pendingUploadCount = 3,
-                apiState = "正常",
-                lastDroppedReason = null
-            )
+            state = state(mode = LocationPolicyMode.ScheduleLowFrequency)
         )
 
         assertTrue(text.contains("日程低频"))
@@ -29,7 +33,7 @@ class LocationNotificationRendererTest {
     @Test
     fun expandedTextShowsDroppedReason() {
         val text = LocationNotificationRenderer.expandedText(
-            state = LocationNotificationState(
+            state = state(
                 mode = LocationPolicyMode.MovementRecovery,
                 nextExpectedLocationText = "1 分钟后",
                 lastAcceptedLocationText = "无",
@@ -43,5 +47,71 @@ class LocationNotificationRendererTest {
         assertTrue(text.contains("移动恢复"))
         assertTrue(text.contains("API 无法连接"))
         assertTrue(text.contains("最近丢弃：误差必须小于 50 米"))
+    }
+
+    @Test
+    fun collectionControlActionShowsPauseWhenActive() {
+        val action = collectionControlAction(LocationPolicyMode.PowerSavingNormal)
+
+        assertEquals("暂停", action.label)
+        assertEquals(ForegroundLocationController.ACTION_PAUSE_COLLECTION, action.action)
+    }
+
+    @Test
+    fun collectionControlActionShowsResumeWhenPaused() {
+        val action = collectionControlAction(LocationPolicyMode.Off)
+
+        assertEquals("恢复", action.label)
+        assertEquals(ForegroundLocationController.ACTION_RESUME_COLLECTION, action.action)
+    }
+
+    @Test
+    fun ongoingEventFlagWhenActive() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val notification = LocationNotificationRenderer.build(
+            context, state(mode = LocationPolicyMode.PowerSavingNormal)
+        )
+
+        assertTrue((notification.flags and Notification.FLAG_ONGOING_EVENT) != 0)
+    }
+
+    @Test
+    fun noOngoingEventWhenPaused() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val notification = LocationNotificationRenderer.build(
+            context, state(mode = LocationPolicyMode.Off)
+        )
+
+        assertFalse((notification.flags and Notification.FLAG_ONGOING_EVENT) != 0)
+    }
+
+    @Test
+    fun pausedStateShowsResumeAction() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val notification = LocationNotificationRenderer.build(
+            context, state(mode = LocationPolicyMode.Off)
+        )
+
+        assertEquals("恢复", notification.actions[0].title)
+    }
+
+    private fun state(
+        mode: LocationPolicyMode,
+        nextExpectedLocationText: String = "12 分钟后",
+        lastAcceptedLocationText: String = "21:24",
+        lastAccuracyText: String = "18m",
+        pendingUploadCount: Int = 3,
+        apiState: String = "正常",
+        lastDroppedReason: String? = null
+    ): LocationNotificationState {
+        return LocationNotificationState(
+            mode = mode,
+            nextExpectedLocationText = nextExpectedLocationText,
+            lastAcceptedLocationText = lastAcceptedLocationText,
+            lastAccuracyText = lastAccuracyText,
+            pendingUploadCount = pendingUploadCount,
+            apiState = apiState,
+            lastDroppedReason = lastDroppedReason
+        )
     }
 }

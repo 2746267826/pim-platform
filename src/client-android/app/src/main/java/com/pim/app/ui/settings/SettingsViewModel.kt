@@ -297,6 +297,7 @@ class SettingsViewModel @Inject constructor(
     fun applyTrackingPreset(profileId: String) {
         trackingSettingsStore.applyPreset(profileId)
         reloadOperationalState()
+        reloadForegroundCollectionIfEnabled()
     }
 
     fun updateNormalMinText(value: String) {
@@ -371,6 +372,7 @@ class SettingsViewModel @Inject constructor(
         )
         reloadOperationalState()
         _state.update { it.copy(advancedErrors = emptyMap()) }
+        reloadForegroundCollectionIfEnabled()
         return true
     }
 
@@ -468,6 +470,17 @@ class SettingsViewModel @Inject constructor(
                 accuracyMetersText = settings.maxUploadAccuracyMetersExclusive.toDisplayNumber(),
                 altitudeSecText = (settings.altitudeWaitTimeoutMillis / 1_000.0).toDisplayNumber()
             )
+        }
+    }
+
+    private fun reloadForegroundCollectionIfEnabled() {
+        if (!trackingSettingsStore.read().continuousCollectionEnabled) return
+        runCatching {
+            foregroundLocationController.start()
+        }.onFailure { error ->
+            _state.update {
+                it.copy(collectionStatus = "设置已保存，但采集重载失败：${error.message ?: "未知错误"}")
+            }
         }
     }
 

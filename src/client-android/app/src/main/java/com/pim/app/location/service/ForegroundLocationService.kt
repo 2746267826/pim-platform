@@ -15,6 +15,7 @@ import android.os.IBinder
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import com.pim.app.location.LocationQueueRepository
+import com.pim.app.location.formatAccuracyThresholdMeters
 import com.pim.app.location.motion.MotionSignalRepository
 import com.pim.app.location.policy.LocationPolicyEngine
 import com.pim.app.location.policy.LocationPolicyInput
@@ -23,6 +24,7 @@ import com.pim.app.location.policy.PolicyDecision
 import com.pim.app.location.policy.PolicyLocation
 import com.pim.app.location.policy.ScheduleWindow
 import com.pim.app.location.quality.AltitudeWaitCoordinator
+import com.pim.app.location.quality.LocationQualityGate
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
 import com.pim.app.mobile.sync.MobileSyncScheduler
@@ -59,7 +61,8 @@ class ForegroundLocationService : Service() {
     @Inject lateinit var mobileSyncScheduler: MobileSyncScheduler
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val qualityCoordinator = AltitudeWaitCoordinator()
+    private lateinit var qualityCoordinator: AltitudeWaitCoordinator
+    private var activeMaxUploadAccuracyMetersExclusive = 50f
     private lateinit var manager: LocationManager
     private var listener: LocationListener? = null
     private var registeredIntervalMillis: Long? = null
@@ -112,8 +115,8 @@ class ForegroundLocationService : Service() {
     }
 
     private fun startCollection(enableCollection: Boolean) {
+        cancelPendingQualityWait()
         if (!hasRequiredLocationPermissions()) {
-            trackingSettingsStore.setContinuousCollectionEnabled(false)
             currentDecision = currentDecision.copy(
                 mode = LocationPolicyMode.Off,
                 requestIntervalMillis = 0L,
@@ -130,6 +133,10 @@ class ForegroundLocationService : Service() {
 
         val settings = if (enableCollection) trackingSettingsStore.setContinuousCollectionEnabled(true) else trackingSettingsStore.read()
         policyEngine = LocationPolicyEngine(settings.toTrackingPolicy())
+        activeMaxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
+        qualityCoordinator = AltitudeWaitCoordinator(
+            LocationQualityGate.fromTrackingSettings(settings)
+        )
         currentDecision = policyEngine!!.reduce(
             LocationPolicyInput(
                 nowMillis = System.currentTimeMillis(),
@@ -152,6 +159,7 @@ class ForegroundLocationService : Service() {
     }
 
     private fun stopCollection() {
+        cancelPendingQualityWait()
         listener?.let { manager.removeUpdates(it) }
         listener = null
         registeredIntervalMillis = null
@@ -210,9 +218,10 @@ class ForegroundLocationService : Service() {
 
     @SuppressLint("MissingPermission")
     private fun requestLocationUpdates(intervalMillis: Long) {
-        if (registeredIntervalMillis == intervalMillis && listener != null) return
+        val resolved = resolveRequestInterval(intervalMillis)
+        if (registeredIntervalMillis == resolved && listener != null) return
         listener?.let { manager.removeUpdates(it) }
-        registeredIntervalMillis = intervalMillis
+        registeredIntervalMillis = resolved
         val updateListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 handleLocation(location)
@@ -230,7 +239,7 @@ class ForegroundLocationService : Service() {
         enabledProviders().forEach { provider ->
             manager.requestLocationUpdates(
                 provider,
-                intervalMillis.coerceAtLeast(60_000L),
+                resolved,
                 0f,
                 updateListener,
                 Looper.getMainLooper()
@@ -311,7 +320,7 @@ class ForegroundLocationService : Service() {
 
     private suspend fun recordDropped(fix: RawLocationFix, reason: String) {
         locationQueueRepository.recordDropped(fix, reason)
-        lastDroppedReason = reason.toLocationMessage()
+        lastDroppedReason = reason.toLocationMessage(activeMaxUploadAccuracyMetersExclusive)
         updateNotification()
     }
 
@@ -353,6 +362,12 @@ class ForegroundLocationService : Service() {
             .filter { manager.isProviderEnabled(it) }
     }
 
+    private fun cancelPendingQualityWait() {
+        if (::qualityCoordinator.isInitialized) {
+            qualityCoordinator.cancelPending()
+        }
+    }
+
     private fun hasRequiredLocationPermissions(): Boolean {
         val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
         val background = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -389,9 +404,9 @@ class ForegroundLocationService : Service() {
             .toString()
     }
 
-    private fun String.toLocationMessage(): String = when (this) {
+    private fun String.toLocationMessage(threshold: Float): String = when (this) {
         "missing-horizontal-accuracy" -> "缺少水平精度"
-        "horizontal-accuracy-too-low" -> "误差必须小于 50 米"
+        "horizontal-accuracy-too-low" -> "误差必须小于 ${formatAccuracyThresholdMeters(threshold)} 米"
         else -> this
     }
 
@@ -402,5 +417,10 @@ class ForegroundLocationService : Service() {
         fun isRunning(): Boolean = runtimeState.value.isRunning
 
         val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+        fun resolveRequestInterval(intervalMillis: Long): Long {
+            require(intervalMillis > 0L) { "intervalMillis must be positive" }
+            return intervalMillis
+        }
     }
 }

@@ -89,6 +89,29 @@ class AltitudeWaitCoordinatorTest {
         assertTrue(accepted.single().qualityFlags.isEmpty())
     }
 
+    @Test
+    fun explicitCancellationPreventsPendingTimeoutAcceptance() = runBlocking {
+        var now = 1_000L
+        val accepted = mutableListOf<QualityAcceptedLocation>()
+        lateinit var coordinator: AltitudeWaitCoordinator
+        coordinator = AltitudeWaitCoordinator(
+            gate = LocationQualityGate(maxAccuracyMetersExclusive = 50f, altitudeWaitTimeoutMillis = 15_000L),
+            nowMillis = { now },
+            delayMillis = { millis ->
+                coordinator.cancelPending()
+                now += millis
+            }
+        )
+
+        coordinator.handleFix(
+            fix(horizontalAccuracyMeters = 18f, altitudeMeters = null, recordedAtMillis = 1_000L),
+            onAccepted = { accepted += it },
+            onDropped = { _, _ -> error("fix should not be dropped") }
+        )
+
+        assertTrue(accepted.isEmpty())
+    }
+
     private fun fix(
         horizontalAccuracyMeters: Float?,
         altitudeMeters: Double? = null,

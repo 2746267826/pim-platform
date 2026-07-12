@@ -1,5 +1,7 @@
 package com.pim.app.location.quality
 
+import com.pim.app.settings.TrackingSettings
+
 data class RawLocationFix(
     val latitude: Double,
     val longitude: Double,
@@ -77,5 +79,13 @@ class LocationQualityGate(
                 qualityFlags = setOf("altitude-missing-timeout")
             )
         )
+    }
+
+    companion object {
+        fun fromTrackingSettings(settings: TrackingSettings): LocationQualityGate =
+            LocationQualityGate(
+                maxAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive,
+                altitudeWaitTimeoutMillis = settings.altitudeWaitTimeoutMillis
+            )
     }
 }

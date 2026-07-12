@@ -410,6 +410,89 @@ class SettingsServerMutationTest {
     }
 
     @Test
+    fun saveAdvancedSettingsReloadsForegroundServiceWhenCollectionActive() {
+        val fixture = fixture()
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        drainStartedServices(application)
+        fixture.viewModel.setContinuousCollectionEnabled(true)
+
+        val startIntent = shadowOf(application).nextStartedService
+        assertNotNull("service must be started after enabling collection", startIntent)
+        assertEquals(
+            ForegroundLocationController.ACTION_START_COLLECTION,
+            startIntent!!.action
+        )
+
+        fixture.viewModel.updateNormalMinText("2")
+        fixture.viewModel.updateMovementSecText("45")
+        fixture.viewModel.updateAccuracyMetersText("35")
+        fixture.viewModel.updateAltitudeSecText("20")
+        fixture.viewModel.saveAdvancedSettings()
+
+        val reloadIntent = shadowOf(application).nextStartedService
+        assertNotNull(
+            "saveAdvancedSettings must reload foreground service when collection is active",
+            reloadIntent
+        )
+        assertEquals(
+            ForegroundLocationController.ACTION_START_COLLECTION,
+            reloadIntent!!.action
+        )
+    }
+
+    @Test
+    fun applyTrackingPresetReloadsForegroundServiceWhenCollectionActive() {
+        val fixture = fixture()
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        drainStartedServices(application)
+        fixture.viewModel.setContinuousCollectionEnabled(true)
+
+        val startIntent = shadowOf(application).nextStartedService
+        assertNotNull("service must be started after enabling collection", startIntent)
+        assertEquals(
+            ForegroundLocationController.ACTION_START_COLLECTION,
+            startIntent!!.action
+        )
+
+        fixture.viewModel.applyTrackingPreset("standard")
+
+        val reloadIntent = shadowOf(application).nextStartedService
+        assertNotNull(
+            "applyTrackingPreset must reload foreground service when collection is active",
+            reloadIntent
+        )
+        assertEquals(
+            ForegroundLocationController.ACTION_START_COLLECTION,
+            reloadIntent!!.action
+        )
+    }
+
+    @Test
+    fun saveAdvancedSettingsDoesNotStartServiceWhenCollectionIsDisabled() {
+        val fixture = fixture()
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        fixture.trackingSettings.setContinuousCollectionEnabled(false)
+        drainStartedServices(application)
+        fixture.viewModel.updateNormalMinText("2")
+
+        fixture.viewModel.saveAdvancedSettings()
+
+        assertNull(shadowOf(application).nextStartedService)
+    }
+
+    @Test
+    fun applyTrackingPresetDoesNotStartServiceWhenCollectionIsDisabled() {
+        val fixture = fixture()
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        fixture.trackingSettings.setContinuousCollectionEnabled(false)
+        drainStartedServices(application)
+
+        fixture.viewModel.applyTrackingPreset("standard")
+
+        assertNull(shadowOf(application).nextStartedService)
+    }
+
+    @Test
     fun missingPermissionPreservesTrueCollectionIntent() {
         val fixture = fixture()
         val application = ApplicationProvider.getApplicationContext<Application>()
@@ -423,6 +506,12 @@ class SettingsServerMutationTest {
         assertNotNull("blocker message must be shown", state.collectionStatus)
         assertTrue(state.collectionStatus!!.contains("缺少权限"))
         assertTrue(fixture.trackingSettings.read().continuousCollectionEnabled)
+    }
+
+    private fun drainStartedServices(application: Application) {
+        while (shadowOf(application).nextStartedService != null) {
+            // Drain intents left by earlier actions in the shared Robolectric application.
+        }
     }
 
     private fun fixture(failSessionClear: Boolean = false): Fixture {

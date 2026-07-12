@@ -15,6 +15,8 @@ import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.notifications.LocationNotificationRenderer
 import com.pim.app.notifications.LocationNotificationState
 import com.pim.app.settings.TrackingSettingsStore
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -25,6 +27,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.LooperMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestPimApp::class)
@@ -301,5 +304,163 @@ class ForegroundLocationServiceTest {
         service2.onDestroy()
         val nFinal = findNotification(nm)
         assertNotNull("onDestroy 后暂停通知仍应保留", nFinal)
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun syncFromNewServiceAfterPauseMustNotShowPowerSavingTransientState() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        WorkManagerTestInitHelper.initializeTestWorkManager(context)
+
+        val prefs = context.getSharedPreferences("fg_transient_free_sync", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        val store = TrackingSettingsStore(prefs)
+        store.setContinuousCollectionEnabled(true)
+
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        val service1 = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        service1.trackingSettingsStore = store
+        service1.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_PAUSE_COLLECTION),
+            0, 1
+        )
+        service1.onDestroy()
+
+        val nBefore = findNotification(nm)
+        assertNotNull("暂停通知应存在", nBefore)
+
+        val scheduler = MobileSyncScheduler(context, store)
+        val service2 = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        service2.trackingSettingsStore = store
+        service2.mobileSyncScheduler = scheduler
+
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            executor.submit {
+                service2.onStartCommand(
+                    Intent(context, ForegroundLocationService::class.java)
+                        .setAction(ForegroundLocationController.ACTION_SYNC_NOW),
+                    0, 74
+                )
+            }.get(5, TimeUnit.SECONDS)
+        } finally {
+            executor.shutdownNow()
+        }
+
+        val n = findNotification(nm)
+        assertNotNull("同步协程执行前通知应存在", n)
+        assertEquals(
+            "第一 action 应为恢复（保持暂停状态）",
+            "恢复",
+            n!!.actions!![0].title.toString()
+        )
+        assertTrue((n.flags and Notification.FLAG_ONGOING_EVENT) == 0)
+        val collapsed = n.extras?.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString() ?: ""
+        assertTrue("collapsedText 应包含已暂停: $collapsed", collapsed.contains("已暂停"))
+        assertFalse("collapsedText 不应包含省电档: $collapsed", collapsed.contains("省电档"))
+        assertTrue("collapsedText 应包含同步中状态: $collapsed", collapsed.contains("同步中"))
+
+        shadowOf(Looper.getMainLooper()).idle()
+        val completed = findNotification(nm)
+        assertNotNull("同步完成后通知应存在", completed)
+        val completedText = completed!!.extras
+            ?.getCharSequence(android.app.Notification.EXTRA_TEXT)
+            ?.toString()
+            .orEmpty()
+        assertTrue(completedText.contains("同步请求已提交"))
+
+        service2.onDestroy()
+    }
+
+    @Test
+    fun syncAfterPauseOnSameInstancePreservesResumeNotification() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        WorkManagerTestInitHelper.initializeTestWorkManager(context)
+
+        val prefs = context.getSharedPreferences("fg_same_instance_pause_sync", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        val store = TrackingSettingsStore(prefs)
+        store.setContinuousCollectionEnabled(true)
+
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        service.trackingSettingsStore = store
+        // PAUSE on this instance
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_PAUSE_COLLECTION),
+            0, 41
+        )
+
+        // The PAUSE stops the service, so a fresh service would normally be needed.
+        // But for the regression test we simulate: paused notification is active.
+        // Send SYNC to the same service instance
+        val scheduler = MobileSyncScheduler(context, store)
+        service.mobileSyncScheduler = scheduler
+
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_SYNC_NOW),
+            0, 42
+        )
+
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val n = findNotification(nm)
+        assertNotNull("PAUSE+SYNC 后暂停通知应存在", n)
+        assertTrue("通知应为非 ongoing", (n!!.flags and Notification.FLAG_ONGOING_EVENT) == 0)
+        assertEquals("恢复", n.actions!![0].title.toString())
+        val collapsed = n.extras?.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString() ?: ""
+        assertTrue("应包含已暂停: $collapsed", collapsed.contains("已暂停"))
+        assertTrue("应包含同步结果: $collapsed", collapsed.contains("同步请求已提交"))
+
+        service.onDestroy()
+    }
+
+    @Test
+    fun syncAfterStopDoesNotLeaveNotification() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        WorkManagerTestInitHelper.initializeTestWorkManager(context)
+
+        val prefs = context.getSharedPreferences("fg_stop_then_sync", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        val store = TrackingSettingsStore(prefs)
+
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+        assertFalse("不应有残留通知", nm.activeNotifications.any { it.id == LocationNotificationRenderer.NOTIFICATION_ID })
+
+        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        service.trackingSettingsStore = store
+
+        // STOP_COLLECTION (no prior PAUSE — collection was never enabled)
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_STOP_COLLECTION),
+            0, 1
+        )
+
+        assertFalse("STOP 后不应有通知", nm.activeNotifications.any { it.id == LocationNotificationRenderer.NOTIFICATION_ID })
+
+        // Now SYNC — should NOT restore a notification
+        val scheduler = MobileSyncScheduler(context, store)
+        service.mobileSyncScheduler = scheduler
+
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_SYNC_NOW),
+            0, 2
+        )
+
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertFalse("STOP+SYNC 后不应有通知", nm.activeNotifications.any { it.id == LocationNotificationRenderer.NOTIFICATION_ID })
+
+        service.onDestroy()
     }
 }

@@ -202,6 +202,9 @@ class ForegroundLocationService : Service() {
             it.id == LocationNotificationRenderer.NOTIFICATION_ID &&
                 (it.notification.flags and Notification.FLAG_ONGOING_EVENT) == 0
         }
+        if (restorePausedNotification) {
+            markPausedState()
+        }
         apiState = "同步中"
         startForeground(LocationNotificationRenderer.NOTIFICATION_ID, notification())
         updateNotification()
@@ -220,21 +223,25 @@ class ForegroundLocationService : Service() {
                 if (stopAfterSync) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     if (restorePausedNotification) {
-                        currentDecision = currentDecision.copy(
-                            mode = LocationPolicyMode.Off,
-                            requestIntervalMillis = 0L,
-                            nextExpectedLocationAtMillis = Long.MAX_VALUE,
-                            reason = "已暂停",
-                            scheduleLowFrequency = false
-                        )
-                        publishRuntimeState(isRunning = false)
-                        isPausing = true
+                        markPausedState()
                         nm.notify(LocationNotificationRenderer.NOTIFICATION_ID, notification())
                     }
                     stopSelf(startId)
                 }
             }
         }
+    }
+
+    private fun markPausedState() {
+        currentDecision = currentDecision.copy(
+            mode = LocationPolicyMode.Off,
+            requestIntervalMillis = 0L,
+            nextExpectedLocationAtMillis = Long.MAX_VALUE,
+            reason = "已暂停",
+            scheduleLowFrequency = false
+        )
+        publishRuntimeState(isRunning = false)
+        isPausing = true
     }
 
     private fun refreshScheduleWindows() {

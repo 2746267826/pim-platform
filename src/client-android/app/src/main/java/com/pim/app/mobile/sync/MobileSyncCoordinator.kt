@@ -113,7 +113,9 @@ class MobileSyncCoordinator @Inject constructor(
         val attemptedAt = nowIso()
         val serverUrl = configuredServerUrl()
         val deviceIdentity = deviceIdentity()
-        val hasToken = !tokenManager.getAccessToken().isNullOrBlank()
+        val hasToken = !tokenManager
+            .getAccessTokenForServer(serverSettingsStore.getBaseUrl())
+            .isNullOrBlank()
         val hasUsageAccess = usageAccessChecker.hasUsageAccess()
 
         if (serverUrl.isBlank()) {

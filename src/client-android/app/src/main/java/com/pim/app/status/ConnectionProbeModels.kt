@@ -21,6 +21,7 @@ data class ServerCapabilities(
 data class ConnectionProbeResult(
     val outcome: ConnectionProbeOutcome,
     val checkedAtUtcMillis: Long,
+    val serverIdentity: String? = null,
     val lastCompletedStage: ConnectionProbeStage?,
     val latencyMillisByStage: Map<ConnectionProbeStage, Long>,
     val capabilities: ServerCapabilities,
@@ -30,5 +31,5 @@ data class ConnectionProbeResult(
 )
 
 fun interface ProbeTokenSource {
-    fun currentAccessToken(): String?
+    fun currentAccessToken(serverUrl: String): String?
 }

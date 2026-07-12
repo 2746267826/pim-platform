@@ -3,6 +3,7 @@ package com.pim.core.di
 import android.content.Context
 import com.pim.core.auth.AuthRefreshOperation
 import com.pim.core.auth.AuthSessionStore
+import com.pim.core.auth.ServerBoundLoginTransport
 import com.pim.core.auth.TokenManager
 import com.pim.core.network.ApiClientProvider
 import com.pim.core.network.ApiService
@@ -37,20 +38,30 @@ object CoreModule {
 
     @Provides
     @Singleton
+    fun provideServerBoundLoginTransport(
+        apiClientProvider: dagger.Lazy<ApiClientProvider>
+    ): ServerBoundLoginTransport {
+        return ServerBoundLoginTransport { serverIdentity, request ->
+            apiClientProvider.get()
+                .refreshApiServiceForServer(serverIdentity)
+                .login(request)
+        }
+    }
+
+    @Provides
+    @Singleton
     fun provideJson(): Json = Json { ignoreUnknownKeys = true }
 
     @Provides
     @Singleton
     fun provideAuthRefreshOperation(
-        tokenManager: TokenManager,
         apiClientProvider: dagger.Lazy<ApiClientProvider>
     ): AuthRefreshOperation {
         return RetrofitAuthRefreshOperation(
-            refreshCall = { request ->
-                apiClientProvider.get().refreshApiService().refresh(request)
-            },
-            saveTokens = { auth ->
-                tokenManager.saveTokens(auth.accessToken, auth.refreshToken, auth.expiresAt)
+            refreshCall = { serverIdentity, request ->
+                apiClientProvider.get()
+                    .refreshApiServiceForServer(serverIdentity)
+                    .refresh(request)
             }
         )
     }

@@ -79,8 +79,8 @@ class StatusCenterRepository @Inject constructor(
                 warnings = validation.warnings
             ),
             auth = AuthStatusSnapshot(
-                hasAccessToken = !tokenManager.getAccessToken().isNullOrBlank(),
-                isExpired = tokenManager.isExpired()
+                hasAccessToken = !tokenManager.getAccessTokenForServer(baseUrl).isNullOrBlank(),
+                isExpired = tokenManager.isExpiredForServer(baseUrl)
             ),
             service = ForegroundServiceSnapshot(
                 continuousCollectionEnabled = settings.continuousCollectionEnabled,

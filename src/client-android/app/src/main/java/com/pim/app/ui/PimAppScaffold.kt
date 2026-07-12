@@ -73,13 +73,16 @@ import com.pim.app.location.LocationSubmissionPolicy
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.sync.MobileSyncCoordinator
 import com.pim.app.mobile.sync.MobileSyncState
+import com.pim.core.auth.SecureStorageStatus
+import com.pim.core.auth.ServerBoundLoginCoordinator
+import com.pim.core.auth.ServerBoundLoginResult
 import com.pim.core.auth.TokenManager
-import com.pim.core.models.LoginRequest
-import com.pim.core.network.ApiClientProvider
 import com.pim.core.settings.ServerSettingsStore
+import com.pim.core.settings.ServerUrlValidator
 import com.pim.core.util.toCauseChainMessage
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -561,7 +564,7 @@ private data class PendingQueueCounts(
 class MobileStatusViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val tokenManager: TokenManager,
-    private val apiClientProvider: ApiClientProvider,
+    private val serverBoundLoginCoordinator: ServerBoundLoginCoordinator,
     private val serverSettingsStore: ServerSettingsStore,
     private val database: AppDatabase,
     private val logs: StructuredLogRepository,
@@ -628,7 +631,7 @@ class MobileStatusViewModel @Inject constructor(
                 current.copy(
                     serverUrl = serverSettingsStore.getBaseUrl(),
                     appVersion = appVersionDisplay(),
-                    isLoggedIn = !tokenManager.getAccessToken().isNullOrBlank(),
+                    isLoggedIn = hasCurrentServerSession(),
                     pendingQueueCount = pending.uploadable,
                     pendingUsageEventCount = pending.usageEvents,
                     pendingUsageSummaryCount = pending.usageSummaries,
@@ -643,16 +646,35 @@ class MobileStatusViewModel @Inject constructor(
     }
 
     fun saveServerUrl(value: String) {
-        val normalized = serverSettingsStore.setBaseUrl(value)
-        _state.update {
-            it.copy(
-                serverUrl = normalized,
-                phase = "server-updated",
-                progressText = "服务器地址已保存，请重新同步。",
-                lastError = null,
-                lastErrorDetail = null
-            )
+        val validation = ServerUrlValidator.validate(value)
+        if (!validation.isValid) {
+            _state.update {
+                it.copy(
+                    phase = "server-invalid",
+                    progressText = "服务器地址无效。",
+                    lastError = validation.reasonCode,
+                    lastErrorDetail = validation.reasonCode
+                )
+            }
+            return
         }
+        runCatching {
+            serverSettingsStore.setBaseUrl(validation.normalizedUrl)
+        }.getOrElse { error ->
+            reloadPersistedServerState(
+                phase = "server-save-failed",
+                progressText = "服务器地址保存失败，已重新载入当前配置。",
+                lastError = error.message,
+                lastErrorDetail = error.message
+            )
+            return
+        }
+        reloadPersistedServerState(
+            phase = "server-updated",
+            progressText = "服务器地址已保存，请重新同步。",
+            lastError = null,
+            lastErrorDetail = null
+        )
     }
 
     fun syncNow() {
@@ -665,34 +687,51 @@ class MobileStatusViewModel @Inject constructor(
             return
         }
 
+        if (!ServerUrlValidator.validate(serverSettingsStore.getBaseUrl()).isValid) {
+            _state.update { it.copy(loginStatus = "请先保存有效的服务器地址。") }
+            return
+        }
+
         viewModelScope.launch {
             _state.update { it.copy(isLoginInProgress = true, loginStatus = "正在登录...") }
             runCatching {
-                val response = apiClientProvider.refreshApiService().login(LoginRequest(username.trim(), password))
-                val auth = response.data
-                if (response.code != 0 || auth == null) {
-                    error(response.message.ifBlank { "登录失败。" })
+                when (val result = serverBoundLoginCoordinator.login(username, password)) {
+                    ServerBoundLoginResult.Success -> Unit
+                    ServerBoundLoginResult.StaleServer -> {
+                        error("\u767b\u5f55\u671f\u95f4\u670d\u52a1\u5668\u5730\u5740\u5df2\u66f4\u6539\uff0c\u8bf7\u91cd\u8bd5\u3002")
+                    }
+                    ServerBoundLoginResult.SessionSaveFailed -> {
+                        error("\u767b\u5f55\u51ed\u636e\u65e0\u6cd5\u5b89\u5168\u4fdd\u5b58\uff0c\u8bf7\u91cd\u8bd5\u3002")
+                    }
+                    is ServerBoundLoginResult.Failure -> throw result.error
                 }
-                tokenManager.saveTokens(auth.accessToken, auth.refreshToken, auth.expiresAt)
             }.fold(
                 onSuccess = {
+                    val loginSuccessMessage = if (
+                        tokenManager.storageStatus == SecureStorageStatus.Ephemeral
+                    ) {
+                        "\u767b\u5f55\u6210\u529f\uff0c\u4f46\u5b89\u5168\u5b58\u50a8\u4e0d\u53ef\u7528\uff1b\u5173\u95ed\u5e94\u7528\u540e\u9700\u8981\u91cd\u65b0\u767b\u5f55\u3002\u6b63\u5728\u540c\u6b65\u624b\u673a\u6570\u636e\u3002"
+                    } else {
+                        "登录成功，正在同步手机数据。"
+                    }
                     _state.update {
                         it.copy(
-                            isLoggedIn = true,
+                            isLoggedIn = hasCurrentServerSession(),
                             isLoginInProgress = false,
-                            loginStatus = "登录成功，正在同步手机数据。"
+                            loginStatus = loginSuccessMessage
                         )
                     }
-                    startSync("登录成功，正在同步手机数据。")
+                    startSync(loginSuccessMessage)
                 },
                 onFailure = { error ->
+                    if (error is CancellationException) throw error
                     val failureMessage = error.toCauseChainMessage()
                     runCatching {
                         logs.error("mobile-auth", "登录失败：$failureMessage", error)
                     }
                     _state.update {
                         it.copy(
-                            isLoggedIn = false,
+                            isLoggedIn = hasCurrentServerSession(),
                             isLoginInProgress = false,
                             loginStatus = "登录失败：$failureMessage",
                             lastError = failureMessage
@@ -704,7 +743,15 @@ class MobileStatusViewModel @Inject constructor(
     }
 
     fun clearLogin() {
-        tokenManager.clear()
+        if (!tokenManager.clear()) {
+            _state.update {
+                it.copy(
+                    isLoggedIn = hasCurrentServerSession(),
+                    loginStatus = "清除失败：安全存储暂时不可用。"
+                )
+            }
+            return
+        }
         _state.update {
             it.copy(
                 isLoggedIn = false,
@@ -717,7 +764,7 @@ class MobileStatusViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update {
                 it.copy(
-                    isLoggedIn = !tokenManager.getAccessToken().isNullOrBlank(),
+                    isLoggedIn = hasCurrentServerSession(),
                     loginStatus = statusMessage
                 )
             }
@@ -725,13 +772,38 @@ class MobileStatusViewModel @Inject constructor(
             val syncState = mobileSyncCoordinator.syncOnOpen()
             _state.update { current ->
                 current.copy(
-                    isLoggedIn = !tokenManager.getAccessToken().isNullOrBlank(),
+                    isLoggedIn = hasCurrentServerSession(),
                     loginStatus = syncResultMessage(syncState),
                     serverUrl = serverSettingsStore.getBaseUrl(),
                     appVersion = appVersionDisplay()
                 ).copyFromSync(syncState)
             }
         }
+    }
+
+    private fun reloadPersistedServerState(
+        phase: String,
+        progressText: String,
+        lastError: String?,
+        lastErrorDetail: String?
+    ) {
+        val serverUrl = serverSettingsStore.getBaseUrl()
+        _state.update {
+            it.copy(
+                serverUrl = serverUrl,
+                isLoggedIn = hasCurrentServerSession(),
+                phase = phase,
+                progressText = progressText,
+                lastError = lastError,
+                lastErrorDetail = lastErrorDetail
+            )
+        }
+    }
+
+    private fun hasCurrentServerSession(): Boolean {
+        return !tokenManager
+            .getAccessTokenForServer(serverSettingsStore.getBaseUrl())
+            .isNullOrBlank()
     }
 
     private suspend fun pendingQueueCounts(): PendingQueueCounts {

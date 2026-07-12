@@ -23,6 +23,8 @@ import org.robolectric.annotation.Config
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import javax.net.ssl.SSLHandshakeException
 
 @RunWith(RobolectricTestRunner::class)
@@ -66,7 +68,8 @@ class ConnectionProbeServiceTest {
             anonymousClient = anonymousClient,
             authenticatedClient = authenticatedClient,
             tokenSource = tokenSource,
-            nowMillis = { 1_000L }
+            wallClockMillis = { 1_000L },
+            monotonicNanos = { 0L }
         )
     }
 
@@ -89,6 +92,7 @@ class ConnectionProbeServiceTest {
         assertEquals(ServerCapabilities(mobileItemResultsV1 = true, androidEmbedV1 = true), result.capabilities)
         assertNull(result.failureKind)
         assertEquals(1_000L, result.checkedAtUtcMillis)
+        assertEquals(serverUrl, result.serverIdentity)
         assertEquals(ConnectionProbeStage.entries.toSet(), result.latencyMillisByStage.keys)
 
         val requests = List(5) { server.takeRequest() }
@@ -256,6 +260,24 @@ class ConnectionProbeServiceTest {
     }
 
     @Test
+    fun tokenBoundToAnotherServerStillAllowsAnonymousStagesAndSkipsAuthenticatedStatus() = runTest {
+        tokenSource.serverUrl = "https://server-a.example/api/v1/"
+        enqueueHealthyApi(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
+        enqueueHtml(200)
+        enqueueHtml(200)
+
+        val result = service.probe(serverUrl)
+
+        assertEquals(ConnectionProbeOutcome.Reachable, result.outcome)
+        assertFalse(result.latencyMillisByStage.containsKey(ConnectionProbeStage.AuthenticatedStatus))
+        assertEquals(0, authenticatedModes.size)
+        assertEquals(
+            listOf("/health", "/api/version", "/", "/embed/android/today"),
+            List(4) { server.takeRequest().path }
+        )
+    }
+
+    @Test
     fun invalidUrlIsBlockedWithoutNetworkEvidenceLeak() = runTest {
         val configuredUrl = "https://user:secret@pim.example/wrong?access=token-secret"
 
@@ -271,6 +293,30 @@ class ConnectionProbeServiceTest {
     }
 
     @Test
+    fun wallClockChangesDoNotAffectMonotonicStageLatency() = runTest {
+        val wallCalls = AtomicInteger(0)
+        val monotonicNanos = AtomicLong(0L)
+        val throwingClient = OkHttpClient.Builder()
+            .addInterceptor(Interceptor { throw ConnectException("offline") })
+            .build()
+        val clockedService = ConnectionProbeService(
+            anonymousClient = throwingClient,
+            authenticatedClient = throwingClient,
+            tokenSource = FakeProbeTokenSource(null),
+            wallClockMillis = {
+                if (wallCalls.getAndIncrement() == 0) 10_000L else 1_000L
+            },
+            monotonicNanos = { monotonicNanos.getAndAdd(7_000_000L) }
+        )
+
+        val result = clockedService.probe("https://pim.example/api/v1/")
+
+        assertEquals(10_000L, result.checkedAtUtcMillis)
+        assertEquals(7L, result.latencyMillisByStage[ConnectionProbeStage.Url])
+        assertEquals(7L, result.latencyMillisByStage[ConnectionProbeStage.Health])
+    }
+
+    @Test
     fun probeEvidencePersistsAndExpiresAtExactlyFiveMinutes() {
         val preferences = preferencesContext.getSharedPreferences("probe-test", Context.MODE_PRIVATE)
         preferences.edit().clear().commit()
@@ -279,6 +325,7 @@ class ConnectionProbeServiceTest {
         val result = ConnectionProbeResult(
             outcome = ConnectionProbeOutcome.Reachable,
             checkedAtUtcMillis = 1_000L,
+            serverIdentity = "https://pim.example/api/v1/",
             lastCompletedStage = ConnectionProbeStage.EmbedBootstrap,
             latencyMillisByStage = mapOf(ConnectionProbeStage.Health to 12L),
             capabilities = ServerCapabilities(true, true)
@@ -288,9 +335,10 @@ class ConnectionProbeServiceTest {
 
         assertEquals(result, store.result.value)
         assertEquals(result, ConnectionProbeStore(preferences, json).result.value)
-        assertTrue(store.isFresh(300_999L))
-        assertFalse(store.isFresh(301_000L))
-        assertFalse(store.isFresh(999L))
+        assertTrue(store.isFresh("https://pim.example/api/v1/", 300_999L))
+        assertFalse(store.isFresh("https://other.example/api/v1/", 1_001L))
+        assertFalse(store.isFresh("https://pim.example/api/v1/", 301_000L))
+        assertFalse(store.isFresh("https://pim.example/api/v1/", 999L))
     }
 
     @Test
@@ -304,7 +352,7 @@ class ConnectionProbeServiceTest {
         val store = ConnectionProbeStore(preferences, Json { ignoreUnknownKeys = true })
 
         assertNull(store.result.value)
-        assertFalse(store.isFresh(1_000L))
+        assertFalse(store.isFresh("https://pim.example/api/v1/", 1_000L))
     }
 
     private fun enqueueHealthyApi(capabilities: List<String>) {
@@ -338,11 +386,20 @@ class ConnectionProbeServiceTest {
             anonymousClient = client,
             authenticatedClient = client,
             tokenSource = FakeProbeTokenSource(null),
-            nowMillis = { 1_000L }
+            wallClockMillis = { 1_000L },
+            monotonicNanos = { 0L }
         )
     }
 
-    private data class FakeProbeTokenSource(var accessToken: String?) : ProbeTokenSource {
-        override fun currentAccessToken(): String? = accessToken
+    private data class FakeProbeTokenSource(
+        var accessToken: String?,
+        var serverUrl: String? = null
+    ) : ProbeTokenSource {
+        override fun currentAccessToken(serverUrl: String): String? {
+            val boundServerUrl = this.serverUrl ?: return accessToken
+            val boundIdentity = com.pim.core.settings.PimServerEndpoints.from(boundServerUrl).trustedOrigin
+            val requestedIdentity = com.pim.core.settings.PimServerEndpoints.from(serverUrl).trustedOrigin
+            return accessToken.takeIf { boundIdentity == requestedIdentity }
+        }
     }
 }

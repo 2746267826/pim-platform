@@ -40,17 +40,7 @@ data class PimServerEndpoints(
                 .query(null)
                 .fragment(null)
                 .build()
-            val originHost = if (':' in webOrigin.host) "[${webOrigin.host}]" else webOrigin.host
-            val defaultPort = if (webOrigin.scheme == "https") 443 else 80
-            val trustedOrigin = buildString {
-                append(webOrigin.scheme)
-                append("://")
-                append(originHost)
-                if (webOrigin.port != defaultPort) {
-                    append(':')
-                    append(webOrigin.port)
-                }
-            }
+            val trustedOrigin = trustedOriginOf(webOrigin)
 
             return PimServerEndpoints(
                 apiBaseUrl = apiBaseUrl,
@@ -62,6 +52,39 @@ data class PimServerEndpoints(
                 todayEmbedUrl = webOrigin.resolve("/embed/android/today")!!,
                 tracksEmbedUrl = webOrigin.resolve("/embed/android/tracks")!!
             )
+        }
+
+        fun trustedOriginOf(url: HttpUrl): String {
+            require(url.scheme == "http" || url.scheme == "https") {
+                "Server URL scheme must be http or https"
+            }
+            val originHost = if (':' in url.host) "[${url.host}]" else url.host
+            val defaultPort = if (url.scheme == "https") 443 else 80
+            return buildString {
+                append(url.scheme)
+                append("://")
+                append(originHost)
+                if (url.port != defaultPort) {
+                    append(':')
+                    append(url.port)
+                }
+            }
+        }
+
+        fun normalizeTrustedOrigin(value: String): String {
+            val url = value.toHttpUrl()
+            require(url.encodedUsername.isEmpty() && url.encodedPassword.isEmpty()) {
+                "Server origin must not contain credentials"
+            }
+            require(url.encodedPath == "/" && url.query == null && url.fragment == null) {
+                "Server origin must not contain a path, query, or fragment"
+            }
+            return trustedOriginOf(url)
+        }
+
+        fun apiBaseUrlForTrustedOrigin(value: String): HttpUrl {
+            val trustedOrigin = normalizeTrustedOrigin(value).toHttpUrl()
+            return trustedOrigin.resolve("$API_PATH/")!!
         }
 
         private const val API_PATH = "/api/v1"

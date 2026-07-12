@@ -7,12 +7,34 @@ import com.pim.app.data.AppDatabase
 import com.pim.app.data.AppUsageDao
 import com.pim.app.data.PimDatabaseMigrations
 import com.pim.app.settings.TrackingSettingsStore
+import com.pim.app.status.ConnectionProbeRunner
+import com.pim.app.status.ConnectionProbeService
+import com.pim.app.status.ConnectionProbeStore
+import com.pim.app.status.ProbeTokenSource
+import com.pim.core.auth.TokenManager
+import com.pim.core.network.applyPimApiTimeouts
+import com.pim.core.settings.ServerSettingsStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class AnonymousProbeClient
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class AuthenticatedProbeClient
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class ConnectionProbePreferences
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -40,5 +62,69 @@ object AppModule {
     @Singleton
     fun provideTrackingSettingsStore(preferences: SharedPreferences): TrackingSettingsStore {
         return TrackingSettingsStore(preferences)
+    }
+
+    @Provides
+    @Singleton
+    @AnonymousProbeClient
+    fun provideAnonymousProbeClient(): OkHttpClient {
+        return OkHttpClient.Builder()
+            .applyPimApiTimeouts()
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    @AuthenticatedProbeClient
+    fun provideAuthenticatedProbeClient(client: OkHttpClient): OkHttpClient = client
+
+    @Provides
+    @Singleton
+    fun provideProbeTokenSource(tokenManager: TokenManager): ProbeTokenSource {
+        return ProbeTokenSource { serverUrl ->
+            tokenManager.getAccessTokenForServer(serverUrl)
+        }
+    }
+
+    @Provides
+    @Singleton
+    @ConnectionProbePreferences
+    fun provideConnectionProbePreferences(
+        @ApplicationContext context: Context
+    ): SharedPreferences {
+        return context.getSharedPreferences("pim_connection_probe", Context.MODE_PRIVATE)
+    }
+
+    @Provides
+    @Singleton
+    fun provideConnectionProbeStore(
+        @ConnectionProbePreferences preferences: SharedPreferences,
+        json: Json
+    ): ConnectionProbeStore {
+        return ConnectionProbeStore(preferences, json)
+    }
+
+    @Provides
+    @Singleton
+    fun provideConnectionProbeService(
+        @AnonymousProbeClient anonymousClient: OkHttpClient,
+        @AuthenticatedProbeClient authenticatedClient: OkHttpClient,
+        tokenSource: ProbeTokenSource
+    ): ConnectionProbeService {
+        return ConnectionProbeService(anonymousClient, authenticatedClient, tokenSource)
+    }
+
+    @Provides
+    @Singleton
+    fun provideConnectionProbeRunner(
+        service: ConnectionProbeService,
+        store: ConnectionProbeStore,
+        serverSettingsStore: ServerSettingsStore
+    ): ConnectionProbeRunner {
+        return ConnectionProbeRunner(
+            probe = service,
+            store = store,
+            currentServerUrl = serverSettingsStore::getBaseUrl
+        )
     }
 }

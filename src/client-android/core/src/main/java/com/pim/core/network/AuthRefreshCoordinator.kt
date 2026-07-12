@@ -1,7 +1,10 @@
 package com.pim.core.network
 
 import com.pim.core.auth.AuthRefreshOperation
+import com.pim.core.auth.AuthRefreshResult
+import com.pim.core.auth.AuthSessionSnapshot
 import com.pim.core.auth.AuthSessionStore
+import com.pim.core.auth.AuthTokens
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -12,127 +15,133 @@ class AuthRefreshCoordinator(
 ) {
     private val refreshMutex = Mutex()
 
-    @Volatile
-    private var refreshGeneration = 0L
-
-    suspend fun refreshIfExpired(): Boolean {
-        val observedState = sessionState()
-        if (!isExpired(observedState.expiresAtUtcMillis)) return true
-        val observedGeneration = refreshGeneration
+    suspend fun refreshIfExpired(serverIdentity: String? = null): Boolean {
+        val observed = sessionStore.snapshot()
+        if (!isBoundToRequiredServer(observed, serverIdentity)) return false
+        if (!isExpired(observed.tokens)) return true
 
         return refreshMutex.withLock {
-            val currentState = sessionState()
-            if (refreshGeneration != observedGeneration) {
-                return@withLock validateCompletedRefresh(
-                    currentState,
-                    RefreshRequirement.Expiry
+            val current = sessionStore.snapshot()
+            if (!isBoundToRequiredServer(current, serverIdentity)) return@withLock false
+            if (current != observed) {
+                return@withLock isValidCompletedRefresh(
+                    current,
+                    RefreshRequirement.Expiry,
+                    serverIdentity
                 )
             }
-            if (isValidSession(currentState)) {
-                return@withLock true
-            }
-
-            refreshLocked(RefreshRequirement.Expiry)
+            if (!isExpired(current.tokens)) return@withLock true
+            refreshLocked(current, RefreshRequirement.Expiry, serverIdentity)
         }
     }
 
-    suspend fun refreshAfterUnauthorized(failedAccessToken: String?): Boolean {
-        val observedState = sessionState()
-        val observedGeneration = refreshGeneration
+    suspend fun refreshAfterUnauthorized(
+        failedAccessToken: String?,
+        serverIdentity: String? = null
+    ): Boolean {
         val requirement = RefreshRequirement.Forced(failedAccessToken.nonblank())
+        val observed = sessionStore.snapshot()
+        if (!isBoundToRequiredServer(observed, serverIdentity)) return false
+        if (isValidCompletedRefresh(observed, requirement, serverIdentity)) return true
 
         return refreshMutex.withLock {
-            val currentState = sessionState()
-            if (refreshGeneration != observedGeneration) {
-                return@withLock validateCompletedRefresh(currentState, requirement)
+            val current = sessionStore.snapshot()
+            if (!isBoundToRequiredServer(current, serverIdentity)) return@withLock false
+            if (isValidCompletedRefresh(current, requirement, serverIdentity)) return@withLock true
+            if (current != observed) {
+                return@withLock false
             }
-            if (
-                (
-                    currentState != observedState ||
-                        currentState.accessToken != requirement.failedAccessToken
-                ) &&
-                isValidCompletedRefresh(currentState, requirement)
-            ) {
-                return@withLock true
-            }
-
-            refreshLocked(requirement)
+            refreshLocked(current, requirement, serverIdentity)
         }
     }
 
-    private suspend fun refreshLocked(requirement: RefreshRequirement): Boolean {
-        val refreshToken = sessionStore.refreshToken().nonblank()
-        if (refreshToken == null) {
-            clearSessionOnce()
-            return false
-        }
-
-        if (!refreshOperation.refresh(refreshToken)) {
-            clearSessionOnce()
-            return false
-        }
-
-        if (!isValidCompletedRefresh(sessionState(), requirement)) {
-            clearSessionOnce()
-            return false
-        }
-
-        refreshGeneration++
-        return true
-    }
-
-    private fun validateCompletedRefresh(
-        state: SessionState,
-        requirement: RefreshRequirement
+    private suspend fun refreshLocked(
+        expected: AuthSessionSnapshot,
+        requirement: RefreshRequirement,
+        serverIdentity: String?
     ): Boolean {
-        if (isValidCompletedRefresh(state, requirement)) return true
-        clearSessionOnce()
-        return false
+        val refreshToken = expected.tokens?.refreshToken.nonblank()
+        if (refreshToken == null) {
+            return clearExpectedOrValidateCurrent(expected, requirement, serverIdentity)
+        }
+
+        val refreshServerIdentity = expected.serverIdentity
+            ?: return clearExpectedOrValidateCurrent(expected, requirement, serverIdentity)
+        return when (
+            val result = refreshOperation.refresh(refreshToken, refreshServerIdentity)
+        ) {
+            AuthRefreshResult.Rejected -> {
+                clearExpectedOrValidateCurrent(expected, requirement, serverIdentity)
+            }
+            is AuthRefreshResult.Success -> {
+                if (!isValidRefreshTokens(result.tokens, requirement)) {
+                    return clearExpectedOrValidateCurrent(expected, requirement, serverIdentity)
+                }
+                if (sessionStore.compareAndSave(expected, result.tokens)) {
+                    true
+                } else {
+                    isValidCompletedRefresh(
+                        sessionStore.snapshot(),
+                        requirement,
+                        serverIdentity
+                    )
+                }
+            }
+        }
+    }
+
+    private fun clearExpectedOrValidateCurrent(
+        expected: AuthSessionSnapshot,
+        requirement: RefreshRequirement,
+        serverIdentity: String?
+    ): Boolean {
+        if (sessionStore.clearIfUnchanged(expected)) return false
+        return isValidCompletedRefresh(sessionStore.snapshot(), requirement, serverIdentity)
     }
 
     private fun isValidCompletedRefresh(
-        state: SessionState,
+        snapshot: AuthSessionSnapshot,
+        requirement: RefreshRequirement,
+        serverIdentity: String?
+    ): Boolean {
+        if (!isBoundToRequiredServer(snapshot, serverIdentity)) return false
+        return isValidRefreshTokens(snapshot.tokens, requirement)
+    }
+
+    private fun isValidRefreshTokens(
+        tokens: AuthTokens?,
         requirement: RefreshRequirement
     ): Boolean {
-        if (!isValidSession(state)) return false
+        if (!isValidSession(tokens)) return false
         return when (requirement) {
             RefreshRequirement.Expiry -> true
             is RefreshRequirement.Forced -> {
                 requirement.failedAccessToken == null ||
-                    state.accessToken != requirement.failedAccessToken
+                    tokens?.accessToken != requirement.failedAccessToken
             }
         }
     }
 
-    private fun isValidSession(state: SessionState): Boolean {
-        val expiry = state.expiresAtUtcMillis ?: return false
-        return state.accessToken != null && expiry > nowMillis()
+    private fun isBoundToRequiredServer(
+        snapshot: AuthSessionSnapshot,
+        serverIdentity: String?
+    ): Boolean {
+        if (snapshot.tokens == null || serverIdentity == null) return true
+        return snapshot.serverIdentity == serverIdentity
     }
 
-    private fun sessionState(): SessionState {
-        return SessionState(
-            accessToken = sessionStore.accessToken().nonblank(),
-            expiresAtUtcMillis = sessionStore.expiresAtUtcMillis()
-        )
+    private fun isValidSession(tokens: AuthTokens?): Boolean {
+        return tokens != null &&
+            tokens.accessToken.isNotBlank() &&
+            tokens.refreshToken.isNotBlank() &&
+            tokens.expiresAtUtcMillis > nowMillis()
     }
 
-    private fun clearSessionOnce() {
-        val hasSession = sessionStore.accessToken() != null ||
-            sessionStore.refreshToken() != null ||
-            sessionStore.expiresAtUtcMillis() != null
-        if (hasSession) sessionStore.clear()
-    }
-
-    private fun isExpired(expiresAtUtcMillis: Long?): Boolean {
-        return expiresAtUtcMillis != null && nowMillis() >= expiresAtUtcMillis
+    private fun isExpired(tokens: AuthTokens?): Boolean {
+        return tokens != null && nowMillis() >= tokens.expiresAtUtcMillis
     }
 
     private fun String?.nonblank(): String? = this?.takeIf(String::isNotBlank)
-
-    private data class SessionState(
-        val accessToken: String?,
-        val expiresAtUtcMillis: Long?
-    )
 
     private sealed interface RefreshRequirement {
         data object Expiry : RefreshRequirement

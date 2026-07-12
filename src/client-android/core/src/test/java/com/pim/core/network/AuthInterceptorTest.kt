@@ -2,7 +2,10 @@ package com.pim.core.network
 
 import com.pim.core.auth.AuthMode
 import com.pim.core.auth.AuthRefreshOperation
+import com.pim.core.auth.AuthRefreshResult
+import com.pim.core.auth.AuthSessionSnapshot
 import com.pim.core.auth.AuthSessionStore
+import com.pim.core.auth.AuthTokens
 import kotlinx.coroutines.runBlocking
 import okhttp3.Call
 import okhttp3.EventListener
@@ -81,10 +84,11 @@ class AuthInterceptorTest {
         val store = FakeAuthSessionStore("token-a", "refresh-a", Long.MAX_VALUE)
         val responseBodyEnded = CountDownLatch(1)
         val refreshSawClosedBody = AtomicBoolean(false)
-        val refresh = AuthRefreshOperation {
+        val refresh = AuthRefreshOperation { _, _ ->
             refreshSawClosedBody.set(responseBodyEnded.await(1, TimeUnit.SECONDS))
-            false
+            AuthRefreshResult.Rejected
         }
+        store.bindTo(serverIdentity())
         val coordinator = AuthRefreshCoordinator(store, refresh, nowMillis = { 1_000L })
         val client = OkHttpClient.Builder()
             .eventListener(object : EventListener() {
@@ -138,6 +142,28 @@ class AuthInterceptorTest {
     }
 
     @Test
+    fun requestToDifferentOriginNeverSendsOrRefreshesBoundCredentials() {
+        server.enqueue(MockResponse().setResponseCode(401))
+        val store = FakeAuthSessionStore(
+            "token-a",
+            "refresh-a",
+            Long.MAX_VALUE,
+            serverIdentity = "https://server-a.example"
+        )
+        val refresh = RecordingRefresh(store, succeeds = true)
+        val client = authenticatedClient(store, refresh, bindStoreToServer = false)
+
+        client.execute().use { response ->
+            assertEquals(401, response.code)
+        }
+
+        assertNull(server.takeRequest().getHeader("Authorization"))
+        assertEquals(0, refresh.calls.get())
+        assertEquals(0, store.clearCalls.get())
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
     fun expiredSessionRefreshesBeforeFirstNetworkRequest() {
         server.enqueue(MockResponse().setResponseCode(200))
         val store = FakeAuthSessionStore("token-a", "refresh-a", 999L)
@@ -156,7 +182,9 @@ class AuthInterceptorTest {
         val store = FakeAuthSessionStore("token-a", "refresh-a", Long.MAX_VALUE)
         val coordinator = AuthRefreshCoordinator(
             store,
-            AuthRefreshOperation { true },
+            AuthRefreshOperation { _, _ ->
+                AuthRefreshResult.Success(AuthTokens("token-a", "refresh-a", Long.MAX_VALUE))
+            },
             nowMillis = { 1_000L }
         )
 
@@ -171,9 +199,8 @@ class AuthInterceptorTest {
         val store = FakeAuthSessionStore("token-a", "refresh-a", 999L)
         val coordinator = AuthRefreshCoordinator(
             store,
-            AuthRefreshOperation {
-                store.save("token-a", "refresh-a", 2_000L)
-                true
+            AuthRefreshOperation { _, _ ->
+                AuthRefreshResult.Success(AuthTokens("token-a", "refresh-a", 2_000L))
             },
             nowMillis = { 1_000L }
         )
@@ -189,7 +216,9 @@ class AuthInterceptorTest {
         val store = FakeAuthSessionStore("token-a", "refresh-a", 999L)
         val coordinator = AuthRefreshCoordinator(
             store,
-            AuthRefreshOperation { true },
+            AuthRefreshOperation { _, _ ->
+                AuthRefreshResult.Success(AuthTokens("token-a", "refresh-a", 999L))
+            },
             nowMillis = { 1_000L }
         )
 
@@ -204,9 +233,8 @@ class AuthInterceptorTest {
         val store = FakeAuthSessionStore("token-a", "refresh-a", 999L)
         val coordinator = AuthRefreshCoordinator(
             store,
-            AuthRefreshOperation {
-                store.save("token-b", "refresh-b", 1_000L)
-                true
+            AuthRefreshOperation { _, _ ->
+                AuthRefreshResult.Success(AuthTokens("token-b", "refresh-b", 1_000L))
             },
             nowMillis = { 1_000L }
         )
@@ -222,9 +250,8 @@ class AuthInterceptorTest {
         val store = FakeAuthSessionStore("token-a", "refresh-a", 999L)
         val coordinator = AuthRefreshCoordinator(
             store,
-            AuthRefreshOperation {
-                store.save("token-b", "refresh-b", 1_001L)
-                true
+            AuthRefreshOperation { _, _ ->
+                AuthRefreshResult.Success(AuthTokens("token-b", "refresh-b", 1_001L))
             },
             nowMillis = { 1_000L }
         )
@@ -245,12 +272,11 @@ class AuthInterceptorTest {
         val refreshCalls = AtomicInteger(0)
         val coordinator = AuthRefreshCoordinator(
             store,
-            AuthRefreshOperation {
+            AuthRefreshOperation { _, _ ->
                 refreshCalls.incrementAndGet()
                 refreshEntered.countDown()
                 check(releaseRefresh.await(5, TimeUnit.SECONDS))
-                store.save("token-b", "refresh-b", 2_000L)
-                true
+                AuthRefreshResult.Success(AuthTokens("token-b", "refresh-b", 2_000L))
             },
             nowMillis = { 1_000L }
         )
@@ -277,11 +303,11 @@ class AuthInterceptorTest {
 
             assertTrue(first.get(5, TimeUnit.SECONDS))
             assertTrue(store.secondReadInsideMutex.await(5, TimeUnit.SECONDS))
-            store.save("token-b", "refresh-b", 1_000L)
+            store.save("token-b", "refresh-b", 1_000L, "https://pim.example")
             store.releaseSecondRead.countDown()
 
             assertFalse(second.get(5, TimeUnit.SECONDS))
-            assertEquals(1, store.clearCalls.get())
+            assertEquals(0, store.clearCalls.get())
             assertEquals(1, refreshCalls.get())
         } finally {
             store.releaseSecondRead.countDown()
@@ -382,12 +408,19 @@ class AuthInterceptorTest {
     private fun authenticatedClient(
         store: FakeAuthSessionStore,
         refresh: AuthRefreshOperation,
-        nowMillis: () -> Long = { 1_000L }
+        nowMillis: () -> Long = { 1_000L },
+        bindStoreToServer: Boolean = true
     ): OkHttpClient {
+        if (bindStoreToServer) store.bindTo(serverIdentity())
         val coordinator = AuthRefreshCoordinator(store, refresh, nowMillis)
         return OkHttpClient.Builder()
             .addInterceptor(AuthInterceptor(store, coordinator))
             .build()
+    }
+
+    private fun serverIdentity(): String {
+        val url = server.url("/")
+        return "${url.scheme}://${url.host}:${url.port}"
     }
 
     private fun OkHttpClient.execute(): Response {
@@ -406,63 +439,119 @@ class AuthInterceptorTest {
         val calls = AtomicInteger(0)
         val tokens: MutableList<String> = Collections.synchronizedList(mutableListOf())
 
-        override suspend fun refresh(refreshToken: String): Boolean {
+        override suspend fun refresh(
+            refreshToken: String,
+            serverIdentity: String
+        ): AuthRefreshResult {
             calls.incrementAndGet()
             tokens += refreshToken
             beforeResult()
-            if (succeeds) {
-                store.save("token-b", "refresh-b", Long.MAX_VALUE)
+            return if (succeeds) {
+                AuthRefreshResult.Success(AuthTokens("token-b", "refresh-b", Long.MAX_VALUE))
+            } else {
+                AuthRefreshResult.Rejected
             }
-            return succeeds
         }
     }
 
     private class FakeAuthSessionStore(
-        @Volatile private var access: String?,
-        @Volatile private var refresh: String?,
-        @Volatile private var expiry: Long?
+        access: String?,
+        refresh: String?,
+        expiry: Long?,
+        serverIdentity: String? = "https://pim.example"
     ) : AuthSessionStore {
         val clearCalls = AtomicInteger(0)
+        private val lock = Any()
+        private var current = AuthSessionSnapshot(
+            tokens = if (access != null && refresh != null && expiry != null) {
+                AuthTokens(access, refresh, expiry)
+            } else {
+                null
+            },
+            generation = 0L,
+            serverIdentity = serverIdentity
+        )
 
-        override fun accessToken(): String? = access
-
-        override fun refreshToken(): String? = refresh
-
-        override fun expiresAtUtcMillis(): Long? = expiry
-
-        override fun save(accessToken: String, refreshToken: String, expiresAtUtcMillis: Long) {
-            access = accessToken
-            refresh = refreshToken
-            expiry = expiresAtUtcMillis
+        fun bindTo(serverIdentity: String) {
+            synchronized(lock) {
+                current = current.copy(serverIdentity = serverIdentity)
+            }
         }
 
-        override fun clear() {
-            clearCalls.incrementAndGet()
-            access = null
-            refresh = null
-            expiry = null
+        override fun snapshot(): AuthSessionSnapshot = synchronized(lock) { current }
+
+        override fun save(
+            accessToken: String,
+            refreshToken: String,
+            expiresAtUtcMillis: Long,
+            serverIdentity: String
+        ): Boolean {
+            synchronized(lock) {
+                current = AuthSessionSnapshot(
+                    AuthTokens(accessToken, refreshToken, expiresAtUtcMillis),
+                    current.generation + 1L,
+                    serverIdentity
+                )
+            }
+            return true
+        }
+
+        override fun compareAndSave(expected: AuthSessionSnapshot, tokens: AuthTokens): Boolean {
+            return synchronized(lock) {
+                if (current != expected) return@synchronized false
+                current = AuthSessionSnapshot(
+                    tokens,
+                    current.generation + 1L,
+                    expected.serverIdentity
+                )
+                true
+            }
+        }
+
+        override fun clear(): Boolean {
+            return synchronized(lock) {
+                clearCalls.incrementAndGet()
+                current = AuthSessionSnapshot(null, current.generation + 1L)
+                true
+            }
+        }
+
+        override fun clearIfUnchanged(expected: AuthSessionSnapshot): Boolean {
+            return synchronized(lock) {
+                if (current != expected) return@synchronized false
+                clear()
+            }
         }
     }
 
     private class ControlledConcurrentAuthSessionStore(
-        @Volatile private var access: String?,
-        @Volatile private var refresh: String?,
-        @Volatile private var expiry: Long?
+        access: String?,
+        refresh: String?,
+        expiry: Long?
     ) : AuthSessionStore {
         val secondObservedBeforeMutex = CountDownLatch(1)
         val secondReadInsideMutex = CountDownLatch(1)
         val releaseSecondRead = CountDownLatch(1)
         val clearCalls = AtomicInteger(0)
-        private val secondAccessReads = AtomicInteger(0)
+        private val secondSnapshotReads = AtomicInteger(0)
         @Volatile private var secondThread: Thread? = null
+        @Volatile private var current = AuthSessionSnapshot(
+            tokens = if (access != null && refresh != null && expiry != null) {
+                AuthTokens(access, refresh, expiry)
+            } else {
+                null
+            },
+            generation = 0L,
+            serverIdentity = "https://pim.example"
+        )
 
         fun markCurrentThreadAsSecond() {
             secondThread = Thread.currentThread()
         }
 
-        override fun accessToken(): String? {
+        override fun snapshot(): AuthSessionSnapshot {
             if (Thread.currentThread() === secondThread) {
-                when (secondAccessReads.incrementAndGet()) {
+                when (secondSnapshotReads.incrementAndGet()) {
                     1 -> secondObservedBeforeMutex.countDown()
                     2 -> {
                         secondReadInsideMutex.countDown()
@@ -470,24 +559,43 @@ class AuthInterceptorTest {
                     }
                 }
             }
-            return access
+            return current
         }
 
-        override fun refreshToken(): String? = refresh
-
-        override fun expiresAtUtcMillis(): Long? = expiry
-
-        override fun save(accessToken: String, refreshToken: String, expiresAtUtcMillis: Long) {
-            access = accessToken
-            refresh = refreshToken
-            expiry = expiresAtUtcMillis
+        override fun save(
+            accessToken: String,
+            refreshToken: String,
+            expiresAtUtcMillis: Long,
+            serverIdentity: String
+        ): Boolean {
+            val before = current
+            current = AuthSessionSnapshot(
+                AuthTokens(accessToken, refreshToken, expiresAtUtcMillis),
+                before.generation + 1L,
+                serverIdentity
+            )
+            return true
         }
 
-        override fun clear() {
+        override fun compareAndSave(expected: AuthSessionSnapshot, tokens: AuthTokens): Boolean {
+            if (current != expected) return false
+            current = AuthSessionSnapshot(
+                tokens,
+                current.generation + 1L,
+                expected.serverIdentity
+            )
+            return true
+        }
+
+        override fun clear(): Boolean {
             clearCalls.incrementAndGet()
-            access = null
-            refresh = null
-            expiry = null
+            current = AuthSessionSnapshot(null, current.generation + 1L)
+            return true
+        }
+
+        override fun clearIfUnchanged(expected: AuthSessionSnapshot): Boolean {
+            if (current != expected) return false
+            return clear()
         }
     }
 }

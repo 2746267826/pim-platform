@@ -8,25 +8,55 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
+interface ConnectionProbeEvidenceStore {
+    val result: StateFlow<ConnectionProbeResult?>
+    fun save(result: ConnectionProbeResult): Boolean
+    fun freshResult(serverIdentity: String, nowMillis: Long): ConnectionProbeResult?
+}
+
 class ConnectionProbeStore(
     private val preferences: SharedPreferences,
     private val json: Json
-) {
+) : ConnectionProbeEvidenceStore {
+    private val lock = Any()
     private val mutableResult = MutableStateFlow(load())
 
-    val result: StateFlow<ConnectionProbeResult?> = mutableResult.asStateFlow()
+    override val result: StateFlow<ConnectionProbeResult?> = mutableResult.asStateFlow()
 
-    fun save(result: ConnectionProbeResult) {
-        preferences.edit()
-            .putString(KEY_RESULT, json.encodeToString(result))
-            .apply()
-        mutableResult.value = result
+    override fun save(result: ConnectionProbeResult): Boolean {
+        val encoded = json.encodeToString(result)
+        return synchronized(lock) {
+            val committed = preferences.edit()
+                .putString(KEY_RESULT, encoded)
+                .commit()
+            if (committed) mutableResult.value = result
+            committed
+        }
     }
 
-    fun isFresh(nowMillis: Long): Boolean {
-        val checkedAt = result.value?.checkedAtUtcMillis ?: return false
+    fun clear(): Boolean {
+        return synchronized(lock) {
+            val committed = preferences.edit()
+                .remove(KEY_RESULT)
+                .commit()
+            if (committed) mutableResult.value = null
+            committed
+        }
+    }
+
+    fun isFresh(serverIdentity: String, nowMillis: Long): Boolean {
+        return freshResult(serverIdentity, nowMillis) != null
+    }
+
+    override fun freshResult(
+        serverIdentity: String,
+        nowMillis: Long
+    ): ConnectionProbeResult? {
+        val current = result.value ?: return null
+        if (current.serverIdentity != serverIdentity) return null
+        val checkedAt = current.checkedAtUtcMillis
         val ageMillis = nowMillis - checkedAt
-        return ageMillis >= 0L && ageMillis < FRESHNESS_MILLIS
+        return current.takeIf { ageMillis >= 0L && ageMillis < FRESHNESS_MILLIS }
     }
 
     private fun load(): ConnectionProbeResult? {
@@ -36,7 +66,7 @@ class ConnectionProbeStore(
         }.getOrNull()
     }
 
-    private companion object {
+    companion object {
         const val KEY_RESULT = "connection_probe_result"
         const val FRESHNESS_MILLIS = 5L * 60L * 1000L
     }

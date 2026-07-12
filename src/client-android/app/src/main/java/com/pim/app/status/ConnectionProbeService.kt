@@ -2,12 +2,13 @@ package com.pim.app.status
 
 import com.pim.core.auth.AuthMode
 import com.pim.core.settings.PimServerEndpoints
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -16,16 +17,19 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class ConnectionProbeService(
     private val anonymousClient: OkHttpClient,
     private val authenticatedClient: OkHttpClient,
     private val tokenSource: ProbeTokenSource,
-    private val nowMillis: () -> Long
-) {
-    suspend fun probe(serverUrl: String): ConnectionProbeResult {
-        val progress = ProbeProgress(checkedAtUtcMillis = nowMillis())
-        val urlStartedAt = nowMillis()
+    private val wallClockMillis: () -> Long = System::currentTimeMillis,
+    private val monotonicNanos: () -> Long = System::nanoTime
+) : ConnectionProbe {
+    override suspend fun probe(serverUrl: String): ConnectionProbeResult {
+        val progress = ProbeProgress(checkedAtUtcMillis = wallClockMillis())
+        val urlStartedAt = monotonicNanos()
         val endpoints = try {
             PimServerEndpoints.from(serverUrl)
         } catch (_: IllegalArgumentException) {
@@ -36,6 +40,7 @@ class ConnectionProbeService(
                 safeMessage = "API 地址无效"
             )
         }
+        progress.serverIdentity = endpoints.apiBaseUrl.toString()
         progress.recordLatency(ConnectionProbeStage.Url, urlStartedAt)
         progress.complete(ConnectionProbeStage.Url)
 
@@ -86,7 +91,7 @@ class ConnectionProbeService(
             )
         }
 
-        if (!tokenSource.currentAccessToken().isNullOrBlank()) {
+        if (!tokenSource.currentAccessToken(serverUrl).isNullOrBlank()) {
             execute(
                 authenticatedClient,
                 requiredRequest(endpoints.statusSummaryUrl),
@@ -162,11 +167,9 @@ class ConnectionProbeService(
         stage: ConnectionProbeStage,
         progress: ProbeProgress
     ): StageAttempt {
-        val startedAt = nowMillis()
+        val startedAt = monotonicNanos()
         return try {
-            val response = withContext(Dispatchers.IO) {
-                client.newCall(request).execute()
-            }
+            val response = client.newCall(request).awaitCancellableResponse()
             progress.recordLatency(stage, startedAt)
             StageAttempt.Completed(response)
         } catch (failure: IOException) {
@@ -256,10 +259,12 @@ class ConnectionProbeService(
     ) {
         private val latencyMillisByStage = linkedMapOf<ConnectionProbeStage, Long>()
         private var lastCompletedStage: ConnectionProbeStage? = null
+        var serverIdentity: String? = null
         var capabilities: ServerCapabilities = ServerCapabilities(false, false)
 
         fun recordLatency(stage: ConnectionProbeStage, startedAt: Long) {
-            latencyMillisByStage[stage] = (nowMillis() - startedAt).coerceAtLeast(0L)
+            val elapsedNanos = (monotonicNanos() - startedAt).coerceAtLeast(0L)
+            latencyMillisByStage[stage] = elapsedNanos / NANOS_PER_MILLISECOND
         }
 
         fun complete(stage: ConnectionProbeStage) {
@@ -293,6 +298,7 @@ class ConnectionProbeService(
             return ConnectionProbeResult(
                 outcome = outcome,
                 checkedAtUtcMillis = checkedAtUtcMillis,
+                serverIdentity = serverIdentity,
                 lastCompletedStage = lastCompletedStage,
                 latencyMillisByStage = latencyMillisByStage.toMap(),
                 capabilities = capabilities,
@@ -313,7 +319,29 @@ class ConnectionProbeService(
         const val MOBILE_ITEM_RESULTS_V1 = "mobileItemResultsV1"
         const val ANDROID_EMBED_V1 = "androidEmbedV1"
         const val MAX_RESPONSE_BYTES = 64L * 1024L
+        const val NANOS_PER_MILLISECOND = 1_000_000L
         val JSON = Json { ignoreUnknownKeys = true }
         val ROOT_MARKER = Regex("""id\s*=\s*["']root["']""", RegexOption.IGNORE_CASE)
+    }
+}
+
+internal suspend fun Call.awaitCancellableResponse(): Response {
+    return suspendCancellableCoroutine { continuation ->
+        continuation.invokeOnCancellation { cancel() }
+        try {
+            enqueue(object : Callback {
+                override fun onFailure(call: Call, failure: IOException) {
+                    continuation.resumeWithException(failure)
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    continuation.resume(response) {
+                        response.close()
+                    }
+                }
+            })
+        } catch (failure: Throwable) {
+            continuation.resumeWithException(failure)
+        }
     }
 }

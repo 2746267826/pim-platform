@@ -2,6 +2,7 @@ package com.pim.core.network
 
 import com.pim.core.auth.AuthMode
 import com.pim.core.auth.AuthSessionStore
+import com.pim.core.settings.PimServerEndpoints
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -22,8 +23,11 @@ class AuthInterceptor(
             )
         }
 
-        runBlocking { refreshCoordinator.refreshIfExpired() }
-        val firstAccessToken = sessionStore.accessToken().nonblank()
+        val serverIdentity = PimServerEndpoints.trustedOriginOf(original.url)
+        runBlocking { refreshCoordinator.refreshIfExpired(serverIdentity) }
+        val firstAccessToken = sessionStore
+            .accessTokenForServerIdentity(serverIdentity)
+            .nonblank()
         val firstResponse = chain.proceed(original.withAccessToken(firstAccessToken))
         if (firstResponse.code != 401) return firstResponse
 
@@ -32,12 +36,15 @@ class AuthInterceptor(
             .build()
         firstResponse.close()
         val refreshed = runBlocking {
-            refreshCoordinator.refreshAfterUnauthorized(firstAccessToken)
+            refreshCoordinator.refreshAfterUnauthorized(firstAccessToken, serverIdentity)
         }
         if (!refreshed) return unauthorizedResponse
 
         unauthorizedResponse.close()
-        return chain.proceed(original.withAccessToken(sessionStore.accessToken().nonblank()))
+        val refreshedAccessToken = sessionStore
+            .accessTokenForServerIdentity(serverIdentity)
+            .nonblank()
+        return chain.proceed(original.withAccessToken(refreshedAccessToken))
     }
 
     private fun okhttp3.Request.withAccessToken(accessToken: String?): okhttp3.Request {

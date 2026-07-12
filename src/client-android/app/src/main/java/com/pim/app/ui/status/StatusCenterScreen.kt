@@ -26,6 +26,9 @@ import com.pim.app.status.StatusCenterState
 import com.pim.app.status.StatusIssue
 import com.pim.app.status.StatusSeverity
 import com.pim.app.ui.components.PimSection
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.yield
 
 @Composable
 fun StatusCenterScreen(
@@ -34,8 +37,11 @@ fun StatusCenterScreen(
     onOpenStatus: () -> Unit = {},
     viewModel: StatusCenterViewModel = hiltViewModel()
 ) {
-    LaunchedEffect(Unit) {
-        viewModel.refresh()
+    LaunchedEffect(viewModel) {
+        while (isActive) {
+            val delayMillis = viewModel.refreshConnectionForVisibleScreen()
+            if (delayMillis > 0L) delay(delayMillis) else yield()
+        }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     StatusCenterContent(

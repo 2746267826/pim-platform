@@ -19,9 +19,13 @@ function Import-Fragment($path) {
   }
 }
 
-# Prefer explicit fragments; also scan written docs for ```json relation blocks is out of scope for script v1
-if (Test-Path $EdgesDir) {
-  Get-ChildItem $EdgesDir -Filter *.json | ForEach-Object { Import-Fragment $_.FullName }
+# Prefer explicit fragments under docs/pseudocode/_index/edge-fragments/*.json
+# (subagents write per-slot merge files; missing dir is created empty)
+if (-not (Test-Path $EdgesDir)) {
+  New-Item -ItemType Directory -Path $EdgesDir -Force | Out-Null
+}
+Get-ChildItem $EdgesDir -Filter *.json -ErrorAction SilentlyContinue | ForEach-Object {
+  Import-Fragment $_.FullName
 }
 
 # Ensure every completed doc path has at least a node

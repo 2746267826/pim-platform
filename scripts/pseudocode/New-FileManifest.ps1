@@ -31,7 +31,7 @@ foreach ($rel in $rels) {
   $doc = "docs/pseudocode/files/$rel.md"
   $done = Test-Path (Join-Path $RepoRoot ($doc -replace '/','\'))
   $status = if ($done) { 'x' } else { ' ' }
-  [void]$sb.AppendLine("| [$status] | `$rel` | `$doc` |".Replace('$rel', $rel).Replace('$doc', $doc))
+  [void]$sb.AppendLine('| [' + $status + '] | `' + $rel + '` | `' + $doc + '` |')
 }
 
 $dir = Split-Path $OutFile -Parent

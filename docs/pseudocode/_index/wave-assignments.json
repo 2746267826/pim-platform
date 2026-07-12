@@ -1,0 +1,77 @@
+﻿{
+    "generated":  "2026-07-12T21:55:31.7840617+08:00",
+    "pendingTotal":  775,
+    "assignedTotal":  50,
+    "slots":  {
+                  "A1":  [
+                             "src/client-android/app/src/androidTest/java/com/pim/app/AndroidInstrumentationSmokeTest.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt"
+                         ],
+                  "A6":  [
+                             "src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/MainActivity.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/mobile/usage/AppMetadataCollector.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt"
+                         ],
+                  "A3":  [
+                             "src/client-android/app/src/main/java/com/pim/app/daemon/StatusActivity.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/offline/OnlineOperationGuard.kt"
+                         ],
+                  "A8":  [
+                             "src/client-android/app/src/main/java/com/pim/app/data/MobileDataModule.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/location/policy/GeoDistance.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageEventCollector.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeModels.kt"
+                         ],
+                  "A5":  [
+                             "src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/location/LocationSubmissionPolicy.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/PimApp.kt"
+                         ],
+                  "A2":  [
+                             "src/client-android/app/src/main/java/com/pim/app/daemon/PimDaemonService.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/location/quality/LocationQualityGate.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/notifications/PimNotificationRouter.kt"
+                         ],
+                  "A7":  [
+                             "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/location/PimServerUrls.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageAccessChecker.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt"
+                         ],
+                  "A4":  [
+                             "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncScheduler.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/permissions/PermissionStatusRepository.kt"
+                         ],
+                  "A9":  [
+                             "src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/notifications/EndpointNotificationActionDispatcher.kt",
+                             "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeService.kt"
+                         ],
+                  "A10":  [
+                              "src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt",
+                              "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt",
+                              "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt",
+                              "src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt",
+                              "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeStore.kt"
+                          ]
+              }
+}

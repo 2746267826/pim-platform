@@ -11,11 +11,17 @@ if (-not (Test-Path $manifest)) { throw "manifest missing: $manifest" }
 
 $pending = @()
 Get-Content $manifest | ForEach-Object {
-  if ($_ -match '^\| \[ \] \| `([^`]+)` \|') { $pending += $Matches[1] }
+  # Accept paths with or without surrounding backticks
+  if ($_ -match '^\| \[ \] \| `?([^`|]+?)`? \|') { $pending += $Matches[1].Trim() }
+}
+
+if ($pending.Count -eq 0) {
+  $sample = Get-Content $manifest | Select-Object -Skip 6 -First 3
+  throw "No pending rows parsed from manifest. Check Status/path format. Sample:`n$($sample -join "`n")"
 }
 
 $take = [Math]::Min($pending.Count, 10 * $WaveSizePerSlot)
-$slice = $pending | Select-Object -First $take
+$slice = @($pending | Select-Object -First $take)
 $slots = @{}
 for ($i = 0; $i -lt 10; $i++) { $slots["A$($i+1)"] = @() }
 for ($i = 0; $i -lt $slice.Count; $i++) {
@@ -23,15 +29,24 @@ for ($i = 0; $i -lt $slice.Count; $i++) {
   $slots[$slot] += $slice[$i]
 }
 
+$assignedTotal = $slice.Count
+if ($pending.Count -ge 10 -and $assignedTotal -eq 0) {
+  throw "Invariant broken: pending=$($pending.Count) but assignedTotal=0"
+}
+if ($pending.Count -gt 0 -and $take -gt 0 -and $assignedTotal -eq 0) {
+  throw "Invariant broken: take=$take but all slots empty after assign"
+}
+$nonEmptySlots = @($slots.Keys | Where-Object { @($slots[$_]).Count -gt 0 }).Count
+if ($take -gt 0 -and $nonEmptySlots -eq 0) {
+  throw "Invariant broken: take=$take but every slot is empty"
+}
+
 $payload = [ordered]@{
   generated = (Get-Date -Format 'o')
   pendingTotal = $pending.Count
-  assignedTotal = $slice.Count
+  assignedTotal = $assignedTotal
   slots = $slots
 }
 $json = $payload | ConvertTo-Json -Depth 6
 Set-Content -Path $OutFile -Value $json -Encoding UTF8
-Write-Host "Assigned $($slice.Count) / pending $($pending.Count) -> $OutFile"
-if ($pending.Count -gt 0 -and $slice.Count -lt 10 -and $pending.Count -ge 10) {
-  throw 'Invariant broken: had >=10 pending but assigned <10 files total'
-}
+Write-Host "Assigned $assignedTotal / pending $($pending.Count) -> $OutFile"

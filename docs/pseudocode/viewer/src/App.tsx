@@ -6,13 +6,14 @@ import { FileTree } from './components/FileTree';
 import { DocViewer } from './components/DocViewer';
 import { EdgePanel } from './components/EdgePanel';
 import { GraphMode } from './modes/GraphMode';
+import { WorkflowBoard } from './modes/WorkflowBoard';
 import { PipelineCanvas } from './modes/PipelineCanvas';
 import type { PipelineStart } from './lib/pipeline';
 
 export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState('');
-  const [mode, setMode] = useState<WorkbenchMode>('read');
+  const [mode, setMode] = useState<WorkbenchMode>('workflow');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [layer, setLayer] = useState('');
@@ -78,6 +79,19 @@ export default function App() {
             />
           </aside>
         </main>
+      ) : mode === 'workflow' ? (
+        <WorkflowBoard
+          catalog={catalog}
+          selectedId={selectedId}
+          query={query}
+          hideTests={layer !== 'tests'}
+          onSelect={setSelectedId}
+          onOpenInRead={openInRead}
+          onPipelineFrom={(id) => {
+            setSelectedId(id);
+            setPipelineOpen(true);
+          }}
+        />
       ) : (
         <GraphMode
           catalog={catalog}

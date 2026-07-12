@@ -32,5 +32,27 @@ export interface Catalog {
   stats: { nodeCount: number; edgeCount: number; docCount: number };
 }
 
-export type WorkbenchMode = 'read' | 'graph';
+export interface WorkflowStep {
+  nodeId: string;
+  label: string;
+  layer: string;
+  summary?: string;
+  order: number;
+}
+
+export interface WorkflowEdge {
+  from: string;
+  to: string;
+  type: string;
+}
+
+export interface Workflow {
+  id: string;
+  title: string;
+  domain: string; // e.g. api, mobile, calendar, auth, core, other
+  steps: WorkflowStep[];
+  edges: WorkflowEdge[];
+}
+
+export type WorkbenchMode = 'read' | 'graph' | 'workflow';
 export type DocSection = 'function' | 'line';

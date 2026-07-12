@@ -477,3 +477,97 @@ button.linkish:hover {
 .search::placeholder {
   color: var(--muted);
 }
+
+.workflow-board {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  min-height: 0;
+}
+.workflow-board-main {
+  overflow: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.workflow-board-side {
+  border-left: 1px solid var(--line);
+  padding: 12px;
+  overflow: auto;
+}
+.workflow-lane {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+.workflow-lane-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.workflow-domain {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f3efe6;
+  color: var(--accent);
+}
+.workflow-steps-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+.workflow-step {
+  min-width: 140px;
+  max-width: 180px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--panel);
+  cursor: pointer;
+  text-align: left;
+}
+.workflow-step.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.workflow-step .step-label {
+  font-weight: 600;
+  font-size: 12px;
+  font-family: var(--mono);
+  word-break: break-all;
+}
+.workflow-step .step-layer {
+  font-size: 11px;
+  color: var(--muted);
+}
+.workflow-arrow {
+  align-self: center;
+  color: var(--muted);
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+.domain-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.domain-chips button {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.domain-chips button.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}

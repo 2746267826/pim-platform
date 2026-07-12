@@ -34,6 +34,13 @@ export function TopBar({
         </button>
         <button
           type="button"
+          className={mode === 'workflow' ? 'active' : ''}
+          onClick={() => onMode('workflow')}
+        >
+          工作流
+        </button>
+        <button
+          type="button"
           className={mode === 'graph' ? 'active' : ''}
           onClick={() => onMode('graph')}
         >

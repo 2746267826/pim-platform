@@ -1,0 +1,39 @@
+:root {
+  --paper: #f7f3eb;
+  --panel: #fffefb;
+  --ink: #1c1917;
+  --muted: #78716c;
+  --line: #e7e0d5;
+  --accent: #b45309;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --serif: 'Literata', 'Songti SC', serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: var(--serif);
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.app-shell { display: flex; flex-direction: column; height: 100%; }
+.topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+.muted { color: var(--muted); font-size: 13px; }
+.three-pane {
+  flex: 1; display: grid;
+  grid-template-columns: minmax(200px, 22%) 1fr minmax(200px, 24%);
+  min-height: 0;
+}
+.pane {
+  min-height: 0; overflow: auto;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  padding: 10px;
+}
+.pane-right { border-right: 0; border-left: 1px solid var(--line); }
+.pane-center { font-family: var(--mono); font-size: 13px; line-height: 1.55; }

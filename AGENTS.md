@@ -8,6 +8,17 @@ This repository is shared by multiple agent conversations. Keep `master` useful 
 - When writing a plan, state the final objective at the top of the plan. If Goal mode is available in the current environment, create or update a Goal using that same objective.
 - For user-facing UI, default visible text to Simplified Chinese. Keep code identifiers, API names, logs, protocol fields, and third-party product names in English unless localization is explicitly part of the task.
 
+## Technical Decision Review
+
+- **技术决定必须审查后确认**：主代理在向用户确认任何技术实现细节前，必须先由独立子代理审查。完整确认卡模板见[设计规范第 4 节](docs/superpowers/specs/2026-07-11-lightweight-development-governance-design.md#4-通俗确认卡模板)。
+- **通俗确认卡**：审查结果必须按设计规范第 4 节格式输出确认卡，用非专业用户能理解的语言描述候选方案与最简单可行方案的差异。
+- **一次对应一次**：一个技术确认对应一次审查。不可独立选择的机制可合并为同一张确认卡，但不能用整包批准掩盖可独立增删的机制。判断方法：移除某个机制后方案仍能独立工作，则应当单独审查。
+- **建立比较基准**：独立审阅者必须说明最简单可行方案（完全不引入额外机制的代码路径），再指出候选方案额外增加了什么机制、假设解决什么问题、以及开发/测试/维护/故障排查成本。没有仓库证据时不得编造精确天数，只需诚实说明成本是低、中还是高。
+- **审阅者建议，用户决定**：审阅者认为过重时必须给出更简单方案和成本对比，但不能代用户做决定。用户保留最终决定权。
+- **全阶段适用**：本规则不只在 brainstorming 生效。任何阶段（spec 自审、写 plan、实施中方案变更）出现新的技术确认点都触发审查；不得在已确认方案中静默加入新机制。
+- **禁止占位符交付**：范围内功能必须端到端真实可用，禁止假数据冒充真实数据、空按钮/空页面、骨架声称完成、NotImplementedException、"后期再做"。允许真实的 loading/empty/error 状态和明确标注的阶段性子集。
+- **PROJECT_MAP.md 日常维护**：边界、共享能力和验证命令变化时同步更新，不作为审批材料。不存在"地图未更新不得提交"的阻断规则。
+
 ## Start Of Every Session
 
 - Run `git status --short --branch` before changing files.

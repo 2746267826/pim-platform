@@ -11,6 +11,7 @@ import com.pim.app.status.ConnectionProbeOutcome
 import com.pim.app.status.ConnectionProbeResult
 import com.pim.app.status.ConnectionProbeService
 import com.pim.app.status.ConnectionProbeStore
+import com.pim.app.status.PermissionStatusSnapshot
 import com.pim.core.auth.ServerBoundLoginCoordinator
 import com.pim.core.auth.ServerBoundLoginResult
 import com.pim.core.auth.TokenManager
@@ -47,7 +48,8 @@ data class SettingsUiState(
     val verboseLoggingEnabled: Boolean = false,
     val verboseLoggingUntilUtcMillis: Long? = null,
     val logRetentionDays: Int = 7,
-    val operationalStatus: String? = null
+    val operationalStatus: String? = null,
+    val permissions: PermissionStatusSnapshot = PermissionStatusSnapshot(false, false, false, false, false, false)
 )
 
 @HiltViewModel
@@ -80,7 +82,8 @@ class SettingsViewModel @Inject constructor(
                     apiWarnings = validation.warnings,
                     apiError = validation.reasonCode?.takeUnless { validation.isValid },
                     isLoggedIn = hasCurrentServerSession(),
-                    continuousCollectionEnabled = persistedCollectionEnabled()
+                    continuousCollectionEnabled = persistedCollectionEnabled(),
+                    permissions = permissionStatusRepository.snapshot()
                 )
             }
             runConnectionProbe(force = false)
@@ -407,13 +410,52 @@ class SettingsViewModel @Inject constructor(
         reloadOperationalState()
     }
 
-    private fun missingCollectionPermissions(): List<String> {
-        val permissions = permissionStatusRepository.snapshot()
+    fun onResume() {
+        val snapshot = permissionStatusRepository.snapshot()
+        val collectionIntent = persistedCollectionEnabled()
+        _state.update {
+            it.copy(
+                permissions = snapshot,
+                continuousCollectionEnabled = collectionIntent
+            )
+        }
+
+        if (!collectionIntent) return
+
+        val hardPermissions = missingCollectionPermissions(snapshot)
+
+        if (hardPermissions.isNotEmpty()) {
+            _state.update {
+                it.copy(collectionStatus = "缺少权限：${hardPermissions.joinToString("、")}。")
+            }
+            return
+        }
+
+        runCatching {
+            foregroundLocationController.start()
+        }.fold(
+            onSuccess = {
+                _state.update {
+                    it.copy(collectionStatus = "已恢复持续采集。")
+                }
+            },
+            onFailure = { error ->
+                _state.update {
+                    it.copy(
+                        continuousCollectionEnabled = true,
+                        collectionStatus = "恢复失败：${error.message ?: "未知错误"}"
+                    )
+                }
+            }
+        )
+    }
+
+    private fun missingCollectionPermissions(snapshot: PermissionStatusSnapshot? = null): List<String> {
+        val permissions = snapshot ?: permissionStatusRepository.snapshot()
         return buildList {
             if (!permissions.notificationGranted) add("通知")
             if (!permissions.preciseLocationGranted) add("精确定位")
             if (!permissions.backgroundLocationGranted) add("后台定位")
-            if (!permissions.activityRecognitionGranted) add("活动识别")
         }
     }
 

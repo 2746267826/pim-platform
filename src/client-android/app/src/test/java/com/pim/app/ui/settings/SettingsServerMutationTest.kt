@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import androidx.work.testing.WorkManagerTestInitHelper
 import com.pim.app.TestPimApp
 import com.pim.app.location.service.ForegroundLocationController
+import com.pim.app.status.PermissionStatusSnapshot
 import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.mobile.usage.UsageAccessChecker
 import com.pim.app.permissions.PermissionStatusRepository
@@ -539,8 +540,18 @@ class SettingsServerMutationTest {
         )
         fixture.viewModel.onResume()
 
-        assertTrue("collection intent must persist", fixture.viewModel.state.value.continuousCollectionEnabled)
+        val afterDeny = fixture.viewModel.state.value
+        assertTrue("collection intent must persist", afterDeny.continuousCollectionEnabled)
         assertNull("service must not start when hard permissions missing", shadowOf(application).nextStartedService)
+        val denySnapshot = fixture.permissionStatusRepository.snapshot()
+        assertEquals(denySnapshot, afterDeny.permissions)
+        assertFalse(denySnapshot.notificationGranted)
+        assertFalse(denySnapshot.preciseLocationGranted)
+        assertFalse(denySnapshot.backgroundLocationGranted)
+        assertNotNull("blocker message must be shown", afterDeny.collectionStatus)
+        assertTrue(afterDeny.collectionStatus!!.contains("通知"))
+        assertTrue(afterDeny.collectionStatus!!.contains("精确定位"))
+        assertTrue(afterDeny.collectionStatus!!.contains("后台定位"))
 
         shadowOf(application).grantPermissions(
             Manifest.permission.POST_NOTIFICATIONS,
@@ -549,6 +560,9 @@ class SettingsServerMutationTest {
         )
         fixture.viewModel.onResume()
 
+        val afterGrant = fixture.viewModel.state.value
+        val grantSnapshot = fixture.permissionStatusRepository.snapshot()
+        assertEquals(grantSnapshot, afterGrant.permissions)
         val intent = shadowOf(application).nextStartedService
         assertNotNull("service must restart after hard permissions restored", intent)
         assertEquals(ForegroundLocationController.ACTION_START_COLLECTION, intent?.action)
@@ -566,6 +580,57 @@ class SettingsServerMutationTest {
         val state = fixture.viewModel.state.value
         assertTrue("collection intent must persist", state.continuousCollectionEnabled)
         assertNull("service must not start when notification permission missing", shadowOf(application).nextStartedService)
+        val snapshot = fixture.permissionStatusRepository.snapshot()
+        assertEquals(snapshot, state.permissions)
+        assertFalse(snapshot.notificationGranted)
+        assertNotNull("blocker message must be shown", state.collectionStatus)
+        assertTrue(state.collectionStatus!!.contains("通知"))
+    }
+
+    @Test
+    fun onResumePopulatesPermissionsSnapshot() {
+        val fixture = fixture()
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(application).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
+
+        fixture.viewModel.onResume()
+
+        val snapshot = fixture.permissionStatusRepository.snapshot()
+        val state = fixture.viewModel.state.value
+        assertEquals(snapshot, state.permissions)
+        assertFalse(snapshot.notificationGranted)
+    }
+
+    @Test
+    fun onResumeStartsServiceWhenOnlyActivityRecognitionMissing() {
+        val fixture = fixture()
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        drainStartedServices(application)
+
+        shadowOf(application).denyPermissions(Manifest.permission.ACTIVITY_RECOGNITION)
+        fixture.viewModel.onResume()
+
+        val state = fixture.viewModel.state.value
+        assertTrue(state.continuousCollectionEnabled)
+        val intent = shadowOf(application).nextStartedService
+        assertNotNull("service must start when only activity recognition is missing", intent)
+        assertEquals(ForegroundLocationController.ACTION_START_COLLECTION, intent?.action)
+    }
+
+    @Test
+    fun onResumeRefreshesPermissionsOnlyWhenIntentFalse() {
+        val fixture = fixture()
+        val application = ApplicationProvider.getApplicationContext<Application>()
+        fixture.trackingSettings.setContinuousCollectionEnabled(false)
+        drainStartedServices(application)
+
+        fixture.viewModel.onResume()
+
+        val snapshot = fixture.permissionStatusRepository.snapshot()
+        val state = fixture.viewModel.state.value
+        assertEquals(snapshot, state.permissions)
+        assertFalse(state.continuousCollectionEnabled)
+        assertNull(shadowOf(application).nextStartedService)
     }
 
     private fun drainStartedServices(application: Application) {
@@ -612,16 +677,17 @@ class SettingsServerMutationTest {
             monotonicNanos = { 0L }
         )
         val mobileSyncScheduler = MobileSyncScheduler(context, trackingSettings)
+        val permissionStatusRepository = PermissionStatusRepository(
+            context,
+            UsageAccessChecker(context)
+        )
         val viewModel = SettingsViewModel(
             serverSettingsStore = serverSettings,
             tokenManager = tokenManager,
             serverBoundLoginCoordinator = coordinator,
             trackingSettingsStore = trackingSettings,
             foregroundLocationController = ForegroundLocationController(context),
-            permissionStatusRepository = PermissionStatusRepository(
-                context,
-                UsageAccessChecker(context)
-            ),
+            permissionStatusRepository = permissionStatusRepository,
             connectionProbeService = probeService,
             connectionProbeStore = probeStore,
             mobileSyncScheduler = mobileSyncScheduler
@@ -632,7 +698,8 @@ class SettingsServerMutationTest {
             tokenManager = tokenManager,
             trackingSettings = trackingSettings,
             serverPreferences = serverPreferences,
-            mobileSyncScheduler = mobileSyncScheduler
+            mobileSyncScheduler = mobileSyncScheduler,
+            permissionStatusRepository = permissionStatusRepository
         )
     }
 
@@ -656,7 +723,8 @@ class SettingsServerMutationTest {
         val tokenManager: TokenManager,
         val trackingSettings: TrackingSettingsStore,
         val serverPreferences: ScriptedCommitSharedPreferences,
-        val mobileSyncScheduler: MobileSyncScheduler
+        val mobileSyncScheduler: MobileSyncScheduler,
+        val permissionStatusRepository: PermissionStatusRepository
     )
 
     private companion object {

@@ -37,3 +37,64 @@ body {
 }
 .pane-right { border-right: 0; border-left: 1px solid var(--line); }
 .pane-center { font-family: var(--mono); font-size: 13px; line-height: 1.55; }
+
+.error { color: #b91c1c; font-size: 13px; }
+
+.seg {
+  display: inline-flex;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 8px 0 12px;
+}
+.seg button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--serif);
+  font-size: 13px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.active {
+  background: var(--accent);
+  color: #fffefb;
+}
+
+.doc-viewer { max-width: 900px; }
+.doc-title {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  margin: 0 0 8px;
+  word-break: break-all;
+}
+.doc-meta {
+  margin: 0;
+  padding: 8px 10px;
+  background: #f3efe6;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  white-space: pre-wrap;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.md-body {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.md-body h1, .md-body h2, .md-body h3 {
+  font-family: var(--serif);
+  margin: 1em 0 0.4em;
+}
+.md-body pre {
+  overflow: auto;
+  padding: 10px;
+  background: #f3efe6;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.md-body code { font-family: var(--mono); }

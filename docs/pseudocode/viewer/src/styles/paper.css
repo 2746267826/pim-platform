@@ -114,6 +114,33 @@ body {
   font-size: 15px;
 }
 
+.graph-mode {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  min-height: 0;
+}
+.graph-canvas {
+  min-height: 0;
+  background: #fffefb;
+}
+.graph-side {
+  border-left: 1px solid var(--line);
+  padding: 12px;
+  background: var(--panel);
+  overflow: auto;
+}
+.graph-side h3 {
+  font-family: var(--serif);
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+  word-break: break-all;
+}
+
 .search {
   flex: 1;
   min-width: 140px;

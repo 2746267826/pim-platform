@@ -5,6 +5,7 @@ import { TopBar } from './components/TopBar';
 import { FileTree } from './components/FileTree';
 import { DocViewer } from './components/DocViewer';
 import { EdgePanel } from './components/EdgePanel';
+import { GraphMode } from './modes/GraphMode';
 
 export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -30,6 +31,11 @@ export default function App() {
     () => (catalog ? searchNodes(catalog, query, layer || undefined) : []),
     [catalog, query, layer],
   );
+
+  const openInRead = (id: string) => {
+    setSelectedId(id);
+    setMode('read');
+  };
 
   if (error) return <div className="error-page">{error}</div>;
   if (!catalog) return <div className="muted">加载 catalog…</div>;
@@ -65,7 +71,13 @@ export default function App() {
           </aside>
         </main>
       ) : (
-        <div className="graph-placeholder muted">关系图模式（下一任务）</div>
+        <GraphMode
+          catalog={catalog}
+          selectedId={selectedId}
+          hideTests={layer !== 'tests'}
+          onSelect={setSelectedId}
+          onOpenInRead={openInRead}
+        />
       )}
       {/* PipelineCanvas mounted in Task 6 when pipelineOpen */}
       {pipelineOpen ? null : null}

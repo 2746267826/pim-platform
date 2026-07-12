@@ -2,15 +2,13 @@ package com.pim.app.ui.status
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pim.app.mobile.sync.MobileSyncCoordinator
+import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.status.ConnectionProbeService
 import com.pim.app.status.ConnectionProbeStore
+import com.pim.app.status.StatusActionTarget
 import com.pim.app.status.StatusCenterRepository
 import com.pim.app.status.StatusCenterState
-import com.pim.app.status.StatusActionTarget
-import com.pim.app.status.StatusActionRoute
 import com.pim.app.status.StatusIssue
-import com.pim.app.status.StatusSyncActionRunner
 import com.pim.core.settings.ServerSettingsStore
 import com.pim.core.settings.PimServerEndpoints
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,7 +21,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class StatusCenterViewModel @Inject constructor(
     private val repository: StatusCenterRepository,
-    private val mobileSyncCoordinator: MobileSyncCoordinator,
+    private val mobileSyncScheduler: MobileSyncScheduler,
     private val serverSettingsStore: ServerSettingsStore,
     private val connectionProbeService: ConnectionProbeService,
     private val connectionProbeStore: ConnectionProbeStore
@@ -46,10 +44,8 @@ class StatusCenterViewModel @Inject constructor(
 
     fun syncNow() {
         viewModelScope.launch {
-            StatusSyncActionRunner(
-                syncNow = { mobileSyncCoordinator.syncOnOpen() },
-                refresh = { repository.requestRefresh() }
-            ).run(StatusActionRoute.TriggerSync)
+            mobileSyncScheduler.enqueueNow()
+            repository.requestRefresh()
         }
     }
 

@@ -170,6 +170,9 @@ interface MobileDataDao {
     @Query("DELETE FROM mobile_app_metadata WHERE package_name IN (:packageNames)")
     suspend fun deleteAppMetadataByPackageNames(packageNames: List<String>)
 
+    @Query("DELETE FROM mobile_location_points WHERE id IN (:ids)")
+    suspend fun deleteLocationPointByIds(ids: List<Long>)
+
     @Query("SELECT * FROM mobile_logs ORDER BY occurred_at_utc DESC LIMIT :limit")
     fun recentLogs(limit: Int = 6): Flow<List<MobileLogEntity>>
 

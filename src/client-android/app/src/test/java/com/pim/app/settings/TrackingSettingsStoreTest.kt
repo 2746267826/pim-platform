@@ -22,6 +22,7 @@ class TrackingSettingsStoreTest {
         assertEquals(100.0, defaults.scheduleRecoveryThresholdMeters, 0.001)
         assertEquals(15 * 1000L, defaults.altitudeWaitTimeoutMillis)
         assertEquals(50f, defaults.maxUploadAccuracyMetersExclusive)
+        assertEquals(false, defaults.syncOnUnmeteredOnly)
     }
 
     @Test
@@ -59,6 +60,21 @@ class TrackingSettingsStoreTest {
 
         assertEquals(true, stored.continuousCollectionEnabled)
         assertEquals(120_000L, stored.normalIntervalMillis)
+    }
+
+    @Test
+    fun syncOnUnmeteredOnlyDefaultIsFalse() {
+        val store = TrackingSettingsStore(InMemorySharedPreferences())
+        val stored = store.read()
+        assertEquals(false, stored.syncOnUnmeteredOnly)
+    }
+
+    @Test
+    fun syncOnUnmeteredOnlyPersistsTrue() {
+        val store = TrackingSettingsStore(InMemorySharedPreferences())
+        store.write(TrackingSettings.defaults().copy(syncOnUnmeteredOnly = true))
+        val stored = store.read()
+        assertEquals(true, stored.syncOnUnmeteredOnly)
     }
 }
 

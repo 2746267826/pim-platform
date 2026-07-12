@@ -72,6 +72,7 @@ import com.pim.app.location.LocationSubmissionPolicy
 import com.pim.app.mobile.logs.StructuredLogEntry
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.sync.MobileSyncCoordinator
+import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.mobile.sync.MobileSyncState
 
 import com.pim.core.auth.ServerBoundLoginCoordinator
@@ -567,7 +568,8 @@ class MobileStatusViewModel @Inject constructor(
     private val serverSettingsStore: ServerSettingsStore,
     private val database: AppDatabase,
     private val logs: StructuredLogRepository,
-    private val mobileSyncCoordinator: MobileSyncCoordinator
+    private val mobileSyncCoordinator: MobileSyncCoordinator,
+    private val mobileSyncScheduler: MobileSyncScheduler
 ) : ViewModel() {
     private val mobileDataDao = database.mobileDataDao()
 
@@ -753,19 +755,11 @@ class MobileStatusViewModel @Inject constructor(
             _state.update {
                 it.copy(
                     isLoggedIn = hasCurrentServerSession(),
-                    loginStatus = statusMessage
+                    loginStatus = statusMessage,
+                    progressText = "同步请求已提交，等待系统执行。"
                 )
             }
-
-            val syncState = mobileSyncCoordinator.syncOnOpen()
-            _state.update { current ->
-                current.copy(
-                    isLoggedIn = hasCurrentServerSession(),
-                    loginStatus = syncResultMessage(syncState),
-                    serverUrl = serverSettingsStore.getBaseUrl(),
-                    appVersion = appVersionDisplay()
-                ).copyFromSync(syncState)
-            }
+            mobileSyncScheduler.enqueueNow()
         }
     }
 

@@ -10,17 +10,12 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
 import android.os.SystemClock
-import android.provider.Settings
 import androidx.core.content.ContextCompat
 import com.pim.app.location.quality.AltitudeWaitCoordinator
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
-import com.pim.core.models.MobileLocationPointRequest
-import com.pim.core.network.ApiService
+import com.pim.app.mobile.sync.MobileSyncScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.security.MessageDigest
-import java.time.Instant
-import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +28,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -63,7 +57,8 @@ data class LocationCaptureState(
 @Singleton
 class LocationCaptureRepository @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val apiService: ApiService
+    private val locationQueueRepository: LocationQueueRepository,
+    private val mobileSyncScheduler: MobileSyncScheduler
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -248,43 +243,18 @@ class LocationCaptureRepository @Inject constructor(
             )
         }
 
-        val result = withContext(Dispatchers.IO) {
-            runCatching {
-                val fix = accepted.fix
-                val request = MobileLocationPointRequest(
-                    deviceId = deviceId(),
-                    recordedAtUtc = Instant.ofEpochMilli(fix.recordedAtMillis).toString(),
-                    latitude = fix.latitude,
-                    longitude = fix.longitude,
-                    horizontalAccuracyMeters = fix.horizontalAccuracyMeters!!.toDouble(),
-                    provider = fix.provider,
-                    sourceKind = snapshot.source,
-                    altitudeMeters = accepted.altitudeMeters,
-                    verticalAccuracyMeters = null,
-                    speedMetersPerSecond = fix.speedMetersPerSecond?.toDouble(),
-                    speedAccuracyMetersPerSecond = null,
-                    bearingDegrees = fix.bearingDegrees?.toDouble(),
-                    bearingAccuracyDegrees = null,
-                    isAutoSubmitted = isAutoSubmitted,
-                    rawJson = rawJson(accepted, snapshot.source, isAutoSubmitted)
-                )
-                val response = apiService.uploadMobileLocation(request)
-                if (response.code != 0 || response.data == null) {
-                    error(response.message.ifBlank { "定位提交失败" })
-                }
-                response.data
-            }
-        }
+        val json = rawJson(accepted, snapshot.source, isAutoSubmitted)
+        val result = enqueueThenSchedule(
+            enqueue = { locationQueueRepository.enqueueAccepted(accepted, json) },
+            schedule = { mobileSyncScheduler.enqueueNow() }
+        )
 
-        _state.update {
-            it.copy(
+        _state.update { current ->
+            current.copy(
                 isSubmitting = false,
-                autoSubmitted = it.autoSubmitted || (isAutoSubmitted && result.isSuccess),
-                submitStatus = result.fold(
-                    onSuccess = { if (isAutoSubmitted) "自动提交成功" else "手动提交成功" },
-                    onFailure = { error -> "提交失败：${error.message ?: "未知错误"}" }
-                ),
-                inlineReason = result.exceptionOrNull()?.message
+                autoSubmitted = resolveAutoSubmittedState(current.autoSubmitted, isAutoSubmitted, result.isSuccess),
+                submitStatus = formatSubmitStatus(result.isSuccess, result.exceptionOrNull()?.message),
+                inlineReason = if (result.isSuccess) null else result.exceptionOrNull()?.message
             )
         }
     }
@@ -345,14 +315,31 @@ class LocationCaptureRepository @Inject constructor(
         else -> this
     }
 
-    private fun deviceId(): String {
-        val androidId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-            ?: "android-device"
-        return "android-${sha256(androidId).take(16)}"
-    }
+}
 
-    private fun sha256(value: String): String {
-        val bytes = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
-        return bytes.joinToString("") { "%02x".format(Locale.US, it) }
+internal fun formatSubmitStatus(enqueued: Boolean, error: String? = null): String {
+    return if (enqueued) {
+        "已加入上传队列"
+    } else {
+        "加入上传队列失败：${error ?: "未知错误"}"
+    }
+}
+
+internal fun resolveAutoSubmittedState(current: Boolean, isAutoSubmit: Boolean, success: Boolean): Boolean {
+    return if (isAutoSubmit && success) true else current
+}
+
+internal suspend fun enqueueThenSchedule(
+    enqueue: suspend () -> Unit,
+    schedule: () -> Unit
+): Result<Unit> {
+    try {
+        enqueue()
+        schedule()
+        return Result.success(Unit)
+    } catch (ex: kotlinx.coroutines.CancellationException) {
+        throw ex
+    } catch (ex: Exception) {
+        return Result.failure(ex)
     }
 }

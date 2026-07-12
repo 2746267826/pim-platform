@@ -10,12 +10,12 @@ import com.pim.app.location.service.ForegroundLocationController
 import com.pim.app.mobile.usage.UsageAccessChecker
 import com.pim.app.permissions.PermissionStatusRepository
 import com.pim.app.settings.TrackingSettingsStore
-import com.pim.app.status.ConnectionProbe
-import com.pim.app.status.ConnectionProbeEvidenceStore
 import com.pim.app.status.ConnectionProbeOutcome
 import com.pim.app.status.ConnectionProbeResult
-import com.pim.app.status.ConnectionProbeRunner
+import com.pim.app.status.ConnectionProbeService
 import com.pim.app.status.ConnectionProbeStage
+import com.pim.app.status.ConnectionProbeStore
+import com.pim.app.status.ProbeTokenSource
 import com.pim.app.status.ServerCapabilities
 import com.pim.core.auth.SecurePreferencesFactory
 import com.pim.core.auth.ServerBoundLoginCoordinator
@@ -26,12 +26,11 @@ import com.pim.core.settings.ServerSettingsStore
 import java.util.ArrayDeque
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -61,7 +60,7 @@ class SettingsServerMutationTest {
             Manifest.permission.ACCESS_BACKGROUND_LOCATION,
             Manifest.permission.ACTIVITY_RECOGNITION
         )
-        listOf(SERVER_PREFS, AUTH_PREFS, TRACKING_PREFS).forEach { name ->
+        listOf(SERVER_PREFS, AUTH_PREFS, TRACKING_PREFS, PROBE_PREFS).forEach { name ->
             check(context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit())
         }
     }
@@ -72,7 +71,7 @@ class SettingsServerMutationTest {
     }
 
     @Test
-    fun saveCommitFailureReloadsServerAAndKeepsServerASessionAndCollectionIntent() {
+    fun saveCommitFailureAfterTokenClearReloadsServerAWithoutSession() {
         val fixture = fixture()
         fixture.serverPreferences.enqueueCommitResult(false)
         fixture.viewModel.updateApiAddress(SERVER_B_URL)
@@ -81,7 +80,7 @@ class SettingsServerMutationTest {
 
         val state = fixture.viewModel.state.value
         assertEquals(SERVER_A_URL, state.apiAddress)
-        assertTrue(state.isLoggedIn)
+        assertFalse(state.isLoggedIn)
         assertTrue(state.continuousCollectionEnabled)
         assertTrue(fixture.trackingSettings.read().continuousCollectionEnabled)
     }
@@ -101,7 +100,7 @@ class SettingsServerMutationTest {
     }
 
     @Test
-    fun failedSessionClearAndRollbackReloadsActualServerAndSessionTruth() {
+    fun failedSessionClearAbortsUrlSwitch() {
         val fixture = fixture(failSessionClear = true)
         fixture.serverPreferences.enqueueCommitResult(true)
         fixture.serverPreferences.enqueueCommitResult(false)
@@ -120,7 +119,7 @@ class SettingsServerMutationTest {
     }
 
     @Test
-    fun collectionServerSaveFailureReloadsTruthWithoutChangingCollectionIntent() {
+    fun collectionServerSaveFailureAfterTokenClearReloadsServerAWithoutSession() {
         val fixture = fixture()
         fixture.serverPreferences.enqueueCommitResult(false)
         fixture.viewModel.updateApiAddress(SERVER_B_URL)
@@ -129,7 +128,7 @@ class SettingsServerMutationTest {
 
         val state = fixture.viewModel.state.value
         assertEquals(SERVER_A_URL, state.apiAddress)
-        assertTrue(state.isLoggedIn)
+        assertFalse(state.isLoggedIn)
         assertTrue(state.continuousCollectionEnabled)
         assertTrue(fixture.trackingSettings.read().continuousCollectionEnabled)
     }
@@ -166,10 +165,7 @@ class SettingsServerMutationTest {
         val authPreferences = ScriptedCommitSharedPreferences(
             context.getSharedPreferences(AUTH_PREFS, Context.MODE_PRIVATE)
         )
-        val securePreferencesFactory = TestSecurePreferencesFactory(
-            preferences = authPreferences,
-            durableInvalidation = !failSessionClear
-        )
+        val securePreferencesFactory = TestSecurePreferencesFactory(preferences = authPreferences)
         val tokenManager = TokenManager(securePreferencesFactory, nowMillis = { 1_000L })
         val serverSettings = ServerSettingsStore(
             SharedPreferencesContext(context, serverPreferences),
@@ -188,12 +184,16 @@ class SettingsServerMutationTest {
             tokenManager,
             ServerBoundLoginTransport { _, _ -> error("login transport is not used") }
         )
-        val probeStore = InMemoryProbeEvidenceStore()
-        val probeRunner = ConnectionProbeRunner(
-            probe = ConnectionProbe { serverUrl -> successfulProbe(serverUrl) },
-            store = probeStore,
-            currentServerUrl = serverSettings::getBaseUrl,
-            wallClockMillis = { 1_000L }
+        val probeStore = ConnectionProbeStore(
+            context.getSharedPreferences(PROBE_PREFS, Context.MODE_PRIVATE),
+            Json { ignoreUnknownKeys = true }
+        )
+        val probeService = ConnectionProbeService(
+            anonymousClient = OkHttpClient(),
+            authenticatedClient = OkHttpClient(),
+            tokenSource = ProbeTokenSource { null },
+            wallClockMillis = { 1_000L },
+            monotonicNanos = { 0L }
         )
         val viewModel = SettingsViewModel(
             serverSettingsStore = serverSettings,
@@ -205,7 +205,8 @@ class SettingsServerMutationTest {
                 context,
                 UsageAccessChecker(context)
             ),
-            connectionProbeRunner = probeRunner
+            connectionProbeService = probeService,
+            connectionProbeStore = probeStore
         )
         return Fixture(
             viewModel = viewModel,
@@ -221,7 +222,7 @@ class SettingsServerMutationTest {
             outcome = ConnectionProbeOutcome.Reachable,
             checkedAtUtcMillis = 1_000L,
             serverIdentity = PimServerEndpoints.from(serverUrl).apiBaseUrl.toString(),
-            lastCompletedStage = ConnectionProbeStage.EmbedBootstrap,
+            lastCompletedStage = ConnectionProbeStage.WebRoot,
             latencyMillisByStage = emptyMap(),
             capabilities = ServerCapabilities(
                 mobileItemResultsV1 = true,
@@ -242,22 +243,11 @@ class SettingsServerMutationTest {
         const val SERVER_PREFS = "settings_server_mutation_server"
         const val AUTH_PREFS = "settings_server_mutation_auth"
         const val TRACKING_PREFS = "settings_server_mutation_tracking"
+        const val PROBE_PREFS = "settings_server_mutation_probe"
         const val SERVER_A_URL = "https://server-a.example/api/v1/"
         const val SERVER_B_URL = "https://server-b.example/api/v1/"
         const val SERVER_A_IDENTITY = "https://server-a.example"
     }
-}
-
-private class InMemoryProbeEvidenceStore : ConnectionProbeEvidenceStore {
-    private val mutableResult = MutableStateFlow<ConnectionProbeResult?>(null)
-    override val result: StateFlow<ConnectionProbeResult?> = mutableResult.asStateFlow()
-
-    override fun save(result: ConnectionProbeResult): Boolean {
-        mutableResult.value = result
-        return true
-    }
-
-    override fun freshResult(serverIdentity: String, nowMillis: Long): ConnectionProbeResult? = null
 }
 
 private class SharedPreferencesContext(
@@ -268,29 +258,33 @@ private class SharedPreferencesContext(
 }
 
 private class TestSecurePreferencesFactory(
-    private val preferences: SharedPreferences,
-    private val durableInvalidation: Boolean
+    private val preferences: SharedPreferences
 ) : SecurePreferencesFactory {
     override fun open(): SharedPreferences = preferences
-
-    override fun reset() {
-        check(durableInvalidation) { "secure storage reset failed" }
-        check(preferences.edit().clear().commit())
-    }
-
-    override fun markSessionInvalidated(): Boolean = durableInvalidation
 }
 
 private class ScriptedCommitSharedPreferences(
     private val delegate: SharedPreferences
-) : SharedPreferences by delegate {
+) : SharedPreferences {
     private val commitResults = ArrayDeque<Boolean>()
 
     fun enqueueCommitResult(result: Boolean) {
         commitResults.addLast(result)
     }
 
+    override fun getAll() = delegate.getAll()
+    override fun getString(key: String, defValue: String?) = delegate.getString(key, defValue)
+    override fun getStringSet(key: String, defValues: MutableSet<String>?) = delegate.getStringSet(key, defValues)
+    override fun getInt(key: String, defValue: Int) = delegate.getInt(key, defValue)
+    override fun getLong(key: String, defValue: Long) = delegate.getLong(key, defValue)
+    override fun getFloat(key: String, defValue: Float) = delegate.getFloat(key, defValue)
+    override fun getBoolean(key: String, defValue: Boolean) = delegate.getBoolean(key, defValue)
+    override fun contains(key: String) = delegate.contains(key)
     override fun edit(): SharedPreferences.Editor = ScriptedEditor(delegate.edit())
+    override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) =
+        delegate.registerOnSharedPreferenceChangeListener(listener)
+    override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) =
+        delegate.unregisterOnSharedPreferenceChangeListener(listener)
 
     private inner class ScriptedEditor(
         private val delegate: SharedPreferences.Editor
@@ -332,8 +326,8 @@ private class ScriptedCommitSharedPreferences(
 
         override fun commit(): Boolean {
             val shouldCommit = if (commitResults.isEmpty()) true else commitResults.removeFirst()
-            val delegateCommitted = delegate.commit()
-            return shouldCommit && delegateCommitted
+            if (!shouldCommit) return false
+            return delegate.commit()
         }
 
         override fun apply() {

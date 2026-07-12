@@ -7,13 +7,11 @@ import com.pim.app.data.AppDatabase
 import com.pim.app.data.AppUsageDao
 import com.pim.app.data.PimDatabaseMigrations
 import com.pim.app.settings.TrackingSettingsStore
-import com.pim.app.status.ConnectionProbeRunner
 import com.pim.app.status.ConnectionProbeService
 import com.pim.app.status.ConnectionProbeStore
 import com.pim.app.status.ProbeTokenSource
 import com.pim.core.auth.TokenManager
 import com.pim.core.network.applyPimApiTimeouts
-import com.pim.core.settings.ServerSettingsStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -114,17 +112,4 @@ object AppModule {
         return ConnectionProbeService(anonymousClient, authenticatedClient, tokenSource)
     }
 
-    @Provides
-    @Singleton
-    fun provideConnectionProbeRunner(
-        service: ConnectionProbeService,
-        store: ConnectionProbeStore,
-        serverSettingsStore: ServerSettingsStore
-    ): ConnectionProbeRunner {
-        return ConnectionProbeRunner(
-            probe = service,
-            store = store,
-            currentServerUrl = serverSettingsStore::getBaseUrl
-        )
-    }
 }

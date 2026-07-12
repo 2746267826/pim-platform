@@ -1,9 +1,9 @@
 package com.pim.core.network
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import com.pim.core.auth.AuthSessionStore
 import com.pim.core.auth.AuthRefreshResult
 import com.pim.core.auth.AuthSessionSnapshot
+import com.pim.core.auth.AuthSessionStore
 import com.pim.core.auth.AuthTokens
 import com.pim.core.models.AuthResponse
 import com.pim.core.models.RefreshRequest
@@ -263,7 +263,6 @@ class AuthRefreshOperationTest {
     private class RecordingSessionStore : AuthSessionStore {
         private var current = AuthSessionSnapshot(
             AuthTokens("token-a", "refresh-secret", Long.MAX_VALUE),
-            generation = 0L,
             serverIdentity = TEST_SERVER_IDENTITY
         )
         var clearCalls: Int = 0
@@ -279,31 +278,15 @@ class AuthRefreshOperationTest {
         ): Boolean {
             current = AuthSessionSnapshot(
                 AuthTokens(accessToken, refreshToken, expiresAtUtcMillis),
-                current.generation + 1L,
                 serverIdentity
-            )
-            return true
-        }
-
-        override fun compareAndSave(expected: AuthSessionSnapshot, tokens: AuthTokens): Boolean {
-            if (current != expected) return false
-            current = AuthSessionSnapshot(
-                tokens,
-                current.generation + 1L,
-                expected.serverIdentity
             )
             return true
         }
 
         override fun clear(): Boolean {
             clearCalls++
-            current = AuthSessionSnapshot(null, current.generation + 1L)
+            current = AuthSessionSnapshot(null)
             return true
-        }
-
-        override fun clearIfUnchanged(expected: AuthSessionSnapshot): Boolean {
-            if (current != expected) return false
-            return clear()
         }
     }
 

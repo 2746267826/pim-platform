@@ -73,7 +73,7 @@ import com.pim.app.location.LocationSubmissionPolicy
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.sync.MobileSyncCoordinator
 import com.pim.app.mobile.sync.MobileSyncState
-import com.pim.core.auth.SecureStorageStatus
+
 import com.pim.core.auth.ServerBoundLoginCoordinator
 import com.pim.core.auth.ServerBoundLoginResult
 import com.pim.core.auth.TokenManager
@@ -707,13 +707,7 @@ class MobileStatusViewModel @Inject constructor(
                 }
             }.fold(
                 onSuccess = {
-                    val loginSuccessMessage = if (
-                        tokenManager.storageStatus == SecureStorageStatus.Ephemeral
-                    ) {
-                        "\u767b\u5f55\u6210\u529f\uff0c\u4f46\u5b89\u5168\u5b58\u50a8\u4e0d\u53ef\u7528\uff1b\u5173\u95ed\u5e94\u7528\u540e\u9700\u8981\u91cd\u65b0\u767b\u5f55\u3002\u6b63\u5728\u540c\u6b65\u624b\u673a\u6570\u636e\u3002"
-                    } else {
-                        "登录成功，正在同步手机数据。"
-                    }
+                    val loginSuccessMessage = "登录成功，正在同步手机数据。"
                     _state.update {
                         it.copy(
                             isLoggedIn = hasCurrentServerSession(),

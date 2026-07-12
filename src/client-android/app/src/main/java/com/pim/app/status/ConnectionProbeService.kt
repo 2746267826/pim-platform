@@ -44,17 +44,6 @@ class ConnectionProbeService(
         progress.recordLatency(ConnectionProbeStage.Url, urlStartedAt)
         progress.complete(ConnectionProbeStage.Url)
 
-        execute(anonymousClient, anonymousRequest(endpoints.healthUrl), ConnectionProbeStage.Health, progress)
-            .consume(
-                onFailure = { failure -> return progress.blocked(failure) },
-                onResponse = { response ->
-                    httpFailure(response, optional = false)?.let { failure ->
-                        return progress.blocked(failure)
-                    }
-                    progress.complete(ConnectionProbeStage.Health)
-                }
-            )
-
         var versionDocument: VersionDocument? = null
         execute(anonymousClient, anonymousRequest(endpoints.versionUrl), ConnectionProbeStage.Version, progress)
             .consume(
@@ -126,29 +115,6 @@ class ConnectionProbeService(
                     progress.complete(ConnectionProbeStage.WebRoot)
                 }
             )
-
-        execute(
-            anonymousClient,
-            anonymousRequest(endpoints.todayEmbedUrl),
-            ConnectionProbeStage.EmbedBootstrap,
-            progress
-        ).consume(
-            onFailure = { failure -> return progress.partial(failure) },
-            onResponse = { response ->
-                httpFailure(response, optional = true)?.let { failure ->
-                    return progress.partial(failure)
-                }
-                if (!response.isUsableHtmlBootstrap()) {
-                    return progress.result(
-                        outcome = ConnectionProbeOutcome.Partial,
-                        failureKind = ConnectionFailureKind.Http,
-                        httpStatus = response.code,
-                        safeMessage = "Android 嵌入页面无法使用"
-                    )
-                }
-                progress.complete(ConnectionProbeStage.EmbedBootstrap)
-            }
-        )
 
         return if (capabilities.androidEmbedV1) {
             progress.result(outcome = ConnectionProbeOutcome.Reachable)

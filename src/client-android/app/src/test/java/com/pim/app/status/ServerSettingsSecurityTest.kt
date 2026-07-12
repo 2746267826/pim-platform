@@ -58,7 +58,7 @@ class ServerSettingsSecurityTest {
     }
 
     @Test
-    fun setBaseUrlCommitFailurePreservesOldUrlAndOldSession() {
+    fun setBaseUrlCommitFailureClearsSessionAndThrows() {
         val scriptedPreferences = ScriptedCommitSharedPreferences(
             context.getSharedPreferences("pim_server_settings", Context.MODE_PRIVATE)
         )
@@ -74,10 +74,8 @@ class ServerSettingsSecurityTest {
             settings.setBaseUrl(SERVER_B_URL)
         }
 
-        assertEquals(SERVER_A_URL, settings.getBaseUrl())
-        assertEquals("access-a", sessions.snapshot().tokens?.accessToken)
-        assertEquals(SERVER_A_IDENTITY, sessions.snapshot().serverIdentity)
-        assertEquals(0, sessions.clearCalls)
+        assertEquals(1, sessions.clearCalls)
+        assertNull(sessions.snapshot().tokens)
     }
 
     @Test
@@ -168,20 +166,18 @@ class ServerSettingsSecurityTest {
     }
 
     @Test
-    fun failedSessionClearWithFailedRollbackExposesActualRestoredUrlAndBoundToken() {
+    fun urlCommitFailureAfterSessionClearPreservesOldUrlWithTokenCleared() {
         val scriptedPreferences = ScriptedCommitSharedPreferences(
             context.getSharedPreferences("pim_server_settings", Context.MODE_PRIVATE)
         )
         val sessions = RecordingBoundSessionStore(
-            serverIdentity = SERVER_A_IDENTITY,
-            clearSucceeds = false
+            serverIdentity = SERVER_A_IDENTITY
         )
         val settings = ServerSettingsStore(
             SharedPreferencesContext(context, scriptedPreferences),
             sessions
         )
         settings.setBaseUrl(SERVER_A_URL)
-        scriptedPreferences.enqueueCommitResult(true)
         scriptedPreferences.enqueueCommitResult(false)
 
         assertThrows(IllegalStateException::class.java) {
@@ -189,8 +185,8 @@ class ServerSettingsSecurityTest {
         }
 
         assertEquals(SERVER_A_URL, settings.getBaseUrl())
-        assertEquals(SERVER_A_IDENTITY, sessions.snapshot().serverIdentity)
-        assertEquals("access-a", sessions.accessTokenForServerIdentity(SERVER_A_IDENTITY))
+        assertNull(sessions.snapshot().serverIdentity)
+        assertNull(sessions.accessTokenForServerIdentity(SERVER_A_IDENTITY))
         assertNull(sessions.accessTokenForServerIdentity(SERVER_B_IDENTITY))
     }
 
@@ -209,18 +205,28 @@ private class SharedPreferencesContext(
     override fun getSharedPreferences(name: String?, mode: Int): SharedPreferences = preferences
 }
 
-private class ScriptedCommitSharedPreferences(
+private open class ScriptedCommitSharedPreferences(
     private val delegate: SharedPreferences
-) : SharedPreferences by delegate {
+) : SharedPreferences {
     private val commitResults = ArrayDeque<Boolean>()
 
     fun enqueueCommitResult(result: Boolean) {
         commitResults.addLast(result)
     }
 
-    override fun edit(): SharedPreferences.Editor {
-        return ScriptedEditor(delegate.edit())
-    }
+    override fun getAll() = delegate.getAll()
+    override fun getString(key: String, defValue: String?) = delegate.getString(key, defValue)
+    override fun getStringSet(key: String, defValues: MutableSet<String>?) = delegate.getStringSet(key, defValues)
+    override fun getInt(key: String, defValue: Int) = delegate.getInt(key, defValue)
+    override fun getLong(key: String, defValue: Long) = delegate.getLong(key, defValue)
+    override fun getFloat(key: String, defValue: Float) = delegate.getFloat(key, defValue)
+    override fun getBoolean(key: String, defValue: Boolean) = delegate.getBoolean(key, defValue)
+    override fun contains(key: String) = delegate.contains(key)
+    override fun edit(): SharedPreferences.Editor = ScriptedEditor(delegate.edit())
+    override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) =
+        delegate.registerOnSharedPreferenceChangeListener(listener)
+    override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) =
+        delegate.unregisterOnSharedPreferenceChangeListener(listener)
 
     private inner class ScriptedEditor(
         private val delegate: SharedPreferences.Editor
@@ -262,8 +268,8 @@ private class ScriptedCommitSharedPreferences(
 
         override fun commit(): Boolean {
             val shouldCommit = if (commitResults.isEmpty()) true else commitResults.removeFirst()
-            val delegateCommitted = delegate.commit()
-            return shouldCommit && delegateCommitted
+            if (!shouldCommit) return false
+            return delegate.commit()
         }
 
         override fun apply() {
@@ -280,7 +286,6 @@ private class RecordingBoundSessionStore(
         tokens = serverIdentity?.let {
             AuthTokens("access-a", "refresh-a", Long.MAX_VALUE)
         },
-        generation = 0L,
         serverIdentity = serverIdentity
     )
     var clearCalls: Int = 0
@@ -296,27 +301,15 @@ private class RecordingBoundSessionStore(
     ): Boolean {
         current = AuthSessionSnapshot(
             AuthTokens(accessToken, refreshToken, expiresAtUtcMillis),
-            current.generation + 1L,
             serverIdentity
         )
         return true
     }
 
-    override fun compareAndSave(expected: AuthSessionSnapshot, tokens: AuthTokens): Boolean {
-        if (current != expected) return false
-        current = AuthSessionSnapshot(tokens, current.generation + 1L, expected.serverIdentity)
-        return true
-    }
-
     override fun clear(): Boolean {
         clearCalls++
-        current = AuthSessionSnapshot(null, current.generation + 1L)
-        return true
-    }
-
-    override fun clearIfUnchanged(expected: AuthSessionSnapshot): Boolean {
-        if (current != expected) return false
         if (!clearSucceeds) return false
-        return clear()
+        current = AuthSessionSnapshot(null)
+        return true
     }
 }

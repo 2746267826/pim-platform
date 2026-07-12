@@ -1,6 +1,9 @@
 package com.pim.core.auth
 
 import android.content.SharedPreferences
+import com.pim.core.auth.AuthRefreshOperation
+import com.pim.core.auth.AuthRefreshResult
+import com.pim.core.auth.AuthTokens
 import com.pim.core.network.AuthRefreshCoordinator
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -11,309 +14,9 @@ import org.junit.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicInteger
 
 class TokenManagerTest {
-    @Test
-    fun saveClearAndCompareAndSaveUseSynchronizedGeneration() {
-        val manager = manager(nowMillis = 1_000L)
-        val initial = manager.snapshot()
-
-        assertTrue(manager.saveTokens("access-a", "refresh-a", "1970-01-01T00:00:02Z", TEST_SERVER_URL))
-        val saved = manager.snapshot()
-        manager.clear()
-        val cleared = manager.snapshot()
-        val staleCommit = manager.compareAndSave(
-            expected = saved,
-            tokens = AuthTokens("access-stale", "refresh-stale", 3_000L)
-        )
-
-        assertEquals(initial.generation + 1L, saved.generation)
-        assertEquals(saved.generation + 1L, cleared.generation)
-        assertFalse(staleCommit)
-        assertNull(manager.accessToken())
-        assertEquals(cleared.generation, manager.snapshot().generation)
-    }
-
-    @Test
-    fun transientSecureStorageOpenFailureRetriesWithoutDeletingSession() {
-        val preferences = InMemorySharedPreferences().apply {
-            edit()
-                .putString("access_token", "stale-access")
-                .putString("refresh_token", "stale-refresh")
-                .putLong("expires_at", Long.MAX_VALUE)
-                .putString("server_identity", "https://pim.example")
-                .commit()
-        }
-        val factory = FakeSecurePreferencesFactory(preferences, failuresBeforeSuccess = 1)
-
-        val manager = TokenManager(factory, nowMillis = { 1_000L })
-
-        assertEquals(SecureStorageStatus.Recovered, manager.storageStatus)
-        assertEquals(0, factory.resetCalls)
-        assertEquals("stale-access", manager.accessToken())
-        assertEquals("stale-refresh", manager.refreshToken())
-        assertEquals(Long.MAX_VALUE, manager.expiresAtUtcMillis())
-    }
-
-    @Test
-    fun legacyPlaintextStorageIsRemovedBeforeSecureStorageIsOpened() {
-        val events = mutableListOf<String>()
-        val factory = object : SecurePreferencesFactory {
-            override fun clearLegacyStorage() {
-                events += "legacy-cleanup"
-            }
-
-            override fun open(): SharedPreferences {
-                events += "open"
-                return InMemorySharedPreferences()
-            }
-
-            override fun reset() = Unit
-        }
-
-        TokenManager(factory, nowMillis = { 1_000L })
-
-        assertEquals(listOf("legacy-cleanup", "open"), events)
-    }
-
-    @Test
-    fun persistentClassifiedOpenCorruptionIsResetAndRecreated() {
-        val preferences = InMemorySharedPreferences()
-        var corrupted = true
-        var resetCalls = 0
-        val factory = object : SecurePreferencesFactory {
-            override fun open(): SharedPreferences {
-                if (corrupted) throw SecureStorageCorruptionException("corrupt keyset")
-                return preferences
-            }
-
-            override fun reset() {
-                resetCalls++
-                corrupted = false
-                preferences.edit().clear().commit()
-            }
-        }
-
-        val manager = TokenManager(factory, nowMillis = { 1_000L })
-
-        assertEquals(SecureStorageStatus.Recovered, manager.storageStatus)
-        assertEquals(1, resetCalls)
-        assertNull(manager.accessToken())
-    }
-
-    @Test
-    fun unavailableSecureStorageFallsBackToProcessMemoryWithoutThrowing() {
-        val preferences = InMemorySharedPreferences()
-        val factory = FakeSecurePreferencesFactory(preferences, failuresBeforeSuccess = Int.MAX_VALUE)
-
-        val manager = TokenManager(factory, nowMillis = { 1_000L })
-        assertEquals(SecureStorageStatus.Ephemeral, manager.storageStatus)
-        assertTrue(
-            manager.saveTokens(
-                "access-memory",
-                "refresh-memory",
-                "1970-01-01T00:00:02Z",
-                TEST_SERVER_URL
-            )
-        )
-        assertEquals("access-memory", manager.accessToken())
-        assertTrue(preferences.all.isEmpty())
-
-        val nextProcessStore = TokenManager(factory, nowMillis = { 1_000L })
-        assertEquals(SecureStorageStatus.Ephemeral, nextProcessStore.storageStatus)
-        assertNull(nextProcessStore.accessToken())
-    }
-
-    @Test
-    fun legacyEncryptedSessionWithoutServerIdentityFailsClosed() {
-        val preferences = InMemorySharedPreferences().apply {
-            edit()
-                .putString("access_token", "legacy-access")
-                .putString("refresh_token", "legacy-refresh")
-                .putLong("expires_at", Long.MAX_VALUE)
-                .commit()
-        }
-
-        val manager = TokenManager(
-            FakeSecurePreferencesFactory(preferences),
-            nowMillis = { 1_000L }
-        )
-
-        assertNull(manager.accessToken())
-        assertNull(manager.refreshToken())
-    }
-
-    @Test
-    fun ephemeralLogoutInvalidatesInaccessibleEncryptedSessionBeforeRestart() {
-        val preferences = InMemorySharedPreferences().apply {
-            edit()
-                .putString("access_token", "old-access")
-                .putString("refresh_token", "old-refresh")
-                .putLong("expires_at", Long.MAX_VALUE)
-                .putString("server_identity", "https://old.example")
-                .commit()
-        }
-        val factory = FakeSecurePreferencesFactory(preferences, failuresBeforeSuccess = 2)
-        val ephemeral = TokenManager(factory, nowMillis = { 1_000L })
-        assertEquals(SecureStorageStatus.Ephemeral, ephemeral.storageStatus)
-
-        ephemeral.clear()
-        val restarted = TokenManager(factory, nowMillis = { 1_000L })
-
-        assertNull(restarted.accessToken())
-        assertNull(restarted.refreshToken())
-    }
-
-    @Test
-    fun ephemeralAccountSwitchCannotResurrectPreviousEncryptedSession() {
-        val preferences = InMemorySharedPreferences().apply {
-            edit()
-                .putString("access_token", "old-access")
-                .putString("refresh_token", "old-refresh")
-                .putLong("expires_at", Long.MAX_VALUE)
-                .putString("server_identity", "https://old.example")
-                .commit()
-        }
-        val factory = FakeSecurePreferencesFactory(preferences, failuresBeforeSuccess = 2)
-        val ephemeral = TokenManager(factory, nowMillis = { 1_000L })
-
-        assertTrue(
-            ephemeral.saveTokens(
-                "new-access",
-                "new-refresh",
-                "1970-01-01T00:00:02Z",
-                "https://new.example/api/v1/"
-            )
-        )
-        val restarted = TokenManager(factory, nowMillis = { 1_000L })
-
-        assertNull(restarted.accessToken())
-        assertNull(restarted.refreshToken())
-    }
-
-    @Test
-    fun invalidationTombstonePreventsResurrectionWhenImmediateResetFails() {
-        val preferences = InMemorySharedPreferences().apply {
-            edit()
-                .putString("access_token", "old-access")
-                .putString("refresh_token", "old-refresh")
-                .putLong("expires_at", Long.MAX_VALUE)
-                .putString("server_identity", "https://old.example")
-                .commit()
-        }
-        val factory = TombstonedSecurePreferencesFactory(preferences)
-        val ephemeral = TokenManager(factory, nowMillis = { 1_000L })
-        assertEquals(SecureStorageStatus.Ephemeral, ephemeral.storageStatus)
-
-        ephemeral.clear()
-        assertTrue(factory.hasSessionInvalidationTombstone())
-        val restarted = TokenManager(factory, nowMillis = { 1_000L })
-
-        assertEquals(SecureStorageStatus.Recovered, restarted.storageStatus)
-        assertNull(restarted.accessToken())
-        assertFalse(factory.hasSessionInvalidationTombstone())
-    }
-
-    @Test
-    fun logoutFailsWhenNeitherTombstoneNorResetCanInvalidateOldStorage() {
-        val preferences = InMemorySharedPreferences().apply {
-            edit()
-                .putString("access_token", "old-access")
-                .putString("refresh_token", "old-refresh")
-                .putLong("expires_at", Long.MAX_VALUE)
-                .putString("server_identity", "https://old.example")
-                .commit()
-        }
-        val factory = UndurableSecurePreferencesFactory(preferences)
-        val ephemeral = TokenManager(factory, nowMillis = { 1_000L })
-        assertEquals(SecureStorageStatus.Ephemeral, ephemeral.storageStatus)
-
-        assertFalse(ephemeral.clear())
-        val restarted = TokenManager(factory, nowMillis = { 1_000L })
-
-        assertEquals("old-access", restarted.accessToken())
-        assertEquals("old-refresh", restarted.refreshToken())
-    }
-
-    @Test
-    fun corruptedSecureStorageReadIsResetAndReopenedLoggedOut() {
-        val preferences = ReadFailingSharedPreferences(InMemorySharedPreferences(), failuresRemaining = 2)
-        var resetCalls = 0
-        val factory = object : SecurePreferencesFactory {
-            override fun open(): SharedPreferences = preferences
-
-            override fun reset() {
-                resetCalls++
-                preferences.allowReads()
-                preferences.edit().clear().commit()
-            }
-        }
-
-        val manager = TokenManager(factory, nowMillis = { 1_000L })
-
-        assertEquals(SecureStorageStatus.Recovered, manager.storageStatus)
-        assertEquals(1, resetCalls)
-        assertNull(manager.accessToken())
-    }
-
-    @Test
-    fun persistentlyUnreadableSecureStorageFallsBackToEphemeralSession() {
-        val preferences = ReadFailingSharedPreferences(
-            InMemorySharedPreferences(),
-            failuresRemaining = Int.MAX_VALUE
-        )
-        val factory = object : SecurePreferencesFactory {
-            override fun open(): SharedPreferences = preferences
-            override fun reset() {
-                preferences.edit().clear().commit()
-            }
-        }
-
-        val manager = TokenManager(factory, nowMillis = { 1_000L })
-
-        assertEquals(SecureStorageStatus.Ephemeral, manager.storageStatus)
-        assertTrue(
-            manager.saveTokens(
-                "memory-access",
-                "memory-refresh",
-                "1970-01-01T00:00:02Z",
-                TEST_SERVER_URL
-            )
-        )
-        assertEquals("memory-access", manager.accessToken())
-    }
-
-    @Test
-    fun failedSecureClearResetsStorageAndContinuesEphemerally() {
-        val delegate = InMemorySharedPreferences().apply {
-            edit()
-                .putString("access_token", "access-a")
-                .putString("refresh_token", "refresh-a")
-                .putLong("expires_at", Long.MAX_VALUE)
-                .putString("server_identity", "https://pim.example")
-                .commit()
-        }
-        val preferences = ClearCommitFailingSharedPreferences(delegate)
-        var resetCalls = 0
-        val factory = object : SecurePreferencesFactory {
-            override fun open(): SharedPreferences = preferences
-
-            override fun reset() {
-                resetCalls++
-                preferences.forceClear()
-            }
-        }
-        val manager = TokenManager(factory, nowMillis = { 1_000L })
-
-        manager.clear()
-
-        assertEquals(1, resetCalls)
-        assertEquals(SecureStorageStatus.Ephemeral, manager.storageStatus)
-        assertNull(manager.accessToken())
-        assertNull(TokenManager(factory, nowMillis = { 1_000L }).accessToken())
-    }
-
     @Test
     fun invalidLoginTokensNeverOverwriteCurrentSession() {
         val manager = manager(nowMillis = 1_000L)
@@ -353,30 +56,22 @@ class TokenManagerTest {
     }
 
     @Test
-    fun switchingFromServerAToBBeforeConnectionProbeClearsBoundSession() {
-        val manager = manager(nowMillis = 1_000L)
-        assertTrue(
-            manager.saveTokens(
-                "access-a",
-                "refresh-a",
-                "1970-01-01T00:00:03Z",
-                "https://server-a.example/api/v1/"
-            )
+    fun legacyEncryptedSessionWithoutServerIdentityFailsClosed() {
+        val preferences = InMemorySharedPreferences().apply {
+            edit()
+                .putString("access_token", "legacy-access")
+                .putString("refresh_token", "legacy-refresh")
+                .putLong("expires_at", Long.MAX_VALUE)
+                .commit()
+        }
+
+        val manager = TokenManager(
+            FakeSecurePreferencesFactory(preferences),
+            nowMillis = { 1_000L }
         )
 
-        assertFalse(
-            manager.clearIfBoundToDifferentServer("https://server-a.example/api/v1")
-        )
-        assertEquals(
-            "access-a",
-            manager.getAccessTokenForServer("https://server-a.example/api/v1/")
-        )
-
-        assertTrue(
-            manager.clearIfBoundToDifferentServer("https://server-b.example/api/v1/")
-        )
-        assertNull(manager.snapshot().tokens)
-        assertNull(manager.getAccessTokenForServer("https://server-b.example/api/v1/"))
+        assertNull(manager.accessToken())
+        assertNull(manager.refreshToken())
     }
 
     @Test
@@ -497,6 +192,101 @@ class TokenManagerTest {
         }
     }
 
+    @Test
+    fun concurrentRefreshIfExpiredSecondReturnsFalseWhenFirstRejectedAndCleared() {
+        val manager = manager(nowMillis = 1_000L)
+        assertTrue(manager.save("access-old", "refresh-old", 3_000L, "https://pim.example"))
+
+        val refreshEntered = CountDownLatch(1)
+        val releaseFirst = CountDownLatch(1)
+        val refreshCalls = AtomicInteger(0)
+        val coordinator = AuthRefreshCoordinator(
+            manager,
+            AuthRefreshOperation { _, _ ->
+                refreshEntered.countDown()
+                refreshCalls.incrementAndGet()
+                check(releaseFirst.await(5, TimeUnit.SECONDS))
+                AuthRefreshResult.Rejected
+            },
+            nowMillis = { 5_000L }
+        )
+        val executor = Executors.newFixedThreadPool(2)
+
+        try {
+            val firstResult = executor.submit<Boolean> {
+                runBlocking { coordinator.refreshIfExpired() }
+            }
+            assertTrue(refreshEntered.await(5, TimeUnit.SECONDS))
+
+            val secondResult = executor.submit<Boolean> {
+                runBlocking { coordinator.refreshIfExpired() }
+            }
+            Thread.sleep(300)
+
+            releaseFirst.countDown()
+
+            assertFalse(firstResult.get(5, TimeUnit.SECONDS))
+            assertFalse(secondResult.get(5, TimeUnit.SECONDS))
+
+            assertEquals(1, refreshCalls.get())
+            assertNull(manager.accessToken())
+        } finally {
+            releaseFirst.countDown()
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun secureStorageOpenFailureFailsClosedWithoutTokens() {
+        val errors = mutableListOf<String>()
+        val factory = object : SecurePreferencesFactory {
+            override fun open(): SharedPreferences {
+                throw SecureStorageUnavailableException("key not available")
+            }
+        }
+
+        val manager = TokenManager(factory, nowMillis = { 1_000L }) { msg, _ -> errors += msg }
+
+        assertNull(manager.accessToken())
+        assertNull(manager.refreshToken())
+        assertNull(manager.snapshot().tokens)
+        assertTrue(errors.any { it.contains("initialization failed") })
+    }
+
+    @Test
+    fun saveFailureAfterSuccessfulInitClearsInMemoryState() {
+        val factory = object : SecurePreferencesFactory {
+            override fun open(): SharedPreferences = TrivialFailingSharedPreferences()
+        }
+        val manager = TokenManager(factory, nowMillis = { 1_000L })
+
+        assertFalse(manager.save("access-a", "refresh-a", 3_000L, "https://pim.example"))
+        assertNull(manager.snapshot().tokens)
+    }
+
+    @Test
+    fun clearFailureClearsInMemoryState() {
+        val delegate = InMemorySharedPreferences()
+        val failingClear = CommittingSharedPreferences(delegate, succeeds = true) { false }
+        val factory = object : SecurePreferencesFactory {
+            override fun open(): SharedPreferences {
+                delegate.edit()
+                    .putString("access_token", "access-a")
+                    .putString("refresh_token", "refresh-a")
+                    .putLong("expires_at", Long.MAX_VALUE)
+                    .putString("server_identity", "https://pim.example")
+                    .commit()
+                return failingClear
+            }
+        }
+        val manager = TokenManager(factory, nowMillis = { 1_000L })
+
+        assertEquals("access-a", manager.accessToken())
+        manager.clear()
+        assertNull(manager.snapshot().tokens)
+        assertNull(manager.accessToken())
+    }
+
     private fun manager(nowMillis: Long): TokenManager {
         return TokenManager(
             FakeSecurePreferencesFactory(InMemorySharedPreferences()),
@@ -510,79 +300,9 @@ class TokenManagerTest {
 }
 
 private class FakeSecurePreferencesFactory(
-    private val preferences: SharedPreferences,
-    private val failuresBeforeSuccess: Int = 0
-) : SecurePreferencesFactory {
-    var openCalls: Int = 0
-        private set
-    var resetCalls: Int = 0
-        private set
-
-    override fun open(): SharedPreferences {
-        openCalls++
-        if (openCalls <= failuresBeforeSuccess) error("secure storage unavailable")
-        return preferences
-    }
-
-    override fun reset() {
-        resetCalls++
-        preferences.edit().clear().commit()
-    }
-}
-
-private class TombstonedSecurePreferencesFactory(
     private val preferences: SharedPreferences
 ) : SecurePreferencesFactory {
-    private var openFailuresRemaining = 2
-    private var resetFailuresRemaining = 1
-    private var tombstoned = false
-
-    override fun open(): SharedPreferences {
-        if (openFailuresRemaining > 0) {
-            openFailuresRemaining--
-            error("secure storage temporarily unavailable")
-        }
-        return preferences
-    }
-
-    override fun reset() {
-        if (resetFailuresRemaining > 0) {
-            resetFailuresRemaining--
-            error("secure storage reset temporarily unavailable")
-        }
-        preferences.edit().clear().commit()
-    }
-
-    override fun markSessionInvalidated(): Boolean {
-        tombstoned = true
-        return true
-    }
-
-    override fun hasSessionInvalidationTombstone(): Boolean = tombstoned
-
-    override fun clearSessionInvalidationTombstone() {
-        tombstoned = false
-    }
-}
-
-private class UndurableSecurePreferencesFactory(
-    private val preferences: SharedPreferences
-) : SecurePreferencesFactory {
-    private var openFailuresRemaining = 2
-
-    override fun open(): SharedPreferences {
-        if (openFailuresRemaining > 0) {
-            openFailuresRemaining--
-            error("secure storage temporarily unavailable")
-        }
-        return preferences
-    }
-
-    override fun reset() {
-        error("secure storage reset failed")
-    }
-
-    override fun markSessionInvalidated(): Boolean = false
+    override fun open(): SharedPreferences = preferences
 }
 
 private class InMemorySharedPreferences : SharedPreferences {
@@ -633,57 +353,51 @@ private class InMemorySharedPreferences : SharedPreferences {
     }
 }
 
-private class ReadFailingSharedPreferences(
-    private val delegate: SharedPreferences,
-    private var failuresRemaining: Int
-) : SharedPreferences by delegate {
-    override fun getString(key: String, defValue: String?): String? {
-        if (failuresRemaining > 0) {
-            failuresRemaining--
-            error("encrypted preferences are unreadable")
-        }
-        return delegate.getString(key, defValue)
-    }
+private class TrivialFailingSharedPreferences : SharedPreferences {
+    private val map = linkedMapOf<String, Any?>()
+    override fun getAll() = LinkedHashMap(map) as MutableMap<String, *>
+    override fun getString(key: String, defValue: String?) = (map[key] as? String) ?: defValue
+    override fun getStringSet(key: String, defValues: MutableSet<String>?) = defValues
+    override fun getInt(key: String, defValue: Int) = (map[key] as? Int) ?: defValue
+    override fun getLong(key: String, defValue: Long) = (map[key] as? Long) ?: defValue
+    override fun getFloat(key: String, defValue: Float) = (map[key] as? Float) ?: defValue
+    override fun getBoolean(key: String, defValue: Boolean) = (map[key] as? Boolean) ?: defValue
+    override fun contains(key: String) = map.containsKey(key)
+    override fun edit(): SharedPreferences.Editor = FailingEditor()
+    override fun registerOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
+    override fun unregisterOnSharedPreferenceChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
 
-    fun allowReads() {
-        failuresRemaining = 0
+    private inner class FailingEditor : SharedPreferences.Editor {
+        private val edits = linkedMapOf<String, Any?>()
+        override fun putString(key: String, value: String?): SharedPreferences.Editor = apply { edits[key] = value }
+        override fun putStringSet(key: String, values: MutableSet<String>?): SharedPreferences.Editor = this
+        override fun putInt(key: String, value: Int): SharedPreferences.Editor = apply { edits[key] = value }
+        override fun putLong(key: String, value: Long): SharedPreferences.Editor = apply { edits[key] = value }
+        override fun putFloat(key: String, value: Float): SharedPreferences.Editor = apply { edits[key] = value }
+        override fun putBoolean(key: String, value: Boolean): SharedPreferences.Editor = apply { edits[key] = value }
+        override fun remove(key: String): SharedPreferences.Editor = apply { edits.remove(key) }
+        override fun clear(): SharedPreferences.Editor = apply { edits.clear() }
+        override fun commit(): Boolean = false
+        override fun apply() {}
     }
 }
 
-private class ClearCommitFailingSharedPreferences(
-    private val delegate: SharedPreferences
+private class CommittingSharedPreferences(
+    private val delegate: InMemorySharedPreferences,
+    private val succeeds: Boolean,
+    private val commitResult: () -> Boolean
 ) : SharedPreferences by delegate {
-    private var failNextClear = true
+    private var commitCalls = 0
 
     override fun edit(): SharedPreferences.Editor {
-        return ClearCommitFailingEditor(delegate.edit())
+        return CommittingEditor(delegate.edit(), commitResult)
     }
 
-    fun forceClear() {
-        delegate.edit().clear().commit()
-    }
-
-    private inner class ClearCommitFailingEditor(
-        private val delegateEditor: SharedPreferences.Editor
-    ) : SharedPreferences.Editor by delegateEditor {
-        private var clears = false
-
-        override fun clear(): SharedPreferences.Editor {
-            clears = true
-            delegateEditor.clear()
-            return this
-        }
-
-        override fun commit(): Boolean {
-            if (clears && failNextClear) {
-                failNextClear = false
-                return false
-            }
-            return delegateEditor.commit()
-        }
-
-        override fun apply() {
-            commit()
-        }
+    private class CommittingEditor(
+        private val delegate: SharedPreferences.Editor,
+        private val commitResult: () -> Boolean
+    ) : SharedPreferences.Editor by delegate {
+        override fun commit(): Boolean = commitResult()
+        override fun apply() { commit() }
     }
 }

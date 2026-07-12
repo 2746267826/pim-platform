@@ -46,7 +46,7 @@ class AndroidV2LoginFlowContractTest {
             "settings login cancellation guard must be the first failure-side effect",
             cancellationIndex > failureBranchIndex && cancellationIndex < failureUiIndex
         )
-        assertTrue("ephemeral auth storage must be visible to the user", source.contains("SecureStorageStatus.Ephemeral"))
+        assertTrue("login must not check ephemeral storage (fail-closed)", !source.contains("Ephemeral"))
         assertTrue(
             "login failure must reflect the session still valid for the current server",
             source.contains("isLoggedIn = hasCurrentServerSession()")
@@ -124,7 +124,7 @@ class AndroidV2LoginFlowContractTest {
             "legacy login cancellation guard must run before failure UI",
             cancellationIndex > failureBranchIndex && cancellationIndex < failureUiIndex
         )
-        assertTrue("legacy login must warn about ephemeral auth storage", source.contains("SecureStorageStatus.Ephemeral"))
+        assertTrue("legacy login must not check ephemeral storage (fail-closed)", !source.contains("Ephemeral"))
         assertTrue(
             "legacy login failure must reflect the current server session",
             source.contains("isLoggedIn = hasCurrentServerSession()")

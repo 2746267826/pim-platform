@@ -10,7 +10,6 @@ data class AuthTokens(
 
 data class AuthSessionSnapshot(
     val tokens: AuthTokens?,
-    val generation: Long,
     val serverIdentity: String? = null
 )
 
@@ -22,9 +21,7 @@ interface AuthSessionStore {
         expiresAtUtcMillis: Long,
         serverIdentity: String
     ): Boolean
-    fun compareAndSave(expected: AuthSessionSnapshot, tokens: AuthTokens): Boolean
     fun clear(): Boolean
-    fun clearIfUnchanged(expected: AuthSessionSnapshot): Boolean
 
     fun accessToken(): String? = snapshot().tokens?.accessToken
     fun refreshToken(): String? = snapshot().tokens?.refreshToken

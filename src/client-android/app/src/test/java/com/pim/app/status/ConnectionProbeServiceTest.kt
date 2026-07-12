@@ -80,38 +80,33 @@ class ConnectionProbeServiceTest {
 
     @Test
     fun allSuccessfulStagesWithFutureCapabilitiesAreReachableInExactOrder() = runTest {
-        enqueueHealthyApi(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
+        enqueueVersion(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
         enqueueJson(200, """{"code":0,"message":"OK","data":{"status":"Healthy"}}""")
-        enqueueHtml(200)
         enqueueHtml(200)
 
         val result = service.probe(serverUrl)
 
         assertEquals(ConnectionProbeOutcome.Reachable, result.outcome)
-        assertEquals(ConnectionProbeStage.EmbedBootstrap, result.lastCompletedStage)
+        assertEquals(ConnectionProbeStage.WebRoot, result.lastCompletedStage)
         assertEquals(ServerCapabilities(mobileItemResultsV1 = true, androidEmbedV1 = true), result.capabilities)
         assertNull(result.failureKind)
         assertEquals(1_000L, result.checkedAtUtcMillis)
         assertEquals(serverUrl, result.serverIdentity)
         assertEquals(ConnectionProbeStage.entries.toSet(), result.latencyMillisByStage.keys)
 
-        val requests = List(5) { server.takeRequest() }
+        val requests = List(3) { server.takeRequest() }
         assertEquals(
             listOf(
-                "/health",
                 "/api/version",
                 "/api/v1/status/summary",
-                "/",
-                "/embed/android/today"
+                "/"
             ),
             requests.map { it.path }
         )
         assertNull(requests[0].getHeader("Authorization"))
-        assertNull(requests[1].getHeader("Authorization"))
-        assertEquals("Bearer probe-access", requests[2].getHeader("Authorization"))
-        assertNull(requests[3].getHeader("Authorization"))
-        assertNull(requests[4].getHeader("Authorization"))
-        assertEquals(List(4) { AuthMode.Anonymous }, anonymousModes)
+        assertEquals("Bearer probe-access", requests[1].getHeader("Authorization"))
+        assertNull(requests[2].getHeader("Authorization"))
+        assertEquals(List(2) { AuthMode.Anonymous }, anonymousModes)
         assertEquals(listOf(AuthMode.Required), authenticatedModes)
     }
 
@@ -133,7 +128,7 @@ class ConnectionProbeServiceTest {
             assertEquals(ConnectionProbeOutcome.Blocked, result.outcome)
             assertEquals(expectedKind, result.failureKind)
             assertEquals(ConnectionProbeStage.Url, result.lastCompletedStage)
-            assertTrue(result.latencyMillisByStage.containsKey(ConnectionProbeStage.Health))
+            assertTrue(result.latencyMillisByStage.containsKey(ConnectionProbeStage.Version))
             assertFalse(result.safeMessage.orEmpty().contains("token-secret"))
             assertFalse(result.safeMessage.orEmpty().contains("refresh-secret"))
             assertFalse(result.safeMessage.orEmpty().contains("Authorization"))
@@ -141,7 +136,7 @@ class ConnectionProbeServiceTest {
     }
 
     @Test
-    fun health404IsWrongPathAndBlocked() = runTest {
+    fun version404IsWrongPathAndBlocked() = runTest {
         server.enqueue(MockResponse().setResponseCode(404))
 
         val result = service.probe(serverUrl)
@@ -171,7 +166,7 @@ class ConnectionProbeServiceTest {
 
     @Test
     fun missingMobileCapabilityIsBlockedAsIncompatible() = runTest {
-        enqueueHealthyApi(capabilities = emptyList())
+        enqueueVersion(capabilities = emptyList())
 
         val result = service.probe(serverUrl)
 
@@ -179,14 +174,13 @@ class ConnectionProbeServiceTest {
         assertEquals(ConnectionFailureKind.IncompatibleVersion, result.failureKind)
         assertEquals(ConnectionProbeStage.Version, result.lastCompletedStage)
         assertEquals(ServerCapabilities(false, false), result.capabilities)
-        assertEquals(2, server.requestCount)
+        assertEquals(1, server.requestCount)
     }
 
     @Test
     fun phaseOneCapabilitiesRemainPartialEvenWhenHtmlBootstraps() = runTest {
-        enqueueHealthyApi(capabilities = listOf("mobileItemResultsV1"))
+        enqueueVersion(capabilities = listOf("mobileItemResultsV1"))
         enqueueJson(200, """{"code":0,"message":"OK","data":{"status":"Healthy"}}""")
-        enqueueHtml(200)
         enqueueHtml(200)
 
         val result = service.probe(serverUrl)
@@ -195,14 +189,13 @@ class ConnectionProbeServiceTest {
         assertEquals(ConnectionFailureKind.IncompatibleVersion, result.failureKind)
         assertTrue(result.capabilities.mobileItemResultsV1)
         assertFalse(result.capabilities.androidEmbedV1)
-        assertEquals(ConnectionProbeStage.EmbedBootstrap, result.lastCompletedStage)
+        assertEquals(ConnectionProbeStage.WebRoot, result.lastCompletedStage)
     }
 
     @Test
-    fun missingEmbedIsPartialAfterCompatibleApiStages() = runTest {
-        enqueueHealthyApi(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
+    fun webRoot404IsWrongPathAndPartial() = runTest {
+        enqueueVersion(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
         enqueueJson(200, """{"code":0,"message":"OK","data":{"status":"Healthy"}}""")
-        enqueueHtml(200)
         server.enqueue(MockResponse().setResponseCode(404))
 
         val result = service.probe(serverUrl)
@@ -210,12 +203,12 @@ class ConnectionProbeServiceTest {
         assertEquals(ConnectionProbeOutcome.Partial, result.outcome)
         assertEquals(ConnectionFailureKind.WrongPath, result.failureKind)
         assertEquals(404, result.httpStatus)
-        assertEquals(ConnectionProbeStage.WebRoot, result.lastCompletedStage)
+        assertEquals(ConnectionProbeStage.AuthenticatedStatus, result.lastCompletedStage)
     }
 
     @Test
-    fun unusableWebRootIsPartialAndStopsBeforeEmbed() = runTest {
-        enqueueHealthyApi(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
+    fun unusableWebRootIsPartial() = runTest {
+        enqueueVersion(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
         enqueueJson(200, """{"code":0,"message":"OK","data":{"status":"Healthy"}}""")
         enqueueJson(200, """{"not":"html"}""")
 
@@ -224,12 +217,12 @@ class ConnectionProbeServiceTest {
         assertEquals(ConnectionProbeOutcome.Partial, result.outcome)
         assertEquals(ConnectionFailureKind.Http, result.failureKind)
         assertEquals(ConnectionProbeStage.AuthenticatedStatus, result.lastCompletedStage)
-        assertEquals(4, server.requestCount)
+        assertEquals(3, server.requestCount)
     }
 
     @Test
     fun authenticatedStatus401IsUnauthorizedAndBlocked() = runTest {
-        enqueueHealthyApi(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
+        enqueueVersion(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
         server.enqueue(MockResponse().setResponseCode(401))
 
         val result = service.probe(serverUrl)
@@ -238,14 +231,13 @@ class ConnectionProbeServiceTest {
         assertEquals(ConnectionFailureKind.Unauthorized, result.failureKind)
         assertEquals(401, result.httpStatus)
         assertEquals(ConnectionProbeStage.Version, result.lastCompletedStage)
-        assertEquals(3, server.requestCount)
+        assertEquals(2, server.requestCount)
     }
 
     @Test
     fun tokenlessProbeSkipsAuthenticatedStatusStage() = runTest {
         tokenSource.accessToken = null
-        enqueueHealthyApi(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
-        enqueueHtml(200)
+        enqueueVersion(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
         enqueueHtml(200)
 
         val result = service.probe(serverUrl)
@@ -254,16 +246,15 @@ class ConnectionProbeServiceTest {
         assertFalse(result.latencyMillisByStage.containsKey(ConnectionProbeStage.AuthenticatedStatus))
         assertEquals(0, authenticatedModes.size)
         assertEquals(
-            listOf("/health", "/api/version", "/", "/embed/android/today"),
-            List(4) { server.takeRequest().path }
+            listOf("/api/version", "/"),
+            List(2) { server.takeRequest().path }
         )
     }
 
     @Test
     fun tokenBoundToAnotherServerStillAllowsAnonymousStagesAndSkipsAuthenticatedStatus() = runTest {
         tokenSource.serverUrl = "https://server-a.example/api/v1/"
-        enqueueHealthyApi(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
-        enqueueHtml(200)
+        enqueueVersion(capabilities = listOf("mobileItemResultsV1", "androidEmbedV1"))
         enqueueHtml(200)
 
         val result = service.probe(serverUrl)
@@ -272,8 +263,8 @@ class ConnectionProbeServiceTest {
         assertFalse(result.latencyMillisByStage.containsKey(ConnectionProbeStage.AuthenticatedStatus))
         assertEquals(0, authenticatedModes.size)
         assertEquals(
-            listOf("/health", "/api/version", "/", "/embed/android/today"),
-            List(4) { server.takeRequest().path }
+            listOf("/api/version", "/"),
+            List(2) { server.takeRequest().path }
         )
     }
 
@@ -313,7 +304,7 @@ class ConnectionProbeServiceTest {
 
         assertEquals(10_000L, result.checkedAtUtcMillis)
         assertEquals(7L, result.latencyMillisByStage[ConnectionProbeStage.Url])
-        assertEquals(7L, result.latencyMillisByStage[ConnectionProbeStage.Health])
+        assertEquals(7L, result.latencyMillisByStage[ConnectionProbeStage.Version])
     }
 
     @Test
@@ -326,8 +317,8 @@ class ConnectionProbeServiceTest {
             outcome = ConnectionProbeOutcome.Reachable,
             checkedAtUtcMillis = 1_000L,
             serverIdentity = "https://pim.example/api/v1/",
-            lastCompletedStage = ConnectionProbeStage.EmbedBootstrap,
-            latencyMillisByStage = mapOf(ConnectionProbeStage.Health to 12L),
+            lastCompletedStage = ConnectionProbeStage.WebRoot,
+            latencyMillisByStage = mapOf(ConnectionProbeStage.Version to 12L),
             capabilities = ServerCapabilities(true, true)
         )
 
@@ -355,8 +346,7 @@ class ConnectionProbeServiceTest {
         assertFalse(store.isFresh("https://pim.example/api/v1/", 1_000L))
     }
 
-    private fun enqueueHealthyApi(capabilities: List<String>) {
-        enqueueJson(200, """{"status":"healthy"}""")
+    private fun enqueueVersion(capabilities: List<String>) {
         enqueueJson(
             200,
             """{"version":"1.2.3","capabilities":${Json.encodeToString(capabilities)}}"""

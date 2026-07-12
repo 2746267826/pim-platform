@@ -95,8 +95,7 @@ class ServerBoundLoginCoordinatorTest {
     fun secureStorageSaveFailureIsReportedWithoutCreatingSession() = runBlocking {
         val backingPreferences = context.getSharedPreferences(AUTH_PREFS_NAME, Context.MODE_PRIVATE)
         val tokenManager = tokenManager(
-            preferences = CommitFailingSharedPreferences(backingPreferences),
-            durableInvalidation = false
+            preferences = CommitFailingSharedPreferences(backingPreferences)
         )
         val settings = ServerSettingsStore(context, tokenManager)
         settings.setBaseUrl(SERVER_A_URL)
@@ -128,14 +127,10 @@ class ServerBoundLoginCoordinatorTest {
     }
 
     private fun tokenManager(
-        preferences: SharedPreferences = context.getSharedPreferences(AUTH_PREFS_NAME, Context.MODE_PRIVATE),
-        durableInvalidation: Boolean = true
+        preferences: SharedPreferences = context.getSharedPreferences(AUTH_PREFS_NAME, Context.MODE_PRIVATE)
     ): TokenManager {
         return TokenManager(
-            securePreferencesFactory = TestSecurePreferencesFactory(
-                preferences = preferences,
-                durableInvalidation = durableInvalidation
-            ),
+            securePreferencesFactory = TestSecurePreferencesFactory(preferences),
             nowMillis = { 1_000L }
         )
     }
@@ -180,17 +175,9 @@ private class BlockingLoginTransport(
 }
 
 private class TestSecurePreferencesFactory(
-    private val preferences: SharedPreferences,
-    private val durableInvalidation: Boolean
+    private val preferences: SharedPreferences
 ) : SecurePreferencesFactory {
     override fun open(): SharedPreferences = preferences
-
-    override fun reset() {
-        check(durableInvalidation) { "secure storage reset failed" }
-        check(preferences.edit().clear().commit())
-    }
-
-    override fun markSessionInvalidated(): Boolean = durableInvalidation
 }
 
 private class CommitFailingSharedPreferences(

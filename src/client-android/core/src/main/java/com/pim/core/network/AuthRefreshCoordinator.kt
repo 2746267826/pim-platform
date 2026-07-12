@@ -17,19 +17,14 @@ class AuthRefreshCoordinator(
 
     suspend fun refreshIfExpired(serverIdentity: String? = null): Boolean {
         val observed = sessionStore.snapshot()
+        if (observed.tokens == null) return false
         if (!isBoundToRequiredServer(observed, serverIdentity)) return false
         if (!isExpired(observed.tokens)) return true
 
         return refreshMutex.withLock {
             val current = sessionStore.snapshot()
+            if (current.tokens == null) return@withLock false
             if (!isBoundToRequiredServer(current, serverIdentity)) return@withLock false
-            if (current != observed) {
-                return@withLock isValidCompletedRefresh(
-                    current,
-                    RefreshRequirement.Expiry,
-                    serverIdentity
-                )
-            }
             if (!isExpired(current.tokens)) return@withLock true
             refreshLocked(current, RefreshRequirement.Expiry, serverIdentity)
         }
@@ -48,54 +43,66 @@ class AuthRefreshCoordinator(
             val current = sessionStore.snapshot()
             if (!isBoundToRequiredServer(current, serverIdentity)) return@withLock false
             if (isValidCompletedRefresh(current, requirement, serverIdentity)) return@withLock true
-            if (current != observed) {
-                return@withLock false
-            }
             refreshLocked(current, requirement, serverIdentity)
         }
     }
 
     private suspend fun refreshLocked(
-        expected: AuthSessionSnapshot,
+        beforeRefresh: AuthSessionSnapshot,
         requirement: RefreshRequirement,
         serverIdentity: String?
     ): Boolean {
-        val refreshToken = expected.tokens?.refreshToken.nonblank()
+        val refreshToken = beforeRefresh.tokens?.refreshToken.nonblank()
         if (refreshToken == null) {
-            return clearExpectedOrValidateCurrent(expected, requirement, serverIdentity)
+            sessionStore.clear()
+            return isValidCompletedRefresh(sessionStore.snapshot(), requirement, serverIdentity)
         }
 
-        val refreshServerIdentity = expected.serverIdentity
-            ?: return clearExpectedOrValidateCurrent(expected, requirement, serverIdentity)
+        val refreshServerIdentity = beforeRefresh.serverIdentity
+            ?: return clearAndReject(requirement, serverIdentity)
+
+        val reRead = sessionStore.snapshot()
+        if (reRead.tokens?.refreshToken != refreshToken || reRead.serverIdentity != refreshServerIdentity) {
+            return isValidCompletedRefresh(reRead, requirement, serverIdentity)
+        }
+
         return when (
             val result = refreshOperation.refresh(refreshToken, refreshServerIdentity)
         ) {
             AuthRefreshResult.Rejected -> {
-                clearExpectedOrValidateCurrent(expected, requirement, serverIdentity)
+                val afterRefresh = sessionStore.snapshot()
+                if (afterRefresh.tokens?.refreshToken != refreshToken ||
+                    afterRefresh.serverIdentity != refreshServerIdentity
+                ) {
+                    return isValidCompletedRefresh(afterRefresh, requirement, serverIdentity)
+                }
+                clearAndReject(requirement, serverIdentity)
             }
             is AuthRefreshResult.Success -> {
+                val afterRefresh = sessionStore.snapshot()
+                if (afterRefresh.tokens?.refreshToken != refreshToken ||
+                    afterRefresh.serverIdentity != refreshServerIdentity
+                ) {
+                    return isValidCompletedRefresh(afterRefresh, requirement, serverIdentity)
+                }
                 if (!isValidRefreshTokens(result.tokens, requirement)) {
-                    return clearExpectedOrValidateCurrent(expected, requirement, serverIdentity)
+                    return clearAndReject(requirement, serverIdentity)
                 }
-                if (sessionStore.compareAndSave(expected, result.tokens)) {
-                    true
-                } else {
-                    isValidCompletedRefresh(
-                        sessionStore.snapshot(),
-                        requirement,
-                        serverIdentity
-                    )
-                }
+                sessionStore.save(
+                    result.tokens.accessToken,
+                    result.tokens.refreshToken,
+                    result.tokens.expiresAtUtcMillis,
+                    refreshServerIdentity
+                )
             }
         }
     }
 
-    private fun clearExpectedOrValidateCurrent(
-        expected: AuthSessionSnapshot,
+    private fun clearAndReject(
         requirement: RefreshRequirement,
         serverIdentity: String?
     ): Boolean {
-        if (sessionStore.clearIfUnchanged(expected)) return false
+        sessionStore.clear()
         return isValidCompletedRefresh(sessionStore.snapshot(), requirement, serverIdentity)
     }
 

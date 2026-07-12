@@ -265,7 +265,42 @@ class AuthInterceptorTest {
     }
 
     @Test
-    fun concurrentGenerationFastPathRejectsSessionInvalidatedAfterRefresh() {
+    fun refreshIfExpiredReturnsFalseWhenSessionIsNull() = runBlocking {
+        val store = FakeAuthSessionStore(null, null, null)
+        val coordinator = AuthRefreshCoordinator(
+            store,
+            AuthRefreshOperation { _, _ -> AuthRefreshResult.Rejected },
+            nowMillis = { 1_000L }
+        )
+
+        val refreshed = coordinator.refreshIfExpired()
+
+        assertFalse(refreshed)
+        assertEquals(0, store.clearCalls.get())
+    }
+
+    @Test
+    fun expiredRefreshWithInvalidPayloadDoesNotClearConcurrentNewLogin() = runBlocking {
+        val store = FakeAuthSessionStore("token-a", "refresh-a", 999L, serverIdentity = "https://server-a.example")
+        val coordinator = AuthRefreshCoordinator(
+            store,
+            AuthRefreshOperation { _, _ ->
+                store.save("token-x", "refresh-x", Long.MAX_VALUE, "https://server-b.example")
+                AuthRefreshResult.Success(AuthTokens("token-a", "refresh-a", Long.MAX_VALUE))
+            },
+            nowMillis = { 1_000L }
+        )
+
+        val refreshed = coordinator.refreshAfterUnauthorized("token-a")
+
+        assertTrue(refreshed)
+        assertEquals("token-x", store.accessToken())
+        assertEquals("https://server-b.example", store.snapshot().serverIdentity)
+        assertEquals(0, store.clearCalls.get())
+    }
+
+    @Test
+    fun concurrentRefreshSeesNewerSessionAndSkipsProbe() {
         val store = ControlledConcurrentAuthSessionStore("token-a", "refresh-a", 999L)
         val refreshEntered = CountDownLatch(1)
         val releaseRefresh = CountDownLatch(1)
@@ -299,16 +334,15 @@ class AuthInterceptorTest {
                 }
             }
             assertTrue(store.secondObservedBeforeMutex.await(5, TimeUnit.SECONDS))
+
+            store.save("token-c", "refresh-c", 3_000L, "https://pim.example")
+            store.releaseSecondRead.countDown()
             releaseRefresh.countDown()
 
             assertTrue(first.get(5, TimeUnit.SECONDS))
-            assertTrue(store.secondReadInsideMutex.await(5, TimeUnit.SECONDS))
-            store.save("token-b", "refresh-b", 1_000L, "https://pim.example")
-            store.releaseSecondRead.countDown()
-
-            assertFalse(second.get(5, TimeUnit.SECONDS))
-            assertEquals(0, store.clearCalls.get())
+            assertTrue(second.get(5, TimeUnit.SECONDS))
             assertEquals(1, refreshCalls.get())
+            assertEquals(0, store.clearCalls.get())
         } finally {
             store.releaseSecondRead.countDown()
             releaseRefresh.countDown()
@@ -468,7 +502,6 @@ class AuthInterceptorTest {
             } else {
                 null
             },
-            generation = 0L,
             serverIdentity = serverIdentity
         )
 
@@ -489,37 +522,17 @@ class AuthInterceptorTest {
             synchronized(lock) {
                 current = AuthSessionSnapshot(
                     AuthTokens(accessToken, refreshToken, expiresAtUtcMillis),
-                    current.generation + 1L,
                     serverIdentity
                 )
             }
             return true
         }
 
-        override fun compareAndSave(expected: AuthSessionSnapshot, tokens: AuthTokens): Boolean {
-            return synchronized(lock) {
-                if (current != expected) return@synchronized false
-                current = AuthSessionSnapshot(
-                    tokens,
-                    current.generation + 1L,
-                    expected.serverIdentity
-                )
-                true
-            }
-        }
-
         override fun clear(): Boolean {
             return synchronized(lock) {
                 clearCalls.incrementAndGet()
-                current = AuthSessionSnapshot(null, current.generation + 1L)
+                current = AuthSessionSnapshot(null)
                 true
-            }
-        }
-
-        override fun clearIfUnchanged(expected: AuthSessionSnapshot): Boolean {
-            return synchronized(lock) {
-                if (current != expected) return@synchronized false
-                clear()
             }
         }
     }
@@ -533,7 +546,6 @@ class AuthInterceptorTest {
         val secondReadInsideMutex = CountDownLatch(1)
         val releaseSecondRead = CountDownLatch(1)
         val clearCalls = AtomicInteger(0)
-        private val secondSnapshotReads = AtomicInteger(0)
         @Volatile private var secondThread: Thread? = null
         @Volatile private var current = AuthSessionSnapshot(
             tokens = if (access != null && refresh != null && expiry != null) {
@@ -541,7 +553,6 @@ class AuthInterceptorTest {
             } else {
                 null
             },
-            generation = 0L,
             serverIdentity = "https://pim.example"
         )
 
@@ -551,13 +562,9 @@ class AuthInterceptorTest {
 
         override fun snapshot(): AuthSessionSnapshot {
             if (Thread.currentThread() === secondThread) {
-                when (secondSnapshotReads.incrementAndGet()) {
-                    1 -> secondObservedBeforeMutex.countDown()
-                    2 -> {
-                        secondReadInsideMutex.countDown()
-                        check(releaseSecondRead.await(5, TimeUnit.SECONDS))
-                    }
-                }
+                secondObservedBeforeMutex.countDown()
+                secondReadInsideMutex.countDown()
+                check(releaseSecondRead.await(5, TimeUnit.SECONDS))
             }
             return current
         }
@@ -568,34 +575,17 @@ class AuthInterceptorTest {
             expiresAtUtcMillis: Long,
             serverIdentity: String
         ): Boolean {
-            val before = current
             current = AuthSessionSnapshot(
                 AuthTokens(accessToken, refreshToken, expiresAtUtcMillis),
-                before.generation + 1L,
                 serverIdentity
-            )
-            return true
-        }
-
-        override fun compareAndSave(expected: AuthSessionSnapshot, tokens: AuthTokens): Boolean {
-            if (current != expected) return false
-            current = AuthSessionSnapshot(
-                tokens,
-                current.generation + 1L,
-                expected.serverIdentity
             )
             return true
         }
 
         override fun clear(): Boolean {
             clearCalls.incrementAndGet()
-            current = AuthSessionSnapshot(null, current.generation + 1L)
+            current = AuthSessionSnapshot(null)
             return true
-        }
-
-        override fun clearIfUnchanged(expected: AuthSessionSnapshot): Boolean {
-            if (current != expected) return false
-            return clear()
         }
     }
 }

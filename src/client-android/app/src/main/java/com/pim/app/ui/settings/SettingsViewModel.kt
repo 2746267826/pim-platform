@@ -7,8 +7,8 @@ import com.pim.app.permissions.PermissionStatusRepository
 import com.pim.app.settings.TrackingSettingsStore
 import com.pim.app.status.ConnectionProbeOutcome
 import com.pim.app.status.ConnectionProbeResult
-import com.pim.app.status.ConnectionProbeRunner
-import com.pim.core.auth.SecureStorageStatus
+import com.pim.app.status.ConnectionProbeService
+import com.pim.app.status.ConnectionProbeStore
 import com.pim.core.auth.ServerBoundLoginCoordinator
 import com.pim.core.auth.ServerBoundLoginResult
 import com.pim.core.auth.TokenManager
@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicLong
 
 data class SettingsUiState(
     val apiAddress: String = "",
@@ -44,12 +43,11 @@ class SettingsViewModel @Inject constructor(
     private val trackingSettingsStore: TrackingSettingsStore,
     private val foregroundLocationController: ForegroundLocationController,
     private val permissionStatusRepository: PermissionStatusRepository,
-    private val connectionProbeRunner: ConnectionProbeRunner
+    private val connectionProbeService: ConnectionProbeService,
+    private val connectionProbeStore: ConnectionProbeStore
 ) : ViewModel() {
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
-    private val probeRequestGeneration = AtomicLong(0L)
-    private val activeManualProbeGeneration = AtomicLong(NO_ACTIVE_PROBE)
 
     init {
         refresh()
@@ -100,14 +98,12 @@ class SettingsViewModel @Inject constructor(
         runCatching {
             serverSettingsStore.setBaseUrl(validation.normalizedUrl)
         }.getOrElse { error ->
-            probeRequestGeneration.incrementAndGet()
             reloadPersistedServerState(
                 apiError = error.message,
                 apiStatus = "API 地址保存失败，已重新载入当前配置。"
             )
             return false
         }
-        probeRequestGeneration.incrementAndGet()
         reloadPersistedServerState(
             apiError = null,
             apiStatus = "API 地址已保存。"
@@ -164,11 +160,7 @@ class SettingsViewModel @Inject constructor(
                         it.copy(
                             isBusy = false,
                             isLoggedIn = hasCurrentServerSession(),
-                            loginStatus = if (tokenManager.storageStatus == SecureStorageStatus.Ephemeral) {
-                                "\u767b\u5f55\u6210\u529f\uff0c\u4f46\u5b89\u5168\u5b58\u50a8\u4e0d\u53ef\u7528\uff1b\u5173\u95ed\u5e94\u7528\u540e\u9700\u8981\u91cd\u65b0\u767b\u5f55\u3002"
-                            } else {
-                                "登录成功。"
-                            },
+                            loginStatus = "登录成功。",
                             continuousCollectionEnabled = persistedCollectionEnabled()
                         )
                     }
@@ -232,7 +224,6 @@ class SettingsViewModel @Inject constructor(
         val normalized = runCatching {
             serverSettingsStore.setBaseUrl(validation.normalizedUrl)
         }.getOrElse { error ->
-            probeRequestGeneration.incrementAndGet()
             reloadPersistedServerState(
                 apiError = error.message,
                 apiStatus = "API 地址保存失败，已重新载入当前配置。"
@@ -242,7 +233,6 @@ class SettingsViewModel @Inject constructor(
             }
             return
         }
-        probeRequestGeneration.incrementAndGet()
         reloadPersistedServerState(apiError = null, apiStatus = state.value.apiStatus)
 
         if (!hasCurrentServerSession()) {
@@ -317,7 +307,7 @@ class SettingsViewModel @Inject constructor(
     suspend fun refreshConnectionForVisibleScreen(): Long {
         val succeeded = runConnectionProbe(force = false)
         return if (succeeded) {
-            connectionProbeRunner.millisUntilRefresh()
+            millisUntilRefresh()
         } else {
             PROBE_RETRY_MILLIS
         }
@@ -327,50 +317,68 @@ class SettingsViewModel @Inject constructor(
         force: Boolean,
         finishBusyState: Boolean = false
     ): Boolean {
-        val requestGeneration = if (force) {
-            probeRequestGeneration.incrementAndGet()
-        } else {
-            probeRequestGeneration.get()
-        }
-        if (finishBusyState) activeManualProbeGeneration.set(requestGeneration)
-        return runCatching { connectionProbeRunner.run(force = force) }.fold(
-            onSuccess = { probeResult ->
-                val isCurrent = probeRequestGeneration.get() == requestGeneration
-                val ownsBusyState = finishBusyState && activeManualProbeGeneration.compareAndSet(
-                    requestGeneration,
-                    NO_ACTIVE_PROBE
-                )
-                if (isCurrent || ownsBusyState) {
-                    _state.update {
-                        it.copy(
-                            apiStatus = if (isCurrent) probeResult.statusMessage() else it.apiStatus,
-                            isBusy = if (ownsBusyState) false else it.isBusy
-                        )
+        val targetUrl = serverSettingsStore.getBaseUrl()
+        val result = runCatching {
+            if (force) {
+                connectionProbeService.probe(targetUrl).also { result ->
+                    if (serverSettingsStore.getBaseUrl() == targetUrl) {
+                        connectionProbeStore.save(result)
                     }
                 }
-                isCurrent
-            },
-            onFailure = {
-                val isCurrent = probeRequestGeneration.get() == requestGeneration
-                val ownsBusyState = finishBusyState && activeManualProbeGeneration.compareAndSet(
-                    requestGeneration,
-                    NO_ACTIVE_PROBE
-                )
-                if (isCurrent || ownsBusyState) {
+            } else {
+                val serverIdentity = runCatching {
+                    com.pim.core.settings.PimServerEndpoints.from(targetUrl).apiBaseUrl.toString()
+                }.getOrNull()
+                connectionProbeStore.freshResult(serverIdentity ?: targetUrl, System.currentTimeMillis())
+                    ?: connectionProbeService.probe(targetUrl).also { result ->
+                        if (serverSettingsStore.getBaseUrl() == targetUrl) {
+                            connectionProbeStore.save(result)
+                        }
+                    }
+            }
+        }.fold(
+            onSuccess = { probeResult ->
+                val currentUrl = serverSettingsStore.getBaseUrl()
+                if (currentUrl == targetUrl) {
                     _state.update {
                         it.copy(
-                            apiStatus = if (isCurrent) {
-                                "\u8fde\u63a5\u6d4b\u8bd5\u5931\u8d25\u3002"
-                            } else {
-                                it.apiStatus
-                            },
-                            isBusy = if (ownsBusyState) false else it.isBusy
+                            apiStatus = probeResult.statusMessage(),
+                            isBusy = if (finishBusyState) false else it.isBusy
                         )
                     }
+                } else if (finishBusyState) {
+                    _state.update { it.copy(isBusy = false) }
+                }
+                true
+            },
+            onFailure = {
+                val currentUrl = serverSettingsStore.getBaseUrl()
+                if (currentUrl == targetUrl) {
+                    _state.update {
+                        it.copy(
+                            apiStatus = "\u8fde\u63a5\u6d4b\u8bd5\u5931\u8d25\u3002",
+                            isBusy = if (finishBusyState) false else it.isBusy
+                        )
+                    }
+                } else if (finishBusyState) {
+                    _state.update { it.copy(isBusy = false) }
                 }
                 false
             }
         )
+        return result
+    }
+
+    private fun millisUntilRefresh(): Long {
+        val serverUrl = serverSettingsStore.getBaseUrl()
+        val serverIdentity = runCatching {
+            com.pim.core.settings.PimServerEndpoints.from(serverUrl).apiBaseUrl.toString()
+        }.getOrNull() ?: return ConnectionProbeStore.FRESHNESS_MILLIS
+        val current = connectionProbeStore.result.value ?: return 0L
+        if (current.serverIdentity != serverIdentity) return 0L
+        val ageMillis = System.currentTimeMillis() - current.checkedAtUtcMillis
+        if (ageMillis < 0L) return 0L
+        return (ConnectionProbeStore.FRESHNESS_MILLIS - ageMillis).coerceAtLeast(0L)
     }
 
     private fun persistedCollectionEnabled(): Boolean {
@@ -403,7 +411,6 @@ class SettingsViewModel @Inject constructor(
 }
 
 private const val PROBE_RETRY_MILLIS = 30_000L
-private const val NO_ACTIVE_PROBE = -1L
 
 private fun ConnectionProbeResult.statusMessage(): String {
     return when (outcome) {

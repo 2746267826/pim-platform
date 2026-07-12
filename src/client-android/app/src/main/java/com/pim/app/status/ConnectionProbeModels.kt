@@ -3,7 +3,7 @@ package com.pim.app.status
 import kotlinx.serialization.Serializable
 
 @Serializable
-enum class ConnectionProbeStage { Url, Health, Version, AuthenticatedStatus, WebRoot, EmbedBootstrap }
+enum class ConnectionProbeStage { Url, Version, AuthenticatedStatus, WebRoot }
 
 @Serializable
 enum class ConnectionFailureKind { InvalidUrl, Dns, Connect, Timeout, Tls, Http, Unauthorized, WrongPath, IncompatibleVersion }
@@ -32,4 +32,8 @@ data class ConnectionProbeResult(
 
 fun interface ProbeTokenSource {
     fun currentAccessToken(serverUrl: String): String?
+}
+
+fun interface ConnectionProbe {
+    suspend fun probe(serverUrl: String): ConnectionProbeResult
 }

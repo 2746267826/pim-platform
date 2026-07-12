@@ -34,36 +34,12 @@ class ServerSettingsStore @Inject constructor(
         }
         val normalized = validation.normalizedUrl
         val serverIdentity = PimServerEndpoints.from(normalized).trustedOrigin
-        val previousBaseUrl = getBaseUrl()
+        invalidateSessionBoundToAnotherServer(serverIdentity)
         val committed = prefs.edit()
             .putString(KEY_SERVER_BASE_URL, normalized)
             .commit()
         if (!committed) {
-            val persistenceFailure = IllegalStateException("API address could not be persisted")
-            val rolledBack = prefs.edit()
-                .putString(KEY_SERVER_BASE_URL, previousBaseUrl)
-                .commit()
-            if (!rolledBack) {
-                throw IllegalStateException(
-                    "Previous API address could not be restored after persistence failure",
-                    persistenceFailure
-                )
-            }
-            throw persistenceFailure
-        }
-        try {
-            invalidateSessionBoundToAnotherServer(serverIdentity)
-        } catch (failure: Exception) {
-            val rolledBack = prefs.edit()
-                .putString(KEY_SERVER_BASE_URL, previousBaseUrl)
-                .commit()
-            if (!rolledBack) {
-                throw IllegalStateException(
-                    "Existing authentication session could not be cleared and API address rollback failed",
-                    failure
-                )
-            }
-            throw failure
+            throw IllegalStateException("API address could not be persisted")
         }
         return normalized
     }
@@ -99,13 +75,10 @@ class ServerSettingsStore @Inject constructor(
     }
 
     private fun invalidateSessionBoundToAnotherServer(serverIdentity: String) {
-        while (true) {
-            val current = authSessionStore.snapshot()
-            if (current.tokens == null || current.serverIdentity == serverIdentity) return
-            if (authSessionStore.clearIfUnchanged(current)) return
-            if (authSessionStore.snapshot() == current) {
-                throw IllegalStateException("Existing authentication session could not be cleared")
-            }
+        val current = authSessionStore.snapshot()
+        if (current.tokens == null || current.serverIdentity == serverIdentity) return
+        if (!authSessionStore.clear()) {
+            throw IllegalStateException("Existing authentication session could not be cleared")
         }
     }
 

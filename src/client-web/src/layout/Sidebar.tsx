@@ -324,7 +324,12 @@ export default function Sidebar() {
       </nav>
 
       <div className="flex items-center justify-between border-t border-slate-200/80 p-3">
-        <span className="truncate text-xs text-slate-500">{username}</span>
+        <div className="min-w-0">
+          <span className="truncate text-xs text-slate-500">{username}</span>
+          <p className="mt-1 truncate text-[10px] text-slate-400" title={__APP_VERSION__}>
+            {__APP_VERSION__}
+          </p>
+        </div>
         <button onClick={logout} className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-red-50 hover:text-red-500">退出</button>
       </div>
     </aside>

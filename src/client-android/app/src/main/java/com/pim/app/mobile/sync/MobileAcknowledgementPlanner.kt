@@ -1,5 +1,8 @@
 package com.pim.app.mobile.sync
 
+import com.pim.app.data.MobileDataDao
+import com.pim.app.data.MobileSyncStatus
+import com.pim.core.models.MobileIngestItemResult
 import com.pim.core.models.MobileIngestResponse
 
 data class MobileAcknowledgementItem(
@@ -18,7 +21,8 @@ data class MobileTypedAcknowledgementPlan(
     val confirmedItems: Set<MobileAcknowledgementItem> = emptySet(),
     val retryItems: Set<MobileAcknowledgementItem> = emptySet(),
     val deadLetterItems: Set<MobileAcknowledgementItem> = emptySet(),
-    val failureCode: String? = null
+    val failureCode: String? = null,
+    val itemErrors: Map<MobileAcknowledgementItem, String> = emptyMap()
 )
 
 object MobileAcknowledgementPlanner {
@@ -89,22 +93,32 @@ object MobileAcknowledgementPlanner {
         val confirmed = linkedSetOf<MobileAcknowledgementItem>()
         val retry = linkedSetOf<MobileAcknowledgementItem>()
         val deadLetter = linkedSetOf<MobileAcknowledgementItem>()
+        val itemErrors = linkedMapOf<MobileAcknowledgementItem, String>()
         var hasAmbiguity = false
 
         for (item in sentItems) {
             val itemResults = resultsByItem[item]
             if (itemResults?.size != 1) {
                 retry += item
+                itemErrors[item] = "server-ack-ambiguous"
                 hasAmbiguity = true
                 continue
             }
 
-            when (itemResults.single().outcome) {
+            val result = itemResults.single()
+            when (result.outcome) {
                 "accepted", "skipped" -> confirmed += item
-                "rejected" -> deadLetter += item
-                "failed" -> retry += item
+                "rejected" -> {
+                    deadLetter += item
+                    itemErrors[item] = formatItemError(result, "server-rejected")
+                }
+                "failed" -> {
+                    retry += item
+                    itemErrors[item] = formatItemError(result, "server-retry")
+                }
                 else -> {
                     retry += item
+                    itemErrors[item] = "server-ack-ambiguous"
                     hasAmbiguity = true
                 }
             }
@@ -114,13 +128,15 @@ object MobileAcknowledgementPlanner {
             confirmedItems = confirmed,
             retryItems = retry,
             deadLetterItems = deadLetter,
-            failureCode = if (hasAmbiguity) "server-ack-ambiguous" else null
+            failureCode = if (hasAmbiguity) "server-ack-ambiguous" else null,
+            itemErrors = itemErrors
         )
     }
 
     private fun ambiguous(sentItems: Set<MobileAcknowledgementItem>) = typedPlan(
         retryItems = sentItems,
-        failureCode = "server-ack-ambiguous"
+        failureCode = "server-ack-ambiguous",
+        itemErrors = sentItems.associateWith { "server-ack-ambiguous" }
     )
 
     private fun explicitCountsMatch(response: MobileIngestResponse): Boolean {
@@ -139,11 +155,93 @@ object MobileAcknowledgementPlanner {
         confirmedItems: Set<MobileAcknowledgementItem> = emptySet(),
         retryItems: Set<MobileAcknowledgementItem> = emptySet(),
         deadLetterItems: Set<MobileAcknowledgementItem> = emptySet(),
-        failureCode: String? = null
+        failureCode: String? = null,
+        itemErrors: Map<MobileAcknowledgementItem, String> = emptyMap()
     ) = MobileTypedAcknowledgementPlan(
         confirmedItems = confirmedItems,
         retryItems = retryItems,
         deadLetterItems = deadLetterItems,
-        failureCode = failureCode
+        failureCode = failureCode,
+        itemErrors = itemErrors
     )
+
+    private fun formatItemError(result: MobileIngestItemResult, fallback: String): String {
+        val hasCode = result.code.isNotBlank()
+        val hasMessage = result.message.isNotBlank()
+        return when {
+            hasCode && hasMessage -> "${result.code}: ${result.message}"
+            hasCode -> result.code
+            hasMessage -> result.message
+            else -> fallback
+        }
+    }
+}
+
+suspend fun applyAcknowledgementPlan(
+    dao: MobileDataDao,
+    plan: MobileTypedAcknowledgementPlan
+) {
+    if (plan.confirmedItems.isNotEmpty()) {
+        val eventIds = plan.confirmedItems
+            .filter { it.entityType == "usage-event" }
+            .mapNotNull { it.clientItemKey.toLongOrNull() }
+        if (eventIds.isNotEmpty()) dao.deleteUsageEventByIds(eventIds)
+
+        val summaryIds = plan.confirmedItems
+            .filter { it.entityType == "usage-summary" }
+            .mapNotNull { it.clientItemKey.toLongOrNull() }
+        if (summaryIds.isNotEmpty()) dao.deleteUsageSummaryByIds(summaryIds)
+
+        val pkgNames = plan.confirmedItems
+            .filter { it.entityType == "app-metadata" }
+            .map { it.clientItemKey.substringBeforeLast("@") }
+        if (pkgNames.isNotEmpty()) dao.deleteAppMetadataByPackageNames(pkgNames)
+    }
+
+    plan.deadLetterItems.groupBy { it.entityType }.forEach { (entityType, items) ->
+        items.groupBy { plan.itemErrors[it] ?: "server-rejected" }.forEach { (error, errorItems) ->
+            when (entityType) {
+                "usage-event" -> {
+                    val ids = errorItems.mapNotNull { it.clientItemKey.toLongOrNull() }
+                    if (ids.isNotEmpty()) dao.updateUsageEventSyncStatus(ids, MobileSyncStatus.REJECTED, error)
+                }
+                "usage-summary" -> {
+                    val ids = errorItems.mapNotNull { it.clientItemKey.toLongOrNull() }
+                    if (ids.isNotEmpty()) dao.updateUsageSummarySyncStatus(ids, MobileSyncStatus.REJECTED, error)
+                }
+                "app-metadata" -> {
+                    val names = errorItems.map { it.clientItemKey.substringBeforeLast("@") }
+                    if (names.isNotEmpty()) dao.updateAppMetadataSyncStatus(names, MobileSyncStatus.REJECTED, error)
+                }
+            }
+        }
+    }
+
+    plan.retryItems.groupBy { it.entityType }.forEach { (entityType, items) ->
+        items.groupBy { plan.itemErrors[it] ?: "server-retry" }.forEach { (error, errorItems) ->
+            when (entityType) {
+                "usage-event" -> {
+                    val ids = errorItems.mapNotNull { it.clientItemKey.toLongOrNull() }
+                    if (ids.isNotEmpty()) dao.updateUsageEventSyncStatus(ids, MobileSyncStatus.PENDING, error)
+                }
+                "usage-summary" -> {
+                    val ids = errorItems.mapNotNull { it.clientItemKey.toLongOrNull() }
+                    if (ids.isNotEmpty()) dao.updateUsageSummarySyncStatus(ids, MobileSyncStatus.PENDING, error)
+                }
+                "app-metadata" -> {
+                    val names = errorItems.map { it.clientItemKey.substringBeforeLast("@") }
+                    if (names.isNotEmpty()) dao.updateAppMetadataSyncStatus(names, MobileSyncStatus.PENDING, error)
+                }
+            }
+        }
+    }
+}
+
+suspend fun processUsageAcknowledgements(
+    dao: MobileDataDao,
+    sentItems: Set<MobileAcknowledgementItem>,
+    response: MobileIngestResponse
+) {
+    val plan = MobileAcknowledgementPlanner.planTyped(sentItems, response)
+    applyAcknowledgementPlan(dao, plan)
 }

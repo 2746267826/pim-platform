@@ -65,11 +65,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.pim.app.data.AppDatabase
-import com.pim.app.data.MobileLogEntity
 import com.pim.app.location.LocationCaptureRepository
 import com.pim.app.location.LocationCaptureState
 import com.pim.app.location.LocationSnapshot
 import com.pim.app.location.LocationSubmissionPolicy
+import com.pim.app.mobile.logs.StructuredLogEntry
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.sync.MobileSyncCoordinator
 import com.pim.app.mobile.sync.MobileSyncState
@@ -241,7 +241,7 @@ private fun StatusTab(
         StatusRow("已拒绝", uiState.rejectedCount.toString())
         StatusRow("失败", uiState.failedCount.toString())
         StatusRow("待上传", "事件 ${uiState.pendingUsageEventCount} / 汇总 ${uiState.pendingUsageSummaryCount} / App ${uiState.pendingAppMetadataCount} / 定位 ${uiState.pendingLocationPointCount}")
-        StatusRow("本地诊断队列", "日志 ${uiState.pendingLogCount} / 设备 ${uiState.pendingDeviceProfileCount} / 批次 ${uiState.pendingSyncBatchCount}")
+        StatusRow("本地诊断队列", "设备 ${uiState.pendingDeviceProfileCount} / 批次 ${uiState.pendingSyncBatchCount}")
         StatusRow("待传队列", uiState.pendingQueueCount.toString())
         StatusRow("最近尝试", uiState.lastAttemptedUploadAt ?: "无")
         StatusRow("最近成功", uiState.lastSuccessfulUploadAt ?: "无")
@@ -249,7 +249,7 @@ private fun StatusTab(
         StatusRow("详细错误", uiState.lastErrorDetail ?: "无")
     }
 
-    Section(title = "最近日志") {
+    Section(title = "最近日志（仅本机保存）") {
         if (uiState.recentLogs.isEmpty()) {
             Text("暂无日志。")
         } else {
@@ -553,7 +553,6 @@ private data class PendingQueueCounts(
     val appMetadata: Int,
     val locations: Int,
     val syncBatches: Int,
-    val logs: Int,
     val deviceProfiles: Int
 ) {
     val uploadable: Int
@@ -589,7 +588,6 @@ class MobileStatusViewModel @Inject constructor(
                 mobileDataDao.pendingAppMetadataCount(),
                 mobileDataDao.pendingLocationPointCount(),
                 mobileDataDao.pendingSyncBatchCount(),
-                mobileDataDao.pendingLogCount(),
                 mobileDataDao.pendingDeviceProfileCount()
             ) { counts ->
                 PendingQueueCounts(
@@ -598,8 +596,7 @@ class MobileStatusViewModel @Inject constructor(
                     appMetadata = counts[2],
                     locations = counts[3],
                     syncBatches = counts[4],
-                    logs = counts[5],
-                    deviceProfiles = counts[6]
+                    deviceProfiles = counts[5]
                 )
             }.collect { counts ->
                 _state.update { current ->
@@ -610,15 +607,10 @@ class MobileStatusViewModel @Inject constructor(
                         pendingAppMetadataCount = counts.appMetadata,
                         pendingLocationPointCount = counts.locations,
                         pendingSyncBatchCount = counts.syncBatches,
-                        pendingLogCount = counts.logs,
+                        pendingLogCount = 0,
                         pendingDeviceProfileCount = counts.deviceProfiles
                     )
                 }
-            }
-        }
-        viewModelScope.launch {
-            mobileDataDao.recentLogs().collect { logs ->
-                _state.update { current -> current.copy(recentLogs = logs.map { it.toLine() }) }
             }
         }
     }
@@ -627,6 +619,7 @@ class MobileStatusViewModel @Inject constructor(
         viewModelScope.launch {
             mobileSyncCoordinator.refreshPersistedState()
             val pending = pendingQueueCounts()
+            val recentLogEntries = logs.recent()
             _state.update { current ->
                 current.copy(
                     serverUrl = serverSettingsStore.getBaseUrl(),
@@ -638,8 +631,9 @@ class MobileStatusViewModel @Inject constructor(
                     pendingAppMetadataCount = pending.appMetadata,
                     pendingLocationPointCount = pending.locations,
                     pendingSyncBatchCount = pending.syncBatches,
-                    pendingLogCount = pending.logs,
-                    pendingDeviceProfileCount = pending.deviceProfiles
+                    pendingLogCount = 0,
+                    pendingDeviceProfileCount = pending.deviceProfiles,
+                    recentLogs = recentLogEntries.map { it.toLine() }
                 )
             }
         }
@@ -807,7 +801,6 @@ class MobileStatusViewModel @Inject constructor(
             appMetadata = mobileDataDao.pendingAppMetadataCount().first(),
             locations = mobileDataDao.pendingLocationPointCount().first(),
             syncBatches = mobileDataDao.pendingSyncBatchCount().first(),
-            logs = mobileDataDao.pendingLogCount().first(),
             deviceProfiles = mobileDataDao.pendingDeviceProfileCount().first()
         )
     }
@@ -839,10 +832,10 @@ class MobileStatusViewModel @Inject constructor(
         )
     }
 
-    private fun MobileLogEntity.toLine(): MobileLogLine {
+    private fun StructuredLogEntry.toLine(): MobileLogLine {
         return MobileLogLine(
             level = level,
-            tag = tag ?: "mobile",
+            tag = tag.ifBlank { "mobile" },
             message = message,
             throwablePreview = throwable?.lineSequence()?.firstOrNull(),
             occurredAtUtc = occurredAtUtc

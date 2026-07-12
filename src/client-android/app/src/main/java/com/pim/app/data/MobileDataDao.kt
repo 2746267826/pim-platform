@@ -128,17 +128,29 @@ interface MobileDataDao {
         syncStatus: String = MobileSyncStatus.PENDING
     ): MobileDeviceProfileEntity?
 
-    @Query("SELECT COUNT(*) FROM mobile_usage_events WHERE sync_status != :syncedStatus")
-    fun pendingUsageEventCount(syncedStatus: String = MobileSyncStatus.SYNCED): Flow<Int>
+    @Query("SELECT COUNT(*) FROM mobile_usage_events WHERE sync_status != :syncedStatus AND sync_status != :rejectedStatus")
+    fun pendingUsageEventCount(
+        syncedStatus: String = MobileSyncStatus.SYNCED,
+        rejectedStatus: String = MobileSyncStatus.REJECTED
+    ): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM mobile_usage_summaries WHERE sync_status != :syncedStatus")
-    fun pendingUsageSummaryCount(syncedStatus: String = MobileSyncStatus.SYNCED): Flow<Int>
+    @Query("SELECT COUNT(*) FROM mobile_usage_summaries WHERE sync_status != :syncedStatus AND sync_status != :rejectedStatus")
+    fun pendingUsageSummaryCount(
+        syncedStatus: String = MobileSyncStatus.SYNCED,
+        rejectedStatus: String = MobileSyncStatus.REJECTED
+    ): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM mobile_app_metadata WHERE sync_status != :syncedStatus")
-    fun pendingAppMetadataCount(syncedStatus: String = MobileSyncStatus.SYNCED): Flow<Int>
+    @Query("SELECT COUNT(*) FROM mobile_app_metadata WHERE sync_status != :syncedStatus AND sync_status != :rejectedStatus")
+    fun pendingAppMetadataCount(
+        syncedStatus: String = MobileSyncStatus.SYNCED,
+        rejectedStatus: String = MobileSyncStatus.REJECTED
+    ): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM mobile_location_points WHERE sync_status != :syncedStatus")
-    fun pendingLocationPointCount(syncedStatus: String = MobileSyncStatus.SYNCED): Flow<Int>
+    @Query("SELECT COUNT(*) FROM mobile_location_points WHERE sync_status != :syncedStatus AND sync_status != :rejectedStatus")
+    fun pendingLocationPointCount(
+        syncedStatus: String = MobileSyncStatus.SYNCED,
+        rejectedStatus: String = MobileSyncStatus.REJECTED
+    ): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM mobile_sync_batches WHERE sync_status != :syncedStatus")
     fun pendingSyncBatchCount(syncedStatus: String = MobileSyncStatus.SYNCED): Flow<Int>
@@ -148,6 +160,15 @@ interface MobileDataDao {
 
     @Query("SELECT COUNT(*) FROM mobile_device_profile WHERE sync_status != :syncedStatus")
     fun pendingDeviceProfileCount(syncedStatus: String = MobileSyncStatus.SYNCED): Flow<Int>
+
+    @Query("DELETE FROM mobile_usage_events WHERE id IN (:ids)")
+    suspend fun deleteUsageEventByIds(ids: List<Long>)
+
+    @Query("DELETE FROM mobile_usage_summaries WHERE id IN (:ids)")
+    suspend fun deleteUsageSummaryByIds(ids: List<Long>)
+
+    @Query("DELETE FROM mobile_app_metadata WHERE package_name IN (:packageNames)")
+    suspend fun deleteAppMetadataByPackageNames(packageNames: List<String>)
 
     @Query("SELECT * FROM mobile_logs ORDER BY occurred_at_utc DESC LIMIT :limit")
     fun recentLogs(limit: Int = 6): Flow<List<MobileLogEntity>>

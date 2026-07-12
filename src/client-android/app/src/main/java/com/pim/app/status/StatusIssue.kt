@@ -269,7 +269,6 @@ data class QueueStatusSnapshot(
             pendingUsageEvents +
             pendingUsageSummaries +
             pendingAppMetadata +
-            pendingLogs +
             pendingDeviceProfile +
             pendingSyncBatches
 }

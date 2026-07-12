@@ -487,7 +487,12 @@ class MobileSyncCoordinator @Inject constructor(
             )
         }
 
-        markUsageSynced(eventIds, summaryIds, apps)
+        val sentItems = linkedSetOf<MobileAcknowledgementItem>().apply {
+            eventIds.forEach { add(MobileAcknowledgementItem("usage-event", it.toString())) }
+            summaryIds.forEach { add(MobileAcknowledgementItem("usage-summary", it.toString())) }
+            apps.forEach { add(MobileAcknowledgementItem("app-metadata", "${it.packageName}@${it.versionCode}")) }
+        }
+        processUsageAcknowledgements(mobileDataDao, sentItems, ingest)
         logs.info(
             "mobile-sync",
             "使用记录窗口已上传。",

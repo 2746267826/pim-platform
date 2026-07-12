@@ -112,7 +112,6 @@ private fun StatusCenterContent(
             Text("待上传定位：${snapshot.queues.pendingLocationPoints}")
             Text("待上传使用记录：${snapshot.queues.pendingUsageEvents + snapshot.queues.pendingUsageSummaries}")
             Text("待上传应用信息：${snapshot.queues.pendingAppMetadata}")
-            Text("待上传日志：${snapshot.queues.pendingLogs}")
             Text("总待处理：${snapshot.queues.pendingUploadTotal}")
 
             androidx.compose.material3.Button(

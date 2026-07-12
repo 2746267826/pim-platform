@@ -121,8 +121,8 @@ class ForegroundLocationService : Service() {
                 runManualSync(startId)
             }
             ForegroundLocationController.ACTION_RESUME_COLLECTION,
-            ForegroundLocationController.ACTION_START_COLLECTION -> startCollection(enableCollection = true)
-            null -> startCollection(enableCollection = false)
+            ForegroundLocationController.ACTION_START_COLLECTION -> startCollection(enableCollection = true, startId = startId)
+            null -> startCollection(enableCollection = false, startId = startId)
         }
         return START_STICKY
     }
@@ -138,7 +138,7 @@ class ForegroundLocationService : Service() {
         super.onDestroy()
     }
 
-    private fun startCollection(enableCollection: Boolean) {
+    private fun startCollection(enableCollection: Boolean, startId: Int) {
         isPausing = false
         cancelPendingQualityWait()
         if (enableCollection) {
@@ -155,7 +155,7 @@ class ForegroundLocationService : Service() {
             lastDroppedReason = "缺少精确或后台定位权限"
             publishRuntimeState(isRunning = false)
             stopCollection()
-            stopSelf()
+            stopSelf(startId)
             return
         }
 
@@ -177,7 +177,7 @@ class ForegroundLocationService : Service() {
         if (!settings.continuousCollectionEnabled) {
             lastDroppedReason = "连续采集未开启"
             stopCollection()
-            stopSelf()
+            stopSelf(startId)
             return
         }
 

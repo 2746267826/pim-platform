@@ -59,12 +59,7 @@ class ForegroundLocationServiceTest {
 
         val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
         service.trackingSettingsStore = store
-        val startCollection = ForegroundLocationService::class.java.getDeclaredMethod(
-            "startCollection",
-            Boolean::class.javaPrimitiveType
-        )
-        startCollection.isAccessible = true
-        startCollection.invoke(service, false)
+        service.onStartCommand(null, 0, 1)
 
         assertTrue(store.read().continuousCollectionEnabled)
     }
@@ -202,13 +197,8 @@ class ForegroundLocationServiceTest {
             0, 1
         )
 
-        // Reflectively call startCollection(false) — should reset isPausing
-        val startCollection = ForegroundLocationService::class.java.getDeclaredMethod(
-            "startCollection",
-            Boolean::class.javaPrimitiveType
-        )
-        startCollection.isAccessible = true
-        startCollection.invoke(service, false)
+        // Call onStartCommand with null intent — should reset isPausing
+        service.onStartCommand(null, 0, 1)
 
         // Reflectively read isPausing
         val isPausingField = ForegroundLocationService::class.java.getDeclaredField("isPausing")
@@ -234,10 +224,11 @@ class ForegroundLocationServiceTest {
         service.onStartCommand(
             Intent(context, ForegroundLocationService::class.java)
                 .setAction(ForegroundLocationController.ACTION_RESUME_COLLECTION),
-            0, 1
+            0, 55
         )
 
         assertTrue(store.read().continuousCollectionEnabled)
+        assertEquals(55, shadowOf(service).stopSelfId)
     }
 
     @Test
@@ -306,6 +297,8 @@ class ForegroundLocationServiceTest {
         assertNotNull("onDestroy 后暂停通知仍应保留", nFinal)
     }
 
+    // Separate thread in this test queues Dispatchers.Main.immediate so the
+    // first notification can be checked before the coroutine completes.
     @Test
     @LooperMode(LooperMode.Mode.PAUSED)
     fun syncFromNewServiceAfterPauseMustNotShowPowerSavingTransientState() {

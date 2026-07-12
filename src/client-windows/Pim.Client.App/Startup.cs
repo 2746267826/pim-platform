@@ -13,6 +13,7 @@ public static class Startup
         services.AddSingleton<ApiClient>();
         services.AddSingleton<AuthService>();
         services.AddSingleton<AwCollectorService>();
+        services.AddSingleton<KeyStatsProcessManager>();
         services.AddSingleton<KeyStatsCollectorService>();
         services.AddSingleton<DaemonHeartbeatReporter>();
         services.AddSingleton<Pim.Client.Core.Services.NotificationActionRouter>();

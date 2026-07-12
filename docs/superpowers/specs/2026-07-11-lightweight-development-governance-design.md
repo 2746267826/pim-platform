@@ -259,10 +259,10 @@ PROJECT_MAP.md 是一个普通仓库导航文件，帮助主代理和新开发�
 
 **已完成的：**
 - 规则的设计和讨论，产出本文档。
+- PROJECT_MAP.md 的创建（仓库根目录 `PROJECT_MAP.md`）。
 - AGENTS.md 的开发规则补充（第 8 节的草案已写入 AGENTS.md 的 `Technical Decision Review` 章节）。
 
 **尚未实施的：**
-- PROJECT_MAP.md 的创建或修订。
 - 审查流程模板或脚本。
 - 任何一次完整走通该流程的实际功能开发。
 

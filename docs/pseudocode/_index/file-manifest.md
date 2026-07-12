@@ -1,6 +1,6 @@
 ﻿# File Manifest
 
-Generated: 2026-07-12 22:21:41
+Generated: 2026-07-12 22:27:42
 Total: 775
 
 | Status | Source | Doc |
@@ -37,109 +37,109 @@ Total: 775
 | [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt.md` |
 | [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt.md` |
 | [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncScheduler.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncScheduler.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/usage/AppMetadataCollector.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/usage/AppMetadataCollector.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageAccessChecker.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageAccessChecker.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageEventCollector.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageEventCollector.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/notifications/EndpointNotificationActionDispatcher.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/notifications/EndpointNotificationActionDispatcher.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/notifications/PimNotificationRouter.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/notifications/PimNotificationRouter.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/offline/OnlineOperationGuard.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/offline/OnlineOperationGuard.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/permissions/PermissionStatusRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/permissions/PermissionStatusRepository.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/PimApp.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/PimApp.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeModels.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeModels.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeService.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeService.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeStore.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeStore.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/status/StatusActions.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/StatusActions.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/status/StatusIssue.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/StatusIssue.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/status/StatusPermissionNavigator.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/StatusPermissionNavigator.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/components/PimSection.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/components/PimSection.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/permissions/PermissionCenterScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/permissions/PermissionCenterScreen.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/root/PimDestination.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/root/PimDestination.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/root/PimRootScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/root/PimRootScreen.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/schedule/SchedulePolicyScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/schedule/SchedulePolicyScreen.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsScreen.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/shell/PimShellActivity.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/shell/PimShellActivity.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/shell/PimWebViewScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/shell/PimWebViewScreen.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterScreen.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/theme/PimTheme.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/theme/PimTheme.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/today/TodayScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/today/TodayScreen.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/today/TodayViewModel.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/today/TodayViewModel.kt.md` |
-| [ ] | `src/client-android/app/src/main/java/com/pim/app/ui/tracks/TracksScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/tracks/TracksScreen.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/auth/ServerBoundLoginCoordinatorTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/auth/ServerBoundLoginCoordinatorTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/location/LocationCaptureRepositoryTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/LocationCaptureRepositoryTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/location/LocationQueueMappingTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/LocationQueueMappingTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/location/LocationSubmissionPolicyTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/LocationSubmissionPolicyTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/location/motion/MotionSignalMapperTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/motion/MotionSignalMapperTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/location/policy/LocationPolicyEngineTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/policy/LocationPolicyEngineTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/location/quality/AltitudeWaitCoordinatorTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/quality/AltitudeWaitCoordinatorTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/location/quality/LocationQualityGateTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/quality/LocationQualityGateTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/mobile/logs/StructuredLogRepositoryTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/logs/StructuredLogRepositoryTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/LocationUploadCoordinatorTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/LocationUploadCoordinatorTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileAcknowledgementPlannerTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileAcknowledgementPlannerTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncAckProcessingTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncAckProcessingTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncOutcomeMappingTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncOutcomeMappingTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncSchedulerTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncSchedulerTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncUsageQueueTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncUsageQueueTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncWindowSplitterTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncWindowSplitterTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/notifications/LocationNotificationRendererTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/notifications/LocationNotificationRendererTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/schedule/AndroidCompanionShellTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/schedule/AndroidCompanionShellTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/schedule/AndroidNotificationActionRouterTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/schedule/AndroidNotificationActionRouterTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/schedule/AndroidOfflineBoundaryTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/schedule/AndroidOfflineBoundaryTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/settings/TrackingSettingsStoreTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/settings/TrackingSettingsStoreTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/status/CancellableCallTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/status/CancellableCallTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/status/ConnectionProbeServiceTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/status/ConnectionProbeServiceTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/status/ServerSettingsSecurityTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/status/ServerSettingsSecurityTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/status/StatusIssueTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/status/StatusIssueTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/TestPimApp.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/TestPimApp.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/ui/settings/SettingsServerMutationTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/ui/settings/SettingsServerMutationTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2CollectionControlContractTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2CollectionControlContractTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2LoginFlowContractTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2LoginFlowContractTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ManifestTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ManifestTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NativeShellTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NativeShellTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NotificationRoutingTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NotificationRoutingTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ScreenContentTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ScreenContentTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TextEncodingTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TextEncodingTest.kt.md` |
-| [ ] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TodayStatusContractTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TodayStatusContractTest.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/auth/AuthSessionStore.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/auth/AuthSessionStore.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/auth/ServerBoundLoginCoordinator.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/auth/ServerBoundLoginCoordinator.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/auth/TokenManager.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/auth/TokenManager.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/models/AuthModels.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/AuthModels.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/models/DaemonModels.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/DaemonModels.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/models/EndpointModels.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/EndpointModels.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/models/MobileModels.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/MobileModels.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/models/StatsModels.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/StatsModels.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/network/AuthInterceptor.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/AuthInterceptor.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/network/AuthRefreshCoordinator.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/AuthRefreshCoordinator.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/network/OkHttpTimeouts.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/OkHttpTimeouts.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/network/RetrofitAuthRefreshOperation.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/RetrofitAuthRefreshOperation.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/settings/PimServerEndpoints.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/settings/PimServerEndpoints.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/settings/ServerUrlValidator.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/settings/ServerUrlValidator.kt.md` |
-| [ ] | `src/client-android/core/src/main/java/com/pim/core/util/ThrowableMessages.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/util/ThrowableMessages.kt.md` |
-| [ ] | `src/client-android/core/src/test/java/com/pim/core/auth/TokenManagerTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/auth/TokenManagerTest.kt.md` |
-| [ ] | `src/client-android/core/src/test/java/com/pim/core/models/AuthResponseSerializationTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/models/AuthResponseSerializationTest.kt.md` |
-| [ ] | `src/client-android/core/src/test/java/com/pim/core/network/ApiServiceConverterTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/ApiServiceConverterTest.kt.md` |
-| [ ] | `src/client-android/core/src/test/java/com/pim/core/network/AuthInterceptorTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/AuthInterceptorTest.kt.md` |
-| [ ] | `src/client-android/core/src/test/java/com/pim/core/network/AuthRefreshOperationTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/AuthRefreshOperationTest.kt.md` |
-| [ ] | `src/client-android/core/src/test/java/com/pim/core/network/MobileQueryApiContractTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/MobileQueryApiContractTest.kt.md` |
-| [ ] | `src/client-android/core/src/test/java/com/pim/core/network/OkHttpTimeoutsTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/OkHttpTimeoutsTest.kt.md` |
-| [ ] | `src/client-android/core/src/test/java/com/pim/core/settings/PimServerEndpointsTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/settings/PimServerEndpointsTest.kt.md` |
-| [ ] | `src/client-android/core/src/test/java/com/pim/core/settings/ServerUrlValidatorTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/settings/ServerUrlValidatorTest.kt.md` |
-| [ ] | `src/client-android/core/src/test/java/com/pim/core/util/ThrowableMessagesTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/util/ThrowableMessagesTest.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncScheduler.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncScheduler.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/usage/AppMetadataCollector.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/usage/AppMetadataCollector.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageAccessChecker.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageAccessChecker.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageEventCollector.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageEventCollector.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/notifications/EndpointNotificationActionDispatcher.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/notifications/EndpointNotificationActionDispatcher.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/notifications/PimNotificationRouter.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/notifications/PimNotificationRouter.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/offline/OnlineOperationGuard.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/offline/OnlineOperationGuard.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/permissions/PermissionStatusRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/permissions/PermissionStatusRepository.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/PimApp.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/PimApp.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeModels.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeModels.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeService.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeService.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeStore.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeStore.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/status/StatusActions.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/StatusActions.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/status/StatusIssue.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/StatusIssue.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/status/StatusPermissionNavigator.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/StatusPermissionNavigator.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/components/PimSection.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/components/PimSection.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/permissions/PermissionCenterScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/permissions/PermissionCenterScreen.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/root/PimDestination.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/root/PimDestination.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/root/PimRootScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/root/PimRootScreen.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/schedule/SchedulePolicyScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/schedule/SchedulePolicyScreen.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsScreen.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/shell/PimShellActivity.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/shell/PimShellActivity.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/shell/PimWebViewScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/shell/PimWebViewScreen.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterScreen.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/theme/PimTheme.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/theme/PimTheme.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/today/TodayScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/today/TodayScreen.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/today/TodayViewModel.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/today/TodayViewModel.kt.md` |
+| [x] | `src/client-android/app/src/main/java/com/pim/app/ui/tracks/TracksScreen.kt` | `docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/tracks/TracksScreen.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/auth/ServerBoundLoginCoordinatorTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/auth/ServerBoundLoginCoordinatorTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/location/LocationCaptureRepositoryTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/LocationCaptureRepositoryTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/location/LocationQueueMappingTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/LocationQueueMappingTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/location/LocationSubmissionPolicyTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/LocationSubmissionPolicyTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/location/motion/MotionSignalMapperTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/motion/MotionSignalMapperTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/location/policy/LocationPolicyEngineTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/policy/LocationPolicyEngineTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/location/quality/AltitudeWaitCoordinatorTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/quality/AltitudeWaitCoordinatorTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/location/quality/LocationQualityGateTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/quality/LocationQualityGateTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/mobile/logs/StructuredLogRepositoryTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/logs/StructuredLogRepositoryTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/LocationUploadCoordinatorTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/LocationUploadCoordinatorTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileAcknowledgementPlannerTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileAcknowledgementPlannerTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncAckProcessingTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncAckProcessingTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncOutcomeMappingTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncOutcomeMappingTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncSchedulerTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncSchedulerTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncUsageQueueTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncUsageQueueTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncWindowSplitterTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncWindowSplitterTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/notifications/LocationNotificationRendererTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/notifications/LocationNotificationRendererTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/schedule/AndroidCompanionShellTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/schedule/AndroidCompanionShellTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/schedule/AndroidNotificationActionRouterTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/schedule/AndroidNotificationActionRouterTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/schedule/AndroidOfflineBoundaryTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/schedule/AndroidOfflineBoundaryTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/settings/TrackingSettingsStoreTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/settings/TrackingSettingsStoreTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/status/CancellableCallTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/status/CancellableCallTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/status/ConnectionProbeServiceTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/status/ConnectionProbeServiceTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/status/ServerSettingsSecurityTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/status/ServerSettingsSecurityTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/status/StatusIssueTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/status/StatusIssueTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/TestPimApp.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/TestPimApp.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/ui/settings/SettingsServerMutationTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/ui/settings/SettingsServerMutationTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2CollectionControlContractTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2CollectionControlContractTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2LoginFlowContractTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2LoginFlowContractTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ManifestTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ManifestTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NativeShellTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NativeShellTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NotificationRoutingTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NotificationRoutingTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ScreenContentTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ScreenContentTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TextEncodingTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TextEncodingTest.kt.md` |
+| [x] | `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TodayStatusContractTest.kt` | `docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TodayStatusContractTest.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/auth/AuthSessionStore.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/auth/AuthSessionStore.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/auth/ServerBoundLoginCoordinator.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/auth/ServerBoundLoginCoordinator.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/auth/TokenManager.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/auth/TokenManager.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/models/AuthModels.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/AuthModels.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/models/DaemonModels.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/DaemonModels.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/models/EndpointModels.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/EndpointModels.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/models/MobileModels.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/MobileModels.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/models/StatsModels.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/StatsModels.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/network/AuthInterceptor.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/AuthInterceptor.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/network/AuthRefreshCoordinator.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/AuthRefreshCoordinator.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/network/OkHttpTimeouts.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/OkHttpTimeouts.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/network/RetrofitAuthRefreshOperation.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/RetrofitAuthRefreshOperation.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/settings/PimServerEndpoints.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/settings/PimServerEndpoints.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/settings/ServerUrlValidator.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/settings/ServerUrlValidator.kt.md` |
+| [x] | `src/client-android/core/src/main/java/com/pim/core/util/ThrowableMessages.kt` | `docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/util/ThrowableMessages.kt.md` |
+| [x] | `src/client-android/core/src/test/java/com/pim/core/auth/TokenManagerTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/auth/TokenManagerTest.kt.md` |
+| [x] | `src/client-android/core/src/test/java/com/pim/core/models/AuthResponseSerializationTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/models/AuthResponseSerializationTest.kt.md` |
+| [x] | `src/client-android/core/src/test/java/com/pim/core/network/ApiServiceConverterTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/ApiServiceConverterTest.kt.md` |
+| [x] | `src/client-android/core/src/test/java/com/pim/core/network/AuthInterceptorTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/AuthInterceptorTest.kt.md` |
+| [x] | `src/client-android/core/src/test/java/com/pim/core/network/AuthRefreshOperationTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/AuthRefreshOperationTest.kt.md` |
+| [x] | `src/client-android/core/src/test/java/com/pim/core/network/MobileQueryApiContractTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/MobileQueryApiContractTest.kt.md` |
+| [x] | `src/client-android/core/src/test/java/com/pim/core/network/OkHttpTimeoutsTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/OkHttpTimeoutsTest.kt.md` |
+| [x] | `src/client-android/core/src/test/java/com/pim/core/settings/PimServerEndpointsTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/settings/PimServerEndpointsTest.kt.md` |
+| [x] | `src/client-android/core/src/test/java/com/pim/core/settings/ServerUrlValidatorTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/settings/ServerUrlValidatorTest.kt.md` |
+| [x] | `src/client-android/core/src/test/java/com/pim/core/util/ThrowableMessagesTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/util/ThrowableMessagesTest.kt.md` |
 | [x] | `src/client-web/eslint.config.js` | `docs/pseudocode/files/src/client-web/eslint.config.js.md` |
 | [x] | `src/client-web/src/api/ai.ts` | `docs/pseudocode/files/src/client-web/src/api/ai.ts.md` |
 | [x] | `src/client-web/src/api/appKnowledge.ts` | `docs/pseudocode/files/src/client-web/src/api/appKnowledge.ts.md` |
@@ -598,23 +598,23 @@ Total: 775
 | [x] | `src/Pim.Infrastructure/Storage/KopiaService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Storage/KopiaService.cs.md` |
 | [x] | `src/Pim.Infrastructure/Storage/MinioStorage.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Storage/MinioStorage.cs.md` |
 | [x] | `src/Pim.Infrastructure/TextExtraction/TikaClient.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/TextExtraction/TikaClient.cs.md` |
-| [ ] | `tests/client-web/appKnowledgeApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/appKnowledgeApiPath.test.ts.md` |
-| [ ] | `tests/client-web/appKnowledgeComponents.test.tsx` | `docs/pseudocode/files/tests/client-web/appKnowledgeComponents.test.tsx.md` |
-| [ ] | `tests/client-web/appKnowledgeNavigation.test.tsx` | `docs/pseudocode/files/tests/client-web/appKnowledgeNavigation.test.tsx.md` |
-| [ ] | `tests/client-web/appKnowledgeTypes.test.ts` | `docs/pseudocode/files/tests/client-web/appKnowledgeTypes.test.ts.md` |
-| [ ] | `tests/client-web/authApiError.test.ts` | `docs/pseudocode/files/tests/client-web/authApiError.test.ts.md` |
-| [ ] | `tests/client-web/calendarApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/calendarApiPath.test.ts.md` |
-| [ ] | `tests/client-web/calendarLayerVisibility.test.ts` | `docs/pseudocode/files/tests/client-web/calendarLayerVisibility.test.ts.md` |
-| [ ] | `tests/client-web/calendarStage5Types.test.ts` | `docs/pseudocode/files/tests/client-web/calendarStage5Types.test.ts.md` |
-| [ ] | `tests/client-web/confirmActionDialogModel.test.ts` | `docs/pseudocode/files/tests/client-web/confirmActionDialogModel.test.ts.md` |
-| [ ] | `tests/client-web/confirmationSecondLevel.test.ts` | `docs/pseudocode/files/tests/client-web/confirmationSecondLevel.test.ts.md` |
-| [ ] | `tests/client-web/endpointShellPage.test.tsx` | `docs/pseudocode/files/tests/client-web/endpointShellPage.test.tsx.md` |
-| [ ] | `tests/client-web/filesApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/filesApiPath.test.ts.md` |
-| [ ] | `tests/client-web/filesLocalization.test.ts` | `docs/pseudocode/files/tests/client-web/filesLocalization.test.ts.md` |
-| [ ] | `tests/client-web/filesTypes.test.ts` | `docs/pseudocode/files/tests/client-web/filesTypes.test.ts.md` |
-| [ ] | `tests/client-web/localizationSmoke.test.ts` | `docs/pseudocode/files/tests/client-web/localizationSmoke.test.ts.md` |
-| [ ] | `tests/client-web/locationAnalyticsComponents.test.tsx` | `docs/pseudocode/files/tests/client-web/locationAnalyticsComponents.test.tsx.md` |
-| [ ] | `tests/client-web/locationAnalyticsInteractions.test.tsx` | `docs/pseudocode/files/tests/client-web/locationAnalyticsInteractions.test.tsx.md` |
+| [x] | `tests/client-web/appKnowledgeApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/appKnowledgeApiPath.test.ts.md` |
+| [x] | `tests/client-web/appKnowledgeComponents.test.tsx` | `docs/pseudocode/files/tests/client-web/appKnowledgeComponents.test.tsx.md` |
+| [x] | `tests/client-web/appKnowledgeNavigation.test.tsx` | `docs/pseudocode/files/tests/client-web/appKnowledgeNavigation.test.tsx.md` |
+| [x] | `tests/client-web/appKnowledgeTypes.test.ts` | `docs/pseudocode/files/tests/client-web/appKnowledgeTypes.test.ts.md` |
+| [x] | `tests/client-web/authApiError.test.ts` | `docs/pseudocode/files/tests/client-web/authApiError.test.ts.md` |
+| [x] | `tests/client-web/calendarApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/calendarApiPath.test.ts.md` |
+| [x] | `tests/client-web/calendarLayerVisibility.test.ts` | `docs/pseudocode/files/tests/client-web/calendarLayerVisibility.test.ts.md` |
+| [x] | `tests/client-web/calendarStage5Types.test.ts` | `docs/pseudocode/files/tests/client-web/calendarStage5Types.test.ts.md` |
+| [x] | `tests/client-web/confirmActionDialogModel.test.ts` | `docs/pseudocode/files/tests/client-web/confirmActionDialogModel.test.ts.md` |
+| [x] | `tests/client-web/confirmationSecondLevel.test.ts` | `docs/pseudocode/files/tests/client-web/confirmationSecondLevel.test.ts.md` |
+| [x] | `tests/client-web/endpointShellPage.test.tsx` | `docs/pseudocode/files/tests/client-web/endpointShellPage.test.tsx.md` |
+| [x] | `tests/client-web/filesApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/filesApiPath.test.ts.md` |
+| [x] | `tests/client-web/filesLocalization.test.ts` | `docs/pseudocode/files/tests/client-web/filesLocalization.test.ts.md` |
+| [x] | `tests/client-web/filesTypes.test.ts` | `docs/pseudocode/files/tests/client-web/filesTypes.test.ts.md` |
+| [x] | `tests/client-web/localizationSmoke.test.ts` | `docs/pseudocode/files/tests/client-web/localizationSmoke.test.ts.md` |
+| [x] | `tests/client-web/locationAnalyticsComponents.test.tsx` | `docs/pseudocode/files/tests/client-web/locationAnalyticsComponents.test.tsx.md` |
+| [x] | `tests/client-web/locationAnalyticsInteractions.test.tsx` | `docs/pseudocode/files/tests/client-web/locationAnalyticsInteractions.test.tsx.md` |
 | [ ] | `tests/client-web/mobileAnalyticsComponents.test.tsx` | `docs/pseudocode/files/tests/client-web/mobileAnalyticsComponents.test.tsx.md` |
 | [ ] | `tests/client-web/mobileAnalyticsInteractions.test.tsx` | `docs/pseudocode/files/tests/client-web/mobileAnalyticsInteractions.test.tsx.md` |
 | [ ] | `tests/client-web/mobileApiPath.test.ts` | `docs/pseudocode/files/tests/client-web/mobileApiPath.test.ts.md` |

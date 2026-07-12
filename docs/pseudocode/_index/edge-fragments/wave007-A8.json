@@ -1,0 +1,234 @@
+{
+  "slot": "A8",
+  "wave": "wave007",
+  "nodes": [
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt",
+      "label": "LocationNotificationRenderer",
+      "path": "src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeStore.kt",
+      "label": "ConnectionProbeStore",
+      "path": "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeStore.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeStore.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/ui/schedule/SchedulePolicyScreen.kt",
+      "label": "SchedulePolicyScreen",
+      "path": "src/client-android/app/src/main/java/com/pim/app/ui/schedule/SchedulePolicyScreen.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/schedule/SchedulePolicyScreen.kt.md",
+      "layer": "client-android",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/ui/tracks/TracksScreen.kt",
+      "label": "TracksScreen",
+      "path": "src/client-android/app/src/main/java/com/pim/app/ui/tracks/TracksScreen.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/tracks/TracksScreen.kt.md",
+      "layer": "client-android",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/LocationUploadCoordinatorTest.kt",
+      "label": "LocationUploadCoordinatorTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/LocationUploadCoordinatorTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/LocationUploadCoordinatorTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/schedule/AndroidOfflineBoundaryTest.kt",
+      "label": "AndroidOfflineBoundaryTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/schedule/AndroidOfflineBoundaryTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/schedule/AndroidOfflineBoundaryTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2LoginFlowContractTest.kt",
+      "label": "AndroidV2LoginFlowContractTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2LoginFlowContractTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2LoginFlowContractTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt",
+      "label": "CoreModule",
+      "path": "src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt.md",
+      "layer": "client-android",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/network/OkHttpTimeouts.kt",
+      "label": "applyPimApiTimeouts",
+      "path": "src/client-android/core/src/main/java/com/pim/core/network/OkHttpTimeouts.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/OkHttpTimeouts.kt.md",
+      "layer": "client-android",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-android/core/src/test/java/com/pim/core/network/AuthRefreshOperationTest.kt",
+      "label": "AuthRefreshOperationTest",
+      "path": "src/client-android/core/src/test/java/com/pim/core/network/AuthRefreshOperationTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/AuthRefreshOperationTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/authApiError.test.ts",
+      "label": "authApiError.test",
+      "path": "tests/client-web/authApiError.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/authApiError.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/localizationSmoke.test.ts",
+      "label": "localizationSmoke.test",
+      "path": "tests/client-web/localizationSmoke.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/localizationSmoke.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/MainActivity.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeStore.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeModels.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/schedule/SchedulePolicyScreen.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/ui/components/PimSection.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/tracks/TracksScreen.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/ui/components/PimSection.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/LocationUploadCoordinatorTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadPlanner.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/LocationUploadCoordinatorTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/LocationUploadCoordinatorTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncErrorClassifier.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/schedule/AndroidOfflineBoundaryTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/offline/OnlineOperationGuard.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2LoginFlowContractTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2LoginFlowContractTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2LoginFlowContractTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/auth/ServerBoundLoginCoordinator.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2LoginFlowContractTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/auth/TokenManager.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network/AuthInterceptor.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network/AuthRefreshCoordinator.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/di/CoreModule.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network/OkHttpTimeouts.kt",
+      "type": "calls"
+    },
+    {
+      "from": "src/client-android/core/src/test/java/com/pim/core/network/AuthRefreshOperationTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/test/java/com/pim/core/network/AuthRefreshOperationTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network/AuthRefreshCoordinator.kt",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/authApiError.test.ts",
+      "to": "src/client-web/src/auth/authApi.ts",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/localizationSmoke.test.ts",
+      "to": "src/client-web/src/api/client.ts",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/localizationSmoke.test.ts",
+      "to": "src/Pim.Api/Middleware/ExceptionMiddleware.cs",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/localizationSmoke.test.ts",
+      "to": "src/modules/Pim.Module.Files/FilesModule.cs",
+      "type": "tests"
+    }
+  ]
+}

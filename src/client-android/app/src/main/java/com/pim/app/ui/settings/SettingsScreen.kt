@@ -15,6 +15,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -26,6 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pim.app.ui.components.PimSection
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.yield
 
 @Composable
 fun SettingsScreen(
@@ -35,6 +39,13 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var username by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(viewModel) {
+        while (isActive) {
+            val delayMillis = viewModel.refreshConnectionForVisibleScreen()
+            if (delayMillis > 0L) delay(delayMillis) else yield()
+        }
+    }
 
     Column(
         modifier = modifier

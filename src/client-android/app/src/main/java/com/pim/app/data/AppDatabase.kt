@@ -17,7 +17,7 @@ import androidx.room.RoomDatabase
         MobileDeviceProfileEntity::class
     ],
     version = 3,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun appUsageDao(): AppUsageDao

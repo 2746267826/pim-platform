@@ -43,7 +43,7 @@ class AndroidV2CollectionControlContractTest {
         assertTrue(viewModel.contains("PermissionStatusRepository"))
         assertTrue(viewModel.contains("trackingSettingsStore.read().continuousCollectionEnabled"))
         assertTrue(viewModel.contains("fun setContinuousCollectionEnabled(enabled: Boolean)"))
-        assertTrue(viewModel.contains("validatedCollectionEnabled(validation.isValid)"))
+        assertTrue(viewModel.contains("persistedCollectionEnabled()"))
         assertTrue(viewModel.contains("trackingSettingsStore.setContinuousCollectionEnabled(false)"))
         assertTrue(viewModel.contains("trackingSettingsStore.setContinuousCollectionEnabled(true)"))
         assertTrue(viewModel.contains("foregroundLocationController.start()"))
@@ -51,7 +51,7 @@ class AndroidV2CollectionControlContractTest {
     }
 
     @Test
-    fun settingsRefreshDoesNotTrustPersistedCollectionWhenRequirementsAreMissing() {
+    fun settingsRefreshAndLogoutPreserveDurableCollectionIntentAcrossBlockers() {
         val viewModel = repoFile(
             "src",
             "main",
@@ -64,14 +64,61 @@ class AndroidV2CollectionControlContractTest {
             "SettingsViewModel.kt"
         ).readText(Charsets.UTF_8)
 
-        assertFalse(
-            "refresh/login must not directly mirror a stale persisted collection flag",
-            viewModel.contains("continuousCollectionEnabled = persistedCollectionEnabled()")
+        val refresh = viewModel.substringAfter("fun refresh()").substringBefore("fun updateApiAddress")
+        val logout = viewModel.substringAfter("fun logout()").substringBefore(
+            "fun setContinuousCollectionEnabled"
         )
-        assertTrue(viewModel.contains("private fun validatedCollectionEnabled("))
-        assertTrue(viewModel.contains("trackingSettingsStore.setContinuousCollectionEnabled(false)"))
-        assertTrue(viewModel.contains("tokenManager.getAccessToken().isNullOrBlank()"))
-        assertTrue(viewModel.contains("missingCollectionPermissions().isNotEmpty()"))
+
+        assertTrue(
+            "refresh must display the durable collection intent without changing it",
+            refresh.contains("continuousCollectionEnabled = persistedCollectionEnabled()")
+        )
+        assertFalse(
+            "refresh must not disable collection intent when auth or permissions are blocked",
+            refresh.contains("trackingSettingsStore.setContinuousCollectionEnabled(false)")
+        )
+        assertTrue(
+            "logout must keep the durable collection intent visible",
+            logout.contains("continuousCollectionEnabled = collectionIntent")
+        )
+        assertFalse(
+            "logout must not disable collection intent or stop local collection",
+            logout.contains("trackingSettingsStore.setContinuousCollectionEnabled(false)") ||
+                logout.contains("foregroundLocationController.stop()")
+        )
+    }
+
+    @Test
+    fun enablingCollectionSwitchesServerBeforeCheckingTheBoundSession() {
+        val viewModel = repoFile(
+            "src",
+            "main",
+            "java",
+            "com",
+            "pim",
+            "app",
+            "ui",
+            "settings",
+            "SettingsViewModel.kt"
+        ).readText(Charsets.UTF_8)
+
+        val functionIndex = viewModel.indexOf("fun setContinuousCollectionEnabled(enabled: Boolean)")
+        val serverSwitchIndex = viewModel.indexOf(
+            "serverSettingsStore.setBaseUrl(validation.normalizedUrl)",
+            functionIndex
+        )
+        val sessionCheckIndex = viewModel.indexOf("if (!hasCurrentServerSession())", functionIndex)
+        val enableIndex = viewModel.indexOf(
+            "trackingSettingsStore.setContinuousCollectionEnabled(true)",
+            functionIndex
+        )
+
+        assertTrue("collection enable must persist the selected server", serverSwitchIndex > functionIndex)
+        assertTrue(
+            "collection enable must re-check the session after the server switch",
+            sessionCheckIndex > serverSwitchIndex
+        )
+        assertTrue("collection must not enable before the bound-session check", enableIndex > sessionCheckIndex)
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.pim.app.data.AppDatabase
 import com.pim.app.data.MobileDataDao
 import com.pim.app.location.service.ForegroundLocationService
 import com.pim.app.location.service.ForegroundLocationRuntimeState
+import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.sync.MobileSyncCoordinator
 import com.pim.app.permissions.PermissionStatusRepository
 import com.pim.app.settings.TrackingSettingsStore
@@ -25,7 +26,8 @@ class StatusCenterRepository @Inject constructor(
     private val trackingSettingsStore: TrackingSettingsStore,
     private val database: AppDatabase,
     private val syncCoordinator: MobileSyncCoordinator,
-    private val refreshSignal: StatusRefreshSignal
+    private val refreshSignal: StatusRefreshSignal,
+    private val logRepository: StructuredLogRepository
 ) {
     private val dao: MobileDataDao = database.mobileDataDao()
 
@@ -79,8 +81,8 @@ class StatusCenterRepository @Inject constructor(
                 warnings = validation.warnings
             ),
             auth = AuthStatusSnapshot(
-                hasAccessToken = !tokenManager.getAccessToken().isNullOrBlank(),
-                isExpired = tokenManager.isExpired()
+                hasAccessToken = !tokenManager.getAccessTokenForServer(baseUrl).isNullOrBlank(),
+                isExpired = tokenManager.isExpiredForServer(baseUrl)
             ),
             service = ForegroundServiceSnapshot(
                 continuousCollectionEnabled = settings.continuousCollectionEnabled,
@@ -99,7 +101,6 @@ class StatusCenterRepository @Inject constructor(
                 dao.pendingUsageEventCount(),
                 dao.pendingUsageSummaryCount(),
                 dao.pendingAppMetadataCount(),
-                dao.pendingLogCount(),
                 dao.pendingDeviceProfileCount(),
                 dao.pendingSyncBatchCount()
             )
@@ -109,9 +110,9 @@ class StatusCenterRepository @Inject constructor(
                 pendingUsageEvents = values[1],
                 pendingUsageSummaries = values[2],
                 pendingAppMetadata = values[3],
-                pendingLogs = values[4],
-                pendingDeviceProfile = values[5],
-                pendingSyncBatches = values[6]
+                pendingLogs = 0,
+                pendingDeviceProfile = values[4],
+                pendingSyncBatches = values[5]
             )
         }
     }
@@ -119,9 +120,10 @@ class StatusCenterRepository @Inject constructor(
     private fun diagnosticSnapshotFlow(): Flow<DiagnosticSnapshot> {
         return combine(
             dao.recentDroppedLocationDiagnostics(limit = 1),
-            dao.recentLogs(limit = 6)
-        ) { dropped, logs ->
+            refreshSignal.version
+        ) { dropped, _ ->
             val latestDrop = dropped.firstOrNull()
+            val logs = logRepository.recent(6)
             val latestLog = logs.firstOrNull()
             DiagnosticSnapshot(
                 lastDroppedReason = latestDrop?.reason,

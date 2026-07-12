@@ -25,7 +25,7 @@ import com.pim.app.location.policy.ScheduleWindow
 import com.pim.app.location.quality.AltitudeWaitCoordinator
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
-import com.pim.app.mobile.sync.MobileSyncCoordinator
+import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.notifications.LocationNotificationRenderer
 import com.pim.app.notifications.LocationNotificationState
 import com.pim.app.schedule.ScheduleWindowRepository
@@ -56,7 +56,7 @@ class ForegroundLocationService : Service() {
     @Inject lateinit var locationQueueRepository: LocationQueueRepository
     @Inject lateinit var motionSignalRepository: MotionSignalRepository
     @Inject lateinit var scheduleWindowRepository: ScheduleWindowRepository
-    @Inject lateinit var mobileSyncCoordinator: MobileSyncCoordinator
+    @Inject lateinit var mobileSyncScheduler: MobileSyncScheduler
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val qualityCoordinator = AltitudeWaitCoordinator()
@@ -161,29 +161,19 @@ class ForegroundLocationService : Service() {
 
     private fun runManualSync() {
         val stopAfterSync = listener == null && !trackingSettingsStore.read().continuousCollectionEnabled
-        if (!hasRequiredLocationPermissions()) {
-            apiState = "缺少定位权限"
-            lastDroppedReason = "缺少精确或后台定位权限"
-            publishRuntimeState(isRunning = false)
-            stopSelf()
-            return
-        }
         apiState = "同步中"
         startForeground(LocationNotificationRenderer.NOTIFICATION_ID, notification())
         updateNotification()
 
         scope.launch {
             try {
-                val state = withContext(Dispatchers.IO) {
-                    mobileSyncCoordinator.syncOnOpen()
-                }
-                pendingUploadCount = state.pendingQueueCount
-                apiState = if (state.lastError == null) "同步完成" else "同步失败"
+                mobileSyncScheduler.enqueueNow()
+                apiState = "同步请求已提交。"
                 updateNotification()
             } catch (ex: CancellationException) {
                 throw ex
             } catch (_: Exception) {
-                apiState = "同步失败"
+                apiState = "同步请求提交失败"
                 updateNotification()
             } finally {
                 if (stopAfterSync) {

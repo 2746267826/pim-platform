@@ -28,7 +28,9 @@ data class LocationUploadStatusUpdates(
     val syncedIds: List<Long>,
     val failedIds: List<Long>,
     val failedReason: String?,
-    val shouldRetry: Boolean
+    val shouldRetry: Boolean,
+    val perItemErrors: Map<Long, String> = emptyMap(),
+    val retryableFailedIds: List<Long> = emptyList()
 )
 
 object LocationUploadPlanner {
@@ -37,7 +39,8 @@ object LocationUploadPlanner {
             syncedIds = result.syncedIds,
             failedIds = result.failedIds,
             failedReason = result.errorMessage,
-            shouldRetry = result.retryableFailedIds.isNotEmpty()
+            shouldRetry = result.retryableFailedIds.isNotEmpty(),
+            retryableFailedIds = result.retryableFailedIds
         )
     }
 }
@@ -59,16 +62,18 @@ class LocationUploadCoordinator @Inject constructor(
         }
 
         val synced = mutableListOf<Long>()
-        val failed = mutableListOf<Long>()
         val retryableFailed = mutableListOf<Long>()
+        val permanentFailed = mutableListOf<Long>()
+        val perItemErrors = linkedMapOf<Long, String>()
         var lastError: String? = null
         val deviceId = deviceId()
 
         for (row in rows) {
             val request = row.toRequest(deviceId)
             if (request == null) {
-                failed += row.id
-                lastError = "missing-horizontal-accuracy"
+                permanentFailed += row.id
+                perItemErrors[row.id] = "missing-horizontal-accuracy"
+                lastError = lastError ?: "missing-horizontal-accuracy"
                 continue
             }
 
@@ -77,22 +82,44 @@ class LocationUploadCoordinator @Inject constructor(
                 if (response.code == 0 && response.data != null) {
                     synced += row.id
                 } else {
-                    failed += row.id
-                    lastError = response.message.ifBlank { "location upload failed" }
+                    val msg = response.message.ifBlank { "location upload failed" }
+                    permanentFailed += row.id
+                    perItemErrors[row.id] = msg
+                    lastError = lastError ?: msg
                 }
             } catch (ex: Exception) {
                 if (ex is CancellationException) throw ex
-                failed += row.id
-                retryableFailed += row.id
-                lastError = ex.message ?: ex::class.java.simpleName
+                val outcome = MobileSyncErrorClassifier.classify(ex)
+                when (outcome) {
+                    MobileSyncOutcome.RETRY -> {
+                        retryableFailed += row.id
+                        val msg = ex.message ?: ex::class.java.simpleName
+                        perItemErrors[row.id] = msg
+                        lastError = lastError ?: msg
+                    }
+                    MobileSyncOutcome.BLOCKED -> {
+                        permanentFailed += row.id
+                        val msg = ex.message ?: ex::class.java.simpleName
+                        perItemErrors[row.id] = msg
+                        lastError = lastError ?: msg
+                    }
+                    else -> {
+                        permanentFailed += row.id
+                        val msg = ex.message ?: ex::class.java.simpleName
+                        perItemErrors[row.id] = msg
+                        lastError = lastError ?: msg
+                    }
+                }
             }
         }
 
+        val allFailed = retryableFailed + permanentFailed
         val updates = LocationUploadPlanner.planStatusUpdates(
-            LocationUploadBatchResult(synced, failed, lastError, retryableFailed)
+            LocationUploadBatchResult(synced, allFailed, lastError, retryableFailed)
         )
-        applyStatusUpdates(updates)
-        return updates
+        val fullUpdates = updates.copy(perItemErrors = perItemErrors, retryableFailedIds = retryableFailed)
+        applyStatusUpdates(fullUpdates)
+        return fullUpdates
     }
 
     private suspend fun pendingRows(limit: Int): List<MobileLocationPointEntity> {
@@ -103,16 +130,7 @@ class LocationUploadCoordinator @Inject constructor(
     }
 
     private suspend fun applyStatusUpdates(updates: LocationUploadStatusUpdates) {
-        if (updates.syncedIds.isNotEmpty()) {
-            dao.updateLocationPointSyncStatus(updates.syncedIds, MobileSyncStatus.SYNCED)
-        }
-        if (updates.failedIds.isNotEmpty()) {
-            dao.updateLocationPointSyncStatus(
-                ids = updates.failedIds,
-                syncStatus = MobileSyncStatus.FAILED,
-                lastError = updates.failedReason
-            )
-        }
+        applyLocationStatusUpdates(dao, updates)
     }
 
     private fun MobileLocationPointEntity.toRequest(deviceId: String): MobileLocationPointRequest? {
@@ -146,5 +164,39 @@ class LocationUploadCoordinator @Inject constructor(
 
     private companion object {
         const val DEFAULT_LIMIT = 100
+    }
+}
+
+internal fun LocationUploadStatusUpdates.retryableFirstError(): String? {
+    return retryableFailedIds.firstOrNull()?.let { perItemErrors[it] }
+}
+
+internal suspend fun applyLocationStatusUpdates(
+    dao: MobileDataDao,
+    updates: LocationUploadStatusUpdates
+) {
+    if (updates.syncedIds.isNotEmpty()) {
+        dao.deleteLocationPointByIds(updates.syncedIds)
+    }
+    val retryableSet = updates.retryableFailedIds.toSet()
+    val permanentIds = updates.failedIds.filter { it !in retryableSet && it !in updates.syncedIds.toSet() }
+    val retryableIds = updates.failedIds.filter { it in retryableSet && it !in updates.syncedIds.toSet() }
+    if (permanentIds.isNotEmpty()) {
+        permanentIds.forEach { id ->
+            dao.updateLocationPointSyncStatus(
+                ids = listOf(id),
+                syncStatus = MobileSyncStatus.REJECTED,
+                lastError = updates.perItemErrors[id] ?: updates.failedReason ?: "permanent-failure"
+            )
+        }
+    }
+    if (retryableIds.isNotEmpty()) {
+        retryableIds.forEach { id ->
+            dao.updateLocationPointSyncStatus(
+                ids = listOf(id),
+                syncStatus = MobileSyncStatus.PENDING,
+                lastError = updates.perItemErrors[id] ?: updates.failedReason ?: "transient-failure"
+            )
+        }
     }
 }

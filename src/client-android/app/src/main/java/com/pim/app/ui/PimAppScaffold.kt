@@ -65,21 +65,25 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.pim.app.data.AppDatabase
-import com.pim.app.data.MobileLogEntity
 import com.pim.app.location.LocationCaptureRepository
 import com.pim.app.location.LocationCaptureState
 import com.pim.app.location.LocationSnapshot
 import com.pim.app.location.LocationSubmissionPolicy
+import com.pim.app.mobile.logs.StructuredLogEntry
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.sync.MobileSyncCoordinator
+import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.mobile.sync.MobileSyncState
+
+import com.pim.core.auth.ServerBoundLoginCoordinator
+import com.pim.core.auth.ServerBoundLoginResult
 import com.pim.core.auth.TokenManager
-import com.pim.core.models.LoginRequest
-import com.pim.core.network.ApiClientProvider
 import com.pim.core.settings.ServerSettingsStore
+import com.pim.core.settings.ServerUrlValidator
 import com.pim.core.util.toCauseChainMessage
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -238,7 +242,7 @@ private fun StatusTab(
         StatusRow("已拒绝", uiState.rejectedCount.toString())
         StatusRow("失败", uiState.failedCount.toString())
         StatusRow("待上传", "事件 ${uiState.pendingUsageEventCount} / 汇总 ${uiState.pendingUsageSummaryCount} / App ${uiState.pendingAppMetadataCount} / 定位 ${uiState.pendingLocationPointCount}")
-        StatusRow("本地诊断队列", "日志 ${uiState.pendingLogCount} / 设备 ${uiState.pendingDeviceProfileCount} / 批次 ${uiState.pendingSyncBatchCount}")
+        StatusRow("本地诊断队列", "设备 ${uiState.pendingDeviceProfileCount} / 批次 ${uiState.pendingSyncBatchCount}")
         StatusRow("待传队列", uiState.pendingQueueCount.toString())
         StatusRow("最近尝试", uiState.lastAttemptedUploadAt ?: "无")
         StatusRow("最近成功", uiState.lastSuccessfulUploadAt ?: "无")
@@ -246,7 +250,7 @@ private fun StatusTab(
         StatusRow("详细错误", uiState.lastErrorDetail ?: "无")
     }
 
-    Section(title = "最近日志") {
+    Section(title = "最近日志（仅本机保存）") {
         if (uiState.recentLogs.isEmpty()) {
             Text("暂无日志。")
         } else {
@@ -550,7 +554,6 @@ private data class PendingQueueCounts(
     val appMetadata: Int,
     val locations: Int,
     val syncBatches: Int,
-    val logs: Int,
     val deviceProfiles: Int
 ) {
     val uploadable: Int
@@ -561,11 +564,12 @@ private data class PendingQueueCounts(
 class MobileStatusViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val tokenManager: TokenManager,
-    private val apiClientProvider: ApiClientProvider,
+    private val serverBoundLoginCoordinator: ServerBoundLoginCoordinator,
     private val serverSettingsStore: ServerSettingsStore,
     private val database: AppDatabase,
     private val logs: StructuredLogRepository,
-    private val mobileSyncCoordinator: MobileSyncCoordinator
+    private val mobileSyncCoordinator: MobileSyncCoordinator,
+    private val mobileSyncScheduler: MobileSyncScheduler
 ) : ViewModel() {
     private val mobileDataDao = database.mobileDataDao()
 
@@ -586,7 +590,6 @@ class MobileStatusViewModel @Inject constructor(
                 mobileDataDao.pendingAppMetadataCount(),
                 mobileDataDao.pendingLocationPointCount(),
                 mobileDataDao.pendingSyncBatchCount(),
-                mobileDataDao.pendingLogCount(),
                 mobileDataDao.pendingDeviceProfileCount()
             ) { counts ->
                 PendingQueueCounts(
@@ -595,8 +598,7 @@ class MobileStatusViewModel @Inject constructor(
                     appMetadata = counts[2],
                     locations = counts[3],
                     syncBatches = counts[4],
-                    logs = counts[5],
-                    deviceProfiles = counts[6]
+                    deviceProfiles = counts[5]
                 )
             }.collect { counts ->
                 _state.update { current ->
@@ -607,15 +609,10 @@ class MobileStatusViewModel @Inject constructor(
                         pendingAppMetadataCount = counts.appMetadata,
                         pendingLocationPointCount = counts.locations,
                         pendingSyncBatchCount = counts.syncBatches,
-                        pendingLogCount = counts.logs,
+                        pendingLogCount = 0,
                         pendingDeviceProfileCount = counts.deviceProfiles
                     )
                 }
-            }
-        }
-        viewModelScope.launch {
-            mobileDataDao.recentLogs().collect { logs ->
-                _state.update { current -> current.copy(recentLogs = logs.map { it.toLine() }) }
             }
         }
     }
@@ -624,35 +621,56 @@ class MobileStatusViewModel @Inject constructor(
         viewModelScope.launch {
             mobileSyncCoordinator.refreshPersistedState()
             val pending = pendingQueueCounts()
+            val recentLogEntries = logs.recent()
             _state.update { current ->
                 current.copy(
                     serverUrl = serverSettingsStore.getBaseUrl(),
                     appVersion = appVersionDisplay(),
-                    isLoggedIn = !tokenManager.getAccessToken().isNullOrBlank(),
+                    isLoggedIn = hasCurrentServerSession(),
                     pendingQueueCount = pending.uploadable,
                     pendingUsageEventCount = pending.usageEvents,
                     pendingUsageSummaryCount = pending.usageSummaries,
                     pendingAppMetadataCount = pending.appMetadata,
                     pendingLocationPointCount = pending.locations,
                     pendingSyncBatchCount = pending.syncBatches,
-                    pendingLogCount = pending.logs,
-                    pendingDeviceProfileCount = pending.deviceProfiles
+                    pendingLogCount = 0,
+                    pendingDeviceProfileCount = pending.deviceProfiles,
+                    recentLogs = recentLogEntries.map { it.toLine() }
                 )
             }
         }
     }
 
     fun saveServerUrl(value: String) {
-        val normalized = serverSettingsStore.setBaseUrl(value)
-        _state.update {
-            it.copy(
-                serverUrl = normalized,
-                phase = "server-updated",
-                progressText = "服务器地址已保存，请重新同步。",
-                lastError = null,
-                lastErrorDetail = null
-            )
+        val validation = ServerUrlValidator.validate(value)
+        if (!validation.isValid) {
+            _state.update {
+                it.copy(
+                    phase = "server-invalid",
+                    progressText = "服务器地址无效。",
+                    lastError = validation.reasonCode,
+                    lastErrorDetail = validation.reasonCode
+                )
+            }
+            return
         }
+        runCatching {
+            serverSettingsStore.setBaseUrl(validation.normalizedUrl)
+        }.getOrElse { error ->
+            reloadPersistedServerState(
+                phase = "server-save-failed",
+                progressText = "服务器地址保存失败，已重新载入当前配置。",
+                lastError = error.message,
+                lastErrorDetail = error.message
+            )
+            return
+        }
+        reloadPersistedServerState(
+            phase = "server-updated",
+            progressText = "服务器地址已保存，请重新同步。",
+            lastError = null,
+            lastErrorDetail = null
+        )
     }
 
     fun syncNow() {
@@ -665,34 +683,45 @@ class MobileStatusViewModel @Inject constructor(
             return
         }
 
+        if (!ServerUrlValidator.validate(serverSettingsStore.getBaseUrl()).isValid) {
+            _state.update { it.copy(loginStatus = "请先保存有效的服务器地址。") }
+            return
+        }
+
         viewModelScope.launch {
             _state.update { it.copy(isLoginInProgress = true, loginStatus = "正在登录...") }
             runCatching {
-                val response = apiClientProvider.refreshApiService().login(LoginRequest(username.trim(), password))
-                val auth = response.data
-                if (response.code != 0 || auth == null) {
-                    error(response.message.ifBlank { "登录失败。" })
+                when (val result = serverBoundLoginCoordinator.login(username, password)) {
+                    ServerBoundLoginResult.Success -> Unit
+                    ServerBoundLoginResult.StaleServer -> {
+                        error("\u767b\u5f55\u671f\u95f4\u670d\u52a1\u5668\u5730\u5740\u5df2\u66f4\u6539\uff0c\u8bf7\u91cd\u8bd5\u3002")
+                    }
+                    ServerBoundLoginResult.SessionSaveFailed -> {
+                        error("\u767b\u5f55\u51ed\u636e\u65e0\u6cd5\u5b89\u5168\u4fdd\u5b58\uff0c\u8bf7\u91cd\u8bd5\u3002")
+                    }
+                    is ServerBoundLoginResult.Failure -> throw result.error
                 }
-                tokenManager.saveTokens(auth.accessToken, auth.refreshToken, auth.expiresAt)
             }.fold(
                 onSuccess = {
+                    val loginSuccessMessage = "登录成功，正在同步手机数据。"
                     _state.update {
                         it.copy(
-                            isLoggedIn = true,
+                            isLoggedIn = hasCurrentServerSession(),
                             isLoginInProgress = false,
-                            loginStatus = "登录成功，正在同步手机数据。"
+                            loginStatus = loginSuccessMessage
                         )
                     }
-                    startSync("登录成功，正在同步手机数据。")
+                    startSync(loginSuccessMessage)
                 },
                 onFailure = { error ->
+                    if (error is CancellationException) throw error
                     val failureMessage = error.toCauseChainMessage()
                     runCatching {
                         logs.error("mobile-auth", "登录失败：$failureMessage", error)
                     }
                     _state.update {
                         it.copy(
-                            isLoggedIn = false,
+                            isLoggedIn = hasCurrentServerSession(),
                             isLoginInProgress = false,
                             loginStatus = "登录失败：$failureMessage",
                             lastError = failureMessage
@@ -704,7 +733,15 @@ class MobileStatusViewModel @Inject constructor(
     }
 
     fun clearLogin() {
-        tokenManager.clear()
+        if (!tokenManager.clear()) {
+            _state.update {
+                it.copy(
+                    isLoggedIn = hasCurrentServerSession(),
+                    loginStatus = "清除失败：安全存储暂时不可用。"
+                )
+            }
+            return
+        }
         _state.update {
             it.copy(
                 isLoggedIn = false,
@@ -717,21 +754,38 @@ class MobileStatusViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update {
                 it.copy(
-                    isLoggedIn = !tokenManager.getAccessToken().isNullOrBlank(),
-                    loginStatus = statusMessage
+                    isLoggedIn = hasCurrentServerSession(),
+                    loginStatus = statusMessage,
+                    progressText = "同步请求已提交，等待系统执行。"
                 )
             }
-
-            val syncState = mobileSyncCoordinator.syncOnOpen()
-            _state.update { current ->
-                current.copy(
-                    isLoggedIn = !tokenManager.getAccessToken().isNullOrBlank(),
-                    loginStatus = syncResultMessage(syncState),
-                    serverUrl = serverSettingsStore.getBaseUrl(),
-                    appVersion = appVersionDisplay()
-                ).copyFromSync(syncState)
-            }
+            mobileSyncScheduler.enqueueNow()
         }
+    }
+
+    private fun reloadPersistedServerState(
+        phase: String,
+        progressText: String,
+        lastError: String?,
+        lastErrorDetail: String?
+    ) {
+        val serverUrl = serverSettingsStore.getBaseUrl()
+        _state.update {
+            it.copy(
+                serverUrl = serverUrl,
+                isLoggedIn = hasCurrentServerSession(),
+                phase = phase,
+                progressText = progressText,
+                lastError = lastError,
+                lastErrorDetail = lastErrorDetail
+            )
+        }
+    }
+
+    private fun hasCurrentServerSession(): Boolean {
+        return !tokenManager
+            .getAccessTokenForServer(serverSettingsStore.getBaseUrl())
+            .isNullOrBlank()
     }
 
     private suspend fun pendingQueueCounts(): PendingQueueCounts {
@@ -741,7 +795,6 @@ class MobileStatusViewModel @Inject constructor(
             appMetadata = mobileDataDao.pendingAppMetadataCount().first(),
             locations = mobileDataDao.pendingLocationPointCount().first(),
             syncBatches = mobileDataDao.pendingSyncBatchCount().first(),
-            logs = mobileDataDao.pendingLogCount().first(),
             deviceProfiles = mobileDataDao.pendingDeviceProfileCount().first()
         )
     }
@@ -773,10 +826,10 @@ class MobileStatusViewModel @Inject constructor(
         )
     }
 
-    private fun MobileLogEntity.toLine(): MobileLogLine {
+    private fun StructuredLogEntry.toLine(): MobileLogLine {
         return MobileLogLine(
             level = level,
-            tag = tag ?: "mobile",
+            tag = tag.ifBlank { "mobile" },
             message = message,
             throwablePreview = throwable?.lineSequence()?.firstOrNull(),
             occurredAtUtc = occurredAtUtc

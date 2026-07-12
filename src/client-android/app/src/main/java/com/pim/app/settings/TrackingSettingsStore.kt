@@ -11,7 +11,8 @@ data class TrackingSettings(
     val movementIntervalMillis: Long,
     val scheduleRecoveryThresholdMeters: Double,
     val altitudeWaitTimeoutMillis: Long,
-    val maxUploadAccuracyMetersExclusive: Float
+    val maxUploadAccuracyMetersExclusive: Float,
+    val syncOnUnmeteredOnly: Boolean
 ) {
     companion object {
         fun defaults(): TrackingSettings = TrackingSettings(
@@ -22,7 +23,8 @@ data class TrackingSettings(
             movementIntervalMillis = 60 * 1000L,
             scheduleRecoveryThresholdMeters = 100.0,
             altitudeWaitTimeoutMillis = 15 * 1000L,
-            maxUploadAccuracyMetersExclusive = 50f
+            maxUploadAccuracyMetersExclusive = 50f,
+            syncOnUnmeteredOnly = false
         )
     }
 }
@@ -55,6 +57,10 @@ class TrackingSettingsStore(
             maxUploadAccuracyMetersExclusive = preferences.getFloat(
                 KEY_MAX_UPLOAD_ACCURACY_EXCLUSIVE,
                 defaults.maxUploadAccuracyMetersExclusive
+            ),
+            syncOnUnmeteredOnly = preferences.getBoolean(
+                KEY_SYNC_ON_UNMETERED_ONLY,
+                defaults.syncOnUnmeteredOnly
             )
         )
     }
@@ -69,6 +75,7 @@ class TrackingSettingsStore(
             .putFloat(KEY_SCHEDULE_RECOVERY_THRESHOLD, settings.scheduleRecoveryThresholdMeters.toFloat())
             .putLong(KEY_ALTITUDE_WAIT_TIMEOUT, settings.altitudeWaitTimeoutMillis)
             .putFloat(KEY_MAX_UPLOAD_ACCURACY_EXCLUSIVE, settings.maxUploadAccuracyMetersExclusive)
+            .putBoolean(KEY_SYNC_ON_UNMETERED_ONLY, settings.syncOnUnmeteredOnly)
             .apply()
         return read()
     }
@@ -86,6 +93,7 @@ class TrackingSettingsStore(
         const val KEY_SCHEDULE_RECOVERY_THRESHOLD = "tracking.schedule_recovery_threshold_meters"
         const val KEY_ALTITUDE_WAIT_TIMEOUT = "tracking.altitude_wait_timeout_millis"
         const val KEY_MAX_UPLOAD_ACCURACY_EXCLUSIVE = "tracking.max_upload_accuracy_meters_exclusive"
+        const val KEY_SYNC_ON_UNMETERED_ONLY = "tracking.sync_on_unmetered_only"
     }
 }
 

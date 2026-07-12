@@ -81,7 +81,8 @@ data class MobileAppMetadataDto(
     val firstInstallTimeUtc: String,
     val lastUpdateTimeUtc: String,
     val rawJson: String,
-    val collectedAtUtc: String? = null
+    val collectedAtUtc: String? = null,
+    val clientItemKey: String? = null
 )
 
 @Serializable
@@ -91,7 +92,8 @@ data class MobileUsageEventDto(
     val eventTimestampUtc: String,
     val className: String? = null,
     val collectedAtUtc: String,
-    val rawJson: String
+    val rawJson: String,
+    val clientItemKey: String? = null
 )
 
 @Serializable
@@ -102,16 +104,27 @@ data class MobileUsageSummaryDto(
     val totalTimeForegroundMs: Long,
     val lastTimeUsedUtc: String,
     val sourceKind: String,
-    val rawJson: String
+    val rawJson: String,
+    val clientItemKey: String? = null
+)
+
+@Serializable
+data class MobileIngestItemResult(
+    val clientItemKey: String,
+    val entityType: String,
+    val outcome: String,
+    val code: String,
+    val message: String
 )
 
 @Serializable
 data class MobileIngestResponse(
-    val batchId: String = "",
+    val batchId: String,
     val acceptedCount: Int = 0,
     val skippedCount: Int = 0,
     val rejectedCount: Int = 0,
-    val failedCount: Int = 0
+    val failedCount: Int = 0,
+    val itemResults: List<MobileIngestItemResult> = emptyList()
 )
 
 @Serializable

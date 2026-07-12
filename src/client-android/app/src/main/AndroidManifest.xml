@@ -17,6 +17,8 @@
     <application
         android:name=".PimApp"
         android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="PIM"
         android:usesCleartextTraffic="true"
         android:supportsRtl="true"

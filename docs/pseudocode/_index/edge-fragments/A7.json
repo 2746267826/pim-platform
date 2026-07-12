@@ -1,0 +1,51 @@
+{
+  "nodes": [
+    {
+      "id": "src/Pim.Core/Common/ApiResponse.cs",
+      "label": "ApiResponse<T>",
+      "path": "src/Pim.Core/Common/ApiResponse.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Core/Common/ApiResponse.cs.md",
+      "layer": "core",
+      "kind": "dto"
+    },
+    {
+      "id": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs",
+      "label": "DaemonHeartbeatDtos",
+      "path": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Core/Operations/DaemonHeartbeatDtos.cs.md",
+      "layer": "core",
+      "kind": "dto"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Ai/AiRedactor.cs",
+      "label": "AiRedactor",
+      "path": "src/Pim.Infrastructure/Ai/AiRedactor.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiRedactor.cs.md",
+      "layer": "infrastructure",
+      "kind": "other"
+    }
+  ],
+  "edges": [
+    { "from": "src/Pim.Api/Middleware/ExceptionMiddleware.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Endpoints/DaemonEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Endpoints/AiEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Endpoints/StatusEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Endpoints/TodayEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Endpoints/OperationsEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/Endpoints/EndpointEndpoints.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Stats/StatsModule.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/MobileModule.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/CalendarModule.cs", "to": "src/Pim.Core/Common/ApiResponse.cs", "type": "depends_on" },
+    { "from": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "to": "src/Pim.Core/Operations/OperationEnums.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Operations/DaemonHeartbeatService.cs", "to": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "type": "implements" },
+    { "from": "src/Pim.Api/Endpoints/DaemonEndpoints.cs", "to": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs", "to": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "type": "depends_on" },
+    { "from": "tests/Pim.UnitTests/Operations/DaemonHeartbeatServiceTests.cs", "to": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/ClientWindows/DaemonHeartbeatReporterTests.cs", "to": "src/Pim.Core/Operations/DaemonHeartbeatDtos.cs", "type": "tests" },
+    { "from": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "to": "src/Pim.Infrastructure/Ai/AiRedactor.cs", "type": "calls" },
+    { "from": "tests/Pim.UnitTests/Ai/AiRedactorTests.cs", "to": "src/Pim.Infrastructure/Ai/AiRedactor.cs", "type": "tests" }
+  ]
+}

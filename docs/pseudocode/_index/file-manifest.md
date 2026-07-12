@@ -1,6 +1,6 @@
 ﻿# File Manifest
 
-Generated: 2026-07-12 21:55:35
+Generated: 2026-07-12 21:58:22
 Total: 775
 
 | Status | Source | Doc |
@@ -491,36 +491,36 @@ Total: 775
 | [ ] | `src/Pim.Api/Search/SearchEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Search/SearchEndpoints.cs.md` |
 | [ ] | `src/Pim.Api/Today/TodaySectionProviders.cs` | `docs/pseudocode/files/src/Pim.Api/Today/TodaySectionProviders.cs.md` |
 | [ ] | `src/Pim.Api/Today/TodaySectionService.cs` | `docs/pseudocode/files/src/Pim.Api/Today/TodaySectionService.cs.md` |
-| [ ] | `src/Pim.Core/Ai/AiDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/AiDtos.cs.md` |
-| [ ] | `src/Pim.Core/Ai/AiEnums.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/AiEnums.cs.md` |
-| [ ] | `src/Pim.Core/Ai/IAiGateway.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/IAiGateway.cs.md` |
-| [ ] | `src/Pim.Core/Ai/IAiSchemaRegistry.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/IAiSchemaRegistry.cs.md` |
-| [ ] | `src/Pim.Core/Ai/IAiUsageService.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/IAiUsageService.cs.md` |
-| [ ] | `src/Pim.Core/Audit/AuditVersionDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Audit/AuditVersionDtos.cs.md` |
-| [ ] | `src/Pim.Core/Common/ApiResponse.cs` | `docs/pseudocode/files/src/Pim.Core/Common/ApiResponse.cs.md` |
-| [ ] | `src/Pim.Core/Common/PagedResult.cs` | `docs/pseudocode/files/src/Pim.Core/Common/PagedResult.cs.md` |
-| [ ] | `src/Pim.Core/Data/ISoftDeletable.cs` | `docs/pseudocode/files/src/Pim.Core/Data/ISoftDeletable.cs.md` |
-| [ ] | `src/Pim.Core/Endpoints/EndpointDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Endpoints/EndpointDtos.cs.md` |
-| [ ] | `src/Pim.Core/Exceptions/DomainException.cs` | `docs/pseudocode/files/src/Pim.Core/Exceptions/DomainException.cs.md` |
-| [ ] | `src/Pim.Core/Modules/IModule.cs` | `docs/pseudocode/files/src/Pim.Core/Modules/IModule.cs.md` |
-| [ ] | `src/Pim.Core/Modules/ISearchProvider.cs` | `docs/pseudocode/files/src/Pim.Core/Modules/ISearchProvider.cs.md` |
-| [ ] | `src/Pim.Core/Operations/AuditDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Operations/AuditDtos.cs.md` |
-| [ ] | `src/Pim.Core/Operations/BackgroundJobDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Operations/BackgroundJobDtos.cs.md` |
-| [ ] | `src/Pim.Core/Operations/ConfirmationDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Operations/ConfirmationDtos.cs.md` |
-| [ ] | `src/Pim.Core/Operations/DaemonHeartbeatDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Operations/DaemonHeartbeatDtos.cs.md` |
-| [ ] | `src/Pim.Core/Operations/OperationEnums.cs` | `docs/pseudocode/files/src/Pim.Core/Operations/OperationEnums.cs.md` |
-| [ ] | `src/Pim.Core/Operations/StatusDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Operations/StatusDtos.cs.md` |
-| [ ] | `src/Pim.Core/Planning/PlanningDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Planning/PlanningDtos.cs.md` |
-| [ ] | `src/Pim.Core/Planning/PlanningEnums.cs` | `docs/pseudocode/files/src/Pim.Core/Planning/PlanningEnums.cs.md` |
-| [ ] | `src/Pim.Core/Today/TodayDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Today/TodayDtos.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Ai/AiChatClientFactory.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiChatClientFactory.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Ai/AiGateway.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiGateway.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Ai/AiOptions.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiOptions.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Ai/AiProviderHealthService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiProviderHealthService.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Ai/AiRedactor.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiRedactor.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Ai/AiSchemaRegistry.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiSchemaRegistry.cs.md` |
-| [ ] | `src/Pim.Infrastructure/Ai/AiSchemaValidator.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiSchemaValidator.cs.md` |
+| [x] | `src/Pim.Core/Ai/AiDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/AiDtos.cs.md` |
+| [x] | `src/Pim.Core/Ai/AiEnums.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/AiEnums.cs.md` |
+| [x] | `src/Pim.Core/Ai/IAiGateway.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/IAiGateway.cs.md` |
+| [x] | `src/Pim.Core/Ai/IAiSchemaRegistry.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/IAiSchemaRegistry.cs.md` |
+| [x] | `src/Pim.Core/Ai/IAiUsageService.cs` | `docs/pseudocode/files/src/Pim.Core/Ai/IAiUsageService.cs.md` |
+| [x] | `src/Pim.Core/Audit/AuditVersionDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Audit/AuditVersionDtos.cs.md` |
+| [x] | `src/Pim.Core/Common/ApiResponse.cs` | `docs/pseudocode/files/src/Pim.Core/Common/ApiResponse.cs.md` |
+| [x] | `src/Pim.Core/Common/PagedResult.cs` | `docs/pseudocode/files/src/Pim.Core/Common/PagedResult.cs.md` |
+| [x] | `src/Pim.Core/Data/ISoftDeletable.cs` | `docs/pseudocode/files/src/Pim.Core/Data/ISoftDeletable.cs.md` |
+| [x] | `src/Pim.Core/Endpoints/EndpointDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Endpoints/EndpointDtos.cs.md` |
+| [x] | `src/Pim.Core/Exceptions/DomainException.cs` | `docs/pseudocode/files/src/Pim.Core/Exceptions/DomainException.cs.md` |
+| [x] | `src/Pim.Core/Modules/IModule.cs` | `docs/pseudocode/files/src/Pim.Core/Modules/IModule.cs.md` |
+| [x] | `src/Pim.Core/Modules/ISearchProvider.cs` | `docs/pseudocode/files/src/Pim.Core/Modules/ISearchProvider.cs.md` |
+| [x] | `src/Pim.Core/Operations/AuditDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Operations/AuditDtos.cs.md` |
+| [x] | `src/Pim.Core/Operations/BackgroundJobDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Operations/BackgroundJobDtos.cs.md` |
+| [x] | `src/Pim.Core/Operations/ConfirmationDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Operations/ConfirmationDtos.cs.md` |
+| [x] | `src/Pim.Core/Operations/DaemonHeartbeatDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Operations/DaemonHeartbeatDtos.cs.md` |
+| [x] | `src/Pim.Core/Operations/OperationEnums.cs` | `docs/pseudocode/files/src/Pim.Core/Operations/OperationEnums.cs.md` |
+| [x] | `src/Pim.Core/Operations/StatusDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Operations/StatusDtos.cs.md` |
+| [x] | `src/Pim.Core/Planning/PlanningDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Planning/PlanningDtos.cs.md` |
+| [x] | `src/Pim.Core/Planning/PlanningEnums.cs` | `docs/pseudocode/files/src/Pim.Core/Planning/PlanningEnums.cs.md` |
+| [x] | `src/Pim.Core/Today/TodayDtos.cs` | `docs/pseudocode/files/src/Pim.Core/Today/TodayDtos.cs.md` |
+| [x] | `src/Pim.Infrastructure/Ai/AiChatClientFactory.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiChatClientFactory.cs.md` |
+| [x] | `src/Pim.Infrastructure/Ai/AiGateway.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiGateway.cs.md` |
+| [x] | `src/Pim.Infrastructure/Ai/AiOptions.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiOptions.cs.md` |
+| [x] | `src/Pim.Infrastructure/Ai/AiProviderHealthService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiProviderHealthService.cs.md` |
+| [x] | `src/Pim.Infrastructure/Ai/AiRedactor.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiRedactor.cs.md` |
+| [x] | `src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs.md` |
+| [x] | `src/Pim.Infrastructure/Ai/AiSchemaRegistry.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiSchemaRegistry.cs.md` |
+| [x] | `src/Pim.Infrastructure/Ai/AiSchemaValidator.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiSchemaValidator.cs.md` |
 | [ ] | `src/Pim.Infrastructure/Ai/AiUsageService.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiUsageService.cs.md` |
 | [ ] | `src/Pim.Infrastructure/Ai/DisabledAiGateway.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/DisabledAiGateway.cs.md` |
 | [ ] | `src/Pim.Infrastructure/Ai/InMemoryAiSchemaRegistry.cs` | `docs/pseudocode/files/src/Pim.Infrastructure/Ai/InMemoryAiSchemaRegistry.cs.md` |

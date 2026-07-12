@@ -1,0 +1,47 @@
+{
+  "nodes": [
+    {
+      "id": "src/Pim.Core/Ai/IAiSchemaRegistry.cs",
+      "label": "IAiSchemaRegistry",
+      "path": "src/Pim.Core/Ai/IAiSchemaRegistry.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Core/Ai/IAiSchemaRegistry.cs.md",
+      "layer": "core",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Core/Operations/AuditDtos.cs",
+      "label": "AuditDtos",
+      "path": "src/Pim.Core/Operations/AuditDtos.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Core/Operations/AuditDtos.cs.md",
+      "layer": "core",
+      "kind": "dto"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Ai/AiGateway.cs",
+      "label": "AiGateway",
+      "path": "src/Pim.Infrastructure/Ai/AiGateway.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiGateway.cs.md",
+      "layer": "infrastructure",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    { "from": "src/Pim.Infrastructure/Ai/AiSchemaRegistry.cs", "to": "src/Pim.Core/Ai/IAiSchemaRegistry.cs", "type": "implements" },
+    { "from": "src/Pim.Infrastructure/Ai/InMemoryAiSchemaRegistry.cs", "to": "src/Pim.Core/Ai/IAiSchemaRegistry.cs", "type": "implements" },
+    { "from": "src/Pim.Infrastructure/Ai/AiGateway.cs", "to": "src/Pim.Core/Ai/IAiSchemaRegistry.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Files/Services/FileAiService.cs", "to": "src/Pim.Core/Ai/IAiSchemaRegistry.cs", "type": "calls" },
+    { "from": "src/Pim.Core/Operations/AuditDtos.cs", "to": "src/Pim.Core/Operations/OperationEnums.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Operations/AuditLogService.cs", "to": "src/Pim.Core/Operations/AuditDtos.cs", "type": "implements" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs", "to": "src/Pim.Core/Operations/AuditDtos.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Files/Services/FileOperationService.cs", "to": "src/Pim.Core/Operations/AuditDtos.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/CalendarAuditWriter.cs", "to": "src/Pim.Core/Operations/AuditDtos.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRecomputeService.cs", "to": "src/Pim.Core/Operations/AuditDtos.cs", "type": "calls" },
+    { "from": "src/Pim.Infrastructure/Ai/AiGateway.cs", "to": "src/Pim.Infrastructure/Ai/AiOptions.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Ai/AiGateway.cs", "to": "src/Pim.Infrastructure/Ai/AiChatClientFactory.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Ai/AiGateway.cs", "to": "src/Pim.Infrastructure/Ai/AiRequestLogWriter.cs", "type": "calls" },
+    { "from": "src/Pim.Infrastructure/Ai/AiGateway.cs", "to": "src/Pim.Infrastructure/Ai/AiSchemaValidator.cs", "type": "calls" },
+    { "from": "src/Pim.Infrastructure/Ai/AiGateway.cs", "to": "src/Pim.Core/Ai", "type": "implements" },
+    { "from": "src/Pim.Api/Endpoints/AiEndpoints.cs", "to": "src/Pim.Infrastructure/Ai/AiGateway.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Files/Services/FileAiService.cs", "to": "src/Pim.Infrastructure/Ai/AiGateway.cs", "type": "calls" }
+  ]
+}

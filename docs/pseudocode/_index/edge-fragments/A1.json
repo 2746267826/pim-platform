@@ -1,0 +1,34 @@
+{
+  "slot": "A1",
+  "nodes": [
+    {
+      "id": "src/Pim.Core/Ai/AiDtos.cs",
+      "label": "AiDtos",
+      "path": "src/Pim.Core/Ai/AiDtos.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Core/Ai/AiDtos.cs.md",
+      "layer": "core",
+      "kind": "dto"
+    },
+    {
+      "id": "src/Pim.Core/Exceptions/DomainException.cs",
+      "label": "DomainException",
+      "path": "src/Pim.Core/Exceptions/DomainException.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Core/Exceptions/DomainException.cs.md",
+      "layer": "core",
+      "kind": "other"
+    },
+    {
+      "id": "src/Pim.Core/Planning/PlanningEnums.cs",
+      "label": "PlanningEnums",
+      "path": "src/Pim.Core/Planning/PlanningEnums.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Core/Planning/PlanningEnums.cs.md",
+      "layer": "core",
+      "kind": "other"
+    }
+  ],
+  "edges": [
+    { "from": "src/Pim.Core/Ai/AiDtos.cs", "to": "src/Pim.Core/Ai/AiEnums.cs", "type": "depends_on" },
+    { "from": "src/Pim.Core/Ai/AiDtos.cs", "to": "Pim.Core.Common", "type": "depends_on" },
+    { "from": "src/Pim.Core/Exceptions/DomainException.cs", "to": "System.Exception", "type": "extends" }
+  ]
+}

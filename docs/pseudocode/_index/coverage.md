@@ -1,7 +1,7 @@
 ﻿# Coverage
 
-- Updated: 2026-07-12 21:55:36
-- Done: 0 / 775 (0%)
+- Updated: 2026-07-12 21:58:22
+- Done: 30 / 775 (3.87%)
 - Next: run `scripts/pseudocode/Split-WaveAssignments.ps1` then launch 10 subagents
 
 ## Rules

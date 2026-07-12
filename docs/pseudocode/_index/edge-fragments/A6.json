@@ -1,0 +1,50 @@
+{
+  "slot": "A6",
+  "nodes": [
+    {
+      "id": "src/Pim.Core/Audit/AuditVersionDtos.cs",
+      "label": "AuditVersionDtos",
+      "path": "src/Pim.Core/Audit/AuditVersionDtos.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Core/Audit/AuditVersionDtos.cs.md",
+      "layer": "core",
+      "kind": "dto"
+    },
+    {
+      "id": "src/Pim.Core/Operations/ConfirmationDtos.cs",
+      "label": "ConfirmationDtos",
+      "path": "src/Pim.Core/Operations/ConfirmationDtos.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Core/Operations/ConfirmationDtos.cs.md",
+      "layer": "core",
+      "kind": "dto"
+    },
+    {
+      "id": "src/Pim.Infrastructure/Ai/AiProviderHealthService.cs",
+      "label": "AiProviderHealthService",
+      "path": "src/Pim.Infrastructure/Ai/AiProviderHealthService.cs",
+      "doc": "docs/pseudocode/files/src/Pim.Infrastructure/Ai/AiProviderHealthService.cs.md",
+      "layer": "infrastructure",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    { "from": "src/Pim.Infrastructure/Audit/AuditVersionService.cs", "to": "src/Pim.Core/Audit/AuditVersionDtos.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/DataCenterGovernanceService.cs", "to": "src/Pim.Core/Audit/AuditVersionDtos.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/CalendarModule.cs", "to": "src/Pim.Core/Audit/AuditVersionDtos.cs", "type": "depends_on" },
+    { "from": "src/Pim.Core/Operations/ConfirmationDtos.cs", "to": "src/Pim.Core/Operations/OperationEnums.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs", "to": "src/Pim.Core/Operations/ConfirmationDtos.cs", "type": "implements" },
+    { "from": "src/Pim.Api/Endpoints/OperationsEndpoints.cs", "to": "src/Pim.Core/Operations/ConfirmationDtos.cs", "type": "calls" },
+    { "from": "src/Pim.Api/Today/TodaySectionProviders.cs", "to": "src/Pim.Core/Operations/ConfirmationDtos.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/DataCenterGovernanceService.cs", "to": "src/Pim.Core/Operations/ConfirmationDtos.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/OutlookSyncService.cs", "to": "src/Pim.Core/Operations/ConfirmationDtos.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/OutlookConflictService.cs", "to": "src/Pim.Core/Operations/ConfirmationDtos.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs", "to": "src/Pim.Core/Operations/ConfirmationDtos.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Calendar/Services/ReportService.cs", "to": "src/Pim.Core/Operations/ConfirmationDtos.cs", "type": "calls" },
+    { "from": "src/Pim.Infrastructure/Ai/AiProviderHealthService.cs", "to": "src/Pim.Infrastructure/Ai/AiOptions.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Ai/AiProviderHealthService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Ai/AiProviderHealthService.cs", "to": "src/Pim.Infrastructure/Data/Entities/AiProviderSettingEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Ai/AiProviderHealthService.cs", "to": "IAiProviderHealthService", "type": "implements" },
+    { "from": "src/Pim.Api/Endpoints/AiEndpoints.cs", "to": "src/Pim.Infrastructure/Ai/AiProviderHealthService.cs", "type": "calls" },
+    { "from": "src/Pim.Infrastructure/Extensions/ServiceCollectionExtensions.cs", "to": "src/Pim.Infrastructure/Ai/AiProviderHealthService.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Ai/AiProviderHealthService.cs", "to": "litellm:/v1/models", "type": "http" }
+  ]
+}

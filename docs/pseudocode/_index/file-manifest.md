@@ -1,6 +1,6 @@
 ﻿# File Manifest
 
-Generated: 2026-07-12 22:10:13
+Generated: 2026-07-12 22:15:36
 Total: 775
 
 | Status | Source | Doc |
@@ -140,61 +140,61 @@ Total: 775
 | [ ] | `src/client-android/core/src/test/java/com/pim/core/settings/PimServerEndpointsTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/settings/PimServerEndpointsTest.kt.md` |
 | [ ] | `src/client-android/core/src/test/java/com/pim/core/settings/ServerUrlValidatorTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/settings/ServerUrlValidatorTest.kt.md` |
 | [ ] | `src/client-android/core/src/test/java/com/pim/core/util/ThrowableMessagesTest.kt` | `docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/util/ThrowableMessagesTest.kt.md` |
-| [ ] | `src/client-web/eslint.config.js` | `docs/pseudocode/files/src/client-web/eslint.config.js.md` |
-| [ ] | `src/client-web/src/api/ai.ts` | `docs/pseudocode/files/src/client-web/src/api/ai.ts.md` |
-| [ ] | `src/client-web/src/api/appKnowledge.ts` | `docs/pseudocode/files/src/client-web/src/api/appKnowledge.ts.md` |
-| [ ] | `src/client-web/src/api/appSignatures.ts` | `docs/pseudocode/files/src/client-web/src/api/appSignatures.ts.md` |
-| [ ] | `src/client-web/src/api/calendar.ts` | `docs/pseudocode/files/src/client-web/src/api/calendar.ts.md` |
-| [ ] | `src/client-web/src/api/client.ts` | `docs/pseudocode/files/src/client-web/src/api/client.ts.md` |
-| [ ] | `src/client-web/src/api/endpoints.ts` | `docs/pseudocode/files/src/client-web/src/api/endpoints.ts.md` |
-| [ ] | `src/client-web/src/api/files.ts` | `docs/pseudocode/files/src/client-web/src/api/files.ts.md` |
-| [ ] | `src/client-web/src/api/mobile.ts` | `docs/pseudocode/files/src/client-web/src/api/mobile.ts.md` |
-| [ ] | `src/client-web/src/api/operations.ts` | `docs/pseudocode/files/src/client-web/src/api/operations.ts.md` |
-| [ ] | `src/client-web/src/api/pcTracker.ts` | `docs/pseudocode/files/src/client-web/src/api/pcTracker.ts.md` |
-| [ ] | `src/client-web/src/api/quickNotes.ts` | `docs/pseudocode/files/src/client-web/src/api/quickNotes.ts.md` |
-| [ ] | `src/client-web/src/api/status.ts` | `docs/pseudocode/files/src/client-web/src/api/status.ts.md` |
-| [ ] | `src/client-web/src/api/today.ts` | `docs/pseudocode/files/src/client-web/src/api/today.ts.md` |
-| [ ] | `src/client-web/src/App.tsx` | `docs/pseudocode/files/src/client-web/src/App.tsx.md` |
-| [ ] | `src/client-web/src/auth/authApi.ts` | `docs/pseudocode/files/src/client-web/src/auth/authApi.ts.md` |
-| [ ] | `src/client-web/src/auth/AuthContext.tsx` | `docs/pseudocode/files/src/client-web/src/auth/AuthContext.tsx.md` |
-| [ ] | `src/client-web/src/auth/LoginPage.tsx` | `docs/pseudocode/files/src/client-web/src/auth/LoginPage.tsx.md` |
-| [ ] | `src/client-web/src/components/ai/AiRequestDetailPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/ai/AiRequestDetailPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/ai/AiRequestLogTable.tsx` | `docs/pseudocode/files/src/client-web/src/components/ai/AiRequestLogTable.tsx.md` |
-| [ ] | `src/client-web/src/components/ai/AiStatusPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/ai/AiStatusPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/ai/AiUsageOverview.tsx` | `docs/pseudocode/files/src/client-web/src/components/ai/AiUsageOverview.tsx.md` |
-| [ ] | `src/client-web/src/components/app-knowledge/AppKnowledgeContextList.tsx` | `docs/pseudocode/files/src/client-web/src/components/app-knowledge/AppKnowledgeContextList.tsx.md` |
-| [ ] | `src/client-web/src/components/app-knowledge/AppKnowledgeImpactSummary.tsx` | `docs/pseudocode/files/src/client-web/src/components/app-knowledge/AppKnowledgeImpactSummary.tsx.md` |
-| [ ] | `src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx` | `docs/pseudocode/files/src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/locationFormatting.ts` | `docs/pseudocode/files/src/client-web/src/components/mobile/locationFormatting.ts.md` |
-| [ ] | `src/client-web/src/components/mobile/LocationHistoryMap.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/LocationHistoryMap.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/LocationMetricStrip.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/LocationMetricStrip.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/LocationPointList.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/LocationPointList.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/LocationRawPointTable.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/LocationRawPointTable.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/LocationSegmentDetail.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/LocationSegmentDetail.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/LocationStayMoveTimeline.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/LocationStayMoveTimeline.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/mobileAnalyticsCopy.ts` | `docs/pseudocode/files/src/client-web/src/components/mobile/mobileAnalyticsCopy.ts.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileAnalyticsHeader.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileAnalyticsHeader.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileAnomalyPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileAnomalyPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileAppCatalogManager.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileAppCatalogManager.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileAppRanking.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileAppRanking.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileChartsGrid.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileChartsGrid.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/mobileFormatting.ts` | `docs/pseudocode/files/src/client-web/src/components/mobile/mobileFormatting.ts.md` |
-| [ ] | `src/client-web/src/components/mobile/mobileHeatmapMatrix.ts` | `docs/pseudocode/files/src/client-web/src/components/mobile/mobileHeatmapMatrix.ts.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileInsightStrip.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileInsightStrip.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileMetricGrid.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileMetricGrid.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileMetricStrip.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileMetricStrip.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileQualityPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileQualityPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileRecordsDashboard.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileRecordsDashboard.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileTimeline.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileTimeline.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileTimelineBlocks.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileTimelineBlocks.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileUsageBucketDetail.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileUsageBucketDetail.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/MobileUsageHeatmap.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileUsageHeatmap.tsx.md` |
-| [ ] | `src/client-web/src/components/mobile/WorkbenchPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/WorkbenchPanel.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-classification/ClassificationRecomputePanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRecomputePanel.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-classification/ClassificationRuleEditor.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRuleEditor.tsx.md` |
-| [ ] | `src/client-web/src/components/pc-classification/ClassificationRuleTable.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRuleTable.tsx.md` |
+| [x] | `src/client-web/eslint.config.js` | `docs/pseudocode/files/src/client-web/eslint.config.js.md` |
+| [x] | `src/client-web/src/api/ai.ts` | `docs/pseudocode/files/src/client-web/src/api/ai.ts.md` |
+| [x] | `src/client-web/src/api/appKnowledge.ts` | `docs/pseudocode/files/src/client-web/src/api/appKnowledge.ts.md` |
+| [x] | `src/client-web/src/api/appSignatures.ts` | `docs/pseudocode/files/src/client-web/src/api/appSignatures.ts.md` |
+| [x] | `src/client-web/src/api/calendar.ts` | `docs/pseudocode/files/src/client-web/src/api/calendar.ts.md` |
+| [x] | `src/client-web/src/api/client.ts` | `docs/pseudocode/files/src/client-web/src/api/client.ts.md` |
+| [x] | `src/client-web/src/api/endpoints.ts` | `docs/pseudocode/files/src/client-web/src/api/endpoints.ts.md` |
+| [x] | `src/client-web/src/api/files.ts` | `docs/pseudocode/files/src/client-web/src/api/files.ts.md` |
+| [x] | `src/client-web/src/api/mobile.ts` | `docs/pseudocode/files/src/client-web/src/api/mobile.ts.md` |
+| [x] | `src/client-web/src/api/operations.ts` | `docs/pseudocode/files/src/client-web/src/api/operations.ts.md` |
+| [x] | `src/client-web/src/api/pcTracker.ts` | `docs/pseudocode/files/src/client-web/src/api/pcTracker.ts.md` |
+| [x] | `src/client-web/src/api/quickNotes.ts` | `docs/pseudocode/files/src/client-web/src/api/quickNotes.ts.md` |
+| [x] | `src/client-web/src/api/status.ts` | `docs/pseudocode/files/src/client-web/src/api/status.ts.md` |
+| [x] | `src/client-web/src/api/today.ts` | `docs/pseudocode/files/src/client-web/src/api/today.ts.md` |
+| [x] | `src/client-web/src/App.tsx` | `docs/pseudocode/files/src/client-web/src/App.tsx.md` |
+| [x] | `src/client-web/src/auth/authApi.ts` | `docs/pseudocode/files/src/client-web/src/auth/authApi.ts.md` |
+| [x] | `src/client-web/src/auth/AuthContext.tsx` | `docs/pseudocode/files/src/client-web/src/auth/AuthContext.tsx.md` |
+| [x] | `src/client-web/src/auth/LoginPage.tsx` | `docs/pseudocode/files/src/client-web/src/auth/LoginPage.tsx.md` |
+| [x] | `src/client-web/src/components/ai/AiRequestDetailPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/ai/AiRequestDetailPanel.tsx.md` |
+| [x] | `src/client-web/src/components/ai/AiRequestLogTable.tsx` | `docs/pseudocode/files/src/client-web/src/components/ai/AiRequestLogTable.tsx.md` |
+| [x] | `src/client-web/src/components/ai/AiStatusPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/ai/AiStatusPanel.tsx.md` |
+| [x] | `src/client-web/src/components/ai/AiUsageOverview.tsx` | `docs/pseudocode/files/src/client-web/src/components/ai/AiUsageOverview.tsx.md` |
+| [x] | `src/client-web/src/components/app-knowledge/AppKnowledgeContextList.tsx` | `docs/pseudocode/files/src/client-web/src/components/app-knowledge/AppKnowledgeContextList.tsx.md` |
+| [x] | `src/client-web/src/components/app-knowledge/AppKnowledgeImpactSummary.tsx` | `docs/pseudocode/files/src/client-web/src/components/app-knowledge/AppKnowledgeImpactSummary.tsx.md` |
+| [x] | `src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx` | `docs/pseudocode/files/src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/locationFormatting.ts` | `docs/pseudocode/files/src/client-web/src/components/mobile/locationFormatting.ts.md` |
+| [x] | `src/client-web/src/components/mobile/LocationHistoryMap.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/LocationHistoryMap.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/LocationMetricStrip.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/LocationMetricStrip.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/LocationPointList.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/LocationPointList.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/LocationRawPointTable.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/LocationRawPointTable.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/LocationSegmentDetail.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/LocationSegmentDetail.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/LocationStayMoveTimeline.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/LocationStayMoveTimeline.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/mobileAnalyticsCopy.ts` | `docs/pseudocode/files/src/client-web/src/components/mobile/mobileAnalyticsCopy.ts.md` |
+| [x] | `src/client-web/src/components/mobile/MobileAnalyticsHeader.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileAnalyticsHeader.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/MobileAnomalyPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileAnomalyPanel.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/MobileAppCatalogManager.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileAppCatalogManager.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/MobileAppRanking.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileAppRanking.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/MobileChartsGrid.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileChartsGrid.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/mobileFormatting.ts` | `docs/pseudocode/files/src/client-web/src/components/mobile/mobileFormatting.ts.md` |
+| [x] | `src/client-web/src/components/mobile/mobileHeatmapMatrix.ts` | `docs/pseudocode/files/src/client-web/src/components/mobile/mobileHeatmapMatrix.ts.md` |
+| [x] | `src/client-web/src/components/mobile/MobileInsightStrip.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileInsightStrip.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/MobileMetricGrid.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileMetricGrid.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/MobileMetricStrip.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileMetricStrip.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/MobileQualityPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileQualityPanel.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/MobileRecordsDashboard.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileRecordsDashboard.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/MobileTimeline.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileTimeline.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/MobileTimelineBlocks.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileTimelineBlocks.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/MobileUsageBucketDetail.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileUsageBucketDetail.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/MobileUsageHeatmap.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/MobileUsageHeatmap.tsx.md` |
+| [x] | `src/client-web/src/components/mobile/WorkbenchPanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/mobile/WorkbenchPanel.tsx.md` |
+| [x] | `src/client-web/src/components/pc-classification/ClassificationRecomputePanel.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRecomputePanel.tsx.md` |
+| [x] | `src/client-web/src/components/pc-classification/ClassificationRuleEditor.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRuleEditor.tsx.md` |
+| [x] | `src/client-web/src/components/pc-classification/ClassificationRuleTable.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRuleTable.tsx.md` |
 | [ ] | `src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx.md` |
 | [ ] | `src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx.md` |
 | [ ] | `src/client-web/src/components/pc-tracker/CategoryTimeline.tsx` | `docs/pseudocode/files/src/client-web/src/components/pc-tracker/CategoryTimeline.tsx.md` |
@@ -283,35 +283,35 @@ Total: 775
 | [ ] | `src/client-web/src/utils/pcBusinessDay.ts` | `docs/pseudocode/files/src/client-web/src/utils/pcBusinessDay.ts.md` |
 | [ ] | `src/client-web/tailwind.config.ts` | `docs/pseudocode/files/src/client-web/tailwind.config.ts.md` |
 | [ ] | `src/client-web/vite.config.ts` | `docs/pseudocode/files/src/client-web/vite.config.ts.md` |
-| [ ] | `src/client-windows/Pim.Client.App/App.xaml.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/App.xaml.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.App/AutoStartManager.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/AutoStartManager.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.App/DaemonConfig.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/DaemonConfig.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.App/EmbeddedWebViewHost.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/EmbeddedWebViewHost.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.App/LoginWindow.xaml.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/LoginWindow.xaml.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.App/NotificationActionRouter.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/NotificationActionRouter.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.App/Services/INavigationService.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/Services/INavigationService.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.App/Services/Logger.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/Services/Logger.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.App/Services/NavigationService.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/Services/NavigationService.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.App/Startup.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/Startup.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.App/StatusWindow.xaml.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/StatusWindow.xaml.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.App/TrayIcon.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/TrayIcon.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/ClientDefaults.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/ClientDefaults.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Models/AuthDtos.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Models/AuthDtos.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Models/DaemonHeartbeatDtos.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Models/DaemonHeartbeatDtos.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Models/EndpointDtos.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Models/EndpointDtos.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Models/KeyStatsHealthModels.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Models/KeyStatsHealthModels.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Services/ApiClient.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/ApiClient.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Services/AuthService.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/AuthService.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Services/AwBucketSelection.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/AwBucketSelection.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Services/EndpointCollectionBoundaryService.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/EndpointCollectionBoundaryService.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Services/KeyStatsHealthProbe.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/KeyStatsHealthProbe.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Services/NotificationActionRouter.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/NotificationActionRouter.cs.md` |
-| [ ] | `src/client-windows/Pim.Client.Core/Services/StatusCenterEvaluator.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/StatusCenterEvaluator.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/App.xaml.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/App.xaml.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/AutoStartManager.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/AutoStartManager.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/DaemonConfig.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/DaemonConfig.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/EmbeddedWebViewHost.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/EmbeddedWebViewHost.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/LoginWindow.xaml.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/LoginWindow.xaml.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/NotificationActionRouter.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/NotificationActionRouter.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/Services/INavigationService.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/Services/INavigationService.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/Services/Logger.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/Services/Logger.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/Services/NavigationService.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/Services/NavigationService.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/Startup.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/Startup.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/StatusWindow.xaml.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/StatusWindow.xaml.cs.md` |
+| [x] | `src/client-windows/Pim.Client.App/TrayIcon.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.App/TrayIcon.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/ClientDefaults.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/ClientDefaults.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Models/AuthDtos.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Models/AuthDtos.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Models/DaemonHeartbeatDtos.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Models/DaemonHeartbeatDtos.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Models/EndpointDtos.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Models/EndpointDtos.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Models/KeyStatsHealthModels.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Models/KeyStatsHealthModels.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Services/ApiClient.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/ApiClient.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Services/AuthService.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/AuthService.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Services/AwBucketSelection.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/AwBucketSelection.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Services/EndpointCollectionBoundaryService.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/EndpointCollectionBoundaryService.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Services/KeyStatsHealthProbe.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/KeyStatsHealthProbe.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Services/NotificationActionRouter.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/NotificationActionRouter.cs.md` |
+| [x] | `src/client-windows/Pim.Client.Core/Services/StatusCenterEvaluator.cs` | `docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/StatusCenterEvaluator.cs.md` |
 | [x] | `src/modules/Pim.Module.Calendar/CalendarModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/CalendarModule.cs.md` |
 | [x] | `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs.md` |
 | [x] | `src/modules/Pim.Module.Calendar/Entities/AiPlanningPlaceholderEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Calendar/Entities/AiPlanningPlaceholderEntity.cs.md` |
@@ -458,22 +458,22 @@ Total: 775
 | [x] | `src/modules/Pim.Module.PcTracker/Services/PcTrackerQualityService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcTrackerQualityService.cs.md` |
 | [x] | `src/modules/Pim.Module.PcTracker/Services/PcTrackerSchemaInitializer.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcTrackerSchemaInitializer.cs.md` |
 | [x] | `src/modules/Pim.Module.PcTracker/Services/PcTrackerService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/PcTrackerService.cs.md` |
-| [ ] | `src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs.md` |
-| [ ] | `src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntityConfigurations.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntityConfigurations.cs.md` |
-| [ ] | `src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs.md` |
-| [ ] | `src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs.md` |
-| [ ] | `src/modules/Pim.Module.QuickNotes/Services/MinioQuickNoteObjectStorage.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/MinioQuickNoteObjectStorage.cs.md` |
-| [ ] | `src/modules/Pim.Module.QuickNotes/Services/NullQuickNoteObjectStorage.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/NullQuickNoteObjectStorage.cs.md` |
-| [ ] | `src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs.md` |
-| [ ] | `src/modules/Pim.Module.QuickNotes/Services/QuickNoteMarkdownReferences.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/QuickNoteMarkdownReferences.cs.md` |
-| [ ] | `src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Stats/DTOs/StatsDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/DTOs/StatsDtos.cs.md` |
-| [ ] | `src/modules/Pim.Module.Stats/Entities/AppUsageEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/Entities/AppUsageEntity.cs.md` |
-| [ ] | `src/modules/Pim.Module.Stats/Entities/AppUsageEntityConfiguration.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/Entities/AppUsageEntityConfiguration.cs.md` |
-| [ ] | `src/modules/Pim.Module.Stats/Services/StatsService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/Services/StatsService.cs.md` |
-| [ ] | `src/modules/Pim.Module.Stats/StatsModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/StatsModule.cs.md` |
+| [x] | `src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs.md` |
+| [x] | `src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntityConfigurations.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntityConfigurations.cs.md` |
+| [x] | `src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs.md` |
+| [x] | `src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs.md` |
+| [x] | `src/modules/Pim.Module.QuickNotes/Services/MinioQuickNoteObjectStorage.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/MinioQuickNoteObjectStorage.cs.md` |
+| [x] | `src/modules/Pim.Module.QuickNotes/Services/NullQuickNoteObjectStorage.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/NullQuickNoteObjectStorage.cs.md` |
+| [x] | `src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs.md` |
+| [x] | `src/modules/Pim.Module.QuickNotes/Services/QuickNoteMarkdownReferences.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/QuickNoteMarkdownReferences.cs.md` |
+| [x] | `src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs.md` |
+| [x] | `src/modules/Pim.Module.Stats/DTOs/StatsDtos.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/DTOs/StatsDtos.cs.md` |
+| [x] | `src/modules/Pim.Module.Stats/Entities/AppUsageEntity.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/Entities/AppUsageEntity.cs.md` |
+| [x] | `src/modules/Pim.Module.Stats/Entities/AppUsageEntityConfiguration.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/Entities/AppUsageEntityConfiguration.cs.md` |
+| [x] | `src/modules/Pim.Module.Stats/Services/StatsService.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/Services/StatsService.cs.md` |
+| [x] | `src/modules/Pim.Module.Stats/StatsModule.cs` | `docs/pseudocode/files/src/modules/Pim.Module.Stats/StatsModule.cs.md` |
 | [x] | `src/Pim.Api/DTOs/AuthDtos.cs` | `docs/pseudocode/files/src/Pim.Api/DTOs/AuthDtos.cs.md` |
 | [x] | `src/Pim.Api/Endpoints/AiEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/AiEndpoints.cs.md` |
 | [x] | `src/Pim.Api/Endpoints/AuthEndpoints.cs` | `docs/pseudocode/files/src/Pim.Api/Endpoints/AuthEndpoints.cs.md` |

@@ -38,4 +38,3 @@
     { "from": "tests/Pim.UnitTests/Services/ActivityClassificationRuleServiceTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRuleService.cs", "type": "tests" }
   ]
 }
-```

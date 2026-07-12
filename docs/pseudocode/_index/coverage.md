@@ -1,8 +1,9 @@
-﻿# Coverage
+# Coverage
 
-- Updated: 2026-07-12 22:36:04
-- Done: 760 / 775 (98.06%)
-- Next: run `scripts/pseudocode/Split-WaveAssignments.ps1` then launch 10 subagents
+- Updated: 2026-07-12 22:40:28
+- Done: 775 / 775 (100%)
+- Graph: nodes=775 edges=1074 (interactive/graph-data.json)
+- Status: full-library pseudocode complete; B9 graphs generated
 
 ## Rules
 - Only mark done when dual-granularity doc exists for the source file.

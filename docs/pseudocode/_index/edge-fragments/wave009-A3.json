@@ -1,0 +1,27 @@
+{
+  "slot": "A3",
+  "wave": "wave009",
+  "nodes": [
+    {
+      "id": "tests/Pim.UnitTests/Services/ClassificationRuleDraftServiceTests.cs",
+      "label": "ClassificationRuleDraftServiceTests",
+      "path": "tests/Pim.UnitTests/Services/ClassificationRuleDraftServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/ClassificationRuleDraftServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Today/TodayScheduleWorkbenchSectionTests.cs",
+      "label": "TodayScheduleWorkbenchSectionTests",
+      "path": "tests/Pim.UnitTests/Today/TodayScheduleWorkbenchSectionTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Today/TodayScheduleWorkbenchSectionTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "tests/Pim.UnitTests/Services/ClassificationRuleDraftServiceTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/ClassificationRuleDraftService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Today/TodayScheduleWorkbenchSectionTests.cs", "to": "src/Pim.Api/Today/TodaySectionProviders.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Today/TodayScheduleWorkbenchSectionTests.cs", "to": "src/Pim.Api/Program.cs", "type": "tests" }
+  ]
+}

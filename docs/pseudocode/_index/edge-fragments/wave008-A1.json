@@ -149,4 +149,3 @@
     { "from": "tests/Pim.UnitTests/Services/ActivityClassificationRuleEvaluatorTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRuleEvaluator.cs", "type": "tests" }
   ]
 }
-```

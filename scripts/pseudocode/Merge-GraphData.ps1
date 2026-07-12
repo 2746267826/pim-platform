@@ -10,7 +10,14 @@ $nodes = @{}
 $edges = New-Object System.Collections.Generic.List[object]
 
 function Import-Fragment($path) {
-  $raw = Get-Content $path -Raw | ConvertFrom-Json
+  try {
+    $txt = [System.IO.File]::ReadAllText($path)
+    if ($txt.Length -gt 0 -and [int][char]$txt[0] -eq 0xFEFF) { $txt = $txt.Substring(1) }
+    $raw = $txt | ConvertFrom-Json -ErrorAction Stop
+  } catch {
+    Write-Warning "Skip invalid edge fragment: $path ($($_.Exception.Message))"
+    return
+  }
   foreach ($n in @($raw.nodes)) {
     if ($null -ne $n -and $n.id) { $nodes[$n.id] = $n }
   }

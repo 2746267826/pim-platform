@@ -1,6 +1,6 @@
 ﻿# File Manifest
 
-Generated: 2026-07-12 22:36:04
+Generated: 2026-07-12 22:40:12
 Total: 775
 
 | Status | Source | Doc |
@@ -765,19 +765,19 @@ Total: 775
 | [x] | `tests/Pim.UnitTests/Services/ActivityUrlSanitizerTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityUrlSanitizerTests.cs.md` |
 | [x] | `tests/Pim.UnitTests/Services/AppKnowledgeContextServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/AppKnowledgeContextServiceTests.cs.md` |
 | [x] | `tests/Pim.UnitTests/Services/AppKnowledgeSuggestionServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/AppKnowledgeSuggestionServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/AppNameNormalizerTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/AppNameNormalizerTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/CalendarServiceUiCreationTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/CalendarServiceUiCreationTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/ClassificationRuleDraftServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ClassificationRuleDraftServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/IcsServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/IcsServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/KeystatsDeltaCalculatorTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/KeystatsDeltaCalculatorTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/PcActivityAnalysisServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/PcActivityAnalysisServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/PcActivityRecordKeyServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/PcActivityRecordKeyServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/PcCategoryServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/PcCategoryServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/PcTrackerCompleteCaptureTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/PcTrackerCompleteCaptureTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/PcTrackerQualityServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/PcTrackerQualityServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/PcTrackerServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/PcTrackerServiceTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Services/SchedulingAlgorithmsTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/SchedulingAlgorithmsTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Today/TodayScheduleWorkbenchSectionTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Today/TodayScheduleWorkbenchSectionTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Today/TodaySectionProviderTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Today/TodaySectionProviderTests.cs.md` |
-| [ ] | `tests/Pim.UnitTests/Today/TodaySectionServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Today/TodaySectionServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/AppNameNormalizerTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/AppNameNormalizerTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/CalendarServiceUiCreationTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/CalendarServiceUiCreationTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/ClassificationRuleDraftServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/ClassificationRuleDraftServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/IcsServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/IcsServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/KeystatsDeltaCalculatorTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/KeystatsDeltaCalculatorTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/PcActivityAnalysisServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/PcActivityAnalysisServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/PcActivityRecordKeyServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/PcActivityRecordKeyServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/PcCategoryServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/PcCategoryServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/PcTrackerCompleteCaptureTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/PcTrackerCompleteCaptureTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/PcTrackerQualityServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/PcTrackerQualityServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/PcTrackerServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/PcTrackerServiceTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Services/SchedulingAlgorithmsTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Services/SchedulingAlgorithmsTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Today/TodayScheduleWorkbenchSectionTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Today/TodayScheduleWorkbenchSectionTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Today/TodaySectionProviderTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Today/TodaySectionProviderTests.cs.md` |
+| [x] | `tests/Pim.UnitTests/Today/TodaySectionServiceTests.cs` | `docs/pseudocode/files/tests/Pim.UnitTests/Today/TodaySectionServiceTests.cs.md` |
 

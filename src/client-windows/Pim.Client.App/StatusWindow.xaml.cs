@@ -1,9 +1,11 @@
 using System.Diagnostics;
+using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Pim.Client.Core;
 using Pim.Client.Core.Services;
-using MediaBrush = System.Windows.Media.Brush;
 
 namespace Pim.Client.App;
 
@@ -14,12 +16,13 @@ public partial class StatusWindow : Window
     private readonly AuthService _authService;
     private readonly AwCollectorService _awCollector;
     private readonly KeyStatsCollectorService _keyStatsCollector;
+    private readonly KeyStatsProcessManager _processManager;
 
-    internal sealed record StatusDiagnostic(
-        string Name,
-        string Summary,
-        string Detail,
-        MediaBrush ToneBrush);
+    private string _lastDiagnosticsReport = string.Empty;
+    private string _awState = "Unknown";
+    private string _ksState = "Unknown";
+    private string? _ksSkipReason;
+    private bool _apiOk;
 
     public StatusWindow()
     {
@@ -29,6 +32,7 @@ public partial class StatusWindow : Window
         _authService = App.Services.GetRequiredService<AuthService>();
         _awCollector = App.Services.GetRequiredService<AwCollectorService>();
         _keyStatsCollector = App.Services.GetRequiredService<KeyStatsCollectorService>();
+        _processManager = App.Services.GetRequiredService<KeyStatsProcessManager>();
 
         var config = DaemonConfig.Load();
         ServerUrlBox.Text = config.ServerUrl;
@@ -53,51 +57,112 @@ public partial class StatusWindow : Window
     {
         if (_authService.IsAuthenticated)
         {
-            AuthStatusText.Text = $"状态：运行中，{_authService.CurrentUsername} 已登录";
+            AccountSummaryText.Text = $"{_authService.CurrentUsername} 已登录 · {_authService.ServerUrl}";
             LoginButton.Visibility = Visibility.Collapsed;
         }
         else
         {
-            AuthStatusText.Text = "状态：运行中，账户未登录";
+            AccountSummaryText.Text = "未登录 · 上传到 PIM API 需要账户";
             LoginButton.Visibility = Visibility.Visible;
         }
     }
 
     private async Task RefreshStatusAsync()
     {
-        var diagnostics = new List<StatusDiagnostic>
-        {
-            BuildAccountDiagnostic(),
-            await ProbeAsync("KeyStats", "http://127.0.0.1:18080/api/stats/"),
-            await ProbeAsync("ActivityWatch", "http://127.0.0.1:5600/api/0/buckets/")
-        };
-
-        diagnostics.Add(await BuildApiDiagnosticAsync());
-        diagnostics.Add(BuildUploadQueueDiagnostic());
-
-        StatusItems.ItemsSource = diagnostics;
-    }
-
-    private StatusDiagnostic BuildAccountDiagnostic()
-    {
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-        if (_authService.IsAuthenticated)
+        var sessionId = Process.GetCurrentProcess().SessionId;
+
+        var apiDiag = await BuildApiProbeAsync();
+        _apiOk = apiDiag.Ok;
+        ApiConnectivityText.Text = apiDiag.Summary;
+
+        var awProbe = await ProbeEndpointAsync("http://127.0.0.1:5600/api/0/buckets/");
+        _awState = awProbe.Ok ? "Available" : "Unavailable";
+        AwSummaryText.Text = awProbe.Ok ? "ActivityWatch 已连接" : "ActivityWatch 未连接";
+        AwDetailText.Text =
+            $"URL: http://127.0.0.1:5600/api/0/buckets/\n" +
+            $"Status: {awProbe.StatusLine}\n" +
+            $"Message: {awProbe.Message}\n" +
+            $"Time: {timestamp}";
+
+        var processes = _processManager.ListProcesses(sessionId);
+        var health = _keyStatsCollector.LastHealth;
+        _ksSkipReason = _keyStatsCollector.LastSkipReason ?? health?.SkipReason;
+        _ksState = health?.DaemonSourceState
+                   ?? (processes.Count > 0 ? "Unknown" : "Unavailable");
+
+        if (health is not null)
         {
-            return new StatusDiagnostic(
-                "Account",
-                $"{_authService.CurrentUsername} 已登录",
-                $"Username: {_authService.CurrentUsername}\nAuthenticated: true\nServer: {_authService.ServerUrl}\nTime: {timestamp}",
-                BrushFor("ok"));
+            KeyStatsSummaryText.Text = health.SummaryZh;
+            KeyStatsDetailText.Text =
+                $"DaemonSourceState: {health.DaemonSourceState}\n" +
+                $"DetailState: {health.DetailState}\n" +
+                $"ProcessCount: {health.ProcessCount}\n" +
+                $"HasForeignSession: {health.HasForeignSessionProcess}\n" +
+                $"SkipReason: {health.SkipReason ?? "none"}\n" +
+                $"CanUpload: {health.CanUpload}\n" +
+                $"Processes: {FormatProcesses(processes)}\n" +
+                $"Time: {timestamp}";
+        }
+        else
+        {
+            var liveCount = processes.Count;
+            KeyStatsSummaryText.Text = liveCount == 0
+                ? "KeyStats 进程未运行（尚无健康探测结果）"
+                : $"检测到 {liveCount} 个 KeyStats 进程（尚无健康探测结果）";
+            KeyStatsDetailText.Text =
+                $"DaemonSourceState: {_ksState}\n" +
+                $"ProcessCount: {liveCount}\n" +
+                $"Processes: {FormatProcesses(processes)}\n" +
+                $"SkipReason: {_ksSkipReason ?? "none"}\n" +
+                $"Time: {timestamp}";
+            if (liveCount == 0)
+            {
+                _ksState = "Unavailable";
+                _ksSkipReason ??= "missing-process";
+            }
         }
 
-        return new StatusDiagnostic(
-            "Account",
-            "未登录，上传到 PIM API 需要账户",
-            $"Authenticated: false\nServer: {_authService.ServerUrl}\nAction: 请点击登录完成授权。\nTime: {timestamp}",
-            BrushFor("warn"));
+        var queueCount = _awCollector.QueueCount;
+        AwQueueText.Text = queueCount > 0
+            ? $"ActivityWatch 队列 {queueCount} 条待上传"
+            : "ActivityWatch 队列为空";
+
+        KeyStatsUploadText.Text = FormatUploadLine(
+            "KeyStats",
+            _keyStatsCollector.LastUploadTime,
+            _keyStatsCollector.LastUploadError);
+
+        KeyStatsSkipText.Text = string.IsNullOrWhiteSpace(_ksSkipReason)
+            ? "无"
+            : _ksSkipReason;
+
+        var errors = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_awCollector.LastUploadError))
+            errors.Add($"ActivityWatch: {_awCollector.LastUploadError}");
+        if (!string.IsNullOrWhiteSpace(_keyStatsCollector.LastUploadError))
+            errors.Add($"KeyStats: {_keyStatsCollector.LastUploadError}");
+        LastErrorsText.Text = errors.Count == 0 ? "无" : string.Join("\n", errors);
+
+        var overall = StatusCenterEvaluator.Rate(
+            _authService.IsAuthenticated,
+            _awState,
+            _ksState,
+            _ksSkipReason,
+            queueCount);
+        OverviewHealthText.Text = overall;
+        OverallHealthText.Text = $"整体状态：{overall}";
+
+        _lastDiagnosticsReport = BuildDiagnosticsReport(
+            timestamp,
+            apiDiag,
+            awProbe,
+            processes,
+            queueCount,
+            overall);
     }
 
-    private async Task<StatusDiagnostic> BuildApiDiagnosticAsync()
+    private async Task<(bool Ok, string Summary, string StatusLine, string Message)> BuildApiProbeAsync()
     {
         try
         {
@@ -111,75 +176,49 @@ public partial class StatusWindow : Window
                 ? DaemonConfig.Load().ServerUrl.TrimEnd('/') + "/health"
                 : apiRoot + "/health";
 
-            return await ProbeAsync("PIM API", apiUrl);
+            var probe = await ProbeEndpointAsync(apiUrl);
+            var summary = probe.Ok
+                ? $"PIM API 已连接 · {apiUrl}"
+                : $"PIM API 异常 · {probe.StatusLine}";
+            return (probe.Ok, summary, probe.StatusLine, probe.Message);
         }
         catch (Exception ex)
         {
-            var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-            return new StatusDiagnostic(
-                "PIM API",
-                "检查失败，无法生成健康检查地址",
-                $"BaseUrl: {_apiClient.CurrentBaseUrl}\nError: {ex.GetType().Name}\nMessage: {ex.Message}\nTime: {timestamp}",
-                BrushFor("error"));
+            return (false, "检查失败，无法生成健康检查地址", "Exception", ex.Message);
         }
     }
 
-    private async Task<StatusDiagnostic> ProbeAsync(string name, string url)
+    private static async Task<(bool Ok, string StatusLine, string Message)> ProbeEndpointAsync(string url)
     {
-        var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         try
         {
             using var resp = await Http.GetAsync(url);
-            var summary = resp.IsSuccessStatusCode
-                ? "已连接"
-                : $"HTTP {(int)resp.StatusCode} {resp.ReasonPhrase ?? resp.StatusCode.ToString()}";
-            var detail =
-                $"URL: {url}\nStatus: {(int)resp.StatusCode} {resp.StatusCode}\nError: {(resp.IsSuccessStatusCode ? "none" : "HTTP")}\nMessage: {resp.ReasonPhrase}\nTime: {timestamp}";
-
-            return new StatusDiagnostic(name, summary, detail, BrushFor(resp.IsSuccessStatusCode ? "ok" : "warn"));
+            var ok = resp.IsSuccessStatusCode;
+            var statusLine = $"{(int)resp.StatusCode} {resp.StatusCode}";
+            var message = resp.ReasonPhrase ?? (ok ? "ok" : "HTTP error");
+            return (ok, statusLine, message);
         }
         catch (Exception ex)
         {
-            var detail = $"URL: {url}\nStatus: Exception\nError: {ex.GetType().Name}\nMessage: {ex.Message}\nTime: {timestamp}";
-            return new StatusDiagnostic(name, "未连接", detail, BrushFor("error"));
+            return (false, "Exception", $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 
-    private StatusDiagnostic BuildUploadQueueDiagnostic()
+    private static string FormatProcesses(IReadOnlyList<Pim.Client.Core.Models.KeyStatsProcessInfo> processes)
     {
-        var queueCount = _awCollector.QueueCount;
-        var awSummary = FormatUploadSummary("ActivityWatch", _awCollector.LastUploadTime, _awCollector.LastUploadError);
-        var keyStatsSummary = FormatUploadSummary("KeyStats", _keyStatsCollector.LastUploadTime, _keyStatsCollector.LastUploadError);
-        var hasErrors = _awCollector.LastUploadError is not null || _keyStatsCollector.LastUploadError is not null;
-
-        var summary = hasErrors
-            ? $"有最近上传错误，ActivityWatch 队列 {queueCount} 条"
-            : queueCount > 0
-                ? $"ActivityWatch 队列 {queueCount} 条待上传"
-                : "队列为空，最近上传正常";
-
-        var detail =
-            $"ActivityWatch QueueCount: {queueCount}\n{awSummary}\n{keyStatsSummary}\nTime: {DateTime.Now:yyyy-MM-dd HH:mm:ss}";
-
-        return new StatusDiagnostic("Upload Queue", summary, detail, BrushFor(hasErrors ? "error" : queueCount > 0 ? "warn" : "ok"));
+        if (processes.Count == 0) return "none";
+        return string.Join(", ", processes.Select(p =>
+            $"pid={p.ProcessId}/session={p.SessionId}/current={p.IsCurrentUserSession}"));
     }
 
-    private static string FormatUploadSummary(string name, DateTime? lastUploadTime, string? lastUploadError)
+    private static string FormatUploadLine(string name, DateTime? lastUploadTime, string? lastUploadError)
     {
         var lastUpload = lastUploadTime is DateTime last
             ? $"{last:yyyy-MM-dd HH:mm:ss} ({FormatAgo(last)})"
             : "暂无记录";
         var error = string.IsNullOrWhiteSpace(lastUploadError) ? "无" : lastUploadError;
-        return $"{name} LastUpload: {lastUpload}\n{name} LastError: {error}";
+        return $"{name} 最近上传：{lastUpload}\n错误：{error}";
     }
-
-    private MediaBrush BrushFor(string tone) => tone switch
-    {
-        "ok" => (MediaBrush)FindResource("PimActivityBrush"),
-        "warn" => (MediaBrush)FindResource("PimWarningBrush"),
-        "error" => (MediaBrush)FindResource("PimDangerBrush"),
-        _ => (MediaBrush)FindResource("PimMutedTextBrush")
-    };
 
     private static string FormatAgo(DateTime last)
     {
@@ -189,6 +228,37 @@ public partial class StatusWindow : Window
         if (ago.TotalDays < 1) return $"{(int)ago.TotalHours} 小时前";
         return $"{(int)ago.TotalDays} 天前";
     }
+
+    private string BuildDiagnosticsReport(
+        string timestamp,
+        (bool Ok, string Summary, string StatusLine, string Message) api,
+        (bool Ok, string StatusLine, string Message) aw,
+        IReadOnlyList<Pim.Client.Core.Models.KeyStatsProcessInfo> processes,
+        int queueCount,
+        string overall)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("PIM Status Center Diagnostics");
+        sb.AppendLine($"Time: {timestamp}");
+        sb.AppendLine($"Overall: {overall}");
+        sb.AppendLine($"Authenticated: {_authService.IsAuthenticated}");
+        sb.AppendLine($"Username: {_authService.CurrentUsername ?? "(none)"}");
+        sb.AppendLine($"Server: {_authService.ServerUrl}");
+        sb.AppendLine($"API: {api.Summary} ({api.StatusLine})");
+        sb.AppendLine($"ActivityWatch: {_awState} / {aw.StatusLine} / {aw.Message}");
+        sb.AppendLine($"KeyStats: {_ksState} skip={_ksSkipReason ?? "none"}");
+        sb.AppendLine($"KeyStats processes: {FormatProcesses(processes)}");
+        sb.AppendLine($"AW Queue: {queueCount}");
+        sb.AppendLine($"AW LastUpload: {_awCollector.LastUploadTime?.ToString("O") ?? "none"}");
+        sb.AppendLine($"AW LastError: {_awCollector.LastUploadError ?? "none"}");
+        sb.AppendLine($"KS LastUpload: {_keyStatsCollector.LastUploadTime?.ToString("O") ?? "none"}");
+        sb.AppendLine($"KS LastError: {_keyStatsCollector.LastUploadError ?? "none"}");
+        sb.AppendLine($"KS LastSkip: {_keyStatsCollector.LastSkipReason ?? "none"}");
+        sb.AppendLine($"InstallDir: {AppDomain.CurrentDomain.BaseDirectory}");
+        return sb.ToString();
+    }
+
+    private void OnRefresh(object sender, RoutedEventArgs e) => RefreshAll();
 
     private void OnSaveServerUrl(object sender, RoutedEventArgs e)
     {
@@ -219,7 +289,7 @@ public partial class StatusWindow : Window
             return;
         }
 
-        MessageBox.Show($"服务器地址已更新为：\n{url}", "PIM", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show($"服务器地址已更新为：\n{normalizedUrl}", "PIM", MessageBoxButton.OK, MessageBoxImage.Information);
         RefreshAll();
     }
 
@@ -235,7 +305,6 @@ public partial class StatusWindow : Window
 
     private async void OnManualSync(object sender, RoutedEventArgs e)
     {
-        Debug.WriteLine("Manual sync triggered");
         ManualSyncButton.IsEnabled = false;
         ManualSyncButton.Content = "同步中...";
         try
@@ -265,6 +334,93 @@ public partial class StatusWindow : Window
         }
     }
 
+    private void OnRestartKeyStats(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var exe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, KeyStatsProcessManager.ExeFileName);
+            if (!File.Exists(exe))
+            {
+                MessageBox.Show($"未找到 KeyStats.exe：\n{exe}", "PIM", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            _processManager.Restart(exe, Process.GetCurrentProcess().SessionId);
+            MessageBox.Show("已请求重启 KeyStats。", "PIM", MessageBoxButton.OK, MessageBoxImage.Information);
+            RefreshAll();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"重启 KeyStats 失败：{ex.Message}", "PIM", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnOpenInstallDir(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dir = AppDomain.CurrentDomain.BaseDirectory;
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = dir,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"打开安装目录失败：{ex.Message}", "PIM", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnCopyDiagnostics(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var text = string.IsNullOrWhiteSpace(_lastDiagnosticsReport)
+                ? "诊断信息尚未生成，请先刷新。"
+                : _lastDiagnosticsReport;
+            Clipboard.SetText(text);
+            MessageBox.Show("诊断信息已复制到剪贴板。", "PIM", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"复制诊断失败：{ex.Message}", "PIM", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OnOpenWebBrowser(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var config = DaemonConfig.Load();
+            var root = string.IsNullOrWhiteSpace(config.ServerUrl)
+                ? ClientDefaults.DefaultServerUrl
+                : ApiClient.NormalizeServerUrl(config.ServerUrl);
+            root = root.TrimEnd('/');
+            if (root.EndsWith("/api/v1", StringComparison.OrdinalIgnoreCase))
+            {
+                root = root[..^"/api/v1".Length].TrimEnd('/');
+            }
+
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                root = ClientDefaults.DefaultServerUrl;
+            }
+
+            var url = $"{root}/today";
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"打开 Web 工作台失败：{ex.Message}", "PIM", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private void OnViewLogs(object sender, RoutedEventArgs e)
     {
         var logPath = Services.Logger.LogFilePath;
@@ -278,34 +434,15 @@ public partial class StatusWindow : Window
         }
     }
 
-    private void OnOpenShell(object sender, RoutedEventArgs e)
-    {
-        App.ShowMainShellWindow("/today");
-    }
-
-    private void OnOpenNotifications(object sender, RoutedEventArgs e)
-    {
-        App.ShowMainShellWindow("/confirmations");
-    }
-
-    private void OnClose(object sender, RoutedEventArgs e)
-    {
-        Close();
-    }
+    private void OnClose(object sender, RoutedEventArgs e) => Close();
 
     private static string? BuildUploadErrorMessage(string? awError, string? keyStatsError)
     {
         var errors = new List<string>();
         if (!string.IsNullOrWhiteSpace(awError))
-        {
             errors.Add($"ActivityWatch: {awError}");
-        }
-
         if (!string.IsNullOrWhiteSpace(keyStatsError))
-        {
             errors.Add($"KeyStats: {keyStatsError}");
-        }
-
         return errors.Count == 0 ? null : string.Join("\n", errors);
     }
 

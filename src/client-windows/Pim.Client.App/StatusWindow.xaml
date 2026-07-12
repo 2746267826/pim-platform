@@ -1,10 +1,11 @@
 <Window x:Class="Pim.Client.App.StatusWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="PIM 守护程序状态" Height="560" Width="620"
-        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Title="PIM 状态中心" Height="640" Width="720"
+        WindowStartupLocation="CenterScreen" ResizeMode="CanResize"
+        MinHeight="520" MinWidth="640"
         Background="{StaticResource PimMutedSurfaceBrush}">
-    <Grid Margin="18">
+    <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -17,142 +18,241 @@
                 CornerRadius="14"
                 Padding="16"
                 Margin="0,0,0,12">
-            <StackPanel>
-                <Grid Margin="0,0,0,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="PIM 状态中心"
+                               FontSize="20"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource PimTextBrush}"/>
+                    <TextBlock x:Name="OverallHealthText"
+                               Text="正在评估整体状态..."
+                               FontSize="13"
+                               Margin="0,6,0,0"
+                               Foreground="{StaticResource PimMutedTextBrush}"/>
+                </StackPanel>
+                <Button x:Name="RefreshButton"
+                        Grid.Column="1"
+                        Content="刷新"
+                        Style="{StaticResource PimSecondaryButton}"
+                        VerticalAlignment="Top"
+                        Click="OnRefresh"/>
+            </Grid>
+        </Border>
+
+        <TabControl x:Name="StatusTabs"
+                    Grid.Row="1"
+                    Background="{StaticResource PimSurfaceBrush}"
+                    BorderBrush="{StaticResource PimBorderBrush}"
+                    BorderThickness="1">
+            <!-- 概览 -->
+            <TabItem Header="概览">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
                     <StackPanel>
-                        <TextBlock Text="PIM 守护程序"
-                                   FontSize="20"
+                        <TextBlock Text="账户"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource PimTextBrush}"/>
-                        <TextBlock x:Name="AuthStatusText"
-                                   Text="正在检查账户状态..."
-                                   FontSize="12"
-                                   Margin="0,4,0,0"
+                        <TextBlock x:Name="AccountSummaryText"
+                                   Text="正在检查账户..."
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,12"
                                    Foreground="{StaticResource PimMutedTextBrush}"/>
+
+                        <TextBlock Text="API 连通性"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource PimTextBrush}"/>
+                        <TextBlock x:Name="ApiConnectivityText"
+                                   Text="正在检查 API..."
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,12"
+                                   Foreground="{StaticResource PimMutedTextBrush}"/>
+
+                        <TextBlock Text="整体健康"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource PimTextBrush}"/>
+                        <TextBlock x:Name="OverviewHealthText"
+                                   Text="—"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,16"
+                                   Foreground="{StaticResource PimMutedTextBrush}"/>
+
+                        <Button x:Name="ManualSyncButton"
+                                Content="手动同步"
+                                Style="{StaticResource PimPrimaryButton}"
+                                HorizontalAlignment="Left"
+                                Click="OnManualSync"/>
                     </StackPanel>
-                    <Button x:Name="LoginButton"
-                            Grid.Column="1"
-                            Content="登录"
-                            Style="{StaticResource PimPrimaryButton}"
-                            Click="OnLogin"
-                            VerticalAlignment="Top"/>
-                </Grid>
+                </ScrollViewer>
+            </TabItem>
 
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="服务器"
-                               VerticalAlignment="Center"
-                               FontSize="12"
-                               Foreground="{StaticResource PimMutedTextBrush}"
-                               Margin="0,0,8,0"/>
-                    <TextBox x:Name="ServerUrlBox"
-                             Grid.Column="1"
-                             Height="30"
-                             VerticalContentAlignment="Center"
-                             Padding="8,0"/>
-                    <Button Grid.Column="2"
-                            Content="保存"
-                            Style="{StaticResource PimSecondaryButton}"
-                            Padding="12,5"
-                            Margin="8,0,0,0"
-                            Click="OnSaveServerUrl"/>
-                </Grid>
+            <!-- 数据源 -->
+            <TabItem Header="数据源">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="ActivityWatch"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource PimTextBrush}"/>
+                        <TextBlock x:Name="AwSummaryText"
+                                   Text="—"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,4"
+                                   Foreground="{StaticResource PimMutedTextBrush}"/>
+                        <TextBox x:Name="AwDetailText"
+                                 IsReadOnly="True"
+                                 TextWrapping="Wrap"
+                                 BorderThickness="0"
+                                 Background="{StaticResource PimMutedSurfaceBrush}"
+                                 Foreground="{StaticResource PimTextBrush}"
+                                 FontFamily="Consolas"
+                                 FontSize="11"
+                                 Padding="8"
+                                 Margin="0,0,0,16"
+                                 MinHeight="72"/>
 
-                <CheckBox x:Name="AutoStartCheckBox"
-                          Content="开机自启动"
-                          Margin="0,12,0,0"
-                          Foreground="{StaticResource PimMutedTextBrush}"
-                          FontSize="13"
-                          Checked="OnAutoStartToggled"
-                          Unchecked="OnAutoStartToggled"/>
-            </StackPanel>
-        </Border>
+                        <TextBlock Text="KeyStats"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource PimTextBrush}"/>
+                        <TextBlock x:Name="KeyStatsSummaryText"
+                                   Text="—"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,4"
+                                   Foreground="{StaticResource PimMutedTextBrush}"/>
+                        <TextBox x:Name="KeyStatsDetailText"
+                                 IsReadOnly="True"
+                                 TextWrapping="Wrap"
+                                 BorderThickness="0"
+                                 Background="{StaticResource PimMutedSurfaceBrush}"
+                                 Foreground="{StaticResource PimTextBrush}"
+                                 FontFamily="Consolas"
+                                 FontSize="11"
+                                 Padding="8"
+                                 Margin="0,0,0,16"
+                                 MinHeight="72"/>
 
-        <Border Grid.Row="1"
-                Background="{StaticResource PimSurfaceBrush}"
-                BorderBrush="{StaticResource PimBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="14"
-                Padding="8">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <ItemsControl x:Name="StatusItems">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border BorderBrush="{StaticResource PimBorderBrush}"
-                                    BorderThickness="0,0,0,1"
-                                    Padding="10">
-                                <StackPanel>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="110"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Ellipse Width="9"
-                                                 Height="9"
-                                                 Fill="{Binding ToneBrush}"
-                                                 Margin="0,5,10,0"
-                                                 VerticalAlignment="Top"/>
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{Binding Name}"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{StaticResource PimTextBrush}"/>
-                                        <TextBlock Grid.Column="2"
-                                                   Text="{Binding Summary}"
-                                                   TextWrapping="Wrap"
-                                                   Foreground="{StaticResource PimMutedTextBrush}"/>
-                                    </Grid>
-                                    <Expander Header="原始详情"
-                                              Margin="19,8,0,0"
-                                              Foreground="{StaticResource PimMutedTextBrush}">
-                                        <TextBox Text="{Binding Detail}"
-                                                 IsReadOnly="True"
-                                                 TextWrapping="Wrap"
-                                                 BorderThickness="0"
-                                                 Background="{StaticResource PimMutedSurfaceBrush}"
-                                                 Foreground="{StaticResource PimTextBrush}"
-                                                 FontFamily="Consolas"
-                                                 FontSize="11"
-                                                 Padding="8"
-                                                 Margin="0,4,0,0"/>
-                                    </Expander>
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
-        </Border>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="重启 KeyStats"
+                                    Style="{StaticResource PimPrimaryButton}"
+                                    Margin="0,0,8,0"
+                                    Click="OnRestartKeyStats"/>
+                            <Button Content="打开安装目录"
+                                    Style="{StaticResource PimSecondaryButton}"
+                                    Margin="0,0,8,0"
+                                    Click="OnOpenInstallDir"/>
+                            <Button Content="复制诊断"
+                                    Style="{StaticResource PimSecondaryButton}"
+                                    Click="OnCopyDiagnostics"/>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 上传 -->
+            <TabItem Header="上传">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="ActivityWatch 队列"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource PimTextBrush}"/>
+                        <TextBlock x:Name="AwQueueText"
+                                   Text="—"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,12"
+                                   Foreground="{StaticResource PimMutedTextBrush}"/>
+
+                        <TextBlock Text="KeyStats 最近上传"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource PimTextBrush}"/>
+                        <TextBlock x:Name="KeyStatsUploadText"
+                                   Text="—"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,12"
+                                   Foreground="{StaticResource PimMutedTextBrush}"/>
+
+                        <TextBlock Text="KeyStats 跳过原因"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource PimTextBrush}"/>
+                        <TextBlock x:Name="KeyStatsSkipText"
+                                   Text="—"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,12"
+                                   Foreground="{StaticResource PimMutedTextBrush}"/>
+
+                        <TextBlock Text="最近错误"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource PimTextBrush}"/>
+                        <TextBox x:Name="LastErrorsText"
+                                 IsReadOnly="True"
+                                 TextWrapping="Wrap"
+                                 BorderThickness="0"
+                                 Background="{StaticResource PimMutedSurfaceBrush}"
+                                 Foreground="{StaticResource PimTextBrush}"
+                                 FontFamily="Consolas"
+                                 FontSize="11"
+                                 Padding="8"
+                                 MinHeight="96"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 设置 -->
+            <TabItem Header="设置">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="服务器地址"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource PimTextBrush}"
+                                   Margin="0,0,0,6"/>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="ServerUrlBox"
+                                     Height="30"
+                                     VerticalContentAlignment="Center"
+                                     Padding="8,0"/>
+                            <Button Grid.Column="1"
+                                    Content="保存"
+                                    Style="{StaticResource PimSecondaryButton}"
+                                    Padding="12,5"
+                                    Margin="8,0,0,0"
+                                    Click="OnSaveServerUrl"/>
+                        </Grid>
+
+                        <CheckBox x:Name="AutoStartCheckBox"
+                                  Content="开机自启动"
+                                  Margin="0,0,0,16"
+                                  Foreground="{StaticResource PimMutedTextBrush}"
+                                  FontSize="13"
+                                  Checked="OnAutoStartToggled"
+                                  Unchecked="OnAutoStartToggled"/>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="查看日志"
+                                    Style="{StaticResource PimSecondaryButton}"
+                                    Margin="0,0,8,0"
+                                    Click="OnViewLogs"/>
+                            <Button Content="在浏览器打开 Web"
+                                    Style="{StaticResource PimSecondaryButton}"
+                                    Margin="0,0,8,0"
+                                    Click="OnOpenWebBrowser"/>
+                            <Button x:Name="LoginButton"
+                                    Content="登录"
+                                    Style="{StaticResource PimPrimaryButton}"
+                                    Click="OnLogin"/>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
 
         <StackPanel Grid.Row="2"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,12,0,0">
-            <Button Content="Web 工作台"
-                    Style="{StaticResource PimSecondaryButton}"
-                    Margin="0,0,8,0"
-                    Click="OnOpenShell"/>
-            <Button Content="通知中心"
-                    Style="{StaticResource PimSecondaryButton}"
-                    Margin="0,0,8,0"
-                    Click="OnOpenNotifications"/>
-            <Button Content="查看日志"
-                    Style="{StaticResource PimSecondaryButton}"
-                    Margin="0,0,8,0"
-                    Click="OnViewLogs"/>
-            <Button x:Name="ManualSyncButton"
-                    Content="手动同步"
-                    Style="{StaticResource PimPrimaryButton}"
-                    Margin="0,0,8,0"
-                    Click="OnManualSync"/>
             <Button Content="关闭"
                     Style="{StaticResource PimSecondaryButton}"
                     Click="OnClose"/>

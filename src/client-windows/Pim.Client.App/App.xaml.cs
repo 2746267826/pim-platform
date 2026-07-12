@@ -75,9 +75,6 @@ public partial class App : Application
                     Logger.Warn("Login skipped; daemon running without API access, uploads will fail");
             }
 
-            ShowMainShellWindow();
-            Logger.Info("Companion shell window shown");
-
             var awCollector = Services.GetRequiredService<AwCollectorService>();
             awCollector.Log = msg => Logger.Info(msg);
             awCollector.Start();
@@ -144,16 +141,39 @@ public partial class App : Application
         {
             var reporter = Services.GetRequiredService<DaemonHeartbeatReporter>();
             var config = DaemonConfig.Load();
+            var aw = Services.GetRequiredService<AwCollectorService>();
+            var ks = Services.GetRequiredService<KeyStatsCollectorService>();
+
+            var awState = aw.LastUploadError is null && aw.LastUploadTime is not null
+                ? "Available"
+                : aw.LastUploadError is null ? "Unknown" : "Unavailable";
+            var ksHealth = ks.LastHealth;
+            var ksState = ksHealth?.DaemonSourceState ?? "Unknown";
+
+            var lastSuccess = MaxTime(aw.LastUploadTime, ks.LastUploadTime);
+            var lastError = aw.LastUploadError ?? ks.LastUploadError;
+            var version = typeof(App).Assembly
+                .GetCustomAttributes(false)
+                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+                .FirstOrDefault()?.InformationalVersion ?? "0.0.0(unknown)";
+
             var heartbeat = DaemonHeartbeatReporter.BuildHeartbeat(
                 Environment.MachineName,
-                typeof(App).Assembly
-                    .GetCustomAttributes(false)
-                    .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
-                    .FirstOrDefault()?.InformationalVersion ?? "0.0.0(unknown)",
+                version,
                 config.ServerUrl,
-                null,
+                lastSuccess is DateTime dt ? new DateTimeOffset(dt) : null,
                 DateTimeOffset.UtcNow,
-                null);
+                lastError,
+                aw.QueueCount,
+                awState,
+                ksState,
+                new
+                {
+                    keyStatsDetailState = ksHealth?.DetailState.ToString(),
+                    keyStatsProcessCount = ksHealth?.ProcessCount,
+                    keyStatsSkipReason = ks.LastSkipReason,
+                    awQueueCount = aw.QueueCount
+                });
             await reporter.ReportAsync(heartbeat, ct);
             Logger.Info("Daemon heartbeat reported");
         }
@@ -165,6 +185,13 @@ public partial class App : Application
         {
             Logger.Warn($"Daemon heartbeat failed: {ex.Message}");
         }
+    }
+
+    private static DateTime? MaxTime(DateTime? a, DateTime? b)
+    {
+        if (a is null) return b;
+        if (b is null) return a;
+        return a > b ? a : b;
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -181,57 +208,38 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// 确保 KeyStats 进程在运行。如果未运行，通过计划任务静默拉起。
-    /// 创建计划任务需要管理员权限，但运行已有任务不需要。
+    /// 确保 KeyStats 在当前用户会话收敛为单实例并优先用户态启动。
     /// </summary>
     private static void EnsureKeyStatsRunning()
     {
         try
         {
-            if (Process.GetProcessesByName("KeyStats").Length > 0)
+            var manager = Services.GetRequiredService<KeyStatsProcessManager>();
+            var exe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, KeyStatsProcessManager.ExeFileName);
+            if (!File.Exists(exe))
             {
-                Logger.Info("KeyStats process already running");
+                Logger.Warn($"KeyStats.exe not found at {exe}");
                 return;
             }
 
-            // 先找同目录下的 KeyStats.exe
-            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            var keyStatsPath = Path.Combine(baseDir, "KeyStats.exe");
-
-            if (!File.Exists(keyStatsPath))
+            var plan = manager.EnsureRunning(exe, Process.GetCurrentProcess().SessionId);
+            if (plan.ShouldStart)
             {
-                Logger.Warn($"KeyStats.exe not found at {keyStatsPath}");
-                return;
+                Logger.Info("KeyStats ensure-running started process in current session");
+            }
+            else if (plan.KeepProcessId is int keepPid)
+            {
+                Logger.Info($"KeyStats ensure-running kept process {keepPid}");
+            }
+            else
+            {
+                Logger.Info("KeyStats ensure-running completed with no keep process");
             }
 
-            // 尝试通过计划任务静默启动（不需要管理员权限）
-            const string taskName = "PimKeyStats";
-            var taskRun = Process.Start(new ProcessStartInfo("schtasks", $"/run /tn \"{taskName}\"")
+            if (plan.ProcessIdsToStop.Count > 0)
             {
-                CreateNoWindow = true,
-                UseShellExecute = false,
-            });
-            taskRun?.WaitForExit(3000);
-
-            if (taskRun?.ExitCode == 0)
-            {
-                Logger.Info("KeyStats launched via scheduled task");
-                // 等待进程起来
-                for (int i = 0; i < 10; i++)
-                {
-                    if (Process.GetProcessesByName("KeyStats").Length > 0) return;
-                    Thread.Sleep(500);
-                }
-                return;
+                Logger.Info($"KeyStats ensure-running stopped {plan.ProcessIdsToStop.Count} extra process(es)");
             }
-
-            // 计划任务不存在或启动失败，尝试直接拉起（会弹 UAC）
-            Logger.Warn("Scheduled task not found, launching KeyStats directly (UAC may prompt)");
-            Process.Start(new ProcessStartInfo(keyStatsPath)
-            {
-                UseShellExecute = true,
-                Verb = "runas",
-            });
         }
         catch (Exception ex)
         {

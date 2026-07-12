@@ -147,6 +147,15 @@ data class StatusIssue(
             target = StatusActionTarget.Permissions
         )
 
+        fun batteryOptimizationMissing(): StatusIssue = StatusIssue(
+            code = "battery-optimization-missing",
+            severity = StatusSeverity.Warning,
+            title = "电池优化未豁免",
+            message = "电池优化会影响持续采集。",
+            actionLabel = "去授权",
+            target = StatusActionTarget.Permissions
+        )
+
         fun foregroundServiceNotRunning(): StatusIssue = StatusIssue(
             code = "foreground-service-not-running",
             severity = StatusSeverity.Critical,
@@ -229,7 +238,8 @@ data class PermissionStatusSnapshot(
     val preciseLocationGranted: Boolean,
     val backgroundLocationGranted: Boolean,
     val usageAccessGranted: Boolean,
-    val activityRecognitionGranted: Boolean
+    val activityRecognitionGranted: Boolean,
+    val batteryOptimizationGranted: Boolean
 )
 
 data class ApiConnectionSnapshot(
@@ -314,7 +324,8 @@ data class StatusCenterState(
                     preciseLocationGranted = false,
                     backgroundLocationGranted = false,
                     usageAccessGranted = false,
-                    activityRecognitionGranted = false
+                    activityRecognitionGranted = false,
+                    batteryOptimizationGranted = false
                 ),
                 api = ApiConnectionSnapshot("", isValid = false, reasonCode = "missing", warnings = emptySet()),
                 auth = AuthStatusSnapshot(hasAccessToken = false, isExpired = false),
@@ -364,13 +375,12 @@ object StatusIssuePlanner {
         if (!snapshot.permissions.activityRecognitionGranted) {
             issues += StatusIssue.activityRecognitionMissing()
         }
+        if (!snapshot.permissions.batteryOptimizationGranted) {
+            issues += StatusIssue.batteryOptimizationMissing()
+        }
 
         if (snapshot.service.continuousCollectionEnabled && !snapshot.service.serviceRunning) {
             issues += StatusIssue.foregroundServiceNotRunning()
-        }
-
-        if (snapshot.tracking.currentPolicyMode.isNotBlank()) {
-            issues += StatusIssue.currentPolicyState(snapshot.tracking.currentPolicyMode)
         }
 
         when (snapshot.diagnostics.lastDroppedReason) {
@@ -381,9 +391,11 @@ object StatusIssuePlanner {
             "altitude-missing-timeout" -> issues += StatusIssue.altitudeMissingTimeout(
                 snapshot.diagnostics.lastDroppedAtMillis
             )
-        }
-        snapshot.diagnostics.lastDroppedReason?.takeIf { it.isNotBlank() }?.let { reason ->
-            issues += StatusIssue.recentDroppedLocation(reason, snapshot.diagnostics.lastDroppedAtMillis)
+            null, "" -> { /* no issue */ }
+            else -> issues += StatusIssue.recentDroppedLocation(
+                snapshot.diagnostics.lastDroppedReason,
+                snapshot.diagnostics.lastDroppedAtMillis
+            )
         }
 
         if (snapshot.queues.pendingLocationPoints >= LOCATION_QUEUE_BACKLOG_THRESHOLD) {

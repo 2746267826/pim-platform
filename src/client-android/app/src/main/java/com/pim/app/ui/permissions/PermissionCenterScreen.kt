@@ -1,24 +1,33 @@
 package com.pim.app.ui.permissions
 
-import android.Manifest
-import android.app.usage.UsageStatsManager
-import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import com.pim.app.mobile.usage.UsageAccessChecker
+import com.pim.app.permissions.PermissionStatusRepository
+import com.pim.app.status.StatusPermissionNavigator
 
 @Composable
 fun PermissionCenterScreen(
@@ -27,6 +36,22 @@ fun PermissionCenterScreen(
     collectionQuality: String = "collection quality: waiting"
 ) {
     val context = LocalContext.current
+    val appContext = context.applicationContext
+    val repo = remember(appContext) { PermissionStatusRepository(appContext, UsageAccessChecker(appContext)) }
+    var snapshot by remember { mutableStateOf(repo.snapshot()) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                snapshot = repo.snapshot()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val rows = permissionSettingRows(snapshot)
 
     Column(
         modifier = modifier.padding(16.dp),
@@ -37,60 +62,74 @@ fun PermissionCenterScreen(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
         )
-        PermissionRow("使用情况权限", if (hasUsageAccess(context)) "已授权" else "未授权")
-        PermissionRow("定位权限", if (hasFineLocationPermission(context)) "已授权" else "未授权")
-        PermissionRow("通知权限", if (hasNotificationPermission(context)) "已授权" else "未授权")
-        PermissionRow("设备状态", "可采集")
-        PermissionRow("上传队列", "$uploadQueueCount 条")
-        PermissionRow("collection quality", collectionQuality)
-        Text(
-            text = "复杂日程、确认、报告和数据中心操作会打开嵌入 Web；本地只缓存采集上传。",
-            style = MaterialTheme.typography.bodyMedium
-        )
+
+        rows.forEach { row ->
+            PermissionSettingRowItem(
+                row = row,
+                onClick = { StatusPermissionNavigator.open(context, row.issueCode) }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            tonalElevation = 1.dp,
+            shape = MaterialTheme.shapes.medium
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = "上传队列", fontWeight = FontWeight.Medium)
+                Text(text = "$uploadQueueCount 条")
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            tonalElevation = 1.dp,
+            shape = MaterialTheme.shapes.medium
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = "采集质量", fontWeight = FontWeight.Medium)
+                Text(text = collectionQuality)
+            }
+        }
     }
 }
 
 @Composable
-private fun PermissionRow(label: String, value: String) {
+private fun PermissionSettingRowItem(
+    row: PermissionSettingRow,
+    onClick: () -> Unit
+) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         tonalElevation = 1.dp,
         shape = MaterialTheme.shapes.medium
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = label, fontWeight = FontWeight.Medium)
-            Text(text = value)
+            Column {
+                Text(text = row.title, fontWeight = FontWeight.Medium)
+                Text(
+                    text = if (row.isHardBlock) "采集必需" else "建议",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Text(
+                text = if (row.granted) "已授权" else "未授权",
+                color = if (row.granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+            )
         }
     }
-}
-
-private fun hasUsageAccess(context: Context): Boolean {
-    val manager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-        ?: return false
-    val now = System.currentTimeMillis()
-    return runCatching {
-        manager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
-            (now - 24 * 60 * 60 * 1000L).coerceAtLeast(0L),
-            now
-        ).orEmpty().isNotEmpty()
-    }.getOrDefault(false)
-}
-
-private fun hasFineLocationPermission(context: Context): Boolean {
-    return ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_FINE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
-}
-
-private fun hasNotificationPermission(context: Context): Boolean {
-    return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS
-        ) == PackageManager.PERMISSION_GRANTED
 }

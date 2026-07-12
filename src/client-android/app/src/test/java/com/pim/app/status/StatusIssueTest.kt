@@ -35,7 +35,8 @@ class StatusIssueTest {
                 preciseLocationGranted = true,
                 backgroundLocationGranted = false,
                 usageAccessGranted = true,
-                activityRecognitionGranted = false
+                activityRecognitionGranted = false,
+                batteryOptimizationGranted = false
             ),
             api = ApiConnectionSnapshot(
                 address = "",
@@ -78,8 +79,8 @@ class StatusIssueTest {
         assertEquals("定位精度不达标", issues.getValue("location-accuracy-rejected").title)
         assertEquals("上传队列积压", issues.getValue("upload-queue-backlog").title)
         assertEquals("最近错误", issues.getValue("recent-error").title)
-        assertEquals("当前策略", issues.getValue("current-policy-state").title)
-        assertEquals("最近丢弃定位", issues.getValue("location-dropped-recent").title)
+        assertFalse("current-policy-state must not appear when policy is valid", issues.containsKey("current-policy-state"))
+        assertFalse("location-dropped-recent must not appear for known dropped reason", issues.containsKey("location-dropped-recent"))
     }
 
     @Test
@@ -210,6 +211,28 @@ class StatusIssueTest {
         assertEquals(StatusSeverity.Warning, issue.severity)
         assertTrue(issue.title.contains("电池") || issue.title.contains("优化"))
         assertEquals(StatusActionTarget.Permissions, issue.target)
+    }
+
+    @Test
+    fun unknownDroppedReasonProducesLocationDroppedRecent() {
+        val snapshot = StatusCenterSnapshot(
+            permissions = PermissionStatusSnapshot(true, true, true, true, true, true),
+            api = ApiConnectionSnapshot("https://valid.example", isValid = true, reasonCode = null, warnings = emptySet()),
+            auth = AuthStatusSnapshot(hasAccessToken = true, isExpired = false),
+            service = ForegroundServiceSnapshot(continuousCollectionEnabled = true, serviceRunning = true),
+            tracking = TrackingPolicySnapshot("power-saving", "", null),
+            queues = QueueStatusSnapshot(0, 0, 0, 0, 0, 0),
+            diagnostics = DiagnosticSnapshot(
+                lastDroppedReason = "some-unknown-reason",
+                lastDroppedAtMillis = 42_000L,
+                lastLogMessage = null,
+                lastHeartbeatStatus = null,
+                recentLogMessages = emptyList()
+            )
+        )
+
+        val issues = StatusIssuePlanner.plan(snapshot)
+        assertTrue("unknown dropped reason must produce location-dropped-recent", issues.any { it.code == "location-dropped-recent" })
     }
 
     @Test

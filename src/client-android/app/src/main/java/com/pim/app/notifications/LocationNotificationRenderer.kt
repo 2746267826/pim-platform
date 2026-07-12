@@ -22,6 +22,18 @@ data class LocationNotificationState(
     val lastDroppedReason: String?
 )
 
+data class CollectionControlAction(
+    val label: String,
+    val action: String
+)
+
+fun collectionControlAction(mode: LocationPolicyMode): CollectionControlAction {
+    return when (mode) {
+        LocationPolicyMode.Off -> CollectionControlAction("恢复", ForegroundLocationController.ACTION_RESUME_COLLECTION)
+        else -> CollectionControlAction("暂停", ForegroundLocationController.ACTION_PAUSE_COLLECTION)
+    }
+}
+
 object LocationNotificationRenderer {
     const val CHANNEL_ID = "pim_location_collection"
     const val NOTIFICATION_ID = 7101
@@ -48,15 +60,17 @@ object LocationNotificationRenderer {
 
     fun build(context: Context, state: LocationNotificationState): Notification {
         ensureChannel(context)
+        val control = collectionControlAction(state.mode)
+        val isOngoing = state.mode != LocationPolicyMode.Off
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle("PIM 持续定位")
             .setContentText(collapsedText(state))
             .setStyle(NotificationCompat.BigTextStyle().bigText(expandedText(state)))
-            .setOngoing(true)
+            .setOngoing(isOngoing)
             .setOnlyAlertOnce(true)
             .setContentIntent(openStatusPendingIntent(context))
-            .addAction(0, "暂停", receiverPendingIntent(context, ForegroundLocationController.ACTION_PAUSE_COLLECTION, 10))
+            .addAction(0, control.label, receiverPendingIntent(context, control.action, 10))
             .addAction(0, "同步", receiverPendingIntent(context, ForegroundLocationController.ACTION_SYNC_NOW, 11))
             .addAction(0, "状态", receiverPendingIntent(context, ForegroundLocationController.ACTION_OPEN_STATUS, 12))
             .build()

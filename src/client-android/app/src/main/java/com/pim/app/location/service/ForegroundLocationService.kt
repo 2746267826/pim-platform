@@ -2,6 +2,7 @@ package com.pim.app.location.service
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Notification
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -80,6 +81,7 @@ class ForegroundLocationService : Service() {
     private var pendingUploadCount = 0
     private var apiState = "正常"
     private var lastDroppedReason: String? = null
+    private var isPausing = false
 
     override fun onCreate() {
         super.onCreate()
@@ -90,13 +92,33 @@ class ForegroundLocationService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ForegroundLocationController.ACTION_PAUSE_COLLECTION -> {
+                isPausing = true
+                trackingSettingsStore.setContinuousCollectionEnabled(false)
+                currentDecision = currentDecision.copy(
+                    mode = LocationPolicyMode.Off,
+                    requestIntervalMillis = 0L,
+                    nextExpectedLocationAtMillis = Long.MAX_VALUE,
+                    reason = "已暂停",
+                    scheduleLowFrequency = false
+                )
+                publishRuntimeState(isRunning = false)
+                stopCollection()
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                nm.notify(LocationNotificationRenderer.NOTIFICATION_ID, notification())
+                stopSelf(startId)
+                return START_NOT_STICKY
+            }
+            ForegroundLocationController.ACTION_STOP_COLLECTION -> {
+                isPausing = false
                 trackingSettingsStore.setContinuousCollectionEnabled(false)
                 stopCollection()
-                stopSelf()
+                val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+                stopSelf(startId)
                 return START_NOT_STICKY
             }
             ForegroundLocationController.ACTION_SYNC_NOW -> {
-                runManualSync()
+                runManualSync(startId)
             }
             ForegroundLocationController.ACTION_RESUME_COLLECTION,
             ForegroundLocationController.ACTION_START_COLLECTION -> startCollection(enableCollection = true)
@@ -108,14 +130,20 @@ class ForegroundLocationService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        stopCollection()
+        if (!isPausing) {
+            stopCollection()
+        }
         scope.cancel()
         _runtimeState.value = ForegroundLocationRuntimeState(isRunning = false)
         super.onDestroy()
     }
 
     private fun startCollection(enableCollection: Boolean) {
+        isPausing = false
         cancelPendingQualityWait()
+        if (enableCollection) {
+            trackingSettingsStore.setContinuousCollectionEnabled(true)
+        }
         if (!hasRequiredLocationPermissions()) {
             currentDecision = currentDecision.copy(
                 mode = LocationPolicyMode.Off,
@@ -131,7 +159,7 @@ class ForegroundLocationService : Service() {
             return
         }
 
-        val settings = if (enableCollection) trackingSettingsStore.setContinuousCollectionEnabled(true) else trackingSettingsStore.read()
+        val settings = trackingSettingsStore.read()
         policyEngine = LocationPolicyEngine(settings.toTrackingPolicy())
         activeMaxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
         qualityCoordinator = AltitudeWaitCoordinator(
@@ -167,8 +195,13 @@ class ForegroundLocationService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
-    private fun runManualSync() {
+    private fun runManualSync(startId: Int) {
         val stopAfterSync = listener == null && !trackingSettingsStore.read().continuousCollectionEnabled
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        val restorePausedNotification = stopAfterSync && nm.activeNotifications.any {
+            it.id == LocationNotificationRenderer.NOTIFICATION_ID &&
+                (it.notification.flags and Notification.FLAG_ONGOING_EVENT) == 0
+        }
         apiState = "同步中"
         startForeground(LocationNotificationRenderer.NOTIFICATION_ID, notification())
         updateNotification()
@@ -186,7 +219,19 @@ class ForegroundLocationService : Service() {
             } finally {
                 if (stopAfterSync) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf()
+                    if (restorePausedNotification) {
+                        currentDecision = currentDecision.copy(
+                            mode = LocationPolicyMode.Off,
+                            requestIntervalMillis = 0L,
+                            nextExpectedLocationAtMillis = Long.MAX_VALUE,
+                            reason = "已暂停",
+                            scheduleLowFrequency = false
+                        )
+                        publishRuntimeState(isRunning = false)
+                        isPausing = true
+                        nm.notify(LocationNotificationRenderer.NOTIFICATION_ID, notification())
+                    }
+                    stopSelf(startId)
                 }
             }
         }

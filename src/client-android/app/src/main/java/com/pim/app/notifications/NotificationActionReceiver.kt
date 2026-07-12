@@ -20,7 +20,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             ForegroundLocationController.ACTION_PAUSE_COLLECTION -> {
-                foregroundLocationController.stop()
+                foregroundLocationController.pause()
                 return
             }
             ForegroundLocationController.ACTION_RESUME_COLLECTION -> {

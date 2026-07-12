@@ -1,6 +1,9 @@
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using Microsoft.Extensions.DependencyInjection;
+using Pim.Client.Core;
+using Pim.Client.Core.Services;
 
 namespace Pim.Client.App;
 
@@ -24,23 +27,16 @@ public class TrayIcon : IDisposable
             ContextMenuStrip = new System.Windows.Forms.ContextMenuStrip()
         };
 
-        _notifyIcon.ContextMenuStrip.Items.Add("状态：运行中，点击打开详情", null, (_, _) => ShowStatusWindow());
+        _notifyIcon.ContextMenuStrip.Items.Add("打开状态中心", null, (_, _) => ShowStatusWindow());
         _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-        _notifyIcon.ContextMenuStrip.Items.Add("打开 Web 工作台", null, (_, _) => OpenShell("/today"));
-        _notifyIcon.ContextMenuStrip.Items.Add("任务 / 日历", null, (_, _) => OpenShell("/calendar"));
-        _notifyIcon.ContextMenuStrip.Items.Add("报告中心", null, (_, _) => OpenShell("/reports"));
-        _notifyIcon.ContextMenuStrip.Items.Add("Outlook 同步", null, (_, _) => OpenShell("/sync"));
-        _notifyIcon.ContextMenuStrip.Items.Add("Data Center", null, (_, _) => OpenShell("/data-center"));
-        _notifyIcon.ContextMenuStrip.Items.Add("审计中心", null, (_, _) => OpenShell("/confirmations"));
-        _notifyIcon.ContextMenuStrip.Items.Add("通知中心", null, (_, _) => OpenShell("/confirmations"));
-        _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
-        _notifyIcon.ContextMenuStrip.Items.Add("登录...", null, (_, _) => ShowLogin());
         _notifyIcon.ContextMenuStrip.Items.Add("立即同步", null, async (_, _) => await TriggerSyncAsync());
         _notifyIcon.ContextMenuStrip.Items.Add("回填最近 14 天 ActivityWatch", null, async (_, _) => await TriggerAwBackfillAsync());
+        _notifyIcon.ContextMenuStrip.Items.Add("在浏览器打开 Web 工作台", null, (_, _) => OpenWebWorkbench());
         _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        _notifyIcon.ContextMenuStrip.Items.Add("登录...", null, (_, _) => ShowLogin());
         _notifyIcon.ContextMenuStrip.Items.Add("退出", null, (_, _) => ConfirmAndExit());
 
-        _notifyIcon.DoubleClick += (_, _) => OpenShell("/today");
+        _notifyIcon.DoubleClick += (_, _) => ShowStatusWindow();
     }
 
     private static Icon LoadIcon()
@@ -73,9 +69,37 @@ public class TrayIcon : IDisposable
         new StatusWindow().Show();
     }
 
-    private static void OpenShell(string route)
+    private static void OpenWebWorkbench()
     {
-        System.Windows.Application.Current.Dispatcher.Invoke(() => App.ShowMainShellWindow(route));
+        try
+        {
+            var config = DaemonConfig.Load();
+            var root = string.IsNullOrWhiteSpace(config.ServerUrl)
+                ? ClientDefaults.DefaultServerUrl
+                : ApiClient.NormalizeServerUrl(config.ServerUrl);
+            root = root.TrimEnd('/');
+            if (root.EndsWith("/api/v1", StringComparison.OrdinalIgnoreCase))
+            {
+                root = root[..^"/api/v1".Length].TrimEnd('/');
+            }
+
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                root = ClientDefaults.DefaultServerUrl;
+            }
+
+            var url = $"{root}/today";
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Forms.MessageBox.Show($"打开 Web 工作台失败：{ex.Message}", "PIM",
+                System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+        }
     }
 
     private static void ShowLogin()
@@ -87,8 +111,8 @@ public class TrayIcon : IDisposable
     {
         try
         {
-            var awCollector = App.Services.GetRequiredService<Pim.Client.Core.Services.AwCollectorService>();
-            var keyStatsCollector = App.Services.GetRequiredService<Pim.Client.Core.Services.KeyStatsCollectorService>();
+            var awCollector = App.Services.GetRequiredService<AwCollectorService>();
+            var keyStatsCollector = App.Services.GetRequiredService<KeyStatsCollectorService>();
             await Task.WhenAll(awCollector.SyncNowAsync(), keyStatsCollector.SyncNowAsync());
 
             var uploadErrors = BuildUploadErrorMessage(awCollector.LastUploadError, keyStatsCollector.LastUploadError);
@@ -114,7 +138,7 @@ public class TrayIcon : IDisposable
     {
         try
         {
-            var awCollector = App.Services.GetRequiredService<Pim.Client.Core.Services.AwCollectorService>();
+            var awCollector = App.Services.GetRequiredService<AwCollectorService>();
             var endUtc = DateTimeOffset.UtcNow;
             await awCollector.BackfillAsync(endUtc.AddDays(-14), endUtc);
 

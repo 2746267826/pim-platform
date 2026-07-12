@@ -75,9 +75,6 @@ public partial class App : Application
                     Logger.Warn("Login skipped; daemon running without API access, uploads will fail");
             }
 
-            ShowMainShellWindow();
-            Logger.Info("Companion shell window shown");
-
             var awCollector = Services.GetRequiredService<AwCollectorService>();
             awCollector.Log = msg => Logger.Info(msg);
             awCollector.Start();

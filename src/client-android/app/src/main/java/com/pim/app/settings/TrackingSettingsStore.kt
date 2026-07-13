@@ -12,7 +12,9 @@ data class TrackingSettings(
     val scheduleRecoveryThresholdMeters: Double,
     val altitudeWaitTimeoutMillis: Long,
     val maxUploadAccuracyMetersExclusive: Float,
-    val syncOnUnmeteredOnly: Boolean
+    val syncOnUnmeteredOnly: Boolean,
+    val logRetentionDays: Int = 7,
+    val verboseLoggingUntilUtcMillis: Long? = null
 ) {
     companion object {
         fun defaults(): TrackingSettings = TrackingSettings(
@@ -61,11 +63,19 @@ class TrackingSettingsStore(
             syncOnUnmeteredOnly = preferences.getBoolean(
                 KEY_SYNC_ON_UNMETERED_ONLY,
                 defaults.syncOnUnmeteredOnly
-            )
+            ),
+            logRetentionDays = preferences.getInt(
+                KEY_LOG_RETENTION_DAYS,
+                defaults.logRetentionDays
+            ),
+            verboseLoggingUntilUtcMillis = preferences.getString(
+                KEY_VERBOSE_LOGGING_UNTIL, null
+            )?.toLongOrNull() ?: defaults.verboseLoggingUntilUtcMillis
         )
     }
 
     fun write(settings: TrackingSettings): TrackingSettings {
+        TrackingSettingsValidator.validateOrThrow(settings)
         preferences.edit()
             .putString(KEY_PROFILE, settings.profile)
             .putBoolean(KEY_CONTINUOUS_COLLECTION, settings.continuousCollectionEnabled)
@@ -76,12 +86,44 @@ class TrackingSettingsStore(
             .putLong(KEY_ALTITUDE_WAIT_TIMEOUT, settings.altitudeWaitTimeoutMillis)
             .putFloat(KEY_MAX_UPLOAD_ACCURACY_EXCLUSIVE, settings.maxUploadAccuracyMetersExclusive)
             .putBoolean(KEY_SYNC_ON_UNMETERED_ONLY, settings.syncOnUnmeteredOnly)
+            .putInt(KEY_LOG_RETENTION_DAYS, settings.logRetentionDays)
+            .putString(KEY_VERBOSE_LOGGING_UNTIL, settings.verboseLoggingUntilUtcMillis?.toString())
             .apply()
         return read()
     }
 
     fun setContinuousCollectionEnabled(enabled: Boolean): TrackingSettings {
         return write(read().copy(continuousCollectionEnabled = enabled))
+    }
+
+    fun applyPreset(profileId: String): TrackingSettings {
+        val preset = TrackingPresetCatalog.get(profileId)
+            ?: throw IllegalArgumentException("Unknown preset: $profileId")
+        val current = read()
+        val updated = preset.applyTo(current)
+        return write(updated)
+    }
+
+    fun setVerboseLoggingEnabled(enabled: Boolean, nowUtcMillis: Long): TrackingSettings {
+        val current = read()
+        val updated = current.copy(
+            verboseLoggingUntilUtcMillis = if (enabled) nowUtcMillis + 24 * 60 * 60 * 1000L else null
+        )
+        return write(updated)
+    }
+
+    fun isVerboseLoggingEnabled(nowUtcMillis: Long): Boolean {
+        val settings = read()
+        val deadline = settings.verboseLoggingUntilUtcMillis ?: return false
+        if (nowUtcMillis >= deadline) {
+            write(settings.copy(verboseLoggingUntilUtcMillis = null))
+            return false
+        }
+        return true
+    }
+
+    fun resetOperationalDefaults(): TrackingSettings {
+        return write(TrackingSettings.defaults())
     }
 
     private companion object {
@@ -94,6 +136,8 @@ class TrackingSettingsStore(
         const val KEY_ALTITUDE_WAIT_TIMEOUT = "tracking.altitude_wait_timeout_millis"
         const val KEY_MAX_UPLOAD_ACCURACY_EXCLUSIVE = "tracking.max_upload_accuracy_meters_exclusive"
         const val KEY_SYNC_ON_UNMETERED_ONLY = "tracking.sync_on_unmetered_only"
+        const val KEY_LOG_RETENTION_DAYS = "tracking.log_retention_days"
+        const val KEY_VERBOSE_LOGGING_UNTIL = "tracking.verbose_logging_until_utc_millis"
     }
 }
 

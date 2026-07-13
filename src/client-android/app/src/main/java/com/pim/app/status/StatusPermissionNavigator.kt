@@ -8,19 +8,28 @@ import android.os.Build
 import android.provider.Settings
 
 object StatusPermissionNavigator {
-    fun open(context: Context, issue: StatusIssue) {
-        val intent = intentFor(context, issue)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    fun open(context: Context, issue: StatusIssue) =
+        tryStartActivity(context, intentFor(context, issue))
+
+    fun open(context: Context, issueCode: String) =
+        tryStartActivity(context, intentFor(context, issueCode))
+
+    private fun tryStartActivity(context: Context, intent: Intent) {
+        val flags = intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
-            context.startActivity(intent)
+            context.startActivity(flags)
         } catch (_: ActivityNotFoundException) {
             context.startActivity(appDetailsIntent(context).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
 
-    fun intentFor(context: Context, issue: StatusIssue): Intent = when (issue.code) {
+    fun intentFor(context: Context, issue: StatusIssue): Intent = intentFor(context, issue.code)
+
+    fun intentFor(context: Context, issueCode: String): Intent = when (issueCode) {
         "usage-access-missing" -> Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
         "notification-permission-missing" -> notificationSettingsIntent(context)
+        "battery-optimization-missing" -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            .setData(Uri.parse("package:${context.packageName}"))
         else -> appDetailsIntent(context)
     }
 

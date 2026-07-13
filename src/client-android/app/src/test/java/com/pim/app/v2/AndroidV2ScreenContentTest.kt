@@ -11,7 +11,10 @@ class AndroidV2ScreenContentTest {
         assertContains("ui/tracks/TracksScreen.kt", listOf("轨迹历史", "时间范围", "质量过滤", "< 50m", "原始点", "片段详情"))
         assertContains("ui/schedule/SchedulePolicyScreen.kt", listOf("日程低频策略", "当前日程", "恢复阈值", "100m", "策略切换"))
         assertContains("ui/status/StatusCenterScreen.kt", listOf("状态中心", "API", "权限", "前台服务", "上传队列", "最近错误"))
-        assertContains("ui/settings/SettingsScreen.kt", listOf("API 地址", "持续采集", "省电档", "3 分钟", "15 分钟", "1 分钟", "< 50m"))
+        assertContains(
+            "ui/settings/SettingsScreen.kt",
+            listOf("API 地址", "账号", "持续采集", "采集预设", "高级参数", "网络", "日志", "权限", "恢复默认")
+        )
     }
 
     private fun assertContains(path: String, labels: List<String>) {

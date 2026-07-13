@@ -99,6 +99,7 @@ private fun StatusCenterContent(
             Text("后台定位：${snapshot.permissions.backgroundLocationGranted.toStatusText()}")
             Text("使用情况：${snapshot.permissions.usageAccessGranted.toStatusText()}")
             Text("运动识别：${snapshot.permissions.activityRecognitionGranted.toStatusText()}")
+            Text("电池优化：${snapshot.permissions.batteryOptimizationGranted.toStatusText()}")
         }
 
         PimSection("前台服务") {

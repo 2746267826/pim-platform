@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import com.pim.app.mobile.usage.UsageAccessChecker
 import com.pim.app.status.PermissionStatusSnapshot
@@ -23,7 +24,8 @@ class PermissionStatusRepository @Inject constructor(
             preciseLocationGranted = preciseLocationGranted,
             backgroundLocationGranted = hasBackgroundLocationPermission(preciseLocationGranted),
             usageAccessGranted = usageAccessChecker.hasUsageAccess(),
-            activityRecognitionGranted = hasActivityRecognitionPermission()
+            activityRecognitionGranted = hasActivityRecognitionPermission(),
+            batteryOptimizationGranted = hasBatteryOptimization()
         )
     }
 
@@ -43,6 +45,12 @@ class PermissionStatusRepository @Inject constructor(
     private fun hasActivityRecognitionPermission(): Boolean {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
             isGranted(Manifest.permission.ACTIVITY_RECOGNITION)
+    }
+
+    private fun hasBatteryOptimization(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return false
+        return powerManager.isIgnoringBatteryOptimizations(context.packageName)
     }
 
     private fun isGranted(permission: String): Boolean {

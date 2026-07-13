@@ -16,8 +16,12 @@ class ForegroundLocationController @Inject constructor(
         ContextCompat.startForegroundService(context, serviceIntent(ACTION_START_COLLECTION))
     }
 
-    fun stop() {
+    fun pause() {
         context.startService(serviceIntent(ACTION_PAUSE_COLLECTION))
+    }
+
+    fun stop() {
+        context.startService(serviceIntent(ACTION_STOP_COLLECTION))
     }
 
     fun syncNow() {
@@ -38,6 +42,7 @@ class ForegroundLocationController @Inject constructor(
         const val ACTION_START_COLLECTION = "com.pim.app.location.action.START_COLLECTION"
         const val ACTION_PAUSE_COLLECTION = "com.pim.app.location.action.PAUSE_COLLECTION"
         const val ACTION_RESUME_COLLECTION = "com.pim.app.location.action.RESUME_COLLECTION"
+        const val ACTION_STOP_COLLECTION = "com.pim.app.location.action.STOP_COLLECTION"
         const val ACTION_SYNC_NOW = "com.pim.app.location.action.SYNC_NOW"
         const val ACTION_OPEN_STATUS = "com.pim.app.location.action.OPEN_STATUS"
         const val EXTRA_OPEN_DESTINATION = "com.pim.app.location.extra.OPEN_DESTINATION"

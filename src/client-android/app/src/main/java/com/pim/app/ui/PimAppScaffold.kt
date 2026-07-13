@@ -298,7 +298,8 @@ private fun LocationTab(
     val snapshot = state.latest
     val decision = LocationSubmissionPolicy.decide(
         horizontalAccuracyMeters = snapshot?.horizontalAccuracyMeters,
-        autoAlreadySubmitted = state.autoSubmitted
+        autoAlreadySubmitted = state.autoSubmitted,
+        maxUploadAccuracyMetersExclusive = state.maxUploadAccuracyMetersExclusive
     )
     val inlineReason = state.inlineReason ?: if (snapshot != null) decision.reason else null
 

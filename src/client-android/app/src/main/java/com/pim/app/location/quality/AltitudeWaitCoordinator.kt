@@ -9,6 +9,10 @@ class AltitudeWaitCoordinator(
 ) {
     private var pendingAltitudeFix: PendingAltitudeFix? = null
 
+    fun cancelPending() {
+        pendingAltitudeFix = null
+    }
+
     suspend fun handleFix(
         fix: RawLocationFix,
         onAccepted: suspend (QualityAcceptedLocation) -> Unit,

@@ -20,4 +20,41 @@ class LocationSubmissionPolicyTest {
         assertTrue(decision.canSubmitManually)
         assertFalse(decision.shouldAutoSubmit)
     }
+
+    @Test
+    fun maxUploadAccuracyThresholdReplacesHardcodedFiftyMeters() {
+        val decision = LocationSubmissionPolicy.decide(
+            horizontalAccuracyMeters = 45f,
+            maxUploadAccuracyMetersExclusive = 35.5f,
+            autoAlreadySubmitted = false
+        )
+
+        assertFalse(decision.canSubmitManually)
+        assertTrue(decision.reason?.contains("35.5") == true)
+    }
+
+    @Test
+    fun configuredThresholdIsAppliedBeforeAutomaticSubmissionThreshold() {
+        val decision = LocationSubmissionPolicy.decide(
+            horizontalAccuracyMeters = 10f,
+            maxUploadAccuracyMetersExclusive = 10f,
+            autoAlreadySubmitted = false
+        )
+
+        assertFalse(decision.canSubmitManually)
+        assertFalse(decision.shouldAutoSubmit)
+    }
+
+    @Test
+    fun nonFiniteAccuracyCannotBeSubmitted() {
+        listOf(Float.NaN, Float.POSITIVE_INFINITY).forEach { accuracy ->
+            val decision = LocationSubmissionPolicy.decide(
+                horizontalAccuracyMeters = accuracy,
+                autoAlreadySubmitted = false
+            )
+
+            assertFalse(decision.canSubmitManually)
+            assertFalse(decision.shouldAutoSubmit)
+        }
+    }
 }

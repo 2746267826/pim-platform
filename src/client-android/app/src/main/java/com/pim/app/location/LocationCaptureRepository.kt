@@ -12,9 +12,11 @@ import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.pim.app.location.quality.AltitudeWaitCoordinator
+import com.pim.app.location.quality.LocationQualityGate
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
 import com.pim.app.mobile.sync.MobileSyncScheduler
+import com.pim.app.settings.TrackingSettingsStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -51,18 +53,20 @@ data class LocationCaptureState(
     val statusMessage: String = "尚未开始定位",
     val inlineReason: String? = null,
     val isSubmitting: Boolean = false,
-    val autoSubmitted: Boolean = false
+    val autoSubmitted: Boolean = false,
+    val maxUploadAccuracyMetersExclusive: Float = 50f
 )
 
 @Singleton
 class LocationCaptureRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val locationQueueRepository: LocationQueueRepository,
-    private val mobileSyncScheduler: MobileSyncScheduler
+    private val mobileSyncScheduler: MobileSyncScheduler,
+    private val trackingSettingsStore: TrackingSettingsStore
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    private val qualityCoordinator = AltitudeWaitCoordinator()
+    private lateinit var qualityCoordinator: AltitudeWaitCoordinator
 
     private var listener: LocationListener? = null
     private var startedAtElapsedMs: Long = 0L
@@ -71,12 +75,15 @@ class LocationCaptureRepository @Inject constructor(
     val state: StateFlow<LocationCaptureState> = _state.asStateFlow()
 
     fun startCapture() {
+        val settings = trackingSettingsStore.read()
+        cancelPendingQualityWait()
         if (!hasAnyLocationPermission()) {
             _state.update {
                 it.copy(
                     isCapturing = false,
                     statusMessage = "缺少定位权限，请先授权精确定位。",
-                    inlineReason = "缺少定位权限。"
+                    inlineReason = "缺少定位权限。",
+                    maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
                 )
             }
             return
@@ -87,15 +94,20 @@ class LocationCaptureRepository @Inject constructor(
         if (providers.isEmpty()) {
             _state.value = LocationCaptureState(
                 statusMessage = "系统定位服务未开启。",
-                inlineReason = "请先在系统设置中开启 GPS 或网络定位。"
+                inlineReason = "请先在系统设置中开启 GPS 或网络定位。",
+                maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
             )
             return
         }
 
         startedAtElapsedMs = SystemClock.elapsedRealtime()
+        qualityCoordinator = AltitudeWaitCoordinator(
+            LocationQualityGate.fromTrackingSettings(settings)
+        )
         _state.value = LocationCaptureState(
             isCapturing = true,
-            statusMessage = "正在等待位置更新..."
+            statusMessage = "正在等待位置更新...",
+            maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
         )
 
         val updateListener = object : LocationListener {
@@ -125,6 +137,7 @@ class LocationCaptureRepository @Inject constructor(
     }
 
     private fun stopCapture(clearStatus: Boolean) {
+        cancelPendingQualityWait()
         listener?.let { manager.removeUpdates(it) }
         listener = null
         if (!clearStatus) {
@@ -144,7 +157,11 @@ class LocationCaptureRepository @Inject constructor(
             return
         }
 
-        val decision = LocationSubmissionPolicy.decide(snapshot.horizontalAccuracyMeters, state.value.autoSubmitted)
+        val decision = LocationSubmissionPolicy.decide(
+            snapshot.horizontalAccuracyMeters,
+            state.value.autoSubmitted,
+            state.value.maxUploadAccuracyMetersExclusive
+        )
         if (!decision.canSubmitManually) {
             _state.update {
                 it.copy(
@@ -193,7 +210,11 @@ class LocationCaptureRepository @Inject constructor(
             bearingDegrees = if (location.hasBearing()) location.bearing else null,
             timeMillis = location.time
         )
-        val decision = LocationSubmissionPolicy.decide(snapshot.horizontalAccuracyMeters, state.value.autoSubmitted)
+        val decision = LocationSubmissionPolicy.decide(
+            snapshot.horizontalAccuracyMeters,
+            state.value.autoSubmitted,
+            state.value.maxUploadAccuracyMetersExclusive
+        )
         _state.update {
             it.copy(
                 latest = snapshot,
@@ -210,7 +231,6 @@ class LocationCaptureRepository @Inject constructor(
 
     private suspend fun submitSnapshot(snapshot: LocationSnapshot, isAutoSubmitted: Boolean) {
         if (state.value.isSubmitting) return
-
         var acceptedLocation: QualityAcceptedLocation? = null
         var droppedReason: String? = null
         qualityCoordinator.handleFix(
@@ -224,7 +244,7 @@ class LocationCaptureRepository @Inject constructor(
             _state.update {
                 it.copy(
                     submitStatus = "未提交",
-                    inlineReason = droppedReason?.toLocationMessage()
+                    inlineReason = droppedReason?.toLocationMessage(state.value.maxUploadAccuracyMetersExclusive)
                 )
             }
             return
@@ -284,6 +304,12 @@ class LocationCaptureRepository @Inject constructor(
         return fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED
     }
 
+    private fun cancelPendingQualityWait() {
+        if (::qualityCoordinator.isInitialized) {
+            qualityCoordinator.cancelPending()
+        }
+    }
+
     private fun rawJson(
         accepted: QualityAcceptedLocation,
         source: String,
@@ -309,9 +335,9 @@ class LocationCaptureRepository @Inject constructor(
             .toString()
     }
 
-    private fun String.toLocationMessage(): String = when (this) {
+    private fun String.toLocationMessage(threshold: Float): String = when (this) {
         "missing-horizontal-accuracy" -> "缺少水平精度信息，不能提交。"
-        "horizontal-accuracy-too-low" -> "误差必须小于 50 米，不能提交。"
+        "horizontal-accuracy-too-low" -> "误差必须小于 ${formatAccuracyThresholdMeters(threshold)} 米，不能提交。"
         else -> this
     }
 

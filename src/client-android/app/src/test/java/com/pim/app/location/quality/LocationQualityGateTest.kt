@@ -1,5 +1,6 @@
 package com.pim.app.location.quality
 
+import com.pim.app.settings.TrackingSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -95,6 +96,29 @@ class LocationQualityGateTest {
         assertTrue(accepted.qualityFlags.contains("altitude-missing-timeout"))
         assertEquals("PowerSavingNormal", accepted.fix.policyMode)
         assertEquals("Unknown", accepted.fix.motionSignal)
+    }
+
+    @Test
+    fun fromTrackingSettingsUsesMaxUploadAccuracyAndAltitudeWait() {
+        val settings = TrackingSettings.defaults().copy(
+            maxUploadAccuracyMetersExclusive = 35f,
+            altitudeWaitTimeoutMillis = 20_000L
+        )
+        val gate = LocationQualityGate.fromTrackingSettings(settings)
+
+        val dropped = gate.evaluate(
+            fix(horizontalAccuracyMeters = 40f, altitudeMeters = null, recordedAtMillis = 1_000L),
+            nowMillis = 1_000L
+        )
+        assertTrue(dropped is QualityDecision.Drop)
+        assertEquals("horizontal-accuracy-too-low", (dropped as QualityDecision.Drop).reason)
+
+        val waiting = gate.evaluate(
+            fix(horizontalAccuracyMeters = 30f, altitudeMeters = null, recordedAtMillis = 1_000L),
+            nowMillis = 1_000L
+        )
+        assertTrue(waiting is QualityDecision.WaitForAltitude)
+        assertEquals(21_000L, (waiting as QualityDecision.WaitForAltitude).pending.deadlineMillis)
     }
 
     private fun fix(

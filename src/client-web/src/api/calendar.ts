@@ -26,9 +26,15 @@ import type {
   HabitRoutine,
   ImportReport,
   OperationConfirmation,
-  OutlookDeviceCodeRequestResponse,
+  OutlookAuthorizationSessionResponse,
+  OutlookCalendarBindingResponse,
+  OutlookSyncBatchPage,
   OutlookSettingsResponse,
   OutlookSyncBatchResponse,
+  OutlookSyncRequest,
+  OutlookLocalDataPreview,
+  OutlookWriteRequest,
+  OutlookWriteResult,
   PagedResult,
   ReminderActionResponse,
   ReminderDelivery,
@@ -196,11 +202,44 @@ export const calendarApiPaths = {
   outlookDeviceCodePoll() {
     return '/calendar/outlook/device-code/poll';
   },
+  outlookDeviceCodeCancel(sessionId: string) {
+    return `/calendar/outlook/device-code/${encodeURIComponent(sessionId)}/cancel`;
+  },
+  outlookCheck() {
+    return '/calendar/outlook/check';
+  },
+  outlookDiscover() {
+    return '/calendar/outlook/calendars/discover';
+  },
+  outlookSelection() {
+    return '/calendar/outlook/calendars/selection';
+  },
+  outlookWriteback() {
+    return '/calendar/outlook/events/writeback';
+  },
+  outlookLocalDataPreview() {
+    return '/calendar/outlook/local-data/preview';
+  },
+  outlookLocalData() {
+    return '/calendar/outlook/local-data';
+  },
+  outlookDisconnect() {
+    return '/calendar/outlook/disconnect';
+  },
   outlookSyncBatches() {
     return '/calendar/outlook/sync/batches';
   },
   outlookSync() {
     return '/calendar/outlook/sync';
+  },
+  outlookSyncCancel(id: string) {
+    return `/calendar/outlook/sync/${encodeURIComponent(id)}/cancel`;
+  },
+  outlookSyncBatchesPaged(params: { page?: number; pageSize?: number } = {}) {
+    return appendQuery('/calendar/outlook/sync/batches', {
+      page: params.page,
+      pageSize: params.pageSize,
+    });
   },
   taskBatchUpdate() {
     return '/calendar/tasks/batch-update';
@@ -563,32 +602,102 @@ export async function updateOutlookSettings(data: UpdateOutlookSettingsRequest) 
 }
 
 export async function createOutlookDeviceCode() {
-  const r = await apiPost<ApiResponse<OutlookDeviceCodeRequestResponse>>(
+  const r = await apiPost<ApiResponse<OutlookAuthorizationSessionResponse>>(
     calendarApiPaths.outlookDeviceCode(),
     {}
   );
   return r.data;
 }
 
-export async function pollOutlookDeviceCode(deviceCode: string) {
-  const r = await apiPost<ApiResponse<OutlookSettingsResponse>>(
+export async function pollOutlookDeviceCode(sessionId: string) {
+  const r = await apiPost<ApiResponse<OutlookAuthorizationSessionResponse>>(
     calendarApiPaths.outlookDeviceCodePoll(),
-    { deviceCode }
+    { sessionId }
   );
   return r.data;
 }
 
-export async function runOutlookSync() {
+export async function cancelOutlookDeviceCode(sessionId: string) {
+  const r = await apiPost<ApiResponse<string>>(
+    calendarApiPaths.outlookDeviceCodeCancel(sessionId)
+  );
+  return r.data;
+}
+
+export async function checkOutlookConnection() {
+  const r = await apiPost<ApiResponse<OutlookSettingsResponse>>(
+    calendarApiPaths.outlookCheck()
+  );
+  return r.data;
+}
+
+export async function runOutlookSync(request: OutlookSyncRequest = { mode: 'normal' }) {
   const r = await apiPost<ApiResponse<OutlookSyncBatchResponse>>(
     calendarApiPaths.outlookSync(),
-    {}
+    request
+  );
+  return r.data;
+}
+
+export async function getOutlookSyncBatchesPaged(params: { page?: number; pageSize?: number } = {}) {
+  const r = await apiGet<ApiResponse<OutlookSyncBatchPage>>(
+    calendarApiPaths.outlookSyncBatchesPaged(params)
   );
   return r.data;
 }
 
 export async function getOutlookSyncBatches() {
-  const r = await apiGet<ApiResponse<OutlookSyncBatchResponse[]>>(
-    calendarApiPaths.outlookSyncBatches()
+  const page = await getOutlookSyncBatchesPaged();
+  return page.items;
+}
+
+export async function cancelOutlookSync(batchId: string) {
+  const r = await apiPost<ApiResponse<string>>(
+    calendarApiPaths.outlookSyncCancel(batchId)
+  );
+  return r.data;
+}
+
+export async function outlookDiscover() {
+  const r = await apiPost<ApiResponse<OutlookCalendarBindingResponse[]>>(
+    calendarApiPaths.outlookDiscover()
+  );
+  return r.data;
+}
+
+export async function outlookSelection(selectedBindingIds: string[]) {
+  const r = await apiPut<ApiResponse<OutlookCalendarBindingResponse[]>>(
+    calendarApiPaths.outlookSelection(),
+    { selectedBindingIds }
+  );
+  return r.data;
+}
+
+export async function writeOutlookEvent(request: OutlookWriteRequest) {
+  const r = await apiPost<ApiResponse<OutlookWriteResult>>(
+    calendarApiPaths.outlookWriteback(),
+    request
+  );
+  return r.data;
+}
+
+export async function outlookLocalDataPreview() {
+  const r = await apiGet<ApiResponse<OutlookLocalDataPreview>>(
+    calendarApiPaths.outlookLocalDataPreview()
+  );
+  return r.data;
+}
+
+export async function outlookLocalDataDelete() {
+  const r = await apiDelete<ApiResponse<string>>(
+    calendarApiPaths.outlookLocalData()
+  );
+  return r.data;
+}
+
+export async function outlookDisconnect() {
+  const r = await apiPost<ApiResponse<string>>(
+    calendarApiPaths.outlookDisconnect()
   );
   return r.data;
 }

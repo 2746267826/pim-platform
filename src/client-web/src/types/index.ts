@@ -397,32 +397,58 @@ export interface DataCenterQueryResponse {
 
 export interface OutlookSettingsResponse {
   provider: string;
-  tenantId: string;
+  tenantId?: string | null;
   clientId?: string | null;
-  scopes: string;
+  scopes?: string | null;
   status: string;
-  tokenHealth: string;
-  deltaLink?: string | null;
-  syncWindowDays?: number | null;
-  writebackDefault?: string | null;
-  conflictPolicy?: string | null;
+  tokenHealth?: string | null;
+  lastSyncedAt?: string | null;
+  lastError?: string | null;
+  uiStatus?: string | null;
+  activeAuthorization?: OutlookAuthorizationSessionResponse | null;
+}
+
+export interface UpdateOutlookSettingsRequest {
+  clientId: string;
+}
+
+export interface OutlookAuthorizationSessionResponse {
+  id: string;
+  status: string;
+  verificationUri?: string | null;
+  userCode?: string | null;
+  expiresAt?: string | null;
+  accountDisplayName?: string | null;
+  accountLoginHint?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  recoveryAction?: string | null;
+}
+
+export interface OutlookCalendarBindingResponse {
+  id: string;
+  pimCalendarId: string;
+  graphCalendarId: string;
+  groupId?: string | null;
+  groupName?: string | null;
+  name: string;
+  color?: string | null;
+  ownerName?: string | null;
+  ownerAddress?: string | null;
+  isDefault: boolean;
+  canEdit: boolean;
+  isSelected: boolean;
+  remoteState: string;
   lastSyncedAt?: string | null;
   lastError?: string | null;
 }
 
-export interface UpdateOutlookSettingsRequest {
-  tenantId: string;
-  clientId?: string | null;
-  scopes: string;
-}
-
-export interface OutlookDeviceCodeRequestResponse {
-  endpoint: string;
-  verificationUri: string;
-  userCode: string;
-  expiresAt: string;
-  message: string;
-  deviceCode?: string | null;
+export interface OutlookSyncRequest {
+  mode: 'normal' | 'full-resources' | 'range-instances';
+  calendarBindingIds?: string[];
+  rangeStart?: string;
+  rangeEnd?: string;
+  retryOfBatchId?: string;
 }
 
 export interface OutlookSyncStep {
@@ -446,6 +472,83 @@ export interface OutlookSyncBatchResponse {
   errorSummary?: string | null;
   startedAt: string;
   finishedAt?: string | null;
+  mode?: string;
+  requestedWindowStart?: string | null;
+  requestedWindowEnd?: string | null;
+  perCalendarJson?: string | null;
+  cancelRequested: boolean;
+}
+
+export interface OutlookPerCalendarChange {
+  id: string;
+  title: string;
+  action: string;
+}
+
+export interface OutlookPerCalendarFailure {
+  eventId?: string;
+  title?: string;
+  code?: string;
+  message?: string;
+}
+
+export interface OutlookPerCalendarResult {
+  bindingId: string;
+  calendarName: string;
+  status: string;
+  readCount: number;
+  createdCount: number;
+  updatedCount: number;
+  deletedCount: number;
+  failureCount: number;
+  changes: OutlookPerCalendarChange[];
+  failures: OutlookPerCalendarFailure[];
+  retryOfBatchId?: string;
+}
+
+export interface OutlookSyncBatchPage {
+  items: OutlookSyncBatchResponse[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface OutlookLocalDataPreview {
+  bindingCount: number;
+  calendarCount: number;
+  eventCount: number;
+}
+
+export interface OutlookEventDraft {
+  calendarId: string;
+  title: string;
+  description?: string;
+  location?: string;
+  dtStart: string;
+  dtEnd: string;
+  rRule?: string;
+  uid?: string;
+  isAllDay?: boolean;
+  timeZoneId?: string;
+}
+
+export interface OutlookWriteRequest {
+  operation: string;
+  calendarBindingId: string;
+  eventId?: string;
+  draft?: OutlookEventDraft;
+  scope: string;
+  clientOperationId: string;
+  expectedEtag?: string;
+}
+
+export interface OutlookWriteResult {
+  status: string;
+  event?: EventResponse | null;
+  latestOutlookJson?: string | null;
+  latestEtag?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
 }
 
 export type OperationRiskLevel =

@@ -14,12 +14,17 @@ import com.pim.app.location.policy.LocationPolicyMode
 import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.notifications.LocationNotificationRenderer
 import com.pim.app.notifications.LocationNotificationState
+import com.pim.app.schedule.ScheduleWindowRepository
 import com.pim.app.settings.TrackingSettingsStore
+import com.pim.core.network.ApiService
+import java.lang.reflect.Proxy
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -412,6 +417,89 @@ class ForegroundLocationServiceTest {
         assertTrue("应包含已暂停: $collapsed", collapsed.contains("已暂停"))
         assertTrue("应包含同步结果: $collapsed", collapsed.contains("同步请求已提交"))
 
+        service.onDestroy()
+    }
+
+    @Test
+    fun nonPauseOnDestroyExplicitlyCancelsNotification() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val prefs = context.getSharedPreferences("fg_ondestroy_explicit_cancel", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        val store = TrackingSettingsStore(prefs)
+
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        service.trackingSettingsStore = store
+
+        // STOP_COLLECTION sets isPausing = false
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_STOP_COLLECTION),
+            0, 1
+        )
+
+        // Simulate late coroutine re-posting (e.g. refreshScheduleWindows completing after STOP)
+        val lateState = LocationNotificationState(
+            mode = LocationPolicyMode.ScheduleLowFrequency,
+            nextExpectedLocationText = "3 分钟后",
+            lastAcceptedLocationText = "12:00",
+            lastAccuracyText = "10m",
+            pendingUploadCount = 1,
+            apiState = "正常",
+            lastDroppedReason = null
+        )
+        nm.notify(
+            LocationNotificationRenderer.NOTIFICATION_ID,
+            LocationNotificationRenderer.build(context, lateState)
+        )
+        assertTrue(
+            "晚到协程重发后通知应可见",
+            nm.activeNotifications.any { it.id == LocationNotificationRenderer.NOTIFICATION_ID }
+        )
+
+        // onDestroy for !isPausing should remove all notifications
+        service.onDestroy()
+
+        val n = findNotification(nm)
+        assertNull("onDestroy 后应无通知残留", n)
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun cancelledScheduleRefreshDoesNotPublishFailureNotification() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        val apiService = Proxy.newProxyInstance(
+            ApiService::class.java.classLoader,
+            arrayOf(ApiService::class.java)
+        ) { _, method, _ ->
+            if (method.name == "getEvents") {
+                throw CancellationException("test cancellation")
+            }
+            error("Unexpected ApiService call: ${method.name}")
+        } as ApiService
+
+        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        service.scheduleWindowRepository = ScheduleWindowRepository(apiService)
+
+        val refresh = ForegroundLocationService::class.java
+            .getDeclaredMethod("refreshScheduleWindows")
+            .apply { isAccessible = true }
+        refresh.invoke(service)
+
+        repeat(20) {
+            Thread.sleep(25)
+            shadowOf(Looper.getMainLooper()).idle()
+        }
+
+        assertNull(
+            "取消日程刷新不应被当作 API 失败并重发通知",
+            findNotification(nm)
+        )
         service.onDestroy()
     }
 

@@ -130,10 +130,12 @@ class ForegroundLocationService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        scope.cancel()
         if (!isPausing) {
             stopCollection()
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
         }
-        scope.cancel()
         _runtimeState.value = ForegroundLocationRuntimeState(isRunning = false)
         super.onDestroy()
     }
@@ -247,24 +249,21 @@ class ForegroundLocationService : Service() {
     private fun refreshScheduleWindows() {
         val now = System.currentTimeMillis()
         scope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
+            try {
+                scheduleWindows = withContext(Dispatchers.IO) {
                     scheduleWindowRepository.loadWindows(
                         startMillis = now - 6L * 60L * 60L * 1000L,
                         endMillis = now + 24L * 60L * 60L * 1000L
                     )
                 }
-            }.fold(
-                onSuccess = {
-                    scheduleWindows = it
-                    apiState = "正常"
-                    updateNotification()
-                },
-                onFailure = {
-                    apiState = "API 无法连接"
-                    updateNotification()
-                }
-            )
+                apiState = "正常"
+                updateNotification()
+            } catch (ex: CancellationException) {
+                throw ex
+            } catch (_: Exception) {
+                apiState = "API 无法连接"
+                updateNotification()
+            }
         }
     }
 

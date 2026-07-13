@@ -95,6 +95,42 @@ class LocationNotificationRendererTest {
         assertEquals("恢复", notification.actions[0].title)
     }
 
+    @Test
+    fun expandedTextDoesNotDuplicateApiPrefix() {
+        val text = LocationNotificationRenderer.expandedText(
+            state = state(
+                mode = LocationPolicyMode.ScheduleLowFrequency,
+                nextExpectedLocationText = "3 分钟后",
+                lastAcceptedLocationText = "12:00",
+                lastAccuracyText = "10m",
+                pendingUploadCount = 1,
+                apiState = "API 无法连接",
+                lastDroppedReason = null
+            )
+        )
+        assertFalse("展开文本不应包含 API API", text.contains("API API"))
+        assertTrue(
+            "应正确显示 API 状态一次: $text",
+            text.contains("待上传 1，API 无法连接")
+        )
+    }
+
+    @Test
+    fun expandedTextAddsApiLabelWhenStateHasNoPrefix() {
+        val text = LocationNotificationRenderer.expandedText(
+            state = state(
+                mode = LocationPolicyMode.PowerSavingNormal,
+                pendingUploadCount = 2,
+                apiState = "正常"
+            )
+        )
+
+        assertTrue(
+            "无前缀状态也应显示 API 标签: $text",
+            text.contains("待上传 2，API 正常")
+        )
+    }
+
     private fun state(
         mode: LocationPolicyMode,
         nextExpectedLocationText: String = "12 分钟后",

@@ -53,9 +53,13 @@ object LocationNotificationRenderer {
             add("策略：${modeLabel(state.mode)}")
             add("下次定位：${state.nextExpectedLocationText}")
             add("最近位置：${state.lastAcceptedLocationText}，精度 ${state.lastAccuracyText}")
-            add("待上传 ${state.pendingUploadCount}，API ${state.apiState}")
+            add("待上传 ${state.pendingUploadCount}，${apiStateLabel(state.apiState)}")
             state.lastDroppedReason?.let { add("最近丢弃：$it") }
         }.joinToString("\n")
+    }
+
+    private fun apiStateLabel(apiState: String): String {
+        return "API ${apiState.removePrefix("API ")}"
     }
 
     fun build(context: Context, state: LocationNotificationState): Notification {

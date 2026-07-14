@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using Pim.Client.Core.Models;
 
@@ -37,6 +38,12 @@ public sealed class KeyStatsProcessManager
         return new KeyStatsConvergencePlan(keep, stop, ShouldStart: false);
     }
 
+    public static bool NeedsElevation(IReadOnlyList<KeyStatsStopResult> stopResults)
+        => stopResults.Any(r => !r.Succeeded && string.Equals(r.Error, "access-denied", StringComparison.OrdinalIgnoreCase));
+
+    public static IReadOnlyList<int> FailedStopIds(IReadOnlyList<KeyStatsStopResult> stopResults)
+        => stopResults.Where(r => !r.Succeeded).Select(r => r.ProcessId).ToArray();
+
     public IReadOnlyList<KeyStatsProcessInfo> ListProcesses(int currentSessionId)
     {
         var result = new List<KeyStatsProcessInfo>();
@@ -63,15 +70,47 @@ public sealed class KeyStatsProcessManager
         return result;
     }
 
+    public IReadOnlyList<KeyStatsStopResult> StopProcesses(IEnumerable<int> processIds)
+        => processIds.Distinct().Select(TryStop).ToArray();
+
+    public KeyStatsStopResult TryStop(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            process.Kill(entireProcessTree: true);
+            if (!process.WaitForExit(3000) && !process.HasExited)
+            {
+                return new KeyStatsStopResult(processId, Succeeded: false, Error: "timeout");
+            }
+
+            return new KeyStatsStopResult(processId, Succeeded: true, Error: null);
+        }
+        catch (ArgumentException)
+        {
+            // process already gone
+            return new KeyStatsStopResult(processId, Succeeded: true, Error: null);
+        }
+        catch (Win32Exception)
+        {
+            return new KeyStatsStopResult(processId, Succeeded: false, Error: "access-denied");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return new KeyStatsStopResult(processId, Succeeded: false, Error: "access-denied");
+        }
+        catch (Exception ex)
+        {
+            return new KeyStatsStopResult(processId, Succeeded: false, Error: ex.GetType().Name);
+        }
+    }
+
     public KeyStatsConvergencePlan EnsureRunning(string keyStatsExePath, int currentSessionId)
     {
         var processes = ListProcesses(currentSessionId);
         var plan = BuildConvergencePlan(processes, currentSessionId);
 
-        foreach (var pid in plan.ProcessIdsToStop)
-        {
-            TryStop(pid);
-        }
+        StopProcesses(plan.ProcessIdsToStop);
 
         if (plan.ShouldStart)
         {
@@ -91,21 +130,7 @@ public sealed class KeyStatsProcessManager
         StartInCurrentSession(keyStatsExePath);
     }
 
-    private static void TryStop(int processId)
-    {
-        try
-        {
-            using var process = Process.GetProcessById(processId);
-            process.Kill(entireProcessTree: true);
-            process.WaitForExit(3000);
-        }
-        catch
-        {
-            // best effort
-        }
-    }
-
-    private static void StartInCurrentSession(string keyStatsExePath)
+    public void StartInCurrentSession(string keyStatsExePath)
     {
         if (!File.Exists(keyStatsExePath))
         {

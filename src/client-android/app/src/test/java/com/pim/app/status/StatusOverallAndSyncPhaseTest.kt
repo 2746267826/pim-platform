@@ -715,7 +715,7 @@ class StatusOverallAndSyncPhaseTest {
 
     @Test
     fun syncFailureIssueIsCriticalWithTriggerSync() {
-        val issue = StatusIssue.syncFailure("connection timeout")
+        val issue = StatusIssue.syncFailure()
         assertEquals("sync-failure", issue.code)
         assertEquals(StatusSeverity.Critical, issue.severity)
         assertEquals("重新同步", issue.actionLabel)
@@ -723,8 +723,8 @@ class StatusOverallAndSyncPhaseTest {
     }
 
     @Test
-    fun syncFailureIssueUsesDefaultMessageWhenNull() {
-        val issue = StatusIssue.syncFailure(null)
+    fun syncFailureIssueUsesFixedSummary() {
+        val issue = StatusIssue.syncFailure()
         assertTrue(issue.message.isNotBlank())
     }
 
@@ -753,7 +753,7 @@ class StatusOverallAndSyncPhaseTest {
     }
 
     @Test
-    fun buildStatePersistedFailedPhaseWithFailedCountUsesLastError() {
+    fun buildStatePersistedFailedPhaseWithFailedCountProducesSyncFailure() {
         val state = StatusResultMapper.buildState(
             snapshot = healthySnapshot,
             syncState = MobileSyncState(
@@ -771,7 +771,9 @@ class StatusOverallAndSyncPhaseTest {
         )
 
         val syncIssue = state.issues.first { it.code == "sync-failure" }
-        assertTrue(syncIssue.message.contains("connection timeout", ignoreCase = true))
+        assertEquals("最近同步出现异常，请导出日志查看详情。", syncIssue.message)
+        assertEquals(StatusSeverity.Critical, syncIssue.severity)
+        assertEquals(StatusActionTarget.Sync, syncIssue.target)
     }
 
     @Test

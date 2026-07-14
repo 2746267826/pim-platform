@@ -13,8 +13,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.pim.app.status.ApiConnectionSnapshot
 import com.pim.app.status.ConnectionProbeOutcome
 import com.pim.app.status.ConnectionProbeResult
+import com.pim.app.status.DiagnosticSnapshot
+import com.pim.app.status.TrackingPolicySnapshot
 import com.pim.app.status.ConnectionProbeStage
 import com.pim.app.status.NetworkAvailability
 import com.pim.app.status.PermissionStatusSnapshot
@@ -170,7 +173,7 @@ class StatusCenterScreenTest {
         composeTestRule.onNodeWithTag("status-diagnostics").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("status-next-location").assertExists()
         composeTestRule.onNodeWithText("最近记录").assertExists()
-        composeTestRule.onNodeWithText("手机同步已完成。").assertExists()
+        composeTestRule.onNodeWithText("有近期诊断记录").assertExists()
     }
 
     @Test
@@ -272,6 +275,106 @@ class StatusCenterScreenTest {
         assertTrue("Expected 1 action click", actionClickCount == 1)
         composeTestRule.onNodeWithTag("status-issue-location-dropped-recent").assertExists()
         composeTestRule.onNodeWithTag("status-issue-action-location-dropped-recent").assertDoesNotExist()
+    }
+
+    @Test
+    fun feedbackProbeCheckingShowsChinese() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState(), feedback = StatusActionFeedback.ProbeChecking) }
+        }
+        composeTestRule.onNode(
+            hasTestTag("status-feedback") and hasAnyDescendant(hasText("检查中"))
+        ).assertExists()
+    }
+
+    @Test
+    fun feedbackProbeCompletedShowsChinese() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState(), feedback = StatusActionFeedback.ProbeCompleted) }
+        }
+        composeTestRule.onNode(
+            hasTestTag("status-feedback") and hasAnyDescendant(hasText("检查已完成"))
+        ).assertExists()
+    }
+
+    @Test
+    fun feedbackProbeFailedShowsChinese() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState(), feedback = StatusActionFeedback.ProbeFailed) }
+        }
+        composeTestRule.onNode(
+            hasTestTag("status-feedback") and hasAnyDescendant(hasText("检查未完成，请稍后重试"))
+        ).assertExists()
+    }
+
+    @Test
+    fun feedbackSyncSubmitFailedShowsChinese() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState(), feedback = StatusActionFeedback.SyncSubmitFailed) }
+        }
+        composeTestRule.onNode(
+            hasTestTag("status-feedback") and hasAnyDescendant(hasText("同步请求未能提交，请稍后重试"))
+        ).assertExists()
+    }
+
+    @Test
+    fun noRawReasonCodeOrProfileLeaksIntoDisplayedText() {
+        val state = normalState().copy(
+            snapshot = normalState().snapshot.copy(
+                api = ApiConnectionSnapshot(
+                    address = "https://invalid.example",
+                    isValid = false,
+                    reasonCode = "invalid-api-url",
+                    warnings = emptySet()
+                ),
+                tracking = TrackingPolicySnapshot(
+                    profile = "power-saving",
+                    currentPolicyMode = "PowerSavingNormal",
+                    nextExpectedLocationAtMillis = null
+                ),
+                diagnostics = DiagnosticSnapshot(
+                    lastDroppedReason = "missing-horizontal-accuracy",
+                    lastDroppedAtMillis = null,
+                    lastLogMessage = "java.lang.RuntimeException",
+                    lastHeartbeatStatus = "心跳上报成功",
+                    recentLogMessages = listOf("raw log")
+                )
+            )
+        )
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(state = state) }
+        }
+
+        composeTestRule.onNode(
+            hasTestTag("status-api-reason") and hasAnyDescendant(hasText("地址格式不正确"))
+        ).assertExists()
+        composeTestRule.onNodeWithText("invalid-api-url").assertDoesNotExist()
+
+        composeTestRule.onNode(
+            hasTestTag("status-tracking-profile") and hasAnyDescendant(hasText("省电"))
+        ).assertExists()
+        composeTestRule.onNodeWithText("power-saving").assertDoesNotExist()
+
+        composeTestRule.onNode(
+            hasTestTag("status-policy-mode") and hasAnyDescendant(hasText("常规省电"))
+        ).assertExists()
+        composeTestRule.onNodeWithText("PowerSavingNormal").assertDoesNotExist()
+
+        composeTestRule.onNode(
+            hasTestTag("status-dropped-reason") and hasAnyDescendant(hasText("缺少水平精度"))
+        ).assertExists()
+        composeTestRule.onNodeWithText("missing-horizontal-accuracy").assertDoesNotExist()
+
+        composeTestRule.onNode(
+            hasTestTag("status-heartbeat") and hasAnyDescendant(hasText("正常"))
+        ).assertExists()
+        composeTestRule.onNodeWithText("心跳上报成功").assertDoesNotExist()
+
+        composeTestRule.onNode(
+            hasTestTag("status-diagnostic-record") and hasAnyDescendant(hasText("有近期诊断记录"))
+        ).assertExists()
+        composeTestRule.onNodeWithText("java.lang.RuntimeException").assertDoesNotExist()
+        composeTestRule.onNodeWithText("raw log").assertDoesNotExist()
     }
 
     private fun normalState(

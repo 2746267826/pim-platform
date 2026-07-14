@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pim.app.status.ConnectionProbeResult
+import com.pim.app.status.DiagnosticSnapshot
 import com.pim.app.status.NetworkAvailability
 import com.pim.app.status.NetworkSettingsNavigator
 import com.pim.app.status.PermissionStatusSnapshot
@@ -54,12 +55,12 @@ import com.pim.app.status.StatusActionRoute
 import com.pim.app.status.StatusActionRouter
 import com.pim.app.status.StatusActionTarget
 import com.pim.app.status.StatusCenterState
+import com.pim.app.status.StatusDisplayText
 import com.pim.app.status.StatusIssue
 import com.pim.app.status.StatusOverall
 import com.pim.app.status.StatusPermissionNavigator
 import com.pim.app.status.StatusSeverity
 import com.pim.app.status.SyncPhase
-import com.pim.app.status.DiagnosticSnapshot
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -82,8 +83,10 @@ fun StatusCenterScreen(
         }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val feedback by viewModel.feedback.collectAsStateWithLifecycle()
     StatusCenterContent(
         state = state,
+        feedback = feedback,
         modifier = modifier,
         onIssueAction = { issue ->
             when (StatusActionRouter.route(viewModel.onIssueAction(issue))) {
@@ -104,6 +107,7 @@ fun StatusCenterScreen(
 @Composable
 internal fun StatusCenterContent(
     state: StatusCenterState,
+    feedback: StatusActionFeedback? = null,
     modifier: Modifier = Modifier,
     onIssueAction: (StatusIssue) -> Unit = {},
     onSyncNow: () -> Unit = {}
@@ -124,6 +128,10 @@ internal fun StatusCenterContent(
 
         OverallStatusSurface(state)
 
+        feedback?.let {
+            FeedbackRow(it)
+        }
+
         Divider()
 
         TransportSection(state, onSyncNow)
@@ -139,6 +147,28 @@ internal fun StatusCenterContent(
         Divider()
 
         IssuesSection(state.issues, onIssueAction)
+    }
+}
+
+@Composable
+private fun FeedbackRow(feedback: StatusActionFeedback) {
+    val text = when (feedback) {
+        StatusActionFeedback.ProbeChecking -> "检查中"
+        StatusActionFeedback.ProbeCompleted -> "检查已完成"
+        StatusActionFeedback.ProbeFailed -> "检查未完成，请稍后重试"
+        StatusActionFeedback.SyncSubmitFailed -> "同步请求未能提交，请稍后重试"
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("status-feedback"),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        tonalElevation = 2.dp
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(12.dp),
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
 
@@ -312,7 +342,8 @@ private fun CollectionAndConnectionSection(state: StatusCenterState) {
         FactRow("服务器地址", snap.api.address.ifBlank { "未配置" })
         FactRow(
             "地址状态",
-            if (snap.api.isValid) "格式可用" else snap.api.reasonCode?.let { "不可用：$it" } ?: "不可用"
+            if (snap.api.isValid) "格式可用" else StatusDisplayText.apiReason(snap.api.reasonCode),
+            "status-api-reason"
         )
         FactRow("登录状态",
             if (snap.auth.hasAccessToken && !snap.auth.isExpired) "已登录"
@@ -321,8 +352,8 @@ private fun CollectionAndConnectionSection(state: StatusCenterState) {
         )
         FactRow("持续采集", if (snap.service.continuousCollectionEnabled) "已开启" else "未开启")
         FactRow("服务运行", if (snap.service.serviceRunning) "运行中" else "已停止")
-        FactRow("策略档位", snap.tracking.profile)
-        FactRow("当前策略", snap.tracking.currentPolicyMode)
+        FactRow("策略档位", StatusDisplayText.profile(snap.tracking.profile), "status-tracking-profile")
+        FactRow("当前策略", StatusDisplayText.policyMode(snap.tracking.currentPolicyMode), "status-policy-mode")
         FactRow(
             "下次定位",
             snap.tracking.nextExpectedLocationAtMillis?.takeIf { it > 0L }?.let(::formatEpochMillis) ?: "未安排",
@@ -381,18 +412,15 @@ private fun DiagnosticsSection(diagnostics: DiagnosticSnapshot) {
     Column(modifier = Modifier.testTag("status-diagnostics"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         SectionHeader("诊断摘要", Icons.Filled.Info)
 
-        FactRow("最近丢弃", diagnostics.lastDroppedReason ?: "无")
-        FactRow("心跳", diagnostics.lastHeartbeatStatus ?: "等待同步")
+        FactRow("最近丢弃", StatusDisplayText.droppedReason(diagnostics.lastDroppedReason), "status-dropped-reason")
+        FactRow("心跳", StatusDisplayText.heartbeat(diagnostics.lastHeartbeatStatus), "status-heartbeat")
 
-        val recentRecords = diagnostics.recentLogMessages
-            .ifEmpty { listOfNotNull(diagnostics.lastLogMessage) }
-            .take(2)
-        if (recentRecords.isEmpty()) {
-            FactRow("最近记录", "无", "status-diagnostic-record")
+        val hasRecentLogs = diagnostics.recentLogMessages.isNotEmpty() ||
+            !diagnostics.lastLogMessage.isNullOrBlank()
+        if (hasRecentLogs) {
+            FactRow("最近记录", "有近期诊断记录", "status-diagnostic-record")
         } else {
-            recentRecords.forEachIndexed { index, message ->
-                FactRow("最近记录", message, if (index == 0) "status-diagnostic-record" else null)
-            }
+            FactRow("最近记录", "无", "status-diagnostic-record")
         }
     }
 }

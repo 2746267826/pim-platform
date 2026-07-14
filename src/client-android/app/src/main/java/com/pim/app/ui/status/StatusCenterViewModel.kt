@@ -19,10 +19,48 @@ import com.pim.core.settings.PimServerEndpoints
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+enum class StatusActionFeedback {
+    ProbeChecking,
+    ProbeCompleted,
+    ProbeFailed,
+    SyncSubmitFailed
+}
+
+internal suspend fun runProbeWithFeedback(
+    probe: suspend () -> Unit,
+    feedbackSetter: (StatusActionFeedback?) -> Unit
+) {
+    feedbackSetter(StatusActionFeedback.ProbeChecking)
+    try {
+        probe()
+        feedbackSetter(StatusActionFeedback.ProbeCompleted)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        feedbackSetter(StatusActionFeedback.ProbeFailed)
+    }
+}
+
+internal suspend fun runSyncWithFeedback(
+    sync: suspend () -> Unit,
+    feedbackSetter: (StatusActionFeedback?) -> Unit
+) {
+    feedbackSetter(null)
+    try {
+        sync()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        feedbackSetter(StatusActionFeedback.SyncSubmitFailed)
+    }
+}
 
 @HiltViewModel
 class StatusCenterViewModel @Inject constructor(
@@ -40,6 +78,9 @@ class StatusCenterViewModel @Inject constructor(
             initialValue = StatusCenterState.empty()
         )
 
+    private val _feedback = MutableStateFlow<StatusActionFeedback?>(null)
+    val feedback: StateFlow<StatusActionFeedback?> = _feedback.asStateFlow()
+
     private val syncRunner = StatusSyncActionRunner(
         syncNow = { mobileSyncScheduler.enqueueNow() },
         refresh = { repository.requestRefresh() },
@@ -53,13 +94,31 @@ class StatusCenterViewModel @Inject constructor(
 
     fun syncNow() {
         viewModelScope.launch {
-            syncRunner.run(StatusActionRoute.TriggerSync)
+            runSyncWithFeedback(
+                sync = { syncRunner.run(StatusActionRoute.TriggerSync) },
+                feedbackSetter = { _feedback.value = it }
+            )
         }
     }
 
     fun forceConnectionProbe() {
         viewModelScope.launch {
-            refreshConnectionForVisibleScreen(force = true)
+            runProbeWithFeedback(
+                probe = { manualProbeOutcome() },
+                feedbackSetter = { _feedback.value = it }
+            )
+        }
+    }
+
+    private suspend fun manualProbeOutcome() {
+        val serverUrl = serverSettingsStore.getBaseUrl()
+        try {
+            val result = connectionProbeService.probe(serverUrl)
+            if (serverSettingsStore.getBaseUrl() == serverUrl) {
+                connectionProbeStore.save(result)
+            }
+        } finally {
+            repository.requestRefresh()
         }
     }
 

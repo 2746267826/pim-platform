@@ -98,7 +98,7 @@ object StatusResultMapper {
         )
         val allIssues = (baseIssues + externalIssues).distinctBy { it.code }
         val finalIssues = if (syncPhase == SyncPhase.Failed) {
-            (allIssues + StatusIssue.syncFailure(syncState.lastError)).distinctBy { it.code }
+            (allIssues + StatusIssue.syncFailure()).distinctBy { it.code }
         } else {
             allIssues
         }

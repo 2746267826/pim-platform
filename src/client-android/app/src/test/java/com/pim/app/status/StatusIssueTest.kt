@@ -400,6 +400,22 @@ class StatusIssueTest {
     }
 
     @Test
+    fun syncFailureAlwaysUsesFixedSummary() {
+        val issue = StatusIssue.syncFailure()
+        assertEquals("最近同步出现异常，请导出日志查看详情。", issue.message)
+        assertEquals(StatusSeverity.Critical, issue.severity)
+        assertEquals(StatusActionTarget.Sync, issue.target)
+    }
+
+    @Test
+    fun heartbeatFailureAlwaysUsesFixedSummary() {
+        val issue = StatusIssue.heartbeatFailure()
+        assertEquals("最近一次心跳上报异常。", issue.message)
+        assertEquals(StatusSeverity.Warning, issue.severity)
+        assertEquals(StatusActionTarget.Sync, issue.target)
+    }
+
+    @Test
     fun batteryOptimizationGrantedDoesNotProduceIssue() {
         val snapshot = StatusCenterSnapshot(
             permissions = PermissionStatusSnapshot(

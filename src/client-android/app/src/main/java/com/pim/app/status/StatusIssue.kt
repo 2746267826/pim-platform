@@ -94,7 +94,11 @@ data class StatusIssue(
             code = "api-url-invalid",
             severity = StatusSeverity.Critical,
             title = "API 地址无效",
-            message = "当前 API 地址格式不可用：${reasonCode ?: "未知原因"}。",
+            message = StatusDisplayText.apiReason(reasonCode).let { desc ->
+                if (desc == "未配置") "当前 API 地址未配置。"
+                else if (desc == "地址格式不正确") "当前 API 地址格式不正确。"
+                else "当前 API 地址无效。"
+            },
             actionLabel = "去设置",
             target = StatusActionTarget.Settings
         )
@@ -258,20 +262,20 @@ data class StatusIssue(
             target = StatusActionTarget.ConnectionCheck
         )
 
-        fun heartbeatFailure(message: String?): StatusIssue = StatusIssue(
+        fun heartbeatFailure(): StatusIssue = StatusIssue(
             code = "heartbeat-failure",
             severity = StatusSeverity.Warning,
             title = "心跳上报异常",
-            message = message?.takeIf { it.isNotBlank() } ?: "最近一次心跳或同步状态上报失败。",
+            message = "最近一次心跳上报异常。",
             actionLabel = "重新同步",
             target = StatusActionTarget.Sync
         )
 
-        fun syncFailure(error: String?): StatusIssue = StatusIssue(
+        fun syncFailure(): StatusIssue = StatusIssue(
             code = "sync-failure",
             severity = StatusSeverity.Critical,
             title = "同步失败",
-            message = error?.takeIf { it.isNotBlank() } ?: "最近一次同步尝试失败。",
+            message = "最近同步出现异常，请导出日志查看详情。",
             actionLabel = "重新同步",
             target = StatusActionTarget.Sync
         )
@@ -280,7 +284,7 @@ data class StatusIssue(
             code = "location-dropped-recent",
             severity = StatusSeverity.Info,
             title = "最近丢弃定位",
-            message = "最近一次丢弃原因：$reason。",
+            message = "最近一次丢弃原因：${StatusDisplayText.droppedReason(reason)}。",
             lastOccurredAtMillis = lastOccurredAtMillis,
             actionLabel = "",
             target = StatusActionTarget.None
@@ -476,7 +480,7 @@ object StatusIssuePlanner {
 
         val heartbeat = snapshot.diagnostics.lastHeartbeatStatus.orEmpty()
         if (heartbeat.contains("fail", ignoreCase = true) || heartbeat.contains("失败")) {
-            issues += StatusIssue.heartbeatFailure(snapshot.diagnostics.lastLogMessage)
+            issues += StatusIssue.heartbeatFailure()
         }
 
         return issues.distinctBy { it.code }

@@ -147,7 +147,8 @@
                                     Style="{StaticResource PimPrimaryButton}"
                                     Margin="0,0,8,0"
                                     Click="OnOneClickFixKeyStats"/>
-                            <Button Content="重启 KeyStats"
+                            <Button x:Name="KeyStatsRestartButton"
+                                    Content="重启 KeyStats"
                                     Style="{StaticResource PimSecondaryButton}"
                                     Margin="0,0,8,0"
                                     Click="OnRestartKeyStats"/>

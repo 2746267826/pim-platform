@@ -343,8 +343,10 @@ public partial class StatusWindow : Window
     private async void OnOneClickFixKeyStats(object sender, RoutedEventArgs e)
     {
         KeyStatsOneClickFixButton.IsEnabled = false;
+        KeyStatsRestartButton.IsEnabled = false;
+        RefreshButton.IsEnabled = false;
         KeyStatsOneClickFixButton.Content = "修复中...";
-        KeyStatsFixResultText.Text = "修复中…";
+        KeyStatsFixResultText.Text = "修复中...";
         try
         {
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -354,15 +356,12 @@ public partial class StatusWindow : Window
                 exe,
                 script,
                 Process.GetCurrentProcess().SessionId,
-                confirmElevation: _ =>
-                    MessageBox.Show(
-                        "普通权限无法结束部分 KeyStats 进程（可能位于 Session 0）。是否以管理员权限运行修复脚本？仅提升该脚本权限，不会提权整个 PIM 客户端。",
-                        "PIM",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Warning) == MessageBoxResult.Yes);
+                confirmElevation: msg =>
+                    MessageBox.Show(msg, "PIM", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes);
 
             KeyStatsFixResultText.Text =
                 $"阶段1：{result.Phase1MessageZh}\n阶段2：{result.Phase2MessageZh}";
+            try { await _keyStatsCollector.SyncNowAsync(); } catch { }
             await RefreshStatusAsync();
 
             if (result.Outcome == KeyStatsFixOutcome.Failed)
@@ -377,11 +376,14 @@ public partial class StatusWindow : Window
         catch (Exception ex)
         {
             KeyStatsFixResultText.Text = $"失败：{ex.Message}";
+            await RefreshStatusAsync();
             MessageBox.Show($"KeyStats 修复失败：{ex.Message}", "PIM", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
             KeyStatsOneClickFixButton.IsEnabled = true;
+            KeyStatsRestartButton.IsEnabled = true;
+            RefreshButton.IsEnabled = true;
             KeyStatsOneClickFixButton.Content = "一键修复";
         }
     }

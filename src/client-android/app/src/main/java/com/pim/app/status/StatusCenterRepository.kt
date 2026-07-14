@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.transform
 
 private data class CoreFacts(
     val queues: QueueStatusSnapshot,
@@ -33,6 +34,24 @@ private data class ExternalFacts(
     val permanentRejected: Int,
     val justAccepted: Boolean
 )
+
+internal data class StatusEmission(
+    val state: StatusCenterState,
+    val clearAcceptedAfterEmission: Boolean
+)
+
+internal fun Flow<StatusEmission>.emitStates(clearAccepted: () -> Unit): Flow<StatusCenterState> =
+    transform { emission ->
+        if (!emission.clearAcceptedAfterEmission) {
+            emit(emission.state)
+            return@transform
+        }
+        try {
+            emit(emission.state)
+        } finally {
+            clearAccepted()
+        }
+    }
 
 @Singleton
 class StatusCenterRepository @Inject constructor(
@@ -80,16 +99,7 @@ class StatusCenterRepository @Inject constructor(
                 }
             )
             val snapshot = buildSnapshot(core.queues, mergedDiagnostics, core.runtime)
-
-            if (StatusResultMapper.shouldClearAcceptedSignal(
-                    external.justAccepted,
-                    external.workInfos.immediate
-                )
-            ) {
-                acceptedSignal.clearIfSet()
-            }
-
-            StatusResultMapper.buildState(
+            val state = StatusResultMapper.buildState(
                 snapshot = snapshot,
                 syncState = core.syncState,
                 workInfos = external.workInfos,
@@ -98,7 +108,13 @@ class StatusCenterRepository @Inject constructor(
                 probeResult = external.probeResult,
                 justAccepted = external.justAccepted
             )
+            val shouldClear = StatusResultMapper.shouldClearAcceptedSignal(
+                external.justAccepted,
+                external.workInfos.immediate
+            )
+            StatusEmission(state, shouldClear)
         }.flowOn(Dispatchers.IO)
+            .emitStates(acceptedSignal::clearIfSet)
     }
 
     fun requestRefresh() {

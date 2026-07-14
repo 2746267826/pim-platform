@@ -14,12 +14,9 @@ class StatusSyncActionRunner(
 ) {
     suspend fun run(route: StatusActionRoute) {
         if (route != StatusActionRoute.TriggerSync) return
-        acceptedSignal.trigger()
         try {
             syncNow()
-        } catch (e: Throwable) {
-            acceptedSignal.clearIfSet()
-            throw e
+            acceptedSignal.trigger()
         } finally {
             refresh()
         }

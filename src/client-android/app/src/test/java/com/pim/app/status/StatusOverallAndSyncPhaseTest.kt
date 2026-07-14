@@ -542,27 +542,53 @@ class StatusOverallAndSyncPhaseTest {
     }
 
     @Test
-    fun shouldClearAcceptedSignalTrueWhenJustAcceptedAndImmediateNonEmpty() {
-        assertTrue(
-            StatusResultMapper.shouldClearAcceptedSignal(
-                justAccepted = true,
-                immediate = listOf(workInfo(WorkInfo.State.SUCCEEDED, "pim_mobile_sync_now"))
-            )
-        )
-    }
-
-    @Test
-    fun shouldClearAcceptedSignalTrueForAnyImmediateState() {
+    fun shouldClearAcceptedSignalTrueForEnqueuedImmediate() {
         assertTrue(
             StatusResultMapper.shouldClearAcceptedSignal(
                 justAccepted = true,
                 immediate = listOf(workInfo(WorkInfo.State.ENQUEUED, "pim_mobile_sync_now"))
             )
         )
+    }
+
+    @Test
+    fun shouldClearAcceptedSignalTrueForRunningImmediate() {
         assertTrue(
             StatusResultMapper.shouldClearAcceptedSignal(
                 justAccepted = true,
+                immediate = listOf(workInfo(WorkInfo.State.RUNNING, "pim_mobile_sync_now"))
+            )
+        )
+    }
+
+    @Test
+    fun shouldClearAcceptedSignalTrueForBlockedImmediate() {
+        assertTrue(
+            StatusResultMapper.shouldClearAcceptedSignal(
+                justAccepted = true,
+                immediate = listOf(workInfo(WorkInfo.State.BLOCKED, "pim_mobile_sync_now"))
+            )
+        )
+    }
+
+    @Test
+    fun shouldClearAcceptedSignalFalseForTerminalImmediateStates() {
+        assertFalse(
+            StatusResultMapper.shouldClearAcceptedSignal(
+                justAccepted = true,
+                immediate = listOf(workInfo(WorkInfo.State.SUCCEEDED, "pim_mobile_sync_now"))
+            )
+        )
+        assertFalse(
+            StatusResultMapper.shouldClearAcceptedSignal(
+                justAccepted = true,
                 immediate = listOf(workInfo(WorkInfo.State.FAILED, "pim_mobile_sync_now"))
+            )
+        )
+        assertFalse(
+            StatusResultMapper.shouldClearAcceptedSignal(
+                justAccepted = true,
+                immediate = listOf(workInfo(WorkInfo.State.CANCELLED, "pim_mobile_sync_now"))
             )
         )
     }

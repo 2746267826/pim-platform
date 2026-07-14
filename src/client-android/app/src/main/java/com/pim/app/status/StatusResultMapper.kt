@@ -111,6 +111,10 @@ object StatusResultMapper {
     fun shouldClearAcceptedSignal(
         justAccepted: Boolean,
         immediate: List<WorkInfo>
-    ): Boolean = justAccepted && immediate.isNotEmpty()
+    ): Boolean = justAccepted && immediate.any {
+        it.state == WorkInfo.State.ENQUEUED ||
+        it.state == WorkInfo.State.RUNNING ||
+        it.state == WorkInfo.State.BLOCKED
+    }
 
 }

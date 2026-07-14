@@ -182,7 +182,7 @@ class StatusIssueTest {
     }
 
     @Test
-    fun syncActionRunnerPublishesAcceptedBeforeSyncNowAndRefreshAfter() = runBlocking {
+    fun syncActionPublishesAcceptedOnlyAfterEnqueueSucceeds() = runBlocking {
         val signal = StatusAcceptedSignal()
         var acceptedAtSyncTime = false
         var refreshed = false
@@ -196,9 +196,9 @@ class StatusIssueTest {
 
         runner.run(StatusActionRoute.TriggerSync)
 
-        assertTrue("accepted must be true before syncNow runs", acceptedAtSyncTime)
+        assertFalse("accepted must NOT be true during syncNow", acceptedAtSyncTime)
         assertTrue(refreshed)
-        assertEquals(true, signal.accepted.value)
+        assertTrue("accepted must be true after syncNow succeeds", signal.accepted.value)
     }
 
     @Test
@@ -236,7 +236,7 @@ class StatusIssueTest {
     }
 
     @Test
-    fun syncActionRunnerClearsAcceptedAndRefreshesOnSyncNowException() = runBlocking {
+    fun syncActionFailureDoesNotPublishAccepted() = runBlocking {
         val signal = StatusAcceptedSignal()
         val expectedException = RuntimeException("sync failed")
         var refreshCount = 0
@@ -254,7 +254,7 @@ class StatusIssueTest {
         }
 
         assertSame(expectedException, actualException)
-        assertFalse("accepted must be cleared on exception", signal.accepted.value)
+        assertFalse("accepted must not be published on exception", signal.accepted.value)
         assertEquals(1, refreshCount)
     }
 

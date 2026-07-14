@@ -1,6 +1,5 @@
 package com.pim.app.status
 
-import androidx.work.WorkInfo
 import com.pim.app.location.service.ForegroundLocationRuntimeState
 
 enum class StatusSeverity {

@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -67,9 +68,6 @@ import com.pim.app.status.informationalStatusIssues
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.yield
 
 @Composable
 fun StatusCenterScreen(
@@ -78,11 +76,11 @@ fun StatusCenterScreen(
     viewModel: StatusCenterViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(viewModel) {
-        while (isActive) {
-            val delayMillis = viewModel.refreshConnectionForVisibleScreen()
-            if (delayMillis > 0L) delay(delayMillis) else yield()
+    LaunchedEffect(lifecycleOwner, viewModel) {
+        lifecycleOwner.lifecycle.repeatConnectionProbePolling {
+            viewModel.refreshConnectionForVisibleScreen()
         }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()

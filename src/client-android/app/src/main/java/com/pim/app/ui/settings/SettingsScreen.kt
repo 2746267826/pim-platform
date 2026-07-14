@@ -57,12 +57,10 @@ import com.pim.app.settings.TrackingPresetCatalog
 import com.pim.app.status.StatusPermissionNavigator
 import com.pim.app.ui.components.PimSection
 import com.pim.app.ui.permissions.permissionSettingRows
+import com.pim.app.ui.status.repeatConnectionProbePolling
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.yield
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,10 +76,9 @@ fun SettingsScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(viewModel) {
-        while (isActive) {
-            val delayMillis = viewModel.refreshConnectionForVisibleScreen()
-            if (delayMillis > 0L) delay(delayMillis) else yield()
+    LaunchedEffect(lifecycleOwner, viewModel) {
+        lifecycleOwner.lifecycle.repeatConnectionProbePolling {
+            viewModel.refreshConnectionForVisibleScreen()
         }
     }
 

@@ -3,7 +3,6 @@ package com.pim.app.status
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ConnectionProbePolicyTest {
@@ -104,21 +103,6 @@ class ConnectionProbePolicyTest {
 
         assertNotNull(saved)
         assertEquals(probeResult, saved)
-    }
-
-    @Test
-    fun fakeStoreRejectsExpiredEvidence() {
-        val store = FakeStore()
-        store.save(probeResult)
-
-        val fresh = store.freshResult("https://example/api/v1/", 1_001L)
-        assertNotNull(fresh)
-
-        val expired = store.freshResult(
-            "https://example/api/v1/",
-            1_001L + ConnectionProbeStore.FRESHNESS_MILLIS
-        )
-        assertNull(expired)
     }
 
     // --- probeRefreshDelayMillis ---

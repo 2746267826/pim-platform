@@ -71,10 +71,14 @@ class SettingsViewModel @Inject constructor(
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
 
     init {
-        refresh()
+        refresh(runProbe = false)
     }
 
     fun refresh() {
+        refresh(runProbe = true)
+    }
+
+    private fun refresh(runProbe: Boolean) {
         reloadOperationalState()
         viewModelScope.launch {
             val address = serverSettingsStore.getBaseUrl()
@@ -89,7 +93,9 @@ class SettingsViewModel @Inject constructor(
                     permissions = permissionStatusRepository.snapshot()
                 )
             }
-            runConnectionProbe(force = false)
+            if (runProbe) {
+                runConnectionProbe(force = false)
+            }
         }
     }
 

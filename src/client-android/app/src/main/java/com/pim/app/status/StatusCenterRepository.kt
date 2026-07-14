@@ -32,24 +32,25 @@ private data class ExternalFacts(
     val networkAvailability: NetworkAvailability,
     val workInfos: StatusWorkInfos,
     val permanentRejected: Int,
-    val justAccepted: Boolean
+    val accepted: StatusAcceptedState
 )
 
 internal data class StatusEmission(
     val state: StatusCenterState,
-    val clearAcceptedAfterEmission: Boolean
+    val clearAcceptedGenerationAfterEmission: Long?
 )
 
-internal fun Flow<StatusEmission>.emitStates(clearAccepted: () -> Unit): Flow<StatusCenterState> =
+internal fun Flow<StatusEmission>.emitStates(clearAccepted: (Long) -> Unit): Flow<StatusCenterState> =
     transform { emission ->
-        if (!emission.clearAcceptedAfterEmission) {
+        val generation = emission.clearAcceptedGenerationAfterEmission
+        if (generation == null) {
             emit(emission.state)
             return@transform
         }
         try {
             emit(emission.state)
         } finally {
-            clearAccepted()
+            clearAccepted(generation)
         }
     }
 
@@ -85,9 +86,9 @@ class StatusCenterRepository @Inject constructor(
             networkStatusProvider.availability,
             workInfoStatusProvider.syncWorkInfos,
             dao.aggregateRejectedCount(),
-            acceptedSignal.accepted
-        ) { probeResult, availability, workInfos, rejected, justAccepted ->
-            ExternalFacts(probeResult, availability, workInfos, rejected, justAccepted)
+            acceptedSignal.state
+        ) { probeResult, availability, workInfos, rejected, accepted ->
+            ExternalFacts(probeResult, availability, workInfos, rejected, accepted)
         }
 
         return combine(coreFlow, externalFlow) { core, external ->
@@ -106,15 +107,18 @@ class StatusCenterRepository @Inject constructor(
                 permanentRejected = external.permanentRejected,
                 networkAvailability = external.networkAvailability,
                 probeResult = external.probeResult,
-                justAccepted = external.justAccepted
+                justAccepted = external.accepted.isAccepted
             )
             val shouldClear = StatusResultMapper.shouldClearAcceptedSignal(
-                external.justAccepted,
+                external.accepted.isAccepted,
                 external.workInfos.immediate
             )
-            StatusEmission(state, shouldClear)
+            StatusEmission(
+                state = state,
+                clearAcceptedGenerationAfterEmission = external.accepted.generation.takeIf { shouldClear }
+            )
         }.flowOn(Dispatchers.IO)
-            .emitStates(acceptedSignal::clearIfSet)
+            .emitStates(acceptedSignal::clearIfGeneration)
     }
 
     fun requestRefresh() {

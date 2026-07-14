@@ -155,29 +155,29 @@ class StatusIssueTest {
     @Test
     fun acceptedSignalStartsFalse() {
         val signal = StatusAcceptedSignal()
-        assertEquals(false, signal.accepted.value)
+        assertEquals(false, signal.state.value.isAccepted)
     }
 
     @Test
     fun acceptedSignalTriggerSetsTrue() {
         val signal = StatusAcceptedSignal()
         signal.trigger()
-        assertEquals(true, signal.accepted.value)
+        assertEquals(true, signal.state.value.isAccepted)
     }
 
     @Test
-    fun acceptedSignalClearIfSetResetsWhenTriggered() {
+    fun acceptedSignalClearIfGenerationResetsMatchingTrigger() {
         val signal = StatusAcceptedSignal()
-        signal.trigger()
-        signal.clearIfSet()
-        assertEquals(false, signal.accepted.value)
+        val generation = signal.trigger()
+        signal.clearIfGeneration(generation)
+        assertEquals(false, signal.state.value.isAccepted)
     }
 
     @Test
-    fun acceptedSignalClearIfSetDoesNothingWhenNotTriggered() {
+    fun acceptedSignalClearIfGenerationDoesNothingWhenNotTriggered() {
         val signal = StatusAcceptedSignal()
-        signal.clearIfSet()
-        assertEquals(false, signal.accepted.value)
+        signal.clearIfGeneration(0L)
+        assertEquals(false, signal.state.value.isAccepted)
     }
 
     @Test
@@ -187,7 +187,7 @@ class StatusIssueTest {
         var refreshed = false
         val runner = StatusSyncActionRunner(
             syncNow = {
-                acceptedAtSyncTime = signal.accepted.value
+                acceptedAtSyncTime = signal.state.value.isAccepted
             },
             refresh = { refreshed = true },
             acceptedSignal = signal
@@ -197,7 +197,7 @@ class StatusIssueTest {
 
         assertFalse("accepted must NOT be true during syncNow", acceptedAtSyncTime)
         assertTrue(refreshed)
-        assertTrue("accepted must be true after syncNow succeeds", signal.accepted.value)
+        assertTrue("accepted must be true after syncNow succeeds", signal.state.value.isAccepted)
     }
 
     @Test
@@ -215,7 +215,7 @@ class StatusIssueTest {
 
         assertTrue(synced)
         assertTrue(refreshed)
-        assertEquals(true, signal.accepted.value)
+        assertEquals(true, signal.state.value.isAccepted)
     }
 
     @Test
@@ -231,7 +231,7 @@ class StatusIssueTest {
         runner.run(StatusActionRoute.OpenSettings)
 
         assertFalse(synced)
-        assertEquals(false, signal.accepted.value)
+        assertEquals(false, signal.state.value.isAccepted)
     }
 
     @Test
@@ -253,7 +253,7 @@ class StatusIssueTest {
         }
 
         assertSame(expectedException, actualException)
-        assertFalse("accepted must not be published on exception", signal.accepted.value)
+        assertFalse("accepted must not be published on exception", signal.state.value.isAccepted)
         assertEquals(1, refreshCount)
     }
 

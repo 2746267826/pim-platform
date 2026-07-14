@@ -639,6 +639,21 @@ class SettingsServerMutationTest {
     }
 
     @Test
+    fun initializationDoesNotDuplicateVisibleScreenProbe() {
+        var probeAttempts = 0
+        val fixture = fixture(
+            probeFailure = IllegalStateException("stop after counting"),
+            onProbeStarted = { probeAttempts++ }
+        )
+
+        assertEquals(0, probeAttempts)
+
+        fixture.viewModel.refresh()
+
+        assertEquals(1, probeAttempts)
+    }
+
+    @Test
     fun onResumeRefreshesPermissionsOnlyWhenIntentFalse() {
         val fixture = fixture()
         val application = ApplicationProvider.getApplicationContext<Application>()
@@ -662,7 +677,8 @@ class SettingsServerMutationTest {
 
     private fun fixture(
         failSessionClear: Boolean = false,
-        probeFailure: Throwable? = null
+        probeFailure: Throwable? = null,
+        onProbeStarted: () -> Unit = {}
     ): Fixture {
         val serverPreferences = ScriptedCommitSharedPreferences(
             context.getSharedPreferences(SERVER_PREFS, Context.MODE_PRIVATE)
@@ -698,6 +714,7 @@ class SettingsServerMutationTest {
             authenticatedClient = OkHttpClient(),
             tokenSource = ProbeTokenSource { null },
             wallClockMillis = {
+                onProbeStarted()
                 if (probeFailure != null) throw probeFailure else 1_000L
             },
             monotonicNanos = { 0L }

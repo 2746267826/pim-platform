@@ -30,6 +30,8 @@ object NetworkSettingsNavigator {
             true
         } catch (_: ActivityNotFoundException) {
             false
+        } catch (_: SecurityException) {
+            false
         }
     }
 }

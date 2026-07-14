@@ -1,6 +1,8 @@
 package com.pim.app.ui.status
 
 import com.pim.app.status.StatusAcceptedSignal
+import com.pim.app.status.StatusActionRoute
+import com.pim.app.status.StatusSyncActionRunner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -84,24 +86,20 @@ class StatusCenterViewModelTest {
 
     @Test
     fun syncDoesNotDuplicateAcceptedOrRefresh() = runTest {
-        val feedback = mutableListOf<StatusActionFeedback?>()
         val signal = StatusAcceptedSignal()
         var syncCallCount = 0
         var refreshCount = 0
-
-        runSyncWithFeedback(
-            sync = {
-                syncCallCount++
-                signal.trigger()
-                refreshCount++
-            },
-            feedbackSetter = { feedback.add(it) }
+        val runner = StatusSyncActionRunner(
+            syncNow = { syncCallCount++ },
+            refresh = { refreshCount++ },
+            acceptedSignal = signal
         )
 
-        assertEquals("sync body runs exactly once", 1, syncCallCount)
-        assertEquals("refresh called exactly once by sync runner", 1, refreshCount)
-        assertTrue("accepted triggered by sync runner", signal.accepted.value)
-        assertEquals(listOf(null), feedback)
+        runner.run(StatusActionRoute.TriggerSync)
+
+        assertEquals("syncNow runs exactly once", 1, syncCallCount)
+        assertEquals("refresh runs exactly once", 1, refreshCount)
+        assertTrue("accepted is published after syncNow succeeds", signal.state.value.isAccepted)
     }
 
     @Test

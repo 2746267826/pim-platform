@@ -57,6 +57,22 @@ class NetworkSettingsNavigatorTest {
         )
     }
 
+    @Test
+    @Config(sdk = [34])
+    fun securityRestrictedInternetPanelFallsBackToWirelessSettings() {
+        val context = SecurityRecordingContext(
+            ApplicationProvider.getApplicationContext(),
+            failuresBeforeSuccess = 1
+        )
+
+        NetworkSettingsNavigator.open(context)
+
+        assertEquals(
+            listOf(Settings.Panel.ACTION_INTERNET_CONNECTIVITY, Settings.ACTION_WIRELESS_SETTINGS),
+            context.actions
+        )
+    }
+
     private class RecordingContext(
         base: Context,
         private val failuresBeforeSuccess: Int
@@ -67,6 +83,20 @@ class NetworkSettingsNavigatorTest {
             actions += intent.action
             if (actions.size <= failuresBeforeSuccess) {
                 throw ActivityNotFoundException("settings destination unavailable")
+            }
+        }
+    }
+
+    private class SecurityRecordingContext(
+        base: Context,
+        private val failuresBeforeSuccess: Int
+    ) : ContextWrapper(base) {
+        val actions = mutableListOf<String?>()
+
+        override fun startActivity(intent: Intent) {
+            actions += intent.action
+            if (actions.size <= failuresBeforeSuccess) {
+                throw SecurityException("settings destination restricted")
             }
         }
     }

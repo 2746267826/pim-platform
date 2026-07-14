@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -101,5 +102,19 @@ class ConnectionProbeStoreTest {
 
         val reloaded = store()
         assertEquals(sameTime, reloaded.result.value)
+    }
+
+    @Test
+    fun freshResultRequiresMatchingServerAndFreshTimestamp() {
+        val s = store()
+        s.save(freshResult)
+
+        assertEquals(
+            freshResult,
+            s.freshResult(serverIdA, now + ConnectionProbeStore.FRESHNESS_MILLIS - 1L)
+        )
+        assertNull(s.freshResult(serverIdA, now + ConnectionProbeStore.FRESHNESS_MILLIS))
+        assertNull(s.freshResult(serverIdB, now))
+        assertNull(s.freshResult(serverIdA, now - 1L))
     }
 }

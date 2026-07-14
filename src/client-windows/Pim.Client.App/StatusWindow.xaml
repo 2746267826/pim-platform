@@ -132,9 +132,24 @@
                                  Margin="0,0,0,16"
                                  MinHeight="72"/>
 
+                        <TextBlock Text="修复建议"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource PimTextBrush}"/>
+                        <TextBlock x:Name="KeyStatsFixSuggestionText"
+                                   Text="—"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,12"
+                                   Foreground="{StaticResource PimMutedTextBrush}"/>
+
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="重启 KeyStats"
+                            <Button x:Name="KeyStatsOneClickFixButton"
+                                    Content="一键修复"
                                     Style="{StaticResource PimPrimaryButton}"
+                                    Margin="0,0,8,0"
+                                    Click="OnOneClickFixKeyStats"/>
+                            <Button x:Name="KeyStatsRestartButton"
+                                    Content="重启 KeyStats"
+                                    Style="{StaticResource PimSecondaryButton}"
                                     Margin="0,0,8,0"
                                     Click="OnRestartKeyStats"/>
                             <Button Content="打开安装目录"
@@ -145,6 +160,23 @@
                                     Style="{StaticResource PimSecondaryButton}"
                                     Click="OnCopyDiagnostics"/>
                         </StackPanel>
+
+                        <TextBlock Text="修复结果"
+                                   FontWeight="SemiBold"
+                                   Margin="0,16,0,0"
+                                   Foreground="{StaticResource PimTextBrush}"/>
+                        <TextBox x:Name="KeyStatsFixResultText"
+                                 IsReadOnly="True"
+                                 TextWrapping="Wrap"
+                                 BorderThickness="0"
+                                 Background="{StaticResource PimMutedSurfaceBrush}"
+                                 Foreground="{StaticResource PimTextBrush}"
+                                 FontFamily="Consolas"
+                                 FontSize="11"
+                                 Padding="8"
+                                 Margin="0,4,0,0"
+                                 MinHeight="48"
+                                 Text="—"/>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

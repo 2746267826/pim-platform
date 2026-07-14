@@ -38,7 +38,21 @@ Commit `5a2f524`:
 - heartbeat reports real AW/KeyStats states
 - tray + status center primary path (WebView2 shell retained, not primary)
 
-## Operator recovery if all-zero returns
+## Preferred recovery (Status Center)
+
+1. Open **PIM 状态中心 → 数据源**
+2. Read **修复建议**
+3. Click **一键修复**
+4. If prompted, approve UAC for `fix-keystats-session.ps1` only (does not elevate entire PIM client)
+5. Wait for phase-1/phase-2 result; if counters still 0, type a few keys and click **刷新**
+
+Script path (install dir): `fix-keystats-session.ps1` next to `KeyStats.exe` and `Pim.Client.App.exe`.
+
+The script only kills KeyStats processes; the client restarts KeyStats in the user session.
+
+## Operator recovery (manual PowerShell fallback)
+
+If Status Center one-click fix is unavailable, use elevated PowerShell:
 
 ```powershell
 # If access denied, run elevated:

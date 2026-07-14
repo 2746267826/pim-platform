@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using Pim.Client.Core.Models;
 
@@ -12,6 +13,7 @@ public sealed class KeyStatsProcessManager
 {
     public const string ProcessName = "KeyStats";
     public const string ExeFileName = "KeyStats.exe";
+    public const string AccessDeniedError = "access-denied";
 
     public static KeyStatsConvergencePlan BuildConvergencePlan(
         IReadOnlyList<KeyStatsProcessInfo> processes,
@@ -36,6 +38,12 @@ public sealed class KeyStatsProcessManager
         var stop = foreign.Concat(stopExtraCurrent).Distinct().OrderBy(id => id).ToArray();
         return new KeyStatsConvergencePlan(keep, stop, ShouldStart: false);
     }
+
+    public static bool NeedsElevation(IReadOnlyList<KeyStatsStopResult> stopResults)
+        => stopResults.Any(r => !r.Succeeded && string.Equals(r.Error, AccessDeniedError, StringComparison.OrdinalIgnoreCase));
+
+    public static IReadOnlyList<int> FailedStopIds(IReadOnlyList<KeyStatsStopResult> stopResults)
+        => stopResults.Where(r => !r.Succeeded).Select(r => r.ProcessId).ToArray();
 
     public IReadOnlyList<KeyStatsProcessInfo> ListProcesses(int currentSessionId)
     {
@@ -63,15 +71,57 @@ public sealed class KeyStatsProcessManager
         return result;
     }
 
+    public IReadOnlyList<KeyStatsStopResult> StopProcesses(IEnumerable<int> processIds)
+        => processIds.Distinct().Select(TryStop).ToArray();
+
+    public KeyStatsStopResult TryStop(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            process.Kill(entireProcessTree: true);
+            if (!process.WaitForExit(3000) && !process.HasExited)
+            {
+                return new KeyStatsStopResult(processId, Succeeded: false, Error: "timeout");
+            }
+
+            return new KeyStatsStopResult(processId, Succeeded: true, Error: null);
+        }
+        catch (ArgumentException)
+        {
+            // process already gone
+            return new KeyStatsStopResult(processId, Succeeded: true, Error: null);
+        }
+        catch (InvalidOperationException)
+        {
+            // process already exited
+            return new KeyStatsStopResult(processId, Succeeded: true, Error: null);
+        }
+        catch (Win32Exception ex)
+        {
+            if (ex.NativeErrorCode == 5)
+            {
+                return new KeyStatsStopResult(processId, Succeeded: false, Error: AccessDeniedError);
+            }
+
+            return new KeyStatsStopResult(processId, Succeeded: false, Error: $"win32-{ex.NativeErrorCode}");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return new KeyStatsStopResult(processId, Succeeded: false, Error: AccessDeniedError);
+        }
+        catch (Exception ex)
+        {
+            return new KeyStatsStopResult(processId, Succeeded: false, Error: ex.GetType().Name);
+        }
+    }
+
     public KeyStatsConvergencePlan EnsureRunning(string keyStatsExePath, int currentSessionId)
     {
         var processes = ListProcesses(currentSessionId);
         var plan = BuildConvergencePlan(processes, currentSessionId);
 
-        foreach (var pid in plan.ProcessIdsToStop)
-        {
-            TryStop(pid);
-        }
+        StopProcesses(plan.ProcessIdsToStop);
 
         if (plan.ShouldStart)
         {
@@ -91,21 +141,7 @@ public sealed class KeyStatsProcessManager
         StartInCurrentSession(keyStatsExePath);
     }
 
-    private static void TryStop(int processId)
-    {
-        try
-        {
-            using var process = Process.GetProcessById(processId);
-            process.Kill(entireProcessTree: true);
-            process.WaitForExit(3000);
-        }
-        catch
-        {
-            // best effort
-        }
-    }
-
-    private static void StartInCurrentSession(string keyStatsExePath)
+    public void StartInCurrentSession(string keyStatsExePath)
     {
         if (!File.Exists(keyStatsExePath))
         {

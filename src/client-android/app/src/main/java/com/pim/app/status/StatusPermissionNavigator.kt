@@ -30,6 +30,9 @@ object StatusPermissionNavigator {
         "notification-permission-missing" -> notificationSettingsIntent(context)
         "battery-optimization-missing" -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
             .setData(Uri.parse("package:${context.packageName}"))
+        "foreground-location-missing",
+        "background-location-missing",
+        "activity-recognition-missing" -> appDetailsIntent(context)
         else -> appDetailsIntent(context)
     }
 

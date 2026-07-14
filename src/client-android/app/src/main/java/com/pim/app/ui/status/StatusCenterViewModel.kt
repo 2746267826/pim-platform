@@ -12,6 +12,7 @@ import com.pim.app.status.StatusCenterRepository
 import com.pim.app.status.StatusCenterState
 import com.pim.app.status.StatusIssue
 import com.pim.app.status.StatusSyncActionRunner
+import com.pim.app.status.resolveProbeResult
 import com.pim.core.settings.ServerSettingsStore
 import com.pim.core.settings.PimServerEndpoints
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -58,6 +59,12 @@ class StatusCenterViewModel @Inject constructor(
         }
     }
 
+    fun forceConnectionProbe() {
+        viewModelScope.launch {
+            refreshConnectionForVisibleScreen(force = true)
+        }
+    }
+
     fun refresh() {
         repository.requestRefresh()
         viewModelScope.launch {
@@ -65,20 +72,24 @@ class StatusCenterViewModel @Inject constructor(
         }
     }
 
-    suspend fun refreshConnectionForVisibleScreen(): Long {
+    suspend fun refreshConnectionForVisibleScreen(force: Boolean = false): Long {
         val serverUrl = serverSettingsStore.getBaseUrl()
         val serverIdentity = runCatching {
             PimServerEndpoints.from(serverUrl).apiBaseUrl.toString()
         }.getOrNull()
         val succeeded = runCatching {
-            val fresh = serverIdentity?.let {
-                connectionProbeStore.freshResult(it, System.currentTimeMillis())
-            }
-            if (fresh != null) fresh else connectionProbeService.probe(serverUrl).also { result ->
-                if (serverSettingsStore.getBaseUrl() == serverUrl) {
-                    connectionProbeStore.save(result)
-                }
-            }
+            resolveProbeResult(
+                force = force,
+                serverIdentity = serverIdentity,
+                store = connectionProbeStore,
+                probe = { connectionProbeService.probe(serverUrl) },
+                save = { result ->
+                    if (serverSettingsStore.getBaseUrl() == serverUrl) {
+                        connectionProbeStore.save(result)
+                    } else false
+                },
+                nowMillis = System.currentTimeMillis()
+            )
         }.isSuccess
         repository.requestRefresh()
         if (!succeeded) return PROBE_RETRY_MILLIS

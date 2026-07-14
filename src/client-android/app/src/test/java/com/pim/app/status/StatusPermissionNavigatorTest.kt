@@ -32,6 +32,33 @@ class StatusPermissionNavigatorTest {
     }
 
     @Test
+    fun foregroundLocationIssueNavigatesToAppDetails() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val issue = StatusIssue.foregroundLocationMissing()
+        val intent = StatusPermissionNavigator.intentFor(context, issue)
+        assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, intent.action)
+        assertEquals(Uri.parse("package:${context.packageName}"), intent.data)
+    }
+
+    @Test
+    fun backgroundLocationIssueNavigatesToAppDetails() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val issue = StatusIssue.backgroundLocationMissing()
+        val intent = StatusPermissionNavigator.intentFor(context, issue)
+        assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, intent.action)
+        assertEquals(Uri.parse("package:${context.packageName}"), intent.data)
+    }
+
+    @Test
+    fun activityRecognitionIssueNavigatesToAppDetails() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val issue = StatusIssue.activityRecognitionMissing()
+        val intent = StatusPermissionNavigator.intentFor(context, issue)
+        assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, intent.action)
+        assertEquals(Uri.parse("package:${context.packageName}"), intent.data)
+    }
+
+    @Test
     fun unknownIssueFallsBackToAppDetails() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val unknownIssue = StatusIssue(

@@ -13,10 +13,9 @@ class StatusIssueTest {
     fun actionLabelsAreReadable() {
         assertEquals("去设置", StatusIssue.apiAddressMissing().actionLabel)
         assertEquals("去设置", StatusIssue.backgroundLocationMissing().actionLabel)
-        assertEquals("去设置", StatusIssue.foregroundServiceNotRunning().actionLabel)
-        assertEquals("去设置", StatusIssue.locationAccuracyRejected().actionLabel)
-        assertEquals("去设置", StatusIssue.altitudeMissingTimeout().actionLabel)
-        assertEquals("去设置", StatusIssue.uploadQueueBacklog(18).actionLabel)
+        assertEquals("立即同步", StatusIssue.uploadQueueBacklog(18).actionLabel)
+        assertEquals("重新检查连接", StatusIssue.probeBlocked().actionLabel)
+        assertEquals("重新检查连接", StatusIssue.probePartial().actionLabel)
     }
 
     @Test
@@ -70,7 +69,6 @@ class StatusIssueTest {
         assertEquals("前台定位服务未运行", issues.getValue("foreground-service-not-running").title)
         assertEquals("定位精度不达标", issues.getValue("location-accuracy-rejected").title)
         assertEquals("上传队列积压", issues.getValue("upload-queue-backlog").title)
-        assertEquals("最近错误", issues.getValue("recent-error").title)
         assertFalse("current-policy-state must not appear when policy is valid", issues.containsKey("current-policy-state"))
         assertFalse("location-dropped-recent must not appear for known dropped reason", issues.containsKey("location-dropped-recent"))
     }
@@ -110,7 +108,9 @@ class StatusIssueTest {
         assertEquals(StatusActionRoute.OpenPermissions, StatusActionRouter.route(StatusActionTarget.Permissions))
         assertEquals(StatusActionRoute.TriggerSync, StatusActionRouter.route(StatusActionTarget.Sync))
         assertEquals(StatusActionRoute.TriggerSync, StatusActionRouter.route(StatusActionTarget.Queue))
-        assertEquals(StatusActionRoute.StayOnStatus, StatusActionRouter.route(StatusActionTarget.Status))
+        assertEquals(StatusActionRoute.OpenNetworkSettings, StatusActionRouter.route(StatusActionTarget.NetworkSettings))
+        assertEquals(StatusActionRoute.ConnectionCheck, StatusActionRouter.route(StatusActionTarget.ConnectionCheck))
+        assertEquals(StatusActionRoute.None, StatusActionRouter.route(StatusActionTarget.None))
     }
 
     @Test
@@ -332,6 +332,71 @@ class StatusIssueTest {
 
         val issues = StatusIssuePlanner.plan(snapshot)
         assertTrue("unknown dropped reason must produce location-dropped-recent", issues.any { it.code == "location-dropped-recent" })
+    }
+
+    @Test
+    fun networkDisconnectedTargetsNetworkSettings() {
+        val issue = StatusIssue.networkDisconnected()
+        assertEquals(StatusActionTarget.NetworkSettings, issue.target)
+    }
+
+    @Test
+    fun probeBlockedTargetsConnectionCheck() {
+        val issue = StatusIssue.probeBlocked()
+        assertEquals(StatusActionTarget.ConnectionCheck, issue.target)
+        assertEquals("重新检查连接", issue.actionLabel)
+    }
+
+    @Test
+    fun probePartialTargetsConnectionCheck() {
+        val issue = StatusIssue.probePartial()
+        assertEquals(StatusActionTarget.ConnectionCheck, issue.target)
+        assertEquals("重新检查连接", issue.actionLabel)
+    }
+
+    @Test
+    fun foregroundServiceNotRunningOpensCollectionSettings() {
+        val issue = StatusIssue.foregroundServiceNotRunning()
+        assertEquals(StatusActionTarget.Settings, issue.target)
+        assertEquals("查看采集设置", issue.actionLabel)
+    }
+
+    @Test
+    fun locationAccuracyRejectedOpensCollectionSettings() {
+        assertEquals(StatusActionTarget.Settings, StatusIssue.locationAccuracyRejected().target)
+    }
+
+    @Test
+    fun altitudeMissingTimeoutOpensCollectionSettings() {
+        assertEquals(StatusActionTarget.Settings, StatusIssue.altitudeMissingTimeout().target)
+    }
+
+    @Test
+    fun uploadBacklogActionMatchesItsSyncRoute() {
+        val issue = StatusIssue.uploadQueueBacklog(18)
+        assertEquals("立即同步", issue.actionLabel)
+        assertEquals(StatusActionTarget.Queue, issue.target)
+        assertEquals(StatusActionRoute.TriggerSync, StatusActionRouter.route(issue.target))
+    }
+
+    @Test
+    fun recentDroppedLocationHasNoAction() {
+        assertEquals(StatusActionTarget.None, StatusIssue.recentDroppedLocation("x", null).target)
+    }
+
+    @Test
+    fun routeForConnectionCheckReturnsConnectionCheck() {
+        assertEquals(StatusActionRoute.ConnectionCheck, StatusActionRouter.route(StatusActionTarget.ConnectionCheck))
+    }
+
+    @Test
+    fun routeForNetworkSettingsReturnsOpenNetworkSettings() {
+        assertEquals(StatusActionRoute.OpenNetworkSettings, StatusActionRouter.route(StatusActionTarget.NetworkSettings))
+    }
+
+    @Test
+    fun routeForNoneReturnsNone() {
+        assertEquals(StatusActionRoute.None, StatusActionRouter.route(StatusActionTarget.None))
     }
 
     @Test

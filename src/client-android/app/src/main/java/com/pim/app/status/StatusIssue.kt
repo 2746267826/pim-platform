@@ -41,9 +41,10 @@ enum class StatusActionTarget {
     Settings,
     Login,
     Permissions,
-    Status,
     Sync,
     Queue,
+    NetworkSettings,
+    ConnectionCheck,
     None
 }
 
@@ -51,7 +52,8 @@ enum class StatusActionRoute {
     OpenSettings,
     OpenPermissions,
     TriggerSync,
-    StayOnStatus,
+    OpenNetworkSettings,
+    ConnectionCheck,
     None
 }
 
@@ -62,7 +64,8 @@ object StatusActionRouter {
         StatusActionTarget.Permissions -> StatusActionRoute.OpenPermissions
         StatusActionTarget.Sync,
         StatusActionTarget.Queue -> StatusActionRoute.TriggerSync
-        StatusActionTarget.Status -> StatusActionRoute.StayOnStatus
+        StatusActionTarget.NetworkSettings -> StatusActionRoute.OpenNetworkSettings
+        StatusActionTarget.ConnectionCheck -> StatusActionRoute.ConnectionCheck
         StatusActionTarget.None -> StatusActionRoute.None
     }
 }
@@ -181,8 +184,8 @@ data class StatusIssue(
             severity = StatusSeverity.Critical,
             title = "前台定位服务未运行",
             message = "持续采集已开启，但前台定位服务没有运行。",
-            actionLabel = "去设置",
-            target = StatusActionTarget.Status
+            actionLabel = "查看采集设置",
+            target = StatusActionTarget.Settings
         )
 
         fun locationAccuracyRejected(lastOccurredAtMillis: Long? = null): StatusIssue = StatusIssue(
@@ -191,8 +194,8 @@ data class StatusIssue(
             title = "定位精度不达标",
             message = "最近有定位点因水平精度缺失或大于等于 50m 被丢弃。",
             lastOccurredAtMillis = lastOccurredAtMillis,
-            actionLabel = "去设置",
-            target = StatusActionTarget.Status
+            actionLabel = "查看采集设置",
+            target = StatusActionTarget.Settings
         )
 
         fun altitudeMissingTimeout(lastOccurredAtMillis: Long? = null): StatusIssue = StatusIssue(
@@ -201,8 +204,8 @@ data class StatusIssue(
             title = "高度等待超时",
             message = "最近有定位点等待 15 秒后仍缺少高度，已按 null 高度并附带质量标记处理。",
             lastOccurredAtMillis = lastOccurredAtMillis,
-            actionLabel = "去设置",
-            target = StatusActionTarget.Status
+            actionLabel = "查看采集设置",
+            target = StatusActionTarget.Settings
         )
 
         fun uploadQueueBacklog(count: Int): StatusIssue = StatusIssue(
@@ -210,7 +213,7 @@ data class StatusIssue(
             severity = StatusSeverity.Warning,
             title = "上传队列积压",
             message = "当前有 $count 条定位记录等待上传。",
-            actionLabel = "去设置",
+            actionLabel = "立即同步",
             target = StatusActionTarget.Queue
         )
 
@@ -219,8 +222,8 @@ data class StatusIssue(
             severity = StatusSeverity.Critical,
             title = "网络未连接",
             message = "当前设备没有可用的网络连接，无法与服务器通信。",
-            actionLabel = "查看状态",
-            target = StatusActionTarget.Status
+            actionLabel = "去设置网络",
+            target = StatusActionTarget.NetworkSettings
         )
 
         fun probeBlocked(): StatusIssue = StatusIssue(
@@ -228,8 +231,8 @@ data class StatusIssue(
             severity = StatusSeverity.Critical,
             title = "服务器连接中断",
             message = "连接探测未能成功到达服务器，请检查网络或服务器状态。",
-            actionLabel = "重新同步",
-            target = StatusActionTarget.Sync
+            actionLabel = "重新检查连接",
+            target = StatusActionTarget.ConnectionCheck
         )
 
         fun probePartial(): StatusIssue = StatusIssue(
@@ -237,8 +240,8 @@ data class StatusIssue(
             severity = StatusSeverity.Warning,
             title = "服务器连接不稳定",
             message = "连接探测部分成功，可能存在网络或服务器问题。",
-            actionLabel = "查看状态",
-            target = StatusActionTarget.Status
+            actionLabel = "重新检查连接",
+            target = StatusActionTarget.ConnectionCheck
         )
 
         fun heartbeatFailure(message: String?): StatusIssue = StatusIssue(
@@ -248,24 +251,6 @@ data class StatusIssue(
             message = message?.takeIf { it.isNotBlank() } ?: "最近一次心跳或同步状态上报失败。",
             actionLabel = "重新同步",
             target = StatusActionTarget.Sync
-        )
-
-        fun recentError(message: String): StatusIssue = StatusIssue(
-            code = "recent-error",
-            severity = StatusSeverity.Info,
-            title = "最近错误",
-            message = message,
-            actionLabel = "查看状态",
-            target = StatusActionTarget.Status
-        )
-
-        fun currentPolicyState(mode: String): StatusIssue = StatusIssue(
-            code = "current-policy-state",
-            severity = StatusSeverity.Info,
-            title = "当前策略",
-            message = "当前定位策略为 $mode。",
-            actionLabel = "查看状态",
-            target = StatusActionTarget.Status
         )
 
         fun syncFailure(error: String?): StatusIssue = StatusIssue(
@@ -283,8 +268,8 @@ data class StatusIssue(
             title = "最近丢弃定位",
             message = "最近一次丢弃原因：$reason。",
             lastOccurredAtMillis = lastOccurredAtMillis,
-            actionLabel = "查看状态",
-            target = StatusActionTarget.Status
+            actionLabel = "",
+            target = StatusActionTarget.None
         )
     }
 }
@@ -478,12 +463,6 @@ object StatusIssuePlanner {
         val heartbeat = snapshot.diagnostics.lastHeartbeatStatus.orEmpty()
         if (heartbeat.contains("fail", ignoreCase = true) || heartbeat.contains("失败")) {
             issues += StatusIssue.heartbeatFailure(snapshot.diagnostics.lastLogMessage)
-        }
-
-        val recentError = snapshot.diagnostics.recentLogMessages.firstOrNull()
-            ?: snapshot.diagnostics.lastLogMessage
-        if (!recentError.isNullOrBlank()) {
-            issues += StatusIssue.recentError(recentError)
         }
 
         return issues.distinctBy { it.code }

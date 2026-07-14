@@ -18,8 +18,8 @@ class StatusOverallAndSyncPhaseTest {
     @Test
     fun overallIsNormalWhenOnlyInfoIssues() {
         val issues = listOf(
-            StatusIssue.recentError("something"),
-            StatusIssue.altitudeMissingTimeout()
+            StatusIssue.altitudeMissingTimeout(),
+            StatusIssue.recentDroppedLocation("test", null)
         )
         assertEquals(StatusOverall.Normal, StatusOverall.compute(issues))
     }
@@ -27,7 +27,6 @@ class StatusOverallAndSyncPhaseTest {
     @Test
     fun overallIsAttentionWhenWarningPresent() {
         val issues = listOf(
-            StatusIssue.recentError("something"),
             StatusIssue.usageAccessMissing()
         )
         assertEquals(StatusOverall.Attention, StatusOverall.compute(issues))
@@ -36,7 +35,6 @@ class StatusOverallAndSyncPhaseTest {
     @Test
     fun overallIsAbnormalWhenCriticalPresent() {
         val issues = listOf(
-            StatusIssue.recentError("something"),
             StatusIssue.loginMissing()
         )
         assertEquals(StatusOverall.Abnormal, StatusOverall.compute(issues))

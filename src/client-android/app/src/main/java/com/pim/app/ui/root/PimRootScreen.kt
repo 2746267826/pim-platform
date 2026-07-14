@@ -45,8 +45,7 @@ fun PimRootScreen(initialDestination: PimDestination = PimDestination.Today) {
                 PimDestination.Schedule -> SchedulePolicyScreen(modifier)
                 PimDestination.Status -> StatusCenterScreen(
                     modifier = modifier,
-                    onOpenSettings = { selected = PimDestination.Settings },
-                    onOpenStatus = { selected = PimDestination.Status }
+                    onOpenSettings = { selected = PimDestination.Settings }
                 )
                 PimDestination.Settings -> SettingsScreen(modifier)
             }

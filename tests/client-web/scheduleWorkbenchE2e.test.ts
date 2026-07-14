@@ -9,6 +9,7 @@ const completeScript = packageJson.scripts['test:schedule-workbench-complete'] ?
 
 for (const expectedTest of [
   'endpointShellPage.test.tsx',
+  'microsoftCalendarSyncApi.test.ts',
   'scheduleWorkbenchE2e.test.ts',
   'scheduleWorkbenchVisualAudit.test.ts',
 ]) {

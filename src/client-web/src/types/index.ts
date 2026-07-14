@@ -18,6 +18,10 @@ export interface CalendarResponse {
   color: string;
   kind: string;
   isDefault: boolean;
+  eventCount?: number;
+  source?: string;
+  outlookCalendarBindingId?: string;
+  canEdit?: boolean;
 }
 
 export interface EventResponse {
@@ -41,6 +45,10 @@ export interface EventResponse {
   recurrenceId?: string;
   exDatesJson?: string;
   recurrenceMetadataJson?: string;
+  outlookCalendarBindingId?: string;
+  outlookEventId?: string;
+  outlookEtag?: string;
+  outlookEventType?: string;
 }
 
 export interface TaskResponse {
@@ -533,11 +541,11 @@ export interface OutlookEventDraft {
 }
 
 export interface OutlookWriteRequest {
-  operation: string;
+  operation: 'create' | 'update' | 'delete';
   calendarBindingId: string;
   eventId?: string;
   draft?: OutlookEventDraft;
-  scope: string;
+  scope: 'instance' | 'series';
   clientOperationId: string;
   expectedEtag?: string;
 }

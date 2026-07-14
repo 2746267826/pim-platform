@@ -198,7 +198,7 @@ const writeRequest: OutlookWriteRequest = {
   operation: 'create',
   calendarBindingId: 'b1',
   draft: writeDraft,
-  scope: 'user',
+  scope: 'instance',
   clientOperationId: 'op-1',
 };
 

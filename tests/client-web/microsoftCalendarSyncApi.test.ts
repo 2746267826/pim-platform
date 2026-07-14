@@ -239,13 +239,13 @@ const writeRequest: OutlookWriteRequest = {
   operation: 'create',
   calendarBindingId: UUID_BINDING_1,
   draft: eventDraft,
-  scope: 'user',
+  scope: 'instance',
   clientOperationId: 'op-001',
   expectedEtag: 'etag-abc',
 };
 assert.equal(writeRequest.operation, 'create');
 assert.equal(writeRequest.calendarBindingId, UUID_BINDING_1);
-assert.equal(writeRequest.scope, 'user');
+assert.equal(writeRequest.scope, 'instance');
 
 // OutlookWriteResult - backend response shape
 const writeResult: OutlookWriteResult = {

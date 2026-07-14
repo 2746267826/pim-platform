@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete } from './client';
+import { apiGet, apiPost, apiPut, apiDelete, authedFetch } from './client';
 import type {
   ApiResponse,
   CalendarDeletePreviewResponse,
@@ -674,9 +674,10 @@ export async function outlookSelection(selectedBindingIds: string[]) {
 }
 
 export async function writeOutlookEvent(request: OutlookWriteRequest) {
-  const r = await apiPost<ApiResponse<OutlookWriteResult>>(
+  const r = await authedFetch<ApiResponse<OutlookWriteResult>>(
     calendarApiPaths.outlookWriteback(),
-    request
+    { method: 'POST', body: JSON.stringify(request) },
+    [409],
   );
   return r.data;
 }

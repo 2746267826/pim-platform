@@ -51,6 +51,10 @@ public sealed class KeyStatsLocalStatsClient : IDisposable
                 dto.MouseDistance,
                 dto.ScrollDistance), null);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             return (null, ex.Message);

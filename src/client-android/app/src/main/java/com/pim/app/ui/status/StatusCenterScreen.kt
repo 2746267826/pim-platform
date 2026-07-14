@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +62,8 @@ import com.pim.app.status.StatusOverall
 import com.pim.app.status.StatusPermissionNavigator
 import com.pim.app.status.StatusSeverity
 import com.pim.app.status.SyncPhase
+import com.pim.app.status.actionableStatusIssues
+import com.pim.app.status.informationalStatusIssues
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -266,18 +269,23 @@ private fun TransportSection(
         ) {
             Text(
                 text = syncPhaseLabel(state.syncPhase),
-                modifier = Modifier.testTag("status-sync-phase"),
-                style = MaterialTheme.typography.bodyMedium
+                modifier = Modifier.weight(1f).testTag("status-sync-phase"),
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            Spacer(Modifier.weight(1f))
             Button(
                 onClick = onSyncNow,
-                modifier = Modifier.testTag("status-sync-button"),
+                modifier = Modifier.width(144.dp).testTag("status-sync-button"),
                 enabled = syncButtonEnabled(state)
             ) {
                 Icon(Icons.Filled.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
-                Text(syncButtonLabel(state.syncPhase))
+                Text(
+                    text = syncButtonLabel(state.syncPhase),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
 
@@ -430,18 +438,45 @@ private fun IssuesSection(
     issues: List<StatusIssue>,
     onIssueAction: (StatusIssue) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        SectionHeader("需要处理", Icons.Filled.Shield)
+    val actionable = actionableStatusIssues(issues)
+    val information = informationalStatusIssues(issues)
 
-        if (issues.isEmpty()) {
-            Text(
-                "未发现需要处理的问题",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            issues.forEach { issue ->
-                StatusIssueRow(issue, onAction = { onIssueAction(issue) })
+    Column(
+        modifier = Modifier.testTag("status-issues"),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Column(
+            modifier = Modifier.testTag("status-actionable-issues"),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            SectionHeader("需要处理", Icons.Filled.Shield)
+            if (actionable.isEmpty()) {
+                Text(
+                    "未发现需要处理的问题",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                actionable.forEach { issue ->
+                    key(issue.code) {
+                        StatusIssueRow(issue, onAction = { onIssueAction(issue) })
+                    }
+                }
+            }
+        }
+
+        if (information.isNotEmpty()) {
+            Divider()
+            Column(
+                modifier = Modifier.testTag("status-information-issues"),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                SectionHeader("状态信息", Icons.Filled.Info)
+                information.forEach { issue ->
+                    key(issue.code) {
+                        StatusIssueRow(issue, onAction = { onIssueAction(issue) })
+                    }
+                }
             }
         }
     }
@@ -547,8 +582,20 @@ private fun CountChip(label: String, value: String, tag: String, modifier: Modif
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier.testTag(tag)
     ) {
-        Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            value,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

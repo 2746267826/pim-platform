@@ -856,7 +856,14 @@ class StatusOverallAndSyncPhaseTest {
         auth = AuthStatusSnapshot(hasAccessToken = true, isExpired = false),
         service = ForegroundServiceSnapshot(true, true),
         tracking = TrackingPolicySnapshot("power-saving", "PowerSavingNormal", null),
-        queues = QueueStatusSnapshot(5, 3, 1, 2, 0, 1),
+        queues = QueueStatusSnapshot(
+            pendingLocationPoints = 5,
+            pendingUsageEvents = 3,
+            pendingUsageSummaries = 1,
+            pendingAppMetadata = 2,
+            pendingDeviceProfile = 1,
+            pendingSyncBatches = 0
+        ),
         diagnostics = DiagnosticSnapshot(null, null, null, null)
     )
 

@@ -50,7 +50,6 @@ class StatusIssueTest {
                 pendingUsageEvents = 0,
                 pendingUsageSummaries = 0,
                 pendingAppMetadata = 0,
-                pendingLogs = 0,
                 pendingDeviceProfile = 0
             ),
             diagnostics = DiagnosticSnapshot(
@@ -259,13 +258,12 @@ class StatusIssueTest {
     }
 
     @Test
-    fun pendingUploadTotalExcludesLogs() {
+    fun pendingUploadTotalAggregatesAllQueues() {
         val queues = QueueStatusSnapshot(
             pendingLocationPoints = 10,
             pendingUsageEvents = 5,
             pendingUsageSummaries = 3,
             pendingAppMetadata = 2,
-            pendingLogs = 99,
             pendingDeviceProfile = 1,
             pendingSyncBatches = 0
         )
@@ -413,6 +411,69 @@ class StatusIssueTest {
         assertEquals("最近一次心跳上报异常。", issue.message)
         assertEquals(StatusSeverity.Warning, issue.severity)
         assertEquals(StatusActionTarget.Sync, issue.target)
+    }
+
+    @Test
+    fun needAttentionContainsOnlyCriticalAndWarningInSeverityOrder() {
+        val issues = listOf(
+            StatusIssue.altitudeMissingTimeout(), // Info
+            StatusIssue.probeBlocked(), // Critical
+            StatusIssue.usageAccessMissing(), // Warning
+            StatusIssue.apiAddressMissing(), // Critical
+            StatusIssue.heartbeatFailure(), // Warning
+            StatusIssue.recentDroppedLocation("test", null), // Info
+        )
+        val actionable = actionableStatusIssues(issues)
+        val info = informationalStatusIssues(issues)
+
+        assertEquals(4, actionable.size)
+        assertTrue(actionable.all { it.severity != StatusSeverity.Info })
+        assertEquals(
+            listOf(
+                StatusSeverity.Critical,
+                StatusSeverity.Critical,
+                StatusSeverity.Warning,
+                StatusSeverity.Warning
+            ),
+            actionable.map { it.severity }
+        )
+        assertEquals(2, info.size)
+        assertTrue(info.all { it.severity == StatusSeverity.Info })
+    }
+
+    @Test
+    fun statusInformationAppearsOnlyWhenInfoExists() {
+        val noInfo = listOf(
+            StatusIssue.probeBlocked(), StatusIssue.usageAccessMissing()
+        )
+        val infoIssues = listOf(
+            StatusIssue.altitudeMissingTimeout(),
+            StatusIssue.recentDroppedLocation("x", null)
+        )
+
+        val info = informationalStatusIssues(noInfo)
+        assertEquals(0, info.size)
+
+        val info2 = informationalStatusIssues(infoIssues)
+        assertEquals(2, info2.size)
+    }
+
+    @Test
+    fun pendingUploadSnapshotHasNoPendingLogsField() {
+        val hasField = runCatching {
+            QueueStatusSnapshot::class.java.getDeclaredField("pendingLogs")
+        }.isSuccess
+        assertFalse("pendingLogs field must be removed from QueueStatusSnapshot", hasField)
+
+        val q = QueueStatusSnapshot(
+            pendingLocationPoints = 10,
+            pendingUsageEvents = 5,
+            pendingUsageSummaries = 3,
+            pendingAppMetadata = 2,
+            pendingDeviceProfile = 1,
+            pendingSyncBatches = 0
+        )
+        assertEquals(10 + 5 + 3 + 2 + 1 + 0, q.pendingUploadTotal)
     }
 
     @Test

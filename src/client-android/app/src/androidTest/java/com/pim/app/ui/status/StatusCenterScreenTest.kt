@@ -1,18 +1,26 @@
 package com.pim.app.ui.status
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
 import com.pim.app.status.ApiConnectionSnapshot
 import com.pim.app.status.ConnectionProbeOutcome
 import com.pim.app.status.ConnectionProbeResult
@@ -375,6 +383,160 @@ class StatusCenterScreenTest {
         ).assertExists()
         composeTestRule.onNodeWithText("java.lang.RuntimeException").assertDoesNotExist()
         composeTestRule.onNodeWithText("raw log").assertDoesNotExist()
+    }
+
+    @Test
+    fun needAttentionSectionContainsOnlyCriticalAndWarning() {
+        val state = normalState().copy(
+            issues = listOf(
+                StatusIssue.altitudeMissingTimeout(),
+                StatusIssue.probeBlocked(),
+                StatusIssue.usageAccessMissing(),
+                StatusIssue.apiAddressMissing()
+            )
+        )
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(state = state) }
+        }
+
+        val actionable = hasTestTag("status-actionable-issues")
+        composeTestRule.onNode(
+            actionable and hasAnyDescendant(hasTestTag("status-issue-connection-probe-blocked"))
+        ).assertExists()
+        composeTestRule.onNode(
+            actionable and hasAnyDescendant(hasTestTag("status-issue-api-address-missing"))
+        ).assertExists()
+        composeTestRule.onNode(
+            actionable and hasAnyDescendant(hasTestTag("status-issue-usage-access-missing"))
+        ).assertExists()
+        composeTestRule.onNode(
+            actionable and hasAnyDescendant(hasTestTag("status-issue-altitude-missing-timeout"))
+        ).assertDoesNotExist()
+    }
+
+    @Test
+    fun statusInformationSectionAppearsWhenInfoExists() {
+        val state = normalState().copy(
+            issues = listOf(
+                StatusIssue.altitudeMissingTimeout(),
+                StatusIssue.recentDroppedLocation("x", null)
+            )
+        )
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(state = state) }
+        }
+
+        val information = hasTestTag("status-information-issues")
+        composeTestRule.onNode(
+            information and hasAnyDescendant(hasText("状态信息"))
+        ).assertExists()
+        composeTestRule.onNode(
+            information and hasAnyDescendant(hasTestTag("status-issue-altitude-missing-timeout"))
+        ).assertExists()
+        composeTestRule.onNode(
+            information and hasAnyDescendant(hasTestTag("status-issue-location-dropped-recent"))
+        ).assertExists()
+    }
+
+    @Test
+    fun statusInformationSectionIsAbsentWhenNoInfoIssues() {
+        val state = normalState().copy(
+            issues = listOf(
+                StatusIssue.probeBlocked(),
+                StatusIssue.usageAccessMissing()
+            )
+        )
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(state = state) }
+        }
+
+        composeTestRule.onNodeWithTag("status-information-issues").assertDoesNotExist()
+    }
+
+    @Test
+    fun actionableCriticalIssuesAppearBeforeWarning() {
+        val state = normalState().copy(
+            issues = listOf(
+                StatusIssue.usageAccessMissing(),
+                StatusIssue.apiAddressMissing(),
+                StatusIssue.heartbeatFailure(),
+                StatusIssue.probeBlocked()
+            )
+        )
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(state = state) }
+        }
+
+        composeTestRule.onNodeWithTag("status-issues").performScrollTo()
+        val lastCriticalTop = composeTestRule
+            .onNodeWithTag("status-issue-connection-probe-blocked")
+            .getUnclippedBoundsInRoot()
+            .top
+        val firstWarningTop = composeTestRule
+            .onNodeWithTag("status-issue-usage-access-missing")
+            .getUnclippedBoundsInRoot()
+            .top
+
+        assertTrue(
+            "Critical issues must be laid out before warning issues",
+            lastCriticalTop < firstWarningTop
+        )
+    }
+
+    @Test
+    fun narrowStatusContentKeepsSyncCountsAndActionsVisible() {
+        val narrowIssue = StatusIssue(
+            code = "narrow-layout",
+            severity = StatusSeverity.Critical,
+            title = "需要处理一个较长的问题标题",
+            message = "这里保留较长的问题说明，用来验证窄屏上的操作仍然可达。",
+            actionLabel = "查看详细设置",
+            target = StatusActionTarget.Settings
+        )
+        val state = normalState(syncPhase = SyncPhase.Waiting).copy(
+            overall = StatusOverall.Abnormal,
+            issues = listOf(narrowIssue),
+            pendingTotal = Int.MAX_VALUE,
+            acceptedCount = 123_456_789,
+            rejectedCount = 98_765_432,
+            permanentRejectedCount = 12_345_678
+        )
+        composeTestRule.setContent {
+            PimTheme {
+                Box(Modifier.width(320.dp).testTag("narrow-status-host")) {
+                    StatusCenterContent(state = state)
+                }
+            }
+        }
+
+        val topTags = listOf(
+            "status-sync-phase",
+            "status-sync-button",
+            "status-pending",
+            "status-confirmed",
+            "status-rejected",
+            "status-permanent-rejected"
+        )
+        val hostBounds = composeTestRule
+            .onNodeWithTag("narrow-status-host")
+            .getUnclippedBoundsInRoot()
+
+        topTags.forEach { tag ->
+            composeTestRule.onAllNodesWithTag(tag).assertCountEquals(1)
+            val node = composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
+            val bounds = node.getUnclippedBoundsInRoot()
+            assertTrue("$tag must stay inside the 320dp host", bounds.left >= hostBounds.left)
+            assertTrue("$tag must stay inside the 320dp host", bounds.right <= hostBounds.right)
+        }
+
+        composeTestRule.onAllNodesWithTag("status-issue-action-narrow-layout").assertCountEquals(1)
+        val action = composeTestRule
+            .onNodeWithTag("status-issue-action-narrow-layout")
+            .performScrollTo()
+            .assertIsDisplayed()
+        val actionBounds = action.getUnclippedBoundsInRoot()
+        assertTrue(actionBounds.left >= hostBounds.left)
+        assertTrue(actionBounds.right <= hostBounds.right)
     }
 
     private fun normalState(

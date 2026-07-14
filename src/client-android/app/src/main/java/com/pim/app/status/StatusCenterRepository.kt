@@ -169,7 +169,6 @@ class StatusCenterRepository @Inject constructor(
                 pendingUsageEvents = events,
                 pendingUsageSummaries = summaries,
                 pendingAppMetadata = meta,
-                pendingLogs = 0,
                 pendingDeviceProfile = profile,
                 pendingSyncBatches = batches
             )

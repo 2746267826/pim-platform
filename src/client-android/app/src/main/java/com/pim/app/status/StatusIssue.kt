@@ -292,6 +292,13 @@ data class StatusIssue(
     }
 }
 
+internal fun actionableStatusIssues(issues: List<StatusIssue>): List<StatusIssue> = issues
+    .filter { it.severity != StatusSeverity.Info }
+    .sortedBy { if (it.severity == StatusSeverity.Critical) 0 else 1 }
+
+internal fun informationalStatusIssues(issues: List<StatusIssue>): List<StatusIssue> =
+    issues.filter { it.severity == StatusSeverity.Info }
+
 data class PermissionStatusSnapshot(
     val notificationGranted: Boolean,
     val preciseLocationGranted: Boolean,
@@ -329,7 +336,6 @@ data class QueueStatusSnapshot(
     val pendingUsageEvents: Int,
     val pendingUsageSummaries: Int,
     val pendingAppMetadata: Int,
-    val pendingLogs: Int,
     val pendingDeviceProfile: Int,
     val pendingSyncBatches: Int = 0
 ) {

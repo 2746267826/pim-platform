@@ -75,6 +75,15 @@ class StatusOverallAndSyncPhaseTest {
         assertEquals("connection-probe-partial", issue.code)
     }
 
+    @Test
+    fun systemNetworkRestrictedIssueDefaultsToInfo() {
+        val issue = StatusIssue.systemNetworkRestricted()
+        assertEquals(StatusSeverity.Info, issue.severity)
+        assertEquals("system-network-restricted", issue.code)
+        assertEquals(StatusActionTarget.None, issue.target)
+        assertTrue(issue.actionLabel.isBlank())
+    }
+
     // --- SyncPhase mapping via production mapper ---
 
     @Test
@@ -444,14 +453,18 @@ class StatusOverallAndSyncPhaseTest {
     // --- External issue synthesis via production mapper ---
 
     @Test
-    fun externalIssuesEmptyWhenConnectedAndNoProbe() {
-        val issues = StatusResultMapper.buildExternalIssues(connected = true, probeResult = null)
+    fun externalIssuesEmptyWhenValidatedAndNoProbe() {
+        val issues = StatusResultMapper.buildExternalIssues(
+            networkAvailability = NetworkAvailability.Validated, probeResult = null
+        )
         assertEquals(emptyList<StatusIssue>(), issues)
     }
 
     @Test
-    fun externalIssuesNetworkDisconnectedWhenNotConnected() {
-        val issues = StatusResultMapper.buildExternalIssues(connected = false, probeResult = null)
+    fun externalIssuesNetworkDisconnectedWhenUnavailable() {
+        val issues = StatusResultMapper.buildExternalIssues(
+            networkAvailability = NetworkAvailability.Unavailable, probeResult = null
+        )
         assertEquals(1, issues.size)
         assertEquals("network-disconnected", issues[0].code)
     }
@@ -459,7 +472,7 @@ class StatusOverallAndSyncPhaseTest {
     @Test
     fun externalIssuesProbeBlockedWhenBlocked() {
         val issues = StatusResultMapper.buildExternalIssues(
-            connected = true,
+            networkAvailability = NetworkAvailability.Validated,
             probeResult = ConnectionProbeResult(
                 outcome = ConnectionProbeOutcome.Blocked,
                 checkedAtUtcMillis = 1000L,
@@ -475,7 +488,7 @@ class StatusOverallAndSyncPhaseTest {
     @Test
     fun externalIssuesProbePartialWhenPartial() {
         val issues = StatusResultMapper.buildExternalIssues(
-            connected = true,
+            networkAvailability = NetworkAvailability.Validated,
             probeResult = ConnectionProbeResult(
                 outcome = ConnectionProbeOutcome.Partial,
                 checkedAtUtcMillis = 1000L,
@@ -491,7 +504,7 @@ class StatusOverallAndSyncPhaseTest {
     @Test
     fun externalIssuesReachableDoesNotAddIssue() {
         val issues = StatusResultMapper.buildExternalIssues(
-            connected = true,
+            networkAvailability = NetworkAvailability.Validated,
             probeResult = ConnectionProbeResult(
                 outcome = ConnectionProbeOutcome.Reachable,
                 checkedAtUtcMillis = 1000L,
@@ -504,9 +517,88 @@ class StatusOverallAndSyncPhaseTest {
     }
 
     @Test
-    fun externalIssueNetworkOverridesProbe() {
+    fun externalIssuesUnavailableDoesNotShortCircuitProbeBlocked() {
         val issues = StatusResultMapper.buildExternalIssues(
-            connected = false,
+            networkAvailability = NetworkAvailability.Unavailable,
+            probeResult = ConnectionProbeResult(
+                outcome = ConnectionProbeOutcome.Blocked,
+                checkedAtUtcMillis = 1000L,
+                lastCompletedStage = null,
+                latencyMillisByStage = emptyMap(),
+                capabilities = ServerCapabilities(false, false)
+            )
+        )
+        assertEquals(2, issues.size)
+        assertTrue(issues.any { it.code == "network-disconnected" })
+        assertTrue(issues.any { it.code == "connection-probe-blocked" })
+    }
+
+    @Test
+    fun externalIssuesRestrictedAndReachableProducesInfoSystemNetwork() {
+        val issues = StatusResultMapper.buildExternalIssues(
+            networkAvailability = NetworkAvailability.Restricted,
+            probeResult = ConnectionProbeResult(
+                outcome = ConnectionProbeOutcome.Reachable,
+                checkedAtUtcMillis = 1000L,
+                lastCompletedStage = null,
+                latencyMillisByStage = emptyMap(),
+                capabilities = ServerCapabilities(false, false)
+            )
+        )
+        assertEquals(1, issues.size)
+        assertEquals("system-network-restricted", issues[0].code)
+        assertEquals(StatusSeverity.Info, issues[0].severity)
+    }
+
+    @Test
+    fun externalIssuesRestrictedAndNullProbeProducesWarningSystemNetwork() {
+        val issues = StatusResultMapper.buildExternalIssues(
+            networkAvailability = NetworkAvailability.Restricted,
+            probeResult = null
+        )
+        assertEquals(1, issues.size)
+        assertEquals("system-network-restricted", issues[0].code)
+        assertEquals(StatusSeverity.Warning, issues[0].severity)
+    }
+
+    @Test
+    fun externalIssuesRestrictedAndPartialProbeProducesWarningSystemNetwork() {
+        val issues = StatusResultMapper.buildExternalIssues(
+            networkAvailability = NetworkAvailability.Restricted,
+            probeResult = ConnectionProbeResult(
+                outcome = ConnectionProbeOutcome.Partial,
+                checkedAtUtcMillis = 1000L,
+                lastCompletedStage = null,
+                latencyMillisByStage = emptyMap(),
+                capabilities = ServerCapabilities(false, false)
+            )
+        )
+        assertEquals(2, issues.size)
+        assertTrue(issues.any { it.code == "system-network-restricted" && it.severity == StatusSeverity.Warning })
+        assertTrue(issues.any { it.code == "connection-probe-partial" })
+    }
+
+    @Test
+    fun externalIssuesRestrictedDoesNotHideProbeBlocked() {
+        val issues = StatusResultMapper.buildExternalIssues(
+            networkAvailability = NetworkAvailability.Restricted,
+            probeResult = ConnectionProbeResult(
+                outcome = ConnectionProbeOutcome.Blocked,
+                checkedAtUtcMillis = 1000L,
+                lastCompletedStage = null,
+                latencyMillisByStage = emptyMap(),
+                capabilities = ServerCapabilities(false, false)
+            )
+        )
+        assertEquals(2, issues.size)
+        assertTrue(issues.any { it.code == "system-network-restricted" })
+        assertTrue(issues.any { it.code == "connection-probe-blocked" })
+    }
+
+    @Test
+    fun externalIssuesValidatedAndBlockedStillProducesProbeBlocked() {
+        val issues = StatusResultMapper.buildExternalIssues(
+            networkAvailability = NetworkAvailability.Validated,
             probeResult = ConnectionProbeResult(
                 outcome = ConnectionProbeOutcome.Blocked,
                 checkedAtUtcMillis = 1000L,
@@ -516,7 +608,7 @@ class StatusOverallAndSyncPhaseTest {
             )
         )
         assertEquals(1, issues.size)
-        assertEquals("network-disconnected", issues[0].code)
+        assertEquals("connection-probe-blocked", issues[0].code)
     }
 
     // --- shouldClearAcceptedSignal ---
@@ -613,6 +705,12 @@ class StatusOverallAndSyncPhaseTest {
         assertEquals(StatusOverall.Normal, state.overall)
     }
 
+    @Test
+    fun emptyStateHasNetworkUnavailable() {
+        val state = StatusCenterState.empty()
+        assertEquals(NetworkAvailability.Unavailable, state.networkAvailability)
+    }
+
     // --- syncFailure issue ---
 
     @Test
@@ -645,7 +743,7 @@ class StatusOverallAndSyncPhaseTest {
             ),
             workInfos = StatusWorkInfos(emptyList(), emptyList()),
             permanentRejected = 0,
-            connected = true,
+            networkAvailability = NetworkAvailability.Validated,
             probeResult = null,
             justAccepted = false
         )
@@ -667,7 +765,7 @@ class StatusOverallAndSyncPhaseTest {
             ),
             workInfos = StatusWorkInfos(emptyList(), emptyList()),
             permanentRejected = 0,
-            connected = true,
+            networkAvailability = NetworkAvailability.Validated,
             probeResult = null,
             justAccepted = false
         )
@@ -677,7 +775,7 @@ class StatusOverallAndSyncPhaseTest {
     }
 
     @Test
-    fun buildStateBlockedPhaseWithFailedCountZeroDoesNotProduceSyncFailure() {
+    fun buildStateBlockedPhaseWithFailedCountDoesNotProduceSyncFailure() {
         for (phase in listOf("server-missing", "auth-missing", "usage-permission-missing")) {
             val state = StatusResultMapper.buildState(
                 snapshot = healthySnapshot,
@@ -690,12 +788,12 @@ class StatusOverallAndSyncPhaseTest {
                 ),
                 workInfos = StatusWorkInfos(emptyList(), emptyList()),
                 permanentRejected = 0,
-                connected = true,
+                networkAvailability = NetworkAvailability.Validated,
                 probeResult = null,
                 justAccepted = false
             )
             assertFalse(
-                "Phase $phase with failedCount=0 must not produce sync-failure",
+                "Phase $phase with failedCount=2 must not produce sync-failure",
                 state.issues.any { it.code == "sync-failure" }
             )
         }
@@ -718,7 +816,7 @@ class StatusOverallAndSyncPhaseTest {
                     immediate = listOf(workInfo(WorkInfo.State.FAILED, "pim_mobile_sync_now"))
                 ),
                 permanentRejected = 0,
-                connected = true,
+                networkAvailability = NetworkAvailability.Validated,
                 probeResult = null,
                 justAccepted = false
             )
@@ -740,7 +838,7 @@ class StatusOverallAndSyncPhaseTest {
             ),
             workInfos = StatusWorkInfos(emptyList(), emptyList()),
             permanentRejected = 0,
-            connected = true,
+            networkAvailability = NetworkAvailability.Validated,
             probeResult = null,
             justAccepted = false
         )
@@ -786,7 +884,7 @@ class StatusOverallAndSyncPhaseTest {
                 immediate = listOf(workInfo(WorkInfo.State.FAILED, "pim_mobile_sync_now"))
             ),
             permanentRejected = 0,
-            connected = true,
+            networkAvailability = NetworkAvailability.Validated,
             probeResult = null,
             justAccepted = false
         )
@@ -803,7 +901,7 @@ class StatusOverallAndSyncPhaseTest {
             syncState = idleSyncState,
             workInfos = StatusWorkInfos(emptyList(), emptyList()),
             permanentRejected = 0,
-            connected = true,
+            networkAvailability = NetworkAvailability.Validated,
             probeResult = null,
             justAccepted = false
         )
@@ -828,7 +926,7 @@ class StatusOverallAndSyncPhaseTest {
             syncState = idleSyncState,
             workInfos = StatusWorkInfos(emptyList(), emptyList()),
             permanentRejected = 0,
-            connected = true,
+            networkAvailability = NetworkAvailability.Validated,
             probeResult = null,
             justAccepted = false
         )
@@ -851,7 +949,7 @@ class StatusOverallAndSyncPhaseTest {
                 immediate = listOf(workInfo(WorkInfo.State.FAILED, "pim_mobile_sync_now"))
             ),
             permanentRejected = 1,
-            connected = true,
+            networkAvailability = NetworkAvailability.Validated,
             probeResult = null,
             justAccepted = false
         )
@@ -869,7 +967,7 @@ class StatusOverallAndSyncPhaseTest {
             syncState = idleSyncState,
             workInfos = StatusWorkInfos(emptyList(), emptyList()),
             permanentRejected = 0,
-            connected = true,
+            networkAvailability = NetworkAvailability.Validated,
             probeResult = ConnectionProbeResult(
                 outcome = ConnectionProbeOutcome.Blocked,
                 checkedAtUtcMillis = 1000L,
@@ -882,6 +980,84 @@ class StatusOverallAndSyncPhaseTest {
 
         assertEquals(StatusOverall.Abnormal, state.overall)
         assertTrue(state.issues.any { it.code == "connection-probe-blocked" })
+    }
+
+    @Test
+    fun buildStateRestrictedAndReachable_networkIssueIsInfoAndOverallNormal() {
+        val state = StatusResultMapper.buildState(
+            snapshot = healthySnapshot,
+            syncState = idleSyncState,
+            workInfos = StatusWorkInfos(emptyList(), emptyList()),
+            permanentRejected = 0,
+            networkAvailability = NetworkAvailability.Restricted,
+            probeResult = ConnectionProbeResult(
+                outcome = ConnectionProbeOutcome.Reachable,
+                checkedAtUtcMillis = 1000L,
+                lastCompletedStage = null,
+                latencyMillisByStage = emptyMap(),
+                capabilities = ServerCapabilities(false, false)
+            ),
+            justAccepted = false
+        )
+
+        assertEquals(StatusOverall.Normal, state.overall)
+        assertTrue(state.issues.any { it.code == "system-network-restricted" && it.severity == StatusSeverity.Info })
+    }
+
+    @Test
+    fun buildStateRestrictedAndNullProbe_networkIssueIsWarningAndOverallAttention() {
+        val state = StatusResultMapper.buildState(
+            snapshot = healthySnapshot,
+            syncState = idleSyncState,
+            workInfos = StatusWorkInfos(emptyList(), emptyList()),
+            permanentRejected = 0,
+            networkAvailability = NetworkAvailability.Restricted,
+            probeResult = null,
+            justAccepted = false
+        )
+
+        assertEquals(StatusOverall.Attention, state.overall)
+        assertTrue(state.issues.any { it.code == "system-network-restricted" && it.severity == StatusSeverity.Warning })
+    }
+
+    @Test
+    fun buildStateRestrictedAndBlocked_networkIsWarningAndProbeCritical() {
+        val state = StatusResultMapper.buildState(
+            snapshot = healthySnapshot,
+            syncState = idleSyncState,
+            workInfos = StatusWorkInfos(emptyList(), emptyList()),
+            permanentRejected = 0,
+            networkAvailability = NetworkAvailability.Restricted,
+            probeResult = ConnectionProbeResult(
+                outcome = ConnectionProbeOutcome.Blocked,
+                checkedAtUtcMillis = 1000L,
+                lastCompletedStage = null,
+                latencyMillisByStage = emptyMap(),
+                capabilities = ServerCapabilities(false, false)
+            ),
+            justAccepted = false
+        )
+
+        assertEquals(StatusOverall.Abnormal, state.overall)
+        assertEquals(2, state.issues.size)
+        assertTrue(state.issues.any { it.code == "system-network-restricted" })
+        assertTrue(state.issues.any { it.code == "connection-probe-blocked" })
+    }
+
+    @Test
+    fun buildStateUnavailable_producesNetworkDisconnectedAndAbnormal() {
+        val state = StatusResultMapper.buildState(
+            snapshot = healthySnapshot,
+            syncState = idleSyncState,
+            workInfos = StatusWorkInfos(emptyList(), emptyList()),
+            permanentRejected = 0,
+            networkAvailability = NetworkAvailability.Unavailable,
+            probeResult = null,
+            justAccepted = false
+        )
+
+        assertEquals(StatusOverall.Abnormal, state.overall)
+        assertTrue(state.issues.any { it.code == "network-disconnected" })
     }
 
     private fun workInfo(

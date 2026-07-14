@@ -227,6 +227,19 @@ data class StatusIssue(
             target = StatusActionTarget.NetworkSettings
         )
 
+        fun systemNetworkRestricted(severity: StatusSeverity = StatusSeverity.Info): StatusIssue = StatusIssue(
+            code = "system-network-restricted",
+            severity = severity,
+            title = "系统网络受限",
+            message = if (severity == StatusSeverity.Info) {
+                "系统未将当前网络标记为已验证，但 PIM 服务器探测成功。"
+            } else {
+                "系统未确认当前网络可访问互联网，PIM 服务器可能无法连接。"
+            },
+            actionLabel = if (severity == StatusSeverity.Warning) "去设置网络" else "",
+            target = if (severity == StatusSeverity.Warning) StatusActionTarget.NetworkSettings else StatusActionTarget.None
+        )
+
         fun probeBlocked(): StatusIssue = StatusIssue(
             code = "connection-probe-blocked",
             severity = StatusSeverity.Critical,
@@ -366,7 +379,7 @@ data class StatusCenterState(
     val lastSuccessfulUploadAt: String? = null,
     val lastAttemptedUploadAt: String? = null,
     val nextAttemptAtMillis: Long? = null,
-    val networkConnected: Boolean = false,
+    val networkAvailability: NetworkAvailability = NetworkAvailability.Unavailable,
     val lastProbeResult: ConnectionProbeResult? = null,
     val lastProbeCheckedAtMillis: Long? = null,
     val isLoading: Boolean = false

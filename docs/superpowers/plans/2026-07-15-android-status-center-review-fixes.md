@@ -277,8 +277,12 @@ Expected: permission is absent, `VALIDATED` is ignored, and network/probe issues
 ```kotlin
 enum class NetworkAvailability { Unavailable, Restricted, Validated }
 
-internal fun availabilityFor(capabilities: NetworkCapabilities?): NetworkAvailability {
-    if (capabilities == null) return NetworkAvailability.Unavailable
+internal fun availabilityFor(
+    hasNetwork: Boolean,
+    capabilities: NetworkCapabilities?
+): NetworkAvailability {
+    if (!hasNetwork) return NetworkAvailability.Unavailable
+    if (capabilities == null) return NetworkAvailability.Restricted
     val internet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     val validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     return if (internet && validated) NetworkAvailability.Validated else NetworkAvailability.Restricted

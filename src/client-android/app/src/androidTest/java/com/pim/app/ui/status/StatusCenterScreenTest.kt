@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performScrollTo
 import com.pim.app.status.ConnectionProbeOutcome
 import com.pim.app.status.ConnectionProbeResult
 import com.pim.app.status.ConnectionProbeStage
+import com.pim.app.status.NetworkAvailability
 import com.pim.app.status.PermissionStatusSnapshot
 import com.pim.app.status.ServerCapabilities
 import com.pim.app.status.StatusActionTarget
@@ -87,8 +88,8 @@ class StatusCenterScreenTest {
                         acceptedCount = 5,
                         rejectedCount = 3,
                         permanentRejectedCount = 1,
-                        lastSuccessfulUploadAt = "2026-07-14 10:00",
-                        lastAttemptedUploadAt = "2026-07-14 10:05",
+                        lastSuccessfulUploadAt = "2026-07-14T10:00:00Z",
+                        lastAttemptedUploadAt = "2026-07-14T10:05:00Z",
                         nextAttemptAtMillis = 60_000L
                     )
                 )
@@ -152,7 +153,7 @@ class StatusCenterScreenTest {
             ),
             lastProbeResult = probeResult,
             lastProbeCheckedAtMillis = 1_000L,
-            networkConnected = true
+            networkAvailability = NetworkAvailability.Validated
         )
         composeTestRule.setContent {
             PimTheme { StatusCenterContent(state = state) }
@@ -230,7 +231,7 @@ class StatusCenterScreenTest {
                     state = normalState().copy(
                         syncPhase = SyncPhase.Idle,
                         pendingTotal = 0,
-                        networkConnected = false,
+                        networkAvailability = NetworkAvailability.Unavailable,
                         isLoading = false
                     )
                 )

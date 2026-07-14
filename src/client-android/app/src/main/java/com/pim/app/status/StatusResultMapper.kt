@@ -44,13 +44,25 @@ object StatusResultMapper {
     }
 
     fun buildExternalIssues(
-        connected: Boolean,
+        networkAvailability: NetworkAvailability,
         probeResult: ConnectionProbeResult?
     ): List<StatusIssue> {
         val issues = mutableListOf<StatusIssue>()
-        if (!connected) {
-            issues += StatusIssue.networkDisconnected()
-        } else if (probeResult != null) {
+        when (networkAvailability) {
+            NetworkAvailability.Unavailable -> {
+                issues += StatusIssue.networkDisconnected()
+            }
+            NetworkAvailability.Restricted -> {
+                val probeReachable = probeResult?.outcome == ConnectionProbeOutcome.Reachable
+                if (probeReachable) {
+                    issues += StatusIssue.systemNetworkRestricted(StatusSeverity.Info)
+                } else {
+                    issues += StatusIssue.systemNetworkRestricted(StatusSeverity.Warning)
+                }
+            }
+            NetworkAvailability.Validated -> { }
+        }
+        if (probeResult != null) {
             when (probeResult.outcome) {
                 ConnectionProbeOutcome.Blocked -> issues += StatusIssue.probeBlocked()
                 ConnectionProbeOutcome.Partial -> issues += StatusIssue.probePartial()
@@ -65,7 +77,7 @@ object StatusResultMapper {
         syncState: MobileSyncState,
         workInfos: StatusWorkInfos,
         permanentRejected: Int,
-        connected: Boolean,
+        networkAvailability: NetworkAvailability,
         probeResult: ConnectionProbeResult?,
         justAccepted: Boolean
     ): StatusCenterState {
@@ -81,7 +93,7 @@ object StatusResultMapper {
         )
         val baseIssues = StatusIssuePlanner.plan(snapshot)
         val externalIssues = buildExternalIssues(
-            connected = connected,
+            networkAvailability = networkAvailability,
             probeResult = probeResult
         )
         val allIssues = (baseIssues + externalIssues).distinctBy { it.code }
@@ -101,7 +113,7 @@ object StatusResultMapper {
             lastSuccessfulUploadAt = syncState.lastSuccessfulUploadAt,
             lastAttemptedUploadAt = syncState.lastAttemptedUploadAt,
             nextAttemptAtMillis = nextAttempt,
-            networkConnected = connected,
+            networkAvailability = networkAvailability,
             lastProbeResult = probeResult,
             lastProbeCheckedAtMillis = probeResult?.checkedAtUtcMillis,
             isLoading = false

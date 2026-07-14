@@ -13,61 +13,97 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 
+enum class NetworkAvailability { Unavailable, Restricted, Validated }
+
 @Singleton
 class NetworkStatusProvider @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    val isConnected: Flow<Boolean> = callbackFlow {
+    val availability: Flow<NetworkAvailability> = callbackFlow {
         val connectivityManager = context.getSystemService<ConnectivityManager>()
         if (connectivityManager == null) {
-            trySend(false)
+            trySend(NetworkAvailability.Unavailable)
             close()
             return@callbackFlow
         }
 
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                trySend(true)
+                trySend(safeNetworkRead {
+                    val caps = connectivityManager.getNetworkCapabilities(network)
+                    availabilityFor(hasNetwork = true, capabilities = caps)
+                })
             }
 
             override fun onLost(network: Network) {
-                trySend(isConnectedForActiveNetwork(connectivityManager))
+                trySend(safeNetworkRead {
+                    val active = connectivityManager.activeNetwork
+                    availabilityFor(
+                        hasNetwork = active != null,
+                        capabilities = connectivityManager.getNetworkCapabilities(active)
+                    )
+                })
             }
 
             override fun onCapabilitiesChanged(
                 network: Network,
                 capabilities: NetworkCapabilities
             ) {
-                val hasInternet = capabilities.hasCapability(
-                    NetworkCapabilities.NET_CAPABILITY_INTERNET
-                )
-                trySend(hasInternet)
+                trySend(availabilityFor(hasNetwork = true, capabilities = capabilities))
             }
         }
 
-        val activeNetwork = connectivityManager.activeNetwork
-        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
-        val initiallyConnected = capabilities?.hasCapability(
-            NetworkCapabilities.NET_CAPABILITY_INTERNET
-        ) == true
-        trySend(initiallyConnected)
+        val initial = safeNetworkRead {
+            val activeNetwork = connectivityManager.activeNetwork
+            availabilityFor(
+                hasNetwork = activeNetwork != null,
+                capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
+            )
+        }
+        trySend(initial)
 
-        connectivityManager.registerDefaultNetworkCallback(callback)
+        var registered = false
+        try {
+            connectivityManager.registerDefaultNetworkCallback(callback)
+            registered = true
+        } catch (_: SecurityException) {
+            trySend(NetworkAvailability.Unavailable)
+        }
 
         awaitClose {
-            connectivityManager.unregisterNetworkCallback(callback)
+            if (registered) {
+                try {
+                    connectivityManager.unregisterNetworkCallback(callback)
+                } catch (_: SecurityException) {
+                    // The flow is already closing; fail closed without crashing the collector.
+                }
+            }
         }
     }.distinctUntilChanged()
 
     companion object {
-        internal fun isConnectedForActiveNetwork(
-            connectivityManager: ConnectivityManager
-        ): Boolean {
-            val activeNetwork = connectivityManager.activeNetwork
-            val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork)
-            return capabilities?.hasCapability(
+        internal fun availabilityFor(
+            hasNetwork: Boolean,
+            capabilities: NetworkCapabilities?
+        ): NetworkAvailability {
+            if (!hasNetwork) return NetworkAvailability.Unavailable
+            if (capabilities == null) return NetworkAvailability.Restricted
+            val hasInternet = capabilities.hasCapability(
                 NetworkCapabilities.NET_CAPABILITY_INTERNET
-            ) == true
+            )
+            val hasValidated = capabilities.hasCapability(
+                NetworkCapabilities.NET_CAPABILITY_VALIDATED
+            )
+            return if (hasInternet && hasValidated) NetworkAvailability.Validated
+            else NetworkAvailability.Restricted
+        }
+
+        internal inline fun safeNetworkRead(
+            block: () -> NetworkAvailability
+        ): NetworkAvailability = try {
+            block()
+        } catch (_: SecurityException) {
+            NetworkAvailability.Unavailable
         }
     }
 }

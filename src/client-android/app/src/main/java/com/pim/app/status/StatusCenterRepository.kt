@@ -29,7 +29,7 @@ private data class CoreFacts(
 
 private data class ExternalFacts(
     val probeResult: ConnectionProbeResult?,
-    val connected: Boolean,
+    val networkAvailability: NetworkAvailability,
     val workInfos: StatusWorkInfos,
     val permanentRejected: Int,
     val justAccepted: Boolean
@@ -82,12 +82,12 @@ class StatusCenterRepository @Inject constructor(
 
         val externalFlow = combine(
             connectionProbeStore.result,
-            networkStatusProvider.isConnected,
+            networkStatusProvider.availability,
             workInfoStatusProvider.syncWorkInfos,
             dao.aggregateRejectedCount(),
             acceptedSignal.accepted
-        ) { probeResult, connected, workInfos, rejected, justAccepted ->
-            ExternalFacts(probeResult, connected, workInfos, rejected, justAccepted)
+        ) { probeResult, availability, workInfos, rejected, justAccepted ->
+            ExternalFacts(probeResult, availability, workInfos, rejected, justAccepted)
         }
 
         return combine(coreFlow, externalFlow) { core, external ->
@@ -104,7 +104,7 @@ class StatusCenterRepository @Inject constructor(
                 syncState = core.syncState,
                 workInfos = external.workInfos,
                 permanentRejected = external.permanentRejected,
-                connected = external.connected,
+                networkAvailability = external.networkAvailability,
                 probeResult = external.probeResult,
                 justAccepted = external.justAccepted
             )

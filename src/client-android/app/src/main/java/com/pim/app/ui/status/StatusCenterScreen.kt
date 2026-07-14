@@ -52,6 +52,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import com.pim.app.status.ConnectionProbeResult
+import com.pim.app.status.NetworkAvailability
 import com.pim.app.status.NetworkSettingsNavigator
 import com.pim.app.status.PermissionStatusSnapshot
 import com.pim.app.status.StatusActionRoute
@@ -346,7 +347,11 @@ private fun CollectionAndConnectionSection(state: StatusCenterState) {
 
         PermissionsSection(snap.permissions)
 
-        FactRow("网络", if (state.networkConnected) "已连接" else "未连接", "status-network")
+        FactRow("系统网络", when (state.networkAvailability) {
+            NetworkAvailability.Unavailable -> "不可用"
+            NetworkAvailability.Restricted -> "受限"
+            NetworkAvailability.Validated -> "已验证"
+        }, "status-network")
 
         ProbeSection(state.lastProbeResult, state.lastProbeCheckedAtMillis)
     }
@@ -376,7 +381,7 @@ private fun ProbeSection(result: ConnectionProbeResult?, checkedAtMillis: Long?)
         null -> "未检查"
     }
     Column(modifier = Modifier.testTag("status-probe")) {
-        FactRow("探测结果", outcomeText)
+        FactRow("PIM 服务器", outcomeText)
         if (!result?.safeMessage.isNullOrBlank()) {
             FactRow("探测信息", result?.safeMessage.orEmpty())
         }

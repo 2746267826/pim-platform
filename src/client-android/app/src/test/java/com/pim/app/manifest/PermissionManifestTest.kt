@@ -27,4 +27,19 @@ class PermissionManifestTest {
             requestedPermissions.contains("android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS")
         )
     }
+
+    @Test
+    fun manifestDeclaresAccessNetworkState() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val packageInfo = context.packageManager.getPackageInfo(
+            context.packageName,
+            PackageManager.GET_PERMISSIONS
+        )
+        val requestedPermissions = packageInfo.requestedPermissions ?: emptyArray()
+
+        assertTrue(
+            "Manifest must declare android.permission.ACCESS_NETWORK_STATE",
+            requestedPermissions.contains("android.permission.ACCESS_NETWORK_STATE")
+        )
+    }
 }

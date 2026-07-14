@@ -61,13 +61,6 @@ public sealed class KeyStatsOneClickFixService
         var failedIds = KeyStatsProcessManager.FailedStopIds(stopResults).ToArray();
 
         listed = _listProcesses(currentSessionId);
-        var hasCurrent = listed.Any(p => p.IsCurrentUserSession && p.SessionId == currentSessionId);
-        if (plan.ShouldStart || !hasCurrent)
-        {
-            _start(keyStatsExePath);
-            listed = _listProcesses(currentSessionId);
-        }
-
         var needsElevate =
             KeyStatsProcessManager.NeedsElevation(stopResults) ||
             HasForeign(listed, currentSessionId);
@@ -141,6 +134,12 @@ public sealed class KeyStatsOneClickFixService
             elevatedUsed = true;
             _start(keyStatsExePath);
         }
+        else
+        {
+            var hasCurrent = listed.Any(p => p.IsCurrentUserSession && p.SessionId == currentSessionId);
+            if (plan.ShouldStart || !hasCurrent)
+                _start(keyStatsExePath);
+        }
 
         await _delayPhase1();
         ct.ThrowIfCancellationRequested();
@@ -165,7 +164,7 @@ public sealed class KeyStatsOneClickFixService
         var grew = KeyStatsLocalStatsClient.CountersIndicateRecovery(snap1, snap2);
 
         var outcome = ResolveOutcome(processOk, apiOk, grew);
-        var phase2 = BuildPhase2Message(outcome, grew, apiOk, processOk);
+        var phase2 = BuildPhase2Message(outcome, apiOk, processOk);
 
         return new KeyStatsFixResult(
             outcome,
@@ -218,13 +217,12 @@ public sealed class KeyStatsOneClickFixService
 
     private static string BuildPhase2Message(
         KeyStatsFixOutcome outcome,
-        bool grew,
         bool apiOk,
         bool processOk)
     {
-        if (outcome == KeyStatsFixOutcome.Succeeded || grew)
+        if (outcome == KeyStatsFixOutcome.Succeeded)
             return "计数开始增长，修复成功。";
-        if (processOk && apiOk && !grew)
+        if (processOk && apiOk)
             return "API 可达但计数仍为 0。请敲几下键盘或移动鼠标后点「刷新」。";
         if (!processOk)
             return "进程状态异常，请复制诊断后重试。";
@@ -266,7 +264,10 @@ public sealed class KeyStatsOneClickFixService
     private static string ExcerptHint(string? excerpt)
         => string.IsNullOrWhiteSpace(excerpt) ? string.Empty : $" 输出摘要：{excerpt}";
 
-    private static Task<(int ExitCode, string Output, bool Cancelled)> DefaultRunElevatedAsync(
+    private const int ErrorCancelled = 1223;
+    private const int ElevateWaitTimeoutMs = 60_000;
+
+    private static async Task<(int ExitCode, string Output, bool Cancelled)> DefaultRunElevatedAsync(
         string scriptPath,
         string keyStatsExePath)
     {
@@ -282,24 +283,34 @@ public sealed class KeyStatsOneClickFixService
                 WorkingDirectory = Path.GetDirectoryName(scriptPath) ?? Environment.CurrentDirectory
             };
 
-            using var process = Process.Start(psi);
-            if (process is null)
+            return await Task.Run(() =>
             {
-                return Task.FromResult((-1, "failed to start elevated powershell", false));
-            }
+                using var process = Process.Start(psi);
+                if (process is null)
+                    return (-1, "failed to start elevated powershell", false);
 
-            process.WaitForExit();
-            var logPath = Path.Combine(Path.GetTempPath(), FixLogFileName);
-            var output = ReadLogExcerpt(logPath);
-            return Task.FromResult((process.ExitCode, output, false));
+                if (!process.WaitForExit(ElevateWaitTimeoutMs))
+                {
+                    try { process.Kill(entireProcessTree: true); } catch { /* best effort */ }
+                    return (-1, $"elevated script timed out after {ElevateWaitTimeoutMs / 1000}s", false);
+                }
+
+                var logPath = Path.Combine(Path.GetTempPath(), FixLogFileName);
+                var output = ReadLogExcerpt(logPath);
+                return (process.ExitCode, output, false);
+            }).ConfigureAwait(false);
         }
-        catch (Win32Exception)
+        catch (Win32Exception ex) when (ex.NativeErrorCode == ErrorCancelled)
         {
-            return Task.FromResult((0, string.Empty, true));
+            return (-1, ex.Message, true);
+        }
+        catch (Win32Exception ex)
+        {
+            return (-1, ex.Message, false);
         }
         catch (Exception ex)
         {
-            return Task.FromResult((-1, ex.Message, false));
+            return (-1, ex.Message, false);
         }
     }
 

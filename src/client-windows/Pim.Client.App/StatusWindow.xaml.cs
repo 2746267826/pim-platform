@@ -5,6 +5,7 @@ using System.Text;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Pim.Client.Core;
+using Pim.Client.Core.Models;
 using Pim.Client.Core.Services;
 
 namespace Pim.Client.App;
@@ -17,6 +18,7 @@ public partial class StatusWindow : Window
     private readonly AwCollectorService _awCollector;
     private readonly KeyStatsCollectorService _keyStatsCollector;
     private readonly KeyStatsProcessManager _processManager;
+    private readonly KeyStatsOneClickFixService _fixService;
 
     private string _lastDiagnosticsReport = string.Empty;
     private string _awState = "Unknown";
@@ -33,6 +35,7 @@ public partial class StatusWindow : Window
         _awCollector = App.Services.GetRequiredService<AwCollectorService>();
         _keyStatsCollector = App.Services.GetRequiredService<KeyStatsCollectorService>();
         _processManager = App.Services.GetRequiredService<KeyStatsProcessManager>();
+        _fixService = new KeyStatsOneClickFixService(_processManager, new KeyStatsLocalStatsClient());
 
         var config = DaemonConfig.Load();
         ServerUrlBox.Text = config.ServerUrl;
@@ -152,6 +155,9 @@ public partial class StatusWindow : Window
             queueCount);
         OverviewHealthText.Text = overall;
         OverallHealthText.Text = $"整体状态：{overall}";
+
+        var suggestion = KeyStatsFixAdvisor.BuildSuggestion(health);
+        KeyStatsFixSuggestionText.Text = suggestion.MessageZh;
 
         _lastDiagnosticsReport = BuildDiagnosticsReport(
             timestamp,
@@ -331,6 +337,52 @@ public partial class StatusWindow : Window
         {
             ManualSyncButton.IsEnabled = true;
             ManualSyncButton.Content = "手动同步";
+        }
+    }
+
+    private async void OnOneClickFixKeyStats(object sender, RoutedEventArgs e)
+    {
+        KeyStatsOneClickFixButton.IsEnabled = false;
+        KeyStatsOneClickFixButton.Content = "修复中...";
+        KeyStatsFixResultText.Text = "修复中…";
+        try
+        {
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var exe = Path.Combine(baseDir, KeyStatsProcessManager.ExeFileName);
+            var script = Path.Combine(baseDir, KeyStatsOneClickFixService.FixScriptFileName); // fix-keystats-session.ps1
+            var result = await _fixService.RunAsync(
+                exe,
+                script,
+                Process.GetCurrentProcess().SessionId,
+                confirmElevation: _ =>
+                    MessageBox.Show(
+                        "普通权限无法结束部分 KeyStats 进程（可能位于 Session 0）。是否以管理员权限运行修复脚本？仅提升该脚本权限，不会提权整个 PIM 客户端。",
+                        "PIM",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Warning) == MessageBoxResult.Yes);
+
+            KeyStatsFixResultText.Text =
+                $"阶段1：{result.Phase1MessageZh}\n阶段2：{result.Phase2MessageZh}";
+            await RefreshStatusAsync();
+
+            if (result.Outcome == KeyStatsFixOutcome.Failed)
+                MessageBox.Show($"KeyStats 修复失败：\n{result.Phase1MessageZh}\n{result.Phase2MessageZh}", "PIM", MessageBoxButton.OK, MessageBoxImage.Error);
+            else if (result.Outcome == KeyStatsFixOutcome.Cancelled)
+                MessageBox.Show("已取消管理员授权，未完成跨会话清理。", "PIM", MessageBoxButton.OK, MessageBoxImage.Information);
+            else if (result.Outcome == KeyStatsFixOutcome.Partial)
+                MessageBox.Show("进程与 API 已处理，但计数仍为 0。请敲几下键盘后点「刷新」。", "PIM", MessageBoxButton.OK, MessageBoxImage.Warning);
+            else
+                MessageBox.Show("KeyStats 修复已完成。", "PIM", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            KeyStatsFixResultText.Text = $"失败：{ex.Message}";
+            MessageBox.Show($"KeyStats 修复失败：{ex.Message}", "PIM", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            KeyStatsOneClickFixButton.IsEnabled = true;
+            KeyStatsOneClickFixButton.Content = "一键修复";
         }
     }
 

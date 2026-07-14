@@ -31,7 +31,7 @@ class NetworkSettingsNavigatorTest {
     @Test
     @Config(sdk = [34])
     fun unavailableInternetPanelFallsBackToWirelessSettings() {
-        val context = RecordingContext(ApplicationProvider.getApplicationContext())
+        val context = RecordingContext(ApplicationProvider.getApplicationContext(), failuresBeforeSuccess = 1)
 
         NetworkSettingsNavigator.open(context)
 
@@ -40,12 +40,34 @@ class NetworkSettingsNavigatorTest {
         assertEquals(Settings.ACTION_WIRELESS_SETTINGS, context.actions[1])
     }
 
-    private class RecordingContext(base: Context) : ContextWrapper(base) {
+    @Test
+    @Config(sdk = [34])
+    fun unavailablePanelAndWirelessSettingsFallBackToGeneralSettings() {
+        val context = RecordingContext(ApplicationProvider.getApplicationContext(), failuresBeforeSuccess = 2)
+
+        NetworkSettingsNavigator.open(context)
+
+        assertEquals(
+            listOf(
+                Settings.Panel.ACTION_INTERNET_CONNECTIVITY,
+                Settings.ACTION_WIRELESS_SETTINGS,
+                Settings.ACTION_SETTINGS
+            ),
+            context.actions
+        )
+    }
+
+    private class RecordingContext(
+        base: Context,
+        private val failuresBeforeSuccess: Int
+    ) : ContextWrapper(base) {
         val actions = mutableListOf<String?>()
 
         override fun startActivity(intent: Intent) {
             actions += intent.action
-            if (actions.size == 1) throw ActivityNotFoundException("panel unavailable")
+            if (actions.size <= failuresBeforeSuccess) {
+                throw ActivityNotFoundException("settings destination unavailable")
+            }
         }
     }
 }

@@ -12,6 +12,7 @@ import com.pim.app.status.StatusCenterRepository
 import com.pim.app.status.StatusCenterState
 import com.pim.app.status.StatusIssue
 import com.pim.app.status.StatusSyncActionRunner
+import com.pim.app.status.probeRefreshDelayMillis
 import com.pim.app.status.resolveProbeResult
 import com.pim.core.settings.ServerSettingsStore
 import com.pim.core.settings.PimServerEndpoints
@@ -93,11 +94,11 @@ class StatusCenterViewModel @Inject constructor(
         }.isSuccess
         repository.requestRefresh()
         if (!succeeded) return PROBE_RETRY_MILLIS
-        val current = connectionProbeStore.result.value ?: return 0L
-        if (current.serverIdentity != serverIdentity) return 0L
-        val ageMillis = System.currentTimeMillis() - current.checkedAtUtcMillis
-        if (ageMillis < 0L) return 0L
-        return (ConnectionProbeStore.FRESHNESS_MILLIS - ageMillis).coerceAtLeast(0L)
+        return probeRefreshDelayMillis(
+            result = connectionProbeStore.result.value,
+            serverIdentity = serverIdentity,
+            nowMillis = System.currentTimeMillis()
+        )
     }
 }
 

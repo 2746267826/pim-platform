@@ -5,6 +5,12 @@ import com.pim.app.mobile.sync.MobileSyncState
 
 object StatusResultMapper {
 
+    private val BLOCKED_SYNC_PHASES = setOf(
+        "server-missing",
+        "auth-missing",
+        "usage-permission-missing"
+    )
+
     fun resolveSyncPhase(
         periodic: List<WorkInfo>,
         immediate: List<WorkInfo>,
@@ -69,7 +75,10 @@ object StatusResultMapper {
             probeResult = probeResult
         )
         val allIssues = (baseIssues + externalIssues).distinctBy { it.code }
-        val finalIssues = if (syncPhase == SyncPhase.Failed) {
+        val isBlockedSync = syncState.phase in BLOCKED_SYNC_PHASES
+        val hasPersistedFailure = syncState.failedCount > 0 && !isBlockedSync
+        val shouldAddSyncFailure = (syncPhase == SyncPhase.Failed || hasPersistedFailure) && !isBlockedSync
+        val finalIssues = if (shouldAddSyncFailure) {
             (allIssues + StatusIssue.syncFailure(syncState.lastError)).distinctBy { it.code }
         } else {
             allIssues

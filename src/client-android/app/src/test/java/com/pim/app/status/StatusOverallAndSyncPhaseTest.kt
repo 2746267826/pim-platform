@@ -1,6 +1,7 @@
 package com.pim.app.status
 
 import androidx.work.WorkInfo
+import com.pim.app.mobile.sync.MobileSyncState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -423,6 +424,101 @@ class StatusOverallAndSyncPhaseTest {
     fun syncFailureIssueUsesDefaultMessageWhenNull() {
         val issue = StatusIssue.syncFailure(null)
         assertTrue(issue.message.isNotBlank())
+    }
+
+    // --- persisted sync failure (failedCount > 0) ---
+
+    @Test
+    fun buildStatePersistedFailedPhaseWithFailedCountProducesSyncFailureAndAbnormal() {
+        val state = StatusResultMapper.buildState(
+            snapshot = healthySnapshot,
+            syncState = MobileSyncState(
+                phase = "failed",
+                progressText = "",
+                failedCount = 1,
+                lastError = "timeout"
+            ),
+            workInfos = StatusWorkInfos(emptyList(), emptyList()),
+            permanentRejected = 0,
+            connected = true,
+            probeResult = null,
+            justAccepted = false
+        )
+
+        assertEquals(StatusOverall.Abnormal, state.overall)
+        assertTrue(state.issues.any { it.code == "sync-failure" })
+    }
+
+    @Test
+    fun buildStatePersistedFailedPhaseWithFailedCountUsesLastError() {
+        val state = StatusResultMapper.buildState(
+            snapshot = healthySnapshot,
+            syncState = MobileSyncState(
+                phase = "failed",
+                progressText = "",
+                failedCount = 1,
+                lastError = "connection timeout"
+            ),
+            workInfos = StatusWorkInfos(emptyList(), emptyList()),
+            permanentRejected = 0,
+            connected = true,
+            probeResult = null,
+            justAccepted = false
+        )
+
+        val syncIssue = state.issues.first { it.code == "sync-failure" }
+        assertTrue(syncIssue.message.contains("connection timeout", ignoreCase = true))
+    }
+
+    @Test
+    fun buildStateBlockedPhaseWithFailedCountZeroDoesNotProduceSyncFailure() {
+        for (phase in listOf("server-missing", "auth-missing", "usage-permission-missing")) {
+            val state = StatusResultMapper.buildState(
+                snapshot = healthySnapshot,
+                syncState = MobileSyncState(
+                    phase = phase,
+                    progressText = "",
+                    failedCount = 2,
+                    lastError = "some error"
+                ),
+                workInfos = StatusWorkInfos(emptyList(), emptyList()),
+                permanentRejected = 0,
+                connected = true,
+                probeResult = null,
+                justAccepted = false
+            )
+            assertFalse(
+                "Phase $phase with failedCount=0 must not produce sync-failure",
+                state.issues.any { it.code == "sync-failure" }
+            )
+        }
+    }
+
+    @Test
+    fun buildStateBlockedPhaseWithFailedWorkInfoDoesNotDuplicateSyncFailure() {
+        for (phase in listOf("server-missing", "auth-missing", "usage-permission-missing")) {
+            val state = StatusResultMapper.buildState(
+                snapshot = healthySnapshot,
+                syncState = MobileSyncState(
+                    phase = phase,
+                    progressText = "",
+                    failedCount = 0,
+                    lastError = "some error"
+                ),
+                workInfos = StatusWorkInfos(
+                    periodic = emptyList(),
+                    immediate = listOf(workInfo(WorkInfo.State.FAILED, "pim_mobile_sync_now"))
+                ),
+                permanentRejected = 0,
+                connected = true,
+                probeResult = null,
+                justAccepted = false
+            )
+            assertFalse(
+                "Phase $phase with persisted failures and FAILED WorkInfo must not duplicate the blocking issue",
+                state.issues.any { it.code == "sync-failure" }
+            )
+        }
     }
 
     // --- buildState aggregation ---

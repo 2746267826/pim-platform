@@ -92,7 +92,7 @@ class ConnectionProbePolicyTest {
         val store = FakeStore(storedResult = null)
         var saved: ConnectionProbeResult? = null
 
-        val result = resolveProbeResult(
+        resolveProbeResult(
             force = true,
             serverIdentity = "https://example/api/v1/",
             store = store,
@@ -103,6 +103,52 @@ class ConnectionProbePolicyTest {
 
         assertNotNull(saved)
         assertEquals(probeResult, saved)
+    }
+
+    // --- probeRefreshDelayMillis ---
+
+    @Test
+    fun probeRefreshDelayMillisNullResultReturns30s() {
+        val delay = probeRefreshDelayMillis(null, "id", 100_000L)
+        assertEquals(30_000L, delay)
+    }
+
+    @Test
+    fun probeRefreshDelayMillisIdentityMismatchReturns30s() {
+        val result = probeResult.copy(serverIdentity = "https://other/api/v1/")
+        val delay = probeRefreshDelayMillis(result, "https://expected/api/v1/", 100_000L)
+        assertEquals(30_000L, delay)
+    }
+
+    @Test
+    fun probeRefreshDelayMillisNowBeforeCheckedAtReturns30s() {
+        val delay = probeRefreshDelayMillis(probeResult, "https://example/api/v1/", 500L)
+        assertEquals(30_000L, delay)
+    }
+
+    @Test
+    fun probeRefreshDelayMillisFreshReturnsFreshnessAge() {
+        val checkedAt = 100_000L
+        val now = checkedAt + 60_000L // One minute old; freshness minus age remains.
+        val result = probeResult.copy(
+            serverIdentity = "https://example/api/v1/",
+            checkedAtUtcMillis = checkedAt
+        )
+        val expected = ConnectionProbeStore.FRESHNESS_MILLIS - 60_000L
+        val delay = probeRefreshDelayMillis(result, "https://example/api/v1/", now)
+        assertEquals(expected, delay)
+    }
+
+    @Test
+    fun probeRefreshDelayMillisExpiredReturns0() {
+        val checkedAt = 100_000L
+        val now = checkedAt + ConnectionProbeStore.FRESHNESS_MILLIS + 1L
+        val result = probeResult.copy(
+            serverIdentity = "https://example/api/v1/",
+            checkedAtUtcMillis = checkedAt
+        )
+        val delay = probeRefreshDelayMillis(result, "https://example/api/v1/", now)
+        assertEquals(0L, delay)
     }
 }
 

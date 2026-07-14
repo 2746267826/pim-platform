@@ -11,6 +11,7 @@ import com.pim.app.status.ConnectionProbeOutcome
 import com.pim.app.status.ConnectionProbeResult
 import com.pim.app.status.ConnectionProbeService
 import com.pim.app.status.ConnectionProbeStore
+import com.pim.app.status.probeRefreshDelayMillis
 import com.pim.app.status.PermissionStatusSnapshot
 import com.pim.core.auth.ServerBoundLoginCoordinator
 import com.pim.core.auth.ServerBoundLoginResult
@@ -587,11 +588,11 @@ class SettingsViewModel @Inject constructor(
         val serverIdentity = runCatching {
             com.pim.core.settings.PimServerEndpoints.from(serverUrl).apiBaseUrl.toString()
         }.getOrNull() ?: return ConnectionProbeStore.FRESHNESS_MILLIS
-        val current = connectionProbeStore.result.value ?: return 0L
-        if (current.serverIdentity != serverIdentity) return 0L
-        val ageMillis = System.currentTimeMillis() - current.checkedAtUtcMillis
-        if (ageMillis < 0L) return 0L
-        return (ConnectionProbeStore.FRESHNESS_MILLIS - ageMillis).coerceAtLeast(0L)
+        return probeRefreshDelayMillis(
+            result = connectionProbeStore.result.value,
+            serverIdentity = serverIdentity,
+            nowMillis = System.currentTimeMillis()
+        )
     }
 
     private fun persistedCollectionEnabled(): Boolean {

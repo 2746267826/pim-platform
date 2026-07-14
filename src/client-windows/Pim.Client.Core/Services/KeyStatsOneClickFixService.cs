@@ -14,9 +14,9 @@ public sealed class KeyStatsOneClickFixService
     private readonly KeyStatsLocalStatsClient _stats;
     private readonly Func<IReadOnlyList<int>, IReadOnlyList<KeyStatsStopResult>> _stop;
     private readonly Action<string> _start;
-    private readonly Func<string, string, Task<(int ExitCode, string Output, bool Cancelled)>> _runElevatedScript;
-    private readonly Func<Task> _delayPhase1;
-    private readonly Func<Task> _delayPhase2;
+    private readonly Func<string, string, string, Task<(int ExitCode, string Output, bool Cancelled)>> _runElevatedScript;
+    private readonly Func<CancellationToken, Task> _delayPhase1;
+    private readonly Func<CancellationToken, Task> _delayPhase2;
     private readonly Func<int, IReadOnlyList<KeyStatsProcessInfo>> _listProcesses;
 
     public KeyStatsOneClickFixService(
@@ -24,9 +24,9 @@ public sealed class KeyStatsOneClickFixService
         KeyStatsLocalStatsClient stats,
         Func<IReadOnlyList<int>, IReadOnlyList<KeyStatsStopResult>>? stop = null,
         Action<string>? start = null,
-        Func<string, string, Task<(int ExitCode, string Output, bool Cancelled)>>? runElevatedScript = null,
-        Func<Task>? delayPhase1 = null,
-        Func<Task>? delayPhase2 = null,
+        Func<string, string, string, Task<(int ExitCode, string Output, bool Cancelled)>>? runElevatedScript = null,
+        Func<CancellationToken, Task>? delayPhase1 = null,
+        Func<CancellationToken, Task>? delayPhase2 = null,
         Func<int, IReadOnlyList<KeyStatsProcessInfo>>? listProcesses = null)
     {
         _processes = processes;
@@ -34,8 +34,8 @@ public sealed class KeyStatsOneClickFixService
         _stop = stop ?? (ids => processes.StopProcesses(ids));
         _start = start ?? processes.StartInCurrentSession;
         _runElevatedScript = runElevatedScript ?? DefaultRunElevatedAsync;
-        _delayPhase1 = delayPhase1 ?? (() => Task.Delay(1500));
-        _delayPhase2 = delayPhase2 ?? (() => Task.Delay(8000));
+        _delayPhase1 = delayPhase1 ?? (ct => Task.Delay(1500, ct));
+        _delayPhase2 = delayPhase2 ?? (ct => Task.Delay(8000, ct));
         _listProcesses = listProcesses ?? processes.ListProcesses;
     }
 
@@ -61,9 +61,12 @@ public sealed class KeyStatsOneClickFixService
         var failedIds = KeyStatsProcessManager.FailedStopIds(stopResults).ToArray();
 
         listed = _listProcesses(currentSessionId);
+        // Foreign remaining always elevates. Access-denied only elevates if those PIDs still listed.
+        // Timeout-failed current-session PIDs still present without foreign do not elevate.
+        var failedStillPresent = failedIds.Any(id => listed.Any(p => p.ProcessId == id));
         var needsElevate =
-            KeyStatsProcessManager.NeedsElevation(stopResults) ||
-            HasForeign(listed, currentSessionId);
+            HasForeign(listed, currentSessionId) ||
+            (KeyStatsProcessManager.NeedsElevation(stopResults) && failedStillPresent);
 
         var elevatedUsed = false;
         int? scriptExit = null;
@@ -97,7 +100,8 @@ public sealed class KeyStatsOneClickFixService
             }
 
             ct.ThrowIfCancellationRequested();
-            var (exitCode, output, cancelled) = await _runElevatedScript(fixScriptPath, keyStatsExePath);
+            var logPath = ResolveSharedLogPath();
+            var (exitCode, output, cancelled) = await _runElevatedScript(fixScriptPath, keyStatsExePath, logPath);
             scriptExit = exitCode;
             scriptOut = Truncate(output, 2048);
 
@@ -132,7 +136,24 @@ public sealed class KeyStatsOneClickFixService
             }
 
             elevatedUsed = true;
-            _start(keyStatsExePath);
+            try
+            {
+                _start(keyStatsExePath);
+            }
+            catch (Exception ex)
+            {
+                return new KeyStatsFixResult(
+                    KeyStatsFixOutcome.Failed,
+                    $"管理员清理成功，但启动 KeyStats 失败：{ex.Message}",
+                    string.Empty,
+                    stoppedIds,
+                    failedIds,
+                    ElevatedUsed: true,
+                    ScriptExitCode: exitCode,
+                    ScriptOutputExcerpt: scriptOut,
+                    ApiReachable: false,
+                    CountersGrew: false);
+            }
         }
         else
         {
@@ -141,7 +162,7 @@ public sealed class KeyStatsOneClickFixService
                 _start(keyStatsExePath);
         }
 
-        await _delayPhase1();
+        await _delayPhase1(ct);
         ct.ThrowIfCancellationRequested();
 
         listed = _listProcesses(currentSessionId);
@@ -150,7 +171,7 @@ public sealed class KeyStatsOneClickFixService
         var processOk = IsProcessOk(listed, currentSessionId);
         var phase1 = BuildPhase1Message(stoppedIds, failedIds, elevatedUsed, processOk, apiOk, listed, currentSessionId);
 
-        await _delayPhase2();
+        await _delayPhase2(ct);
         ct.ThrowIfCancellationRequested();
 
         var (snap2, err2) = await _stats.GetSnapshotAsync(ct);
@@ -179,6 +200,15 @@ public sealed class KeyStatsOneClickFixService
             grew);
     }
 
+    internal static string ResolveSharedLogPath()
+    {
+        var dir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "PIM");
+        Directory.CreateDirectory(dir);
+        return Path.Combine(dir, FixLogFileName);
+    }
+
     private static KeyStatsFixOutcome ResolveOutcome(bool processOk, bool apiOk, bool grew)
     {
         if (!processOk)
@@ -200,7 +230,7 @@ public sealed class KeyStatsOneClickFixService
         int currentSessionId)
     {
         var sb = new StringBuilder();
-        sb.Append($"已尝试结束 {stoppedIds.Count} 个进程");
+        sb.Append($"成功结束 {stoppedIds.Count} 个进程");
         if (failedIds.Count > 0)
             sb.Append($"，失败 {failedIds.Count} 个");
         sb.Append('。');
@@ -269,7 +299,8 @@ public sealed class KeyStatsOneClickFixService
 
     private static async Task<(int ExitCode, string Output, bool Cancelled)> DefaultRunElevatedAsync(
         string scriptPath,
-        string keyStatsExePath)
+        string keyStatsExePath,
+        string logPath)
     {
         try
         {
@@ -277,7 +308,7 @@ public sealed class KeyStatsOneClickFixService
             {
                 FileName = "powershell.exe",
                 Arguments =
-                    $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\" -KeyStatsExe \"{keyStatsExePath}\"",
+                    $"-NoProfile -ExecutionPolicy Bypass -File \"{scriptPath}\" -KeyStatsExe \"{keyStatsExePath}\" -LogPath \"{logPath}\"",
                 UseShellExecute = true,
                 Verb = "runas",
                 WorkingDirectory = Path.GetDirectoryName(scriptPath) ?? Environment.CurrentDirectory
@@ -295,7 +326,6 @@ public sealed class KeyStatsOneClickFixService
                     return (-1, $"elevated script timed out after {ElevateWaitTimeoutMs / 1000}s", false);
                 }
 
-                var logPath = Path.Combine(Path.GetTempPath(), FixLogFileName);
                 var output = ReadLogExcerpt(logPath);
                 return (process.ExitCode, output, false);
             }).ConfigureAwait(false);

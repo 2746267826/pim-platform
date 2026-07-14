@@ -13,6 +13,7 @@ public sealed class KeyStatsProcessManager
 {
     public const string ProcessName = "KeyStats";
     public const string ExeFileName = "KeyStats.exe";
+    public const string AccessDeniedError = "access-denied";
 
     public static KeyStatsConvergencePlan BuildConvergencePlan(
         IReadOnlyList<KeyStatsProcessInfo> processes,
@@ -39,7 +40,7 @@ public sealed class KeyStatsProcessManager
     }
 
     public static bool NeedsElevation(IReadOnlyList<KeyStatsStopResult> stopResults)
-        => stopResults.Any(r => !r.Succeeded && string.Equals(r.Error, "access-denied", StringComparison.OrdinalIgnoreCase));
+        => stopResults.Any(r => !r.Succeeded && string.Equals(r.Error, AccessDeniedError, StringComparison.OrdinalIgnoreCase));
 
     public static IReadOnlyList<int> FailedStopIds(IReadOnlyList<KeyStatsStopResult> stopResults)
         => stopResults.Where(r => !r.Succeeded).Select(r => r.ProcessId).ToArray();
@@ -91,13 +92,23 @@ public sealed class KeyStatsProcessManager
             // process already gone
             return new KeyStatsStopResult(processId, Succeeded: true, Error: null);
         }
-        catch (Win32Exception)
+        catch (InvalidOperationException)
         {
-            return new KeyStatsStopResult(processId, Succeeded: false, Error: "access-denied");
+            // process already exited
+            return new KeyStatsStopResult(processId, Succeeded: true, Error: null);
+        }
+        catch (Win32Exception ex)
+        {
+            if (ex.NativeErrorCode == 5)
+            {
+                return new KeyStatsStopResult(processId, Succeeded: false, Error: AccessDeniedError);
+            }
+
+            return new KeyStatsStopResult(processId, Succeeded: false, Error: $"win32-{ex.NativeErrorCode}");
         }
         catch (UnauthorizedAccessException)
         {
-            return new KeyStatsStopResult(processId, Succeeded: false, Error: "access-denied");
+            return new KeyStatsStopResult(processId, Succeeded: false, Error: AccessDeniedError);
         }
         catch (Exception ex)
         {

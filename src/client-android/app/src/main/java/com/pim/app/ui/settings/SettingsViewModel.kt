@@ -12,7 +12,9 @@ import com.pim.app.status.ConnectionProbeResult
 import com.pim.app.status.ConnectionProbeService
 import com.pim.app.status.ConnectionProbeStore
 import com.pim.app.status.probeRefreshDelayMillis
+import com.pim.app.status.resolveProbeResult
 import com.pim.app.status.PermissionStatusSnapshot
+import com.pim.core.settings.PimServerEndpoints
 import com.pim.core.auth.ServerBoundLoginCoordinator
 import com.pim.core.auth.ServerBoundLoginResult
 import com.pim.core.auth.TokenManager
@@ -532,55 +534,48 @@ class SettingsViewModel @Inject constructor(
         finishBusyState: Boolean = false
     ): Boolean {
         val targetUrl = serverSettingsStore.getBaseUrl()
-        val result = runCatching {
-            if (force) {
-                connectionProbeService.probe(targetUrl).also { result ->
+        val serverIdentity = runCatching {
+            PimServerEndpoints.from(targetUrl).apiBaseUrl.toString()
+        }.getOrNull()
+        return try {
+            val probeResult = resolveProbeResult(
+                force = force,
+                serverIdentity = serverIdentity,
+                store = connectionProbeStore,
+                probe = { connectionProbeService.probe(targetUrl) },
+                save = { r ->
                     if (serverSettingsStore.getBaseUrl() == targetUrl) {
-                        connectionProbeStore.save(result)
-                    }
-                }
-            } else {
-                val serverIdentity = runCatching {
-                    com.pim.core.settings.PimServerEndpoints.from(targetUrl).apiBaseUrl.toString()
-                }.getOrNull()
-                connectionProbeStore.freshResult(serverIdentity ?: targetUrl, System.currentTimeMillis())
-                    ?: connectionProbeService.probe(targetUrl).also { result ->
-                        if (serverSettingsStore.getBaseUrl() == targetUrl) {
-                            connectionProbeStore.save(result)
-                        }
-                    }
-            }
-        }.fold(
-            onSuccess = { probeResult ->
+                        connectionProbeStore.save(r)
+                    } else false
+                },
+                nowMillis = System.currentTimeMillis()
+            )
+            if (finishBusyState) {
                 val currentUrl = serverSettingsStore.getBaseUrl()
                 if (currentUrl == targetUrl) {
                     _state.update {
-                        it.copy(
-                            apiStatus = probeResult.statusMessage(),
-                            isBusy = if (finishBusyState) false else it.isBusy
-                        )
+                        it.copy(apiStatus = probeResult.statusMessage(), isBusy = false)
                     }
-                } else if (finishBusyState) {
+                } else {
                     _state.update { it.copy(isBusy = false) }
                 }
-                true
-            },
-            onFailure = {
+            }
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            if (finishBusyState) {
                 val currentUrl = serverSettingsStore.getBaseUrl()
                 if (currentUrl == targetUrl) {
                     _state.update {
-                        it.copy(
-                            apiStatus = "连接测试失败。",
-                            isBusy = if (finishBusyState) false else it.isBusy
-                        )
+                        it.copy(apiStatus = "连接测试失败。", isBusy = false)
                     }
-                } else if (finishBusyState) {
+                } else {
                     _state.update { it.copy(isBusy = false) }
                 }
-                false
             }
-        )
-        return result
+            false
+        }
     }
 
     private fun millisUntilRefresh(): Long {

@@ -3,6 +3,7 @@ package com.pim.app.status
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ConnectionProbePolicyTest {
@@ -105,6 +106,21 @@ class ConnectionProbePolicyTest {
         assertEquals(probeResult, saved)
     }
 
+    @Test
+    fun fakeStoreRejectsExpiredEvidence() {
+        val store = FakeStore()
+        store.save(probeResult)
+
+        val fresh = store.freshResult("https://example/api/v1/", 1_001L)
+        assertNotNull(fresh)
+
+        val expired = store.freshResult(
+            "https://example/api/v1/",
+            1_001L + ConnectionProbeStore.FRESHNESS_MILLIS
+        )
+        assertNull(expired)
+    }
+
     // --- probeRefreshDelayMillis ---
 
     @Test
@@ -153,13 +169,19 @@ class ConnectionProbePolicyTest {
 }
 
 private class FakeStore(
-    private val storedResult: ConnectionProbeResult?
+    storedResult: ConnectionProbeResult? = null
 ) : ConnectionProbeEvidenceStore {
     override val result = kotlinx.coroutines.flow.MutableStateFlow(storedResult)
 
-    override fun save(result: ConnectionProbeResult): Boolean = true
+    override fun save(result: ConnectionProbeResult): Boolean {
+        this.result.value = result
+        return true
+    }
 
     override fun freshResult(serverIdentity: String, nowMillis: Long): ConnectionProbeResult? {
-        return storedResult?.takeIf { it.serverIdentity == serverIdentity }
+        val current = result.value ?: return null
+        if (current.serverIdentity != serverIdentity) return null
+        val ageMillis = nowMillis - current.checkedAtUtcMillis
+        return current.takeIf { ageMillis >= 0L && ageMillis < ConnectionProbeStore.FRESHNESS_MILLIS }
     }
 }

@@ -18,6 +18,7 @@ import com.pim.core.settings.ServerSettingsStore
 import com.pim.core.settings.PimServerEndpoints
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -45,10 +46,6 @@ class StatusCenterViewModel @Inject constructor(
         acceptedSignal = acceptedSignal
     )
 
-    init {
-        refresh()
-    }
-
     fun onIssueAction(issue: StatusIssue): StatusActionTarget {
         repository.requestRefresh()
         return issue.target
@@ -66,19 +63,12 @@ class StatusCenterViewModel @Inject constructor(
         }
     }
 
-    fun refresh() {
-        repository.requestRefresh()
-        viewModelScope.launch {
-            refreshConnectionForVisibleScreen()
-        }
-    }
-
     suspend fun refreshConnectionForVisibleScreen(force: Boolean = false): Long {
         val serverUrl = serverSettingsStore.getBaseUrl()
         val serverIdentity = runCatching {
             PimServerEndpoints.from(serverUrl).apiBaseUrl.toString()
         }.getOrNull()
-        val succeeded = runCatching {
+        try {
             resolveProbeResult(
                 force = force,
                 serverIdentity = serverIdentity,
@@ -91,9 +81,13 @@ class StatusCenterViewModel @Inject constructor(
                 },
                 nowMillis = System.currentTimeMillis()
             )
-        }.isSuccess
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            repository.requestRefresh()
+            return PROBE_RETRY_MILLIS
+        }
         repository.requestRefresh()
-        if (!succeeded) return PROBE_RETRY_MILLIS
         return probeRefreshDelayMillis(
             result = connectionProbeStore.result.value,
             serverIdentity = serverIdentity,

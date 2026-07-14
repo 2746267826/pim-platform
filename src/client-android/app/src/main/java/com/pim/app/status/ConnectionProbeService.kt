@@ -6,6 +6,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.HttpUrl
 import okhttp3.Call
 import okhttp3.Callback
@@ -27,7 +29,12 @@ class ConnectionProbeService(
     private val wallClockMillis: () -> Long = System::currentTimeMillis,
     private val monotonicNanos: () -> Long = System::nanoTime
 ) : ConnectionProbe {
-    override suspend fun probe(serverUrl: String): ConnectionProbeResult {
+    private val probeMutex = Mutex()
+
+    override suspend fun probe(serverUrl: String): ConnectionProbeResult =
+        probeMutex.withLock { probeLocked(serverUrl) }
+
+    private suspend fun probeLocked(serverUrl: String): ConnectionProbeResult {
         val progress = ProbeProgress(checkedAtUtcMillis = wallClockMillis())
         val urlStartedAt = monotonicNanos()
         val endpoints = try {

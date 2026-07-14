@@ -3,6 +3,8 @@ package com.pim.app.status
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.pim.core.auth.AuthMode
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -10,6 +12,7 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -23,6 +26,8 @@ import org.robolectric.annotation.Config
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import javax.net.ssl.SSLHandshakeException
@@ -344,6 +349,80 @@ class ConnectionProbeServiceTest {
 
         assertNull(store.result.value)
         assertFalse(store.isFresh("https://pim.example/api/v1/", 1_000L))
+    }
+
+    @Test
+    fun concurrentProbesExecuteSequentially() = runTest {
+        val firstRequestArrived = CountDownLatch(1)
+        val competingRequestArrived = CountDownLatch(1)
+        val releaseFirstRequest = CountDownLatch(1)
+        val concurrentRequests = AtomicInteger(0)
+        val maxConcurrentRequests = AtomicInteger(0)
+        val requestNum = AtomicInteger(0)
+
+        val jsonOk: (Int, String) -> MockResponse = { code, body ->
+            MockResponse().setResponseCode(code)
+                .setHeader("Content-Type", "application/json")
+                .setBody(body)
+        }
+        val htmlOk: (Int) -> MockResponse = { code ->
+            MockResponse().setResponseCode(code)
+                .setHeader("Content-Type", "text/html; charset=utf-8")
+                .setBody("<html><body><div id=\"root\"></div></body></html>")
+        }
+
+        server.dispatcher = object : okhttp3.mockwebserver.Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val n = requestNum.incrementAndGet()
+                val active = concurrentRequests.incrementAndGet()
+                maxConcurrentRequests.updateAndGet { maxOf(it, active) }
+                try {
+                    if (n == 1) {
+                        firstRequestArrived.countDown()
+                        assertTrue(
+                            "releaseFirstRequest timed out",
+                            releaseFirstRequest.await(10, TimeUnit.SECONDS)
+                        )
+                    }
+                    if (n > 1) {
+                        competingRequestArrived.countDown()
+                    }
+                    return when (request.path) {
+                        "/api/version" -> jsonOk(
+                            200,
+                            """{"version":"1.0","capabilities":["mobileItemResultsV1","androidEmbedV1"]}"""
+                        )
+                        "/api/v1/status/summary" -> jsonOk(
+                            200,
+                            """{"code":0,"message":"OK","data":{"status":"Healthy"}}"""
+                        )
+                        "/" -> htmlOk(200)
+                        else -> MockResponse().setResponseCode(404)
+                    }
+                } finally {
+                    concurrentRequests.decrementAndGet()
+                }
+            }
+        }
+
+        val probe1 = async(start = CoroutineStart.UNDISPATCHED) { service.probe(serverUrl) }
+        assertTrue(firstRequestArrived.await(5, TimeUnit.SECONDS))
+
+        val probe2 = async(start = CoroutineStart.UNDISPATCHED) { service.probe(serverUrl) }
+        try {
+            assertFalse(competingRequestArrived.await(200, TimeUnit.MILLISECONDS))
+        } finally {
+            releaseFirstRequest.countDown()
+        }
+
+        val result1 = probe1.await()
+        val result2 = probe2.await()
+
+        assertEquals(0, concurrentRequests.get())
+        assertEquals(1, maxConcurrentRequests.get())
+        assertEquals(ConnectionProbeOutcome.Reachable, result1.outcome)
+        assertEquals(ConnectionProbeOutcome.Reachable, result2.outcome)
+        assertEquals(6, requestNum.get())
     }
 
     private fun enqueueVersion(capabilities: List<String>) {

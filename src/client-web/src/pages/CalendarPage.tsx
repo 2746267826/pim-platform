@@ -3,6 +3,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { Draggable } from '@fullcalendar/interaction';
 import timeGridPlugin from '@fullcalendar/timegrid';
+import luxon3Plugin from '@fullcalendar/luxon3';
 import type { DateSelectArg, DatesSetArg, EventClickArg, EventContentArg, EventInput } from '@fullcalendar/core';
 import { format } from 'date-fns';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -300,12 +301,13 @@ export default function CalendarPage() {
           key={mode}
           ref={calendarRef}
           plugins={mode === 'timeline'
-            ? [timeGridPlugin, interactionPlugin]
-            : [dayGridPlugin, interactionPlugin]}
+            ? [timeGridPlugin, interactionPlugin, luxon3Plugin]
+            : [dayGridPlugin, interactionPlugin, luxon3Plugin]}
           initialView={mode === 'timeline' ? 'timeGridDay' : 'dayGridMonth'}
           initialDate={toDateStr(activeDate)}
           events={calendarEvents}
           locale="zh-cn"
+          timeZone="Asia/Shanghai"
           height="100%"
           headerToolbar={false}
           eventContent={renderCalendarEvent}

@@ -69,19 +69,21 @@ export async function apiDownloadBlob(path: string): Promise<Blob> {
 
 function logApi(method: string, path: string, duration: number, status?: number) {
   const msg = `[API] ${method} ${path} → ${status || '???'} (${duration}ms)`;
-  if (import.meta.env.DEV) console.log(msg);
+  const dev = (import.meta as { env?: { DEV?: boolean } }).env?.DEV;
+  if (dev) console.log(msg);
 }
 
-async function authedFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
-  return apiFetchRaw<T>(path, opts, true);
+export async function authedFetch<T>(path: string, opts: RequestInit = {}, acceptedStatuses?: readonly number[]): Promise<T> {
+  return apiFetchRaw<T>(path, opts, true, acceptedStatuses);
 }
 
 async function apiFetchRaw<T>(
   path: string,
   opts: RequestInit = {},
   includeJsonContentType = false,
+  acceptedStatuses?: readonly number[],
 ): Promise<T> {
-  const res = await apiFetchResponse(path, opts, includeJsonContentType);
+  const res = await apiFetchResponse(path, opts, includeJsonContentType, acceptedStatuses);
 
   if (res.status === 204 || res.headers.get('content-length') === '0') return undefined as T;
   return res.json();
@@ -91,6 +93,7 @@ async function apiFetchResponse(
   path: string,
   opts: RequestInit = {},
   includeJsonContentType = false,
+  acceptedStatuses?: readonly number[],
 ): Promise<Response> {
   const start = performance.now();
   const method = opts.method || 'GET';
@@ -117,7 +120,7 @@ async function apiFetchResponse(
   const elapsed = Math.round(performance.now() - start);
   logApi(method, path, elapsed, res.status);
 
-  if (!res.ok) {
+  if (!res.ok && !(acceptedStatuses?.includes(res.status))) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || `HTTP ${res.status}`);
   }

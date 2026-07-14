@@ -149,9 +149,7 @@ async function main() {
   assert.equal(requests[5].init?.body, undefined);
 
   const outlookSettingsRequest = {
-    tenantId: 'common',
-    clientId: 'client-1',
-    scopes: 'Calendars.ReadWrite offline_access',
+    clientId: '11111111-1111-1111-1111-111111111111',
   };
   await assert.rejects(() => updateOutlookSettings(outlookSettingsRequest), requestCaptured);
   assert.equal(requests[6].url, '/api/v1/calendar/outlook/settings');
@@ -163,10 +161,10 @@ async function main() {
   assert.equal(requests[7].init?.method, 'POST');
   assertJsonBody(7, {});
 
-  await assert.rejects(() => runOutlookSync(), requestCaptured);
+  await assert.rejects(() => runOutlookSync({ mode: 'normal' }), requestCaptured);
   assert.equal(requests[8].url, '/api/v1/calendar/outlook/sync');
   assert.equal(requests[8].init?.method, 'POST');
-  assertJsonBody(8, {});
+  assertJsonBody(8, { mode: 'normal' });
 
   await assert.rejects(() => getOutlookSyncBatches(), requestCaptured);
   assert.equal(requests[9].url, '/api/v1/calendar/outlook/sync/batches');

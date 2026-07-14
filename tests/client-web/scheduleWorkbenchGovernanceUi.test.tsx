@@ -11,12 +11,23 @@ function assertPageSourceContains(path: string, snippets: string[]) {
 
 assertPageSourceContains('src/client-web/src/pages/SyncPage.tsx', [
   '设备代码',
-  'tokenHealth',
   'pollOutlookDeviceCode',
-  'OutlookConflictResolver',
-  'deltaLink',
-  'writeback',
+  '应用注册',
+  '公共客户端流',
+  'Calendars.ReadWrite',
+  '发现日历',
+  '立即同步',
+  '深度同步',
+  '移除本地 Microsoft 数据',
 ]);
+
+{
+  const source = readFileSync('src/client-web/src/pages/SyncPage.tsx', 'utf8');
+  const removed = ['tokenHealth', 'OutlookConflictResolver', 'deltaLink', 'writebackDefault', 'conflictPolicy'];
+  for (const snippet of removed) {
+    assert.ok(!source.includes(snippet), `SyncPage should NOT contain ${snippet}`);
+  }
+}
 
 assertPageSourceContains('src/client-web/src/pages/ConfirmationsPage.tsx', [
   'BeforeAfterDiff',

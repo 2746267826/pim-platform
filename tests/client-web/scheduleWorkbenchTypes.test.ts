@@ -5,9 +5,18 @@ import type {
   DataCenterQueryResponse,
   OperationConfirmation,
   OperationRiskLevel,
-  OutlookDeviceCodeRequestResponse,
+  OutlookAuthorizationSessionResponse,
+  OutlookCalendarBindingResponse,
+  OutlookEventDraft,
+  OutlookLocalDataPreview,
+  OutlookPerCalendarChange,
+  OutlookPerCalendarResult,
   OutlookSettingsResponse,
+  OutlookSyncBatchPage,
   OutlookSyncBatchResponse,
+  OutlookSyncRequest,
+  OutlookWriteRequest,
+  OutlookWriteResult,
   TaskExecutionSegmentResponse,
   WorkbenchDensityMode,
 } from '../../src/client-web/src/types';
@@ -76,24 +85,63 @@ const outlookSettings: OutlookSettingsResponse = {
   tenantId: 'common',
   clientId: 'client-1',
   scopes: 'Calendars.ReadWrite offline_access',
-  status: 'Connected',
+  status: 'connected',
   tokenHealth: 'Healthy',
+  lastSyncedAt: '2026-07-08T08:00:00Z',
+  lastError: null,
+  uiStatus: 'connected',
+  activeAuthorization: null,
+};
+
+const deviceCode: OutlookAuthorizationSessionResponse = {
+  id: 'session-1',
+  status: 'waiting-for-user',
+  verificationUri: 'https://microsoft.com/devicelogin',
+  userCode: 'ABCD-EFGH',
+  expiresAt: '2026-07-08T08:15:00Z',
+  accountDisplayName: null,
+  accountLoginHint: null,
+  errorCode: null,
+  errorMessage: null,
+  recoveryAction: null,
+};
+
+const calendarBinding: OutlookCalendarBindingResponse = {
+  id: '11111111-1111-1111-1111-111111111111',
+  pimCalendarId: '22222222-2222-2222-2222-222222222222',
+  graphCalendarId: 'graph-cal-1',
+  groupId: null,
+  groupName: 'Work',
+  name: '工作日历',
+  color: '#0044CC',
+  ownerName: null,
+  ownerAddress: null,
+  isDefault: true,
+  canEdit: true,
+  isSelected: true,
+  remoteState: 'active',
   lastSyncedAt: '2026-07-08T08:00:00Z',
   lastError: null,
 };
 
-const deviceCode: OutlookDeviceCodeRequestResponse = {
-  endpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/devicecode',
-  verificationUri: 'https://microsoft.com/devicelogin',
-  userCode: 'ABCD-EFGH',
-  expiresAt: '2026-07-08T08:15:00Z',
-  message: 'Use this code to sign in.',
+const syncRequest: OutlookSyncRequest = {
+  mode: 'normal',
+  calendarBindingIds: ['11111111-1111-1111-1111-111111111111'],
+  rangeStart: '2026-07-01T00:00:00Z',
+  rangeEnd: '2026-07-31T23:59:59Z',
+  retryOfBatchId: '33333333-3333-3333-3333-333333333333',
+};
+
+const localDataPreview: OutlookLocalDataPreview = {
+  bindingCount: 3,
+  calendarCount: 5,
+  eventCount: 120,
 };
 
 const syncBatch: OutlookSyncBatchResponse = {
-  id: 'batch-1',
+  id: '33333333-3333-3333-3333-333333333333',
   provider: 'outlook',
-  status: 'Succeeded',
+  status: 'completed',
   readCount: 10,
   createdCount: 2,
   updatedCount: 3,
@@ -111,6 +159,59 @@ const syncBatch: OutlookSyncBatchResponse = {
   errorSummary: null,
   startedAt: '2026-07-08T08:00:00Z',
   finishedAt: '2026-07-08T08:01:00Z',
+  mode: 'normal',
+  requestedWindowStart: null,
+  requestedWindowEnd: null,
+  perCalendarJson: null,
+  cancelRequested: false,
+};
+
+const perCalendarResult: OutlookPerCalendarResult = {
+  bindingId: '11111111-1111-1111-1111-111111111111',
+  calendarName: '工作日历',
+  status: 'completed',
+  readCount: 5,
+  createdCount: 1,
+  updatedCount: 2,
+  deletedCount: 0,
+  failureCount: 0,
+  changes: [{ id: 'ch-1', title: 'Event A', action: 'created' }],
+  failures: [],
+};
+
+const syncBatchPage: OutlookSyncBatchPage = {
+  items: [syncBatch],
+  total: 1,
+  page: 1,
+  pageSize: 20,
+};
+
+const writeDraft: OutlookEventDraft = {
+  calendarId: 'cal-1',
+  title: 'Meeting',
+  dtStart: '2026-07-13T09:00:00Z',
+  dtEnd: '2026-07-13T10:00:00Z',
+  timeZoneId: 'Asia/Shanghai',
+};
+
+const writeRequest: OutlookWriteRequest = {
+  operation: 'create',
+  calendarBindingId: 'b1',
+  draft: writeDraft,
+  scope: 'instance',
+  clientOperationId: 'op-1',
+};
+
+const writeResult: OutlookWriteResult = {
+  status: 'completed',
+  errorCode: null,
+  errorMessage: null,
+};
+
+const perCalendarChange: OutlookPerCalendarChange = {
+  id: 'ch-1',
+  title: 'Event A',
+  action: 'created',
 };
 
 const confirmation: OperationConfirmation = {
@@ -149,5 +250,14 @@ void calendarLayers;
 void dataCenterQuery;
 void outlookSettings;
 void deviceCode;
+void calendarBinding;
+void syncRequest;
+void localDataPreview;
 void syncBatch;
+void perCalendarResult;
+void syncBatchPage;
+void writeDraft;
+void writeRequest;
+void writeResult;
+void perCalendarChange;
 void confirmation;

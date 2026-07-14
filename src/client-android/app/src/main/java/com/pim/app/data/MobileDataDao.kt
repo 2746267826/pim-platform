@@ -152,14 +152,34 @@ interface MobileDataDao {
         rejectedStatus: String = MobileSyncStatus.REJECTED
     ): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM mobile_sync_batches WHERE sync_status != :syncedStatus")
-    fun pendingSyncBatchCount(syncedStatus: String = MobileSyncStatus.SYNCED): Flow<Int>
+    @Query("SELECT COUNT(*) FROM mobile_sync_batches WHERE sync_status != :syncedStatus AND sync_status != :rejectedStatus")
+    fun pendingSyncBatchCount(
+        syncedStatus: String = MobileSyncStatus.SYNCED,
+        rejectedStatus: String = MobileSyncStatus.REJECTED
+    ): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM mobile_logs WHERE sync_status != :syncedStatus")
     fun pendingLogCount(syncedStatus: String = MobileSyncStatus.SYNCED): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM mobile_device_profile WHERE sync_status != :syncedStatus")
-    fun pendingDeviceProfileCount(syncedStatus: String = MobileSyncStatus.SYNCED): Flow<Int>
+    @Query("SELECT COUNT(*) FROM mobile_device_profile WHERE sync_status != :syncedStatus AND sync_status != :rejectedStatus")
+    fun pendingDeviceProfileCount(
+        syncedStatus: String = MobileSyncStatus.SYNCED,
+        rejectedStatus: String = MobileSyncStatus.REJECTED
+    ): Flow<Int>
+
+    @Query(
+        """
+        SELECT (
+            COALESCE((SELECT COUNT(*) FROM mobile_usage_events WHERE sync_status = :rejected), 0) +
+            COALESCE((SELECT COUNT(*) FROM mobile_usage_summaries WHERE sync_status = :rejected), 0) +
+            COALESCE((SELECT COUNT(*) FROM mobile_app_metadata WHERE sync_status = :rejected), 0) +
+            COALESCE((SELECT COUNT(*) FROM mobile_location_points WHERE sync_status = :rejected), 0) +
+            COALESCE((SELECT COUNT(*) FROM mobile_sync_batches WHERE sync_status = :rejected), 0) +
+            COALESCE((SELECT COUNT(*) FROM mobile_device_profile WHERE sync_status = :rejected), 0)
+        )
+        """
+    )
+    fun aggregateRejectedCount(rejected: String = MobileSyncStatus.REJECTED): Flow<Int>
 
     @Query("DELETE FROM mobile_usage_events WHERE id IN (:ids)")
     suspend fun deleteUsageEventByIds(ids: List<Long>)

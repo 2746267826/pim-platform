@@ -3,22 +3,14 @@ package com.pim.app.status
 import com.pim.app.location.service.ForegroundLocationRuntimeState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlinx.coroutines.runBlocking
 
 class StatusIssueTest {
     @Test
-    fun requiredIssuesHaveReadableActionLabels() {
-        val issues = StatusIssue.requiredIssueCodes()
-
-        assertTrue(issues.contains("api-address-missing"))
-        assertTrue(issues.contains("background-location-missing"))
-        assertTrue(issues.contains("foreground-service-not-running"))
-        assertTrue(issues.contains("location-accuracy-rejected"))
-        assertTrue(issues.contains("altitude-missing-timeout"))
-        assertTrue(issues.contains("upload-queue-backlog"))
-
+    fun actionLabelsAreReadable() {
         assertEquals("去设置", StatusIssue.apiAddressMissing().actionLabel)
         assertEquals("去设置", StatusIssue.backgroundLocationMissing().actionLabel)
         assertEquals("去设置", StatusIssue.foregroundServiceNotRunning().actionLabel)
@@ -127,7 +119,8 @@ class StatusIssueTest {
         var refreshed = false
         val runner = StatusSyncActionRunner(
             syncNow = { synced = true },
-            refresh = { refreshed = true }
+            refresh = { refreshed = true },
+            acceptedSignal = StatusAcceptedSignal()
         )
 
         runner.run(StatusActionRoute.TriggerSync)
@@ -141,7 +134,8 @@ class StatusIssueTest {
         var synced = false
         val runner = StatusSyncActionRunner(
             syncNow = { synced = true },
-            refresh = {}
+            refresh = {},
+            acceptedSignal = StatusAcceptedSignal()
         )
 
         runner.run(StatusActionRoute.OpenSettings)
@@ -157,6 +151,111 @@ class StatusIssueTest {
         signal.requestRefresh()
 
         assertEquals(1L, signal.version.value)
+    }
+
+    @Test
+    fun acceptedSignalStartsFalse() {
+        val signal = StatusAcceptedSignal()
+        assertEquals(false, signal.accepted.value)
+    }
+
+    @Test
+    fun acceptedSignalTriggerSetsTrue() {
+        val signal = StatusAcceptedSignal()
+        signal.trigger()
+        assertEquals(true, signal.accepted.value)
+    }
+
+    @Test
+    fun acceptedSignalClearIfSetResetsWhenTriggered() {
+        val signal = StatusAcceptedSignal()
+        signal.trigger()
+        signal.clearIfSet()
+        assertEquals(false, signal.accepted.value)
+    }
+
+    @Test
+    fun acceptedSignalClearIfSetDoesNothingWhenNotTriggered() {
+        val signal = StatusAcceptedSignal()
+        signal.clearIfSet()
+        assertEquals(false, signal.accepted.value)
+    }
+
+    @Test
+    fun syncActionRunnerPublishesAcceptedBeforeSyncNowAndRefreshAfter() = runBlocking {
+        val signal = StatusAcceptedSignal()
+        var acceptedAtSyncTime = false
+        var refreshed = false
+        val runner = StatusSyncActionRunner(
+            syncNow = {
+                acceptedAtSyncTime = signal.accepted.value
+            },
+            refresh = { refreshed = true },
+            acceptedSignal = signal
+        )
+
+        runner.run(StatusActionRoute.TriggerSync)
+
+        assertTrue("accepted must be true before syncNow runs", acceptedAtSyncTime)
+        assertTrue(refreshed)
+        assertEquals(true, signal.accepted.value)
+    }
+
+    @Test
+    fun syncActionRunnerPublishesAcceptedAndRefresh() = runBlocking {
+        var synced = false
+        var refreshed = false
+        val signal = StatusAcceptedSignal()
+        val runner = StatusSyncActionRunner(
+            syncNow = { synced = true },
+            refresh = { refreshed = true },
+            acceptedSignal = signal
+        )
+
+        runner.run(StatusActionRoute.TriggerSync)
+
+        assertTrue(synced)
+        assertTrue(refreshed)
+        assertEquals(true, signal.accepted.value)
+    }
+
+    @Test
+    fun syncActionRunnerDoesNotPublishAcceptedForNonSyncRoutes() = runBlocking {
+        var synced = false
+        val signal = StatusAcceptedSignal()
+        val runner = StatusSyncActionRunner(
+            syncNow = { synced = true },
+            refresh = {},
+            acceptedSignal = signal
+        )
+
+        runner.run(StatusActionRoute.OpenSettings)
+
+        assertFalse(synced)
+        assertEquals(false, signal.accepted.value)
+    }
+
+    @Test
+    fun syncActionRunnerClearsAcceptedAndRefreshesOnSyncNowException() = runBlocking {
+        val signal = StatusAcceptedSignal()
+        val expectedException = RuntimeException("sync failed")
+        var refreshCount = 0
+        val runner = StatusSyncActionRunner(
+            syncNow = { throw expectedException },
+            refresh = { refreshCount++ },
+            acceptedSignal = signal
+        )
+
+        val actualException = try {
+            runner.run(StatusActionRoute.TriggerSync)
+            null
+        } catch (e: Throwable) {
+            e
+        }
+
+        assertSame(expectedException, actualException)
+        assertFalse("accepted must be cleared on exception", signal.accepted.value)
+        assertEquals(1, refreshCount)
     }
 
     @Test

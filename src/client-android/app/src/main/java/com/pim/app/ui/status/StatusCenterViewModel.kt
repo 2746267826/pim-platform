@@ -5,10 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.status.ConnectionProbeService
 import com.pim.app.status.ConnectionProbeStore
+import com.pim.app.status.StatusAcceptedSignal
+import com.pim.app.status.StatusActionRoute
 import com.pim.app.status.StatusActionTarget
 import com.pim.app.status.StatusCenterRepository
 import com.pim.app.status.StatusCenterState
 import com.pim.app.status.StatusIssue
+import com.pim.app.status.StatusSyncActionRunner
 import com.pim.core.settings.ServerSettingsStore
 import com.pim.core.settings.PimServerEndpoints
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,7 +27,8 @@ class StatusCenterViewModel @Inject constructor(
     private val mobileSyncScheduler: MobileSyncScheduler,
     private val serverSettingsStore: ServerSettingsStore,
     private val connectionProbeService: ConnectionProbeService,
-    private val connectionProbeStore: ConnectionProbeStore
+    private val connectionProbeStore: ConnectionProbeStore,
+    private val acceptedSignal: StatusAcceptedSignal
 ) : ViewModel() {
     val state: StateFlow<StatusCenterState> = repository.observe()
         .stateIn(
@@ -32,6 +36,12 @@ class StatusCenterViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = StatusCenterState.empty()
         )
+
+    private val syncRunner = StatusSyncActionRunner(
+        syncNow = { mobileSyncScheduler.enqueueNow() },
+        refresh = { repository.requestRefresh() },
+        acceptedSignal = acceptedSignal
+    )
 
     init {
         refresh()
@@ -44,8 +54,7 @@ class StatusCenterViewModel @Inject constructor(
 
     fun syncNow() {
         viewModelScope.launch {
-            mobileSyncScheduler.enqueueNow()
-            repository.requestRefresh()
+            syncRunner.run(StatusActionRoute.TriggerSync)
         }
     }
 

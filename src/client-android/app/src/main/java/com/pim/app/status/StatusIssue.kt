@@ -1,11 +1,40 @@
 package com.pim.app.status
 
+import androidx.work.WorkInfo
 import com.pim.app.location.service.ForegroundLocationRuntimeState
 
 enum class StatusSeverity {
     Info,
     Warning,
     Critical
+}
+
+enum class StatusOverall {
+    Normal,
+    Attention,
+    Abnormal;
+
+    companion object {
+        fun compute(issues: List<StatusIssue>): StatusOverall {
+            val highest = issues.maxOfOrNull { it.severity } ?: return Normal
+            return when (highest) {
+                StatusSeverity.Critical -> Abnormal
+                StatusSeverity.Warning -> Attention
+                StatusSeverity.Info -> Normal
+            }
+        }
+    }
+}
+
+enum class SyncPhase {
+    Idle,
+    Accepted,
+    Waiting,
+    Running,
+    Completed,
+    Failed,
+    Cancelled;
+
 }
 
 enum class StatusActionTarget {
@@ -48,15 +77,6 @@ data class StatusIssue(
     val target: StatusActionTarget
 ) {
     companion object {
-        fun requiredIssueCodes(): Set<String> = setOf(
-            "api-address-missing",
-            "background-location-missing",
-            "foreground-service-not-running",
-            "location-accuracy-rejected",
-            "altitude-missing-timeout",
-            "upload-queue-backlog"
-        )
-
         fun apiAddressMissing(): StatusIssue = StatusIssue(
             code = "api-address-missing",
             severity = StatusSeverity.Critical,
@@ -194,6 +214,33 @@ data class StatusIssue(
             target = StatusActionTarget.Queue
         )
 
+        fun networkDisconnected(): StatusIssue = StatusIssue(
+            code = "network-disconnected",
+            severity = StatusSeverity.Critical,
+            title = "网络未连接",
+            message = "当前设备没有可用的网络连接，无法与服务器通信。",
+            actionLabel = "查看状态",
+            target = StatusActionTarget.Status
+        )
+
+        fun probeBlocked(): StatusIssue = StatusIssue(
+            code = "connection-probe-blocked",
+            severity = StatusSeverity.Critical,
+            title = "服务器连接中断",
+            message = "连接探测未能成功到达服务器，请检查网络或服务器状态。",
+            actionLabel = "重新同步",
+            target = StatusActionTarget.Sync
+        )
+
+        fun probePartial(): StatusIssue = StatusIssue(
+            code = "connection-probe-partial",
+            severity = StatusSeverity.Warning,
+            title = "服务器连接不稳定",
+            message = "连接探测部分成功，可能存在网络或服务器问题。",
+            actionLabel = "查看状态",
+            target = StatusActionTarget.Status
+        )
+
         fun heartbeatFailure(message: String?): StatusIssue = StatusIssue(
             code = "heartbeat-failure",
             severity = StatusSeverity.Warning,
@@ -219,6 +266,15 @@ data class StatusIssue(
             message = "当前定位策略为 $mode。",
             actionLabel = "查看状态",
             target = StatusActionTarget.Status
+        )
+
+        fun syncFailure(error: String?): StatusIssue = StatusIssue(
+            code = "sync-failure",
+            severity = StatusSeverity.Critical,
+            title = "同步失败",
+            message = error?.takeIf { it.isNotBlank() } ?: "最近一次同步尝试失败。",
+            actionLabel = "重新同步",
+            target = StatusActionTarget.Sync
         )
 
         fun recentDroppedLocation(reason: String, lastOccurredAtMillis: Long?): StatusIssue = StatusIssue(
@@ -314,27 +370,44 @@ data class StatusCenterSnapshot(
 
 data class StatusCenterState(
     val snapshot: StatusCenterSnapshot,
-    val issues: List<StatusIssue>
+    val issues: List<StatusIssue>,
+    val overall: StatusOverall = StatusOverall.compute(issues),
+    val syncPhase: SyncPhase = SyncPhase.Idle,
+    val pendingTotal: Int = 0,
+    val acceptedCount: Int = 0,
+    val permanentRejectedCount: Int = 0,
+    val rejectedCount: Int = 0,
+    val lastSuccessfulUploadAt: String? = null,
+    val lastAttemptedUploadAt: String? = null,
+    val nextAttemptAtMillis: Long? = null,
+    val networkConnected: Boolean = false,
+    val lastProbeResult: ConnectionProbeResult? = null,
+    val lastProbeCheckedAtMillis: Long? = null,
+    val isLoading: Boolean = false
 ) {
     companion object {
         fun empty(): StatusCenterState {
             val snapshot = StatusCenterSnapshot(
                 permissions = PermissionStatusSnapshot(
-                    notificationGranted = true,
+                    notificationGranted = false,
                     preciseLocationGranted = false,
                     backgroundLocationGranted = false,
                     usageAccessGranted = false,
                     activityRecognitionGranted = false,
                     batteryOptimizationGranted = false
                 ),
-                api = ApiConnectionSnapshot("", isValid = false, reasonCode = "missing", warnings = emptySet()),
+                api = ApiConnectionSnapshot("", isValid = false, reasonCode = null, warnings = emptySet()),
                 auth = AuthStatusSnapshot(hasAccessToken = false, isExpired = false),
                 service = ForegroundServiceSnapshot(continuousCollectionEnabled = false, serviceRunning = false),
                 tracking = TrackingPolicySnapshot("power-saving", "PowerSavingNormal", null),
                 queues = QueueStatusSnapshot(0, 0, 0, 0, 0, 0),
                 diagnostics = DiagnosticSnapshot(null, null, null, null)
             )
-            return StatusCenterState(snapshot, StatusIssuePlanner.plan(snapshot))
+            return StatusCenterState(
+                snapshot = snapshot,
+                issues = emptyList(),
+                isLoading = true
+            )
         }
     }
 }

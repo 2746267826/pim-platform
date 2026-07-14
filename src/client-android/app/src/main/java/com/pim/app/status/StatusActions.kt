@@ -9,12 +9,34 @@ import kotlinx.coroutines.flow.update
 
 class StatusSyncActionRunner(
     private val syncNow: suspend () -> Unit,
-    private val refresh: () -> Unit
+    private val refresh: () -> Unit,
+    private val acceptedSignal: StatusAcceptedSignal
 ) {
     suspend fun run(route: StatusActionRoute) {
         if (route != StatusActionRoute.TriggerSync) return
-        syncNow()
-        refresh()
+        acceptedSignal.trigger()
+        try {
+            syncNow()
+        } catch (e: Throwable) {
+            acceptedSignal.clearIfSet()
+            throw e
+        } finally {
+            refresh()
+        }
+    }
+}
+
+@Singleton
+class StatusAcceptedSignal @Inject constructor() {
+    private val _accepted = MutableStateFlow(false)
+    val accepted: StateFlow<Boolean> = _accepted.asStateFlow()
+
+    fun trigger() {
+        _accepted.value = true
+    }
+
+    fun clearIfSet() {
+        if (_accepted.value) _accepted.value = false
     }
 }
 

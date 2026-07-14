@@ -6,6 +6,7 @@ import com.pim.app.location.service.ForegroundLocationService
 import com.pim.app.location.service.ForegroundLocationRuntimeState
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.sync.MobileSyncCoordinator
+import com.pim.app.mobile.sync.MobileSyncState
 import com.pim.app.permissions.PermissionStatusRepository
 import com.pim.app.settings.TrackingSettingsStore
 import com.pim.core.auth.TokenManager
@@ -18,6 +19,21 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 
+private data class CoreFacts(
+    val queues: QueueStatusSnapshot,
+    val diagnostics: DiagnosticSnapshot,
+    val syncState: MobileSyncState,
+    val runtime: ForegroundLocationRuntimeState
+)
+
+private data class ExternalFacts(
+    val probeResult: ConnectionProbeResult?,
+    val connected: Boolean,
+    val workInfos: StatusWorkInfos,
+    val permanentRejected: Int,
+    val justAccepted: Boolean
+)
+
 @Singleton
 class StatusCenterRepository @Inject constructor(
     private val permissionStatusRepository: PermissionStatusRepository,
@@ -27,41 +43,66 @@ class StatusCenterRepository @Inject constructor(
     private val database: AppDatabase,
     private val syncCoordinator: MobileSyncCoordinator,
     private val refreshSignal: StatusRefreshSignal,
-    private val logRepository: StructuredLogRepository
+    private val logRepository: StructuredLogRepository,
+    private val connectionProbeStore: ConnectionProbeStore,
+    private val networkStatusProvider: NetworkStatusProvider,
+    private val workInfoStatusProvider: WorkInfoStatusProvider,
+    private val acceptedSignal: StatusAcceptedSignal
 ) {
     private val dao: MobileDataDao = database.mobileDataDao()
 
     fun observe(): Flow<StatusCenterState> {
-        return combine(
+        val coreFlow = combine(
             queueSnapshotFlow(),
             diagnosticSnapshotFlow(),
             syncCoordinator.currentState,
-            ForegroundLocationService.runtimeState,
-            refreshSignal.version
-        ) { queues, diagnostics, sync, runtime, _ ->
-            val mergedDiagnostics = diagnostics.copy(
-                lastHeartbeatStatus = sync.heartbeatStatus,
-                lastLogMessage = diagnostics.lastLogMessage ?: sync.lastError,
-                recentLogMessages = diagnostics.recentLogMessages.ifEmpty {
-                    listOfNotNull(sync.lastError)
+            ForegroundLocationService.runtimeState
+        ) { queues, diagnostics, syncState, runtime ->
+            CoreFacts(queues, diagnostics, syncState, runtime)
+        }
+
+        val externalFlow = combine(
+            connectionProbeStore.result,
+            networkStatusProvider.isConnected,
+            workInfoStatusProvider.syncWorkInfos,
+            dao.aggregateRejectedCount(),
+            acceptedSignal.accepted
+        ) { probeResult, connected, workInfos, rejected, justAccepted ->
+            ExternalFacts(probeResult, connected, workInfos, rejected, justAccepted)
+        }
+
+        return combine(coreFlow, externalFlow) { core, external ->
+            val mergedDiagnostics = core.diagnostics.copy(
+                lastHeartbeatStatus = core.syncState.heartbeatStatus,
+                lastLogMessage = core.diagnostics.lastLogMessage ?: core.syncState.lastError,
+                recentLogMessages = core.diagnostics.recentLogMessages.ifEmpty {
+                    listOfNotNull(core.syncState.lastError)
                 }
             )
-            val snapshot = buildSnapshot(queues, mergedDiagnostics, runtime)
-            StatusCenterState(snapshot, StatusIssuePlanner.plan(snapshot))
+            val snapshot = buildSnapshot(core.queues, mergedDiagnostics, core.runtime)
+
+            if (StatusResultMapper.shouldClearAcceptedSignal(
+                    external.justAccepted,
+                    external.workInfos.immediate
+                )
+            ) {
+                acceptedSignal.clearIfSet()
+            }
+
+            StatusResultMapper.buildState(
+                snapshot = snapshot,
+                syncState = core.syncState,
+                workInfos = external.workInfos,
+                permanentRejected = external.permanentRejected,
+                connected = external.connected,
+                probeResult = external.probeResult,
+                justAccepted = external.justAccepted
+            )
         }.flowOn(Dispatchers.IO)
     }
 
     fun requestRefresh() {
         refreshSignal.requestRefresh()
-    }
-
-    fun snapshotNow(
-        queues: QueueStatusSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0),
-        diagnostics: DiagnosticSnapshot = DiagnosticSnapshot(null, null, null, null),
-        runtime: ForegroundLocationRuntimeState = ForegroundLocationService.runtimeState.value
-    ): StatusCenterState {
-        val snapshot = buildSnapshot(queues, diagnostics, runtime)
-        return StatusCenterState(snapshot, StatusIssuePlanner.plan(snapshot))
     }
 
     private fun buildSnapshot(
@@ -96,23 +137,25 @@ class StatusCenterRepository @Inject constructor(
 
     private fun queueSnapshotFlow(): Flow<QueueStatusSnapshot> {
         return combine(
-            listOf(
+            combine(
                 dao.pendingLocationPointCount(),
                 dao.pendingUsageEventCount(),
-                dao.pendingUsageSummaryCount(),
+                dao.pendingUsageSummaryCount()
+            ) { loc, events, summaries -> Triple(loc, events, summaries) },
+            combine(
                 dao.pendingAppMetadataCount(),
                 dao.pendingDeviceProfileCount(),
                 dao.pendingSyncBatchCount()
-            )
-        ) { values ->
+            ) { meta, profile, batches -> Triple(meta, profile, batches) }
+        ) { (loc, events, summaries), (meta, profile, batches) ->
             QueueStatusSnapshot(
-                pendingLocationPoints = values[0],
-                pendingUsageEvents = values[1],
-                pendingUsageSummaries = values[2],
-                pendingAppMetadata = values[3],
+                pendingLocationPoints = loc,
+                pendingUsageEvents = events,
+                pendingUsageSummaries = summaries,
+                pendingAppMetadata = meta,
                 pendingLogs = 0,
-                pendingDeviceProfile = values[4],
-                pendingSyncBatches = values[5]
+                pendingDeviceProfile = profile,
+                pendingSyncBatches = batches
             )
         }
     }

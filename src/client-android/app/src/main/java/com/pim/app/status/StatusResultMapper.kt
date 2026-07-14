@@ -1,6 +1,7 @@
 package com.pim.app.status
 
 import androidx.work.WorkInfo
+import com.pim.app.mobile.sync.MobileSyncOutcome
 import com.pim.app.mobile.sync.MobileSyncState
 
 object StatusResultMapper {
@@ -14,14 +15,22 @@ object StatusResultMapper {
     fun resolveSyncPhase(
         periodic: List<WorkInfo>,
         immediate: List<WorkInfo>,
+        syncState: MobileSyncState,
         justAccepted: Boolean
     ): SyncPhase {
-        if (immediate.any { it.state == WorkInfo.State.RUNNING }) return SyncPhase.Running
-        if (immediate.any { it.state == WorkInfo.State.ENQUEUED }) return SyncPhase.Waiting
-        if (immediate.any { it.state == WorkInfo.State.FAILED }) return SyncPhase.Failed
-        if (immediate.any { it.state == WorkInfo.State.CANCELLED }) return SyncPhase.Cancelled
         if (justAccepted) return SyncPhase.Accepted
-        if (immediate.any { it.state == WorkInfo.State.SUCCEEDED }) return SyncPhase.Completed
+        val active = periodic + immediate
+        if (active.any { it.state == WorkInfo.State.RUNNING }) return SyncPhase.Running
+        if (immediate.any { it.state == WorkInfo.State.ENQUEUED } ||
+            active.any { it.state == WorkInfo.State.BLOCKED }
+        ) return SyncPhase.Waiting
+
+        val phase = syncState.phase.lowercase()
+        if (phase in BLOCKED_SYNC_PHASES) return SyncPhase.Blocked
+        if (syncState.outcome != MobileSyncOutcome.SUCCESS ||
+            phase == "failed" || phase.endsWith("-failed") || phase == "completed-with-errors"
+        ) return SyncPhase.Failed
+        if (phase in setOf("completed", "uploaded", "location-uploaded")) return SyncPhase.Completed
         return SyncPhase.Idle
     }
 
@@ -63,6 +72,7 @@ object StatusResultMapper {
         val syncPhase = resolveSyncPhase(
             periodic = workInfos.periodic,
             immediate = workInfos.immediate,
+            syncState = syncState,
             justAccepted = justAccepted
         )
         val nextAttempt = computeNextAttemptAtMillis(
@@ -75,10 +85,7 @@ object StatusResultMapper {
             probeResult = probeResult
         )
         val allIssues = (baseIssues + externalIssues).distinctBy { it.code }
-        val isBlockedSync = syncState.phase in BLOCKED_SYNC_PHASES
-        val hasPersistedFailure = syncState.failedCount > 0 && !isBlockedSync
-        val shouldAddSyncFailure = (syncPhase == SyncPhase.Failed || hasPersistedFailure) && !isBlockedSync
-        val finalIssues = if (shouldAddSyncFailure) {
+        val finalIssues = if (syncPhase == SyncPhase.Failed) {
             (allIssues + StatusIssue.syncFailure(syncState.lastError)).distinctBy { it.code }
         } else {
             allIssues

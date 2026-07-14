@@ -291,6 +291,7 @@ internal fun syncPhaseLabel(phase: SyncPhase): String = when (phase) {
     SyncPhase.Accepted -> "请求已接受"
     SyncPhase.Waiting -> "等待网络或系统调度"
     SyncPhase.Running -> "同步中"
+    SyncPhase.Blocked -> "同步条件未满足"
     SyncPhase.Completed -> "同步已完成"
     SyncPhase.Failed -> "同步失败"
     SyncPhase.Cancelled -> "已取消"
@@ -301,6 +302,7 @@ internal fun syncButtonLabel(phase: SyncPhase): String = when (phase) {
     SyncPhase.Accepted -> "请求已接受"
     SyncPhase.Waiting -> "等待中"
     SyncPhase.Running -> "同步中"
+    SyncPhase.Blocked -> "暂不可同步"
     SyncPhase.Completed -> "再次同步"
     SyncPhase.Failed -> "重新同步"
     SyncPhase.Cancelled -> "再次同步"
@@ -308,7 +310,7 @@ internal fun syncButtonLabel(phase: SyncPhase): String = when (phase) {
 
 private fun syncButtonEnabled(phase: SyncPhase): Boolean = when (phase) {
     SyncPhase.Idle, SyncPhase.Completed, SyncPhase.Failed, SyncPhase.Cancelled -> true
-    SyncPhase.Accepted, SyncPhase.Waiting, SyncPhase.Running -> false
+    SyncPhase.Accepted, SyncPhase.Waiting, SyncPhase.Running, SyncPhase.Blocked -> false
 }
 
 internal fun syncButtonEnabled(state: StatusCenterState): Boolean {

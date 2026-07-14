@@ -31,6 +31,7 @@ enum class SyncPhase {
     Accepted,
     Waiting,
     Running,
+    Blocked,
     Completed,
     Failed,
     Cancelled;

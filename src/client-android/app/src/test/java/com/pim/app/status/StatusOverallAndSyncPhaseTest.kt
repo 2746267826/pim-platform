@@ -1,6 +1,7 @@
 package com.pim.app.status
 
 import androidx.work.WorkInfo
+import com.pim.app.mobile.sync.MobileSyncOutcome
 import com.pim.app.mobile.sync.MobileSyncState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -79,7 +80,7 @@ class StatusOverallAndSyncPhaseTest {
     @Test
     fun syncPhaseIsIdleWhenNoWorkInfos() {
         val phase = StatusResultMapper.resolveSyncPhase(
-            periodic = emptyList(), immediate = emptyList(), justAccepted = false
+            periodic = emptyList(), immediate = emptyList(), syncState = idleSyncState, justAccepted = false
         )
         assertEquals(SyncPhase.Idle, phase)
     }
@@ -89,6 +90,7 @@ class StatusOverallAndSyncPhaseTest {
         val phase = StatusResultMapper.resolveSyncPhase(
             periodic = emptyList(),
             immediate = listOf(workInfo(WorkInfo.State.ENQUEUED, "pim_mobile_sync_now")),
+            syncState = idleSyncState,
             justAccepted = false
         )
         assertEquals(SyncPhase.Waiting, phase)
@@ -99,39 +101,37 @@ class StatusOverallAndSyncPhaseTest {
         val phase = StatusResultMapper.resolveSyncPhase(
             periodic = emptyList(),
             immediate = listOf(workInfo(WorkInfo.State.RUNNING, "pim_mobile_sync_now")),
+            syncState = idleSyncState,
             justAccepted = false
         )
         assertEquals(SyncPhase.Running, phase)
     }
 
     @Test
-    fun syncPhaseIsCompletedWhenImmediateSucceeded() {
-        val phase = StatusResultMapper.resolveSyncPhase(
+    fun terminalWorkInfosAreIgnoredWhenSyncStateIsIdle() {
+        val phase1 = StatusResultMapper.resolveSyncPhase(
             periodic = emptyList(),
             immediate = listOf(workInfo(WorkInfo.State.SUCCEEDED, "pim_mobile_sync_now")),
+            syncState = idleSyncState,
             justAccepted = false
         )
-        assertEquals(SyncPhase.Completed, phase)
-    }
+        assertEquals(SyncPhase.Idle, phase1)
 
-    @Test
-    fun syncPhaseIsFailedWhenImmediateFailed() {
-        val phase = StatusResultMapper.resolveSyncPhase(
+        val phase2 = StatusResultMapper.resolveSyncPhase(
             periodic = emptyList(),
             immediate = listOf(workInfo(WorkInfo.State.FAILED, "pim_mobile_sync_now")),
+            syncState = idleSyncState,
             justAccepted = false
         )
-        assertEquals(SyncPhase.Failed, phase)
-    }
+        assertEquals(SyncPhase.Idle, phase2)
 
-    @Test
-    fun syncPhaseIsCancelledWhenImmediateCancelled() {
-        val phase = StatusResultMapper.resolveSyncPhase(
+        val phase3 = StatusResultMapper.resolveSyncPhase(
             periodic = emptyList(),
             immediate = listOf(workInfo(WorkInfo.State.CANCELLED, "pim_mobile_sync_now")),
+            syncState = idleSyncState,
             justAccepted = false
         )
-        assertEquals(SyncPhase.Cancelled, phase)
+        assertEquals(SyncPhase.Idle, phase3)
     }
 
     @Test
@@ -142,6 +142,7 @@ class StatusOverallAndSyncPhaseTest {
                 workInfo(WorkInfo.State.ENQUEUED, "pim_mobile_sync_now"),
                 workInfo(WorkInfo.State.RUNNING, "pim_mobile_sync_now")
             ),
+            syncState = idleSyncState,
             justAccepted = false
         )
         assertEquals(SyncPhase.Running, phase)
@@ -152,26 +153,29 @@ class StatusOverallAndSyncPhaseTest {
         val phase = StatusResultMapper.resolveSyncPhase(
             periodic = listOf(workInfo(WorkInfo.State.ENQUEUED, "pim_mobile_sync_periodic")),
             immediate = emptyList(),
+            syncState = idleSyncState,
             justAccepted = false
         )
         assertEquals(SyncPhase.Idle, phase)
     }
 
     @Test
-    fun syncPhaseIsCompletedWhenPeriodicEnqueuedAndImmediateSucceeded() {
+    fun terminalPeriodicAndImmediateWorkInfosAreIgnored() {
         val phase = StatusResultMapper.resolveSyncPhase(
             periodic = listOf(workInfo(WorkInfo.State.ENQUEUED, "pim_mobile_sync_periodic")),
             immediate = listOf(workInfo(WorkInfo.State.SUCCEEDED, "pim_mobile_sync_now")),
+            syncState = idleSyncState,
             justAccepted = false
         )
-        assertEquals(SyncPhase.Completed, phase)
+        assertEquals(SyncPhase.Idle, phase)
     }
 
     @Test
-    fun syncPhaseIsAcceptedWhenJustAcceptedAndOnlyOldSucceeded() {
+    fun syncPhaseIsAcceptedWhenJustAcceptedAndOnlyTerminalWorkInfos() {
         val phase = StatusResultMapper.resolveSyncPhase(
             periodic = emptyList(),
             immediate = listOf(workInfo(WorkInfo.State.SUCCEEDED, "pim_mobile_sync_now")),
+            syncState = idleSyncState,
             justAccepted = true
         )
         assertEquals(SyncPhase.Accepted, phase)
@@ -182,9 +186,10 @@ class StatusOverallAndSyncPhaseTest {
         val phase = StatusResultMapper.resolveSyncPhase(
             periodic = emptyList(),
             immediate = listOf(workInfo(WorkInfo.State.ENQUEUED, "pim_mobile_sync_now")),
+            syncState = idleSyncState,
             justAccepted = true
         )
-        assertEquals(SyncPhase.Waiting, phase)
+        assertEquals(SyncPhase.Accepted, phase)
     }
 
     @Test
@@ -192,9 +197,10 @@ class StatusOverallAndSyncPhaseTest {
         val phase = StatusResultMapper.resolveSyncPhase(
             periodic = emptyList(),
             immediate = listOf(workInfo(WorkInfo.State.RUNNING, "pim_mobile_sync_now")),
+            syncState = idleSyncState,
             justAccepted = true
         )
-        assertEquals(SyncPhase.Running, phase)
+        assertEquals(SyncPhase.Accepted, phase)
     }
 
     @Test
@@ -202,9 +208,181 @@ class StatusOverallAndSyncPhaseTest {
         val phase = StatusResultMapper.resolveSyncPhase(
             periodic = emptyList(),
             immediate = listOf(workInfo(WorkInfo.State.SUCCEEDED, "pim_mobile_sync_now")),
+            syncState = idleSyncState,
             justAccepted = true
         )
         assertEquals(SyncPhase.Accepted, phase)
+    }
+
+    // --- new SyncPhase tests for active-work-only resolution ---
+
+    @Test
+    fun oldFailedAndSucceededWorkInfosDoNotChooseTerminalPhase() {
+        val completedSyncState = MobileSyncState(
+            phase = "completed", progressText = "",
+            outcome = MobileSyncOutcome.SUCCESS
+        )
+        val failedAndSucceeded = listOf(
+            workInfo(WorkInfo.State.FAILED, "pim_mobile_sync_now"),
+            workInfo(WorkInfo.State.SUCCEEDED, "pim_mobile_sync_now")
+        )
+        val phase1 = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(), immediate = failedAndSucceeded,
+            syncState = completedSyncState, justAccepted = false
+        )
+        assertEquals(SyncPhase.Completed, phase1)
+
+        val succeededAndFailed = listOf(
+            workInfo(WorkInfo.State.SUCCEEDED, "pim_mobile_sync_now"),
+            workInfo(WorkInfo.State.FAILED, "pim_mobile_sync_now")
+        )
+        val phase2 = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(), immediate = succeededAndFailed,
+            syncState = completedSyncState, justAccepted = false
+        )
+        assertEquals(SyncPhase.Completed, phase2)
+    }
+
+    @Test
+    fun activeWorkOverridesPersistedTerminalState() {
+        val failedSyncState = MobileSyncState(
+            phase = "failed", progressText = "",
+            outcome = MobileSyncOutcome.RETRY
+        )
+        val blockedSyncState = MobileSyncState(
+            phase = "server-missing", progressText = "",
+            outcome = MobileSyncOutcome.SUCCESS
+        )
+
+        val runningPhase = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(),
+            immediate = listOf(workInfo(WorkInfo.State.RUNNING, "pim_mobile_sync_now")),
+            syncState = failedSyncState,
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.Running, runningPhase)
+
+        val waitingPhase = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(),
+            immediate = listOf(workInfo(WorkInfo.State.ENQUEUED, "pim_mobile_sync_now")),
+            syncState = blockedSyncState,
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.Waiting, waitingPhase)
+    }
+
+    @Test
+    fun isInProgressAloneDoesNotProveRunning() {
+        val inProgressSyncState = MobileSyncState(
+            phase = "idle", progressText = "",
+            outcome = MobileSyncOutcome.SUCCESS, isInProgress = true
+        )
+        val phase = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(), immediate = emptyList(),
+            syncState = inProgressSyncState, justAccepted = false
+        )
+        assertEquals(SyncPhase.Idle, phase)
+    }
+
+    @Test
+    fun periodicRunningIsRunning() {
+        val phase = StatusResultMapper.resolveSyncPhase(
+            periodic = listOf(workInfo(WorkInfo.State.RUNNING, "pim_mobile_sync_periodic")),
+            immediate = emptyList(),
+            syncState = idleSyncState,
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.Running, phase)
+    }
+
+    @Test
+    fun workInfoBlockedIsWaiting() {
+        val phaseImmediate = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(),
+            immediate = listOf(workInfo(WorkInfo.State.BLOCKED, "pim_mobile_sync_now")),
+            syncState = idleSyncState,
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.Waiting, phaseImmediate)
+
+        val phasePeriodic = StatusResultMapper.resolveSyncPhase(
+            periodic = listOf(workInfo(WorkInfo.State.BLOCKED, "pim_mobile_sync_periodic")),
+            immediate = emptyList(),
+            syncState = idleSyncState,
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.Waiting, phasePeriodic)
+    }
+
+    @Test
+    fun persistedPrerequisitePhaseIsBlocked() {
+        for (phase in listOf("server-missing", "auth-missing", "usage-permission-missing")) {
+            val result = StatusResultMapper.resolveSyncPhase(
+                periodic = emptyList(),
+                immediate = emptyList(),
+                syncState = MobileSyncState(
+                    phase = phase, progressText = "",
+                    outcome = MobileSyncOutcome.SUCCESS, failedCount = 0
+                ),
+                justAccepted = false
+            )
+            assertEquals("Phase $phase should map to Blocked", SyncPhase.Blocked, result)
+        }
+    }
+
+    @Test
+    fun persistedRetryOutcomeIsFailed() {
+        val result = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(),
+            immediate = emptyList(),
+            syncState = MobileSyncState(
+                phase = "idle", progressText = "",
+                outcome = MobileSyncOutcome.RETRY, failedCount = 0
+            ),
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.Failed, result)
+    }
+
+    @Test
+    fun completedWithErrorsIsFailed() {
+        val result = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(),
+            immediate = emptyList(),
+            syncState = MobileSyncState(
+                phase = "completed-with-errors", progressText = "",
+                outcome = MobileSyncOutcome.SUCCESS, failedCount = 0
+            ),
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.Failed, result)
+
+        val resultFailedSuffix = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(),
+            immediate = emptyList(),
+            syncState = MobileSyncState(
+                phase = "upload-failed", progressText = "",
+                outcome = MobileSyncOutcome.SUCCESS, failedCount = 0
+            ),
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.Failed, resultFailedSuffix)
+    }
+
+    @Test
+    fun persistedCompletedPhaseIsCompleted() {
+        for (phase in listOf("completed", "uploaded", "location-uploaded")) {
+            val result = StatusResultMapper.resolveSyncPhase(
+                periodic = emptyList(),
+                immediate = emptyList(),
+                syncState = MobileSyncState(
+                    phase = phase, progressText = "",
+                    outcome = MobileSyncOutcome.SUCCESS, failedCount = 0
+                ),
+                justAccepted = false
+            )
+            assertEquals("Phase $phase should map to Completed", SyncPhase.Completed, result)
+        }
     }
 
     // --- nextAttemptAtMillis via production mapper ---
@@ -426,7 +604,7 @@ class StatusOverallAndSyncPhaseTest {
         assertTrue(issue.message.isNotBlank())
     }
 
-    // --- persisted sync failure (failedCount > 0) ---
+    // --- persisted sync failure (phase = failed / outcome = RETRY) ---
 
     @Test
     fun buildStatePersistedFailedPhaseWithFailedCountProducesSyncFailureAndAbnormal() {
@@ -435,6 +613,7 @@ class StatusOverallAndSyncPhaseTest {
             syncState = MobileSyncState(
                 phase = "failed",
                 progressText = "",
+                outcome = MobileSyncOutcome.RETRY,
                 failedCount = 1,
                 lastError = "timeout"
             ),
@@ -456,6 +635,7 @@ class StatusOverallAndSyncPhaseTest {
             syncState = MobileSyncState(
                 phase = "failed",
                 progressText = "",
+                outcome = MobileSyncOutcome.RETRY,
                 failedCount = 1,
                 lastError = "connection timeout"
             ),
@@ -478,6 +658,7 @@ class StatusOverallAndSyncPhaseTest {
                 syncState = MobileSyncState(
                     phase = phase,
                     progressText = "",
+                    outcome = MobileSyncOutcome.SUCCESS,
                     failedCount = 2,
                     lastError = "some error"
                 ),
@@ -502,6 +683,7 @@ class StatusOverallAndSyncPhaseTest {
                 syncState = MobileSyncState(
                     phase = phase,
                     progressText = "",
+                    outcome = MobileSyncOutcome.SUCCESS,
                     failedCount = 0,
                     lastError = "some error"
                 ),
@@ -521,6 +703,25 @@ class StatusOverallAndSyncPhaseTest {
         }
     }
 
+    @Test
+    fun oldFailedCountDoesNotCreateIssueWhenPhaseIsCompleted() {
+        val state = StatusResultMapper.buildState(
+            snapshot = healthySnapshot,
+            syncState = MobileSyncState(
+                phase = "completed", progressText = "",
+                outcome = MobileSyncOutcome.SUCCESS, failedCount = 5,
+                lastError = null
+            ),
+            workInfos = StatusWorkInfos(emptyList(), emptyList()),
+            permanentRejected = 0,
+            connected = true,
+            probeResult = null,
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.Completed, state.syncPhase)
+        assertFalse("failedCount must not create sync-failure when phase is completed", state.issues.any { it.code == "sync-failure" })
+    }
+
     // --- buildState aggregation ---
 
     private val healthySnapshot: StatusCenterSnapshot get() = StatusCenterSnapshot(
@@ -533,21 +734,27 @@ class StatusOverallAndSyncPhaseTest {
         diagnostics = DiagnosticSnapshot(null, null, null, null)
     )
 
-    private val idleSyncState = com.pim.app.mobile.sync.MobileSyncState(
+    private val idleSyncState = MobileSyncState(
         phase = "idle",
         progressText = "",
+        outcome = MobileSyncOutcome.SUCCESS,
         acceptedCount = 7,
         rejectedCount = 2,
+        failedCount = 0,
         lastSuccessfulUploadAt = "2026-07-13T10:00:00Z",
         lastAttemptedUploadAt = "2026-07-13T10:05:00Z",
         lastError = null
     )
 
     @Test
-    fun buildStateImmediateFailedWithNullErrorStillProducesSyncFailureAndAbnormal() {
+    fun buildStatePersistedFailureProducesSyncFailureAndAbnormal() {
         val state = StatusResultMapper.buildState(
             snapshot = healthySnapshot,
-            syncState = idleSyncState.copy(lastError = null),
+            syncState = MobileSyncState(
+                phase = "failed", progressText = "",
+                outcome = MobileSyncOutcome.RETRY, failedCount = 0,
+                lastError = "server error"
+            ),
             workInfos = StatusWorkInfos(
                 periodic = emptyList(),
                 immediate = listOf(workInfo(WorkInfo.State.FAILED, "pim_mobile_sync_now"))
@@ -579,8 +786,8 @@ class StatusOverallAndSyncPhaseTest {
         assertEquals(emptyList<StatusIssue>(), state.issues)
         assertEquals(5 + 3 + 1 + 2 + 1, state.pendingTotal)
         assertEquals(7, state.acceptedCount)
-        assertEquals(2, state.rejectedCount)
         assertEquals(0, state.permanentRejectedCount)
+        assertEquals(2, state.rejectedCount)
         assertEquals("2026-07-13T10:00:00Z", state.lastSuccessfulUploadAt)
         assertEquals("2026-07-13T10:05:00Z", state.lastAttemptedUploadAt)
     }
@@ -605,10 +812,14 @@ class StatusOverallAndSyncPhaseTest {
     }
 
     @Test
-    fun buildStateImmediateFailedProducesFailedPhaseAndSyncFailureIssue() {
+    fun buildStatePersistedFailedPhaseWithImmediateWorkProducesFailedPhaseAndSyncFailure() {
         val state = StatusResultMapper.buildState(
             snapshot = healthySnapshot,
-            syncState = idleSyncState.copy(lastError = "server error 500"),
+            syncState = MobileSyncState(
+                phase = "failed", progressText = "",
+                outcome = MobileSyncOutcome.RETRY, failedCount = 0,
+                lastError = "server error 500"
+            ),
             workInfos = StatusWorkInfos(
                 periodic = emptyList(),
                 immediate = listOf(workInfo(WorkInfo.State.FAILED, "pim_mobile_sync_now"))

@@ -23,7 +23,7 @@ class StatusPresentationTest {
 
         SyncPhase.entries.forEach { phase ->
             val state = StatusCenterState.empty().copy(isLoading = false, syncPhase = phase)
-            assertEquals(phase in enabled, syncButtonEnabled(state))
+            assertEquals("phase=$phase enabled=${phase in enabled}", phase in enabled, syncButtonEnabled(state))
         }
 
         assertFalse(syncButtonEnabled(StatusCenterState.empty().copy(isLoading = true, syncPhase = SyncPhase.Idle)))
@@ -33,8 +33,11 @@ class StatusPresentationTest {
     fun phaseAndButtonLabelsExplainQueuedWork() {
         assertEquals("当前空闲", syncPhaseLabel(SyncPhase.Idle))
         assertEquals("等待网络或系统调度", syncPhaseLabel(SyncPhase.Waiting))
+        assertEquals("同步条件未满足", syncPhaseLabel(SyncPhase.Blocked))
         assertEquals("请求已接受", syncButtonLabel(SyncPhase.Accepted))
+        assertEquals("暂不可同步", syncButtonLabel(SyncPhase.Blocked))
         assertEquals("再次同步", syncButtonLabel(SyncPhase.Completed))
         assertTrue(syncButtonLabel(SyncPhase.Failed).contains("重新"))
+        assertFalse(syncButtonEnabled(StatusCenterState.empty().copy(isLoading = false, syncPhase = SyncPhase.Blocked)))
     }
 }

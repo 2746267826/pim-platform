@@ -1,6 +1,9 @@
 package com.pim.app.status
 
 import android.app.Application
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.test.core.app.ApplicationProvider
@@ -32,6 +35,33 @@ class StatusPermissionNavigatorTest {
     }
 
     @Test
+    fun foregroundLocationIssueNavigatesToAppDetails() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val issue = StatusIssue.foregroundLocationMissing()
+        val intent = StatusPermissionNavigator.intentFor(context, issue)
+        assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, intent.action)
+        assertEquals(Uri.parse("package:${context.packageName}"), intent.data)
+    }
+
+    @Test
+    fun backgroundLocationIssueNavigatesToAppDetails() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val issue = StatusIssue.backgroundLocationMissing()
+        val intent = StatusPermissionNavigator.intentFor(context, issue)
+        assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, intent.action)
+        assertEquals(Uri.parse("package:${context.packageName}"), intent.data)
+    }
+
+    @Test
+    fun activityRecognitionIssueNavigatesToAppDetails() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val issue = StatusIssue.activityRecognitionMissing()
+        val intent = StatusPermissionNavigator.intentFor(context, issue)
+        assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, intent.action)
+        assertEquals(Uri.parse("package:${context.packageName}"), intent.data)
+    }
+
+    @Test
     fun unknownIssueFallsBackToAppDetails() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val unknownIssue = StatusIssue(
@@ -46,5 +76,46 @@ class StatusPermissionNavigatorTest {
 
         assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, intent.action)
         assertEquals(Uri.parse("package:${context.packageName}"), intent.data)
+    }
+
+    @Test
+    fun securityRestrictedPermissionIntentFallsBackToAppDetails() {
+        val context = SecurityRecordingContext(
+            ApplicationProvider.getApplicationContext(),
+            failuresBeforeSuccess = 1
+        )
+
+        StatusPermissionNavigator.open(context, StatusIssue.usageAccessMissing())
+
+        assertEquals(
+            listOf(Settings.ACTION_USAGE_ACCESS_SETTINGS, Settings.ACTION_APPLICATION_DETAILS_SETTINGS),
+            context.actions
+        )
+    }
+
+    @Test
+    fun securityRestrictedFallbackDoesNotCrash() {
+        val context = SecurityRecordingContext(
+            ApplicationProvider.getApplicationContext(),
+            failuresBeforeSuccess = Int.MAX_VALUE
+        )
+
+        StatusPermissionNavigator.open(context, StatusIssue.usageAccessMissing())
+
+        assertEquals(2, context.actions.size)
+    }
+
+    private class SecurityRecordingContext(
+        base: Context,
+        private val failuresBeforeSuccess: Int
+    ) : ContextWrapper(base) {
+        val actions = mutableListOf<String?>()
+
+        override fun startActivity(intent: Intent) {
+            actions += intent.action
+            if (actions.size <= failuresBeforeSuccess) {
+                throw SecurityException("settings destination restricted")
+            }
+        }
     }
 }

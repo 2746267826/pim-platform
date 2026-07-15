@@ -618,6 +618,42 @@ class SettingsServerMutationTest {
     }
 
     @Test
+    fun automaticSettingsProbeIsSilentOnSuccess() {
+        val now = System.currentTimeMillis()
+        val fixture = fixture()
+        val fresh = successfulProbe(SERVER_A_URL).copy(checkedAtUtcMillis = now)
+        fixture.probeStore.save(fresh)
+
+        fixture.viewModel.refresh()
+
+        val state = fixture.viewModel.state.value
+        assertNull("auto probe must not set apiStatus on success", state.apiStatus)
+    }
+
+    @Test
+    fun automaticSettingsProbeIsSilentOnFailure() {
+        val fixture = fixture(probeFailure = IllegalStateException("boom"))
+
+        val state = fixture.viewModel.state.value
+        assertNull("auto probe must not set apiStatus on failure", state.apiStatus)
+    }
+
+    @Test
+    fun initializationDoesNotDuplicateVisibleScreenProbe() {
+        var probeAttempts = 0
+        val fixture = fixture(
+            probeFailure = IllegalStateException("stop after counting"),
+            onProbeStarted = { probeAttempts++ }
+        )
+
+        assertEquals(0, probeAttempts)
+
+        fixture.viewModel.refresh()
+
+        assertEquals(1, probeAttempts)
+    }
+
+    @Test
     fun onResumeRefreshesPermissionsOnlyWhenIntentFalse() {
         val fixture = fixture()
         val application = ApplicationProvider.getApplicationContext<Application>()
@@ -639,7 +675,11 @@ class SettingsServerMutationTest {
         }
     }
 
-    private fun fixture(failSessionClear: Boolean = false): Fixture {
+    private fun fixture(
+        failSessionClear: Boolean = false,
+        probeFailure: Throwable? = null,
+        onProbeStarted: () -> Unit = {}
+    ): Fixture {
         val serverPreferences = ScriptedCommitSharedPreferences(
             context.getSharedPreferences(SERVER_PREFS, Context.MODE_PRIVATE)
         )
@@ -673,7 +713,10 @@ class SettingsServerMutationTest {
             anonymousClient = OkHttpClient(),
             authenticatedClient = OkHttpClient(),
             tokenSource = ProbeTokenSource { null },
-            wallClockMillis = { 1_000L },
+            wallClockMillis = {
+                onProbeStarted()
+                if (probeFailure != null) throw probeFailure else 1_000L
+            },
             monotonicNanos = { 0L }
         )
         val mobileSyncScheduler = MobileSyncScheduler(context, trackingSettings)
@@ -699,7 +742,8 @@ class SettingsServerMutationTest {
             trackingSettings = trackingSettings,
             serverPreferences = serverPreferences,
             mobileSyncScheduler = mobileSyncScheduler,
-            permissionStatusRepository = permissionStatusRepository
+            permissionStatusRepository = permissionStatusRepository,
+            probeStore = probeStore
         )
     }
 
@@ -724,7 +768,8 @@ class SettingsServerMutationTest {
         val trackingSettings: TrackingSettingsStore,
         val serverPreferences: ScriptedCommitSharedPreferences,
         val mobileSyncScheduler: MobileSyncScheduler,
-        val permissionStatusRepository: PermissionStatusRepository
+        val permissionStatusRepository: PermissionStatusRepository,
+        val probeStore: ConnectionProbeStore
     )
 
     private companion object {

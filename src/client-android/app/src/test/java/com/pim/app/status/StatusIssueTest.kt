@@ -3,28 +3,19 @@ package com.pim.app.status
 import com.pim.app.location.service.ForegroundLocationRuntimeState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlinx.coroutines.runBlocking
 
 class StatusIssueTest {
     @Test
-    fun requiredIssuesHaveReadableActionLabels() {
-        val issues = StatusIssue.requiredIssueCodes()
-
-        assertTrue(issues.contains("api-address-missing"))
-        assertTrue(issues.contains("background-location-missing"))
-        assertTrue(issues.contains("foreground-service-not-running"))
-        assertTrue(issues.contains("location-accuracy-rejected"))
-        assertTrue(issues.contains("altitude-missing-timeout"))
-        assertTrue(issues.contains("upload-queue-backlog"))
-
+    fun actionLabelsAreReadable() {
         assertEquals("去设置", StatusIssue.apiAddressMissing().actionLabel)
         assertEquals("去设置", StatusIssue.backgroundLocationMissing().actionLabel)
-        assertEquals("去设置", StatusIssue.foregroundServiceNotRunning().actionLabel)
-        assertEquals("去设置", StatusIssue.locationAccuracyRejected().actionLabel)
-        assertEquals("去设置", StatusIssue.altitudeMissingTimeout().actionLabel)
-        assertEquals("去设置", StatusIssue.uploadQueueBacklog(18).actionLabel)
+        assertEquals("立即同步", StatusIssue.uploadQueueBacklog(18).actionLabel)
+        assertEquals("重新检查连接", StatusIssue.probeBlocked().actionLabel)
+        assertEquals("重新检查连接", StatusIssue.probePartial().actionLabel)
     }
 
     @Test
@@ -59,7 +50,6 @@ class StatusIssueTest {
                 pendingUsageEvents = 0,
                 pendingUsageSummaries = 0,
                 pendingAppMetadata = 0,
-                pendingLogs = 0,
                 pendingDeviceProfile = 0
             ),
             diagnostics = DiagnosticSnapshot(
@@ -78,7 +68,6 @@ class StatusIssueTest {
         assertEquals("前台定位服务未运行", issues.getValue("foreground-service-not-running").title)
         assertEquals("定位精度不达标", issues.getValue("location-accuracy-rejected").title)
         assertEquals("上传队列积压", issues.getValue("upload-queue-backlog").title)
-        assertEquals("最近错误", issues.getValue("recent-error").title)
         assertFalse("current-policy-state must not appear when policy is valid", issues.containsKey("current-policy-state"))
         assertFalse("location-dropped-recent must not appear for known dropped reason", issues.containsKey("location-dropped-recent"))
     }
@@ -118,7 +107,9 @@ class StatusIssueTest {
         assertEquals(StatusActionRoute.OpenPermissions, StatusActionRouter.route(StatusActionTarget.Permissions))
         assertEquals(StatusActionRoute.TriggerSync, StatusActionRouter.route(StatusActionTarget.Sync))
         assertEquals(StatusActionRoute.TriggerSync, StatusActionRouter.route(StatusActionTarget.Queue))
-        assertEquals(StatusActionRoute.StayOnStatus, StatusActionRouter.route(StatusActionTarget.Status))
+        assertEquals(StatusActionRoute.OpenNetworkSettings, StatusActionRouter.route(StatusActionTarget.NetworkSettings))
+        assertEquals(StatusActionRoute.ConnectionCheck, StatusActionRouter.route(StatusActionTarget.ConnectionCheck))
+        assertEquals(StatusActionRoute.None, StatusActionRouter.route(StatusActionTarget.None))
     }
 
     @Test
@@ -127,7 +118,8 @@ class StatusIssueTest {
         var refreshed = false
         val runner = StatusSyncActionRunner(
             syncNow = { synced = true },
-            refresh = { refreshed = true }
+            refresh = { refreshed = true },
+            acceptedSignal = StatusAcceptedSignal()
         )
 
         runner.run(StatusActionRoute.TriggerSync)
@@ -141,7 +133,8 @@ class StatusIssueTest {
         var synced = false
         val runner = StatusSyncActionRunner(
             syncNow = { synced = true },
-            refresh = {}
+            refresh = {},
+            acceptedSignal = StatusAcceptedSignal()
         )
 
         runner.run(StatusActionRoute.OpenSettings)
@@ -160,13 +153,117 @@ class StatusIssueTest {
     }
 
     @Test
-    fun pendingUploadTotalExcludesLogs() {
+    fun acceptedSignalStartsFalse() {
+        val signal = StatusAcceptedSignal()
+        assertEquals(false, signal.state.value.isAccepted)
+    }
+
+    @Test
+    fun acceptedSignalTriggerSetsTrue() {
+        val signal = StatusAcceptedSignal()
+        signal.trigger()
+        assertEquals(true, signal.state.value.isAccepted)
+    }
+
+    @Test
+    fun acceptedSignalClearIfGenerationResetsMatchingTrigger() {
+        val signal = StatusAcceptedSignal()
+        val generation = signal.trigger()
+        signal.clearIfGeneration(generation)
+        assertEquals(false, signal.state.value.isAccepted)
+    }
+
+    @Test
+    fun acceptedSignalClearIfGenerationDoesNothingWhenNotTriggered() {
+        val signal = StatusAcceptedSignal()
+        signal.clearIfGeneration(0L)
+        assertEquals(false, signal.state.value.isAccepted)
+    }
+
+    @Test
+    fun syncActionPublishesAcceptedOnlyAfterEnqueueSucceeds() = runBlocking {
+        val signal = StatusAcceptedSignal()
+        var acceptedAtSyncTime = false
+        var refreshed = false
+        val runner = StatusSyncActionRunner(
+            syncNow = {
+                acceptedAtSyncTime = signal.state.value.isAccepted
+            },
+            refresh = { refreshed = true },
+            acceptedSignal = signal
+        )
+
+        runner.run(StatusActionRoute.TriggerSync)
+
+        assertFalse("accepted must NOT be true during syncNow", acceptedAtSyncTime)
+        assertTrue(refreshed)
+        assertTrue("accepted must be true after syncNow succeeds", signal.state.value.isAccepted)
+    }
+
+    @Test
+    fun syncActionRunnerPublishesAcceptedAndRefresh() = runBlocking {
+        var synced = false
+        var refreshed = false
+        val signal = StatusAcceptedSignal()
+        val runner = StatusSyncActionRunner(
+            syncNow = { synced = true },
+            refresh = { refreshed = true },
+            acceptedSignal = signal
+        )
+
+        runner.run(StatusActionRoute.TriggerSync)
+
+        assertTrue(synced)
+        assertTrue(refreshed)
+        assertEquals(true, signal.state.value.isAccepted)
+    }
+
+    @Test
+    fun syncActionRunnerDoesNotPublishAcceptedForNonSyncRoutes() = runBlocking {
+        var synced = false
+        val signal = StatusAcceptedSignal()
+        val runner = StatusSyncActionRunner(
+            syncNow = { synced = true },
+            refresh = {},
+            acceptedSignal = signal
+        )
+
+        runner.run(StatusActionRoute.OpenSettings)
+
+        assertFalse(synced)
+        assertEquals(false, signal.state.value.isAccepted)
+    }
+
+    @Test
+    fun syncActionFailureDoesNotPublishAccepted() = runBlocking {
+        val signal = StatusAcceptedSignal()
+        val expectedException = RuntimeException("sync failed")
+        var refreshCount = 0
+        val runner = StatusSyncActionRunner(
+            syncNow = { throw expectedException },
+            refresh = { refreshCount++ },
+            acceptedSignal = signal
+        )
+
+        val actualException = try {
+            runner.run(StatusActionRoute.TriggerSync)
+            null
+        } catch (e: Throwable) {
+            e
+        }
+
+        assertSame(expectedException, actualException)
+        assertFalse("accepted must not be published on exception", signal.state.value.isAccepted)
+        assertEquals(1, refreshCount)
+    }
+
+    @Test
+    fun pendingUploadTotalAggregatesAllQueues() {
         val queues = QueueStatusSnapshot(
             pendingLocationPoints = 10,
             pendingUsageEvents = 5,
             pendingUsageSummaries = 3,
             pendingAppMetadata = 2,
-            pendingLogs = 99,
             pendingDeviceProfile = 1,
             pendingSyncBatches = 0
         )
@@ -233,6 +330,150 @@ class StatusIssueTest {
 
         val issues = StatusIssuePlanner.plan(snapshot)
         assertTrue("unknown dropped reason must produce location-dropped-recent", issues.any { it.code == "location-dropped-recent" })
+    }
+
+    @Test
+    fun networkDisconnectedTargetsNetworkSettings() {
+        val issue = StatusIssue.networkDisconnected()
+        assertEquals(StatusActionTarget.NetworkSettings, issue.target)
+    }
+
+    @Test
+    fun probeBlockedTargetsConnectionCheck() {
+        val issue = StatusIssue.probeBlocked()
+        assertEquals(StatusActionTarget.ConnectionCheck, issue.target)
+        assertEquals("重新检查连接", issue.actionLabel)
+    }
+
+    @Test
+    fun probePartialTargetsConnectionCheck() {
+        val issue = StatusIssue.probePartial()
+        assertEquals(StatusActionTarget.ConnectionCheck, issue.target)
+        assertEquals("重新检查连接", issue.actionLabel)
+    }
+
+    @Test
+    fun foregroundServiceNotRunningOpensCollectionSettings() {
+        val issue = StatusIssue.foregroundServiceNotRunning()
+        assertEquals(StatusActionTarget.Settings, issue.target)
+        assertEquals("查看采集设置", issue.actionLabel)
+    }
+
+    @Test
+    fun locationAccuracyRejectedOpensCollectionSettings() {
+        assertEquals(StatusActionTarget.Settings, StatusIssue.locationAccuracyRejected().target)
+    }
+
+    @Test
+    fun altitudeMissingTimeoutOpensCollectionSettings() {
+        assertEquals(StatusActionTarget.Settings, StatusIssue.altitudeMissingTimeout().target)
+    }
+
+    @Test
+    fun uploadBacklogActionMatchesItsSyncRoute() {
+        val issue = StatusIssue.uploadQueueBacklog(18)
+        assertEquals("立即同步", issue.actionLabel)
+        assertEquals(StatusActionTarget.Queue, issue.target)
+        assertEquals(StatusActionRoute.TriggerSync, StatusActionRouter.route(issue.target))
+    }
+
+    @Test
+    fun recentDroppedLocationHasNoAction() {
+        assertEquals(StatusActionTarget.None, StatusIssue.recentDroppedLocation("x", null).target)
+    }
+
+    @Test
+    fun routeForConnectionCheckReturnsConnectionCheck() {
+        assertEquals(StatusActionRoute.ConnectionCheck, StatusActionRouter.route(StatusActionTarget.ConnectionCheck))
+    }
+
+    @Test
+    fun routeForNetworkSettingsReturnsOpenNetworkSettings() {
+        assertEquals(StatusActionRoute.OpenNetworkSettings, StatusActionRouter.route(StatusActionTarget.NetworkSettings))
+    }
+
+    @Test
+    fun routeForNoneReturnsNone() {
+        assertEquals(StatusActionRoute.None, StatusActionRouter.route(StatusActionTarget.None))
+    }
+
+    @Test
+    fun syncFailureAlwaysUsesFixedSummary() {
+        val issue = StatusIssue.syncFailure()
+        assertEquals("最近同步出现异常，请导出日志查看详情。", issue.message)
+        assertEquals(StatusSeverity.Critical, issue.severity)
+        assertEquals(StatusActionTarget.Sync, issue.target)
+    }
+
+    @Test
+    fun heartbeatFailureAlwaysUsesFixedSummary() {
+        val issue = StatusIssue.heartbeatFailure()
+        assertEquals("最近一次心跳上报异常。", issue.message)
+        assertEquals(StatusSeverity.Warning, issue.severity)
+        assertEquals(StatusActionTarget.Sync, issue.target)
+    }
+
+    @Test
+    fun needAttentionContainsOnlyCriticalAndWarningInSeverityOrder() {
+        val issues = listOf(
+            StatusIssue.altitudeMissingTimeout(), // Info
+            StatusIssue.probeBlocked(), // Critical
+            StatusIssue.usageAccessMissing(), // Warning
+            StatusIssue.apiAddressMissing(), // Critical
+            StatusIssue.heartbeatFailure(), // Warning
+            StatusIssue.recentDroppedLocation("test", null), // Info
+        )
+        val actionable = actionableStatusIssues(issues)
+        val info = informationalStatusIssues(issues)
+
+        assertEquals(4, actionable.size)
+        assertTrue(actionable.all { it.severity != StatusSeverity.Info })
+        assertEquals(
+            listOf(
+                StatusSeverity.Critical,
+                StatusSeverity.Critical,
+                StatusSeverity.Warning,
+                StatusSeverity.Warning
+            ),
+            actionable.map { it.severity }
+        )
+        assertEquals(2, info.size)
+        assertTrue(info.all { it.severity == StatusSeverity.Info })
+    }
+
+    @Test
+    fun statusInformationAppearsOnlyWhenInfoExists() {
+        val noInfo = listOf(
+            StatusIssue.probeBlocked(), StatusIssue.usageAccessMissing()
+        )
+        val infoIssues = listOf(
+            StatusIssue.altitudeMissingTimeout(),
+            StatusIssue.recentDroppedLocation("x", null)
+        )
+
+        val info = informationalStatusIssues(noInfo)
+        assertEquals(0, info.size)
+
+        val info2 = informationalStatusIssues(infoIssues)
+        assertEquals(2, info2.size)
+    }
+
+    @Test
+    fun pendingUploadSnapshotHasNoPendingLogsField() {
+        val hasField = runCatching {
+            QueueStatusSnapshot::class.java.getDeclaredField("pendingLogs")
+        }.isSuccess
+        assertFalse("pendingLogs field must be removed from QueueStatusSnapshot", hasField)
+
+        val q = QueueStatusSnapshot(
+            pendingLocationPoints = 10,
+            pendingUsageEvents = 5,
+            pendingUsageSummaries = 3,
+            pendingAppMetadata = 2,
+            pendingDeviceProfile = 1,
+            pendingSyncBatches = 0
+        )
+        assertEquals(10 + 5 + 3 + 2 + 1 + 0, q.pendingUploadTotal)
     }
 
     @Test

@@ -16,7 +16,8 @@ interface ConnectionProbeEvidenceStore {
 
 class ConnectionProbeStore(
     private val preferences: SharedPreferences,
-    private val json: Json
+    private val json: Json,
+    private val nowMillis: () -> Long = System::currentTimeMillis
 ) : ConnectionProbeEvidenceStore {
     private val lock = Any()
     private val mutableResult = MutableStateFlow(load())
@@ -24,13 +25,22 @@ class ConnectionProbeStore(
     override val result: StateFlow<ConnectionProbeResult?> = mutableResult.asStateFlow()
 
     override fun save(result: ConnectionProbeResult): Boolean {
-        val encoded = json.encodeToString(result)
         return synchronized(lock) {
-            val committed = preferences.edit()
-                .putString(KEY_RESULT, encoded)
-                .commit()
-            if (committed) mutableResult.value = result
-            committed
+            val current = mutableResult.value
+            val staleSameServer = current != null
+                && current.serverIdentity == result.serverIdentity
+                && result.checkedAtUtcMillis < current.checkedAtUtcMillis
+                && current.checkedAtUtcMillis <= nowMillis()
+            if (staleSameServer) {
+                false
+            } else {
+                val encoded = json.encodeToString(result)
+                val committed = preferences.edit()
+                    .putString(KEY_RESULT, encoded)
+                    .commit()
+                if (committed) mutableResult.value = result
+                committed
+            }
         }
     }
 

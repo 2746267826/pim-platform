@@ -15,12 +15,21 @@ object StatusPermissionNavigator {
         tryStartActivity(context, intentFor(context, issueCode))
 
     private fun tryStartActivity(context: Context, intent: Intent) {
-        val flags = intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
-            context.startActivity(flags)
-        } catch (_: ActivityNotFoundException) {
-            context.startActivity(appDetailsIntent(context).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        if (tryOpen(context, intent)) return
+
+        val fallback = appDetailsIntent(context)
+        if (intent.action != fallback.action || intent.data != fallback.data) {
+            tryOpen(context, fallback)
         }
+    }
+
+    private fun tryOpen(context: Context, intent: Intent): Boolean = try {
+        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        true
+    } catch (_: ActivityNotFoundException) {
+        false
+    } catch (_: SecurityException) {
+        false
     }
 
     fun intentFor(context: Context, issue: StatusIssue): Intent = intentFor(context, issue.code)
@@ -30,6 +39,9 @@ object StatusPermissionNavigator {
         "notification-permission-missing" -> notificationSettingsIntent(context)
         "battery-optimization-missing" -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
             .setData(Uri.parse("package:${context.packageName}"))
+        "foreground-location-missing",
+        "background-location-missing",
+        "activity-recognition-missing" -> appDetailsIntent(context)
         else -> appDetailsIntent(context)
     }
 

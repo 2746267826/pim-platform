@@ -11,7 +11,10 @@ import com.pim.app.status.ConnectionProbeOutcome
 import com.pim.app.status.ConnectionProbeResult
 import com.pim.app.status.ConnectionProbeService
 import com.pim.app.status.ConnectionProbeStore
+import com.pim.app.status.probeRefreshDelayMillis
+import com.pim.app.status.resolveProbeResult
 import com.pim.app.status.PermissionStatusSnapshot
+import com.pim.core.settings.PimServerEndpoints
 import com.pim.core.auth.ServerBoundLoginCoordinator
 import com.pim.core.auth.ServerBoundLoginResult
 import com.pim.core.auth.TokenManager
@@ -68,10 +71,14 @@ class SettingsViewModel @Inject constructor(
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
 
     init {
-        refresh()
+        refresh(runProbe = false)
     }
 
     fun refresh() {
+        refresh(runProbe = true)
+    }
+
+    private fun refresh(runProbe: Boolean) {
         reloadOperationalState()
         viewModelScope.launch {
             val address = serverSettingsStore.getBaseUrl()
@@ -86,7 +93,9 @@ class SettingsViewModel @Inject constructor(
                     permissions = permissionStatusRepository.snapshot()
                 )
             }
-            runConnectionProbe(force = false)
+            if (runProbe) {
+                runConnectionProbe(force = false)
+            }
         }
     }
 
@@ -531,55 +540,48 @@ class SettingsViewModel @Inject constructor(
         finishBusyState: Boolean = false
     ): Boolean {
         val targetUrl = serverSettingsStore.getBaseUrl()
-        val result = runCatching {
-            if (force) {
-                connectionProbeService.probe(targetUrl).also { result ->
+        val serverIdentity = runCatching {
+            PimServerEndpoints.from(targetUrl).apiBaseUrl.toString()
+        }.getOrNull()
+        return try {
+            val probeResult = resolveProbeResult(
+                force = force,
+                serverIdentity = serverIdentity,
+                store = connectionProbeStore,
+                probe = { connectionProbeService.probe(targetUrl) },
+                save = { r ->
                     if (serverSettingsStore.getBaseUrl() == targetUrl) {
-                        connectionProbeStore.save(result)
-                    }
-                }
-            } else {
-                val serverIdentity = runCatching {
-                    com.pim.core.settings.PimServerEndpoints.from(targetUrl).apiBaseUrl.toString()
-                }.getOrNull()
-                connectionProbeStore.freshResult(serverIdentity ?: targetUrl, System.currentTimeMillis())
-                    ?: connectionProbeService.probe(targetUrl).also { result ->
-                        if (serverSettingsStore.getBaseUrl() == targetUrl) {
-                            connectionProbeStore.save(result)
-                        }
-                    }
-            }
-        }.fold(
-            onSuccess = { probeResult ->
+                        connectionProbeStore.save(r)
+                    } else false
+                },
+                nowMillis = System.currentTimeMillis()
+            )
+            if (finishBusyState) {
                 val currentUrl = serverSettingsStore.getBaseUrl()
                 if (currentUrl == targetUrl) {
                     _state.update {
-                        it.copy(
-                            apiStatus = probeResult.statusMessage(),
-                            isBusy = if (finishBusyState) false else it.isBusy
-                        )
+                        it.copy(apiStatus = probeResult.statusMessage(), isBusy = false)
                     }
-                } else if (finishBusyState) {
+                } else {
                     _state.update { it.copy(isBusy = false) }
                 }
-                true
-            },
-            onFailure = {
+            }
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            if (finishBusyState) {
                 val currentUrl = serverSettingsStore.getBaseUrl()
                 if (currentUrl == targetUrl) {
                     _state.update {
-                        it.copy(
-                            apiStatus = "连接测试失败。",
-                            isBusy = if (finishBusyState) false else it.isBusy
-                        )
+                        it.copy(apiStatus = "连接测试失败。", isBusy = false)
                     }
-                } else if (finishBusyState) {
+                } else {
                     _state.update { it.copy(isBusy = false) }
                 }
-                false
             }
-        )
-        return result
+            false
+        }
     }
 
     private fun millisUntilRefresh(): Long {
@@ -587,11 +589,11 @@ class SettingsViewModel @Inject constructor(
         val serverIdentity = runCatching {
             com.pim.core.settings.PimServerEndpoints.from(serverUrl).apiBaseUrl.toString()
         }.getOrNull() ?: return ConnectionProbeStore.FRESHNESS_MILLIS
-        val current = connectionProbeStore.result.value ?: return 0L
-        if (current.serverIdentity != serverIdentity) return 0L
-        val ageMillis = System.currentTimeMillis() - current.checkedAtUtcMillis
-        if (ageMillis < 0L) return 0L
-        return (ConnectionProbeStore.FRESHNESS_MILLIS - ageMillis).coerceAtLeast(0L)
+        return probeRefreshDelayMillis(
+            result = connectionProbeStore.result.value,
+            serverIdentity = serverIdentity,
+            nowMillis = System.currentTimeMillis()
+        )
     }
 
     private fun persistedCollectionEnabled(): Boolean {

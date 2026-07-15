@@ -1,0 +1,552 @@
+package com.pim.app.ui.status
+
+import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.unit.dp
+import com.pim.app.status.ApiConnectionSnapshot
+import com.pim.app.status.ConnectionProbeOutcome
+import com.pim.app.status.ConnectionProbeResult
+import com.pim.app.status.DiagnosticSnapshot
+import com.pim.app.status.TrackingPolicySnapshot
+import com.pim.app.status.ConnectionProbeStage
+import com.pim.app.status.NetworkAvailability
+import com.pim.app.status.PermissionStatusSnapshot
+import com.pim.app.status.ServerCapabilities
+import com.pim.app.status.StatusActionTarget
+import com.pim.app.status.StatusCenterState
+import com.pim.app.status.StatusIssue
+import com.pim.app.status.StatusOverall
+import com.pim.app.status.StatusSeverity
+import com.pim.app.status.SyncPhase
+import com.pim.app.ui.theme.PimTheme
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+
+class StatusCenterScreenTest {
+    @get:Rule
+    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+
+    @Test
+    fun loadingShowsProgressAndDisablesSync() {
+        val state = mutableStateOf(StatusCenterState.empty().copy(isLoading = true, syncPhase = SyncPhase.Idle))
+        composeTestRule.setContent { PimTheme { StatusCenterContent(state = state.value) } }
+
+        composeTestRule.onNodeWithTag("status-loading").assertIsDisplayed()
+        composeTestRule.onNodeWithText("正在读取状态").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-sync-button").assertIsNotEnabled()
+    }
+
+    @Test
+    fun overallNormalShowsNormalText() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState(syncPhase = SyncPhase.Idle)) }
+        }
+        composeTestRule.onNodeWithTag("status-overall").assertIsDisplayed()
+        composeTestRule.onNodeWithText("正常").assertIsDisplayed()
+    }
+
+    @Test
+    fun overallAttentionShowsAttentionText() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState().copy(overall = StatusOverall.Attention)) }
+        }
+        composeTestRule.onNodeWithText("需注意").assertIsDisplayed()
+    }
+
+    @Test
+    fun overallAbnormalShowsAbnormalText() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState().copy(overall = StatusOverall.Abnormal)) }
+        }
+        composeTestRule.onNodeWithText("异常").assertIsDisplayed()
+    }
+
+    @Test
+    fun syncPhaseRunningShowsRunningText() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState().copy(syncPhase = SyncPhase.Running)) }
+        }
+        composeTestRule.onNodeWithTag("status-sync-phase").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-sync-button").assertIsNotEnabled()
+    }
+
+    @Test
+    fun transportFactsShowCountsAndTimes() {
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    normalState().copy(
+                        pendingTotal = 42,
+                        acceptedCount = 5,
+                        rejectedCount = 3,
+                        permanentRejectedCount = 1,
+                        lastSuccessfulUploadAt = "2026-07-14T10:00:00Z",
+                        lastAttemptedUploadAt = "2026-07-14T10:05:00Z",
+                        nextAttemptAtMillis = 60_000L
+                    )
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("status-pending").assertIsDisplayed()
+        composeTestRule.onNodeWithText("42").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-confirmed").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-rejected").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-permanent-rejected").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-last-success").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-last-attempt").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-next-attempt").assertIsDisplayed()
+    }
+
+    @Test
+    fun transportShowsPlaceholdersWithoutHistoryOrSchedule() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState()) }
+        }
+
+        composeTestRule.onNode(
+            hasTestTag("status-last-success") and hasAnyDescendant(hasText("暂无"))
+        ).assertExists()
+        composeTestRule.onNode(
+            hasTestTag("status-last-attempt") and hasAnyDescendant(hasText("暂无"))
+        ).assertExists()
+        composeTestRule.onNode(
+            hasTestTag("status-next-attempt") and hasAnyDescendant(hasText("未安排"))
+        ).assertExists()
+    }
+
+    @Test
+    fun collectionPermissionsNetworkProbeAndDiagnosticsAreVisible() {
+        val probeResult = ConnectionProbeResult(
+            outcome = ConnectionProbeOutcome.Reachable,
+            checkedAtUtcMillis = 1_000L,
+            lastCompletedStage = ConnectionProbeStage.WebRoot,
+            latencyMillisByStage = emptyMap(),
+            capabilities = ServerCapabilities(true, true),
+            serverIdentity = "https://example/api/v1/"
+        )
+        val state = normalState().copy(
+            snapshot = normalState().snapshot.copy(
+                permissions = PermissionStatusSnapshot(
+                    notificationGranted = true,
+                    preciseLocationGranted = false,
+                    backgroundLocationGranted = true,
+                    usageAccessGranted = false,
+                    activityRecognitionGranted = true,
+                    batteryOptimizationGranted = false
+                ),
+                tracking = normalState().snapshot.tracking.copy(
+                    nextExpectedLocationAtMillis = 1_752_488_200_000L
+                ),
+                diagnostics = normalState().snapshot.diagnostics.copy(
+                    lastLogMessage = "手机同步已完成。",
+                    recentLogMessages = emptyList()
+                )
+            ),
+            lastProbeResult = probeResult,
+            lastProbeCheckedAtMillis = 1_000L,
+            networkAvailability = NetworkAvailability.Validated
+        )
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(state = state) }
+        }
+
+        composeTestRule.onNodeWithTag("status-permission-notification").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-permission-precise-location").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-permission-background-location").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-permission-usage-access").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-permission-activity-recognition").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-permission-battery-optimization").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-network").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-probe").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-diagnostics").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-next-location").assertExists()
+        composeTestRule.onNodeWithText("最近记录").assertExists()
+        composeTestRule.onNodeWithText("有近期诊断记录").assertExists()
+    }
+
+    @Test
+    fun connectionProbeShowsNotCheckedWhenNoEvidenceExists() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState().copy(lastProbeResult = null)) }
+        }
+
+        composeTestRule.onNode(
+            hasTestTag("status-probe") and hasAnyDescendant(hasText("未检查"))
+        ).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun syncButtonIdleIsEnabled() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState().copy(syncPhase = SyncPhase.Idle, isLoading = false)) }
+        }
+        composeTestRule.onNodeWithTag("status-sync-button").assertIsEnabled()
+    }
+
+    @Test
+    fun syncButtonRunningIsDisabled() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState().copy(syncPhase = SyncPhase.Running, isLoading = false)) }
+        }
+        composeTestRule.onNodeWithTag("status-sync-button").assertIsNotEnabled()
+    }
+
+    @Test
+    fun syncButtonFailedIsEnabled() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState().copy(syncPhase = SyncPhase.Failed, isLoading = false)) }
+        }
+        composeTestRule.onNodeWithTag("status-sync-button").assertIsEnabled()
+    }
+
+    @Test
+    fun syncButtonClicksOnceForIdle() {
+        var clickCount = 0
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState().copy(syncPhase = SyncPhase.Idle, isLoading = false),
+                    onSyncNow = { clickCount++ }
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-sync-button").performClick()
+        assertTrue("Expected 1 click", clickCount == 1)
+    }
+
+    @Test
+    fun syncButtonIdleEnabledEvenWithZeroPendingAndOffline() {
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState().copy(
+                        syncPhase = SyncPhase.Idle,
+                        pendingTotal = 0,
+                        networkAvailability = NetworkAvailability.Unavailable,
+                        isLoading = false
+                    )
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-sync-button").assertIsEnabled()
+    }
+
+    @Test
+    fun issueActionsAreExplicitAndNonActionableItemsHaveNoButton() {
+        var actionClickCount = 0
+        val actionableIssue = StatusIssue(
+            code = "login-missing",
+            severity = StatusSeverity.Critical,
+            title = "未登录",
+            message = "需要登录后才能同步。",
+            actionLabel = "去登录",
+            target = StatusActionTarget.Settings
+        )
+        val nonActionableIssue = StatusIssue.recentDroppedLocation("unknown", null)
+        val state = normalState().copy(
+            issues = listOf(actionableIssue, nonActionableIssue)
+        )
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = state,
+                    onIssueAction = { actionClickCount++ }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("status-issue-login-missing").assertExists()
+        composeTestRule.onNodeWithTag("status-issue-action-login-missing")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
+        assertTrue("Expected 1 action click", actionClickCount == 1)
+        composeTestRule.onNodeWithTag("status-issue-location-dropped-recent").assertExists()
+        composeTestRule.onNodeWithTag("status-issue-action-location-dropped-recent").assertDoesNotExist()
+    }
+
+    @Test
+    fun feedbackProbeCheckingShowsChinese() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState(), feedback = StatusActionFeedback.ProbeChecking) }
+        }
+        composeTestRule.onNode(
+            hasTestTag("status-feedback") and hasAnyDescendant(hasText("检查中"))
+        ).assertExists()
+    }
+
+    @Test
+    fun feedbackProbeCompletedShowsChinese() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState(), feedback = StatusActionFeedback.ProbeCompleted) }
+        }
+        composeTestRule.onNode(
+            hasTestTag("status-feedback") and hasAnyDescendant(hasText("检查已完成"))
+        ).assertExists()
+    }
+
+    @Test
+    fun feedbackProbeFailedShowsChinese() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState(), feedback = StatusActionFeedback.ProbeFailed) }
+        }
+        composeTestRule.onNode(
+            hasTestTag("status-feedback") and hasAnyDescendant(hasText("检查未完成，请稍后重试"))
+        ).assertExists()
+    }
+
+    @Test
+    fun feedbackSyncSubmitFailedShowsChinese() {
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(normalState(), feedback = StatusActionFeedback.SyncSubmitFailed) }
+        }
+        composeTestRule.onNode(
+            hasTestTag("status-feedback") and hasAnyDescendant(hasText("同步请求未能提交，请稍后重试"))
+        ).assertExists()
+    }
+
+    @Test
+    fun noRawReasonCodeOrProfileLeaksIntoDisplayedText() {
+        val state = normalState().copy(
+            snapshot = normalState().snapshot.copy(
+                api = ApiConnectionSnapshot(
+                    address = "https://invalid.example",
+                    isValid = false,
+                    reasonCode = "invalid-api-url",
+                    warnings = emptySet()
+                ),
+                tracking = TrackingPolicySnapshot(
+                    profile = "power-saving",
+                    currentPolicyMode = "PowerSavingNormal",
+                    nextExpectedLocationAtMillis = null
+                ),
+                diagnostics = DiagnosticSnapshot(
+                    lastDroppedReason = "missing-horizontal-accuracy",
+                    lastDroppedAtMillis = null,
+                    lastLogMessage = "java.lang.RuntimeException",
+                    lastHeartbeatStatus = "心跳上报成功",
+                    recentLogMessages = listOf("raw log")
+                )
+            )
+        )
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(state = state) }
+        }
+
+        composeTestRule.onNode(
+            hasTestTag("status-api-reason") and hasAnyDescendant(hasText("地址格式不正确"))
+        ).assertExists()
+        composeTestRule.onNodeWithText("invalid-api-url").assertDoesNotExist()
+
+        composeTestRule.onNode(
+            hasTestTag("status-tracking-profile") and hasAnyDescendant(hasText("省电"))
+        ).assertExists()
+        composeTestRule.onNodeWithText("power-saving").assertDoesNotExist()
+
+        composeTestRule.onNode(
+            hasTestTag("status-policy-mode") and hasAnyDescendant(hasText("常规省电"))
+        ).assertExists()
+        composeTestRule.onNodeWithText("PowerSavingNormal").assertDoesNotExist()
+
+        composeTestRule.onNode(
+            hasTestTag("status-dropped-reason") and hasAnyDescendant(hasText("缺少水平精度"))
+        ).assertExists()
+        composeTestRule.onNodeWithText("missing-horizontal-accuracy").assertDoesNotExist()
+
+        composeTestRule.onNode(
+            hasTestTag("status-heartbeat") and hasAnyDescendant(hasText("正常"))
+        ).assertExists()
+        composeTestRule.onNodeWithText("心跳上报成功").assertDoesNotExist()
+
+        composeTestRule.onNode(
+            hasTestTag("status-diagnostic-record") and hasAnyDescendant(hasText("有近期诊断记录"))
+        ).assertExists()
+        composeTestRule.onNodeWithText("java.lang.RuntimeException").assertDoesNotExist()
+        composeTestRule.onNodeWithText("raw log").assertDoesNotExist()
+    }
+
+    @Test
+    fun needAttentionSectionContainsOnlyCriticalAndWarning() {
+        val state = normalState().copy(
+            issues = listOf(
+                StatusIssue.altitudeMissingTimeout(),
+                StatusIssue.probeBlocked(),
+                StatusIssue.usageAccessMissing(),
+                StatusIssue.apiAddressMissing()
+            )
+        )
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(state = state) }
+        }
+
+        val actionable = hasTestTag("status-actionable-issues")
+        composeTestRule.onNode(
+            actionable and hasAnyDescendant(hasTestTag("status-issue-connection-probe-blocked"))
+        ).assertExists()
+        composeTestRule.onNode(
+            actionable and hasAnyDescendant(hasTestTag("status-issue-api-address-missing"))
+        ).assertExists()
+        composeTestRule.onNode(
+            actionable and hasAnyDescendant(hasTestTag("status-issue-usage-access-missing"))
+        ).assertExists()
+        composeTestRule.onNode(
+            actionable and hasAnyDescendant(hasTestTag("status-issue-altitude-missing-timeout"))
+        ).assertDoesNotExist()
+    }
+
+    @Test
+    fun statusInformationSectionAppearsWhenInfoExists() {
+        val state = normalState().copy(
+            issues = listOf(
+                StatusIssue.altitudeMissingTimeout(),
+                StatusIssue.recentDroppedLocation("x", null)
+            )
+        )
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(state = state) }
+        }
+
+        val information = hasTestTag("status-information-issues")
+        composeTestRule.onNode(
+            information and hasAnyDescendant(hasText("状态信息"))
+        ).assertExists()
+        composeTestRule.onNode(
+            information and hasAnyDescendant(hasTestTag("status-issue-altitude-missing-timeout"))
+        ).assertExists()
+        composeTestRule.onNode(
+            information and hasAnyDescendant(hasTestTag("status-issue-location-dropped-recent"))
+        ).assertExists()
+    }
+
+    @Test
+    fun statusInformationSectionIsAbsentWhenNoInfoIssues() {
+        val state = normalState().copy(
+            issues = listOf(
+                StatusIssue.probeBlocked(),
+                StatusIssue.usageAccessMissing()
+            )
+        )
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(state = state) }
+        }
+
+        composeTestRule.onNodeWithTag("status-information-issues").assertDoesNotExist()
+    }
+
+    @Test
+    fun actionableCriticalIssuesAppearBeforeWarning() {
+        val state = normalState().copy(
+            issues = listOf(
+                StatusIssue.usageAccessMissing(),
+                StatusIssue.apiAddressMissing(),
+                StatusIssue.heartbeatFailure(),
+                StatusIssue.probeBlocked()
+            )
+        )
+        composeTestRule.setContent {
+            PimTheme { StatusCenterContent(state = state) }
+        }
+
+        composeTestRule.onNodeWithTag("status-issues").performScrollTo()
+        val lastCriticalTop = composeTestRule
+            .onNodeWithTag("status-issue-connection-probe-blocked")
+            .getUnclippedBoundsInRoot()
+            .top
+        val firstWarningTop = composeTestRule
+            .onNodeWithTag("status-issue-usage-access-missing")
+            .getUnclippedBoundsInRoot()
+            .top
+
+        assertTrue(
+            "Critical issues must be laid out before warning issues",
+            lastCriticalTop < firstWarningTop
+        )
+    }
+
+    @Test
+    fun narrowStatusContentKeepsSyncCountsAndActionsVisible() {
+        val narrowIssue = StatusIssue(
+            code = "narrow-layout",
+            severity = StatusSeverity.Critical,
+            title = "需要处理一个较长的问题标题",
+            message = "这里保留较长的问题说明，用来验证窄屏上的操作仍然可达。",
+            actionLabel = "查看详细设置",
+            target = StatusActionTarget.Settings
+        )
+        val state = normalState(syncPhase = SyncPhase.Waiting).copy(
+            overall = StatusOverall.Abnormal,
+            issues = listOf(narrowIssue),
+            pendingTotal = Int.MAX_VALUE,
+            acceptedCount = 123_456_789,
+            rejectedCount = 98_765_432,
+            permanentRejectedCount = 12_345_678
+        )
+        composeTestRule.setContent {
+            PimTheme {
+                Box(Modifier.width(320.dp).testTag("narrow-status-host")) {
+                    StatusCenterContent(state = state)
+                }
+            }
+        }
+
+        val topTags = listOf(
+            "status-sync-phase",
+            "status-sync-button",
+            "status-pending",
+            "status-confirmed",
+            "status-rejected",
+            "status-permanent-rejected"
+        )
+        val hostBounds = composeTestRule
+            .onNodeWithTag("narrow-status-host")
+            .getUnclippedBoundsInRoot()
+
+        topTags.forEach { tag ->
+            composeTestRule.onAllNodesWithTag(tag).assertCountEquals(1)
+            val node = composeTestRule.onNodeWithTag(tag).assertIsDisplayed()
+            val bounds = node.getUnclippedBoundsInRoot()
+            assertTrue("$tag must stay inside the 320dp host", bounds.left >= hostBounds.left)
+            assertTrue("$tag must stay inside the 320dp host", bounds.right <= hostBounds.right)
+        }
+
+        composeTestRule.onAllNodesWithTag("status-issue-action-narrow-layout").assertCountEquals(1)
+        val action = composeTestRule
+            .onNodeWithTag("status-issue-action-narrow-layout")
+            .performScrollTo()
+            .assertIsDisplayed()
+        val actionBounds = action.getUnclippedBoundsInRoot()
+        assertTrue(actionBounds.left >= hostBounds.left)
+        assertTrue(actionBounds.right <= hostBounds.right)
+    }
+
+    private fun normalState(
+        syncPhase: SyncPhase = SyncPhase.Idle
+    ): StatusCenterState {
+        return StatusCenterState.empty().copy(
+            isLoading = false,
+            overall = StatusOverall.Normal,
+            syncPhase = syncPhase,
+            snapshot = StatusCenterState.empty().snapshot
+        )
+    }
+}

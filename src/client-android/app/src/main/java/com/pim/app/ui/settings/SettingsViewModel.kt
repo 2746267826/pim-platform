@@ -13,6 +13,9 @@ import com.pim.app.status.ConnectionProbeService
 import com.pim.app.status.ConnectionProbeStore
 import com.pim.app.status.probeRefreshDelayMillis
 import com.pim.app.status.resolveProbeResult
+import com.pim.app.mobile.diagnostics.DiagnosticOperations
+import com.pim.app.recovery.CollectionState
+import com.pim.app.recovery.RunningStateRestorer
 import com.pim.app.status.PermissionStatusSnapshot
 import com.pim.core.settings.PimServerEndpoints
 import com.pim.core.auth.ServerBoundLoginCoordinator
@@ -28,6 +31,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+enum class DiagnosticClearFeedback {
+    Cleared,
+    Failed
+}
 
 data class SettingsUiState(
     val apiAddress: String = "",
@@ -52,7 +60,10 @@ data class SettingsUiState(
     val verboseLoggingUntilUtcMillis: Long? = null,
     val logRetentionDays: Int = 7,
     val operationalStatus: String? = null,
-    val permissions: PermissionStatusSnapshot = PermissionStatusSnapshot(false, false, false, false, false, false)
+    val permissions: PermissionStatusSnapshot = PermissionStatusSnapshot(false, false, false, false, false, false),
+    val showClearDiagnosticsConfirmation: Boolean = false,
+    val isClearingDiagnostics: Boolean = false,
+    val diagnosticClearFeedback: DiagnosticClearFeedback? = null
 )
 
 @HiltViewModel
@@ -65,7 +76,9 @@ class SettingsViewModel @Inject constructor(
     private val permissionStatusRepository: PermissionStatusRepository,
     private val connectionProbeService: ConnectionProbeService,
     private val connectionProbeStore: ConnectionProbeStore,
-    private val mobileSyncScheduler: MobileSyncScheduler
+    private val mobileSyncScheduler: MobileSyncScheduler,
+    private val diagnosticOperations: DiagnosticOperations,
+    private val runningStateRestorer: RunningStateRestorer
 ) : ViewModel() {
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
@@ -429,34 +442,98 @@ class SettingsViewModel @Inject constructor(
             )
         }
 
-        if (!collectionIntent) return
-
-        val hardPermissions = missingCollectionPermissions(snapshot)
-
-        if (hardPermissions.isNotEmpty()) {
-            _state.update {
-                it.copy(collectionStatus = "缺少权限：${hardPermissions.joinToString("、")}。")
-            }
-            return
+        viewModelScope.launch {
+            runCatching {
+                runningStateRestorer.ensureRunningState()
+            }.fold(
+                onSuccess = { result ->
+                    when (result.collectionState) {
+                        CollectionState.Disabled -> {
+                            _state.update { it.copy(collectionStatus = null) }
+                        }
+                        CollectionState.Blocked -> {
+                            val missingNames = result.missingPermissions.map { perm ->
+                                toDisplayPermissionName(perm)
+                            }
+                            _state.update {
+                                it.copy(
+                                    collectionStatus = "缺少权限：${missingNames.joinToString("、")}。",
+                                    continuousCollectionEnabled = persistedCollectionEnabled()
+                                )
+                            }
+                        }
+                        CollectionState.AlreadyRunning -> {
+                            _state.update {
+                                it.copy(collectionStatus = "持续采集正在运行。")
+                            }
+                        }
+                        CollectionState.StartRequested -> {
+                            _state.update {
+                                it.copy(collectionStatus = "已恢复持续采集。")
+                            }
+                        }
+                        CollectionState.Failed -> {
+                            _state.update {
+                                it.copy(collectionStatus = "恢复失败，请查看状态页。")
+                            }
+                        }
+                    }
+                },
+                onFailure = { error ->
+                    if (error is CancellationException) throw error
+                    _state.update {
+                        it.copy(collectionStatus = "恢复失败，请查看状态页。")
+                    }
+                }
+            )
         }
+    }
 
-        runCatching {
-            foregroundLocationController.start()
-        }.fold(
-            onSuccess = {
-                _state.update {
-                    it.copy(collectionStatus = "已恢复持续采集。")
+    fun requestClearDiagnostics() {
+        if (state.value.isBusy) return
+        _state.update { it.copy(showClearDiagnosticsConfirmation = true) }
+    }
+
+    fun dismissClearDiagnosticsConfirmation() {
+        if (state.value.isBusy) return
+        _state.update { it.copy(showClearDiagnosticsConfirmation = false) }
+    }
+
+    fun confirmClearDiagnostics() {
+        if (state.value.isBusy || state.value.isClearingDiagnostics) return
+        _state.update {
+            it.copy(
+                isBusy = true,
+                isClearingDiagnostics = true,
+                showClearDiagnosticsConfirmation = false,
+                diagnosticClearFeedback = null
+            )
+        }
+        viewModelScope.launch {
+            runCatching {
+                diagnosticOperations.clearDiagnostics()
+            }.fold(
+                onSuccess = {
+                    _state.update {
+                        it.copy(
+                            diagnosticClearFeedback = DiagnosticClearFeedback.Cleared,
+                            isBusy = false,
+                            isClearingDiagnostics = false
+                        )
+                    }
+                },
+                onFailure = { error ->
+                    if (error is CancellationException) throw error
+                    _state.update {
+                        it.copy(
+                            diagnosticClearFeedback = DiagnosticClearFeedback.Failed,
+                            isBusy = false,
+                            isClearingDiagnostics = false
+                        )
+                    }
                 }
-            },
-            onFailure = { error ->
-                _state.update {
-                    it.copy(
-                        continuousCollectionEnabled = true,
-                        collectionStatus = "恢复失败：${error.message ?: "未知错误"}"
-                    )
-                }
-            }
-        )
+            )
+        }
     }
 
     private fun missingCollectionPermissions(snapshot: PermissionStatusSnapshot? = null): List<String> {
@@ -630,6 +707,15 @@ private fun Double.toDisplayNumber(): String =
 
 private fun Float.toDisplayNumber(): String =
     if (this == toLong().toFloat()) toLong().toString() else toString()
+
+internal fun toDisplayPermissionName(code: String): String {
+    return when (code) {
+        "notification" -> "通知"
+        "precise_location" -> "精确定位"
+        "background_location" -> "后台定位"
+        else -> "必要权限"
+    }
+}
 
 private const val PROBE_RETRY_MILLIS = 30_000L
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -19,11 +20,13 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -44,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -107,6 +111,35 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showResetDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    if (state.showClearDiagnosticsConfirmation) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!state.isBusy) viewModel.dismissClearDiagnosticsConfirmation()
+            },
+            modifier = Modifier.testTag("settings-diagnostics-confirm"),
+            title = { Text("确认清除诊断数据？") },
+            text = { Text("将清除本地诊断日志、诊断状态和导出文件。业务队列、服务器地址和登录状态不受影响。") },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::confirmClearDiagnostics,
+                    modifier = Modifier.testTag("settings-diagnostics-confirm-accept")
+                ) {
+                    Text("确认清除")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        if (!state.isBusy) viewModel.dismissClearDiagnosticsConfirmation()
+                    },
+                    modifier = Modifier.testTag("settings-diagnostics-confirm-cancel")
+                ) {
                     Text("取消")
                 }
             }
@@ -362,6 +395,37 @@ fun SettingsScreen(
                         label = { Text("${days}天") }
                     )
                 }
+            }
+        }
+
+        PimSection("诊断") {
+            OutlinedButton(
+                onClick = { viewModel.requestClearDiagnostics() },
+                modifier = Modifier.fillMaxWidth().testTag("settings-diagnostics-clear"),
+                enabled = !state.isBusy
+            ) {
+                if (state.isClearingDiagnostics) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text("正在清理")
+                } else {
+                    Icon(Icons.Default.Delete, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("清除诊断数据")
+                }
+            }
+            state.diagnosticClearFeedback?.let { feedback ->
+                Text(
+                    modifier = Modifier.testTag("settings-diagnostics-feedback"),
+                    text = when (feedback) {
+                        DiagnosticClearFeedback.Cleared -> "诊断数据已清除"
+                        DiagnosticClearFeedback.Failed -> "清理失败，请重试"
+                    },
+                    color = when (feedback) {
+                        DiagnosticClearFeedback.Cleared -> MaterialTheme.colorScheme.primary
+                        DiagnosticClearFeedback.Failed -> MaterialTheme.colorScheme.error
+                    }
+                )
             }
         }
 

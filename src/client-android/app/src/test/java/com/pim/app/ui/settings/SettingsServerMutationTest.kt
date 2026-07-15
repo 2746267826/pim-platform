@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.SharedPreferences
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
@@ -49,6 +50,13 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import java.io.File
+import com.pim.app.location.service.ForegroundLocationService
+import com.pim.app.mobile.diagnostics.DiagnosticExportResult
+import com.pim.app.mobile.diagnostics.DiagnosticOperations
+import com.pim.app.mobile.logs.StructuredLogRepository
+import com.pim.app.recovery.RunningStateRestorer
+import kotlinx.coroutines.CompletableDeferred
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -539,6 +547,7 @@ class SettingsServerMutationTest {
             Manifest.permission.ACCESS_BACKGROUND_LOCATION
         )
         fixture.viewModel.onResume()
+        await(1000) { fixture.viewModel.state.value.collectionStatus != null }
 
         val afterDeny = fixture.viewModel.state.value
         assertTrue("collection intent must persist", afterDeny.continuousCollectionEnabled)
@@ -559,6 +568,7 @@ class SettingsServerMutationTest {
             Manifest.permission.ACCESS_BACKGROUND_LOCATION
         )
         fixture.viewModel.onResume()
+        await(1000) { fixture.viewModel.state.value.collectionStatus != null }
 
         val afterGrant = fixture.viewModel.state.value
         val grantSnapshot = fixture.permissionStatusRepository.snapshot()
@@ -576,10 +586,11 @@ class SettingsServerMutationTest {
 
         shadowOf(application).denyPermissions(Manifest.permission.POST_NOTIFICATIONS)
         fixture.viewModel.onResume()
+        await(1000) { fixture.viewModel.state.value.collectionStatus != null }
 
         val state = fixture.viewModel.state.value
         assertTrue("collection intent must persist", state.continuousCollectionEnabled)
-        assertNull("service must not start when notification permission missing", shadowOf(application).nextStartedService)
+        assertNull("service must not start when hard permissions missing", shadowOf(application).nextStartedService)
         val snapshot = fixture.permissionStatusRepository.snapshot()
         assertEquals(snapshot, state.permissions)
         assertFalse(snapshot.notificationGranted)
@@ -669,16 +680,98 @@ class SettingsServerMutationTest {
         assertNull(shadowOf(application).nextStartedService)
     }
 
+    @Test
+    fun requestClearDiagnosticsShowsConfirmation() {
+        val fixture = fixture()
+        fixture.viewModel.requestClearDiagnostics()
+        assertTrue(fixture.viewModel.state.value.showClearDiagnosticsConfirmation)
+    }
+
+    @Test
+    fun dismissClearDiagnosticsConfirmationHidesDialog() {
+        val fixture = fixture()
+        fixture.viewModel.requestClearDiagnostics()
+        assertTrue(fixture.viewModel.state.value.showClearDiagnosticsConfirmation)
+        fixture.viewModel.dismissClearDiagnosticsConfirmation()
+        assertFalse(fixture.viewModel.state.value.showClearDiagnosticsConfirmation)
+    }
+
+    @Test
+    fun confirmClearDiagnosticsOnSuccessClearsAndSetsFeedback() {
+        val fixture = fixture()
+        fixture.viewModel.requestClearDiagnostics()
+        fixture.viewModel.confirmClearDiagnostics()
+        val state = fixture.viewModel.state.value
+        assertFalse(state.showClearDiagnosticsConfirmation)
+        assertFalse(state.isBusy)
+        assertFalse(state.isClearingDiagnostics)
+        assertEquals(DiagnosticClearFeedback.Cleared, state.diagnosticClearFeedback)
+        assertEquals(1, fixture.diagnosticOperations.clearCallCount)
+    }
+
+    @Test
+    fun confirmClearDiagnosticsOnExceptionSetsFailedFeedback() {
+        val fixture = fixture(diagnosticClearFails = true)
+        fixture.viewModel.requestClearDiagnostics()
+        fixture.viewModel.confirmClearDiagnostics()
+        val state = fixture.viewModel.state.value
+        assertFalse(state.showClearDiagnosticsConfirmation)
+        assertFalse(state.isBusy)
+        assertFalse(state.isClearingDiagnostics)
+        assertEquals(DiagnosticClearFeedback.Failed, state.diagnosticClearFeedback)
+        assertEquals(1, fixture.diagnosticOperations.clearCallCount)
+    }
+
+    @Test
+    fun confirmClearDiagnosticsWhenAlreadyBusyDoesNotDuplicateCall() {
+        val fixture = fixture()
+        fixture.diagnosticOperations.clearContinue = CompletableDeferred()
+        fixture.viewModel.requestClearDiagnostics()
+        fixture.viewModel.confirmClearDiagnostics()
+        assertTrue(fixture.viewModel.state.value.isBusy)
+        assertTrue(fixture.viewModel.state.value.isClearingDiagnostics)
+        fixture.viewModel.confirmClearDiagnostics()
+        assertEquals(1, fixture.diagnosticOperations.clearCallCount)
+        fixture.diagnosticOperations.clearContinue?.complete(Unit)
+    }
+
+    @Test
+    fun onResumeCallsEnsureRunningStateEvenWhenIntentFalse() {
+        var ensureCalled = false
+        val fixture = fixture(onEnsureRunningState = { ensureCalled = true })
+        fixture.trackingSettings.setContinuousCollectionEnabled(false)
+        fixture.viewModel.onResume()
+        mainDispatcher.scheduler.advanceUntilIdle()
+        assertTrue("ensureRunningState must be called even when intent is false", ensureCalled)
+    }
+
+    @Test
+    fun toDisplayPermissionNameMapsUnknownCodeToSafeFallback() {
+        assertEquals("必要权限", toDisplayPermissionName("some_unknown_code"))
+    }
+
     private fun drainStartedServices(application: Application) {
         while (shadowOf(application).nextStartedService != null) {
             // Drain intents left by earlier actions in the shared Robolectric application.
         }
     }
 
+    private fun await(timeoutMs: Long, condition: () -> Boolean) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (condition()) return
+            shadowOf(Looper.getMainLooper()).idle()
+            mainDispatcher.scheduler.advanceUntilIdle()
+            Thread.sleep(5)
+        }
+    }
+
     private fun fixture(
         failSessionClear: Boolean = false,
         probeFailure: Throwable? = null,
-        onProbeStarted: () -> Unit = {}
+        onProbeStarted: () -> Unit = {},
+        diagnosticClearFails: Boolean = false,
+        onEnsureRunningState: () -> Unit = {}
     ): Fixture {
         val serverPreferences = ScriptedCommitSharedPreferences(
             context.getSharedPreferences(SERVER_PREFS, Context.MODE_PRIVATE)
@@ -724,16 +817,38 @@ class SettingsServerMutationTest {
             context,
             UsageAccessChecker(context)
         )
+        val foregroundLocationController = ForegroundLocationController(context)
+        val diagnosticOperations = FakeDiagnosticOperations().also { ops ->
+            ops.shouldFail = diagnosticClearFails
+        }
+        val structuredLogRepository = StructuredLogRepository(
+            context,
+            trackingSettings
+        ) { System.currentTimeMillis() }
+        val runningStateRestorer = RunningStateRestorer(
+            trackingSettingsStore = trackingSettings,
+            permissionStatusRepository = permissionStatusRepository,
+            structuredLogRepository = structuredLogRepository,
+            cancelLegacySyncWork = {},
+            ensurePeriodicSync = {
+                mobileSyncScheduler.ensurePeriodic()
+                onEnsureRunningState()
+            },
+            isServiceRunning = { ForegroundLocationService.isRunning() },
+            startCollection = { foregroundLocationController.start() }
+        )
         val viewModel = SettingsViewModel(
             serverSettingsStore = serverSettings,
             tokenManager = tokenManager,
             serverBoundLoginCoordinator = coordinator,
             trackingSettingsStore = trackingSettings,
-            foregroundLocationController = ForegroundLocationController(context),
+            foregroundLocationController = foregroundLocationController,
             permissionStatusRepository = permissionStatusRepository,
             connectionProbeService = probeService,
             connectionProbeStore = probeStore,
-            mobileSyncScheduler = mobileSyncScheduler
+            mobileSyncScheduler = mobileSyncScheduler,
+            diagnosticOperations = diagnosticOperations,
+            runningStateRestorer = runningStateRestorer
         )
         return Fixture(
             viewModel = viewModel,
@@ -743,7 +858,8 @@ class SettingsServerMutationTest {
             serverPreferences = serverPreferences,
             mobileSyncScheduler = mobileSyncScheduler,
             permissionStatusRepository = permissionStatusRepository,
-            probeStore = probeStore
+            probeStore = probeStore,
+            diagnosticOperations = diagnosticOperations
         )
     }
 
@@ -769,7 +885,8 @@ class SettingsServerMutationTest {
         val serverPreferences: ScriptedCommitSharedPreferences,
         val mobileSyncScheduler: MobileSyncScheduler,
         val permissionStatusRepository: PermissionStatusRepository,
-        val probeStore: ConnectionProbeStore
+        val probeStore: ConnectionProbeStore,
+        val diagnosticOperations: FakeDiagnosticOperations
     )
 
     private companion object {
@@ -780,6 +897,22 @@ class SettingsServerMutationTest {
         const val SERVER_A_URL = "https://server-a.example/api/v1/"
         const val SERVER_B_URL = "https://server-b.example/api/v1/"
         const val SERVER_A_IDENTITY = "https://server-a.example"
+    }
+}
+
+private class FakeDiagnosticOperations : DiagnosticOperations {
+    var clearCallCount = 0
+    var shouldFail = false
+    var clearContinue: CompletableDeferred<Unit>? = null
+
+    override suspend fun export(includeRecentLocations: Boolean): DiagnosticExportResult {
+        return DiagnosticExportResult(File(""), 0)
+    }
+
+    override suspend fun clearDiagnostics() {
+        clearCallCount++
+        clearContinue?.await()
+        if (shouldFail) throw RuntimeException("simulated clear error")
     }
 }
 

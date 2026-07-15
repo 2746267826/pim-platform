@@ -29,6 +29,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException
 
+interface DiagnosticOperations {
+    suspend fun export(includeRecentLocations: Boolean): DiagnosticExportResult
+    suspend fun clearDiagnostics()
+}
+
 data class DiagnosticExportResult(
     val file: File,
     val coordinateCount: Int
@@ -66,7 +71,7 @@ class DiagnosticExportRepository internal constructor(
             Files.move(tmp.toPath(), final.toPath())
         }
     }
-) {
+) : DiagnosticOperations {
     @Inject constructor(
         @ApplicationContext context: Context,
         db: AppDatabase,
@@ -86,7 +91,7 @@ class DiagnosticExportRepository internal constructor(
         serviceRunning = { com.pim.app.location.service.ForegroundLocationService.isRunning() }
     )
 
-    suspend fun export(includeRecentLocations: Boolean): DiagnosticExportResult = withContext(dispatcher) {
+    override suspend fun export(includeRecentLocations: Boolean): DiagnosticExportResult = withContext(dispatcher) {
         val dao = db.mobileDataDao()
         val exportNow = nowMillis()
         val exportDir = File(context.filesDir, "diagnostics/exports")
@@ -208,7 +213,7 @@ class DiagnosticExportRepository internal constructor(
         }
     }
 
-    suspend fun clearDiagnostics() = withContext(dispatcher) {
+    override suspend fun clearDiagnostics() = withContext(dispatcher) {
         if (!clearProbe()) {
             throw DiagnosticExportException(
                 "CLEAR_FAILED",

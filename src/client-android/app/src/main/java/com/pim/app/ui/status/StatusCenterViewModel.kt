@@ -2,6 +2,9 @@ package com.pim.app.ui.status
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pim.app.mobile.diagnostics.DiagnosticExportException
+import com.pim.app.mobile.diagnostics.DiagnosticExportResult
+import com.pim.app.mobile.diagnostics.DiagnosticOperations
 import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.status.ConnectionProbeService
 import com.pim.app.status.ConnectionProbeStore
@@ -17,6 +20,7 @@ import com.pim.app.status.resolveProbeResult
 import com.pim.core.settings.ServerSettingsStore
 import com.pim.core.settings.PimServerEndpoints
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +35,71 @@ enum class StatusActionFeedback {
     ProbeCompleted,
     ProbeFailed,
     SyncSubmitFailed
+}
+
+enum class DiagnosticExportFeedback {
+    PackageReady,
+    PackageReadyWithLocations,
+    ShareOpened,
+    ShareUnavailable,
+    InsufficientStorage,
+    ExportFailed
+}
+
+internal data class ExportFeedbackState(
+    val isExporting: Boolean = false,
+    val feedback: DiagnosticExportFeedback? = null,
+    val exportedFile: File? = null,
+    val coordinateCount: Int = 0
+)
+
+internal suspend fun runExportWithFeedback(
+    includeRecentLocations: Boolean,
+    export: suspend () -> DiagnosticExportResult,
+    onState: (ExportFeedbackState) -> Unit
+) {
+    onState(ExportFeedbackState(isExporting = true))
+    try {
+        val result = export()
+        val feedback = if (includeRecentLocations) {
+            DiagnosticExportFeedback.PackageReadyWithLocations
+        } else {
+            DiagnosticExportFeedback.PackageReady
+        }
+        onState(
+            ExportFeedbackState(
+                isExporting = false,
+                feedback = feedback,
+                exportedFile = result.file,
+                coordinateCount = result.coordinateCount
+            )
+        )
+    } catch (e: DiagnosticExportException) {
+        if (e.code == "INSUFFICIENT_STORAGE") {
+            onState(
+                ExportFeedbackState(
+                    isExporting = false,
+                    feedback = DiagnosticExportFeedback.InsufficientStorage
+                )
+            )
+        } else {
+            onState(
+                ExportFeedbackState(
+                    isExporting = false,
+                    feedback = DiagnosticExportFeedback.ExportFailed
+                )
+            )
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        onState(
+            ExportFeedbackState(
+                isExporting = false,
+                feedback = DiagnosticExportFeedback.ExportFailed
+            )
+        )
+    }
 }
 
 internal suspend fun runProbeWithFeedback(
@@ -62,6 +131,28 @@ internal suspend fun runSyncWithFeedback(
     }
 }
 
+data class DiagnosticExportUiState(
+    val includeRecentLocations: Boolean = false,
+    val showLocationConfirmation: Boolean = false,
+    val isExporting: Boolean = false,
+    val exportedFile: File? = null,
+    val coordinateCount: Int = 0,
+    val feedback: DiagnosticExportFeedback? = null
+)
+
+internal fun beginDiagnosticExport(
+    current: DiagnosticExportUiState
+): DiagnosticExportUiState? {
+    if (current.isExporting) return null
+    return current.copy(
+        showLocationConfirmation = false,
+        isExporting = true,
+        exportedFile = null,
+        coordinateCount = 0,
+        feedback = null
+    )
+}
+
 @HiltViewModel
 class StatusCenterViewModel @Inject constructor(
     private val repository: StatusCenterRepository,
@@ -69,7 +160,8 @@ class StatusCenterViewModel @Inject constructor(
     private val serverSettingsStore: ServerSettingsStore,
     private val connectionProbeService: ConnectionProbeService,
     private val connectionProbeStore: ConnectionProbeStore,
-    private val acceptedSignal: StatusAcceptedSignal
+    private val acceptedSignal: StatusAcceptedSignal,
+    private val diagnosticOperations: DiagnosticOperations
 ) : ViewModel() {
     val state: StateFlow<StatusCenterState> = repository.observe()
         .stateIn(
@@ -86,6 +178,65 @@ class StatusCenterViewModel @Inject constructor(
         refresh = { repository.requestRefresh() },
         acceptedSignal = acceptedSignal
     )
+
+    private val _exportState = MutableStateFlow(DiagnosticExportUiState())
+    val exportState: StateFlow<DiagnosticExportUiState> = _exportState.asStateFlow()
+
+    fun setIncludeRecentLocations(include: Boolean) {
+        if (_exportState.value.isExporting) return
+        _exportState.value = _exportState.value.copy(
+            includeRecentLocations = include,
+            showLocationConfirmation = if (include) {
+                _exportState.value.showLocationConfirmation
+            } else false
+        )
+    }
+
+    fun requestDiagnosticExport() {
+        val current = _exportState.value
+        if (current.isExporting) return
+        if (current.includeRecentLocations) {
+            _exportState.value = current.copy(showLocationConfirmation = true)
+        } else {
+            performExport(includeRecentLocations = false)
+        }
+    }
+
+    fun confirmLocationExport() {
+        _exportState.value = _exportState.value.copy(showLocationConfirmation = false)
+        performExport(includeRecentLocations = true)
+    }
+
+    fun dismissLocationConfirmation() {
+        _exportState.value = _exportState.value.copy(showLocationConfirmation = false)
+    }
+
+    fun reportShareResult(opened: Boolean) {
+        if (_exportState.value.exportedFile == null) return
+        _exportState.value = _exportState.value.copy(
+            feedback = if (opened) DiagnosticExportFeedback.ShareOpened
+            else DiagnosticExportFeedback.ShareUnavailable
+        )
+    }
+
+    private fun performExport(includeRecentLocations: Boolean) {
+        val started = beginDiagnosticExport(_exportState.value) ?: return
+        _exportState.value = started
+        viewModelScope.launch {
+            runExportWithFeedback(
+                includeRecentLocations = includeRecentLocations,
+                export = { diagnosticOperations.export(includeRecentLocations) },
+                onState = { state ->
+                    _exportState.value = _exportState.value.copy(
+                        isExporting = state.isExporting,
+                        feedback = state.feedback,
+                        exportedFile = state.exportedFile,
+                        coordinateCount = state.coordinateCount
+                    )
+                }
+            )
+        }
+    }
 
     fun onIssueAction(issue: StatusIssue): StatusActionTarget {
         repository.requestRefresh()

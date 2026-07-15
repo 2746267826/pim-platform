@@ -37,6 +37,7 @@ import com.pim.app.status.StatusOverall
 import com.pim.app.status.StatusSeverity
 import com.pim.app.status.SyncPhase
 import com.pim.app.ui.theme.PimTheme
+import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -537,6 +538,161 @@ class StatusCenterScreenTest {
         val actionBounds = action.getUnclippedBoundsInRoot()
         assertTrue(actionBounds.left >= hostBounds.left)
         assertTrue(actionBounds.right <= hostBounds.right)
+    }
+
+    @Test
+    fun exportSwitchTogglesIncludeLocations() {
+        var captured = false
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    exportState = DiagnosticExportUiState(includeRecentLocations = false),
+                    onSetIncludeRecentLocations = { captured = it }
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-diagnostics-export-option")
+            .performScrollTo()
+            .performClick()
+        assertTrue(captured)
+    }
+
+    @Test
+    fun exportButtonTriggersExport() {
+        var clicked = false
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    onRequestDiagnosticExport = { clicked = true }
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-diagnostics-export-button")
+            .performScrollTo()
+            .performClick()
+        assertTrue(clicked)
+    }
+
+    @Test
+    fun exportButtonDisabledDuringExport() {
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    exportState = DiagnosticExportUiState(isExporting = true)
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-diagnostics-export-button")
+            .performScrollTo()
+            .assertIsNotEnabled()
+    }
+
+    @Test
+    fun exportProgressShowsWhenExporting() {
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    exportState = DiagnosticExportUiState(isExporting = true)
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-diagnostics-export-progress")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun confirmationDialogConfirmTriggersCallback() {
+        var confirmed = false
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    exportState = DiagnosticExportUiState(showLocationConfirmation = true),
+                    onConfirmLocationExport = { confirmed = true }
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-diagnostics-export-confirm-accept").performClick()
+        assertTrue(confirmed)
+    }
+
+    @Test
+    fun confirmationDialogDismissTriggersCallback() {
+        var dismissed = false
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    exportState = DiagnosticExportUiState(showLocationConfirmation = true),
+                    onDismissLocationConfirmation = { dismissed = true }
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-diagnostics-export-confirm-cancel").performClick()
+        assertTrue(dismissed)
+    }
+
+    @Test
+    fun shareButtonTriggersShareWhenFileReady() {
+        var shared = false
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    exportState = DiagnosticExportUiState(
+                        exportedFile = File("/tmp/test.zip"),
+                        feedback = DiagnosticExportFeedback.PackageReady
+                    ),
+                    onShareDiagnostic = { shared = true }
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-diagnostics-export-share")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
+        assertTrue(shared)
+    }
+
+    @Test
+    fun shareButtonRemainsAvailableAfterShareCannotOpen() {
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    exportState = DiagnosticExportUiState(
+                        exportedFile = File("/tmp/test.zip"),
+                        feedback = DiagnosticExportFeedback.ShareUnavailable
+                    )
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("status-diagnostics-export-share")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun exportFeedbackSurfaceShowsChinese() {
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    exportState = DiagnosticExportUiState(
+                        feedback = DiagnosticExportFeedback.PackageReady
+                    )
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-diagnostics-export-feedback")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     private fun normalState(

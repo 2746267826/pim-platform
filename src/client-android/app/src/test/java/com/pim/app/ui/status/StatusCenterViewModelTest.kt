@@ -1,5 +1,7 @@
 package com.pim.app.ui.status
 
+import com.pim.app.mobile.diagnostics.DiagnosticExportException
+import com.pim.app.mobile.diagnostics.DiagnosticExportResult
 import com.pim.app.status.StatusAcceptedSignal
 import com.pim.app.status.StatusActionRoute
 import com.pim.app.status.StatusSyncActionRunner
@@ -8,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class StatusCenterViewModelTest {
 
@@ -118,6 +121,140 @@ class StatusCenterViewModelTest {
         assertEquals(
             listOf(StatusActionFeedback.ProbeChecking),
             feedback
+        )
+    }
+
+    @Test
+    fun exportHelperSuccessWithoutCoordinates() = runTest {
+        val file = File("/tmp/test.zip")
+        val states = mutableListOf<ExportFeedbackState>()
+
+        runExportWithFeedback(
+            includeRecentLocations = false,
+            export = { DiagnosticExportResult(file, 0) },
+            onState = { states.add(it) }
+        )
+
+        assertEquals(2, states.size)
+        assertEquals(ExportFeedbackState(isExporting = true), states[0])
+        assertEquals(
+            ExportFeedbackState(
+                isExporting = false,
+                feedback = DiagnosticExportFeedback.PackageReady,
+                exportedFile = file,
+                coordinateCount = 0
+            ),
+            states[1]
+        )
+    }
+
+    @Test
+    fun exportHelperSuccessWithCoordinates() = runTest {
+        val file = File("/tmp/test.zip")
+        val states = mutableListOf<ExportFeedbackState>()
+
+        runExportWithFeedback(
+            includeRecentLocations = true,
+            export = { DiagnosticExportResult(file, 5) },
+            onState = { states.add(it) }
+        )
+
+        assertEquals(2, states.size)
+        assertEquals(ExportFeedbackState(isExporting = true), states[0])
+        assertEquals(
+            ExportFeedbackState(
+                isExporting = false,
+                feedback = DiagnosticExportFeedback.PackageReadyWithLocations,
+                exportedFile = file,
+                coordinateCount = 5
+            ),
+            states[1]
+        )
+    }
+
+    @Test
+    fun exportHelperInsufficientStorage() = runTest {
+        val states = mutableListOf<ExportFeedbackState>()
+
+        runExportWithFeedback(
+            includeRecentLocations = false,
+            export = { throw DiagnosticExportException("INSUFFICIENT_STORAGE", "no space") },
+            onState = { states.add(it) }
+        )
+
+        assertEquals(2, states.size)
+        assertEquals(ExportFeedbackState(isExporting = true), states[0])
+        assertEquals(
+            ExportFeedbackState(
+                isExporting = false,
+                feedback = DiagnosticExportFeedback.InsufficientStorage
+            ),
+            states[1]
+        )
+    }
+
+    @Test
+    fun exportHelperGeneralException() = runTest {
+        val states = mutableListOf<ExportFeedbackState>()
+
+        runExportWithFeedback(
+            includeRecentLocations = false,
+            export = { throw RuntimeException("generic failure") },
+            onState = { states.add(it) }
+        )
+
+        assertEquals(2, states.size)
+        assertEquals(ExportFeedbackState(isExporting = true), states[0])
+        assertEquals(
+            ExportFeedbackState(
+                isExporting = false,
+                feedback = DiagnosticExportFeedback.ExportFailed
+            ),
+            states[1]
+        )
+    }
+
+    @Test
+    fun exportHelperCancellationExceptionRethrows() = runTest {
+        val states = mutableListOf<ExportFeedbackState>()
+
+        val result = kotlin.runCatching {
+            runExportWithFeedback(
+                includeRecentLocations = false,
+                export = { throw CancellationException() },
+                onState = { states.add(it) }
+            )
+        }
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is CancellationException)
+        assertEquals(1, states.size)
+        assertEquals(ExportFeedbackState(isExporting = true), states[0])
+    }
+
+    @Test
+    fun beginExportPreventsDuplicateAndClearsPreviousResult() {
+        val previousFile = File("/tmp/previous.zip")
+        val started = beginDiagnosticExport(
+            DiagnosticExportUiState(
+                includeRecentLocations = true,
+                showLocationConfirmation = true,
+                exportedFile = previousFile,
+                coordinateCount = 10,
+                feedback = DiagnosticExportFeedback.PackageReadyWithLocations
+            )
+        )
+
+        assertEquals(
+            DiagnosticExportUiState(
+                includeRecentLocations = true,
+                isExporting = true
+            ),
+            started
+        )
+        assertEquals(
+            null,
+            beginDiagnosticExport(DiagnosticExportUiState(isExporting = true))
         )
     }
 }

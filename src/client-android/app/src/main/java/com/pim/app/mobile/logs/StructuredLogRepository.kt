@@ -1,6 +1,7 @@
 package com.pim.app.mobile.logs
 
 import android.content.Context
+import com.pim.app.settings.TrackingSettingsStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,9 +27,16 @@ data class StructuredLogEntry(
 )
 
 @Singleton
-class StructuredLogRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+class StructuredLogRepository internal constructor(
+    @ApplicationContext private val context: Context,
+    private val trackingSettingsStore: TrackingSettingsStore,
+    private val nowMillis: () -> Long
 ) {
+    @Inject constructor(
+        @ApplicationContext context: Context,
+        trackingSettingsStore: TrackingSettingsStore
+    ) : this(context, trackingSettingsStore, System::currentTimeMillis)
+
     private val mutex = Mutex()
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
@@ -64,7 +72,7 @@ class StructuredLogRepository @Inject constructor(
         if (!logDir.isDirectory) return@withContext emptyList()
 
         val files = logDir.listFiles()
-            ?.filter { it.name.startsWith("mobile-") && it.name.endsWith(".jsonl") }
+            ?.filter { it.isFile && it.name.startsWith("mobile-") && it.name.endsWith(".jsonl") }
             ?.sortedByDescending { it.name }
             ?: return@withContext emptyList()
 
@@ -97,6 +105,27 @@ class StructuredLogRepository @Inject constructor(
         entries.take(limit)
     }
 
+    suspend fun logFiles(): List<File> = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val logDir = File(context.filesDir, "logs")
+            if (!logDir.isDirectory) return@withContext emptyList()
+            logDir.listFiles()
+                ?.filter { it.isFile && it.name.startsWith("mobile-") && it.name.endsWith(".jsonl") }
+                ?.sortedBy { it.name }
+                ?: emptyList()
+        }
+    }
+
+    suspend fun clear() = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val logDir = File(context.filesDir, "logs")
+            if (!logDir.isDirectory) return@withContext
+            logDir.listFiles()
+                ?.filter { it.isFile && it.name.startsWith("mobile-") && it.name.endsWith(".jsonl") }
+                ?.forEach { it.delete() }
+        }
+    }
+
     private suspend fun write(
         level: String,
         operation: String,
@@ -104,7 +133,11 @@ class StructuredLogRepository @Inject constructor(
         details: Map<String, Any?>,
         throwable: Throwable? = null
     ) = withContext(Dispatchers.IO) {
-        val nowUtc = System.currentTimeMillis()
+        val nowUtc = nowMillis()
+
+        if (level == "debug" && !trackingSettingsStore.isVerboseLoggingEnabled(nowUtc)) {
+            return@withContext
+        }
 
         mutex.withLock {
             try {
@@ -128,6 +161,8 @@ class StructuredLogRepository @Inject constructor(
                 logDir.mkdirs()
                 val file = File(logDir, "mobile-$datePart.jsonl")
                 file.appendText(line, Charsets.UTF_8)
+
+                cleanupOldFiles(trackingSettingsStore.read().logRetentionDays, nowUtc)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -140,6 +175,23 @@ class StructuredLogRepository @Inject constructor(
             "warn" -> Timber.w("[$operation] $message")
             "debug" -> Timber.d("[$operation] $message")
             else -> Timber.i("[$operation] $message")
+        }
+    }
+
+    private fun cleanupOldFiles(retentionDays: Int, nowUtc: Long) {
+        val logDir = File(context.filesDir, "logs")
+        if (!logDir.isDirectory) return
+        if (retentionDays <= 0) return
+        val cutoffDate = dateFormat.format(
+            Date(nowUtc - (retentionDays - 1).toLong() * 86_400_000L)
+        )
+        logDir.listFiles()?.forEach { file ->
+            if (file.isFile && file.name.startsWith("mobile-") && file.name.endsWith(".jsonl")) {
+                val datePart = file.name.removePrefix("mobile-").removeSuffix(".jsonl")
+                if (datePart < cutoffDate) {
+                    file.delete()
+                }
+            }
         }
     }
 }

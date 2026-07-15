@@ -35,12 +35,13 @@ data class StructuredLogFileSnapshot(
 class StructuredLogRepository internal constructor(
     @ApplicationContext private val context: Context,
     private val trackingSettingsStore: TrackingSettingsStore,
+    private val deleteFile: (File) -> Boolean = { it.delete() },
     private val nowMillis: () -> Long
 ) {
     @Inject constructor(
         @ApplicationContext context: Context,
         trackingSettingsStore: TrackingSettingsStore
-    ) : this(context, trackingSettingsStore, System::currentTimeMillis)
+    ) : this(context, trackingSettingsStore, { it.delete() }, System::currentTimeMillis)
 
     private val mutex = Mutex()
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
@@ -121,13 +122,20 @@ class StructuredLogRepository internal constructor(
         }
     }
 
-    suspend fun clear() = withContext(Dispatchers.IO) {
+    suspend fun clear(): Boolean = withContext(Dispatchers.IO) {
         mutex.withLock {
             val logDir = File(context.filesDir, "logs")
-            if (!logDir.isDirectory) return@withContext
-            logDir.listFiles()
+            if (!logDir.isDirectory) return@withLock true
+            val files = logDir.listFiles()
                 ?.filter { it.isFile && it.name.startsWith("mobile-") && it.name.endsWith(".jsonl") }
-                ?.forEach { it.delete() }
+            if (files.isNullOrEmpty()) return@withLock true
+            var allSucceeded = true
+            for (file in files) {
+                if (!deleteFile(file)) {
+                    allSucceeded = false
+                }
+            }
+            allSucceeded
         }
     }
 

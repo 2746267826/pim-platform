@@ -277,16 +277,46 @@ class StructuredLogRepositoryTest {
         File(testLogDir, "other.txt").writeText("data\n")
         File(testLogDir, "mobile-2024-07-15.jsonl").writeText("log\n")
 
-        repository.clear()
+        val result = repository.clear()
 
+        assertTrue(result)
         assertFalse("mobile-2024-07-16.jsonl should be deleted", File(testLogDir, "mobile-2024-07-16.jsonl").exists())
         assertFalse("mobile-2024-07-15.jsonl should be deleted", File(testLogDir, "mobile-2024-07-15.jsonl").exists())
         assertTrue("other.txt should be preserved", File(testLogDir, "other.txt").exists())
     }
 
     @Test
+    fun clearReturnsFalseAndAttemptsEveryMatchingFile() = runTest {
+        testLogDir.mkdirs()
+        val firstFile = File(testLogDir, "mobile-2024-07-15.jsonl")
+        val secondFile = File(testLogDir, "mobile-2024-07-16.jsonl")
+        firstFile.writeText("log\n")
+        secondFile.writeText("log\n")
+
+        val attempted = mutableListOf<File>()
+        val repo = StructuredLogRepository(
+            context, settingsStore,
+            nowMillis = { nowMillis },
+            deleteFile = { file ->
+                attempted += file
+                if (attempted.size == 1) {
+                    false
+                } else {
+                    file.delete()
+                }
+            }
+        )
+
+        val result = repo.clear()
+
+        assertFalse(result)
+        assertEquals(setOf(firstFile, secondFile), attempted.toSet())
+        assertEquals(1, listOf(firstFile, secondFile).count { it.exists() })
+    }
+
+    @Test
     fun clearNoOpWhenNoLogDir() = runTest {
-        repository.clear()
+        assertTrue(repository.clear())
     }
 
     @Test
@@ -294,7 +324,7 @@ class StructuredLogRepositoryTest {
         testLogDir.mkdirs()
         File(testLogDir, "other.txt").writeText("data\n")
 
-        repository.clear()
+        assertTrue(repository.clear())
 
         assertTrue("other.txt should be preserved", File(testLogDir, "other.txt").exists())
     }

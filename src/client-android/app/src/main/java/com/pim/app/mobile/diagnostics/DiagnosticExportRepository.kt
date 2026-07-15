@@ -70,7 +70,8 @@ class DiagnosticExportRepository internal constructor(
         } catch (e: UnsupportedOperationException) {
             Files.move(tmp.toPath(), final.toPath())
         }
-    }
+    },
+    private val deleteExportFile: (File) -> Boolean = { it.delete() }
 ) : DiagnosticOperations {
     @Inject constructor(
         @ApplicationContext context: Context,
@@ -220,25 +221,29 @@ class DiagnosticExportRepository internal constructor(
                 "Failed to clear diagnostics state"
             )
         }
+        val logClearFailed = !structuredLogRepository.clear()
         val dao = db.mobileDataDao()
-        structuredLogRepository.clear()
         db.withTransaction {
             dao.deleteAllMobileLogs()
             dao.deleteAllMobileLocationDroppedDiagnostics()
             dao.deleteAllMobileLocationPolicyTransitions()
         }
         val exportDir = File(context.filesDir, "diagnostics/exports")
+        var anyDeleteFailed = false
         if (exportDir.isDirectory) {
             exportDir.listFiles()?.forEach { file ->
                 if (file.isFile && EXPORT_FILE_PATTERN.matches(file.name)) {
-                    if (!file.delete()) {
-                        throw DiagnosticExportException(
-                            "DELETE_FAILED",
-                            "Failed to clear previous export"
-                        )
+                    if (!deleteExportFile(file)) {
+                        anyDeleteFailed = true
                     }
                 }
             }
+        }
+        if (logClearFailed || anyDeleteFailed) {
+            throw DiagnosticExportException(
+                "CLEAR_FAILED",
+                "Failed to clear diagnostics"
+            )
         }
     }
 

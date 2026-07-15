@@ -96,7 +96,9 @@ class DiagnosticExportRepositoryTest {
         permissionSnapshot: PermissionStatusSnapshot = defaultPermissionSnapshot(),
         serviceRunning: Boolean = true,
         dispatcher: CoroutineDispatcher = Dispatchers.IO,
-        clearProbe: (() -> Boolean)? = null
+        clearProbe: (() -> Boolean)? = null,
+        structuredLogRepository: StructuredLogRepository = structuredLogRepo,
+        deleteExportFile: ((File) -> Boolean)? = null
     ): DiagnosticExportRepository {
         val actualPublish: (File, File) -> Unit = if (publish != null) publish else { tmp, final ->
             Files.move(tmp.toPath(), final.toPath())
@@ -105,7 +107,7 @@ class DiagnosticExportRepositoryTest {
         return DiagnosticExportRepository(
             context = context,
             db = db,
-            structuredLogRepository = structuredLogRepo,
+            structuredLogRepository = structuredLogRepository,
             trackingSettingsStore = settingsStore,
             redactor = redactor,
             connectionProbeStore = probeStore,
@@ -115,7 +117,8 @@ class DiagnosticExportRepositoryTest {
             clearProbe = clearProbe ?: { probeStore.clear() },
             nowMillis = { nowMillis },
             availableBytes = { availableBytes },
-            publish = actualPublish
+            publish = actualPublish,
+            deleteExportFile = deleteExportFile ?: { it.delete() }
         )
     }
 
@@ -714,6 +717,74 @@ class DiagnosticExportRepositoryTest {
         assertFalse(File(exportDir, "pim-diagnostics-22222.zip.tmp").exists())
         assertTrue(File(exportDir, "other-file.txt").exists())
         assertTrue(subDir.exists())
+    }
+
+    @Test
+    fun clearDiagnostics_structuredLogFailureContinuesExportCleanupThenThrows() = runTest {
+        val exportDir = File(context.filesDir, "diagnostics/exports")
+        exportDir.mkdirs()
+        File(exportDir, "pim-diagnostics-99999.zip").writeText("export\n")
+
+        val failingLogRepo = StructuredLogRepository(
+            context, settingsStore,
+            nowMillis = { baseNow },
+            deleteFile = { false }
+        )
+        failingLogRepo.info("op", "msg")
+        assertTrue(failingLogRepo.snapshotFiles().isNotEmpty())
+
+        val repo = createRepo(
+            structuredLogRepository = failingLogRepo,
+            clearProbe = { true },
+            deleteExportFile = { it.delete() }
+        )
+
+        try {
+            repo.clearDiagnostics()
+            fail("Expected structured log cleanup failure")
+        } catch (e: DiagnosticExportException) {
+            assertEquals("CLEAR_FAILED", e.code)
+        }
+
+        assertTrue(failingLogRepo.snapshotFiles().isNotEmpty())
+        assertFalse(File(exportDir, "pim-diagnostics-99999.zip").exists())
+    }
+
+    @Test
+    fun clearDiagnostics_firstExportDeleteFailsStillDeletesLaterFilesThenThrows() = runTest {
+        val exportDir = File(context.filesDir, "diagnostics/exports")
+        exportDir.mkdirs()
+        File(exportDir, "pim-diagnostics-11111.zip").writeText("first\n")
+        File(exportDir, "pim-diagnostics-22222.zip").writeText("second\n")
+        File(exportDir, "pim-diagnostics-33333.zip.tmp").writeText("third\n")
+        val keepFile = File(exportDir, "other.txt")
+        keepFile.writeText("keep\n")
+
+        var callCount = 0
+        val repo = createRepo(
+            clearProbe = { true },
+            deleteExportFile = { file ->
+                callCount++
+                if (file.name == "pim-diagnostics-11111.zip") {
+                    false
+                } else {
+                    file.delete()
+                }
+            }
+        )
+
+        try {
+            repo.clearDiagnostics()
+            fail("Expected export delete failure")
+        } catch (e: DiagnosticExportException) {
+            assertEquals("CLEAR_FAILED", e.code)
+        }
+
+        assertEquals(3, callCount)
+        assertTrue(File(exportDir, "pim-diagnostics-11111.zip").exists())
+        assertFalse(File(exportDir, "pim-diagnostics-22222.zip").exists())
+        assertFalse(File(exportDir, "pim-diagnostics-33333.zip.tmp").exists())
+        assertTrue(keepFile.exists())
     }
 
     // --- Entry names safe / non-duplicate ---

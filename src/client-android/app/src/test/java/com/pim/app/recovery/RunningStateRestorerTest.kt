@@ -17,6 +17,7 @@ import com.pim.app.permissions.PermissionStatusRepository
 import com.pim.app.settings.TrackingSettingsStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -28,6 +29,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestPimApp::class)
@@ -46,6 +48,14 @@ class RunningStateRestorerTest {
         prefs = context.getSharedPreferences("restorer_test", Context.MODE_PRIVATE)
         prefs.edit().clear().apply()
         store = TrackingSettingsStore(prefs)
+        File(context.filesDir, "logs").deleteRecursively()
+        drainStartedServices()
+    }
+
+    @After
+    fun tearDown() {
+        drainStartedServices()
+        File(app.filesDir, "logs").deleteRecursively()
     }
 
     private fun createRestorer(

@@ -26,6 +26,11 @@ data class StructuredLogEntry(
     val occurredAtUtc: Long
 )
 
+data class StructuredLogFileSnapshot(
+    val fileName: String,
+    val content: String
+)
+
 @Singleton
 class StructuredLogRepository internal constructor(
     @ApplicationContext private val context: Context,
@@ -123,6 +128,18 @@ class StructuredLogRepository internal constructor(
             logDir.listFiles()
                 ?.filter { it.isFile && it.name.startsWith("mobile-") && it.name.endsWith(".jsonl") }
                 ?.forEach { it.delete() }
+        }
+    }
+
+    suspend fun snapshotFiles(): List<StructuredLogFileSnapshot> = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val logDir = File(context.filesDir, "logs")
+            if (!logDir.isDirectory) return@withLock emptyList()
+            logDir.listFiles()
+                ?.filter { it.isFile && it.name.startsWith("mobile-") && it.name.endsWith(".jsonl") }
+                ?.sortedBy { it.name }
+                ?.map { StructuredLogFileSnapshot(it.name, it.readText(Charsets.UTF_8)) }
+                ?: emptyList()
         }
     }
 

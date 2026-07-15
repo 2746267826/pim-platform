@@ -313,4 +313,56 @@ interface MobileDataDao {
         lastError: String? = null,
         updatedAtUtc: Long = System.currentTimeMillis()
     )
+
+    @Query(
+        """
+        SELECT
+            COALESCE((SELECT COUNT(*) FROM app_usage), 0) AS appUsageRowCount,
+            COALESCE((SELECT COUNT(*) FROM mobile_usage_events), 0) AS mobileUsageEventsRowCount,
+            COALESCE((SELECT COUNT(*) FROM mobile_usage_summaries), 0) AS mobileUsageSummariesRowCount,
+            COALESCE((SELECT COUNT(*) FROM mobile_app_metadata), 0) AS mobileAppMetadataRowCount,
+            COALESCE((SELECT COUNT(*) FROM mobile_location_points), 0) AS mobileLocationPointsRowCount,
+            COALESCE((SELECT COUNT(*) FROM mobile_location_dropped_diagnostics), 0) AS mobileLocationDroppedDiagnosticsRowCount,
+            COALESCE((SELECT COUNT(*) FROM mobile_location_policy_transitions), 0) AS mobileLocationPolicyTransitionsRowCount,
+            COALESCE((SELECT COUNT(*) FROM mobile_sync_batches), 0) AS mobileSyncBatchesRowCount,
+            COALESCE((SELECT COUNT(*) FROM mobile_logs), 0) AS mobileLogsRowCount,
+            COALESCE((SELECT COUNT(*) FROM mobile_device_profile), 0) AS mobileDeviceProfileRowCount
+        """
+    )
+    suspend fun diagnosticDatabaseCounts(): DiagnosticDatabaseCounts
+
+    @Query(
+        """
+        SELECT entity_type AS entityType, row_count AS rowCount,
+               started_at_utc AS startedAtUtc, finished_at_utc AS finishedAtUtc,
+               sync_status AS syncStatus, created_at_utc AS createdAtUtc
+        FROM mobile_sync_batches
+        ORDER BY created_at_utc DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun diagnosticSyncHistory(limit: Int = 100): List<DiagnosticSyncHistoryRow>
+
+    @Query(
+        """
+        SELECT latitude, longitude, altitude_meters AS altitudeMeters,
+               accuracy_meters AS accuracyMeters, speed_meters_per_second AS speedMetersPerSecond,
+               bearing_degrees AS bearingDegrees, provider, recorded_at_utc AS recordedAtUtc,
+               source, policy_mode AS policyMode, schedule_low_frequency AS scheduleLowFrequency,
+               motion_state AS motionState, sync_status AS syncStatus
+        FROM mobile_location_points
+        WHERE recorded_at_utc >= :from AND recorded_at_utc <= :to
+        ORDER BY recorded_at_utc ASC
+        """
+    )
+    suspend fun diagnosticLocations(from: Long, to: Long): List<DiagnosticLocationRow>
+
+    @Query("DELETE FROM mobile_logs")
+    suspend fun deleteAllMobileLogs(): Int
+
+    @Query("DELETE FROM mobile_location_dropped_diagnostics")
+    suspend fun deleteAllMobileLocationDroppedDiagnostics(): Int
+
+    @Query("DELETE FROM mobile_location_policy_transitions")
+    suspend fun deleteAllMobileLocationPolicyTransitions(): Int
 }

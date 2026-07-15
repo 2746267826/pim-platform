@@ -309,4 +309,50 @@ class StructuredLogRepositoryTest {
 
         assertTrue("Directory matching mobile-*.jsonl should be preserved", dir.exists())
     }
+
+    @Test
+    fun snapshotFilesReturnsOnlyLogFilesSorted() = runTest {
+        testLogDir.mkdirs()
+        File(testLogDir, "mobile-2024-07-16.jsonl").writeText("a\n")
+        File(testLogDir, "mobile-2024-07-14.jsonl").writeText("b\n")
+        File(testLogDir, "mobile-2024-07-15.jsonl").writeText("c\n")
+        File(testLogDir, "not-a-log.txt").writeText("d\n")
+
+        val snapshots = repository.snapshotFiles()
+        assertEquals(3, snapshots.size)
+        assertEquals("mobile-2024-07-14.jsonl", snapshots[0].fileName)
+        assertEquals("mobile-2024-07-15.jsonl", snapshots[1].fileName)
+        assertEquals("mobile-2024-07-16.jsonl", snapshots[2].fileName)
+    }
+
+    @Test
+    fun snapshotFilesContentIsSnapshotAtCallTime() = runTest {
+        testLogDir.mkdirs()
+        File(testLogDir, "mobile-2024-07-16.jsonl").writeText("original\n")
+
+        val snapshots = repository.snapshotFiles()
+        assertEquals(1, snapshots.size)
+        assertEquals("original\n", snapshots[0].content)
+
+        File(testLogDir, "mobile-2024-07-16.jsonl").appendText("appended\n")
+
+        assertEquals("original\n", snapshots[0].content)
+    }
+
+    @Test
+    fun snapshotFilesExcludesNonLogFiles() = runTest {
+        testLogDir.mkdirs()
+        File(testLogDir, "mobile-2024-07-16.jsonl").writeText("a\n")
+        File(testLogDir, ".hidden").writeText("secret\n")
+
+        val snapshots = repository.snapshotFiles()
+        assertEquals(1, snapshots.size)
+        assertEquals("mobile-2024-07-16.jsonl", snapshots[0].fileName)
+    }
+
+    @Test
+    fun snapshotFilesEmptyWhenNoLogs() = runTest {
+        val snapshots = repository.snapshotFiles()
+        assertTrue(snapshots.isEmpty())
+    }
 }

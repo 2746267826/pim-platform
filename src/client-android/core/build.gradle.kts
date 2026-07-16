@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.pim.core"
-    compileSdk = 34
+    compileSdk = 36
     defaultConfig {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

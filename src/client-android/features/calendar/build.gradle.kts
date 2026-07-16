@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.pim.features.calendar"
-    compileSdk = 34
+    compileSdk = 36
     defaultConfig {
         minSdk = 26
     }

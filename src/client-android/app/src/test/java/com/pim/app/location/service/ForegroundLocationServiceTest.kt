@@ -12,8 +12,10 @@ import androidx.work.testing.WorkManagerTestInitHelper
 import com.pim.app.TestPimApp
 import com.pim.app.location.policy.LocationPolicyMode
 import com.pim.app.mobile.sync.MobileSyncScheduler
+import com.pim.app.notifications.LocationLiveUpdatePhase
 import com.pim.app.notifications.LocationNotificationRenderer
-import com.pim.app.notifications.LocationNotificationState
+import com.pim.app.notifications.LocationNotificationUiModel
+import com.pim.app.notifications.collectionControlAction
 import com.pim.app.schedule.ScheduleWindowRepository
 import com.pim.app.settings.TrackingSettingsStore
 import com.pim.core.network.ApiService
@@ -75,14 +77,30 @@ class ForegroundLocationServiceTest {
             ?.notification
     }
 
-    private fun pausedState() = LocationNotificationState(
+    private fun pausedUiModel() = LocationNotificationUiModel(
+        phase = LocationLiveUpdatePhase.Paused,
         mode = LocationPolicyMode.Off,
-        nextExpectedLocationText = "暂停",
-        lastAcceptedLocationText = "无",
-        lastAccuracyText = "无",
-        pendingUploadCount = 0,
-        apiState = "等待采集",
-        lastDroppedReason = null
+        isOngoing = false,
+        requestLiveUpdate = false,
+        title = "PIM 定位",
+        collapsedText = "定位已暂停",
+        expandedText = "状态：已暂停\n策略：已暂停",
+        shortStatus = "已暂停",
+        progressPercent = null,
+        contentAction = collectionControlAction(LocationPolicyMode.Off)
+    )
+
+    private fun lateUiModel() = LocationNotificationUiModel(
+        phase = LocationLiveUpdatePhase.Collecting,
+        mode = LocationPolicyMode.ScheduleLowFrequency,
+        isOngoing = true,
+        requestLiveUpdate = true,
+        title = "PIM 定位",
+        collapsedText = "定位中 · 3 分钟后",
+        expandedText = "状态：定位中\n策略：日程低频",
+        shortStatus = "日程低频",
+        progressPercent = null,
+        contentAction = collectionControlAction(LocationPolicyMode.ScheduleLowFrequency)
     )
 
     @Test
@@ -128,7 +146,7 @@ class ForegroundLocationServiceTest {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(
             LocationNotificationRenderer.NOTIFICATION_ID,
-            LocationNotificationRenderer.build(context, pausedState())
+            LocationNotificationRenderer.build(context, pausedUiModel())
         )
 
         assertTrue(nm.activeNotifications.any { it.id == LocationNotificationRenderer.NOTIFICATION_ID })
@@ -441,18 +459,9 @@ class ForegroundLocationServiceTest {
         )
 
         // Simulate late coroutine re-posting (e.g. refreshScheduleWindows completing after STOP)
-        val lateState = LocationNotificationState(
-            mode = LocationPolicyMode.ScheduleLowFrequency,
-            nextExpectedLocationText = "3 分钟后",
-            lastAcceptedLocationText = "12:00",
-            lastAccuracyText = "10m",
-            pendingUploadCount = 1,
-            apiState = "正常",
-            lastDroppedReason = null
-        )
         nm.notify(
             LocationNotificationRenderer.NOTIFICATION_ID,
-            LocationNotificationRenderer.build(context, lateState)
+            LocationNotificationRenderer.build(context, lateUiModel())
         )
         assertTrue(
             "晚到协程重发后通知应可见",

@@ -118,6 +118,7 @@ class ForegroundLocationService : Service() {
                 return START_NOT_STICKY
             }
             ForegroundLocationController.ACTION_STOP_COLLECTION -> {
+                destroyed = true
                 clearSuccessHoldTick()
                 isPausing = false
                 trackingSettingsStore.setContinuousCollectionEnabled(false)
@@ -202,6 +203,7 @@ class ForegroundLocationService : Service() {
     }
 
     private fun stopCollection() {
+        clearSuccessHoldTick()
         cancelPendingQualityWait()
         listener?.let { manager.removeUpdates(it) }
         listener = null

@@ -29,39 +29,25 @@ object LiveUpdateNotificationCompat {
         builder: NotificationCompat.Builder,
         model: LocationNotificationUiModel
     ): NotificationCompat.Builder {
+        // Keep existing BigTextStyle from Renderer; do not replace with ProgressStyle.
         builder.setColorized(true)
-        invokeCompatBuilderMethod(builder, "setRequestPromotedOngoing", arrayOf(Boolean::class.javaPrimitiveType!!), arrayOf(true))
+        invokeCompatBuilderMethod(
+            builder,
+            "setRequestPromotedOngoing",
+            arrayOf(Boolean::class.javaPrimitiveType!!),
+            arrayOf(true)
+        )
         invokeCompatBuilderMethod(
             builder,
             "setShortCriticalText",
             arrayOf(CharSequence::class.java),
             arrayOf(model.shortStatus.take(SHORT_CRITICAL_MAX))
         )
-        if (!applyProgressStyle(builder, model.progressPercent)) {
-            val percent = model.progressPercent
-            if (percent != null) {
-                builder.setProgress(PROGRESS_MAX, percent.coerceIn(0, PROGRESS_MAX), false)
-            }
+        val percent = model.progressPercent
+        if (percent != null) {
+            builder.setProgress(PROGRESS_MAX, percent.coerceIn(0, PROGRESS_MAX), false)
         }
         return builder
-    }
-
-    private fun applyProgressStyle(
-        builder: NotificationCompat.Builder,
-        progressPercent: Int?
-    ): Boolean {
-        return try {
-            val styleClass = Class.forName("androidx.core.app.NotificationCompat\$ProgressStyle")
-            val style = styleClass.getDeclaredConstructor().newInstance()
-            val point = progressPercent?.coerceIn(0, PROGRESS_MAX) ?: 0
-            invokeOptional(style, "setProgress", arrayOf(Int::class.javaPrimitiveType!!), arrayOf(point))
-            invokeOptional(style, "setProgressMax", arrayOf(Int::class.javaPrimitiveType!!), arrayOf(PROGRESS_MAX))
-            invokeOptional(style, "setProgressIndeterminate", arrayOf(Boolean::class.javaPrimitiveType!!), arrayOf(progressPercent == null))
-            builder.setStyle(style as NotificationCompat.Style)
-            true
-        } catch (_: Throwable) {
-            false
-        }
     }
 
     private fun invokeCompatBuilderMethod(
@@ -78,17 +64,4 @@ object LiveUpdateNotificationCompat {
         }
     }
 
-    private fun invokeOptional(
-        target: Any,
-        name: String,
-        paramTypes: Array<Class<*>>,
-        args: Array<Any?>
-    ) {
-        try {
-            val method = target.javaClass.getMethod(name, *paramTypes)
-            method.invoke(target, *args)
-        } catch (_: Throwable) {
-            // Optional ProgressStyle setter missing; ignore.
-        }
-    }
 }

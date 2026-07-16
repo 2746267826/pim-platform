@@ -32,9 +32,8 @@ class LocationLiveUpdatePresenter(
             is LocationLiveUpdateEvent.Accepted -> applyAccepted(event)
             is LocationLiveUpdateEvent.Dropped -> {
                 lastDroppedReason = event.reason
-                if (phase != LocationLiveUpdatePhase.SuccessHold) {
-                    degradedKind = LocationDegradedKind.Drop
-                }
+                // Always record soft-drop; SuccessHold primary wins via resolvePhase priority.
+                degradedKind = LocationDegradedKind.Drop
             }
             is LocationLiveUpdateEvent.PolicyChanged -> {
                 mode = event.mode
@@ -145,7 +144,8 @@ class LocationLiveUpdatePresenter(
 
     private fun buildCollapsedText(phase: LocationLiveUpdatePhase): String {
         return when (phase) {
-            LocationLiveUpdatePhase.Paused -> "定位已暂停"
+            // Keep pause primary, but surface sync/API feedback in collapsed (EXTRA_TEXT).
+            LocationLiveUpdatePhase.Paused -> pausedCollapsedText()
             LocationLiveUpdatePhase.SuccessHold -> "已定位 · 精度 $lastAccuracyText"
             LocationLiveUpdatePhase.Degraded -> when (degradedKind) {
                 LocationDegradedKind.Permission -> "无法定位 · 权限不足"
@@ -161,6 +161,12 @@ class LocationLiveUpdatePresenter(
                 }
             }
         }
+    }
+
+    private fun pausedCollapsedText(): String {
+        val trimmed = apiState.trim()
+        if (trimmed.isEmpty() || trimmed == "正常") return "定位已暂停"
+        return "定位已暂停 · $trimmed"
     }
 
     private fun buildExpandedText(phase: LocationLiveUpdatePhase): String {

@@ -181,6 +181,25 @@ class LocationLiveUpdatePresenterTest {
     }
 
     @Test
+    fun case7b_softDropAfterHoldExpires_becomesDegradedPrimary() {
+        val p = presenter()
+        p.reduce(snapshot())
+        p.reduce(
+            LocationLiveUpdateEvent.Accepted(
+                lastAcceptedLocationText = "21:24",
+                lastAccuracyText = "18m",
+                lastAcceptedAtMillis = now
+            )
+        )
+        p.reduce(LocationLiveUpdateEvent.Dropped("精度不足"))
+        now += 30_001L
+        val ui = p.reduce(LocationLiveUpdateEvent.Tick)
+        assertEquals(LocationLiveUpdatePhase.Degraded, ui.phase)
+        assertEquals("定位异常 · 精度不足", ui.collapsedText)
+        assertTrue(ui.expandedText.contains("最近丢弃：精度不足"))
+    }
+
+    @Test
     fun case8_providerDisabled_and_permissionSnapshot_degradedPrimary() {
         val p = presenter()
         p.reduce(snapshot())

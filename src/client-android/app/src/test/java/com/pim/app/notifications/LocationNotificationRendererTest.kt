@@ -18,38 +18,6 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34], application = TestPimApp::class)
 class LocationNotificationRendererTest {
     @Test
-    fun collapsedTextShowsStrategyNextAccuracyQueueAndApi() {
-        val text = LocationNotificationRenderer.collapsedText(
-            state = state(mode = LocationPolicyMode.ScheduleLowFrequency)
-        )
-
-        assertTrue(text.contains("日程低频"))
-        assertTrue(text.contains("12 分钟后"))
-        assertTrue(text.contains("18m"))
-        assertTrue(text.contains("待上传 3"))
-        assertTrue(text.contains("正常"))
-    }
-
-    @Test
-    fun expandedTextShowsDroppedReason() {
-        val text = LocationNotificationRenderer.expandedText(
-            state = state(
-                mode = LocationPolicyMode.MovementRecovery,
-                nextExpectedLocationText = "1 分钟后",
-                lastAcceptedLocationText = "无",
-                lastAccuracyText = "无",
-                pendingUploadCount = 0,
-                apiState = "API 无法连接",
-                lastDroppedReason = "误差必须小于 50 米"
-            )
-        )
-
-        assertTrue(text.contains("移动恢复"))
-        assertTrue(text.contains("API 无法连接"))
-        assertTrue(text.contains("最近丢弃：误差必须小于 50 米"))
-    }
-
-    @Test
     fun collectionControlActionShowsPauseWhenActive() {
         val action = collectionControlAction(LocationPolicyMode.PowerSavingNormal)
 
@@ -68,9 +36,7 @@ class LocationNotificationRendererTest {
     @Test
     fun ongoingEventFlagWhenActive() {
         val context = ApplicationProvider.getApplicationContext<Application>()
-        val notification = LocationNotificationRenderer.build(
-            context, state(mode = LocationPolicyMode.PowerSavingNormal)
-        )
+        val notification = LocationNotificationRenderer.build(context, uiModel())
 
         assertTrue((notification.flags and Notification.FLAG_ONGOING_EVENT) != 0)
     }
@@ -79,7 +45,8 @@ class LocationNotificationRendererTest {
     fun noOngoingEventWhenPaused() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val notification = LocationNotificationRenderer.build(
-            context, state(mode = LocationPolicyMode.Off)
+            context,
+            uiModel(mode = LocationPolicyMode.Off)
         )
 
         assertFalse((notification.flags and Notification.FLAG_ONGOING_EVENT) != 0)
@@ -89,65 +56,82 @@ class LocationNotificationRendererTest {
     fun pausedStateShowsResumeAction() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         val notification = LocationNotificationRenderer.build(
-            context, state(mode = LocationPolicyMode.Off)
+            context,
+            uiModel(mode = LocationPolicyMode.Off)
         )
 
         assertEquals("恢复", notification.actions[0].title)
     }
 
     @Test
-    fun expandedTextDoesNotDuplicateApiPrefix() {
-        val text = LocationNotificationRenderer.expandedText(
-            state = state(
-                mode = LocationPolicyMode.ScheduleLowFrequency,
-                nextExpectedLocationText = "3 分钟后",
-                lastAcceptedLocationText = "12:00",
-                lastAccuracyText = "10m",
-                pendingUploadCount = 1,
-                apiState = "API 无法连接",
-                lastDroppedReason = null
-            )
+    fun contentComesFromUiModel() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val model = uiModel(
+            collapsedText = "定位中 · 等待首次定位",
+            expandedText = "状态：定位中\n策略：省电档\n待上传 0"
         )
-        assertFalse("展开文本不应包含 API API", text.contains("API API"))
-        assertTrue(
-            "应正确显示 API 状态一次: $text",
-            text.contains("待上传 1，API 无法连接")
-        )
+        val notification = LocationNotificationRenderer.build(context, model)
+
+        assertEquals(model.title, notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString())
+        assertEquals(model.collapsedText, notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        assertEquals(model.expandedText, notification.extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString())
     }
 
     @Test
-    fun expandedTextAddsApiLabelWhenStateHasNoPrefix() {
-        val text = LocationNotificationRenderer.expandedText(
-            state = state(
-                mode = LocationPolicyMode.PowerSavingNormal,
-                pendingUploadCount = 2,
-                apiState = "正常"
-            )
-        )
+    fun channelIdIsLocationCollection() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val notification = LocationNotificationRenderer.build(context, uiModel())
 
-        assertTrue(
-            "无前缀状态也应显示 API 标签: $text",
-            text.contains("待上传 2，API 正常")
-        )
+        assertEquals(LocationNotificationRenderer.CHANNEL_ID, notification.channelId)
+        assertEquals("pim_location_collection", notification.channelId)
     }
 
-    private fun state(
-        mode: LocationPolicyMode,
-        nextExpectedLocationText: String = "12 分钟后",
-        lastAcceptedLocationText: String = "21:24",
-        lastAccuracyText: String = "18m",
-        pendingUploadCount: Int = 3,
-        apiState: String = "正常",
-        lastDroppedReason: String? = null
-    ): LocationNotificationState {
-        return LocationNotificationState(
-            mode = mode,
-            nextExpectedLocationText = nextExpectedLocationText,
-            lastAcceptedLocationText = lastAcceptedLocationText,
-            lastAccuracyText = lastAccuracyText,
-            pendingUploadCount = pendingUploadCount,
-            apiState = apiState,
-            lastDroppedReason = lastDroppedReason
-        )
+    @Test
+    fun notificationIdConstant() {
+        assertEquals(7101, LocationNotificationRenderer.NOTIFICATION_ID)
     }
+
+    @Test
+    fun actionsOrderWhenActive() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val notification = LocationNotificationRenderer.build(context, uiModel())
+
+        assertEquals(3, notification.actions.size)
+        assertEquals("暂停", notification.actions[0].title)
+        assertEquals("同步", notification.actions[1].title)
+        assertEquals("状态", notification.actions[2].title)
+    }
+
+    @Test
+    fun actionsOrderWhenPaused() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val notification = LocationNotificationRenderer.build(
+            context,
+            uiModel(mode = LocationPolicyMode.Off)
+        )
+
+        assertEquals(3, notification.actions.size)
+        assertEquals("恢复", notification.actions[0].title)
+        assertEquals("同步", notification.actions[1].title)
+        assertEquals("状态", notification.actions[2].title)
+    }
+
+    private fun uiModel(
+        mode: LocationPolicyMode = LocationPolicyMode.PowerSavingNormal,
+        isOngoing: Boolean = mode != LocationPolicyMode.Off,
+        requestLiveUpdate: Boolean = isOngoing,
+        collapsedText: String = "定位中 · 刚刚",
+        expandedText: String = "状态：定位中\n策略：省电档"
+    ) = LocationNotificationUiModel(
+        phase = if (isOngoing) LocationLiveUpdatePhase.Collecting else LocationLiveUpdatePhase.Paused,
+        mode = mode,
+        isOngoing = isOngoing,
+        requestLiveUpdate = requestLiveUpdate,
+        title = "PIM 定位",
+        collapsedText = collapsedText,
+        expandedText = expandedText,
+        shortStatus = "省电",
+        progressPercent = 40,
+        contentAction = collectionControlAction(mode)
+    )
 }

@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -31,6 +32,9 @@ import androidx.lifecycle.lifecycleScope
 import com.pim.app.recovery.ForegroundRecoveryObserver
 import com.pim.app.recovery.RunningStateRestorer
 import com.pim.app.ui.permissions.PermissionCenterScreen
+import com.pim.core.auth.AuthSessionStore
+import com.pim.core.network.AuthRefreshCoordinator
+import com.pim.core.settings.ServerSettingsStore
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -40,12 +44,31 @@ class PimShellActivity : AppCompatActivity() {
     @Inject
     lateinit var runningStateRestorer: RunningStateRestorer
 
+    @Inject
+    lateinit var authSessionStore: AuthSessionStore
+
+    @Inject
+    lateinit var refreshCoordinator: AuthRefreshCoordinator
+
+    @Inject
+    lateinit var serverSettingsStore: ServerSettingsStore
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val initialRoute = intent.getStringExtra(EXTRA_ROUTE) ?: "/today"
+        val bridge = AndroidWebMessageBridge(
+            authSessionStore = authSessionStore,
+            refreshCoordinator = refreshCoordinator,
+            serverSettingsStore = serverSettingsStore,
+            scope = lifecycleScope
+        )
         setContent {
-            PimShellScreen(initialRoute = initialRoute)
+            PimShellScreen(
+                initialRoute = initialRoute,
+                serverSettingsStore = serverSettingsStore,
+                bridge = bridge
+            )
         }
         lifecycle.addObserver(
             ForegroundRecoveryObserver(
@@ -65,9 +88,16 @@ class PimShellActivity : AppCompatActivity() {
 }
 
 @Composable
-fun PimShellScreen(initialRoute: String = "/today") {
+fun PimShellScreen(
+    initialRoute: String = "/today",
+    serverSettingsStore: ServerSettingsStore? = null,
+    bridge: AndroidWebMessageBridge? = null
+) {
     var route by rememberSaveable { mutableStateOf(initialRoute) }
     var showPermissions by rememberSaveable { mutableStateOf(false) }
+    val serverUrl = remember(serverSettingsStore) {
+        serverSettingsStore?.getBaseUrl().orEmpty()
+    }
     val routes = listOf(
         "今日" to "/today",
         "任务" to "/tasks",
@@ -130,6 +160,8 @@ fun PimShellScreen(initialRoute: String = "/today") {
                 } else {
                     PimWebViewScreen(
                         route = route,
+                        serverUrl = serverUrl,
+                        bridge = bridge,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(620.dp)

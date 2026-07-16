@@ -3,15 +3,49 @@ const BASE = '/api/v1';
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
 let onAuthChange: (() => void) | null = null;
+let bridgeClient: import('../embed/androidBridge').AndroidBridgeClient | null | undefined = undefined;
+let bridgeInitPromise: Promise<void> | null = null;
+let initialTokenPromise: Promise<void> | null = null;
+let refreshPromise: Promise<boolean> | null = null;
+
+function isEmbed(): boolean {
+  try {
+    return typeof window !== 'undefined'
+      && typeof window.location !== 'undefined'
+      && window.location.pathname.startsWith('/embed/android/');
+  } catch { return false; }
+}
+
+async function getBridgeClient(): Promise<import('../embed/androidBridge').AndroidBridgeClient | null> {
+  if (!isEmbed()) return null;
+  if (bridgeClient !== undefined) return bridgeClient;
+  if (!bridgeInitPromise) {
+    bridgeInitPromise = (async () => {
+      try {
+        const { AndroidBridgeClient } = await import('../embed/androidBridge');
+        bridgeClient = new AndroidBridgeClient();
+      } catch { bridgeClient = null; }
+    })();
+  }
+  await bridgeInitPromise;
+  return bridgeClient!;
+}
 
 export function setTokens(access: string, refresh: string) {
   accessToken = access;
   refreshToken = refresh;
-  localStorage.setItem('accessToken', access);
-  localStorage.setItem('refreshToken', refresh);
+  if (!isEmbed()) {
+    localStorage.setItem('accessToken', access);
+    localStorage.setItem('refreshToken', refresh);
+  }
 }
 
 export function loadTokens(): boolean {
+  if (isEmbed()) {
+    accessToken = null;
+    refreshToken = null;
+    return false;
+  }
   accessToken = localStorage.getItem('accessToken');
   refreshToken = localStorage.getItem('refreshToken');
   return !!accessToken;
@@ -20,13 +54,38 @@ export function loadTokens(): boolean {
 export function clearTokens() {
   accessToken = null;
   refreshToken = null;
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('refreshToken');
+  initialTokenPromise = null;
+  refreshPromise = null;
+  if (!isEmbed()) {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  }
 }
 
 export function onTokensChanged(cb: () => void) { onAuthChange = cb; }
 
 async function refreshAccessToken(): Promise<boolean> {
+  if (isEmbed()) {
+    if (refreshPromise) return refreshPromise;
+    refreshPromise = (async () => {
+      try {
+        const bridge = await getBridgeClient();
+        if (!bridge) return false;
+        const newToken = await bridge.refreshToken(accessToken ?? undefined);
+        if (newToken) {
+          accessToken = newToken;
+          return true;
+        }
+        accessToken = null;
+        clearTokens();
+        onAuthChange?.();
+        return false;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+    return refreshPromise;
+  }
   if (!refreshToken) return false;
   try {
     const res = await fetch(`${BASE}/auth/refresh`, {
@@ -94,9 +153,27 @@ async function apiFetchResponse(
   opts: RequestInit = {},
   includeJsonContentType = false,
   acceptedStatuses?: readonly number[],
+  _retried = false,
 ): Promise<Response> {
   const start = performance.now();
   const method = opts.method || 'GET';
+
+  if (isEmbed() && !accessToken && !_retried) {
+    if (!initialTokenPromise) {
+      initialTokenPromise = (async () => {
+        try {
+          const bridge = await getBridgeClient();
+          if (!bridge) return;
+          const token = await bridge.requestToken();
+          if (token) accessToken = token;
+        } finally {
+          initialTokenPromise = null;
+        }
+      })();
+    }
+    await initialTokenPromise;
+  }
+
   const headers = new Headers(opts.headers);
   if (includeJsonContentType && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
@@ -105,14 +182,16 @@ async function apiFetchResponse(
 
   let res = await fetch(`${BASE}${path}`, { ...opts, headers });
 
-  if (res.status === 401 && refreshToken) {
+  if (res.status === 401 && !_retried) {
     const ok = await refreshAccessToken();
     if (ok) {
       headers.set('Authorization', `Bearer ${accessToken}`);
       res = await fetch(`${BASE}${path}`, { ...opts, headers });
     } else {
-      clearTokens();
-      onAuthChange?.();
+      if (!isEmbed()) {
+        clearTokens();
+        onAuthChange?.();
+      }
       throw new Error('登录已过期，请重新登录');
     }
   }

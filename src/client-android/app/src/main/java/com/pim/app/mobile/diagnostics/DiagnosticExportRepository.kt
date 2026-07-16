@@ -14,6 +14,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -71,7 +73,8 @@ class DiagnosticExportRepository internal constructor(
             Files.move(tmp.toPath(), final.toPath())
         }
     },
-    private val deleteExportFile: (File) -> Boolean = { it.delete() }
+    private val deleteExportFile: (File) -> Boolean = { it.delete() },
+    private val mutex: Mutex = Mutex()
 ) : DiagnosticOperations {
     @Inject constructor(
         @ApplicationContext context: Context,
@@ -93,157 +96,188 @@ class DiagnosticExportRepository internal constructor(
     )
 
     override suspend fun export(includeRecentLocations: Boolean): DiagnosticExportResult = withContext(dispatcher) {
-        val dao = db.mobileDataDao()
-        val exportNow = nowMillis()
-        val exportDir = File(context.filesDir, "diagnostics/exports")
-        exportDir.mkdirs()
-        val tmpFile = File(exportDir, "pim-diagnostics-$exportNow.zip.tmp")
-        val finalFile = File(exportDir, "pim-diagnostics-$exportNow.zip")
+        mutex.withLock {
+            val dao = db.mobileDataDao()
+            val exportNow = nowMillis()
+            val exportDir = File(context.filesDir, "diagnostics/exports")
+            exportDir.mkdirs()
+            val tmpFile = File(exportDir, "pim-diagnostics-$exportNow.zip.tmp")
+            val finalFile = File(exportDir, "pim-diagnostics-$exportNow.zip")
 
-        try {
-            val entries = mutableMapOf<String, String>()
+            try {
+                val entries = mutableMapOf<String, String>()
 
-            entries["status.json"] = buildStatus(exportNow, dao).toString()
-            entries["settings.json"] = buildSettings().toString()
-            entries["database-counts.json"] = buildDatabaseCounts(dao).toString()
-            entries["sync-history.json"] = buildSyncHistory(dao).toString()
+                entries["status.json"] = buildStatus(exportNow, dao).toString()
+                entries["settings.json"] = buildSettings().toString()
+                entries["database-counts.json"] = buildDatabaseCounts(dao).toString()
+                entries["sync-history.json"] = buildSyncHistory(dao).toString()
 
-            val logEntryNames = mutableListOf<String>()
-            val logSnapshots = structuredLogRepository.snapshotFiles()
-            for (snapshot in logSnapshots) {
-                val entryName = "logs/${snapshot.fileName}"
-                require(isValidLogName(entryName)) { "Invalid log entry name: $entryName" }
-                require(!redactor.isUnsafeEntryName(entryName)) { "Unsafe entry name: $entryName" }
-                val redactedLines = snapshot.content.lines()
-                    .filter { it.isNotBlank() }
-                    .joinToString("\n") { line -> redactor.redactJsonLine(line) }
-                entries[entryName] = redactedLines
-                logEntryNames.add(entryName)
-            }
-
-            var coordinateCount = 0
-            if (includeRecentLocations) {
-                val from = exportNow - 24L * 3600_000L
-                val to = exportNow
-                val locations = dao.diagnosticLocations(from, to)
-                coordinateCount = locations.size
-                val lines = locations.joinToString("\n") { loc -> locationToJson(loc).toString() }
-                entries["locations.jsonl"] = lines
-            }
-
-            entries["manifest.json"] = buildManifest(
-                includeRecentLocations = includeRecentLocations,
-                exportNow = exportNow,
-                coordinateCount = coordinateCount,
-                logEntryNames = logEntryNames
-            ).toString()
-
-            for ((name, content) in entries.toList()) {
-                val redacted = content.lines().joinToString("\n") { line ->
-                    redactor.redactJsonLine(line)
+                val logEntryNames = mutableListOf<String>()
+                val logSnapshots = structuredLogRepository.snapshotFiles()
+                for (snapshot in logSnapshots) {
+                    val entryName = "logs/${snapshot.fileName}"
+                    require(isValidLogName(entryName)) { "Invalid log entry name: $entryName" }
+                    require(!redactor.isUnsafeEntryName(entryName)) { "Unsafe entry name: $entryName" }
+                    val redactedLines = snapshot.content.lines()
+                        .filter { it.isNotBlank() }
+                        .joinToString("\n") { line -> redactor.redactJsonLine(line) }
+                    entries[entryName] = redactedLines
+                    logEntryNames.add(entryName)
                 }
-                entries[name] = redacted
-            }
 
-            val expectedNames = buildExpectedEntrySet(
-                validatedLogEntryNames = logEntryNames,
-                includeRecentLocations = includeRecentLocations
-            )
-            for ((name, content) in entries) {
-                require(!redactor.isUnsafeEntryName(name)) { "Unsafe entry name: $name" }
-                require(name in expectedNames) { "Unexpected entry: $name" }
-                val leaks = redactor.findCredentialLeaks(content)
-                require(leaks.isEmpty()) { "Credential leak in $name: $leaks" }
-            }
+                var coordinateCount = 0
+                if (includeRecentLocations) {
+                    val from = exportNow - 24L * 3600_000L
+                    val to = exportNow
+                    val locations = dao.diagnosticLocations(from, to)
+                    coordinateCount = locations.size
+                    val lines = locations.joinToString("\n") { loc -> locationToJson(loc).toString() }
+                    entries["locations.jsonl"] = lines
+                }
 
-            val estimatedBytes = entries.entries.sumOf { (name, content) ->
-                name.toByteArray(Charsets.UTF_8).size.toLong() +
-                    content.toByteArray(Charsets.UTF_8).size.toLong()
-            } + 1_048_576L
+                entries["manifest.json"] = buildManifest(
+                    includeRecentLocations = includeRecentLocations,
+                    exportNow = exportNow,
+                    coordinateCount = coordinateCount,
+                    logEntryNames = logEntryNames
+                ).toString()
 
-            val avail = availableBytes()
-            if (estimatedBytes > avail) {
-                throw DiagnosticExportException(
-                    "INSUFFICIENT_STORAGE",
-                    "Not enough storage space for export"
+                for ((name, content) in entries.toList()) {
+                    val redacted = content.lines().joinToString("\n") { line ->
+                        redactor.redactJsonLine(line)
+                    }
+                    entries[name] = redacted
+                }
+
+                val expectedNames = buildExpectedEntrySet(
+                    validatedLogEntryNames = logEntryNames,
+                    includeRecentLocations = includeRecentLocations
                 )
-            }
+                for ((name, content) in entries) {
+                    require(!redactor.isUnsafeEntryName(name)) { "Unsafe entry name: $name" }
+                    require(name in expectedNames) { "Unexpected entry: $name" }
+                    val leaks = redactor.findCredentialLeaks(content)
+                    require(leaks.isEmpty()) { "Credential leak in $name: $leaks" }
+                }
 
-            BufferedOutputStream(tmpFile.outputStream()).use { bos ->
-                ZipOutputStream(bos).use { zos ->
-                    for ((name, content) in entries) {
-                        zos.putNextEntry(ZipEntry(name))
-                        zos.write(content.toByteArray(Charsets.UTF_8))
-                        zos.closeEntry()
+                val estimatedBytes = entries.entries.sumOf { (name, content) ->
+                    name.toByteArray(Charsets.UTF_8).size.toLong() +
+                        content.toByteArray(Charsets.UTF_8).size.toLong()
+                } + 1_048_576L
+
+                val avail = availableBytes()
+                if (estimatedBytes > avail) {
+                    throw DiagnosticExportException(
+                        "INSUFFICIENT_STORAGE",
+                        "Not enough storage space for export"
+                    )
+                }
+
+                BufferedOutputStream(tmpFile.outputStream()).use { bos ->
+                    ZipOutputStream(bos).use { zos ->
+                        for ((name, content) in entries) {
+                            zos.putNextEntry(ZipEntry(name))
+                            zos.write(content.toByteArray(Charsets.UTF_8))
+                            zos.closeEntry()
+                        }
                     }
                 }
-            }
 
-            ZipFile(tmpFile).use { zip ->
-                val actualNames = mutableSetOf<String>()
-                for (entry in zip.entries().asSequence()) {
-                    val name = entry.name
-                    require(!actualNames.contains(name)) { "Duplicate entry: $name" }
-                    actualNames.add(name)
-                    require(!redactor.isUnsafeEntryName(name)) { "Unsafe entry name after write: $name" }
-                    require(name in expectedNames) { "Unexpected entry after write: $name" }
-                    val content = zip.getInputStream(entry).bufferedReader(Charsets.UTF_8).readText()
-                    val leaks = redactor.findCredentialLeaks(content)
-                    require(leaks.isEmpty()) { "Credential leak after write in $name: $leaks" }
+                ZipFile(tmpFile).use { zip ->
+                    val actualNames = mutableSetOf<String>()
+                    for (entry in zip.entries().asSequence()) {
+                        val name = entry.name
+                        require(!actualNames.contains(name)) { "Duplicate entry: $name" }
+                        actualNames.add(name)
+                        require(!redactor.isUnsafeEntryName(name)) { "Unsafe entry name after write: $name" }
+                        require(name in expectedNames) { "Unexpected entry after write: $name" }
+                        val content = zip.getInputStream(entry).bufferedReader(Charsets.UTF_8).readText()
+                        val leaks = redactor.findCredentialLeaks(content)
+                        require(leaks.isEmpty()) { "Credential leak after write in $name: $leaks" }
+                    }
+                    require(actualNames == expectedNames) {
+                        "ZIP entry mismatch: expected $expectedNames, got $actualNames"
+                    }
                 }
-                require(actualNames == expectedNames) {
-                    "ZIP entry mismatch: expected $expectedNames, got $actualNames"
-                }
-            }
 
-            publish(tmpFile, finalFile)
-            DiagnosticExportResult(finalFile, coordinateCount)
-        } catch (e: CancellationException) {
-            tmpFile.delete()
-            throw e
-        } catch (e: DiagnosticExportException) {
-            tmpFile.delete()
-            throw e
-        } catch (e: Exception) {
-            tmpFile.delete()
-            throw DiagnosticExportException(
-                "EXPORT_FAILED",
-                "Diagnostic export failed",
-                e
-            )
+                publish(tmpFile, finalFile)
+                DiagnosticExportResult(finalFile, coordinateCount)
+            } catch (e: CancellationException) {
+                tmpFile.delete()
+                throw e
+            } catch (e: DiagnosticExportException) {
+                tmpFile.delete()
+                throw e
+            } catch (e: Exception) {
+                tmpFile.delete()
+                throw DiagnosticExportException(
+                    "EXPORT_FAILED",
+                    "Diagnostic export failed",
+                    e
+                )
+            }
         }
     }
 
     override suspend fun clearDiagnostics() = withContext(dispatcher) {
-        if (!clearProbe()) {
-            throw DiagnosticExportException(
-                "CLEAR_FAILED",
-                "Failed to clear diagnostics state"
-            )
-        }
-        val logClearFailed = !structuredLogRepository.clear()
-        val dao = db.mobileDataDao()
-        db.withTransaction {
-            dao.deleteAllMobileLogs()
-            dao.deleteAllMobileLocationDroppedDiagnostics()
-            dao.deleteAllMobileLocationPolicyTransitions()
-        }
-        val exportDir = File(context.filesDir, "diagnostics/exports")
-        var anyDeleteFailed = false
-        if (exportDir.isDirectory) {
-            exportDir.listFiles()?.forEach { file ->
-                if (file.isFile && EXPORT_FILE_PATTERN.matches(file.name)) {
-                    if (!deleteExportFile(file)) {
-                        anyDeleteFailed = true
+        mutex.withLock {
+            var probeFailed = false
+            try {
+                if (!clearProbe()) {
+                    probeFailed = true
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                probeFailed = true
+            }
+
+            var logClearFailed = false
+            try {
+                logClearFailed = !structuredLogRepository.clear()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logClearFailed = true
+            }
+
+            var roomClearFailed = false
+            try {
+                val dao = db.mobileDataDao()
+                db.withTransaction {
+                    dao.deleteAllMobileLogs()
+                    dao.deleteAllMobileLocationDroppedDiagnostics()
+                    dao.deleteAllMobileLocationPolicyTransitions()
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                roomClearFailed = true
+            }
+
+            val exportDir = File(context.filesDir, "diagnostics/exports")
+            var anyDeleteFailed = false
+            if (exportDir.isDirectory) {
+                exportDir.listFiles()?.forEach { file ->
+                    if (file.isFile && EXPORT_FILE_PATTERN.matches(file.name)) {
+                        try {
+                            if (!deleteExportFile(file)) {
+                                anyDeleteFailed = true
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            anyDeleteFailed = true
+                        }
                     }
                 }
             }
-        }
-        if (logClearFailed || anyDeleteFailed) {
-            throw DiagnosticExportException(
-                "CLEAR_FAILED",
-                "Failed to clear diagnostics"
-            )
+            if (probeFailed || logClearFailed || roomClearFailed || anyDeleteFailed) {
+                throw DiagnosticExportException(
+                    "CLEAR_FAILED",
+                    "Failed to clear diagnostics"
+                )
+            }
         }
     }
 

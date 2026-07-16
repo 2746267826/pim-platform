@@ -26,6 +26,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.json.JSONArray
@@ -44,7 +45,9 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipFile
 
 @RunWith(RobolectricTestRunner::class)
@@ -688,16 +691,24 @@ class DiagnosticExportRepositoryTest {
     }
 
     @Test
-    fun clearDiagnostics_probeClearFailure_throws() = runTest {
-        structuredLogRepo.info("op", "msg")
+    fun clearDiagnostics_probeClearFailure_continuesCleanup() = runTest {
+        structuredLogRepo.info("op", "log-entry")
 
-        val repo = createRepo(clearProbe = { false })
+        val repo = createRepo()
+        repo.export(includeRecentLocations = false)
+
+        val failingRepo = createRepo(clearProbe = { false }, deleteExportFile = { it.delete() })
         try {
-            repo.clearDiagnostics()
+            failingRepo.clearDiagnostics()
             fail("Expected probe clear failure")
         } catch (e: DiagnosticExportException) {
             assertEquals("CLEAR_FAILED", e.code)
         }
+
+        assertTrue(structuredLogRepo.snapshotFiles().isEmpty())
+        val exportDir = File(context.filesDir, "diagnostics/exports")
+        val zips = exportDir.listFiles()?.filter { it.name.endsWith(".zip") }.orEmpty()
+        assertEquals(0, zips.size)
     }
 
     @Test
@@ -785,6 +796,71 @@ class DiagnosticExportRepositoryTest {
         assertFalse(File(exportDir, "pim-diagnostics-22222.zip").exists())
         assertFalse(File(exportDir, "pim-diagnostics-33333.zip.tmp").exists())
         assertTrue(keepFile.exists())
+    }
+
+    @Test
+    fun clearDiagnostics_structuredLogClearThrowsContinuesCleanup() = runTest {
+        val exportDir = File(context.filesDir, "diagnostics/exports")
+        exportDir.mkdirs()
+        File(exportDir, "pim-diagnostics-99999.zip").writeText("export\n")
+
+        val throwingLogRepo = StructuredLogRepository(
+            context, settingsStore,
+            nowMillis = { baseNow },
+            deleteFile = { throw IOException("simulated clear failure") }
+        )
+        throwingLogRepo.info("op", "msg")
+        assertTrue(throwingLogRepo.snapshotFiles().isNotEmpty())
+
+        val repo = createRepo(
+            structuredLogRepository = throwingLogRepo,
+            clearProbe = { true },
+            deleteExportFile = { it.delete() }
+        )
+
+        try {
+            repo.clearDiagnostics()
+            fail("Expected CLEAR_FAILED from structured log clear exception")
+        } catch (e: DiagnosticExportException) {
+            assertEquals("CLEAR_FAILED", e.code)
+        }
+
+        assertTrue(throwingLogRepo.snapshotFiles().isNotEmpty())
+        assertFalse(File(exportDir, "pim-diagnostics-99999.zip").exists())
+    }
+
+    @Test
+    fun clearDiagnostics_exportFileDeleteThrowsContinuesWithRemaining() = runTest {
+        val exportDir = File(context.filesDir, "diagnostics/exports")
+        exportDir.mkdirs()
+        File(exportDir, "pim-diagnostics-11111.zip").writeText("first\n")
+        File(exportDir, "pim-diagnostics-22222.zip").writeText("second\n")
+        File(exportDir, "pim-diagnostics-33333.zip.tmp").writeText("third\n")
+
+        var callCount = 0
+        val repo = createRepo(
+            clearProbe = { true },
+            deleteExportFile = { file ->
+                callCount++
+                if (file.name == "pim-diagnostics-11111.zip") {
+                    throw IOException("simulated delete failure")
+                } else {
+                    file.delete()
+                }
+            }
+        )
+
+        try {
+            repo.clearDiagnostics()
+            fail("Expected CLEAR_FAILED from export file delete exception")
+        } catch (e: DiagnosticExportException) {
+            assertEquals("CLEAR_FAILED", e.code)
+        }
+
+        assertEquals(3, callCount)
+        assertTrue(File(exportDir, "pim-diagnostics-11111.zip").exists())
+        assertFalse(File(exportDir, "pim-diagnostics-22222.zip").exists())
+        assertFalse(File(exportDir, "pim-diagnostics-33333.zip.tmp").exists())
     }
 
     // --- Entry names safe / non-duplicate ---
@@ -993,6 +1069,65 @@ class DiagnosticExportRepositoryTest {
             assertEquals(1, status.getInt("appUsagePendingCount"))
             assertEquals(2, status.getInt("usageEventsPendingCount"))
             assertFalse(status.has("logsPendingCount"))
+        }
+    }
+
+    // --- Concurrency: clear waits for in-flight export ---
+
+    @Test
+    fun clearDiagnostics_waitsForInFlightExport() = runTest {
+        val publishEntered = CountDownLatch(1)
+        val clearEnteredProbe = CountDownLatch(1)
+        val publishComplete = CountDownLatch(1)
+
+        val testDispatcher = Executors.newFixedThreadPool(2) { r ->
+            Thread(r, "test-diag-pool").also { it.isDaemon = true }
+        }.asCoroutineDispatcher()
+
+        try {
+            structuredLogRepo.info("op", "log-entry")
+            val repo = createRepo(
+                dispatcher = testDispatcher,
+                publish = { tmp, final ->
+                    publishEntered.countDown()
+                    assertTrue(publishComplete.await(5, TimeUnit.SECONDS))
+                    Files.move(tmp.toPath(), final.toPath())
+                },
+                clearProbe = {
+                    clearEnteredProbe.countDown()
+                    probeStore.clear()
+                }
+            )
+
+            val exportJob = launch(testDispatcher) {
+                repo.export(includeRecentLocations = false)
+            }
+
+            assertTrue(publishEntered.await(5, TimeUnit.SECONDS))
+
+            val clearJob = launch(testDispatcher) {
+                repo.clearDiagnostics()
+            }
+
+            assertFalse(clearEnteredProbe.await(500, TimeUnit.MILLISECONDS))
+
+            publishComplete.countDown()
+
+            exportJob.join()
+            clearJob.join()
+
+            assertEquals(0L, clearEnteredProbe.getCount())
+
+            val exportDir = File(context.filesDir, "diagnostics/exports")
+            val zips = exportDir.listFiles()?.filter { it.name.endsWith(".zip") }.orEmpty()
+            assertEquals(0, zips.size)
+            val tmps = exportDir.listFiles()?.filter { it.name.endsWith(".tmp") }.orEmpty()
+            assertEquals(0, tmps.size)
+        } finally {
+            publishEntered.countDown()
+            clearEnteredProbe.countDown()
+            publishComplete.countDown()
+            testDispatcher.close()
         }
     }
 

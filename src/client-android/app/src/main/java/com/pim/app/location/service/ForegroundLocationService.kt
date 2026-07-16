@@ -12,6 +12,7 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.content.ContextCompat
@@ -29,8 +30,9 @@ import com.pim.app.location.quality.LocationQualityGate
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
 import com.pim.app.mobile.sync.MobileSyncScheduler
+import com.pim.app.notifications.LocationLiveUpdateEvent
+import com.pim.app.notifications.LocationLiveUpdatePresenter
 import com.pim.app.notifications.LocationNotificationRenderer
-import com.pim.app.notifications.LocationNotificationState
 import com.pim.app.schedule.ScheduleWindowRepository
 import com.pim.app.schedule.ScheduleWindowSelector
 import com.pim.app.settings.TrackingSettingsStore
@@ -78,10 +80,15 @@ class ForegroundLocationService : Service() {
     )
     private var lastAcceptedLocationText = "无"
     private var lastAccuracyText = "无"
+    private var lastAcceptedAtMillis: Long? = null
     private var pendingUploadCount = 0
     private var apiState = "正常"
     private var lastDroppedReason: String? = null
     private var isPausing = false
+    private val liveUpdatePresenter = LocationLiveUpdatePresenter()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var successHoldTick: Runnable? = null
+    @Volatile private var destroyed = false
 
     override fun onCreate() {
         super.onCreate()
@@ -92,6 +99,7 @@ class ForegroundLocationService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ForegroundLocationController.ACTION_PAUSE_COLLECTION -> {
+                clearSuccessHoldTick()
                 isPausing = true
                 trackingSettingsStore.setContinuousCollectionEnabled(false)
                 currentDecision = currentDecision.copy(
@@ -102,6 +110,7 @@ class ForegroundLocationService : Service() {
                     scheduleLowFrequency = false
                 )
                 publishRuntimeState(isRunning = false)
+                liveUpdatePresenter.reduce(LocationLiveUpdateEvent.Paused)
                 stopCollection()
                 val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
                 nm.notify(LocationNotificationRenderer.NOTIFICATION_ID, notification())
@@ -109,6 +118,7 @@ class ForegroundLocationService : Service() {
                 return START_NOT_STICKY
             }
             ForegroundLocationController.ACTION_STOP_COLLECTION -> {
+                clearSuccessHoldTick()
                 isPausing = false
                 trackingSettingsStore.setContinuousCollectionEnabled(false)
                 stopCollection()
@@ -130,6 +140,8 @@ class ForegroundLocationService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        destroyed = true
+        clearSuccessHoldTick()
         scope.cancel()
         if (!isPausing) {
             stopCollection()
@@ -174,6 +186,7 @@ class ForegroundLocationService : Service() {
             )
         )
         publishRuntimeState()
+        liveUpdatePresenter.reduce(snapshotEvent())
         startForeground(LocationNotificationRenderer.NOTIFICATION_ID, notification())
 
         if (!settings.continuousCollectionEnabled) {
@@ -206,26 +219,28 @@ class ForegroundLocationService : Service() {
         }
         if (restorePausedNotification) {
             markPausedState()
+            liveUpdatePresenter.reduce(LocationLiveUpdateEvent.Paused)
         }
         apiState = "同步中"
+        liveUpdatePresenter.reduce(LocationLiveUpdateEvent.ApiChanged(apiState))
         startForeground(LocationNotificationRenderer.NOTIFICATION_ID, notification())
-        updateNotification()
 
         scope.launch {
             try {
                 mobileSyncScheduler.enqueueNow()
                 apiState = "同步请求已提交。"
-                updateNotification()
+                dispatch(LocationLiveUpdateEvent.ApiChanged(apiState))
             } catch (ex: CancellationException) {
                 throw ex
             } catch (_: Exception) {
                 apiState = "同步请求提交失败"
-                updateNotification()
+                dispatch(LocationLiveUpdateEvent.ApiChanged(apiState))
             } finally {
                 if (stopAfterSync) {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     if (restorePausedNotification) {
                         markPausedState()
+                        liveUpdatePresenter.reduce(LocationLiveUpdateEvent.Paused)
                         nm.notify(LocationNotificationRenderer.NOTIFICATION_ID, notification())
                     }
                     stopSelf(startId)
@@ -257,12 +272,12 @@ class ForegroundLocationService : Service() {
                     )
                 }
                 apiState = "正常"
-                updateNotification()
+                dispatch(LocationLiveUpdateEvent.ApiChanged(apiState))
             } catch (ex: CancellationException) {
                 throw ex
             } catch (_: Exception) {
                 apiState = "API 无法连接"
-                updateNotification()
+                dispatch(LocationLiveUpdateEvent.ApiChanged(apiState))
             }
         }
     }
@@ -280,7 +295,7 @@ class ForegroundLocationService : Service() {
 
             override fun onProviderDisabled(provider: String) {
                 lastDroppedReason = "$provider 已关闭"
-                updateNotification()
+                dispatch(LocationLiveUpdateEvent.ProviderDisabled(provider))
             }
 
             override fun onProviderEnabled(provider: String) = Unit
@@ -310,7 +325,8 @@ class ForegroundLocationService : Service() {
                 reason = "连续采集未开启",
                 scheduleLowFrequency = false
             )
-            updateNotification()
+            clearSuccessHoldTick()
+            dispatch(LocationLiveUpdateEvent.Paused)
             stopCollection()
             stopSelf()
             return
@@ -327,7 +343,15 @@ class ForegroundLocationService : Service() {
         ) ?: currentDecision
         currentDecision = decision
         requestLocationUpdates(decision.requestIntervalMillis)
-        updateNotification()
+        dispatch(
+            LocationLiveUpdateEvent.PolicyChanged(
+                mode = decision.mode,
+                nextExpectedLocationText = nextExpectedLocationText(decision),
+                nextExpectedAtMillis = decision.nextExpectedLocationAtMillis
+                    .takeUnless { it == Long.MAX_VALUE },
+                requestIntervalMillis = decision.requestIntervalMillis.takeIf { it > 0L }
+            )
+        )
 
         val fix = RawLocationFix(
             latitude = location.latitude,
@@ -361,38 +385,79 @@ class ForegroundLocationService : Service() {
             )
         )
         pendingUploadCount += 1
+        lastAcceptedAtMillis = accepted.fix.recordedAtMillis
         lastAcceptedLocationText = timeFormatter.format(
             Instant.ofEpochMilli(accepted.fix.recordedAtMillis).atZone(ZoneId.systemDefault())
         )
         lastAccuracyText = "${accepted.fix.horizontalAccuracyMeters?.toInt() ?: 0}m"
         lastDroppedReason = null
-        updateNotification()
+        dispatch(
+            LocationLiveUpdateEvent.Accepted(
+                lastAcceptedLocationText = lastAcceptedLocationText,
+                lastAccuracyText = lastAccuracyText,
+                lastAcceptedAtMillis = accepted.fix.recordedAtMillis,
+                pendingUploadCount = pendingUploadCount
+            )
+        )
     }
 
     private suspend fun recordDropped(fix: RawLocationFix, reason: String) {
         locationQueueRepository.recordDropped(fix, reason)
         lastDroppedReason = reason.toLocationMessage(activeMaxUploadAccuracyMetersExclusive)
-        updateNotification()
+        dispatch(LocationLiveUpdateEvent.Dropped(lastDroppedReason!!))
     }
 
-    private fun notification() = LocationNotificationRenderer.build(
-        this,
-        LocationNotificationState(
+    private fun dispatch(event: LocationLiveUpdateEvent) {
+        liveUpdatePresenter.reduce(event)
+        publishRuntimeState()
+        if (destroyed) return
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        nm.notify(
+            LocationNotificationRenderer.NOTIFICATION_ID,
+            LocationNotificationRenderer.build(this, liveUpdatePresenter.current())
+        )
+        scheduleSuccessHoldTick(liveUpdatePresenter.successHoldDeadlineMillis())
+    }
+
+    private fun notification(): Notification {
+        return LocationNotificationRenderer.build(this, liveUpdatePresenter.current())
+    }
+
+    private fun scheduleSuccessHoldTick(deadline: Long?) {
+        clearSuccessHoldTick()
+        if (deadline == null || destroyed) return
+        val delay = (deadline - System.currentTimeMillis()).coerceAtLeast(0L)
+        val tick = Runnable {
+            successHoldTick = null
+            if (destroyed) return@Runnable
+            if (currentDecision.mode == LocationPolicyMode.Off) return@Runnable
+            dispatch(LocationLiveUpdateEvent.Tick)
+        }
+        successHoldTick = tick
+        mainHandler.postDelayed(tick, delay)
+    }
+
+    private fun clearSuccessHoldTick() {
+        successHoldTick?.let { mainHandler.removeCallbacks(it) }
+        successHoldTick = null
+    }
+
+    private fun snapshotEvent(): LocationLiveUpdateEvent.Snapshot =
+        LocationLiveUpdateEvent.Snapshot(
             mode = currentDecision.mode,
             nextExpectedLocationText = nextExpectedLocationText(currentDecision),
             lastAcceptedLocationText = lastAcceptedLocationText,
             lastAccuracyText = lastAccuracyText,
             pendingUploadCount = pendingUploadCount,
             apiState = apiState,
-            lastDroppedReason = lastDroppedReason
+            lastDroppedReason = lastDroppedReason,
+            nextExpectedAtMillis = currentDecision.nextExpectedLocationAtMillis
+                .takeUnless { it == Long.MAX_VALUE },
+            lastAcceptedAtMillis = lastAcceptedAtMillis,
+            requestIntervalMillis = currentDecision.requestIntervalMillis.takeIf { it > 0L },
+            permissionOk = hasRequiredLocationPermissions(),
+            providerEnabled = enabledProviders().isNotEmpty()
         )
-    )
-
-    private fun updateNotification() {
-        publishRuntimeState()
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-        notificationManager.notify(LocationNotificationRenderer.NOTIFICATION_ID, notification())
-    }
 
     private fun publishRuntimeState(isRunning: Boolean = isRunning()) {
         _runtimeState.value = ForegroundLocationRuntimeState(

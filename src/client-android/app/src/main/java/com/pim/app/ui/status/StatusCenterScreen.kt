@@ -13,24 +13,31 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
+import java.io.File
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Sensors
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,6 +52,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -85,6 +93,7 @@ fun StatusCenterScreen(
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val feedback by viewModel.feedback.collectAsStateWithLifecycle()
+    val exportState by viewModel.exportState.collectAsStateWithLifecycle()
     StatusCenterContent(
         state = state,
         feedback = feedback,
@@ -101,7 +110,16 @@ fun StatusCenterScreen(
                 StatusActionRoute.None -> Unit
             }
         },
-        onSyncNow = { viewModel.syncNow() }
+        onSyncNow = { viewModel.syncNow() },
+        exportState = exportState,
+        onSetIncludeRecentLocations = { viewModel.setIncludeRecentLocations(it) },
+        onRequestDiagnosticExport = { viewModel.requestDiagnosticExport() },
+        onConfirmLocationExport = { viewModel.confirmLocationExport() },
+        onDismissLocationConfirmation = { viewModel.dismissLocationConfirmation() },
+        onShareDiagnostic = {
+            val opened = DiagnosticShareLauncher.open(context, it)
+            viewModel.reportShareResult(opened)
+        }
     )
 }
 
@@ -111,7 +129,13 @@ internal fun StatusCenterContent(
     feedback: StatusActionFeedback? = null,
     modifier: Modifier = Modifier,
     onIssueAction: (StatusIssue) -> Unit = {},
-    onSyncNow: () -> Unit = {}
+    onSyncNow: () -> Unit = {},
+    exportState: DiagnosticExportUiState = DiagnosticExportUiState(),
+    onSetIncludeRecentLocations: (Boolean) -> Unit = {},
+    onRequestDiagnosticExport: () -> Unit = {},
+    onConfirmLocationExport: () -> Unit = {},
+    onDismissLocationConfirmation: () -> Unit = {},
+    onShareDiagnostic: (File) -> Unit = {}
 ) {
     val snapshot = state.snapshot
     Column(
@@ -143,11 +167,44 @@ internal fun StatusCenterContent(
 
         Divider()
 
-        DiagnosticsSection(snapshot.diagnostics)
+        DiagnosticsSection(
+            diagnostics = snapshot.diagnostics,
+            exportState = exportState,
+            onSetIncludeRecentLocations = onSetIncludeRecentLocations,
+            onRequestDiagnosticExport = onRequestDiagnosticExport,
+            onShareDiagnostic = onShareDiagnostic
+        )
 
         Divider()
 
         IssuesSection(state.issues, onIssueAction)
+    }
+
+    if (exportState.showLocationConfirmation) {
+        AlertDialog(
+            onDismissRequest = onDismissLocationConfirmation,
+            modifier = Modifier.testTag("status-diagnostics-export-confirm"),
+            title = { Text("包含原始位置？") },
+            text = {
+                Text("此诊断包将包含最近 24 小时的原始位置记录，可能暴露精确行程。")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = onConfirmLocationExport,
+                    modifier = Modifier.testTag("status-diagnostics-export-confirm-accept")
+                ) {
+                    Text("继续导出")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = onDismissLocationConfirmation,
+                    modifier = Modifier.testTag("status-diagnostics-export-confirm-cancel")
+                ) {
+                    Text("取消")
+                }
+            }
+        )
     }
 }
 
@@ -414,7 +471,13 @@ private fun ProbeSection(result: ConnectionProbeResult?, checkedAtMillis: Long?)
 }
 
 @Composable
-private fun DiagnosticsSection(diagnostics: DiagnosticSnapshot) {
+private fun DiagnosticsSection(
+    diagnostics: DiagnosticSnapshot,
+    exportState: DiagnosticExportUiState = DiagnosticExportUiState(),
+    onSetIncludeRecentLocations: (Boolean) -> Unit = {},
+    onRequestDiagnosticExport: () -> Unit = {},
+    onShareDiagnostic: (File) -> Unit = {}
+) {
     Column(modifier = Modifier.testTag("status-diagnostics"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         SectionHeader("诊断摘要", Icons.Filled.Info)
 
@@ -428,6 +491,103 @@ private fun DiagnosticsSection(diagnostics: DiagnosticSnapshot) {
         } else {
             FactRow("最近记录", "无", "status-diagnostic-record")
         }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = exportState.includeRecentLocations,
+                    enabled = !exportState.isExporting,
+                    role = Role.Switch,
+                    onValueChange = onSetIncludeRecentLocations
+                )
+                .testTag("status-diagnostics-export-option"),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "包含最近 24 小时原始位置",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Switch(
+                checked = exportState.includeRecentLocations,
+                onCheckedChange = null,
+                enabled = !exportState.isExporting
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = onRequestDiagnosticExport,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("status-diagnostics-export-button"),
+                enabled = !exportState.isExporting
+            ) {
+                if (exportState.isExporting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .testTag("status-diagnostics-export-progress"),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(4.dp))
+                } else {
+                    Icon(Icons.Filled.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(if (exportState.isExporting) "导出中" else "导出诊断")
+            }
+        }
+
+        exportState.feedback?.let { feedback ->
+            ExportFeedbackSurface(feedback, exportState.coordinateCount)
+        }
+
+        exportState.exportedFile?.takeIf { !exportState.isExporting }?.let { file ->
+            Button(
+                onClick = { onShareDiagnostic(file) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("status-diagnostics-export-share")
+            ) {
+                Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("分享")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExportFeedbackSurface(
+    feedback: DiagnosticExportFeedback,
+    coordinateCount: Int
+) {
+    val text = when (feedback) {
+        DiagnosticExportFeedback.PackageReady -> "诊断包已生成"
+        DiagnosticExportFeedback.PackageReadyWithLocations ->
+            "诊断包已生成，包含 ${coordinateCount} 条原始位置记录"
+        DiagnosticExportFeedback.ShareOpened -> "已打开系统分享"
+        DiagnosticExportFeedback.ShareUnavailable -> "无法打开系统分享"
+        DiagnosticExportFeedback.InsufficientStorage -> "存储空间不足，无法生成诊断包"
+        DiagnosticExportFeedback.ExportFailed -> "导出失败，请重试"
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("status-diagnostics-export-feedback"),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        tonalElevation = 2.dp
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(12.dp),
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
 

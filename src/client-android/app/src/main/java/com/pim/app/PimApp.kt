@@ -3,8 +3,12 @@ package com.pim.app
 import android.app.Application
 import androidx.work.Configuration
 import com.pim.app.di.PimWorkerFactory
-import com.pim.app.mobile.sync.MobileSyncScheduler
+import com.pim.app.recovery.RunningStateRestorer
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -14,12 +18,15 @@ class PimApp : Application(), Configuration.Provider {
     lateinit var workerFactory: PimWorkerFactory
 
     @Inject
-    lateinit var mobileSyncScheduler: MobileSyncScheduler
+    lateinit var runningStateRestorer: RunningStateRestorer
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
-        mobileSyncScheduler.cancelOldWork()
-        mobileSyncScheduler.ensurePeriodic()
+        scope.launch {
+            runningStateRestorer.ensureRunningState()
+        }
     }
 
     override val workManagerConfiguration: Configuration

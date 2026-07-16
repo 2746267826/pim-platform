@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -27,11 +27,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
+import com.pim.app.recovery.ForegroundRecoveryObserver
+import com.pim.app.recovery.RunningStateRestorer
 import com.pim.app.ui.permissions.PermissionCenterScreen
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class PimShellActivity : AppCompatActivity() {
+
+    @Inject
+    lateinit var runningStateRestorer: RunningStateRestorer
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -39,6 +47,12 @@ class PimShellActivity : AppCompatActivity() {
         setContent {
             PimShellScreen(initialRoute = initialRoute)
         }
+        lifecycle.addObserver(
+            ForegroundRecoveryObserver(
+                scope = lifecycleScope,
+                recover = { runningStateRestorer.ensureRunningState() }
+            )
+        )
     }
 
     companion object {

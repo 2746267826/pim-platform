@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
@@ -202,6 +203,25 @@ class StatusCenterScreenTest {
             PimTheme { StatusCenterContent(normalState().copy(syncPhase = SyncPhase.Idle, isLoading = false)) }
         }
         composeTestRule.onNodeWithTag("status-sync-button").assertIsEnabled()
+    }
+
+    @Test
+    fun syncButtonWaitingAllowsOneTimeNetworkOverride() {
+        var clickCount = 0
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState().copy(syncPhase = SyncPhase.Waiting, isLoading = false),
+                    onSyncNow = { clickCount++ }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("status-sync-button")
+            .assertIsEnabled()
+            .assertTextContains("立即同步")
+            .performClick()
+        assertTrue("Expected waiting sync to remain actionable", clickCount == 1)
     }
 
     @Test
@@ -693,6 +713,66 @@ class StatusCenterScreenTest {
         composeTestRule.onNodeWithTag("status-diagnostics-export-feedback")
             .performScrollTo()
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun meteredSyncConfirmationDialogShowsWhenFlagged() {
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    showMeteredSyncConfirmation = true
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-metered-sync-confirm").assertIsDisplayed()
+        composeTestRule.onNodeWithText("使用移动数据同步？").assertIsDisplayed()
+        composeTestRule.onNodeWithText("当前设置为仅限非流量网络同步。继续将允许本次同步使用移动数据，持久设置不变。").assertIsDisplayed()
+    }
+
+    @Test
+    fun meteredSyncConfirmationDialogHiddenWhenNotFlagged() {
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    showMeteredSyncConfirmation = false
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-metered-sync-confirm").assertDoesNotExist()
+    }
+
+    @Test
+    fun meteredSyncConfirmationConfirmTriggersCallback() {
+        var confirmed = false
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    showMeteredSyncConfirmation = true,
+                    onConfirmMeteredSync = { confirmed = true }
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-metered-sync-confirm-accept").performClick()
+        assertTrue(confirmed)
+    }
+
+    @Test
+    fun meteredSyncConfirmationDismissTriggersCallback() {
+        var dismissed = false
+        composeTestRule.setContent {
+            PimTheme {
+                StatusCenterContent(
+                    state = normalState(),
+                    showMeteredSyncConfirmation = true,
+                    onDismissMeteredSyncConfirmation = { dismissed = true }
+                )
+            }
+        }
+        composeTestRule.onNodeWithTag("status-metered-sync-confirm-cancel").performClick()
+        assertTrue(dismissed)
     }
 
     private fun normalState(

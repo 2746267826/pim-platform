@@ -19,7 +19,13 @@ class StatusPresentationTest {
 
     @Test
     fun syncButtonEnablementCoversEveryPhaseAndLoading() {
-        val enabled = setOf(SyncPhase.Idle, SyncPhase.Completed, SyncPhase.Failed, SyncPhase.Cancelled)
+        val enabled = setOf(
+            SyncPhase.Idle,
+            SyncPhase.Waiting,
+            SyncPhase.Completed,
+            SyncPhase.Failed,
+            SyncPhase.Cancelled
+        )
 
         SyncPhase.entries.forEach { phase ->
             val state = StatusCenterState.empty().copy(isLoading = false, syncPhase = phase)
@@ -39,5 +45,16 @@ class StatusPresentationTest {
         assertEquals("再次同步", syncButtonLabel(SyncPhase.Completed))
         assertTrue(syncButtonLabel(SyncPhase.Failed).contains("重新"))
         assertFalse(syncButtonEnabled(StatusCenterState.empty().copy(isLoading = false, syncPhase = SyncPhase.Blocked)))
+    }
+
+    @Test
+    fun waitingSyncCanRequestOneTimeNetworkOverride() {
+        val state = StatusCenterState.empty().copy(
+            isLoading = false,
+            syncPhase = SyncPhase.Waiting
+        )
+
+        assertTrue(syncButtonEnabled(state))
+        assertEquals("立即同步", syncButtonLabel(SyncPhase.Waiting))
     }
 }

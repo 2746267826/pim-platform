@@ -42,6 +42,7 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    sourceSets.getByName("debug").assets.srcDir("$projectDir/schemas")
     sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
     testOptions {
         unitTests.isIncludeAndroidResources = true

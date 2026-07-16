@@ -430,6 +430,7 @@ class SettingsViewModel @Inject constructor(
         foregroundLocationController.stop()
         mobileSyncScheduler.ensurePeriodic()
         reloadOperationalState()
+        _state.update { it.copy(collectionStatus = "持续采集已关闭。") }
     }
 
     fun onResume() {

@@ -8,6 +8,7 @@ import com.pim.app.status.StatusSyncActionRunner
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -93,7 +94,7 @@ class StatusCenterViewModelTest {
         var syncCallCount = 0
         var refreshCount = 0
         val runner = StatusSyncActionRunner(
-            syncNow = { syncCallCount++ },
+            syncNow = { _ -> syncCallCount++ },
             refresh = { refreshCount++ },
             acceptedSignal = signal
         )
@@ -256,5 +257,93 @@ class StatusCenterViewModelTest {
             null,
             beginDiagnosticExport(DiagnosticExportUiState(isExporting = true))
         )
+    }
+
+    @Test
+    fun manualSyncControllerRequestWithoutConfirmationSubmitsFalse() = runTest {
+        var submittedValue: Boolean? = null
+        val controller = ManualSyncController(
+            requiresConfirmation = { false },
+            submit = { submittedValue = it }
+        )
+
+        controller.request()
+
+        assertEquals(false, submittedValue)
+        assertFalse(controller.showConfirmation.value)
+    }
+
+    @Test
+    fun manualSyncControllerRequestWithConfirmationShowsDialog() {
+        var submitted = false
+        val controller = ManualSyncController(
+            requiresConfirmation = { true },
+            submit = { submitted = true }
+        )
+
+        controller.request()
+
+        assertTrue(controller.showConfirmation.value)
+        assertFalse("submit must not be called when confirmation is shown", submitted)
+    }
+
+    @Test
+    fun manualSyncControllerConfirmHidesAndSubmitsTrue() {
+        var submittedValue: Boolean? = null
+        val controller = ManualSyncController(
+            requiresConfirmation = { true },
+            submit = { submittedValue = it }
+        )
+        controller.request()
+        assertTrue(controller.showConfirmation.value)
+
+        controller.confirm()
+
+        assertFalse(controller.showConfirmation.value)
+        assertEquals(true, submittedValue)
+    }
+
+    @Test
+    fun manualSyncControllerDismissHidesWithoutSubmitting() {
+        var submitted = false
+        val controller = ManualSyncController(
+            requiresConfirmation = { true },
+            submit = { submitted = true }
+        )
+        controller.request()
+        assertTrue(controller.showConfirmation.value)
+
+        controller.dismiss()
+
+        assertFalse(controller.showConfirmation.value)
+        assertFalse("dismiss must not call submit", submitted)
+    }
+
+    @Test
+    fun manualSyncControllerConfirmWithoutVisibleDialogDoesNotSubmit() {
+        var submitCount = 0
+        val controller = ManualSyncController(
+            requiresConfirmation = { true },
+            submit = { submitCount++ }
+        )
+
+        controller.confirm()
+
+        assertEquals(0, submitCount)
+    }
+
+    @Test
+    fun manualSyncControllerRepeatedConfirmSubmitsOnlyOnce() {
+        var submitCount = 0
+        val controller = ManualSyncController(
+            requiresConfirmation = { true },
+            submit = { submitCount++ }
+        )
+        controller.request()
+
+        controller.confirm()
+        controller.confirm()
+
+        assertEquals(1, submitCount)
     }
 }

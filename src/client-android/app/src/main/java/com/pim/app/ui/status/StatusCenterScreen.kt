@@ -94,6 +94,7 @@ fun StatusCenterScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val feedback by viewModel.feedback.collectAsStateWithLifecycle()
     val exportState by viewModel.exportState.collectAsStateWithLifecycle()
+    val showMeteredSyncConfirmation by viewModel.showMeteredSyncConfirmation.collectAsStateWithLifecycle()
     StatusCenterContent(
         state = state,
         feedback = feedback,
@@ -119,7 +120,10 @@ fun StatusCenterScreen(
         onShareDiagnostic = {
             val opened = DiagnosticShareLauncher.open(context, it)
             viewModel.reportShareResult(opened)
-        }
+        },
+        showMeteredSyncConfirmation = showMeteredSyncConfirmation,
+        onConfirmMeteredSync = { viewModel.confirmMeteredSync() },
+        onDismissMeteredSyncConfirmation = { viewModel.dismissMeteredSyncConfirmation() }
     )
 }
 
@@ -135,7 +139,10 @@ internal fun StatusCenterContent(
     onRequestDiagnosticExport: () -> Unit = {},
     onConfirmLocationExport: () -> Unit = {},
     onDismissLocationConfirmation: () -> Unit = {},
-    onShareDiagnostic: (File) -> Unit = {}
+    onShareDiagnostic: (File) -> Unit = {},
+    showMeteredSyncConfirmation: Boolean = false,
+    onConfirmMeteredSync: () -> Unit = {},
+    onDismissMeteredSyncConfirmation: () -> Unit = {}
 ) {
     val snapshot = state.snapshot
     Column(
@@ -200,6 +207,33 @@ internal fun StatusCenterContent(
                 TextButton(
                     onClick = onDismissLocationConfirmation,
                     modifier = Modifier.testTag("status-diagnostics-export-confirm-cancel")
+                ) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    if (showMeteredSyncConfirmation) {
+        AlertDialog(
+            onDismissRequest = onDismissMeteredSyncConfirmation,
+            modifier = Modifier.testTag("status-metered-sync-confirm"),
+            title = { Text("使用移动数据同步？") },
+            text = {
+                Text("当前设置为仅限非流量网络同步。继续将允许本次同步使用移动数据，持久设置不变。")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = onConfirmMeteredSync,
+                    modifier = Modifier.testTag("status-metered-sync-confirm-accept")
+                ) {
+                    Text("继续同步")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = onDismissMeteredSyncConfirmation,
+                    modifier = Modifier.testTag("status-metered-sync-confirm-cancel")
                 ) {
                     Text("取消")
                 }
@@ -378,7 +412,7 @@ internal fun syncPhaseLabel(phase: SyncPhase): String = when (phase) {
 internal fun syncButtonLabel(phase: SyncPhase): String = when (phase) {
     SyncPhase.Idle -> "立即同步"
     SyncPhase.Accepted -> "请求已接受"
-    SyncPhase.Waiting -> "等待中"
+    SyncPhase.Waiting -> "立即同步"
     SyncPhase.Running -> "同步中"
     SyncPhase.Blocked -> "暂不可同步"
     SyncPhase.Completed -> "再次同步"
@@ -387,8 +421,8 @@ internal fun syncButtonLabel(phase: SyncPhase): String = when (phase) {
 }
 
 private fun syncButtonEnabled(phase: SyncPhase): Boolean = when (phase) {
-    SyncPhase.Idle, SyncPhase.Completed, SyncPhase.Failed, SyncPhase.Cancelled -> true
-    SyncPhase.Accepted, SyncPhase.Waiting, SyncPhase.Running, SyncPhase.Blocked -> false
+    SyncPhase.Idle, SyncPhase.Waiting, SyncPhase.Completed, SyncPhase.Failed, SyncPhase.Cancelled -> true
+    SyncPhase.Accepted, SyncPhase.Running, SyncPhase.Blocked -> false
 }
 
 internal fun syncButtonEnabled(state: StatusCenterState): Boolean {

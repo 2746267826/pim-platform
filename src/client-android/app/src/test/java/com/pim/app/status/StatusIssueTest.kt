@@ -117,7 +117,7 @@ class StatusIssueTest {
         var synced = false
         var refreshed = false
         val runner = StatusSyncActionRunner(
-            syncNow = { synced = true },
+            syncNow = { _ -> synced = true },
             refresh = { refreshed = true },
             acceptedSignal = StatusAcceptedSignal()
         )
@@ -132,7 +132,7 @@ class StatusIssueTest {
     fun syncActionRunnerIgnoresNonSyncRoutes() = runBlocking {
         var synced = false
         val runner = StatusSyncActionRunner(
-            syncNow = { synced = true },
+            syncNow = { _ -> synced = true },
             refresh = {},
             acceptedSignal = StatusAcceptedSignal()
         )
@@ -186,7 +186,7 @@ class StatusIssueTest {
         var acceptedAtSyncTime = false
         var refreshed = false
         val runner = StatusSyncActionRunner(
-            syncNow = {
+            syncNow = { _ ->
                 acceptedAtSyncTime = signal.state.value.isAccepted
             },
             refresh = { refreshed = true },
@@ -206,7 +206,7 @@ class StatusIssueTest {
         var refreshed = false
         val signal = StatusAcceptedSignal()
         val runner = StatusSyncActionRunner(
-            syncNow = { synced = true },
+            syncNow = { _ -> synced = true },
             refresh = { refreshed = true },
             acceptedSignal = signal
         )
@@ -223,7 +223,7 @@ class StatusIssueTest {
         var synced = false
         val signal = StatusAcceptedSignal()
         val runner = StatusSyncActionRunner(
-            syncNow = { synced = true },
+            syncNow = { _ -> synced = true },
             refresh = {},
             acceptedSignal = signal
         )
@@ -240,7 +240,7 @@ class StatusIssueTest {
         val expectedException = RuntimeException("sync failed")
         var refreshCount = 0
         val runner = StatusSyncActionRunner(
-            syncNow = { throw expectedException },
+            syncNow = { _ -> throw expectedException },
             refresh = { refreshCount++ },
             acceptedSignal = signal
         )
@@ -255,6 +255,34 @@ class StatusIssueTest {
         assertSame(expectedException, actualException)
         assertFalse("accepted must not be published on exception", signal.state.value.isAccepted)
         assertEquals(1, refreshCount)
+    }
+
+    @Test
+    fun syncActionForwardsAllowMeteredOnce() = runBlocking {
+        var captured: Boolean? = null
+        val runner = StatusSyncActionRunner(
+            syncNow = { captured = it },
+            refresh = {},
+            acceptedSignal = StatusAcceptedSignal()
+        )
+
+        runner.run(StatusActionRoute.TriggerSync, allowMeteredOnce = true)
+
+        assertEquals(true, captured)
+    }
+
+    @Test
+    fun syncActionDefaultsAllowMeteredOnceToFalse() = runBlocking {
+        var captured: Boolean? = null
+        val runner = StatusSyncActionRunner(
+            syncNow = { captured = it },
+            refresh = {},
+            acceptedSignal = StatusAcceptedSignal()
+        )
+
+        runner.run(StatusActionRoute.TriggerSync)
+
+        assertEquals(false, captured)
     }
 
     @Test

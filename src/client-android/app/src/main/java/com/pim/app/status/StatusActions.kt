@@ -13,14 +13,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class StatusSyncActionRunner(
-    private val syncNow: suspend () -> Unit,
+    private val syncNow: suspend (Boolean) -> Unit,
     private val refresh: () -> Unit,
     private val acceptedSignal: StatusAcceptedSignal
 ) {
-    suspend fun run(route: StatusActionRoute) {
+    suspend fun run(route: StatusActionRoute, allowMeteredOnce: Boolean = false) {
         if (route != StatusActionRoute.TriggerSync) return
         try {
-            syncNow()
+            syncNow(allowMeteredOnce)
             acceptedSignal.trigger()
         } finally {
             refresh()

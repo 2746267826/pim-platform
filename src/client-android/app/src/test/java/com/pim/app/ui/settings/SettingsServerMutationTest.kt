@@ -296,7 +296,11 @@ class SettingsServerMutationTest {
 
     @Test
     fun resetOperationalDefaultsPreservesServerAndAuth() {
-        val fixture = fixture()
+        val fixture = fixture(isServiceRunning = { true })
+        fixture.viewModel.onResume()
+        await(1000) {
+            fixture.viewModel.state.value.collectionStatus == "持续采集正在运行。"
+        }
         fixture.trackingSettings.setContinuousCollectionEnabled(true)
         fixture.trackingSettings.write(
             fixture.trackingSettings.read().copy(
@@ -319,6 +323,7 @@ class SettingsServerMutationTest {
         assertEquals(7, stored.logRetentionDays)
         assertEquals(false, stored.continuousCollectionEnabled)
         assertFalse(fixture.viewModel.state.value.continuousCollectionEnabled)
+        assertEquals("持续采集已关闭。", fixture.viewModel.state.value.collectionStatus)
     }
 
     @Test
@@ -771,7 +776,8 @@ class SettingsServerMutationTest {
         probeFailure: Throwable? = null,
         onProbeStarted: () -> Unit = {},
         diagnosticClearFails: Boolean = false,
-        onEnsureRunningState: () -> Unit = {}
+        onEnsureRunningState: () -> Unit = {},
+        isServiceRunning: () -> Boolean = { ForegroundLocationService.isRunning() }
     ): Fixture {
         val serverPreferences = ScriptedCommitSharedPreferences(
             context.getSharedPreferences(SERVER_PREFS, Context.MODE_PRIVATE)
@@ -834,7 +840,7 @@ class SettingsServerMutationTest {
                 mobileSyncScheduler.ensurePeriodic()
                 onEnsureRunningState()
             },
-            isServiceRunning = { ForegroundLocationService.isRunning() },
+            isServiceRunning = isServiceRunning,
             startCollection = { foregroundLocationController.start() }
         )
         val viewModel = SettingsViewModel(

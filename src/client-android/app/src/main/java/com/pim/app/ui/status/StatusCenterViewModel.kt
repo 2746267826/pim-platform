@@ -6,6 +6,7 @@ import com.pim.app.mobile.diagnostics.DiagnosticExportException
 import com.pim.app.mobile.diagnostics.DiagnosticExportResult
 import com.pim.app.mobile.diagnostics.DiagnosticOperations
 import com.pim.app.mobile.sync.MobileSyncScheduler
+import com.pim.app.settings.TrackingSettingsStore
 import com.pim.app.status.ConnectionProbeService
 import com.pim.app.status.ConnectionProbeStore
 import com.pim.app.status.StatusAcceptedSignal
@@ -153,6 +154,33 @@ internal fun beginDiagnosticExport(
     )
 }
 
+internal class ManualSyncController(
+    private val requiresConfirmation: () -> Boolean,
+    private val submit: (Boolean) -> Unit
+) {
+    private val _showConfirmation = MutableStateFlow(false)
+    val showConfirmation: StateFlow<Boolean> = _showConfirmation.asStateFlow()
+
+    fun request() {
+        if (requiresConfirmation()) {
+            _showConfirmation.value = true
+        } else {
+            submit(false)
+        }
+    }
+
+    fun confirm() {
+        if (!_showConfirmation.value) return
+        _showConfirmation.value = false
+        submit(true)
+    }
+
+    fun dismiss() {
+        if (!_showConfirmation.value) return
+        _showConfirmation.value = false
+    }
+}
+
 @HiltViewModel
 class StatusCenterViewModel @Inject constructor(
     private val repository: StatusCenterRepository,
@@ -161,7 +189,8 @@ class StatusCenterViewModel @Inject constructor(
     private val connectionProbeService: ConnectionProbeService,
     private val connectionProbeStore: ConnectionProbeStore,
     private val acceptedSignal: StatusAcceptedSignal,
-    private val diagnosticOperations: DiagnosticOperations
+    private val diagnosticOperations: DiagnosticOperations,
+    private val trackingSettingsStore: TrackingSettingsStore
 ) : ViewModel() {
     val state: StateFlow<StatusCenterState> = repository.observe()
         .stateIn(
@@ -174,10 +203,16 @@ class StatusCenterViewModel @Inject constructor(
     val feedback: StateFlow<StatusActionFeedback?> = _feedback.asStateFlow()
 
     private val syncRunner = StatusSyncActionRunner(
-        syncNow = { mobileSyncScheduler.enqueueNow() },
+        syncNow = { allowMeteredOnce -> mobileSyncScheduler.enqueueNow(allowMeteredOnce) },
         refresh = { repository.requestRefresh() },
         acceptedSignal = acceptedSignal
     )
+
+    private val controller = ManualSyncController(
+        requiresConfirmation = { trackingSettingsStore.read().syncOnUnmeteredOnly },
+        submit = { allowMeteredOnce -> submitSync(allowMeteredOnce) }
+    )
+    val showMeteredSyncConfirmation: StateFlow<Boolean> = controller.showConfirmation
 
     private val _exportState = MutableStateFlow(DiagnosticExportUiState())
     val exportState: StateFlow<DiagnosticExportUiState> = _exportState.asStateFlow()
@@ -244,12 +279,24 @@ class StatusCenterViewModel @Inject constructor(
     }
 
     fun syncNow() {
+        controller.request()
+    }
+
+    private fun submitSync(allowMeteredOnce: Boolean) {
         viewModelScope.launch {
             runSyncWithFeedback(
-                sync = { syncRunner.run(StatusActionRoute.TriggerSync) },
+                sync = { syncRunner.run(StatusActionRoute.TriggerSync, allowMeteredOnce) },
                 feedbackSetter = { _feedback.value = it }
             )
         }
+    }
+
+    fun confirmMeteredSync() {
+        controller.confirm()
+    }
+
+    fun dismissMeteredSyncConfirmation() {
+        controller.dismiss()
     }
 
     fun forceConnectionProbe() {

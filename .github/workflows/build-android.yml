@@ -76,6 +76,9 @@ jobs:
           if [ ! -d "$ANDROID_HOME/platforms/android-34" ]; then
             sdkmanager "platforms;android-34" "build-tools;34.0.0"
           fi
+          if [ ! -d "$ANDROID_HOME/platforms/android-36" ]; then
+            sdkmanager "platforms;android-36"
+          fi
 
       - uses: gradle/actions/setup-gradle@v3
 

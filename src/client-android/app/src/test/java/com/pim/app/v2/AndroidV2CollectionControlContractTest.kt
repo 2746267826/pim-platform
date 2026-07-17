@@ -104,7 +104,7 @@ class AndroidV2CollectionControlContractTest {
 
         val functionIndex = viewModel.indexOf("fun setContinuousCollectionEnabled(enabled: Boolean)")
         val serverSwitchIndex = viewModel.indexOf(
-            "serverSettingsStore.setBaseUrl(validation.normalizedUrl)",
+            "saveServerUrl(validation.normalizedUrl)",
             functionIndex
         )
         val sessionCheckIndex = viewModel.indexOf("if (!hasCurrentServerSession())", functionIndex)

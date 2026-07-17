@@ -38,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
@@ -145,8 +146,24 @@ internal fun shouldReloadWebView(previousKey: Long, currentKey: Long): Boolean {
     return currentKey != previousKey
 }
 
-internal fun shouldLoadUrlOnUpdate(currentUrl: String?): Boolean {
-    return currentUrl.isNullOrBlank() || currentUrl == "about:blank"
+fun shouldSurfaceSslError(mainFrameUrl: String?, failedUrl: String?): Boolean {
+    if (mainFrameUrl.isNullOrBlank() || failedUrl.isNullOrBlank()) return true
+    return mainFrameUrl == failedUrl
+}
+
+internal fun matchesTrustedRoute(url: String, serverUrl: String, route: String): Boolean {
+    val endpoints = runCatching { PimServerEndpoints.from(serverUrl) }.getOrNull() ?: return false
+    val urlOrigin = extractOrigin(url) ?: return false
+    if (urlOrigin != endpoints.trustedOrigin) return false
+    val expectedPath = extractPath(buildPimWebUrl(serverUrl, route))
+    return extractPath(url) == expectedPath
+}
+
+fun resolveTracksEmbedUrl(candidate: String?, serverUrl: String): String {
+    if (candidate != null && matchesTrustedRoute(candidate, serverUrl, "/embed/android/tracks")) {
+        return candidate
+    }
+    return buildPimWebUrl(serverUrl, "/embed/android/tracks")
 }
 
 fun buildPimWebUrl(serverUrl: String, route: String): String {
@@ -179,10 +196,21 @@ fun PimWebViewScreen(
     modifier: Modifier = Modifier,
     serverUrl: String = ServerSettingsStore.DEFAULT_BASE_URL,
     bridge: AndroidWebMessageBridge? = null,
-    reloadKey: Long = 0L
+    reloadKey: Long = 0L,
+    initialUrl: String? = null,
+    onUrlChanged: ((String) -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val targetUrl = remember(serverUrl, route) { buildPimWebUrl(serverUrl, route) }
+    val currentOnUrlChanged by rememberUpdatedState(onUrlChanged)
+    val currentServerUrl by rememberUpdatedState(serverUrl)
+    val currentRoute by rememberUpdatedState(route)
+    val targetUrl = remember(serverUrl, route, initialUrl) {
+        if (initialUrl != null && matchesTrustedRoute(initialUrl, serverUrl, route)) {
+            initialUrl
+        } else {
+            buildPimWebUrl(serverUrl, route)
+        }
+    }
     val trustedOrigin = remember(serverUrl) {
         runCatching { PimServerEndpoints.from(serverUrl).trustedOrigin }.getOrNull()
     }
@@ -196,6 +224,10 @@ fun PimWebViewScreen(
     DisposableEffect(bridge, navigationAction, trustedOrigin, documentKey) {
         onDispose {
             webViewRef.value?.let { webView ->
+                val lastUrl = webView.url?.takeIf { it.isNotEmpty() } ?: ""
+                if (lastUrl.isNotEmpty() && matchesTrustedRoute(lastUrl, currentServerUrl, currentRoute)) {
+                    currentOnUrlChanged?.invoke(lastUrl)
+                }
                 bridge?.remove(webView)
                 webView.stopLoading()
                 webView.loadUrl("about:blank")
@@ -304,8 +336,18 @@ fun PimWebViewScreen(
                                     state = PimWebViewState.Loading
                                     httpWarningVisible = isHttpScheme(url)
                                 },
-                                onContent = { url -> state = PimWebViewState.Content(url) },
-                                onError = { error -> state = error }
+                                onContent = { url ->
+                                    state = PimWebViewState.Content(url)
+                                    if (matchesTrustedRoute(url, currentServerUrl, currentRoute)) {
+                                        currentOnUrlChanged?.invoke(url)
+                                    }
+                                },
+                                onError = { error -> state = error },
+                                onHistoryUrlChanged = { url ->
+                                    if (matchesTrustedRoute(url, currentServerUrl, currentRoute)) {
+                                        currentOnUrlChanged?.invoke(url)
+                                    }
+                                }
                             )
                             webViewRef.value = this
                             val bridgeInstalled = bridge == null || bridge.install(this)
@@ -318,12 +360,7 @@ fun PimWebViewScreen(
                             }
                         }
                     },
-                    update = { webView ->
-                        if (!bridgeInstallFailed && shouldLoadUrlOnUpdate(webView.url)) {
-                            state = PimWebViewState.Loading
-                            webView.loadUrl(targetUrl)
-                        }
-                    }
+                    update = { }
                 )
             }
 
@@ -347,13 +384,20 @@ private fun createPimWebViewClient(
     openExternal: (String) -> String?,
     onLoading: (String) -> Unit,
     onContent: (String) -> Unit,
-    onError: (PimWebViewState.Error) -> Unit
+    onError: (PimWebViewState.Error) -> Unit,
+    onHistoryUrlChanged: ((String) -> Unit)? = null
 ): WebViewClient {
     return object : WebViewClient() {
         private var mainFrameError = false
+        private var currentMainFrameUrl: String? = null
+
+        override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+            onHistoryUrlChanged?.invoke(url.orEmpty())
+        }
 
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
             mainFrameError = false
+            currentMainFrameUrl = if (url.isNullOrEmpty()) null else url
             onLoading(url.orEmpty())
         }
 
@@ -396,6 +440,8 @@ private fun createPimWebViewClient(
             error: SslError?
         ) {
             handler?.cancel()
+            val failedUrl = error?.url
+            if (!shouldSurfaceSslError(currentMainFrameUrl, failedUrl)) return
             mainFrameError = true
             val reason = when (error?.primaryError) {
                 SslError.SSL_EXPIRED -> "SSL 证书已过期"

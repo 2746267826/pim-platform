@@ -56,13 +56,17 @@ test('tracks embed route passes embedded prop to HistoricalLocationPage', () => 
 });
 
 test('desktop /location-history route does not pass embedded prop', () => {
-  const pageSource = readFileSync(
-    path.join(process.cwd(), 'src/client-web/src/pages/HistoricalLocationPage.tsx'),
+  const layoutSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/layout/AppLayout.tsx'),
     'utf8',
   );
-  assert.ok(pageSource.includes('export default function HistoricalLocationPage'),
-    'page must have default export');
-  assert.ok(true, 'desktop route renders normally');
+  const desktopLine = layoutSource.split('\n').find(line =>
+    line.includes('/location-history') && line.includes('<'));
+  assert.ok(desktopLine, 'desktop location-history route must exist');
+  assert.ok(desktopLine.includes('HistoricalLocationPage'),
+    'desktop location-history route must render HistoricalLocationPage');
+  assert.ok(!desktopLine.includes('embedded'),
+    'desktop location-history route must not enable embedded layout');
 });
 
 // ────────────────────────────────────────────────────────────────────
@@ -587,8 +591,8 @@ test('PimRootScreen passes onOpenSettings to TracksScreen', () => {
     path.join(process.cwd(), 'src/client-android/app/src/main/java/com/pim/app/ui/root/PimRootScreen.kt'),
     'utf8',
   );
-  assert.ok(rootSource.includes('TracksScreen(modifier') &&
-    rootSource.includes('onOpenSettings'),
+  const tracksBranch = rootSource.split('PimDestination.Tracks -> ')[1].split('PimDestination.Schedule ->')[0];
+  assert.ok(tracksBranch.includes('TracksScreen(') && tracksBranch.includes('onOpenSettings ='),
     'PimRootScreen must pass onOpenSettings to TracksScreen');
 });
 

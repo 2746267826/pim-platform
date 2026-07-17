@@ -1,5 +1,6 @@
 package com.pim.app.ui.shell
 
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -352,41 +353,6 @@ class PimWebViewStateTest {
         assertTrue(shouldReloadWebView(1L, 5L))
     }
 
-    // --- shouldLoadUrlOnUpdate ---
-
-    @Test
-    fun `shouldLoadUrlOnUpdate returns true for null`() {
-        assertTrue(shouldLoadUrlOnUpdate(null))
-    }
-
-    @Test
-    fun `shouldLoadUrlOnUpdate returns true for blank`() {
-        assertTrue(shouldLoadUrlOnUpdate(""))
-        assertTrue(shouldLoadUrlOnUpdate("  "))
-    }
-
-    @Test
-    fun `shouldLoadUrlOnUpdate returns true for about blank`() {
-        assertTrue(shouldLoadUrlOnUpdate("about:blank"))
-    }
-
-    @Test
-    fun `shouldLoadUrlOnUpdate returns false for url with query`() {
-        assertFalse(shouldLoadUrlOnUpdate("https://pim.example/embed/android/today?foo=bar"))
-        assertFalse(shouldLoadUrlOnUpdate("https://pim.example/embed/android/tracks?days=7"))
-    }
-
-    @Test
-    fun `shouldLoadUrlOnUpdate returns false for url without query`() {
-        assertFalse(shouldLoadUrlOnUpdate("https://pim.example/embed/android/today"))
-        assertFalse(shouldLoadUrlOnUpdate("https://pim.example/embed/android/tracks"))
-    }
-
-    @Test
-    fun `shouldLoadUrlOnUpdate returns false for url with fragment`() {
-        assertFalse(shouldLoadUrlOnUpdate("https://pim.example/embed/android/today#section"))
-    }
-
     // --- PimWebViewState model ---
 
     @Test
@@ -422,5 +388,115 @@ class PimWebViewStateTest {
         assertTrue(s.isError)
         assertTrue(s.isLoginExpired)
         assertEquals("登录已过期", s.reason)
+    }
+
+    // --- source contract: PimWebViewScreen loads targetUrl exactly once ---
+
+    @Test
+    fun `AndroidView update block must stay empty - factory owns initial load`() {
+        val screenFile = repoFile(
+            "src", "main", "java", "com", "pim", "app", "ui", "shell", "PimWebViewScreen.kt"
+        )
+        val source = screenFile.readText()
+        val hasNonEmptyUpdate = !Regex(
+            """update\s*=\s*\{\s*\}""",
+            setOf(RegexOption.DOT_MATCHES_ALL)
+        ).containsMatchIn(source)
+        assertFalse(
+            "AndroidView update block must stay empty; factory owns the initial load",
+            hasNonEmptyUpdate
+        )
+    }
+
+    // --- resolveTracksEmbedUrl ---
+
+    @Test
+    fun `resolveTracksEmbedUrl preserves trusted same origin tracks url with query`() {
+        val result = resolveTracksEmbedUrl(
+            candidate = "https://pim.example/embed/android/tracks?days=7&device=phone#map",
+            serverUrl = "https://pim.example/api/v1/"
+        )
+        assertEquals(
+            "https://pim.example/embed/android/tracks?days=7&device=phone#map",
+            result
+        )
+    }
+
+    @Test
+    fun `resolveTracksEmbedUrl rejects candidate from different origin`() {
+        val result = resolveTracksEmbedUrl(
+            candidate = "https://evil.example/embed/android/tracks?days=7",
+            serverUrl = "https://pim.example/api/v1/"
+        )
+        assertEquals(
+            "https://pim.example/embed/android/tracks",
+            result
+        )
+    }
+
+    @Test
+    fun `resolveTracksEmbedUrl rejects same origin non tracks path`() {
+        val result = resolveTracksEmbedUrl(
+            candidate = "https://pim.example/tasks",
+            serverUrl = "https://pim.example/api/v1/"
+        )
+        assertEquals(
+            "https://pim.example/embed/android/tracks",
+            result
+        )
+    }
+
+    @Test
+    fun `resolveTracksEmbedUrl falls back when candidate is null`() {
+        val result = resolveTracksEmbedUrl(
+            candidate = null,
+            serverUrl = "https://pim.example/api/v1/"
+        )
+        assertEquals(
+            "https://pim.example/embed/android/tracks",
+            result
+        )
+    }
+
+    @Test
+    fun `resolveTracksEmbedUrl falls back when server url is invalid`() {
+        val result = resolveTracksEmbedUrl(
+            candidate = "https://pim.example/embed/android/tracks?days=7",
+            serverUrl = "not-a-valid-url"
+        )
+        assertEquals(
+            "not-a-valid-url/embed/android/tracks",
+            result
+        )
+    }
+
+    // --- shouldSurfaceSslError ---
+
+    @Test
+    fun `shouldSurfaceSslError returns true when main frame url equals failed url`() {
+        assertTrue(shouldSurfaceSslError("https://pim.example/embed/android/today", "https://pim.example/embed/android/today"))
+    }
+
+    @Test
+    fun `shouldSurfaceSslError returns false when failed url is external tile subresource`() {
+        assertFalse(shouldSurfaceSslError("https://pim.example/embed/android/today", "https://tiles.example.com/map/tile.png"))
+    }
+
+    @Test
+    fun `shouldSurfaceSslError returns true when either url is null or blank`() {
+        assertTrue(shouldSurfaceSslError(null, "https://pim.example/embed/android/today"))
+        assertTrue(shouldSurfaceSslError("https://pim.example/embed/android/today", null))
+        assertTrue(shouldSurfaceSslError("", "https://pim.example/embed/android/today"))
+        assertTrue(shouldSurfaceSslError("https://pim.example/embed/android/today", ""))
+    }
+
+    private fun repoFile(vararg parts: String): File {
+        var current: File? = File("").canonicalFile
+        while (current != null) {
+            val candidate = parts.fold(current) { dir, part -> dir.resolve(part) }
+            if (candidate.exists()) return candidate
+            current = current.parentFile
+        }
+        error("Could not find ${parts.joinToString(File.separator)}")
     }
 }

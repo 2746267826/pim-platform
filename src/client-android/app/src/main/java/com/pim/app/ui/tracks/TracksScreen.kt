@@ -26,6 +26,8 @@ import com.pim.app.ui.today.TodayViewModel
 fun TracksScreen(
     modifier: Modifier = Modifier,
     onOpenSettings: () -> Unit = {},
+    savedUrl: String? = null,
+    onUrlChanged: ((String) -> Unit)? = null,
     viewModel: TodayViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -44,7 +46,9 @@ fun TracksScreen(
                         .fillMaxWidth()
                         .weight(1f),
                     bridge = viewModel.bridge,
-                    reloadKey = refreshVersion
+                    reloadKey = refreshVersion,
+                    initialUrl = savedUrl,
+                    onUrlChanged = onUrlChanged
                 )
             }
         }

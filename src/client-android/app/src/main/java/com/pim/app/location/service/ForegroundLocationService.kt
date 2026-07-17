@@ -8,13 +8,17 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
 import android.os.Build
-import android.os.Bundle
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.content.ContextCompat
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationAvailability
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.pim.app.location.LocationQueueRepository
 import com.pim.app.location.formatAccuracyThresholdMeters
 import com.pim.app.location.motion.MotionSignalRepository
@@ -64,8 +68,8 @@ class ForegroundLocationService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var qualityCoordinator: AltitudeWaitCoordinator
     private var activeMaxUploadAccuracyMetersExclusive = 50f
-    private lateinit var manager: LocationManager
-    private var listener: LocationListener? = null
+    private lateinit var fusedClient: FusedLocationProviderClient
+    private var locationCallback: LocationCallback? = null
     private var registeredIntervalMillis: Long? = null
     private var policyEngine: LocationPolicyEngine? = null
     private var scheduleWindows: List<ScheduleWindow> = emptyList()
@@ -85,7 +89,7 @@ class ForegroundLocationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        manager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        fusedClient = LocationServices.getFusedLocationProviderClient(this)
         publishRuntimeState(isRunning = true)
     }
 
@@ -190,15 +194,15 @@ class ForegroundLocationService : Service() {
 
     private fun stopCollection() {
         cancelPendingQualityWait()
-        listener?.let { manager.removeUpdates(it) }
-        listener = null
+        locationCallback?.let { fusedClient.removeLocationUpdates(it) }
+        locationCallback = null
         registeredIntervalMillis = null
         runCatching { motionSignalRepository.unregisterActivityTransitions() }
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
     private fun runManualSync(startId: Int) {
-        val stopAfterSync = listener == null && !trackingSettingsStore.read().continuousCollectionEnabled
+        val stopAfterSync = locationCallback == null && !trackingSettingsStore.read().continuousCollectionEnabled
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         val restorePausedNotification = stopAfterSync && nm.activeNotifications.any {
             it.id == LocationNotificationRenderer.NOTIFICATION_ID &&
@@ -270,32 +274,29 @@ class ForegroundLocationService : Service() {
     @SuppressLint("MissingPermission")
     private fun requestLocationUpdates(intervalMillis: Long) {
         val resolved = resolveRequestInterval(intervalMillis)
-        if (registeredIntervalMillis == resolved && listener != null) return
-        listener?.let { manager.removeUpdates(it) }
+        if (registeredIntervalMillis == resolved && locationCallback != null) return
+        locationCallback?.let { fusedClient.removeLocationUpdates(it) }
         registeredIntervalMillis = resolved
-        val updateListener = object : LocationListener {
-            override fun onLocationChanged(location: Location) {
-                handleLocation(location)
+
+        val request = LocationRequest.Builder(resolved)
+            .setMinUpdateIntervalMillis((resolved * 0.8).toLong())
+            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+            .build()
+
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                result.lastLocation?.let { handleLocation(it) }
             }
 
-            override fun onProviderDisabled(provider: String) {
-                lastDroppedReason = "$provider 已关闭"
-                updateNotification()
+            override fun onLocationAvailability(availability: LocationAvailability) {
+                if (!availability.isLocationAvailable) {
+                    lastDroppedReason = "定位暂时不可用"
+                    updateNotification()
+                }
             }
-
-            override fun onProviderEnabled(provider: String) = Unit
-            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
         }
-        listener = updateListener
-        enabledProviders().forEach { provider ->
-            manager.requestLocationUpdates(
-                provider,
-                resolved,
-                0f,
-                updateListener,
-                Looper.getMainLooper()
-            )
-        }
+        locationCallback = callback
+        fusedClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
     }
 
     private fun handleLocation(location: Location) {
@@ -406,11 +407,6 @@ class ForegroundLocationService : Service() {
             apiState = apiState,
             lastDroppedReason = lastDroppedReason
         )
-    }
-
-    private fun enabledProviders(): List<String> {
-        return listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-            .filter { manager.isProviderEnabled(it) }
     }
 
     private fun cancelPendingQualityWait() {

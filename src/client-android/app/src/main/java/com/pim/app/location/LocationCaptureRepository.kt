@@ -5,12 +5,20 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
-import android.location.LocationListener
 import android.location.LocationManager
-import android.os.Bundle
+import android.os.Build
 import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationAvailability
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.pim.app.location.quality.AltitudeWaitCoordinator
 import com.pim.app.location.quality.LocationQualityGate
 import com.pim.app.location.quality.QualityAcceptedLocation
@@ -65,10 +73,10 @@ class LocationCaptureRepository @Inject constructor(
     private val trackingSettingsStore: TrackingSettingsStore
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    private val fusedClient = LocationServices.getFusedLocationProviderClient(context)
     private lateinit var qualityCoordinator: AltitudeWaitCoordinator
 
-    private var listener: LocationListener? = null
+    private var locationCallback: LocationCallback? = null
     private var startedAtElapsedMs: Long = 0L
 
     private val _state = MutableStateFlow(LocationCaptureState())
@@ -77,6 +85,19 @@ class LocationCaptureRepository @Inject constructor(
     fun startCapture() {
         val settings = trackingSettingsStore.read()
         cancelPendingQualityWait()
+
+        if (GoogleApiAvailability.getInstance()
+                .isGooglePlayServicesAvailable(context) != ConnectionResult.SUCCESS
+        ) {
+            _state.update {
+                it.copy(
+                    statusMessage = "Google Play Services 不可用，无法定位。",
+                    inlineReason = "请安装或更新 Google Play Services。"
+                )
+            }
+            return
+        }
+
         if (!hasAnyLocationPermission()) {
             _state.update {
                 it.copy(
@@ -89,16 +110,16 @@ class LocationCaptureRepository @Inject constructor(
             return
         }
 
-        stopCapture(clearStatus = true)
-        val providers = enabledProviders()
-        if (providers.isEmpty()) {
+        if (!isLocationEnabled()) {
             _state.value = LocationCaptureState(
                 statusMessage = "系统定位服务未开启。",
-                inlineReason = "请先在系统设置中开启 GPS 或网络定位。",
+                inlineReason = "请先在系统设置中开启定位服务。",
                 maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
             )
             return
         }
+
+        stopCapture(clearStatus = true)
 
         startedAtElapsedMs = SystemClock.elapsedRealtime()
         qualityCoordinator = AltitudeWaitCoordinator(
@@ -110,25 +131,41 @@ class LocationCaptureRepository @Inject constructor(
             maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
         )
 
-        val updateListener = object : LocationListener {
-            override fun onLocationChanged(location: Location) {
-                handleLocation(location, source = "实时更新")
+        val request = LocationRequest.Builder(1_000L)
+            .setMinUpdateIntervalMillis(800L)
+            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+            .build()
+
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                if (locationCallback !== this || !_state.value.isCapturing) return
+                result.lastLocation?.let { handleLocation(it, source = "实时更新") }
             }
 
-            override fun onProviderDisabled(provider: String) {
-                _state.update { it.copy(statusMessage = "$provider 已关闭，继续等待其他来源。") }
+            override fun onLocationAvailability(availability: LocationAvailability) {
+                if (locationCallback !== this) return
+                if (!availability.isLocationAvailable && _state.value.isCapturing) {
+                    _state.update {
+                        it.copy(
+                            statusMessage = "定位暂时不可用",
+                            inlineReason = "请检查系统定位是否开启。"
+                        )
+                    }
+                }
             }
-
-            override fun onProviderEnabled(provider: String) {
-                _state.update { it.copy(statusMessage = "$provider 已开启，正在等待位置。") }
-            }
-
-            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
         }
-        listener = updateListener
-
-        requestUpdates(providers, updateListener)
-        seedLastKnownLocation(providers)
+        locationCallback = callback
+        fusedClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
+            .addOnFailureListener { e ->
+                if (locationCallback === callback) {
+                    runCatching { fusedClient.removeLocationUpdates(callback) }
+                    locationCallback = null
+                    _state.update { current ->
+                        applyLocationRequestFailure(current, e.message)
+                    }
+                }
+            }
+        seedLastKnownLocation()
         startWaitTimer()
     }
 
@@ -138,8 +175,8 @@ class LocationCaptureRepository @Inject constructor(
 
     private fun stopCapture(clearStatus: Boolean) {
         cancelPendingQualityWait()
-        listener?.let { manager.removeUpdates(it) }
-        listener = null
+        locationCallback?.let { fusedClient.removeLocationUpdates(it) }
+        locationCallback = null
         if (!clearStatus) {
             _state.update { it.copy(isCapturing = false, statusMessage = "定位已停止") }
         }
@@ -176,17 +213,31 @@ class LocationCaptureRepository @Inject constructor(
     }
 
     @SuppressLint("MissingPermission")
-    private fun requestUpdates(providers: List<String>, updateListener: LocationListener) {
-        providers.forEach { provider ->
-            manager.requestLocationUpdates(provider, 1_000L, 0f, updateListener, Looper.getMainLooper())
-        }
+    private fun seedLastKnownLocation() {
+        fusedClient.lastLocation
+            .addOnSuccessListener { location ->
+                // 只在仍活跃时处理，防止 stop 后传入过期/陈旧缓存
+                if (
+                    location != null &&
+                    locationCallback != null &&
+                    state.value.isCapturing &&
+                    isUsableSeedLocation(location.time, System.currentTimeMillis())
+                ) {
+                    handleLocation(location, source = "缓存位置")
+                }
+            }
+            .addOnFailureListener { /* seed 失败不阻塞整体流程 */ }
     }
 
-    @SuppressLint("MissingPermission")
-    private fun seedLastKnownLocation(providers: List<String>) {
-        providers.mapNotNull { provider -> manager.getLastKnownLocation(provider) }
-            .maxByOrNull { it.time }
-            ?.let { handleLocation(it, source = "缓存位置") }
+    private fun isLocationEnabled(): Boolean {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            lm.isLocationEnabled
+        } else {
+            @Suppress("DEPRECATION")
+            lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ||
+                lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        }
     }
 
     private fun startWaitTimer() {
@@ -293,11 +344,6 @@ class LocationCaptureRepository @Inject constructor(
         bearingDegrees = bearingDegrees
     )
 
-    private fun enabledProviders(): List<String> {
-        val ordered = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
-        return ordered.filter { provider -> manager.isProviderEnabled(provider) }
-    }
-
     private fun hasAnyLocationPermission(): Boolean {
         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -353,6 +399,25 @@ internal fun formatSubmitStatus(enqueued: Boolean, error: String? = null): Strin
 
 internal fun resolveAutoSubmittedState(current: Boolean, isAutoSubmit: Boolean, success: Boolean): Boolean {
     return if (isAutoSubmit && success) true else current
+}
+
+internal fun applyLocationRequestFailure(
+    current: LocationCaptureState,
+    errorMessage: String?
+): LocationCaptureState {
+    return current.copy(
+        isCapturing = false,
+        statusMessage = "定位请求失败",
+        inlineReason = errorMessage ?: "未知错误"
+    )
+}
+
+internal const val SEED_LOCATION_MAX_AGE_MILLIS: Long = 5L * 60L * 1000L
+
+internal fun isUsableSeedLocation(locationTimeMillis: Long, nowMillis: Long): Boolean {
+    if (locationTimeMillis <= 0L) return false
+    val ageMillis = nowMillis - locationTimeMillis
+    return ageMillis in 0L..SEED_LOCATION_MAX_AGE_MILLIS
 }
 
 internal suspend fun enqueueThenSchedule(

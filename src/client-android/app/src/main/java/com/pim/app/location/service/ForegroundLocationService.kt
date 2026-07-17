@@ -278,9 +278,20 @@ class ForegroundLocationService : Service() {
         locationCallback?.let { fusedClient.removeLocationUpdates(it) }
         registeredIntervalMillis = resolved
 
+        // 按当前策略模式选择功耗/精度优先级
+        val priority = when (currentDecision.mode) {
+            LocationPolicyMode.PowerSavingNormal,
+            LocationPolicyMode.ScheduleLowFrequency,
+            LocationPolicyMode.Off -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
+            LocationPolicyMode.MovementObservation,
+            LocationPolicyMode.MovementRecovery -> Priority.PRIORITY_HIGH_ACCURACY
+        }
+
+        // 允许系统以略高于 interval 的频率上报最新缓存位置，
+        // 避免系统因 minInterval 等于 interval 而延迟上报
         val request = LocationRequest.Builder(resolved)
             .setMinUpdateIntervalMillis((resolved * 0.8).toLong())
-            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+            .setPriority(priority)
             .build()
 
         val callback = object : LocationCallback() {
@@ -297,6 +308,10 @@ class ForegroundLocationService : Service() {
         }
         locationCallback = callback
         fusedClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
+            .addOnFailureListener { e ->
+                lastDroppedReason = "定位请求失败：${e.message}"
+                updateNotification()
+            }
     }
 
     private fun handleLocation(location: Location) {

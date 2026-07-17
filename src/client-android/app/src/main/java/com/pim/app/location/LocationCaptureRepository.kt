@@ -5,15 +5,21 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.LocationManager
+import android.os.Build
 import android.os.Looper
 import android.os.SystemClock
 import androidx.core.content.ContextCompat
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationAvailability
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.pim.app.location.quality.AltitudeWaitCoordinator
 import com.pim.app.location.quality.LocationQualityGate
 import com.pim.app.location.quality.QualityAcceptedLocation
@@ -70,6 +76,7 @@ class LocationCaptureRepository @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val fusedClient = LocationServices.getFusedLocationProviderClient(context)
     private lateinit var qualityCoordinator: AltitudeWaitCoordinator
+    private val seedCts = CancellationTokenSource()
 
     private var locationCallback: LocationCallback? = null
     private var startedAtElapsedMs: Long = 0L
@@ -80,6 +87,19 @@ class LocationCaptureRepository @Inject constructor(
     fun startCapture() {
         val settings = trackingSettingsStore.read()
         cancelPendingQualityWait()
+
+        if (GoogleApiAvailability.getInstance()
+                .isGooglePlayServicesAvailable(context) != ConnectionResult.SUCCESS
+        ) {
+            _state.update {
+                it.copy(
+                    statusMessage = "Google Play Services 不可用，无法定位。",
+                    inlineReason = "请安装或更新 Google Play Services。"
+                )
+            }
+            return
+        }
+
         if (!hasAnyLocationPermission()) {
             _state.update {
                 it.copy(
@@ -89,6 +109,15 @@ class LocationCaptureRepository @Inject constructor(
                     maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
                 )
             }
+            return
+        }
+
+        if (!isLocationEnabled()) {
+            _state.value = LocationCaptureState(
+                statusMessage = "系统定位服务未开启。",
+                inlineReason = "请先在系统设置中开启定位服务。",
+                maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
+            )
             return
         }
 
@@ -113,9 +142,25 @@ class LocationCaptureRepository @Inject constructor(
             override fun onLocationResult(result: LocationResult) {
                 result.lastLocation?.let { handleLocation(it, source = "实时更新") }
             }
+
+            override fun onLocationAvailability(availability: LocationAvailability) {
+                if (!availability.isLocationAvailable && _state.value.isCapturing) {
+                    _state.update {
+                        it.copy(statusMessage = "定位暂时不可用", inlineReason = "检查GPS或网络定位是否开启。")
+                    }
+                }
+            }
         }
         locationCallback = callback
         fusedClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
+            .addOnFailureListener { e ->
+                _state.update {
+                    it.copy(
+                        statusMessage = "定位请求失败",
+                        inlineReason = e.message ?: "未知错误"
+                    )
+                }
+            }
         seedLastKnownLocation()
         startWaitTimer()
     }
@@ -125,6 +170,7 @@ class LocationCaptureRepository @Inject constructor(
     }
 
     private fun stopCapture(clearStatus: Boolean) {
+        seedCts.cancel()
         cancelPendingQualityWait()
         locationCallback?.let { fusedClient.removeLocationUpdates(it) }
         locationCallback = null
@@ -165,12 +211,25 @@ class LocationCaptureRepository @Inject constructor(
 
     @SuppressLint("MissingPermission")
     private fun seedLastKnownLocation() {
-        fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+        fusedClient.lastLocation
             .addOnSuccessListener { location ->
-                if (location != null) {
+                // 只在仍活跃时处理，防止 stop 后传入过期数据
+                if (location != null && locationCallback != null && state.value.isCapturing) {
                     handleLocation(location, source = "缓存位置")
                 }
             }
+            .addOnFailureListener { /* seed 失败不阻塞整体流程 */ }
+    }
+
+    private fun isLocationEnabled(): Boolean {
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            lm.isLocationEnabled
+        } else {
+            @Suppress("DEPRECATION")
+            lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ||
+                lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        }
     }
 
     private fun startWaitTimer() {

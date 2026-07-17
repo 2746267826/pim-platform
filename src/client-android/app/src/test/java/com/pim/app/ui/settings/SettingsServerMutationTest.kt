@@ -80,6 +80,7 @@ class SettingsServerMutationTest {
         listOf(SERVER_PREFS, AUTH_PREFS, TRACKING_PREFS, PROBE_PREFS).forEach { name ->
             check(context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit())
         }
+        drainStartedServices(application)
     }
 
     @After
@@ -100,6 +101,31 @@ class SettingsServerMutationTest {
         assertFalse(state.isLoggedIn)
         assertTrue(state.continuousCollectionEnabled)
         assertTrue(fixture.trackingSettings.read().continuousCollectionEnabled)
+        assertEquals("API 地址无法写入本地设置，请重试。", state.apiError)
+        assertEquals("API 地址保存失败。", state.apiStatus)
+    }
+
+    @Test
+    fun sessionBoundToDestinationSurvivesUrlSwitch() {
+        val fixture = fixture(startWithSession = false)
+        check(fixture.tokenManager.save("access-b", "refresh-b", Long.MAX_VALUE, SERVER_B_ORIGIN))
+        assertEquals(SERVER_A_URL, fixture.viewModel.state.value.apiAddress)
+        assertFalse("token bound to B must not match server A", fixture.viewModel.state.value.isLoggedIn)
+
+        fixture.viewModel.updateApiAddress(SERVER_B_URL)
+        assertTrue(fixture.viewModel.saveApiAddress())
+
+        val state = fixture.viewModel.state.value
+        assertEquals(SERVER_B_URL, state.apiAddress)
+        assertTrue("session bound to destination must survive", state.isLoggedIn)
+        assertEquals(
+            listOf(SERVER_A_ORIGIN),
+            fixture.webViewSiteDataCleaner.clearedOrigins
+        )
+        assertEquals(
+            "access-b",
+            fixture.tokenManager.getAccessTokenForServer(SERVER_B_URL)
+        )
     }
 
     @Test
@@ -124,6 +150,7 @@ class SettingsServerMutationTest {
         fixture.viewModel.updateApiAddress(SERVER_B_URL)
 
         assertFalse(fixture.viewModel.saveApiAddress())
+        assertTrue(fixture.webViewSiteDataCleaner.clearedOrigins.isEmpty())
 
         val actualServerUrl = fixture.serverSettings.getBaseUrl()
         val state = fixture.viewModel.state.value
@@ -133,6 +160,143 @@ class SettingsServerMutationTest {
             state.isLoggedIn
         )
         assertTrue(fixture.trackingSettings.read().continuousCollectionEnabled)
+        assertEquals("旧会话无法清除，请重试。", state.apiError)
+        assertEquals("API 地址保存失败，无法清理旧会话。", state.apiStatus)
+    }
+
+    @Test
+    fun noSessionServerSwitchSucceedsEvenWhenTokenClearWouldFail() {
+        val fixture = fixture(startWithSession = false, failSessionClear = true)
+        fixture.viewModel.updateApiAddress(SERVER_B_URL)
+
+        assertTrue(fixture.viewModel.saveApiAddress())
+
+        val state = fixture.viewModel.state.value
+        assertEquals(SERVER_B_URL, state.apiAddress)
+        assertFalse(state.isLoggedIn)
+        assertEquals(listOf(SERVER_A_ORIGIN), fixture.webViewSiteDataCleaner.clearedOrigins)
+    }
+
+    @Test
+    fun saveApiAddressToDifferentServerClearsOldOrigin() {
+        val fixture = fixture()
+        assertTrue(fixture.webViewSiteDataCleaner.clearedOrigins.isEmpty())
+
+        fixture.viewModel.updateApiAddress(SERVER_B_URL)
+        assertTrue(fixture.viewModel.saveApiAddress())
+
+        assertEquals(listOf(SERVER_A_ORIGIN), fixture.webViewSiteDataCleaner.clearedOrigins)
+    }
+
+    @Test
+    fun saveApiAddressToSameOriginDoesNotClearWebViewData() {
+        val fixture = fixture()
+        fixture.viewModel.updateApiAddress(SERVER_A_URL)
+
+        assertTrue(fixture.viewModel.saveApiAddress())
+
+        assertTrue(fixture.webViewSiteDataCleaner.clearedOrigins.isEmpty())
+    }
+
+    @Test
+    fun saveCommitFailureAfterTokenClearClearsOldOrigin() {
+        val fixture = fixture()
+        fixture.serverPreferences.enqueueCommitResult(false)
+        fixture.viewModel.updateApiAddress(SERVER_B_URL)
+
+        assertFalse(fixture.viewModel.saveApiAddress())
+
+        val state = fixture.viewModel.state.value
+        assertEquals(SERVER_A_URL, state.apiAddress)
+        assertFalse(state.isLoggedIn)
+        assertEquals(listOf(SERVER_A_ORIGIN), fixture.webViewSiteDataCleaner.clearedOrigins)
+    }
+
+    @Test
+    fun logoutClearsCurrentOrigin() {
+        val fixture = fixture()
+        assertTrue(fixture.webViewSiteDataCleaner.clearedOrigins.isEmpty())
+
+        fixture.viewModel.logout()
+
+        assertFalse(fixture.viewModel.state.value.isLoggedIn)
+        assertEquals(listOf(SERVER_A_ORIGIN), fixture.webViewSiteDataCleaner.clearedOrigins)
+    }
+
+    @Test
+    fun logoutWhenTokenClearFailsDoesNotClearOrigin() {
+        val fixture = fixture(failSessionClear = true)
+        assertTrue(fixture.webViewSiteDataCleaner.clearedOrigins.isEmpty())
+
+        fixture.viewModel.logout()
+
+        assertEquals("退出失败：安全存储暂时不可用。", fixture.viewModel.state.value.loginStatus)
+        assertTrue(fixture.webViewSiteDataCleaner.clearedOrigins.isEmpty())
+    }
+
+    @Test
+    fun logoutWithThrowingCleanerStillSucceeds() {
+        val fixture = fixture(cleanerThrows = true)
+        assertTrue(fixture.webViewSiteDataCleaner.clearedOrigins.isEmpty())
+
+        fixture.viewModel.logout()
+
+        assertFalse(fixture.viewModel.state.value.isLoggedIn)
+        assertTrue(fixture.viewModel.state.value.continuousCollectionEnabled)
+        assertTrue(fixture.trackingSettings.read().continuousCollectionEnabled)
+    }
+
+    @Test
+    fun serverSwitchWithThrowingCleanerStillSucceeds() {
+        val fixture = fixture(cleanerThrows = true)
+        assertTrue(fixture.webViewSiteDataCleaner.clearedOrigins.isEmpty())
+
+        fixture.viewModel.updateApiAddress(SERVER_B_URL)
+        assertTrue(fixture.viewModel.saveApiAddress())
+
+        val state = fixture.viewModel.state.value
+        assertEquals(SERVER_B_URL, state.apiAddress)
+        assertFalse(state.isLoggedIn)
+        assertTrue(fixture.trackingSettings.read().continuousCollectionEnabled)
+    }
+
+    @Test
+    fun collectionServerSwitchToDifferentOriginClearsOldOrigin() {
+        val fixture = fixture()
+        assertTrue(fixture.webViewSiteDataCleaner.clearedOrigins.isEmpty())
+        fixture.viewModel.updateApiAddress(SERVER_B_URL)
+
+        fixture.viewModel.setContinuousCollectionEnabled(true)
+
+        val state = fixture.viewModel.state.value
+        assertEquals(SERVER_B_URL, state.apiAddress)
+        assertFalse(state.isLoggedIn)
+        assertEquals(listOf(SERVER_A_ORIGIN), fixture.webViewSiteDataCleaner.clearedOrigins)
+    }
+
+    @Test
+    fun collectionServerSwitchToSameOriginDoesNotClearWebViewData() {
+        val fixture = fixture()
+        fixture.viewModel.updateApiAddress(SERVER_A_URL)
+
+        fixture.viewModel.setContinuousCollectionEnabled(true)
+
+        assertEquals(SERVER_A_URL, fixture.viewModel.state.value.apiAddress)
+        assertTrue(fixture.webViewSiteDataCleaner.clearedOrigins.isEmpty())
+    }
+
+    @Test
+    fun collectionServerSaveFailureAfterTokenClearClearsOldOrigin() {
+        val fixture = fixture()
+        fixture.serverPreferences.enqueueCommitResult(false)
+        fixture.viewModel.updateApiAddress(SERVER_B_URL)
+
+        fixture.viewModel.setContinuousCollectionEnabled(true)
+
+        val state = fixture.viewModel.state.value
+        assertEquals(SERVER_A_URL, state.apiAddress)
+        assertFalse(state.isLoggedIn)
+        assertEquals(listOf(SERVER_A_ORIGIN), fixture.webViewSiteDataCleaner.clearedOrigins)
     }
 
     @Test
@@ -772,12 +936,14 @@ class SettingsServerMutationTest {
     }
 
     private fun fixture(
+        startWithSession: Boolean = true,
         failSessionClear: Boolean = false,
         probeFailure: Throwable? = null,
         onProbeStarted: () -> Unit = {},
         diagnosticClearFails: Boolean = false,
         onEnsureRunningState: () -> Unit = {},
-        isServiceRunning: () -> Boolean = { ForegroundLocationService.isRunning() }
+        isServiceRunning: () -> Boolean = { ForegroundLocationService.isRunning() },
+        cleanerThrows: Boolean = false
     ): Fixture {
         val serverPreferences = ScriptedCommitSharedPreferences(
             context.getSharedPreferences(SERVER_PREFS, Context.MODE_PRIVATE)
@@ -792,7 +958,9 @@ class SettingsServerMutationTest {
             tokenManager
         )
         serverSettings.setBaseUrl(SERVER_A_URL)
-        check(tokenManager.save("access-a", "refresh-a", Long.MAX_VALUE, SERVER_A_IDENTITY))
+        if (startWithSession) {
+            check(tokenManager.save("access-a", "refresh-a", Long.MAX_VALUE, SERVER_A_IDENTITY))
+        }
         if (failSessionClear) authPreferences.enqueueCommitResult(false)
 
         val trackingSettings = TrackingSettingsStore(
@@ -843,6 +1011,7 @@ class SettingsServerMutationTest {
             isServiceRunning = isServiceRunning,
             startCollection = { foregroundLocationController.start() }
         )
+        val siteDataCleaner = FakeWebViewSiteDataCleaner(throwOnClear = cleanerThrows)
         val viewModel = SettingsViewModel(
             serverSettingsStore = serverSettings,
             tokenManager = tokenManager,
@@ -854,7 +1023,8 @@ class SettingsServerMutationTest {
             connectionProbeStore = probeStore,
             mobileSyncScheduler = mobileSyncScheduler,
             diagnosticOperations = diagnosticOperations,
-            runningStateRestorer = runningStateRestorer
+            runningStateRestorer = runningStateRestorer,
+            webViewSiteDataCleaner = siteDataCleaner
         )
         return Fixture(
             viewModel = viewModel,
@@ -865,7 +1035,8 @@ class SettingsServerMutationTest {
             mobileSyncScheduler = mobileSyncScheduler,
             permissionStatusRepository = permissionStatusRepository,
             probeStore = probeStore,
-            diagnosticOperations = diagnosticOperations
+            diagnosticOperations = diagnosticOperations,
+            webViewSiteDataCleaner = siteDataCleaner
         )
     }
 
@@ -892,7 +1063,8 @@ class SettingsServerMutationTest {
         val mobileSyncScheduler: MobileSyncScheduler,
         val permissionStatusRepository: PermissionStatusRepository,
         val probeStore: ConnectionProbeStore,
-        val diagnosticOperations: FakeDiagnosticOperations
+        val diagnosticOperations: FakeDiagnosticOperations,
+        val webViewSiteDataCleaner: FakeWebViewSiteDataCleaner
     )
 
     private companion object {
@@ -903,6 +1075,8 @@ class SettingsServerMutationTest {
         const val SERVER_A_URL = "https://server-a.example/api/v1/"
         const val SERVER_B_URL = "https://server-b.example/api/v1/"
         const val SERVER_A_IDENTITY = "https://server-a.example"
+        const val SERVER_A_ORIGIN = "https://server-a.example"
+        const val SERVER_B_ORIGIN = "https://server-b.example"
     }
 }
 
@@ -933,6 +1107,17 @@ private class TestSecurePreferencesFactory(
     private val preferences: SharedPreferences
 ) : SecurePreferencesFactory {
     override fun open(): SharedPreferences = preferences
+}
+
+private class FakeWebViewSiteDataCleaner(
+    private val throwOnClear: Boolean = false
+) : WebViewSiteDataCleaner {
+    val clearedOrigins = mutableListOf<String>()
+
+    override fun clearOrigin(origin: String) {
+        if (throwOnClear) throw RuntimeException("simulated cleaner failure")
+        clearedOrigins.add(origin)
+    }
 }
 
 private class ScriptedCommitSharedPreferences(

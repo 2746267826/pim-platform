@@ -12,6 +12,9 @@ import com.pim.app.status.ConnectionProbeStore
 import com.pim.app.status.ProbeTokenSource
 import com.pim.core.auth.TokenManager
 import com.pim.core.network.applyPimApiTimeouts
+import com.pim.app.ui.settings.RealWebViewSiteDataCleaner
+import com.pim.app.ui.settings.WebViewSiteDataCleaner
+import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,6 +36,15 @@ annotation class AuthenticatedProbeClient
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class ConnectionProbePreferences
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class AppModuleBinds {
+    @Binds
+    abstract fun bindWebViewSiteDataCleaner(
+        impl: RealWebViewSiteDataCleaner
+    ): WebViewSiteDataCleaner
+}
 
 @Module
 @InstallIn(SingletonComponent::class)

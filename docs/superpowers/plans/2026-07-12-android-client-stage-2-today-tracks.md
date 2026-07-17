@@ -19,7 +19,7 @@ Android PimWebViewScreen → 原生 access token / refresh / 本地传输事实
 ## 当前状态（2026-07-18）
 
 - Task 1-6 的代码和焦点测试已经完成，并已同步到 `origin/master` 的 fused location 最新实现。
-- 已通过：Web embed 测试、Today 测试、Stage 2 变更文件 lint（0 error）、Web 生产构建、后端 1170 项测试，以及 Android 焦点测试。Android 全量门禁将在最终提交后再跑一次。
+- 已通过：Web embed 测试、Today 测试、Stage 2 变更文件 lint（0 error）、Web 生产构建、后端 1170 项测试、Android app/core 917 项测试，以及 debug / androidTest APK 构建。
 - 全仓 Web lint 当前被 `origin/master` 既有的 18 个无关 error 阻塞；本阶段文件只有 2 个 hook dependency warning，不把基线失败写成通过，也不在本 PR 扩大修复范围。
 - 10 个并行只读专项审查和一次汇总复核未发现未处理的 Critical / Important 问题；审查确认的共享错误边界、安全区和子资源失败日志缺口已补齐。
 - 当前 `adb devices -l` 没有可用设备；`connectedDebugAndroidTest` 与本阶段人工场景仍待模拟器或真机验收。分支尚未推送，PR 和 CI 尚未开始。

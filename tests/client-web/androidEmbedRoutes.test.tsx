@@ -109,11 +109,12 @@ function renderAppRoutes(initialEntries: string[]) {
   );
 }
 
-test('embed /android/today route renders AndroidEmbedLayout without desktop chrome', () => {
+test('embed /android/today route renders AndroidEmbedLayout without desktop chrome or TodayPage content', () => {
   const html = renderAppRoutes(['/embed/android/today']);
   assert.ok(html.includes('overflow-y-auto'), 'Should render AndroidEmbedLayout scroll container');
   assert.ok(!html.includes('Sidebar'), 'Should not render Sidebar');
   assert.ok(!html.includes('pim-shell'), 'Should not render desktop shell');
+  assert.ok(!html.includes('日程任务工作台'), 'Should not render TodayPage title');
 });
 
 test('embed /android/tracks route renders embed-only content without desktop chrome', () => {

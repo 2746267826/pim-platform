@@ -9,9 +9,11 @@
   "include": [
     "androidEmbedRoutes.test.tsx",
     "androidEmbedAuth.test.ts",
+    "androidTodayEmbed.test.tsx",
     "../../src/client-web/node_modules/vite/client.d.ts",
     "../../src/client-web/src/layout/AndroidEmbedLayout.tsx",
     "../../src/client-web/src/embed/androidBridge.ts",
-    "../../src/client-web/src/api/client.ts"
+    "../../src/client-web/src/api/client.ts",
+    "../../src/client-web/src/pages/AndroidTodayEmbedPage.tsx"
   ]
 }

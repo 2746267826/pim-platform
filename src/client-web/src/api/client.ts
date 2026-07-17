@@ -64,6 +64,10 @@ export function clearTokens() {
 
 export function onTokensChanged(cb: () => void) { onAuthChange = cb; }
 
+export function getEmbedBridgeClient(): Promise<import('../embed/androidBridge').AndroidBridgeClient | null> {
+  return getBridgeClient();
+}
+
 async function refreshAccessToken(): Promise<boolean> {
   if (isEmbed()) {
     if (refreshPromise) return refreshPromise;

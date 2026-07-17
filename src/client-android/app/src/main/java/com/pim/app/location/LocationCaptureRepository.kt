@@ -19,7 +19,6 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
 import com.pim.app.location.quality.AltitudeWaitCoordinator
 import com.pim.app.location.quality.LocationQualityGate
 import com.pim.app.location.quality.QualityAcceptedLocation
@@ -76,7 +75,6 @@ class LocationCaptureRepository @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val fusedClient = LocationServices.getFusedLocationProviderClient(context)
     private lateinit var qualityCoordinator: AltitudeWaitCoordinator
-    private val seedCts = CancellationTokenSource()
 
     private var locationCallback: LocationCallback? = null
     private var startedAtElapsedMs: Long = 0L
@@ -154,11 +152,10 @@ class LocationCaptureRepository @Inject constructor(
         locationCallback = callback
         fusedClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
             .addOnFailureListener { e ->
-                _state.update {
-                    it.copy(
-                        statusMessage = "定位请求失败",
-                        inlineReason = e.message ?: "未知错误"
-                    )
+                locationCallback?.let { fusedClient.removeLocationUpdates(it) }
+                locationCallback = null
+                _state.update { current ->
+                    applyLocationRequestFailure(current, e.message)
                 }
             }
         seedLastKnownLocation()
@@ -170,7 +167,6 @@ class LocationCaptureRepository @Inject constructor(
     }
 
     private fun stopCapture(clearStatus: Boolean) {
-        seedCts.cancel()
         cancelPendingQualityWait()
         locationCallback?.let { fusedClient.removeLocationUpdates(it) }
         locationCallback = null
@@ -391,6 +387,17 @@ internal fun formatSubmitStatus(enqueued: Boolean, error: String? = null): Strin
 
 internal fun resolveAutoSubmittedState(current: Boolean, isAutoSubmit: Boolean, success: Boolean): Boolean {
     return if (isAutoSubmit && success) true else current
+}
+
+internal fun applyLocationRequestFailure(
+    current: LocationCaptureState,
+    errorMessage: String?
+): LocationCaptureState {
+    return current.copy(
+        isCapturing = false,
+        statusMessage = "定位请求失败",
+        inlineReason = errorMessage ?: "未知错误"
+    )
 }
 
 internal suspend fun enqueueThenSchedule(

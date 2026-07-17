@@ -12,6 +12,8 @@ import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import androidx.core.content.ContextCompat
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationAvailability
 import com.google.android.gms.location.LocationCallback
@@ -165,6 +167,23 @@ class ForegroundLocationService : Service() {
             return
         }
 
+        if (GoogleApiAvailability.getInstance()
+                .isGooglePlayServicesAvailable(this) != ConnectionResult.SUCCESS
+        ) {
+            currentDecision = currentDecision.copy(
+                mode = LocationPolicyMode.Off,
+                requestIntervalMillis = 0L,
+                nextExpectedLocationAtMillis = Long.MAX_VALUE,
+                reason = "Google Play Services 不可用",
+                scheduleLowFrequency = false
+            )
+            lastDroppedReason = "Google Play Services 不可用"
+            publishRuntimeState(isRunning = false)
+            stopCollection()
+            stopSelf(startId)
+            return
+        }
+
         val settings = trackingSettingsStore.read()
         policyEngine = LocationPolicyEngine(settings.toTrackingPolicy())
         activeMaxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
@@ -278,20 +297,11 @@ class ForegroundLocationService : Service() {
         locationCallback?.let { fusedClient.removeLocationUpdates(it) }
         registeredIntervalMillis = resolved
 
-        // 按当前策略模式选择功耗/精度优先级
-        val priority = when (currentDecision.mode) {
-            LocationPolicyMode.PowerSavingNormal,
-            LocationPolicyMode.ScheduleLowFrequency,
-            LocationPolicyMode.Off -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
-            LocationPolicyMode.MovementObservation,
-            LocationPolicyMode.MovementRecovery -> Priority.PRIORITY_HIGH_ACCURACY
-        }
-
         // 允许系统以略高于 interval 的频率上报最新缓存位置，
         // 避免系统因 minInterval 等于 interval 而延迟上报
         val request = LocationRequest.Builder(resolved)
             .setMinUpdateIntervalMillis((resolved * 0.8).toLong())
-            .setPriority(priority)
+            .setPriority(resolveLocationPriority(currentDecision.mode))
             .build()
 
         val callback = object : LocationCallback() {
@@ -483,6 +493,15 @@ class ForegroundLocationService : Service() {
         fun resolveRequestInterval(intervalMillis: Long): Long {
             require(intervalMillis > 0L) { "intervalMillis must be positive" }
             return intervalMillis
+        }
+
+        fun resolveLocationPriority(mode: LocationPolicyMode): Int = when (mode) {
+            LocationPolicyMode.PowerSavingNormal,
+            LocationPolicyMode.ScheduleLowFrequency,
+            LocationPolicyMode.Off,
+            LocationPolicyMode.SyncFallback -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
+            LocationPolicyMode.MotionObservation,
+            LocationPolicyMode.MovementRecovery -> Priority.PRIORITY_HIGH_ACCURACY
         }
     }
 }

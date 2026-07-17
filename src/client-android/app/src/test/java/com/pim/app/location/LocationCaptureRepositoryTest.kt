@@ -112,4 +112,30 @@ class LocationCaptureRepositoryTest {
     fun `autoSubmitted already true stays true on failure`() {
         assertTrue(resolveAutoSubmittedState(current = true, isAutoSubmit = true, success = false))
     }
+
+    @Test
+    fun `request failure state ends capturing`() {
+        val state = applyLocationRequestFailure(
+            current = LocationCaptureState(
+                isCapturing = true,
+                statusMessage = "正在等待位置更新...",
+                inlineReason = null
+            ),
+            errorMessage = "gms down"
+        )
+        assertFalse(state.isCapturing)
+        assertEquals("定位请求失败", state.statusMessage)
+        assertEquals("gms down", state.inlineReason)
+    }
+
+    @Test
+    fun `request failure state uses fallback message when error null`() {
+        val state = applyLocationRequestFailure(
+            current = LocationCaptureState(isCapturing = true),
+            errorMessage = null
+        )
+        assertFalse(state.isCapturing)
+        assertEquals("定位请求失败", state.statusMessage)
+        assertEquals("未知错误", state.inlineReason)
+    }
 }

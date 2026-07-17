@@ -50,6 +50,42 @@ class ForegroundLocationServiceTest {
     }
 
     @Test
+    fun resolveLocationPriorityMapsPolicyModes() {
+        assertEquals(
+            com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            ForegroundLocationService.resolveLocationPriority(LocationPolicyMode.PowerSavingNormal)
+        )
+        assertEquals(
+            com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            ForegroundLocationService.resolveLocationPriority(LocationPolicyMode.ScheduleLowFrequency)
+        )
+        assertEquals(
+            com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            ForegroundLocationService.resolveLocationPriority(LocationPolicyMode.Off)
+        )
+        assertEquals(
+            com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            ForegroundLocationService.resolveLocationPriority(LocationPolicyMode.SyncFallback)
+        )
+        assertEquals(
+            com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+            ForegroundLocationService.resolveLocationPriority(LocationPolicyMode.MotionObservation)
+        )
+        assertEquals(
+            com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+            ForegroundLocationService.resolveLocationPriority(LocationPolicyMode.MovementRecovery)
+        )
+    }
+
+    @Test
+    fun resolveLocationPriorityCoversEveryPolicyMode() {
+        LocationPolicyMode.entries.forEach { mode ->
+            // Must not throw; exhaustive when on all enum values.
+            ForegroundLocationService.resolveLocationPriority(mode)
+        }
+    }
+
+    @Test
     fun permissionDenialMustNotOverwritePersistedCollectionIntent() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         shadowOf(context).denyPermissions(

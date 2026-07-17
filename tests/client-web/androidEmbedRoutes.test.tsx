@@ -117,9 +117,9 @@ test('embed /android/today route renders AndroidEmbedLayout without desktop chro
   assert.ok(!html.includes('日程任务工作台'), 'Should not render TodayPage title');
 });
 
-test('embed /android/tracks route renders embed-only content without desktop chrome', () => {
+test('embed /android/tracks route renders HistoricalLocationPage without desktop chrome', () => {
   const html = renderAppRoutes(['/embed/android/tracks']);
-  assert.ok(html.includes('轨迹页面'), 'Should render tracks placeholder');
+  assert.ok(html.includes('历史位置'), 'Should render HistoricalLocationPage title');
   assert.ok(!html.includes('Sidebar'), 'Should not render Sidebar');
   assert.ok(!html.includes('pim-shell'), 'Should not render desktop shell');
 });
@@ -127,5 +127,5 @@ test('embed /android/tracks route renders embed-only content without desktop chr
 test('desktop /today route does not render embed layout', () => {
   const html = renderAppRoutes(['/today']);
   assert.ok(!html.includes('overflow-y-auto'), 'Should not render embed scroll container');
-  assert.ok(!html.includes('轨迹页面'), 'Should not render embed content');
+  assert.ok(!html.includes('历史位置'), 'Should not render embed content');
 });

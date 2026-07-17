@@ -118,6 +118,15 @@ export function staleStatusLabel(isStale: boolean | undefined | null): string | 
   return null;
 }
 
+export function shouldShowSummaryMetricsFallback(
+  summary: MobileSummary | null | undefined,
+  usageOverview: MobileAnalyticsOverview | null | undefined,
+): boolean {
+  const usageHasData = (usageOverview?.totalForegroundSeconds ?? 0) > 0;
+  const summaryHasDuration = (summary?.totalForegroundSeconds ?? 0) > 0;
+  return !usageHasData && summaryHasDuration;
+}
+
 export function nativeErrorMessage(_error: unknown): string {
   void _error;
   return '无法读取原生采集状态';

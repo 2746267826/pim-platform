@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getEmbedBridgeClient } from '../api/client';
 import {
@@ -7,6 +7,7 @@ import {
   getMobileAnalyticsOverview,
   getMobileSummary,
 } from '../api/mobile';
+import MobileMetricStrip from '../components/mobile/MobileMetricStrip';
 import {
   buildMobileAnalyticsDateRange,
   toMobileAnalyticsUtcRange,
@@ -25,17 +26,27 @@ import {
   staleStatusLabel,
   nativeErrorMessage,
   generatedAtEntries,
+  shouldShowSummaryMetricsFallback,
   NATIVE_STATE_REFRESH_INTERVAL_MS,
 } from './androidTodayEmbedState';
 import type { PageReportInput } from './androidTodayEmbedState';
 
+const DATE_REFRESH_INTERVAL_MS = 45_000;
+
 export default function AndroidTodayEmbedPage() {
+  const [dateRefreshKey, setDateRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setDateRefreshKey(k => k + 1), DATE_REFRESH_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, []);
+
   const utcRange = useMemo(() => {
     const range = buildMobileAnalyticsDateRange('today');
     return toMobileAnalyticsUtcRange(range);
-  }, []);
+  }, [dateRefreshKey]);
 
-  const localDate = useMemo(() => formatShanghaiDateInput(), []);
+  const localDate = useMemo(() => formatShanghaiDateInput(), [dateRefreshKey]);
 
   const nativeStateQ = useQuery({
     queryKey: ['android-today-native-state'],
@@ -53,6 +64,8 @@ export default function AndroidTodayEmbedPage() {
   const nativeError = nativeStateQ.isError ? nativeStateQ.error : null;
 
   const prevReportRef = useRef<string | null>(null);
+  const [reportRetryKey, setReportRetryKey] = useState(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const locationOverviewQ = useQuery({
     queryKey: ['android-today-location-overview', utcRange],
@@ -103,19 +116,35 @@ export default function AndroidTodayEmbedPage() {
 
     const key = JSON.stringify(report);
     if (key === prevReportRef.current) return;
-    prevReportRef.current = key;
+    let cancelled = false;
 
     (async () => {
       try {
         const bridge = await getEmbedBridgeClient();
         if (bridge) {
           await bridge.sendPageReport(report);
+          if (!cancelled) {
+            prevReportRef.current = key;
+          }
         }
       } catch {
-        /* 页面销毁时 bridge promise reject 属正常路径 */
+        if (!cancelled && !retryTimerRef.current) {
+          retryTimerRef.current = setTimeout(() => {
+            retryTimerRef.current = null;
+            setReportRetryKey(k => k + 1);
+          }, 30000);
+        }
       }
     })();
-  }, [report, isLoading]);
+
+    return () => {
+      cancelled = true;
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
+  }, [report, isLoading, reportRetryKey]);
 
   const isStale = usageOverviewQ.data?.isStale === true;
 
@@ -203,10 +232,10 @@ export default function AndroidTodayEmbedPage() {
       {/* ── Data ── */}
       {settled && (
         <>
-          {locationOverviewQ.data && (
+          {(locationOverviewQ.data?.pointCount ?? 0) > 0 && (
             <section>
               <h2 className="mb-2 text-sm font-semibold text-slate-950">位置概况</h2>
-              <LocationMetricStrip overview={locationOverviewQ.data} />
+              <LocationMetricStrip overview={locationOverviewQ.data!} />
             </section>
           )}
 
@@ -214,8 +243,23 @@ export default function AndroidTodayEmbedPage() {
             <LocationHistoryMap tracks={tracksQ.data} />
           )}
 
-          {usageOverviewQ.data && (
-            <MobileInsightStrip overview={usageOverviewQ.data} />
+          {(usageOverviewQ.data?.totalForegroundSeconds ?? 0) > 0 && (
+            <MobileInsightStrip overview={usageOverviewQ.data!} />
+          )}
+
+          {shouldShowSummaryMetricsFallback(summaryQ.data ?? null, usageOverviewQ.data ?? null) && (
+            <section>
+              <h2 className="mb-2 text-sm font-semibold text-slate-950">手机使用摘要</h2>
+              <MobileMetricStrip
+                totalForegroundSeconds={summaryQ.data!.totalForegroundSeconds}
+                appSwitchCount={summaryQ.data!.appSwitchCount}
+                appsUsed={summaryQ.data!.appsUsed}
+                completeness={summaryQ.data!.completeness}
+                qualityIssueCount={summaryQ.data!.qualityIssueCount}
+                lastSyncAt={summaryQ.data!.lastSyncAt}
+                fallbackForegroundSeconds={summaryQ.data!.fallbackForegroundSeconds}
+              />
+            </section>
           )}
 
           {summaryQ.data && summaryQ.data.appRanking.length > 0 && (

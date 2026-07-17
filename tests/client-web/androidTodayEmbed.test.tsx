@@ -13,6 +13,15 @@ function test(name: string, fn: () => void | Promise<void>) {
 async function _runAll(): Promise<void> {
   let exitCode = 0;
   for (const { name, fn } of _tests) {
+    const restoreGlobals: Array<() => void> = [];
+    for (const key of ['window', 'fetch', 'localStorage'] as const) {
+      const desc = Object.getOwnPropertyDescriptor(globalThis, key);
+      if (desc) {
+        restoreGlobals.push(() => Object.defineProperty(globalThis, key, desc));
+      } else {
+        restoreGlobals.push(() => { delete (globalThis as Record<string, unknown>)[key]; });
+      }
+    }
     try {
       await fn();
       console.error(`PASS: ${name}`);
@@ -20,6 +29,8 @@ async function _runAll(): Promise<void> {
       console.error(`FAIL: ${name}`);
       console.error(err);
       exitCode = 1;
+    } finally {
+      for (const restore of restoreGlobals) restore();
     }
   }
   process.exit(exitCode);
@@ -37,6 +48,7 @@ import {
   staleStatusLabel,
   nativeErrorMessage,
   generatedAtEntries,
+  shouldShowSummaryMetricsFallback,
   NATIVE_STATE_REFRESH_INTERVAL_MS,
 } from '../../src/client-web/src/pages/androidTodayEmbedState';
 import type { PageReportInput } from '../../src/client-web/src/pages/androidTodayEmbedState';
@@ -93,6 +105,38 @@ test('hasRealData treats undefined as empty', () => {
 
 test('hasRealData true when summary.totalForegroundSeconds > 0 but no appRanking', () => {
   assert.equal(hasRealData({} as any, [] as any, {} as any, { totalForegroundSeconds: 100, appRanking: [] } as any), true);
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  shouldShowSummaryMetricsFallback – usage overview missing, summary total exists
+// ────────────────────────────────────────────────────────────────────
+
+test('shouldShowSummaryMetricsFallback true when usageOverview has zero duration and summary has positive duration', () => {
+  const result = shouldShowSummaryMetricsFallback(
+    { totalForegroundSeconds: 100, fallbackForegroundSeconds: 50 } as any,
+    { totalForegroundSeconds: 0 } as any,
+  );
+  assert.equal(result, true);
+});
+
+test('shouldShowSummaryMetricsFallback false when usageOverview already has positive duration', () => {
+  const result = shouldShowSummaryMetricsFallback(
+    { totalForegroundSeconds: 200 } as any,
+    { totalForegroundSeconds: 100 } as any,
+  );
+  assert.equal(result, false);
+});
+
+test('shouldShowSummaryMetricsFallback false when summary duration is zero', () => {
+  const result = shouldShowSummaryMetricsFallback(
+    { totalForegroundSeconds: 0 } as any,
+    { totalForegroundSeconds: 0 } as any,
+  );
+  assert.equal(result, false);
+});
+
+test('shouldShowSummaryMetricsFallback false when usageOverview and summary are null', () => {
+  assert.equal(shouldShowSummaryMetricsFallback(null, null), false);
 });
 
 // ────────────────────────────────────────────────────────────────────
@@ -373,26 +417,6 @@ test('generatedAtEntries uses stable label as key', () => {
     'genEntries should use stable label as key');
 });
 
-// ────────────────────────────────────────────────────────────────────
-//  Task 5.4: source check – empty catch has comment
-// ────────────────────────────────────────────────────────────────────
-
-test('empty catch block in page has one-line comment', () => {
-  const pageSource = readFileSync(
-    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
-    'utf8',
-  );
-  assert.ok(pageSource.includes('catch {'),
-    'page must have an empty catch block');
-  const lines = pageSource.split('\n');
-  const catchLineIdx = lines.findIndex(l => l.trim() === '} catch {');
-  assert.ok(catchLineIdx >= 0, 'catch { must be on its own line');
-  // The line after catch should have a comment (// or /*)
-  const afterCatch = lines.slice(catchLineIdx + 1).find(l => l.trim() !== '');
-  assert.ok(afterCatch && (afterCatch.includes('//') || afterCatch.includes('/*')),
-    'empty catch block should have a one-line comment');
-});
-
 test('AndroidTodayEmbedPage only exports default component', () => {
   const pageSource = readFileSync(
     path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
@@ -403,6 +427,147 @@ test('AndroidTodayEmbedPage only exports default component', () => {
   assert.equal(namedExportCount, 0,
     `expected 0 named exports (only default), got ${namedExportCount}`);
   assert.ok(pageSource.includes('export default function AndroidTodayEmbedPage'));
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  Issue 3: page has timer-based date refresh
+// ────────────────────────────────────────────────────────────────────
+
+test('page imports useState and has date refresh key', () => {
+  const pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+  const reactImport = pageSource.split('\n').find(l => l.includes("from 'react'"));
+  assert.ok(reactImport && reactImport.includes('useState'),
+    'react import must include useState for date refresh');
+  assert.ok(pageSource.includes('dateRefreshKey') || pageSource.includes('refreshKey'),
+    'page must have a date refresh key');
+});
+
+test('utcRange and localDate depend on period timer refresh', () => {
+  const pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+  assert.ok(pageSource.includes('dateRefreshKey'),
+    'page must have dateRefreshKey for periodic refresh');
+  assert.ok(pageSource.includes('setInterval'),
+    'page must use setInterval to refresh date key');
+  const utcUseMemo = pageSource.includes('utcRange') && pageSource.includes('useMemo');
+  assert.ok(utcUseMemo, 'utcRange must use useMemo');
+  const localUseMemo = pageSource.includes('localDate') && pageSource.includes('useMemo');
+  assert.ok(localUseMemo, 'localDate must use useMemo');
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  Issue 4: semantic data gating for location/usage sections
+// ────────────────────────────────────────────────────────────────────
+
+test('location section gated on pointCount > 0', () => {
+  const pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+  assert.ok(pageSource.includes('pointCount'),
+    'location section must reference pointCount');
+  assert.ok(pageSource.includes('LocationMetricStrip'),
+    'LocationMetricStrip must be rendered');
+  // The JSX usage of LocationMetricStrip is after the return, not the import
+  const jsxStart = pageSource.indexOf('return');
+  const afterReturn = pageSource.slice(jsxStart);
+  assert.ok(afterReturn.includes('pointCount'),
+    'JSX must conditionally render based on pointCount');
+  // pointCount must appear before LocationMetricStrip in JSX
+  assert.ok(afterReturn.indexOf('pointCount') < afterReturn.indexOf('LocationMetricStrip'),
+    'pointCount condition must come before LocationMetricStrip in JSX');
+});
+
+test('usage section gated on totalForegroundSeconds > 0', () => {
+  const pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+  assert.ok(pageSource.includes('totalForegroundSeconds'),
+    'usage section must reference totalForegroundSeconds');
+  assert.ok(pageSource.includes('MobileInsightStrip'),
+    'MobileInsightStrip must be rendered');
+  const jsxStart = pageSource.indexOf('return');
+  const afterReturn = pageSource.slice(jsxStart);
+  assert.ok(afterReturn.includes('totalForegroundSeconds'),
+    'JSX must conditionally render based on totalForegroundSeconds');
+  assert.ok(afterReturn.indexOf('totalForegroundSeconds') < afterReturn.indexOf('MobileInsightStrip'),
+    'totalForegroundSeconds condition must come before MobileInsightStrip in JSX');
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  Issue 5: prevReportRef stored only after sendPageReport succeeds
+// ────────────────────────────────────────────────────────────────────
+
+test('prevReportRef.current is set only after successful sendPageReport', () => {
+  const pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+  const sendIdx = pageSource.indexOf('sendPageReport(report)');
+  const assignIdx = pageSource.indexOf('prevReportRef.current =');
+  assert.ok(sendIdx >= 0, 'sendPageReport call must exist');
+  assert.ok(assignIdx >= 0, 'prevReportRef.current assignment must exist');
+  assert.ok(assignIdx > sendIdx,
+    'prevReportRef.current assignment must appear textually after sendPageReport');
+  // The old guard check (prevReportRef.current without =) is still there but NOT an assignment
+  assert.ok(pageSource.includes('prevReportRef.current'),
+    'guard comparison with prevReportRef.current must exist');
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  Gap 3: report retry on transient failure
+// ────────────────────────────────────────────────────────────────────
+
+test('page has report retry with 30s timeout on failure', () => {
+  const pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+
+  // Must have a state for retry
+  const hasRetryState = pageSource.includes('reportRetryKey') || pageSource.includes('retryKey');
+  assert.ok(hasRetryState, 'page must have a state key for report retry');
+
+  // Must have useState for retry state
+  assert.ok(pageSource.includes('setReportRetryKey') || pageSource.includes('setRetryKey'),
+    'page must have setter for retry state');
+
+  // Must schedule retry with setTimeout on failure
+  assert.ok(pageSource.includes('setTimeout'),
+    'page must use setTimeout for report retry');
+
+  // Must use 30000ms timeout for retry
+  const has30s = pageSource.includes('30000') || pageSource.includes('30_000') || pageSource.includes('30 * 1000');
+  assert.ok(has30s, 'retry timeout should be ~30 seconds');
+
+  // retry state must be an effect dependency
+  const effectLines = pageSource.split('\n').filter(l =>
+    l.includes(']') && (l.includes('report') || l.includes('retry')));
+  const depsLine = effectLines.find(l => l.includes('reportRetryKey'));
+  assert.ok(depsLine, 'retry state must appear in effect dependency array');
+});
+
+test('page report effect ignores async completion after cleanup', () => {
+  let pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+  pageSource = pageSource.replace(/\r\n/g, '\n');
+
+  assert.ok(pageSource.includes('let cancelled = false'),
+    'effect must track whether its async delivery was cancelled');
+  assert.ok(pageSource.includes('if (!cancelled) {\n            prevReportRef.current = key;'),
+    'successful delivery must not update the dedupe key after cleanup');
+  assert.ok(pageSource.includes('if (!cancelled && !retryTimerRef.current)'),
+    'failed delivery must not schedule a retry after cleanup');
+  assert.ok(pageSource.includes('cancelled = true;'),
+    'effect cleanup must mark the in-flight delivery as cancelled');
 });
 
 void _runAll();

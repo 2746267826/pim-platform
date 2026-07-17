@@ -129,3 +129,59 @@ test('desktop /today route does not render embed layout', () => {
   assert.ok(!html.includes('overflow-y-auto'), 'Should not render embed scroll container');
   assert.ok(!html.includes('历史位置'), 'Should not render embed content');
 });
+
+// ──────────── AndroidEmbedLayout safe-area and error boundary ────────────
+
+test('AndroidEmbedLayout declares all four safe-area inset values', () => {
+  assert.ok(
+    layoutSource.includes('safe-area-inset-top'),
+    'layout must declare safe-area-inset-top'
+  );
+  assert.ok(
+    layoutSource.includes('safe-area-inset-right'),
+    'layout must declare safe-area-inset-right'
+  );
+  assert.ok(
+    layoutSource.includes('safe-area-inset-bottom'),
+    'layout must declare safe-area-inset-bottom'
+  );
+  assert.ok(
+    layoutSource.includes('safe-area-inset-left'),
+    'layout must declare safe-area-inset-left'
+  );
+});
+
+test('AndroidEmbedLayout exports a componentDidCatch error boundary lifecycle', () => {
+  assert.ok(
+    layoutSource.includes('componentDidCatch'),
+    'layout must implement componentDidCatch for error boundary'
+  );
+});
+
+test('AndroidEmbedLayout exports a getDerivedStateFromError error boundary lifecycle', () => {
+  assert.ok(
+    layoutSource.includes('getDerivedStateFromError'),
+    'layout must implement getDerivedStateFromError for error boundary'
+  );
+});
+
+test('AndroidEmbedLayout has Chinese fallback heading 页面暂时无法显示', () => {
+  assert.ok(
+    layoutSource.includes('页面暂时无法显示'),
+    'layout must show Chinese fallback heading on crash'
+  );
+});
+
+test('AndroidEmbedLayout has 重新加载 reload button', () => {
+  assert.ok(
+    layoutSource.includes('重新加载'),
+    'layout must provide reload button in fallback'
+  );
+});
+
+test('AndroidEmbedLayout fallback has role="alert" semantic', () => {
+  assert.ok(
+    layoutSource.includes('role="alert"') || layoutSource.includes("role='alert'"),
+    'fallback must have alert role for accessibility'
+  );
+});

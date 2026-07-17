@@ -7,6 +7,8 @@ let bridgeClient: import('../embed/androidBridge').AndroidBridgeClient | null | 
 let bridgeInitPromise: Promise<void> | null = null;
 let initialTokenPromise: Promise<void> | null = null;
 let refreshPromise: Promise<boolean> | null = null;
+let tokenProvenance: 'embed' | 'desktop' | null = null;
+let generation = 0;
 
 function isEmbed(): boolean {
   try {
@@ -34,6 +36,7 @@ async function getBridgeClient(): Promise<import('../embed/androidBridge').Andro
 export function setTokens(access: string, refresh: string) {
   accessToken = access;
   refreshToken = refresh;
+  tokenProvenance = isEmbed() ? 'embed' : 'desktop';
   if (!isEmbed()) {
     localStorage.setItem('accessToken', access);
     localStorage.setItem('refreshToken', refresh);
@@ -44,18 +47,21 @@ export function loadTokens(): boolean {
   if (isEmbed()) {
     accessToken = null;
     refreshToken = null;
+    tokenProvenance = null;
     return false;
   }
   accessToken = localStorage.getItem('accessToken');
   refreshToken = localStorage.getItem('refreshToken');
+  tokenProvenance = accessToken ? 'desktop' : null;
   return !!accessToken;
 }
 
 export function clearTokens() {
   accessToken = null;
   refreshToken = null;
-  initialTokenPromise = null;
-  refreshPromise = null;
+  tokenProvenance = null;
+  generation++;
+  bridgeClient?.setAccessToken(null);
   if (!isEmbed()) {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
@@ -71,35 +77,58 @@ export function getEmbedBridgeClient(): Promise<import('../embed/androidBridge')
 async function refreshAccessToken(): Promise<boolean> {
   if (isEmbed()) {
     if (refreshPromise) return refreshPromise;
-    refreshPromise = (async () => {
+    const savedGen = generation;
+    const currentPromise = (async () => {
       try {
         const bridge = await getBridgeClient();
-        if (!bridge) return false;
+        if (!bridge) {
+          if (generation === savedGen) {
+            clearTokens();
+            onAuthChange?.();
+          }
+          return false;
+        }
         const newToken = await bridge.refreshToken(accessToken ?? undefined);
+        if (generation !== savedGen) {
+          bridge.setAccessToken(null);
+          return false;
+        }
         if (newToken) {
           accessToken = newToken;
           return true;
         }
+      } catch {
+        // bridge transport failure
+      }
+      if (generation === savedGen) {
         accessToken = null;
         clearTokens();
         onAuthChange?.();
-        return false;
-      } finally {
-        refreshPromise = null;
       }
+      return false;
     })();
+    refreshPromise = currentPromise;
+    currentPromise.then(
+      () => { if (refreshPromise === currentPromise) refreshPromise = null; },
+      () => { if (refreshPromise === currentPromise) refreshPromise = null; },
+    );
     return refreshPromise;
   }
   if (!refreshToken) return false;
+  const savedGen = generation;
+  const savedRefreshToken = refreshToken;
   try {
     const res = await fetch(`${BASE}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken })
+      body: JSON.stringify({ refreshToken: savedRefreshToken })
     });
     if (!res.ok) return false;
     const json = await res.json();
     const d = json.data;
+    if (generation !== savedGen || refreshToken !== savedRefreshToken) {
+      return false;
+    }
     setTokens(d.accessToken, d.refreshToken);
     return true;
   } catch { return false; }
@@ -157,23 +186,37 @@ async function apiFetchResponse(
   opts: RequestInit = {},
   includeJsonContentType = false,
   acceptedStatuses?: readonly number[],
-  _retried = false,
 ): Promise<Response> {
   const start = performance.now();
   const method = opts.method || 'GET';
 
-  if (isEmbed() && !accessToken && !_retried) {
+  if (isEmbed() && tokenProvenance !== 'embed') {
     if (!initialTokenPromise) {
-      initialTokenPromise = (async () => {
-        try {
-          const bridge = await getBridgeClient();
-          if (!bridge) return;
-          const token = await bridge.requestToken();
-          if (token) accessToken = token;
-        } finally {
-          initialTokenPromise = null;
+      const savedGen = generation;
+      const currentPromise = (async () => {
+        const bridge = await getBridgeClient();
+        if (!bridge) return;
+        if (generation !== savedGen) {
+          bridge.setAccessToken(null);
+          return;
+        }
+        accessToken = null;
+        bridge.setAccessToken(null);
+        const token = await bridge.requestToken();
+        if (generation !== savedGen) {
+          bridge.setAccessToken(null);
+          return;
+        }
+        if (token) {
+          accessToken = token;
+          tokenProvenance = 'embed';
         }
       })();
+      initialTokenPromise = currentPromise;
+      currentPromise.then(
+        () => { if (initialTokenPromise === currentPromise) initialTokenPromise = null; },
+        () => { if (initialTokenPromise === currentPromise) initialTokenPromise = null; },
+      );
     }
     await initialTokenPromise;
   }
@@ -186,7 +229,7 @@ async function apiFetchResponse(
 
   let res = await fetch(`${BASE}${path}`, { ...opts, headers });
 
-  if (res.status === 401 && !_retried) {
+  if (res.status === 401) {
     const ok = await refreshAccessToken();
     if (ok) {
       headers.set('Authorization', `Bearer ${accessToken}`);

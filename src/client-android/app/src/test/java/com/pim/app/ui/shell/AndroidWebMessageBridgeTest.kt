@@ -1,8 +1,13 @@
 package com.pim.app.ui.shell
 
 import android.content.Context
+import android.net.Uri
+import java.io.File
 import android.webkit.WebView
 import androidx.test.core.app.ApplicationProvider
+import androidx.webkit.JavaScriptReplyProxy
+import androidx.webkit.WebMessageCompat
+import androidx.webkit.WebViewCompat
 import com.pim.core.auth.AuthRefreshOperation
 import com.pim.core.auth.AuthRefreshResult
 import com.pim.core.auth.AuthSessionSnapshot
@@ -10,8 +15,12 @@ import com.pim.core.auth.AuthSessionStore
 import com.pim.core.auth.AuthTokens
 import com.pim.core.network.AuthRefreshCoordinator
 import com.pim.core.settings.ServerSettingsStore
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -474,7 +483,7 @@ class AndroidWebMessageBridgeTest {
     }
 
     @Test
-    fun `token request with expired token after server switch returns login_expired`() = runBlocking {
+    fun `token request from non-matching origin after server switch returns server_mismatch`() = runBlocking {
         val authStore = TestAuthSessionStore()
         authStore.save(ACCESS_TOKEN, REFRESH_TOKEN, FAR_FUTURE, TRUSTED_ORIGIN)
         val settings = ServerSettingsStore(context, authStore)
@@ -491,6 +500,95 @@ class AndroidWebMessageBridgeTest {
         assertEquals("server_mismatch", obj["errorCode"]?.jsonPrimitive?.contentOrNull)
     }
 
+    @Test
+    fun `reply failure after web view destruction is contained`() {
+        var captured: Throwable? = null
+        val scope = CoroutineScope(
+            SupervisorJob() + Dispatchers.Unconfined +
+                CoroutineExceptionHandler { _, throwable -> captured = throwable }
+        )
+
+        val authStore = TestAuthSessionStore()
+        authStore.save(ACCESS_TOKEN, REFRESH_TOKEN, FAR_FUTURE, TRUSTED_ORIGIN)
+        val settings = ServerSettingsStore(context, authStore)
+        settings.setBaseUrl(SERVER_URL)
+        val bridge = createBridge(scope = scope, authStore = authStore, settings = settings)
+
+        val webView = WebView(context)
+        var listener: WebViewCompat.WebMessageListener? = null
+        bridge.install(
+            webView,
+            isFeatureSupported = { true },
+            addListener = { _, _, _, l -> listener = l }
+        )
+
+        val message = WebMessageCompat(
+            """{"version":1,"id":"req","type":"token.request"}"""
+        )
+        val replyProxy = object : JavaScriptReplyProxy() {
+            override fun postMessage(message: String) {
+                throw IllegalStateException("webview destroyed")
+            }
+
+            override fun postMessage(message: ByteArray) {
+                throw IllegalStateException("webview destroyed")
+            }
+        }
+
+        listener?.onPostMessage(webView, message, Uri.parse(TRUSTED_ORIGIN), true, replyProxy)
+
+        scope.cancel()
+
+        assertNull(captured)
+    }
+
+    @Test
+    fun `token request refresh exception returns auth_unavailable`() = runBlocking {
+        val authStore = TestAuthSessionStore()
+        authStore.save(ACCESS_TOKEN, REFRESH_TOKEN, 100L, TRUSTED_ORIGIN)
+        val operation = AuthRefreshOperation { _, _ -> throw IllegalStateException("network down") }
+        val coordinator = AuthRefreshCoordinator(authStore, operation, nowMillis = { 200L })
+        val settings = ServerSettingsStore(context, authStore)
+        settings.setBaseUrl(SERVER_URL)
+        val bridge = createBridge(authStore = authStore, refreshCoordinator = coordinator, settings = settings)
+
+        val outcome = runCatching {
+            bridge.handleMessage(
+                """{"version":1,"id":"req-auth-unavailable","type":"token.request"}""",
+                TRUSTED_ORIGIN,
+                true
+            )
+        }
+        assertTrue(outcome.isSuccess)
+        val obj = parse(outcome.getOrThrow())
+        assertEquals("req-auth-unavailable", obj["id"]?.jsonPrimitive?.contentOrNull)
+        assertFalse(obj["ok"]?.jsonPrimitive?.boolean ?: true)
+        assertEquals("auth_unavailable", obj["errorCode"]?.jsonPrimitive?.contentOrNull)
+        assertNull(obj["accessToken"])
+        assertNull(obj["refreshToken"])
+    }
+
+    @Test
+    fun `token request cancellation still propagates`() = runBlocking {
+        val authStore = TestAuthSessionStore()
+        authStore.save(ACCESS_TOKEN, REFRESH_TOKEN, 100L, TRUSTED_ORIGIN)
+        val operation = AuthRefreshOperation { _, _ -> throw CancellationException("cancelled") }
+        val coordinator = AuthRefreshCoordinator(authStore, operation, nowMillis = { 200L })
+        val settings = ServerSettingsStore(context, authStore)
+        settings.setBaseUrl(SERVER_URL)
+        val bridge = createBridge(authStore = authStore, refreshCoordinator = coordinator, settings = settings)
+
+        val outcome = runCatching {
+            bridge.handleMessage(
+                """{"version":1,"id":"req-cancel","type":"token.request"}""",
+                TRUSTED_ORIGIN,
+                true
+            )
+        }
+        assertTrue(outcome.isFailure)
+        assertTrue(outcome.exceptionOrNull() is CancellationException)
+    }
+
     // --- helpers ---
 
     private fun parse(raw: String): JsonObject {
@@ -502,7 +600,8 @@ class AndroidWebMessageBridgeTest {
         refreshCoordinator: AuthRefreshCoordinator? = null,
         settings: ServerSettingsStore? = null,
         nativeStateProvider: (() -> Map<String, Any?>)? = null,
-        pageReportSink: ((Map<String, String?>) -> Unit)? = null
+        pageReportSink: ((Map<String, String?>) -> Unit)? = null,
+        scope: CoroutineScope = CoroutineScope(Dispatchers.Unconfined)
     ): AndroidWebMessageBridge {
         val resolvedSettings = settings ?: ServerSettingsStore(context, authStore).also {
             it.setBaseUrl(SERVER_URL)
@@ -516,10 +615,35 @@ class AndroidWebMessageBridgeTest {
             authSessionStore = authStore,
             refreshCoordinator = coord,
             serverSettingsStore = resolvedSettings,
-            scope = CoroutineScope(Dispatchers.Unconfined),
+            scope = scope,
             nativeStateProvider = nativeStateProvider,
             pageReportSink = pageReportSink
         )
+    }
+
+    // --- source contract: remove(webView) must not be gated by a shared marker ---
+
+    @Test
+    fun `AndroidWebMessageBridge does not use installedObjectName field for cleanup`() {
+        val bridgeFile = repoFile(
+            "src", "main", "java", "com", "pim", "app", "ui", "shell", "AndroidWebMessageBridge.kt"
+        )
+        val source = bridgeFile.readText()
+        assertFalse(
+            "installedObjectName is a shared mutable marker; remove(webView) must " +
+                "always best-effort remove JS_OBJECT_NAME from the supplied WebView.",
+            source.contains("installedObjectName")
+        )
+    }
+
+    private fun repoFile(vararg parts: String): File {
+        var current: File? = File("").canonicalFile
+        while (current != null) {
+            val candidate = parts.fold(current) { dir, part -> dir.resolve(part) }
+            if (candidate.exists()) return candidate
+            current = current.parentFile
+        }
+        error("Could not find ${parts.joinToString(File.separator)}")
     }
 
     private class TestAuthSessionStore : AuthSessionStore {

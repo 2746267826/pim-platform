@@ -7,6 +7,7 @@ import com.pim.core.auth.AuthSessionStore
 import com.pim.core.network.AuthRefreshCoordinator
 import com.pim.core.settings.PimServerEndpoints
 import com.pim.core.settings.ServerSettingsStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -31,8 +32,6 @@ class AndroidWebMessageBridge(
     private val pageReportSink: ((Map<String, String?>) -> Unit)? = null
 ) {
     private val json = Json { ignoreUnknownKeys = true }
-
-    private var installedObjectName: String? = null
 
     suspend fun handleMessage(
         rawJson: String,
@@ -62,12 +61,23 @@ class AndroidWebMessageBridge(
             return errorJson(id, "server_mismatch")
         }
 
-        return when (type) {
-            "token.request" -> handleTokenRequest(id, trustedOrigin)
-            "token.refresh" -> handleTokenRefresh(id, trustedOrigin, root)
-            "native.state.request" -> handleNativeStateRequest(id)
-            "page.report" -> handlePageReport(id, root)
-            else -> errorJson(id, "invalid_request")
+        return try {
+            when (type) {
+                "token.request" -> handleTokenRequest(id, trustedOrigin)
+                "token.refresh" -> handleTokenRefresh(id, trustedOrigin, root)
+                "native.state.request" -> handleNativeStateRequest(id)
+                "page.report" -> handlePageReport(id, root)
+                else -> errorJson(id, "invalid_request")
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            errorJson(id, when (type) {
+                "token.request", "token.refresh" -> "auth_unavailable"
+                "native.state.request" -> "native_state_unavailable"
+                "page.report" -> "page_report_failed"
+                else -> "invalid_request"
+            })
         }
     }
 
@@ -172,28 +182,29 @@ class AndroidWebMessageBridge(
             val data = message.data ?: return@WebMessageListener
             scope.launch {
                 val result = handleMessage(data, sourceOrigin.toString(), isMainFrame)
-                replyProxy.postMessage(result)
+                // WebView may be destroyed before the async result is ready
+                try {
+                    replyProxy.postMessage(result)
+                } catch (_: Exception) {
+                    // The WebView may be destroyed while the async request is handled.
+                }
             }
         }
 
         return try {
             addListener(webView, JS_OBJECT_NAME, setOf(origin), listener)
-            installedObjectName = JS_OBJECT_NAME
             true
         } catch (_: Exception) {
-            installedObjectName = null
             false
         }
     }
 
     fun remove(webView: WebView) {
-        val objectName = installedObjectName ?: return
         try {
-            WebViewCompat.removeWebMessageListener(webView, objectName)
+            WebViewCompat.removeWebMessageListener(webView, JS_OBJECT_NAME)
         } catch (_: Throwable) {
             // Best-effort cleanup on destroy paths.
         }
-        installedObjectName = null
     }
 
     private fun currentTrustedOrigin(): String? {

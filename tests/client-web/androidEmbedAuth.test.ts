@@ -11,6 +11,15 @@ function test(name: string, fn: () => void | Promise<void>) {
 async function _runAll(): Promise<void> {
   let exitCode = 0;
   for (const { name, fn } of _tests) {
+    const restoreGlobals: Array<() => void> = [];
+    for (const key of ['window', 'fetch', 'localStorage'] as const) {
+      const desc = Object.getOwnPropertyDescriptor(globalThis, key);
+      if (desc) {
+        restoreGlobals.push(() => Object.defineProperty(globalThis, key, desc));
+      } else {
+        restoreGlobals.push(() => { delete (globalThis as Record<string, unknown>)[key]; });
+      }
+    }
     try {
       await fn();
       console.error(`PASS: ${name}`);
@@ -18,34 +27,50 @@ async function _runAll(): Promise<void> {
       console.error(`FAIL: ${name}`);
       console.error(err);
       exitCode = 1;
+    } finally {
+      for (const restore of restoreGlobals) restore();
     }
   }
   if (exitCode !== 0) process.exit(exitCode);
 }
 
 interface MockWindow {
-  pimAndroid: { postMessage(raw: string): void };
+  pimAndroid: {
+    postMessage(raw: string): void;
+    onmessage: ((event: { data: string }) => void) | null;
+  };
   addEventListener: (type: string, cb: (event: { data: string }) => void) => void;
   removeEventListener: (type: string, cb: (event: { data: string }) => void) => void;
   sendResponse(raw: string): void;
   getSent(): BridgeMessage[];
   clearSent(): void;
   sent: string[];
+  getEventListeners(type: string): Array<(event: { data: string }) => void>;
 }
 
 import type { BridgeMessage } from '../../src/client-web/src/embed/androidBridge';
 import { AndroidBridgeClient } from '../../src/client-web/src/embed/androidBridge';
 
 function mockWindow(): MockWindow {
-  const listeners = new Set<(event: { data: string }) => void>();
   const sent: string[] = [];
+  const pimAndroid = {
+    postMessage(raw: string) { sent.push(raw); },
+    onmessage: null as ((event: { data: string }) => void) | null,
+  };
+  const listeners = new Map<string, Array<(event: { data: string }) => void>>();
   return {
-    pimAndroid: {
-      postMessage(raw: string) { sent.push(raw); },
+    pimAndroid,
+    addEventListener(type: string, cb: (event: { data: string }) => void) {
+      let arr = listeners.get(type);
+      if (!arr) { arr = []; listeners.set(type, arr); }
+      arr.push(cb);
     },
-    addEventListener(_type: string, cb: (event: { data: string }) => void) { listeners.add(cb); },
-    removeEventListener(_type: string, cb: (event: { data: string }) => void) { listeners.delete(cb); },
-    sendResponse(raw: string) { listeners.forEach(l => l({ data: raw })); },
+    removeEventListener(type: string, cb: (event: { data: string }) => void) {
+      const arr = listeners.get(type);
+      if (arr) { const i = arr.indexOf(cb); if (i >= 0) arr.splice(i, 1); }
+    },
+    getEventListeners(type: string) { return listeners.get(type) ?? []; },
+    sendResponse(raw: string) { pimAndroid.onmessage?.({ data: raw }); },
     getSent(): BridgeMessage[] { return sent.map(s => JSON.parse(s)); },
     clearSent() { sent.length = 0; },
     sent,
@@ -279,14 +304,15 @@ test('page report sends correct protocol fields', async () => {
   await reportP;
 });
 
-test('timeout rejects with error', async () => {
+test('timeout rejects with bridge_timeout error code and message', async () => {
   const win = mockWindow();
   const bridge = new AndroidBridgeClient(win as unknown as Window, 50);
 
   await assert.rejects(
     () => bridge.requestToken(),
-    (err: Error) => {
-      assert.ok(err.message.length > 0, 'should produce an error message');
+    (err: any) => {
+      assert.equal(err.code, 'bridge_timeout');
+      assert.equal(err.message, 'bridge_timeout');
       return true;
     },
   );
@@ -536,36 +562,6 @@ test('refresh failure: login expired and no further retry', async () => {
   assert.equal(bridge.getAccessToken(), null);
 });
 
-test('refresh succeeded but retry still gets 401 — stops without second refresh', async () => {
-  const win = mockWindow();
-  const bridge = new AndroidBridgeClient(win as unknown as Window);
-  bridge.setAccessToken('tok_first');
-
-  // Simulate a refresh that succeeds
-  const r1 = bridge.refreshToken('tok_first');
-  win.sendResponse(JSON.stringify({
-    version: 1, id: win.getSent()[0].id, ok: true, accessToken: 'tok_second',
-  }));
-  assert.equal(await r1, 'tok_second');
-  assert.equal(bridge.getAccessToken(), 'tok_second');
-
-  // If the API client retries and gets another 401,
-  // it should call refreshToken again. This time refresh also succeeds.
-  // If refresh succeeds but retry STILL 401, the API client should NOT
-  // call refresh again - it should stop.
-  // We test the bridge's willingness to refresh again:
-  win.clearSent();
-  const r2 = bridge.refreshToken('tok_second');
-  win.sendResponse(JSON.stringify({
-    version: 1, id: win.getSent()[0].id, ok: true, accessToken: 'tok_third',
-  }));
-  assert.equal(await r2, 'tok_third');
-
-  // The important thing is the API client retry logic prevents infinite loops.
-  // Bridge itself has no such limit - it will always try.
-  assert.ok(true, 'bridge will always attempt refresh; API client must limit retries');
-});
-
 // ────────────────────────────────────────────────────────────────────
 //  Embed integration: apiGet → bridge.requestToken → Bearer fetch
 // ────────────────────────────────────────────────────────────────────
@@ -576,14 +572,22 @@ function embedTestFix() {
   const origLS = (globalThis as any).localStorage;
 
   const sent: string[] = [];
-  const listeners = new Set<(e: { data: string }) => void>();
   const fetchCalls: { url: string; method: string; headers: Record<string, string> }[] = [];
   let fetchHandler: ((url: string, opts: RequestInit) => { status: number; body?: unknown }) | null = null;
+  let postMessageThrow: Error | null = null;
+
+  const pimAndroid = {
+    postMessage(raw: string) {
+      if (postMessageThrow) throw postMessageThrow;
+      sent.push(raw);
+    },
+    onmessage: null as ((e: { data: string }) => void) | null,
+  };
 
   (globalThis as any).window = {
-    pimAndroid: { postMessage(raw: string) { sent.push(raw); } },
-    addEventListener(_: string, cb: (e: { data: string }) => void) { listeners.add(cb); },
-    removeEventListener(_: string, cb: (e: { data: string }) => void) { listeners.delete(cb); },
+    pimAndroid,
+    addEventListener(_: string, _cb: (e: { data: string }) => void) { /* no-op */ },
+    removeEventListener(_: string, _cb: (e: { data: string }) => void) { /* no-op */ },
     location: { pathname: '/embed/android/today', href: '', origin: '', search: '' },
   };
   (globalThis as any).localStorage = {
@@ -603,7 +607,7 @@ function embedTestFix() {
     return Promise.resolve(new Response('{"data":[]}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
   };
 
-  function sendBridgeResponse(raw: string) { listeners.forEach(l => l({ data: raw })); }
+  function sendBridgeResponse(raw: string) { pimAndroid.onmessage?.({ data: raw }); }
   function getSentBridgeMessages() { return sent.map(s => JSON.parse(s)); }
   function importClient() {
     delete require.cache[require.resolve('../../src/client-web/src/api/client')];
@@ -616,8 +620,9 @@ function embedTestFix() {
   }
 
   return {
-    sent, fetchCalls, listeners,
+    sent, fetchCalls,
     setFetchHandler(h: typeof fetchHandler) { fetchHandler = h; },
+    setPostMessageThrow(err: Error | null) { postMessageThrow = err; },
     sendBridgeResponse, getSentBridgeMessages, importClient, restore,
   };
 }
@@ -787,6 +792,37 @@ test('embed refresh failure: clears token, calls onTokensChanged, throws Chinese
   fx.restore();
 });
 
+test('embed 401 with bridge postMessage throw: Chinese auth error, auth callback, no retry', async () => {
+  const fx = embedTestFix();
+  let authChanged = false;
+  const client = fx.importClient();
+  client.onTokensChanged(() => { authChanged = true; });
+  client.setTokens('tok_bad', '');
+
+  fx.setFetchHandler(() => ({ status: 401, body: { message: 'expired' } }));
+  fx.setPostMessageThrow(new Error('bridge transport failed'));
+
+  await assert.rejects(
+    () => client.apiGet('/secure'),
+    (err: any) => {
+      assert.ok(err.message.includes('登录已过期'),
+        `expected Chinese auth error without machine details, got: ${err.message}`);
+      return true;
+    },
+  );
+
+  assert.ok(authChanged, 'onTokensChanged callback was invoked');
+
+  // Only original fetch; no retry fetch
+  assert.equal(fx.fetchCalls.length, 1, 'exactly one fetch call (no retry)');
+  assert.equal(fx.fetchCalls[0].url, '/api/v1/secure');
+
+  // No bridge message sent (postMessage threw before sending)
+  assert.equal(fx.sent.length, 0, 'no bridge message sent (transport failed)');
+
+  fx.restore();
+});
+
 test('embed retry still 401: stops without second refresh', async () => {
   const fx = embedTestFix();
   const client = fx.importClient();
@@ -825,4 +861,528 @@ test('embed retry still 401: stops without second refresh', async () => {
   fx.restore();
 });
 
-void _runAll();
+// ────────────────────────────────────────────────────────────────────
+//  Regression: bridge uses pimAndroid.onmessage, not window events
+// ────────────────────────────────────────────────────────────────────
+
+
+
+test('bridge uses pimAndroid.onmessage not window message events', async () => {
+  const win = mockWindow();
+  const bridge = new AndroidBridgeClient(win as unknown as Window);
+
+  // Bridge must NOT register any window 'message' listeners
+  assert.equal(win.getEventListeners('message').length, 0,
+    'bridge must not register window message event listeners');
+
+  // Bridge response must still work through pimAndroid.onmessage
+  const tokenP = bridge.requestToken();
+  win.sendResponse(JSON.stringify({
+    version: 1, id: win.getSent()[0].id, ok: true, accessToken: 'tok_onmsg',
+  }));
+
+  assert.equal(await tokenP, 'tok_onmsg');
+
+  bridge.destroy();
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  Regression: embed → desktop → embed round trip sends token.request
+// ────────────────────────────────────────────────────────────────────
+
+test('embed -> desktop -> embed: second embed phase sends token.request (provenance reset)', async () => {
+  const origWin = (globalThis as any).window;
+  const origFetch = (globalThis as any).fetch;
+  const origLS = (globalThis as any).localStorage;
+
+  try {
+    const sent: string[] = [];
+    const fetchCalls: { url: string; headers: Record<string, string> }[] = [];
+    let pimAndroidOnMsg: ((e: { data: string }) => void) | null = null;
+    const pimAndroid = {
+      postMessage(raw: string) { sent.push(raw); },
+      set onmessage(cb: ((e: { data: string }) => void) | null) { pimAndroidOnMsg = cb; },
+      get onmessage() { return pimAndroidOnMsg; },
+    };
+
+    // Phase 1: Cold embed
+    (globalThis as any).window = {
+      pimAndroid,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      location: { pathname: '/embed/android/today', href: '', origin: '', search: '' },
+    };
+    (globalThis as any).localStorage = {
+      getItem: () => null, setItem: () => {}, removeItem: () => {},
+      clear: () => {}, get length() { return 0; }, key: () => null,
+    };
+    (globalThis as any).fetch = (url: string, opts: RequestInit = {}) => {
+      const hdrs: Record<string, string> = {};
+      if (opts.headers) { new Headers(opts.headers).forEach((v, k) => { hdrs[k] = v; }); }
+      fetchCalls.push({ url, headers: hdrs });
+      return Promise.resolve(new Response('{"data":[]}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    };
+
+    delete require.cache[require.resolve('../../src/client-web/src/api/client')];
+    const client = require('../../src/client-web/src/api/client');
+
+    // First API call in embed mode -> requests native token
+    const p1 = client.apiGet('/embed-data');
+    await idle();
+
+    const msgs1 = sent.map(s => JSON.parse(s));
+    assert.equal(msgs1.length, 1, 'cold embed: one bridge message sent');
+    assert.equal(msgs1[0].type, 'token.request');
+
+    pimAndroidOnMsg!({ data: JSON.stringify({
+      version: 1, id: msgs1[0].id, ok: true, accessToken: 'tok_native_1',
+    }) });
+    await p1;
+
+    const embedFetch = fetchCalls.find(c => c.url === '/api/v1/embed-data');
+    assert.ok(embedFetch, 'cold embed API call made');
+    assert.equal(embedFetch!.headers['authorization'], 'Bearer tok_native_1');
+
+    // Phase 2: Switch to desktop
+    sent.length = 0;
+    fetchCalls.length = 0;
+    (globalThis as any).window.location.pathname = '/today';
+    client.loadTokens();
+    client.setTokens('tok_desk', 'rt_desk');
+
+    // Phase 3: Switch back to embed (no re-import of module)
+    sent.length = 0;
+    fetchCalls.length = 0;
+    (globalThis as any).window.location.pathname = '/embed/android/today';
+
+    // Second API call in embed mode -> MUST send token.request
+    const p2 = client.apiGet('/embed-again');
+    await idle();
+
+    assert.ok(sent.length > 0, 'return-to-embed: must send bridge message');
+    const msg2 = JSON.parse(sent[0]);
+    assert.equal(msg2.type, 'token.request', 'return-to-embed: must send token.request');
+
+    pimAndroidOnMsg!({ data: JSON.stringify({
+      version: 1, id: msg2.id, ok: true, accessToken: 'tok_native_2',
+    }) });
+    await p2;
+
+    const retryFetch = fetchCalls.find(c => c.url === '/api/v1/embed-again');
+    assert.ok(retryFetch, 'return-to-embed API call made');
+    assert.equal(retryFetch!.headers['authorization'], 'Bearer tok_native_2',
+      'must use native token from bridge, not desktop token');
+  } finally {
+    (globalThis as any).window = origWin;
+    (globalThis as any).fetch = origFetch;
+    (globalThis as any).localStorage = origLS;
+  }
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  Regression: lazy attach — bridge injected after construction
+// ────────────────────────────────────────────────────────────────────
+
+test('constructor without bridge: inject pimAndroid later, requestToken succeeds via onmessage', async () => {
+  const winNoBridge = {
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  } as any;
+
+  const bridge = new AndroidBridgeClient(winNoBridge as unknown as Window, 100);
+
+  // Now inject pimAndroid
+  const sent: string[] = [];
+  let onMsg: ((e: { data: string }) => void) | null = null;
+  winNoBridge.pimAndroid = {
+    postMessage(raw: string) { sent.push(raw); },
+    set onmessage(cb: ((e: { data: string }) => void) | null) { onMsg = cb; },
+    get onmessage() { return onMsg; },
+  };
+
+  const tokenP = bridge.requestToken();
+  await idle();
+
+  // Without fix, onMsg is still null (bridge never attached handler)
+  assert.notEqual(onMsg, null,
+    'bridge must attach onmessage handler before first send (lazy attach)');
+
+  assert.equal(sent.length, 1, 'should send token.request after bridge becomes available');
+  const msg = JSON.parse(sent[0]);
+  assert.equal(msg.type, 'token.request');
+
+  onMsg!({ data: JSON.stringify({
+    version: 1, id: msg.id, ok: true, accessToken: 'tok_lazy',
+  }) });
+
+  const token = await tokenP;
+  assert.equal(token, 'tok_lazy');
+  assert.equal(bridge.getAccessToken(), 'tok_lazy');
+});
+
+test('destroy restores previous handler only if current handler is still this client', () => {
+  const win = mockWindow();
+  const prevHandler = win.pimAndroid.onmessage;
+
+  const bridge = new AndroidBridgeClient(win as unknown as Window);
+  assert.equal(win.pimAndroid.onmessage, (bridge as any)._onMessage,
+    'bridge sets itself as handler');
+
+  // Simulate another handler installed after bridge
+  const otherHandler = () => {};
+  win.pimAndroid.onmessage = otherHandler;
+
+  bridge.destroy();
+
+  // Should NOT restore to prevHandler because the current handler is otherHandler
+  assert.equal(win.pimAndroid.onmessage, otherHandler,
+    'should not overwrite a handler installed after bridge');
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  clearTokens race condition tests
+// ────────────────────────────────────────────────────────────────────
+
+test('embed clearTokens clears the initialized bridge token', async () => {
+  const fx = embedTestFix();
+  try {
+    const client = fx.importClient();
+    const bridge = await client.getEmbedBridgeClient();
+    bridge!.setAccessToken('tok_stale');
+
+    client.clearTokens();
+
+    assert.equal(bridge!.getAccessToken(), null,
+      'bridge token should be null after clearTokens');
+  } finally {
+    fx.restore();
+  }
+});
+
+test('embed clearTokens invalidates an in-flight refresh result', async () => {
+  const fx = embedTestFix();
+  try {
+    const client = fx.importClient();
+    client.setTokens('tok_expired', '');
+
+    let fetchCallCount = 0;
+    fx.setFetchHandler(() => {
+      fetchCallCount++;
+      if (fetchCallCount === 1) return { status: 401, body: { message: 'expired' } };
+      return { status: 200, body: { data: { ok: true } } };
+    });
+
+    const resultP = client.apiGet('/secure');
+    await idle();
+
+    const msgs = fx.getSentBridgeMessages();
+    assert.equal(msgs.length, 1, 'one bridge message sent');
+    assert.equal(msgs[0].type, 'token.refresh',
+      'message type should be token.refresh');
+
+    client.clearTokens();
+
+    fx.sendBridgeResponse(JSON.stringify({
+      version: 1, id: msgs[0].id, ok: true, accessToken: 'tok_stale_refresh',
+    }));
+
+    await assert.rejects(
+      () => resultP,
+      (err: Error) => {
+        assert.ok(err.message.includes('登录已过期'),
+          `expected login expired error, got: ${err.message}`);
+        return true;
+      },
+    );
+
+    assert.equal(fetchCallCount, 1,
+      'fetch should be called exactly once (no retry after clearTokens)');
+
+    const bridge = await client.getEmbedBridgeClient();
+    assert.equal(bridge!.getAccessToken(), null,
+      'bridge token should be null after clearTokens');
+  } finally {
+    fx.restore();
+  }
+});
+
+test('embed clearTokens keeps a stale refresh single-flight until it settles', async () => {
+  const fx = embedTestFix();
+  const client = fx.importClient();
+  const bridge = await client.getEmbedBridgeClient();
+  assert.ok(bridge, 'bridge must exist for embed mode');
+
+  let refreshCallCount = 0;
+  const refreshResolvers: Array<(val: string | null) => void> = [];
+
+  (bridge as any).refreshToken = function (_failedAccessToken?: string): Promise<string | null> {
+    refreshCallCount++;
+    return new Promise<string | null>((resolve) => {
+      refreshResolvers.push(resolve);
+    });
+  };
+
+  const urlCounts = new Map<string, number>();
+  fx.setFetchHandler((url: string) => {
+    const count = (urlCounts.get(url) || 0) + 1;
+    urlCounts.set(url, count);
+    if (count === 1) return { status: 401, body: { message: 'expired' } };
+    return { status: 200, body: { data: {} } };
+  });
+
+  let pA: Promise<unknown> | undefined;
+  let pB: Promise<unknown> | undefined;
+  let pC: Promise<unknown> | undefined;
+
+  try {
+    client.setTokens('tok_a', '');
+    pA = client.apiGet('/a');
+    await idle();
+
+    assert.equal(refreshCallCount, 1, 'call A triggers one refresh');
+    assert.equal(refreshResolvers.length, 1, 'one resolver stored');
+
+    client.clearTokens();
+    client.setTokens('tok_b', '');
+    pB = client.apiGet('/b');
+    await idle();
+
+    assert.equal(refreshCallCount, 1,
+      'after clearTokens, B must share the stale refresh until it settles');
+
+    const resolveA = refreshResolvers[0];
+    resolveA('tok_stale_a');
+    const staleResults = await Promise.allSettled([pA, pB]);
+    assert.ok(staleResults.every(result => result.status === 'rejected'),
+      'requests sharing the stale refresh must both reject');
+    await idle();
+
+    client.setTokens('tok_c', '');
+    pC = client.apiGet('/c');
+    await idle();
+
+    assert.equal(refreshCallCount, 2,
+      'a new refresh may start only after the stale single-flight settles');
+    refreshResolvers[1]('tok_c_refreshed');
+    await pC;
+    assert.equal(urlCounts.get('/api/v1/c'), 2,
+      'the post-boundary request retries once with the fresh token');
+  } finally {
+    for (const r of refreshResolvers) {
+      try { r('tok_cleanup'); } catch { /* already resolved */ }
+    }
+    await Promise.allSettled([pA, pB, pC]);
+    if (bridge) delete (bridge as any).refreshToken;
+    fx.restore();
+  }
+});
+
+test('embed clearTokens prevents later requests from adopting the old native refresh', async () => {
+  const fx = embedTestFix();
+  const client = fx.importClient();
+  client.setTokens('tok_old', '');
+
+  const urlCounts = new Map<string, number>();
+  fx.setFetchHandler((url: string) => {
+    const count = (urlCounts.get(url) || 0) + 1;
+    urlCounts.set(url, count);
+    if (count === 1) return { status: 401, body: { message: 'expired' } };
+    return { status: 200, body: { data: {} } };
+  });
+
+  const pA = client.apiGet('/a');
+  await idle();
+
+  const msgs = fx.getSentBridgeMessages();
+  assert.equal(msgs.length, 1, 'one bridge message after first apiGet 401');
+  assert.equal(msgs[0].type, 'token.refresh');
+
+  client.clearTokens();
+  client.setTokens('tok_new_session', '');
+
+  const pB = client.apiGet('/b');
+  await idle();
+
+  assert.equal(fx.getSentBridgeMessages().length, 1,
+    'clearTokens must not cause a second bridge refresh message');
+
+  fx.sendBridgeResponse(JSON.stringify({
+    version: 1, id: msgs[0].id, ok: true, accessToken: 'tok_stale_native_refresh',
+  }));
+
+  const results = await Promise.allSettled([pA, pB]);
+
+  for (const r of results) {
+    assert.equal(r.status, 'rejected',
+      'both requests must reject after clearTokens discards stale refresh');
+    assert.ok(
+      (r as PromiseRejectedResult).reason?.message?.includes('登录已过期'),
+      `expected login expired error, got: ${(r as PromiseRejectedResult).reason?.message}`,
+    );
+  }
+
+  assert.equal(fx.fetchCalls.length, 2, 'exactly two fetch calls (one per URL, no retry)');
+  assert.equal(fx.fetchCalls[0].url, '/api/v1/a');
+  assert.equal(fx.fetchCalls[1].url, '/api/v1/b');
+
+  const bridge = await client.getEmbedBridgeClient();
+  assert.equal(bridge!.getAccessToken(), null,
+    'bridge access token must be null after stale refresh discarded');
+
+  fx.restore();
+});
+
+test('embed clearTokens invalidates an in-flight initial token request', async () => {
+  const fx = embedTestFix();
+  const client = fx.importClient();
+  const bridge = await client.getEmbedBridgeClient();
+  assert.ok(bridge, 'bridge must exist for embed mode');
+
+  fx.setFetchHandler((url: string, opts: RequestInit) => {
+    const hdrs = new Headers(opts.headers);
+    const auth = hdrs.get('authorization');
+    if (auth === 'Bearer tok_stale_initial') return { status: 200, body: { data: {} } };
+    return { status: 401, body: { message: 'expired' } };
+  });
+
+  const pA = client.apiGet('/a');
+  await idle();
+
+  const msgs = fx.getSentBridgeMessages();
+  assert.equal(msgs.length, 1, 'one token.request');
+  assert.equal(msgs[0].type, 'token.request');
+
+  client.clearTokens();
+
+  const pB = client.apiGet('/b');
+  await idle();
+
+  assert.equal(fx.getSentBridgeMessages().length, 1,
+    'B must share the same single-flight token.request after clearTokens');
+
+  fx.sendBridgeResponse(JSON.stringify({
+    version: 1, id: msgs[0].id, ok: true, accessToken: 'tok_stale_initial',
+  }));
+  await idle();
+
+  const refreshMsgs = fx.getSentBridgeMessages().filter(m => m.type === 'token.refresh');
+  if (refreshMsgs.length > 0) {
+    fx.sendBridgeResponse(JSON.stringify({
+      version: 1, id: refreshMsgs[0].id, ok: false,
+      errorCode: 'login_expired', message: '登录已过期',
+    }));
+  }
+
+  const results = await Promise.allSettled([pA, pB]);
+
+  for (const r of results) {
+    assert.equal(r.status, 'rejected',
+      'both requests must reject after clearTokens discards stale initial token');
+    assert.ok(
+      (r as PromiseRejectedResult).reason?.message?.includes('登录已过期'),
+      `expected login expired error, got: ${(r as PromiseRejectedResult).reason?.message}`,
+    );
+  }
+
+  for (const call of fx.fetchCalls) {
+    if (call.url === '/api/v1/a' || call.url === '/api/v1/b') {
+      assert.notEqual(call.headers['authorization'], 'Bearer tok_stale_initial',
+        'fetch must not use the stale initial token after clearTokens');
+    }
+  }
+
+  assert.equal(bridge!.getAccessToken(), null,
+    'bridge access token must be null after clearTokens');
+
+  fx.restore();
+});
+
+test('desktop clearTokens invalidates an in-flight refresh response', async () => {
+  const origWin = (globalThis as any).window;
+  const origFetch = (globalThis as any).fetch;
+  const origLS = (globalThis as any).localStorage;
+
+  try {
+    (globalThis as any).window = {
+      location: { pathname: '/today', href: '', origin: '', search: '' },
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+
+    const lsStore = new Map<string, string>([
+      ['accessToken', 'tok_desktop_old'],
+      ['refreshToken', 'rt_desktop_old'],
+    ]);
+    (globalThis as any).localStorage = {
+      getItem: (k: string) => lsStore.get(k) ?? null,
+      setItem: (k: string, v: string) => { lsStore.set(k, v); },
+      removeItem: (k: string) => { lsStore.delete(k); },
+      clear: () => lsStore.clear(),
+      get length() { return lsStore.size; },
+      key: (i: number) => [...lsStore.keys()][i] ?? null,
+    };
+
+    let refreshResolve!: (res: Response) => void;
+    const refreshPromise = new Promise<Response>((resolve) => { refreshResolve = resolve; });
+
+    let todayCallCount = 0;
+    (globalThis as any).fetch = (url: string, _opts: RequestInit = {}) => {
+      if (url === '/api/v1/auth/refresh') return refreshPromise;
+      if (url === '/api/v1/today') {
+        todayCallCount++;
+        if (todayCallCount === 1) {
+          return Promise.resolve(new Response(JSON.stringify({ message: 'Unauthorized' }), {
+            status: 401, headers: { 'Content-Type': 'application/json' },
+          }));
+        }
+        return Promise.resolve(new Response(JSON.stringify({ data: { ok: true } }), {
+          status: 200, headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    };
+
+    delete require.cache[require.resolve('../../src/client-web/src/api/client')];
+    const client = require('../../src/client-web/src/api/client');
+    client.loadTokens();
+
+    const p = client.apiGet('/today');
+    await idle();
+
+    client.clearTokens();
+    assert.equal(lsStore.has('accessToken'), false,
+      'accessToken cleared from localStorage');
+    assert.equal(lsStore.has('refreshToken'), false,
+      'refreshToken cleared from localStorage');
+
+    refreshResolve(new Response(JSON.stringify({
+      data: { accessToken: 'tok_desktop_stale', refreshToken: 'rt_desktop_stale' },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    await assert.rejects(
+      () => p,
+      (err: Error) => {
+        assert.ok(err.message.includes('登录已过期'),
+          `expected login expired error, got: ${err.message}`);
+        return true;
+      },
+    );
+
+    assert.equal(todayCallCount, 1,
+      '/today only called once (no retry after clearTokens)');
+
+    assert.equal(lsStore.has('accessToken'), false,
+      'localStorage accessToken must remain empty');
+    assert.equal(lsStore.has('refreshToken'), false,
+      'localStorage refreshToken must remain empty');
+  } finally {
+    (globalThis as any).window = origWin;
+    (globalThis as any).fetch = origFetch;
+    (globalThis as any).localStorage = origLS;
+  }
+});
+
+_runAll().catch((err) => {
+  console.error('FATAL: test runner failed', err);
+  process.exitCode = 1;
+});

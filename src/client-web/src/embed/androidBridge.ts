@@ -32,12 +32,17 @@ export interface NativeState {
   nextAttemptAt?: string;
 }
 
-function getBridge(win: Window): { postMessage(raw: string): void } {
+interface PimAndroidBridge {
+  postMessage(raw: string): void;
+  onmessage: ((event: MessageEvent) => void) | null;
+}
+
+function getBridge(win: Window): PimAndroidBridge {
   const b = (win as unknown as Record<string, unknown>).pimAndroid;
   if (!b || typeof (b as Record<string, unknown>).postMessage !== 'function') {
     throw new Error('bridge_unavailable');
   }
-  return b as { postMessage(raw: string): void };
+  return b as PimAndroidBridge;
 }
 
 export class AndroidBridgeClient {
@@ -52,11 +57,32 @@ export class AndroidBridgeClient {
   private idCounter = 0;
   private win: Window;
   private timeoutMs: number;
+  private _prevOnMessage: ((event: MessageEvent) => void) | null = null;
+  private _attached = false;
 
   constructor(win?: Window, timeoutMs = 30000) {
     this.win = win ?? window;
     this.timeoutMs = timeoutMs;
-    this.win.addEventListener('message', this._onMessage);
+    try {
+      const bridge = getBridge(this.win);
+      this._prevOnMessage = bridge.onmessage;
+      bridge.onmessage = this._onMessage;
+      this._attached = true;
+    } catch {
+      // bridge_unavailable: will attach on first _send()
+    }
+  }
+
+  private _ensureAttached(): void {
+    if (this._attached) return;
+    try {
+      const bridge = getBridge(this.win);
+      this._prevOnMessage = bridge.onmessage;
+      bridge.onmessage = this._onMessage;
+      this._attached = true;
+    } catch {
+      // still unavailable; _send will throw bridge_unavailable
+    }
   }
 
   private _nextId(): string {
@@ -65,6 +91,7 @@ export class AndroidBridgeClient {
   }
 
   private _send(msg: BridgeMessage): void {
+    this._ensureAttached();
     getBridge(this.win).postMessage(JSON.stringify(msg));
   }
 
@@ -177,7 +204,12 @@ export class AndroidBridgeClient {
   setAccessToken(token: string | null) { this.accessToken = token; }
 
   destroy() {
-    this.win.removeEventListener('message', this._onMessage);
+    try {
+      const bridge = getBridge(this.win);
+      if (bridge.onmessage === this._onMessage) {
+        bridge.onmessage = this._prevOnMessage;
+      }
+    } catch { /* bridge already gone */ }
     for (const [, p] of this.pendingMap) {
       clearTimeout(p.timer);
       p.reject(new Error('bridge_destroyed'));

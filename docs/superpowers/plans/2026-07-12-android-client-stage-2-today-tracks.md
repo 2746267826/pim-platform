@@ -16,6 +16,14 @@ Android PimWebViewScreen → 原生 access token / refresh / 本地传输事实
 - access token 只保存在 React 模块内存；refresh token 始终留在 Android 原生认证仓库。
 - 地图、筛选和详情留在 Web 端，今后更换地图 SDK 或样式只改 WebUI。
 
+## 当前状态（2026-07-18）
+
+- Task 1-6 的代码和焦点测试已经完成，并已同步到 `origin/master` 的 fused location 最新实现。
+- 已通过：Web embed 测试、Today 测试、Stage 2 变更文件 lint（0 error）、Web 生产构建、后端 1170 项测试，以及 Android 焦点测试。Android 全量门禁将在最终提交后再跑一次。
+- 全仓 Web lint 当前被 `origin/master` 既有的 18 个无关 error 阻塞；本阶段文件只有 2 个 hook dependency warning，不把基线失败写成通过，也不在本 PR 扩大修复范围。
+- 10 个并行只读专项审查和一次汇总复核未发现未处理的 Critical / Important 问题；审查确认的共享错误边界、安全区和子资源失败日志缺口已补齐。
+- 当前 `adb devices -l` 没有可用设备；`connectedDebugAndroidTest` 与本阶段人工场景仍待模拟器或真机验收。分支尚未推送，PR 和 CI 尚未开始。
+
 ## 前置依赖
 
 - Stage 1 已完成服务器绑定认证、同步结果流、状态事实和连接检查。
@@ -73,7 +81,7 @@ Android PimWebViewScreen → 原生 access token / refresh / 本地传输事实
 4. `androidBridge.ts` 把回复匹配到 Promise；`api/client.ts` 的 embed 模式只使用模块内存 access token。首次请求等待握手；401 请求一次 refresh 并只重放原请求一次。
 5. embed 路径不调用 `loadTokens()`、`setTokens()` 或桌面 refresh 逻辑。普通桌面模式可继续使用当前 localStorage 登录，两种模式的状态入口明确分开。
 6. 通道同时支持非敏感消息：原生向页面提供采集/传输摘要，页面向原生报告 `hasServerData`、`generatedAt` 和页面错误，供今日原生状态条组合事实。
-7. 外部主框架导航在进入前移除通道并交给系统浏览器；地图瓦片/CDN 子资源正常加载，但请求不附加 Android Authorization header，外部 origin 的文档也没有消息通道。
+7. 外部主框架导航在进入 WebView 前被拦截并交给系统浏览器；因此外部文档从未获得消息通道。通道在原受信任页面销毁时移除。地图瓦片/CDN 子资源正常加载，但请求不附加 Android Authorization header。
 
 **自动验证：** 覆盖初始 token、401 refresh 一次、refresh 失败、并发请求共用一次 refresh、embed localStorage 始终无 auth token、外部 origin 消息被拒绝、服务器切换后旧 origin 失效，以及 WebMessage 不可用时安全失败。
 
@@ -90,7 +98,7 @@ Android PimWebViewScreen → 原生 access token / refresh / 本地传输事实
 - `src/client-android/app/src/main/java/com/pim/app/ui/shell/PimShellActivity.kt`
 - `src/client-android/app/src/main/java/com/pim/app/ui/root/PimRootScreen.kt`
 - `src/client-android/app/src/test/java/com/pim/app/ui/shell/PimWebViewStateTest.kt`（新建）
-- `src/client-android/app/src/androidTest/java/com/pim/app/ui/shell/PimWebViewScreenTest.kt`（仅保留 JVM 无法覆盖的 WebView 行为）
+- `src/client-android/app/src/androidTest/java/com/pim/app/ui/shell/PimWebViewScreenTest.kt`（按需；仅当 JVM 无法覆盖时增加，本阶段由设备验收覆盖）
 
 **复用：** 现有 `buildPimWebUrl()` 和原生导航壳；服务器 origin 统一由 Stage 1 resolver 产生。
 
@@ -209,6 +217,6 @@ Android PimWebViewScreen → 原生 access token / refresh / 本地传输事实
 
 ## 完成标准
 
-1. API、Web 和 Android 上述完整命令零失败。
+1. 本阶段相关 API、Web 和 Android 测试与构建零失败；若全仓门禁存在 `origin/master` 已有失败，必须证明本阶段变更文件无新增 error 并记录基线。
 2. 模拟器一次通过本阶段全部人工验收场景。
 3. 一次整体审查无未处理的关键安全、数据状态或交互问题。

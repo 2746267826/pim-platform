@@ -490,6 +490,78 @@ class PimWebViewStateTest {
         assertTrue(shouldSurfaceSslError("https://pim.example/embed/android/today", ""))
     }
 
+    // --- safeUrlForLogging ---
+
+    @Test
+    fun `safeUrlForLogging strips query from https url`() {
+        assertEquals(
+            "https://pim.example/embed/android/today",
+            safeUrlForLogging("https://pim.example/embed/android/today?secret=abc123")
+        )
+    }
+
+    @Test
+    fun `safeUrlForLogging strips fragment from https url`() {
+        assertEquals(
+            "https://pim.example/embed/android/today",
+            safeUrlForLogging("https://pim.example/embed/android/today#secret-token")
+        )
+    }
+
+    @Test
+    fun `safeUrlForLogging strips query and fragment from https url`() {
+        assertEquals(
+            "https://pim.example/embed/android/today",
+            safeUrlForLogging("https://pim.example/embed/android/today?secret=abc#frag")
+        )
+    }
+
+    @Test
+    fun `safeUrlForLogging returns placeholder for null`() {
+        assertEquals("<unknown>", safeUrlForLogging(null))
+    }
+
+    @Test
+    fun `safeUrlForLogging returns placeholder for empty string`() {
+        assertEquals("<unknown>", safeUrlForLogging(""))
+    }
+
+    @Test
+    fun `safeUrlForLogging returns scheme for about blank`() {
+        assertEquals("about:", safeUrlForLogging("about:blank"))
+    }
+
+    @Test
+    fun `safeUrlForLogging returns scheme for data url`() {
+        assertEquals("data:", safeUrlForLogging("data:text/html,hello"))
+    }
+
+    @Test
+    fun `safeUrlForLogging preserves origin and path with non-default port`() {
+        assertEquals(
+            "https://pim.example:5858/embed/android/today",
+            safeUrlForLogging("https://pim.example:5858/embed/android/today?secret=1")
+        )
+    }
+
+    // --- source contract: all three subresource failure branches log via safeUrlForLogging ---
+
+    @Test
+    fun `createPimWebViewClient logs three subresource failures with safeUrlForLogging`() {
+        val source = repoFile(
+            "src", "main", "java", "com", "pim", "app", "ui", "shell", "PimWebViewScreen.kt"
+        ).readText()
+        val logCalls = Regex(
+            """Log\.w\(TAG,\s*"(SubresourceError|SubresourceHttpError|SslWarning)\s.*?safeUrlForLogging""",
+            setOf(RegexOption.DOT_MATCHES_ALL)
+        ).findAll(source).count()
+        assertEquals(
+            "Expected Log.w with safeUrlForLogging in onReceivedError, onReceivedHttpError, onReceivedSslError",
+            3,
+            logCalls
+        )
+    }
+
     private fun repoFile(vararg parts: String): File {
         var current: File? = File("").canonicalFile
         while (current != null) {

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.net.http.SslError
+import android.util.Log
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -149,6 +150,16 @@ internal fun shouldReloadWebView(previousKey: Long, currentKey: Long): Boolean {
 fun shouldSurfaceSslError(mainFrameUrl: String?, failedUrl: String?): Boolean {
     if (mainFrameUrl.isNullOrBlank() || failedUrl.isNullOrBlank()) return true
     return mainFrameUrl == failedUrl
+}
+
+fun safeUrlForLogging(url: String?): String {
+    if (url == null) return "<unknown>"
+    val origin = extractOrigin(url)
+    if (origin != null) {
+        return origin + extractPath(url)
+    }
+    val scheme = runCatching { URI(url).scheme }.getOrNull()
+    return if (scheme != null) "$scheme:" else "<unknown>"
 }
 
 internal fun matchesTrustedRoute(url: String, serverUrl: String, route: String): Boolean {
@@ -388,6 +399,7 @@ private fun createPimWebViewClient(
     onHistoryUrlChanged: ((String) -> Unit)? = null
 ): WebViewClient {
     return object : WebViewClient() {
+        private val TAG = "PimWebView"
         private var mainFrameError = false
         private var currentMainFrameUrl: String? = null
 
@@ -410,7 +422,10 @@ private fun createPimWebViewClient(
             request: WebResourceRequest?,
             error: WebResourceError?
         ) {
-            if (request?.isForMainFrame != true) return
+            if (request?.isForMainFrame != true) {
+                Log.w(TAG, "SubresourceError ${safeUrlForLogging(request?.url?.toString())} ${error?.errorCode} ${error?.description}")
+                return
+            }
             mainFrameError = true
             onError(
                 PimWebViewState.Error(
@@ -424,7 +439,10 @@ private fun createPimWebViewClient(
             request: WebResourceRequest?,
             errorResponse: WebResourceResponse?
         ) {
-            if (request?.isForMainFrame != true) return
+            if (request?.isForMainFrame != true) {
+                Log.w(TAG, "SubresourceHttpError ${safeUrlForLogging(request?.url?.toString())} ${errorResponse?.statusCode} ${errorResponse?.reasonPhrase}")
+                return
+            }
             mainFrameError = true
             val code = errorResponse?.statusCode ?: 0
             val mapped = errorCodeToErrorMessage(
@@ -441,7 +459,10 @@ private fun createPimWebViewClient(
         ) {
             handler?.cancel()
             val failedUrl = error?.url
-            if (!shouldSurfaceSslError(currentMainFrameUrl, failedUrl)) return
+            if (!shouldSurfaceSslError(currentMainFrameUrl, failedUrl)) {
+                Log.w(TAG, "SslWarning ${safeUrlForLogging(failedUrl)} ${error?.primaryError}")
+                return
+            }
             mainFrameError = true
             val reason = when (error?.primaryError) {
                 SslError.SSL_EXPIRED -> "SSL 证书已过期"

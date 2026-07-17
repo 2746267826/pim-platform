@@ -34,7 +34,8 @@ class AndroidV2TodayStatusContractTest {
         assertFalse("今日页不能硬编码 API 待连接", screen.contains("Text(\"API：待连接\")"))
         assertTrue(screen.contains("hiltViewModel"))
         assertTrue(screen.contains("collectAsStateWithLifecycle"))
-        assertTrue(screen.contains("state.apiStatusLabel"))
+        assertTrue(screen.contains("state.statusTitle"))
+        assertTrue(screen.contains("state.isSyncing"))
         assertTrue("今日页需要自己的状态 ViewModel", viewModel.exists())
     }
 

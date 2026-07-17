@@ -327,7 +327,8 @@ data class ForegroundServiceSnapshot(
 data class TrackingPolicySnapshot(
     val profile: String,
     val currentPolicyMode: String,
-    val nextExpectedLocationAtMillis: Long?
+    val nextExpectedLocationAtMillis: Long?,
+    val currentPolicyReason: String? = null
 )
 
 data class QueueStatusSnapshot(
@@ -362,7 +363,8 @@ object StatusTrackingMapper {
     ): TrackingPolicySnapshot = TrackingPolicySnapshot(
         profile = profile,
         currentPolicyMode = runtime.currentPolicyMode,
-        nextExpectedLocationAtMillis = runtime.nextExpectedLocationAtMillis
+        nextExpectedLocationAtMillis = runtime.nextExpectedLocationAtMillis,
+        currentPolicyReason = runtime.currentPolicyReason
     )
 }
 

@@ -40,7 +40,7 @@ fun PimRootScreen(initialDestination: PimDestination = PimDestination.Today) {
         ) { innerPadding ->
             val modifier = Modifier.padding(innerPadding)
             when (selected) {
-                PimDestination.Today -> TodayScreen(modifier)
+                PimDestination.Today -> TodayScreen(modifier, onOpenSettings = { selected = PimDestination.Settings })
                 PimDestination.Tracks -> TracksScreen(modifier)
                 PimDestination.Schedule -> SchedulePolicyScreen(modifier)
                 PimDestination.Status -> StatusCenterScreen(

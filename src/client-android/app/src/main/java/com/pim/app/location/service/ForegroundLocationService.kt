@@ -493,6 +493,7 @@ class ForegroundLocationService : Service() {
         _runtimeState.value = ForegroundLocationRuntimeState(
             isRunning = isRunning,
             currentPolicyMode = currentDecision.mode.name,
+            currentPolicyReason = currentDecision.reason,
             nextExpectedLocationAtMillis = currentDecision.nextExpectedLocationAtMillis
                 .takeUnless { it == Long.MAX_VALUE },
             lastAcceptedLocationText = lastAcceptedLocationText,

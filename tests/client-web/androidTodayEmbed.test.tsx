@@ -26,7 +26,7 @@ async function _runAll(): Promise<void> {
 }
 
 // ────────────────────────────────────────────────────────────────────
-//  Import production pure functions
+//  Import production pure functions from state module
 // ────────────────────────────────────────────────────────────────────
 import {
   hasRealData,
@@ -36,8 +36,31 @@ import {
   formatNativeField,
   staleStatusLabel,
   nativeErrorMessage,
-} from '../../src/client-web/src/pages/AndroidTodayEmbedPage';
-import type { PageReportInput } from '../../src/client-web/src/pages/AndroidTodayEmbedPage';
+  generatedAtEntries,
+  NATIVE_STATE_REFRESH_INTERVAL_MS,
+} from '../../src/client-web/src/pages/androidTodayEmbedState';
+import type { PageReportInput } from '../../src/client-web/src/pages/androidTodayEmbedState';
+
+// ────────────────────────────────────────────────────────────────────
+//  Constants
+// ────────────────────────────────────────────────────────────────────
+
+test('NATIVE_STATE_REFRESH_INTERVAL_MS equals 30000', () => {
+  assert.equal(NATIVE_STATE_REFRESH_INTERVAL_MS, 30_000);
+});
+
+test('page uses NATIVE_STATE_REFRESH_INTERVAL_MS as refetchInterval for native state query', () => {
+  const pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+  assert.ok(pageSource.includes('refetchInterval'),
+    'page must use refetchInterval');
+  assert.ok(pageSource.includes('NATIVE_STATE_REFRESH_INTERVAL_MS'),
+    'page must reference NATIVE_STATE_REFRESH_INTERVAL_MS');
+  assert.ok(pageSource.includes('native-state') || pageSource.includes('nativeState'),
+    'page must have React Query for native state');
+});
 
 // ────────────────────────────────────────────────────────────────────
 //  hasRealData – real/empty data determination
@@ -98,6 +121,54 @@ test('latestGeneratedAt ignores items without generatedAt', () => {
     undefined,
   ]);
   assert.equal(result, '2026-07-17T01:00:00.000Z');
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  generatedAtEntries
+// ────────────────────────────────────────────────────────────────────
+
+test('generatedAtEntries returns entries for each query that has generatedAt', () => {
+  const entries = generatedAtEntries(
+    { generatedAt: '2026-07-17T01:00:00Z', pointCount: 5 } as any,
+    { generatedAt: '2026-07-17T02:00:00Z', totalForegroundSeconds: 3600, isStale: false } as any,
+    { generatedAt: '2026-07-17T00:00:00Z', appRanking: [] } as any,
+  );
+  assert.equal(entries.length, 3);
+  assert.ok(entries[0].label.includes('位置概况'));
+  assert.ok(entries[1].label.includes('手机使用'));
+  assert.ok(entries[2].label.includes('App 摘要'));
+  assert.equal(entries[1].generatedAt, '2026-07-17T02:00:00Z');
+});
+
+test('generatedAtEntries null for missing generatedAt', () => {
+  const entries = generatedAtEntries(
+    null,
+    { generatedAt: '2026-07-17T02:00:00Z', totalForegroundSeconds: 100, isStale: false } as any,
+    null,
+  );
+  assert.equal(entries.length, 1);
+  assert.ok(entries[0].label.includes('手机使用'));
+});
+
+test('generatedAtEntries no longer appends stale text to label', () => {
+  const entries = generatedAtEntries(
+    null,
+    { generatedAt: '2026-07-17T02:00:00Z', totalForegroundSeconds: 100, isStale: true } as any,
+    null,
+  );
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].label, '手机使用');
+});
+
+test('generatedAtEntries does NOT mark stale for location or summary', () => {
+  const entries = generatedAtEntries(
+    { generatedAt: '2026-07-17T01:00:00Z', pointCount: 5 } as any,
+    null,
+    { generatedAt: '2026-07-17T00:00:00Z', appRanking: [] } as any,
+  );
+  const labels = entries.map(e => e.label).join(' ');
+  // neither label should contain "过期"
+  assert.ok(!labels.includes('过期'));
 });
 
 // ────────────────────────────────────────────────────────────────────
@@ -209,25 +280,14 @@ test('staleStatusLabel undefined returns null', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────
-//  nativeErrorMessage – 机器码映射为中文错误消息
+//  nativeErrorMessage – 接受 unknown 始终返回固定中文
 // ────────────────────────────────────────────────────────────────────
 
-test('nativeErrorMessage maps bridge_unavailable to Chinese', () => {
+test('nativeErrorMessage accepts unknown and returns Chinese', () => {
   assert.equal(nativeErrorMessage('bridge_unavailable'), '无法读取原生采集状态');
-});
-
-test('nativeErrorMessage maps native_state_error to Chinese', () => {
-  assert.equal(nativeErrorMessage('native_state_error'), '无法读取原生采集状态');
-});
-
-test('nativeErrorMessage maps unknown code to safe generic message', () => {
-  const msg = nativeErrorMessage('SOME_RAW_MACHINE_CODE');
-  assert.ok(msg.length > 0);
-  assert.equal(msg, '无法读取原生采集状态');
-});
-
-test('nativeErrorMessage maps empty string to safe generic message', () => {
-  assert.equal(nativeErrorMessage(''), '无法读取原生采集状态');
+  assert.equal(nativeErrorMessage(null), '无法读取原生采集状态');
+  assert.equal(nativeErrorMessage(undefined), '无法读取原生采集状态');
+  assert.equal(nativeErrorMessage(new Error('timeout')), '无法读取原生采集状态');
 });
 
 // ────────────────────────────────────────────────────────────────────
@@ -245,6 +305,104 @@ test('/embed/android/today route no longer references TodayPage', () => {
   assert.ok(embedTodayLine, 'embed today route must exist');
   assert.ok(!embedTodayLine!.includes('TodayPage'),
     `embed route should not reference TodayPage, got: ${embedTodayLine}`);
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  AndroidTodayEmbedPage only exports the component (no warning fix)
+// ────────────────────────────────────────────────────────────────────
+
+// ────────────────────────────────────────────────────────────────────
+//  Task 2: buildPageReport all four errors use Chinese separator
+// ────────────────────────────────────────────────────────────────────
+
+test('buildPageReport all four errors produce Chinese text separated by Chinese semicolon', () => {
+  const input: PageReportInput = {
+    locationError: new Error('timeout'),
+    tracksError: new Error('network error'),
+    usageError: new Error('server error'),
+    summaryError: new Error('parse error'),
+  };
+  const r = buildPageReport(input);
+  assert.equal(r.hasServerData, false);
+  assert.equal(r.generatedAt, null);
+  assert.ok(r.error!.includes('位置数据获取失败'));
+  assert.ok(r.error!.includes('轨迹数据获取失败'));
+  assert.ok(r.error!.includes('使用数据获取失败'));
+  assert.ok(r.error!.includes('摘要数据获取失败'));
+  assert.ok(r.error!.includes('；'));
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  Task 2: source check – page no longer extracts raw Error.message
+// ────────────────────────────────────────────────────────────────────
+
+test('page no longer maps query errors with .message for display', () => {
+  const pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+  assert.ok(!pageSource.includes('.error as Error)?.message'),
+    'page must not extract raw Error.message for display');
+  assert.ok(pageSource.includes('buildPageReport('),
+    'page should use buildPageReport for error display');
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  Task 5.2: source check – page no longer shows （最新
+// ────────────────────────────────────────────────────────────────────
+
+test('page no longer shows latestGeneratedAt in UI', () => {
+  const pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+  assert.ok(!pageSource.includes('（最新 '),
+    'page should not display latestGeneratedAt in UI');
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  Task 5.5: source check – stable key for genEntries
+// ────────────────────────────────────────────────────────────────────
+
+test('generatedAtEntries uses stable label as key', () => {
+  const pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+  assert.ok(pageSource.includes('key={entry.label}'),
+    'genEntries should use stable label as key');
+});
+
+// ────────────────────────────────────────────────────────────────────
+//  Task 5.4: source check – empty catch has comment
+// ────────────────────────────────────────────────────────────────────
+
+test('empty catch block in page has one-line comment', () => {
+  const pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+  assert.ok(pageSource.includes('catch {'),
+    'page must have an empty catch block');
+  const lines = pageSource.split('\n');
+  const catchLineIdx = lines.findIndex(l => l.trim() === '} catch {');
+  assert.ok(catchLineIdx >= 0, 'catch { must be on its own line');
+  // The line after catch should have a comment (// or /*)
+  const afterCatch = lines.slice(catchLineIdx + 1).find(l => l.trim() !== '');
+  assert.ok(afterCatch && (afterCatch.includes('//') || afterCatch.includes('/*')),
+    'empty catch block should have a one-line comment');
+});
+
+test('AndroidTodayEmbedPage only exports default component', () => {
+  const pageSource = readFileSync(
+    path.join(process.cwd(), 'src/client-web/src/pages/AndroidTodayEmbedPage.tsx'),
+    'utf8',
+  );
+  // Should not have named exports of helpers (those moved to state module)
+  const namedExportCount = (pageSource.match(/^export (function|const|interface|type) /gm) || []).length;
+  assert.equal(namedExportCount, 0,
+    `expected 0 named exports (only default), got ${namedExportCount}`);
+  assert.ok(pageSource.includes('export default function AndroidTodayEmbedPage'));
 });
 
 void _runAll();

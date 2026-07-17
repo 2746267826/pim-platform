@@ -2,6 +2,7 @@ package com.pim.app.ui.shell
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -288,6 +289,102 @@ class PimWebViewStateTest {
             "https://pim.example/tasks",
             buildPimWebUrl("https://pim.example/api/v1/", "/tasks")
         )
+    }
+
+    // --- webViewDocumentKey ---
+
+    @Test
+    fun `webViewDocumentKey same origin path with different query returns same key`() {
+        assertEquals(
+            webViewDocumentKey("https://pim.example/embed/android/today?foo=bar"),
+            webViewDocumentKey("https://pim.example/embed/android/today?days=7")
+        )
+    }
+
+    @Test
+    fun `webViewDocumentKey same origin path with different fragment returns same key`() {
+        assertEquals(
+            webViewDocumentKey("https://pim.example/embed/android/today#section"),
+            webViewDocumentKey("https://pim.example/embed/android/today#map")
+        )
+    }
+
+    @Test
+    fun `webViewDocumentKey same origin path with query and fragment equals plain path`() {
+        assertEquals(
+            webViewDocumentKey("https://pim.example/embed/android/today"),
+            webViewDocumentKey("https://pim.example/embed/android/today?foo=bar#section")
+        )
+    }
+
+    @Test
+    fun `webViewDocumentKey different paths return different keys`() {
+        assertNotEquals(
+            webViewDocumentKey("https://pim.example/embed/android/today"),
+            webViewDocumentKey("https://pim.example/embed/android/tracks")
+        )
+    }
+
+    @Test
+    fun `webViewDocumentKey different origins return different keys`() {
+        assertNotEquals(
+            webViewDocumentKey("http://127.0.0.1:5858/embed/android/today"),
+            webViewDocumentKey("https://pim.example/embed/android/today")
+        )
+    }
+
+    @Test
+    fun `webViewDocumentKey about blank returns itself`() {
+        assertEquals("about:blank", webViewDocumentKey("about:blank"))
+    }
+
+    // --- shouldReloadWebView ---
+
+    @Test
+    fun `shouldReloadWebView returns false when keys are equal`() {
+        assertFalse(shouldReloadWebView(0L, 0L))
+        assertFalse(shouldReloadWebView(5L, 5L))
+    }
+
+    @Test
+    fun `shouldReloadWebView returns true when keys differ`() {
+        assertTrue(shouldReloadWebView(0L, 1L))
+        assertTrue(shouldReloadWebView(1L, 5L))
+    }
+
+    // --- shouldLoadUrlOnUpdate ---
+
+    @Test
+    fun `shouldLoadUrlOnUpdate returns true for null`() {
+        assertTrue(shouldLoadUrlOnUpdate(null))
+    }
+
+    @Test
+    fun `shouldLoadUrlOnUpdate returns true for blank`() {
+        assertTrue(shouldLoadUrlOnUpdate(""))
+        assertTrue(shouldLoadUrlOnUpdate("  "))
+    }
+
+    @Test
+    fun `shouldLoadUrlOnUpdate returns true for about blank`() {
+        assertTrue(shouldLoadUrlOnUpdate("about:blank"))
+    }
+
+    @Test
+    fun `shouldLoadUrlOnUpdate returns false for url with query`() {
+        assertFalse(shouldLoadUrlOnUpdate("https://pim.example/embed/android/today?foo=bar"))
+        assertFalse(shouldLoadUrlOnUpdate("https://pim.example/embed/android/tracks?days=7"))
+    }
+
+    @Test
+    fun `shouldLoadUrlOnUpdate returns false for url without query`() {
+        assertFalse(shouldLoadUrlOnUpdate("https://pim.example/embed/android/today"))
+        assertFalse(shouldLoadUrlOnUpdate("https://pim.example/embed/android/tracks"))
+    }
+
+    @Test
+    fun `shouldLoadUrlOnUpdate returns false for url with fragment`() {
+        assertFalse(shouldLoadUrlOnUpdate("https://pim.example/embed/android/today#section"))
     }
 
     // --- PimWebViewState model ---

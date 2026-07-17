@@ -42,6 +42,7 @@ fun TodayScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val syncFeedback by viewModel.syncFeedback.collectAsStateWithLifecycle()
+    val refreshVersion by viewModel.refreshVersion.collectAsStateWithLifecycle()
 
     Column(modifier = modifier.fillMaxSize()) {
         TodayStatusBar(
@@ -61,7 +62,8 @@ fun TodayScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    bridge = viewModel.bridge
+                    bridge = viewModel.bridge,
+                    reloadKey = refreshVersion
                 )
             }
         }

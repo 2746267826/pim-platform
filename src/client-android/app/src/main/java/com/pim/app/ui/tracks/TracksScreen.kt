@@ -29,6 +29,7 @@ fun TracksScreen(
     viewModel: TodayViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val refreshVersion by viewModel.refreshVersion.collectAsStateWithLifecycle()
 
     Column(modifier = modifier.fillMaxSize()) {
         when (state.embedSupported) {
@@ -42,7 +43,8 @@ fun TracksScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    bridge = viewModel.bridge
+                    bridge = viewModel.bridge,
+                    reloadKey = refreshVersion
                 )
             }
         }

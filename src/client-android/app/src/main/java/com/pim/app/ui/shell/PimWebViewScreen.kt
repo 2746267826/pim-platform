@@ -99,6 +99,11 @@ fun extractOrigin(url: String): String? {
     }.getOrNull()
 }
 
+internal fun webViewDocumentKey(url: String): String {
+    val origin = extractOrigin(url) ?: return url
+    return origin + extractPath(url)
+}
+
 fun isTrustedEmbedPath(path: String): Boolean {
     return path == "/embed/android/today" || path == "/embed/android/tracks"
 }
@@ -136,6 +141,14 @@ fun webViewInternalErrorToReason(description: String): String {
     return "页面加载失败：$description"
 }
 
+internal fun shouldReloadWebView(previousKey: Long, currentKey: Long): Boolean {
+    return currentKey != previousKey
+}
+
+internal fun shouldLoadUrlOnUpdate(currentUrl: String?): Boolean {
+    return currentUrl.isNullOrBlank() || currentUrl == "about:blank"
+}
+
 fun buildPimWebUrl(serverUrl: String, route: String): String {
     val normalizedRoute = route.trim().ifBlank { "/today" }.let { value ->
         if (value.startsWith('/')) value else "/$value"
@@ -165,7 +178,8 @@ fun PimWebViewScreen(
     route: String,
     modifier: Modifier = Modifier,
     serverUrl: String = ServerSettingsStore.DEFAULT_BASE_URL,
-    bridge: AndroidWebMessageBridge? = null
+    bridge: AndroidWebMessageBridge? = null,
+    reloadKey: Long = 0L
 ) {
     val context = LocalContext.current
     val targetUrl = remember(serverUrl, route) { buildPimWebUrl(serverUrl, route) }
@@ -175,10 +189,11 @@ fun PimWebViewScreen(
     val navigationAction = remember(targetUrl, trustedOrigin) {
         decidePimWebNavigation(targetUrl, trustedOrigin)
     }
+    val documentKey = remember(targetUrl) { webViewDocumentKey(targetUrl) }
     val webViewRef = remember { mutableStateOf<WebView?>(null) }
     var externalOpenError by remember(targetUrl) { mutableStateOf<String?>(null) }
 
-    DisposableEffect(bridge, navigationAction, trustedOrigin) {
+    DisposableEffect(bridge, navigationAction, trustedOrigin, documentKey) {
         onDispose {
             webViewRef.value?.let { webView ->
                 bridge?.remove(webView)
@@ -218,6 +233,20 @@ fun PimWebViewScreen(
         PimWebNavigationAction.LoadInWebView -> Unit
     }
 
+    var state by remember(documentKey) { mutableStateOf<PimWebViewState>(PimWebViewState.Loading) }
+
+    val previousReloadKey = remember(documentKey) { mutableStateOf(reloadKey) }
+    LaunchedEffect(reloadKey) {
+        if (shouldReloadWebView(previousReloadKey.value, reloadKey)) {
+            val webView = webViewRef.value
+            if (webView != null) {
+                state = PimWebViewState.Loading
+                webView.reload()
+            }
+        }
+        previousReloadKey.value = reloadKey
+    }
+
     val secureBridgeAvailable = remember(bridge, serverUrl) {
         bridge == null || runCatching {
             WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
@@ -233,9 +262,7 @@ fun PimWebViewScreen(
         )
         return
     }
-
-    var state by remember(targetUrl) { mutableStateOf<PimWebViewState>(PimWebViewState.Loading) }
-    var httpWarningVisible by remember(targetUrl) { mutableStateOf(isHttpScheme(targetUrl)) }
+    var httpWarningVisible by remember(documentKey) { mutableStateOf(isHttpScheme(targetUrl)) }
 
     Column(modifier = modifier) {
         if (httpWarningVisible) {
@@ -262,7 +289,7 @@ fun PimWebViewScreen(
         }
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            key(bridge, trustedOrigin) {
+            key(bridge, trustedOrigin, documentKey) {
                 AndroidView(
                     modifier = Modifier.fillMaxSize(),
                     factory = { webContext ->
@@ -292,7 +319,7 @@ fun PimWebViewScreen(
                         }
                     },
                     update = { webView ->
-                        if (!bridgeInstallFailed && webView.url != targetUrl) {
+                        if (!bridgeInstallFailed && shouldLoadUrlOnUpdate(webView.url)) {
                             state = PimWebViewState.Loading
                             webView.loadUrl(targetUrl)
                         }

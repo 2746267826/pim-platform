@@ -856,6 +856,139 @@ class TodayViewModelTest {
         )
     }
 
+    // ────────────────────────────────────────────────────────────────
+    //  ConfirmedCountTracker — sync-triggered web refresh
+    // ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `tracker first observation establishes baseline returns false`() {
+        val tracker = ConfirmedCountTracker()
+        assertFalse(tracker.observe("srv1", 5, true))
+    }
+
+    @Test
+    fun `tracker same identity same count terminal returns false`() {
+        val tracker = ConfirmedCountTracker()
+        tracker.observe("srv1", 5, true)
+        assertFalse(tracker.observe("srv1", 5, true))
+    }
+
+    @Test
+    fun `tracker increased count terminal returns true`() {
+        val tracker = ConfirmedCountTracker()
+        tracker.observe("srv1", 5, true)
+        assertTrue(tracker.observe("srv1", 8, true))
+    }
+
+    @Test
+    fun `tracker identity change resets baseline regardless of terminal`() {
+        val tracker = ConfirmedCountTracker()
+        tracker.observe("srv1", 5, true)
+        assertFalse("new identity must establish baseline, not trigger", tracker.observe("srv2", 5, true))
+        assertTrue("after identity reset, increase should trigger", tracker.observe("srv2", 8, true))
+    }
+
+    @Test
+    fun `tracker decreased count terminal returns false`() {
+        val tracker = ConfirmedCountTracker()
+        tracker.observe("srv1", 10, true)
+        assertFalse(tracker.observe("srv1", 5, true))
+    }
+
+    @Test
+    fun `tracker non-terminal increase returns false but terminal later triggers`() {
+        val tracker = ConfirmedCountTracker()
+        tracker.observe("srv1", 5, true)
+        assertFalse(tracker.observe("srv1", 8, false))
+        assertTrue(tracker.observe("srv1", 8, true))
+    }
+
+    @Test
+    fun `tracker non-terminal no increase then terminal no increase returns false`() {
+        val tracker = ConfirmedCountTracker()
+        tracker.observe("srv1", 5, true)
+        assertFalse(tracker.observe("srv1", 5, false))
+        assertFalse(tracker.observe("srv1", 5, true))
+    }
+
+    @Test
+    fun `tracker only triggers once per confirmed increase`() {
+        val tracker = ConfirmedCountTracker()
+        tracker.observe("srv1", 5, true)
+        assertTrue(tracker.observe("srv1", 8, true))
+        assertFalse("same value after trigger should not re-trigger", tracker.observe("srv1", 8, true))
+    }
+
+    @Test
+    fun `tracker triggers again after another terminal increase`() {
+        val tracker = ConfirmedCountTracker()
+        tracker.observe("srv1", 5, true)
+        tracker.observe("srv1", 8, true)
+        assertTrue(tracker.observe("srv1", 12, true))
+    }
+
+    @Test
+    fun `tracker count decrease updates baseline so future increase can trigger`() {
+        val tracker = ConfirmedCountTracker()
+        tracker.observe("srv1", 10, true)
+        assertFalse(tracker.observe("srv1", 3, true))
+        assertTrue(tracker.observe("srv1", 7, true))
+    }
+
+    @Test
+    fun `tracker terminal increase above baseline triggers regardless of prior non-terminal observations`() {
+        val tracker = ConfirmedCountTracker()
+        tracker.observe("srv1", 5, true)
+        tracker.observe("srv1", 10, false)
+        assertTrue(tracker.observe("srv1", 7, true))
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    //  isConfirmedRefreshTerminal
+    // ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `isConfirmedRefreshTerminal Completed returns true`() {
+        assertTrue(isConfirmedRefreshTerminal(SyncPhase.Completed))
+    }
+
+    @Test
+    fun `isConfirmedRefreshTerminal Failed returns true`() {
+        assertTrue(isConfirmedRefreshTerminal(SyncPhase.Failed))
+    }
+
+    @Test
+    fun `isConfirmedRefreshTerminal Idle returns false`() {
+        assertFalse(isConfirmedRefreshTerminal(SyncPhase.Idle))
+    }
+
+    @Test
+    fun `isConfirmedRefreshTerminal Accepted returns false`() {
+        assertFalse(isConfirmedRefreshTerminal(SyncPhase.Accepted))
+    }
+
+    @Test
+    fun `isConfirmedRefreshTerminal Waiting returns false`() {
+        assertFalse(isConfirmedRefreshTerminal(SyncPhase.Waiting))
+    }
+
+    @Test
+    fun `isConfirmedRefreshTerminal Running returns false`() {
+        assertFalse(isConfirmedRefreshTerminal(SyncPhase.Running))
+    }
+
+    @Test
+    fun `isConfirmedRefreshTerminal Blocked returns false`() {
+        assertFalse(isConfirmedRefreshTerminal(SyncPhase.Blocked))
+    }
+
+    @Test
+    fun `isConfirmedRefreshTerminal Cancelled returns false`() {
+        assertFalse(isConfirmedRefreshTerminal(SyncPhase.Cancelled))
+    }
+
+    // ────────────────────────────────────────────────────────────────
+
     private fun baseState(
         continuousCollectionEnabled: Boolean = true,
         pendingTotal: Int = 0,

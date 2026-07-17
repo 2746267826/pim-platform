@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -78,6 +80,28 @@ internal fun resolveReportFromEnvelope(
         return envelope.report
     }
     return TodayPageReport.EMPTY
+}
+
+internal class ConfirmedCountTracker {
+    private var baseline: Int = 0
+    private var currentIdentity: String? = null
+
+    fun observe(identity: String, acceptedCount: Int, isTerminal: Boolean): Boolean {
+        if (currentIdentity != identity) {
+            currentIdentity = identity
+            baseline = acceptedCount
+            return false
+        }
+        if (acceptedCount < baseline) {
+            baseline = acceptedCount
+            return false
+        }
+        if (isTerminal && acceptedCount > baseline) {
+            baseline = acceptedCount
+            return true
+        }
+        return false
+    }
 }
 
 data class TodayUiState(
@@ -158,6 +182,10 @@ internal suspend fun runTodaySyncSubmit(
     } finally {
         setInProgress(false)
     }
+}
+
+internal fun isConfirmedRefreshTerminal(phase: SyncPhase): Boolean {
+    return phase == SyncPhase.Completed || phase == SyncPhase.Failed
 }
 
 object TodayStatusMapper {
@@ -339,10 +367,20 @@ class TodayViewModel @Inject constructor(
 
     val serverUrl: String get() = serverSettingsStore.getBaseUrl()
 
+    private fun currentServerIdentity(): String {
+        return runCatching {
+            PimServerEndpoints.from(serverSettingsStore.getBaseUrl()).apiBaseUrl.toString()
+        }.getOrElse { serverSettingsStore.getBaseUrl().trimEnd('/') }
+    }
+
     private val pageReportFlow = MutableStateFlow<TodayPageReportEnvelope?>(null)
     private val syncFeedbackFlow = MutableStateFlow<String?>(null)
     private val isSyncActionInProgressFlow = MutableStateFlow(false)
     private val latestStatusState = MutableStateFlow(StatusCenterState.empty())
+    private val refreshVersionFlow = MutableStateFlow(0L)
+    private val confirmedCountTracker = ConfirmedCountTracker()
+
+    val refreshVersion: StateFlow<Long> = refreshVersionFlow.asStateFlow()
 
     internal val syncSubmissionGate = AtomicBoolean(false)
 
@@ -359,30 +397,36 @@ class TodayViewModel @Inject constructor(
         scope = viewModelScope,
         nativeStateProvider = { TodayStatusMapper.toNativeState(latestStatusState.value) },
         pageReportSink = { report ->
-            val identity = runCatching {
-                PimServerEndpoints.from(serverSettingsStore.getBaseUrl()).apiBaseUrl.toString()
-            }.getOrElse { serverSettingsStore.getBaseUrl().trimEnd('/') }
-            pageReportFlow.value = TodayPageReportEnvelope(identity, TodayPageReport.fromMap(report))
+            pageReportFlow.value = TodayPageReportEnvelope(currentServerIdentity(), TodayPageReport.fromMap(report))
         }
     )
 
+    init {
+        statusCenterRepository.observe()
+            .onEach { statusState ->
+                latestStatusState.value = statusState
+                val isTerminal = isConfirmedRefreshTerminal(statusState.syncPhase)
+                if (confirmedCountTracker.observe(currentServerIdentity(), statusState.acceptedCount, isTerminal)) {
+                    refreshVersionFlow.value++
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
     val state: StateFlow<TodayUiState> = combine(
-        statusCenterRepository.observe(),
+        latestStatusState,
         pageReportFlow,
         isSyncActionInProgressFlow,
         syncFeedbackFlow
     ) { statusState, reportEnvelope, inProgress, feedback ->
-        latestStatusState.value = statusState
-        val currentIdentity = runCatching {
-            PimServerEndpoints.from(serverSettingsStore.getBaseUrl()).apiBaseUrl.toString()
-        }.getOrElse { serverSettingsStore.getBaseUrl().trimEnd('/') }
-        val resolvedReport = resolveReportFromEnvelope(reportEnvelope, currentIdentity)
+        val identity = currentServerIdentity()
+        val resolvedReport = resolveReportFromEnvelope(reportEnvelope, identity)
         TodayStatusMapper.fromStatus(
             state = statusState,
             pageReport = resolvedReport,
             isSyncActionInProgress = inProgress,
             syncFeedback = feedback,
-            currentServerIdentity = currentIdentity
+            currentServerIdentity = identity
         )
     }.stateIn(
         scope = viewModelScope,

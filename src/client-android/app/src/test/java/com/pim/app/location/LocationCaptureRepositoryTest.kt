@@ -138,4 +138,33 @@ class LocationCaptureRepositoryTest {
         assertEquals("定位请求失败", state.statusMessage)
         assertEquals("未知错误", state.inlineReason)
     }
+
+    @Test
+    fun `fresh seed location is usable`() {
+        val now = 1_700_000_000_000L
+        assertTrue(isUsableSeedLocation(locationTimeMillis = now - 30_000L, nowMillis = now))
+    }
+
+    @Test
+    fun `stale seed location is rejected`() {
+        val now = 1_700_000_000_000L
+        assertFalse(
+            isUsableSeedLocation(
+                locationTimeMillis = now - SEED_LOCATION_MAX_AGE_MILLIS - 1L,
+                nowMillis = now
+            )
+        )
+    }
+
+    @Test
+    fun `seed location with non positive time is rejected`() {
+        assertFalse(isUsableSeedLocation(locationTimeMillis = 0L, nowMillis = 1_700_000_000_000L))
+        assertFalse(isUsableSeedLocation(locationTimeMillis = -1L, nowMillis = 1_700_000_000_000L))
+    }
+
+    @Test
+    fun `seed location in the future is rejected`() {
+        val now = 1_700_000_000_000L
+        assertFalse(isUsableSeedLocation(locationTimeMillis = now + 60_000L, nowMillis = now))
+    }
 }

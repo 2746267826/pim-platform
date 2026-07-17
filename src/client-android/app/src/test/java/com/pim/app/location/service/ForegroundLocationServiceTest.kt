@@ -86,6 +86,57 @@ class ForegroundLocationServiceTest {
     }
 
     @Test
+    fun shouldSkipLocationReregisterWhenIntervalAndPriorityMatch() {
+        assertTrue(
+            ForegroundLocationService.shouldSkipLocationReregister(
+                registeredIntervalMillis = 60_000L,
+                registeredPriority = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+                hasActiveCallback = true,
+                nextIntervalMillis = 60_000L,
+                nextPriority = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY
+            )
+        )
+    }
+
+    @Test
+    fun shouldNotSkipLocationReregisterWhenPriorityChanges() {
+        assertFalse(
+            ForegroundLocationService.shouldSkipLocationReregister(
+                registeredIntervalMillis = 60_000L,
+                registeredPriority = com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                hasActiveCallback = true,
+                nextIntervalMillis = 60_000L,
+                nextPriority = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY
+            )
+        )
+    }
+
+    @Test
+    fun shouldNotSkipLocationReregisterWithoutActiveCallback() {
+        assertFalse(
+            ForegroundLocationService.shouldSkipLocationReregister(
+                registeredIntervalMillis = 60_000L,
+                registeredPriority = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+                hasActiveCallback = false,
+                nextIntervalMillis = 60_000L,
+                nextPriority = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY
+            )
+        )
+    }
+
+    @Test
+    fun resolveMinUpdateIntervalUsesEightyPercentFloor() {
+        assertEquals(48_000L, ForegroundLocationService.resolveMinUpdateIntervalMillis(60_000L))
+        assertEquals(800L, ForegroundLocationService.resolveMinUpdateIntervalMillis(1_000L))
+        assertEquals(1L, ForegroundLocationService.resolveMinUpdateIntervalMillis(1L))
+    }
+
+    @Test
+    fun locationRequestRetryDelayIsThirtySeconds() {
+        assertEquals(30_000L, ForegroundLocationService.LOCATION_REQUEST_RETRY_DELAY_MILLIS)
+    }
+
+    @Test
     fun permissionDenialMustNotOverwritePersistedCollectionIntent() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         shadowOf(context).denyPermissions(

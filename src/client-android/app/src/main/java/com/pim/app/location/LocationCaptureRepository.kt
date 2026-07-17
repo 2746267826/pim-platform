@@ -131,20 +131,25 @@ class LocationCaptureRepository @Inject constructor(
             maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
         )
 
-        val request = LocationRequest.Builder(1000L)
-            .setMinUpdateIntervalMillis(1000L)
+        val request = LocationRequest.Builder(1_000L)
+            .setMinUpdateIntervalMillis(800L)
             .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
             .build()
 
         val callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
+                if (locationCallback !== this || !_state.value.isCapturing) return
                 result.lastLocation?.let { handleLocation(it, source = "实时更新") }
             }
 
             override fun onLocationAvailability(availability: LocationAvailability) {
+                if (locationCallback !== this) return
                 if (!availability.isLocationAvailable && _state.value.isCapturing) {
                     _state.update {
-                        it.copy(statusMessage = "定位暂时不可用", inlineReason = "检查GPS或网络定位是否开启。")
+                        it.copy(
+                            statusMessage = "定位暂时不可用",
+                            inlineReason = "请检查系统定位是否开启。"
+                        )
                     }
                 }
             }
@@ -152,10 +157,12 @@ class LocationCaptureRepository @Inject constructor(
         locationCallback = callback
         fusedClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
             .addOnFailureListener { e ->
-                locationCallback?.let { fusedClient.removeLocationUpdates(it) }
-                locationCallback = null
-                _state.update { current ->
-                    applyLocationRequestFailure(current, e.message)
+                if (locationCallback === callback) {
+                    runCatching { fusedClient.removeLocationUpdates(callback) }
+                    locationCallback = null
+                    _state.update { current ->
+                        applyLocationRequestFailure(current, e.message)
+                    }
                 }
             }
         seedLastKnownLocation()
@@ -209,8 +216,13 @@ class LocationCaptureRepository @Inject constructor(
     private fun seedLastKnownLocation() {
         fusedClient.lastLocation
             .addOnSuccessListener { location ->
-                // 只在仍活跃时处理，防止 stop 后传入过期数据
-                if (location != null && locationCallback != null && state.value.isCapturing) {
+                // 只在仍活跃时处理，防止 stop 后传入过期/陈旧缓存
+                if (
+                    location != null &&
+                    locationCallback != null &&
+                    state.value.isCapturing &&
+                    isUsableSeedLocation(location.time, System.currentTimeMillis())
+                ) {
                     handleLocation(location, source = "缓存位置")
                 }
             }
@@ -398,6 +410,14 @@ internal fun applyLocationRequestFailure(
         statusMessage = "定位请求失败",
         inlineReason = errorMessage ?: "未知错误"
     )
+}
+
+internal const val SEED_LOCATION_MAX_AGE_MILLIS: Long = 5L * 60L * 1000L
+
+internal fun isUsableSeedLocation(locationTimeMillis: Long, nowMillis: Long): Boolean {
+    if (locationTimeMillis <= 0L) return false
+    val ageMillis = nowMillis - locationTimeMillis
+    return ageMillis in 0L..SEED_LOCATION_MAX_AGE_MILLIS
 }
 
 internal suspend fun enqueueThenSchedule(

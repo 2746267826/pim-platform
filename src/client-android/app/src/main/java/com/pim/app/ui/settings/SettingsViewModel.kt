@@ -16,6 +16,7 @@ import com.pim.app.status.resolveProbeResult
 import com.pim.app.mobile.diagnostics.DiagnosticOperations
 import com.pim.app.recovery.CollectionState
 import com.pim.app.recovery.RunningStateRestorer
+import com.pim.app.schedule.ScheduleCacheStore
 import com.pim.app.status.PermissionStatusSnapshot
 import com.pim.core.settings.PimServerEndpoints
 import com.pim.core.auth.ServerBoundLoginCoordinator
@@ -85,7 +86,8 @@ class SettingsViewModel @Inject constructor(
     private val mobileSyncScheduler: MobileSyncScheduler,
     private val diagnosticOperations: DiagnosticOperations,
     private val runningStateRestorer: RunningStateRestorer,
-    private val webViewSiteDataCleaner: WebViewSiteDataCleaner
+    private val webViewSiteDataCleaner: WebViewSiteDataCleaner,
+    private val scheduleCacheStore: ScheduleCacheStore
 ) : ViewModel() {
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
@@ -229,7 +231,7 @@ class SettingsViewModel @Inject constructor(
                         it.copy(
                             isBusy = false,
                             isLoggedIn = hasCurrentServerSession(),
-                            loginStatus = "登录失败：${error.message ?: "未知错误"}"
+                            loginStatus = "登录失败，请重试"
                         )
                     }
                 }
@@ -259,6 +261,10 @@ class SettingsViewModel @Inject constructor(
                 continuousCollectionEnabled = collectionIntent,
                 collectionStatus = "已退出登录，持续采集设置保持不变。"
             )
+        }
+        val identity = serverIdentityFor(serverSettingsStore.getBaseUrl())
+        if (identity != null) {
+            scheduleCacheStore.clear(identity)
         }
     }
 
@@ -320,11 +326,11 @@ class SettingsViewModel @Inject constructor(
                 }
                 runCatching {
                     foregroundLocationController.start()
-                }.onFailure { error ->
+                }.onFailure {
                     _state.update {
                         it.copy(
                             continuousCollectionEnabled = true,
-                            collectionStatus = "启动失败：${error.message ?: "未知错误"}"
+                            collectionStatus = "启动失败，请查看状态页"
                         )
                     }
                 }
@@ -337,7 +343,6 @@ class SettingsViewModel @Inject constructor(
                 _state.update {
                     it.copy(collectionStatus = "API 地址保存失败，持续采集设置保持不变。")
                 }
-                return
             }
             SaveServerUrlResult.CommitFailed -> {
                 reloadPersistedServerState(
@@ -347,7 +352,6 @@ class SettingsViewModel @Inject constructor(
                 _state.update {
                     it.copy(collectionStatus = "API 地址保存失败，持续采集设置保持不变。")
                 }
-                return
             }
         }
     }
@@ -573,6 +577,7 @@ class SettingsViewModel @Inject constructor(
     private fun saveServerUrl(newUrl: String): SaveServerUrlResult {
         val oldOrigin = extractOrigin(serverSettingsStore.getBaseUrl())
         val newOrigin = extractOrigin(newUrl)
+        val oldIdentity = serverIdentityFor(serverSettingsStore.getBaseUrl())
 
         var clearedOldSession = false
         if (newOrigin != oldOrigin && newOrigin != null) {
@@ -591,6 +596,13 @@ class SettingsViewModel @Inject constructor(
             && (clearedOldSession || success)
         if (shouldClearSiteData) {
             runCatching { webViewSiteDataCleaner.clearOrigin(oldOrigin!!) }
+        }
+
+        if (success) {
+            val newIdentity = serverIdentityFor(newUrl)
+            if (oldIdentity != null && newIdentity != null && oldIdentity != newIdentity) {
+                scheduleCacheStore.clear(oldIdentity)
+            }
         }
 
         return if (success) SaveServerUrlResult.Success else SaveServerUrlResult.CommitFailed
@@ -669,9 +681,9 @@ class SettingsViewModel @Inject constructor(
         if (!trackingSettingsStore.read().continuousCollectionEnabled) return
         runCatching {
             foregroundLocationController.start()
-        }.onFailure { error ->
+        }.onFailure {
             _state.update {
-                it.copy(collectionStatus = "设置已保存，但采集重载失败：${error.message ?: "未知错误"}")
+                it.copy(collectionStatus = "设置已保存，但服务启动失败，请查看状态页")
             }
         }
     }
@@ -763,6 +775,13 @@ class SettingsViewModel @Inject constructor(
         return !tokenManager
             .getAccessTokenForServer(serverSettingsStore.getBaseUrl())
             .isNullOrBlank()
+    }
+
+    private fun serverIdentityFor(url: String): String? {
+        if (url.isBlank()) return null
+        return runCatching {
+            PimServerEndpoints.from(url).apiBaseUrl.toString()
+        }.getOrNull()
     }
 }
 

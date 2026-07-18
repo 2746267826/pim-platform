@@ -6,6 +6,7 @@ import androidx.room.Room
 import com.pim.app.data.AppDatabase
 import com.pim.app.data.AppUsageDao
 import com.pim.app.data.PimDatabaseMigrations
+import com.pim.app.schedule.ScheduleCacheStore
 import com.pim.app.settings.TrackingSettingsStore
 import com.pim.app.status.ConnectionProbeService
 import com.pim.app.status.ConnectionProbeStore
@@ -122,6 +123,15 @@ object AppModule {
         tokenSource: ProbeTokenSource
     ): ConnectionProbeService {
         return ConnectionProbeService(anonymousClient, authenticatedClient, tokenSource)
+    }
+
+    @Provides
+    @Singleton
+    fun provideScheduleCacheStore(
+        @ApplicationContext context: Context,
+        json: Json
+    ): ScheduleCacheStore {
+        return ScheduleCacheStore(context, json)
     }
 
 }

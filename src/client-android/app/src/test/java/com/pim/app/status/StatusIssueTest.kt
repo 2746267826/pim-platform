@@ -1,6 +1,7 @@
 package com.pim.app.status
 
 import com.pim.app.location.service.ForegroundLocationRuntimeState
+import com.pim.app.schedule.ScheduleCacheFreshness
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -502,6 +503,100 @@ class StatusIssueTest {
             pendingSyncBatches = 0
         )
         assertEquals(10 + 5 + 3 + 2 + 1 + 0, q.pendingUploadTotal)
+    }
+
+    @Test
+    fun `freshCacheNoScheduleIssue`() {
+        val snapshot = StatusCenterSnapshot(
+            permissions = PermissionStatusSnapshot(true, true, true, true, true, true),
+            api = ApiConnectionSnapshot("https://valid.example", isValid = true, reasonCode = null, warnings = emptySet()),
+            auth = AuthStatusSnapshot(hasAccessToken = true, isExpired = false),
+            service = ForegroundServiceSnapshot(continuousCollectionEnabled = true, serviceRunning = true),
+            tracking = TrackingPolicySnapshot("power-saving", "PowerSavingNormal", null),
+            queues = QueueStatusSnapshot(0, 0, 0, 0, 0, 0),
+            diagnostics = DiagnosticSnapshot(null, null, null, null),
+            schedule = ScheduleCacheStatusSnapshot(
+                freshness = ScheduleCacheFreshness.Fresh,
+                hasCachedWindows = true
+            )
+        )
+        val issues = StatusIssuePlanner.plan(snapshot)
+        assertFalse("Fresh cache must not produce schedule issue", issues.any { it.code.startsWith("schedule-cache-") })
+    }
+
+    @Test
+    fun `staleCacheWithWindowsCreatesWarning`() {
+        val snapshot = StatusCenterSnapshot(
+            permissions = PermissionStatusSnapshot(true, true, true, true, true, true),
+            api = ApiConnectionSnapshot("https://valid.example", isValid = true, reasonCode = null, warnings = emptySet()),
+            auth = AuthStatusSnapshot(hasAccessToken = true, isExpired = false),
+            service = ForegroundServiceSnapshot(continuousCollectionEnabled = true, serviceRunning = true),
+            tracking = TrackingPolicySnapshot("power-saving", "PowerSavingNormal", null),
+            queues = QueueStatusSnapshot(0, 0, 0, 0, 0, 0),
+            diagnostics = DiagnosticSnapshot(null, null, null, null),
+            schedule = ScheduleCacheStatusSnapshot(
+                freshness = ScheduleCacheFreshness.Stale,
+                hasCachedWindows = true
+            )
+        )
+        val issues = StatusIssuePlanner.plan(snapshot)
+        val issue = issues.find { it.code == "schedule-cache-stale" }
+        assertEquals("schedule-cache-stale must be Warning", StatusSeverity.Warning, issue!!.severity)
+        assertEquals("日程数据可能过期", issue.title)
+        assertEquals(StatusActionTarget.ConnectionCheck, issue.target)
+    }
+
+    @Test
+    fun `missingCacheWithErrorCreatesCritical`() {
+        val snapshot = StatusCenterSnapshot(
+            permissions = PermissionStatusSnapshot(true, true, true, true, true, true),
+            api = ApiConnectionSnapshot("https://valid.example", isValid = true, reasonCode = null, warnings = emptySet()),
+            auth = AuthStatusSnapshot(hasAccessToken = true, isExpired = false),
+            service = ForegroundServiceSnapshot(continuousCollectionEnabled = true, serviceRunning = true),
+            tracking = TrackingPolicySnapshot("power-saving", "PowerSavingNormal", null),
+            queues = QueueStatusSnapshot(0, 0, 0, 0, 0, 0),
+            diagnostics = DiagnosticSnapshot(null, null, null, null),
+            schedule = ScheduleCacheStatusSnapshot(
+                freshness = ScheduleCacheFreshness.Missing,
+                hasCachedWindows = false,
+                lastError = "服务器暂时不可用"
+            )
+        )
+        val issues = StatusIssuePlanner.plan(snapshot)
+        val issue = issues.find { it.code == "schedule-cache-error" }
+        assertEquals("schedule-cache-error must be Critical", StatusSeverity.Critical, issue!!.severity)
+        assertEquals("日程数据暂时不可用", issue.title)
+        assertEquals(StatusActionTarget.ConnectionCheck, issue.target)
+    }
+
+    @Test
+    fun `trackingSnapshotMapsReasonAndIntervalFromRuntime`() {
+        val runtime = ForegroundLocationRuntimeState(
+            isRunning = true,
+            currentPolicyMode = "ScheduleLowFrequency",
+            currentPolicyReason = "当前日程时段，降低定位频率",
+            requestIntervalMillis = 300_000L,
+            nextExpectedLocationAtMillis = 5_000L
+        )
+        val tracking = StatusTrackingMapper.fromRuntime("power-saving", runtime)
+        assertEquals("power-saving", tracking.profile)
+        assertEquals("ScheduleLowFrequency", tracking.currentPolicyMode)
+        assertEquals("当前日程时段，降低定位频率", tracking.currentPolicyReason)
+        assertEquals(300_000L, tracking.requestIntervalMillis)
+        assertEquals(5_000L, tracking.nextExpectedLocationAtMillis)
+    }
+
+    @Test
+    fun `trackingSnapshotKeepsLegacyPositionalNextExpectedField`() {
+        val tracking = TrackingPolicySnapshot(
+            "power-saving",
+            "PowerSavingNormal",
+            5_000L
+        )
+
+        assertEquals(5_000L, tracking.nextExpectedLocationAtMillis)
+        assertEquals(null, tracking.currentPolicyReason)
+        assertEquals(null, tracking.requestIntervalMillis)
     }
 
     @Test

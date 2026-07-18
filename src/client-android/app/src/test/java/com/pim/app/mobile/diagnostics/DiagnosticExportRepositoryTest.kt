@@ -11,6 +11,10 @@ import com.pim.app.data.MobileLogEntity
 import com.pim.app.data.MobileLocationDroppedDiagnosticEntity
 import com.pim.app.data.MobileLocationPolicyTransitionEntity
 import com.pim.app.data.MobileSyncBatchEntity
+import com.pim.app.location.service.ForegroundLocationRuntimeState
+import com.pim.app.schedule.ScheduleCacheFreshness
+import com.pim.app.schedule.ScheduleCacheSnapshot
+import com.pim.app.schedule.ScheduleRefreshErrorKind
 import com.pim.app.data.MobileSyncStatus
 import com.pim.app.data.MobileUsageEventEntity
 import com.pim.app.mobile.logs.StructuredLogRepository
@@ -101,7 +105,9 @@ class DiagnosticExportRepositoryTest {
         dispatcher: CoroutineDispatcher = Dispatchers.IO,
         clearProbe: (() -> Boolean)? = null,
         structuredLogRepository: StructuredLogRepository = structuredLogRepo,
-        deleteExportFile: ((File) -> Boolean)? = null
+        deleteExportFile: ((File) -> Boolean)? = null,
+        scheduleSnapshot: () -> ScheduleCacheSnapshot = { defaultScheduleSnapshot() },
+        runtimeSnapshot: () -> ForegroundLocationRuntimeState = { ForegroundLocationRuntimeState() }
     ): DiagnosticExportRepository {
         val actualPublish: (File, File) -> Unit = if (publish != null) publish else { tmp, final ->
             Files.move(tmp.toPath(), final.toPath())
@@ -121,9 +127,21 @@ class DiagnosticExportRepositoryTest {
             nowMillis = { nowMillis },
             availableBytes = { availableBytes },
             publish = actualPublish,
-            deleteExportFile = deleteExportFile ?: { it.delete() }
+            deleteExportFile = deleteExportFile ?: { it.delete() },
+            scheduleSnapshot = scheduleSnapshot,
+            runtimeSnapshot = runtimeSnapshot
         )
     }
+
+    private fun defaultScheduleSnapshot() = ScheduleCacheSnapshot(
+        serverIdentity = "",
+        windows = emptyList(),
+        freshness = ScheduleCacheFreshness.Missing,
+        lastAttemptAtMillis = null,
+        lastSuccessAtMillis = null,
+        lastError = null,
+        errorKind = null
+    )
 
     private fun defaultPermissionSnapshot() = PermissionStatusSnapshot(
         notificationGranted = true,
@@ -483,6 +501,9 @@ class DiagnosticExportRepositoryTest {
             assertTrue(status.has("aggregateRejectedCount"))
             assertFalse(status.has("safeMessage"))
             assertFalse(status.has("serverIdentity"))
+            assertFalse(status.has("refreshToken"))
+            assertFalse(status.has("password"))
+            assertFalse(status.has("authorization"))
             assertFalse(status.has("token"))
             assertFalse(status.has("serverUrl"))
             assertFalse(status.has("logsPendingCount"))
@@ -1069,6 +1090,189 @@ class DiagnosticExportRepositoryTest {
             assertEquals(1, status.getInt("appUsagePendingCount"))
             assertEquals(2, status.getInt("usageEventsPendingCount"))
             assertFalse(status.has("logsPendingCount"))
+        }
+    }
+
+    // --- Schedule and policy facts in status.json ---
+
+    @Test
+    fun status_containsScheduleAndPolicyFields() = runTest {
+        val repo = createRepo()
+        val result = repo.export(includeRecentLocations = false)
+
+        ZipFile(result.file).use { zip ->
+            val status = JSONObject(zip.readEntry("status.json")!!)
+            assertTrue(status.has("scheduleFreshness"))
+            assertTrue(status.has("scheduleLastSuccessAtUtc"))
+            assertTrue(status.has("scheduleLastAttemptAtUtc"))
+            assertTrue(status.has("scheduleLastError"))
+            assertTrue(status.has("currentPolicyMode"))
+            assertTrue(status.has("currentPolicyReason"))
+            assertTrue(status.has("currentPolicyRequestIntervalMillis"))
+            assertTrue(status.has("recentPolicyTransitions"))
+        }
+    }
+
+    @Test
+    fun status_defaultNullValuesAreJsonNull() = runTest {
+        val repo = createRepo()
+        val result = repo.export(includeRecentLocations = false)
+
+        ZipFile(result.file).use { zip ->
+            val status = JSONObject(zip.readEntry("status.json")!!)
+            assertEquals("Missing", status.getString("scheduleFreshness"))
+            assertTrue(status.isNull("scheduleLastSuccessAtUtc"))
+            assertTrue(status.isNull("scheduleLastAttemptAtUtc"))
+            assertTrue(status.isNull("scheduleLastError"))
+            assertEquals("Off", status.getString("currentPolicyMode"))
+            assertTrue(status.isNull("currentPolicyReason"))
+            assertTrue(status.isNull("currentPolicyRequestIntervalMillis"))
+            val transitions = status.getJSONArray("recentPolicyTransitions")
+            assertEquals(0, transitions.length())
+        }
+    }
+
+    @Test
+    fun status_scheduleErrorKindMapsToFixedChineseSummary() = runTest {
+        for ((index, kind, expected) in listOf(
+            Triple(1, ScheduleRefreshErrorKind.Authentication, "认证失败"),
+            Triple(2, ScheduleRefreshErrorKind.Network, "网络错误"),
+            Triple(3, ScheduleRefreshErrorKind.Server, "服务器错误"),
+            Triple(4, ScheduleRefreshErrorKind.Cache, "缓存错误")
+        )) {
+            val repo = createRepo(
+                nowMillis = baseNow + index * 1000L,
+                scheduleSnapshot = {
+                    ScheduleCacheSnapshot(
+                        serverIdentity = "srv",
+                        windows = emptyList(),
+                        freshness = ScheduleCacheFreshness.Stale,
+                        lastAttemptAtMillis = baseNow,
+                        lastSuccessAtMillis = null,
+                        lastError = "dummy error",
+                        errorKind = kind
+                    )
+                }
+            )
+            val result = repo.export(includeRecentLocations = false)
+            ZipFile(result.file).use { zip ->
+                val status = JSONObject(zip.readEntry("status.json")!!)
+                assertEquals(expected, status.getString("scheduleLastError"))
+            }
+        }
+    }
+
+    @Test
+    fun status_scheduleNullErrorIsJsonNull() = runTest {
+        val repo = createRepo(
+            scheduleSnapshot = {
+                ScheduleCacheSnapshot(
+                    serverIdentity = "srv",
+                    windows = emptyList(),
+                    freshness = ScheduleCacheFreshness.Fresh,
+                    lastAttemptAtMillis = baseNow,
+                    lastSuccessAtMillis = baseNow,
+                    lastError = null,
+                    errorKind = null
+                )
+            }
+        )
+        val result = repo.export(includeRecentLocations = false)
+
+        ZipFile(result.file).use { zip ->
+            val status = JSONObject(zip.readEntry("status.json")!!)
+            assertTrue(status.isNull("scheduleLastError"))
+        }
+    }
+
+    @Test
+    fun status_unknownErrorKindUsesGenericSummary() = runTest {
+        val repo = createRepo(
+            scheduleSnapshot = {
+                ScheduleCacheSnapshot(
+                    serverIdentity = "srv",
+                    windows = emptyList(),
+                    freshness = ScheduleCacheFreshness.Stale,
+                    lastAttemptAtMillis = baseNow,
+                    lastSuccessAtMillis = null,
+                    lastError = "some raw error",
+                    errorKind = null
+                )
+            }
+        )
+        val result = repo.export(includeRecentLocations = false)
+
+        ZipFile(result.file).use { zip ->
+            val status = JSONObject(zip.readEntry("status.json")!!)
+            assertEquals("未知错误", status.getString("scheduleLastError"))
+        }
+    }
+
+    @Test
+    fun status_policyFieldsWithValues() = runTest {
+        val repo = createRepo(
+            runtimeSnapshot = {
+                ForegroundLocationRuntimeState(
+                    currentPolicyMode = "ScheduleLowFrequency",
+                    currentPolicyReason = "当前日程时段，降低定位频率",
+                    requestIntervalMillis = 300_000L
+                )
+            }
+        )
+        val result = repo.export(includeRecentLocations = false)
+
+        ZipFile(result.file).use { zip ->
+            val status = JSONObject(zip.readEntry("status.json")!!)
+            assertEquals("ScheduleLowFrequency", status.getString("currentPolicyMode"))
+            assertEquals("当前日程时段，降低定位频率", status.getString("currentPolicyReason"))
+            assertEquals(300_000L, status.getLong("currentPolicyRequestIntervalMillis"))
+        }
+    }
+
+    @Test
+    fun status_recentPolicyTransitions_limitedTo20_noIdField() = runTest {
+        for (i in 1..25) {
+            dao.insertPolicyTransition(
+                MobileLocationPolicyTransitionEntity(
+                    fromMode = if (i % 2 == 0) "A" else null,
+                    toMode = "B",
+                    reason = "reason-$i",
+                    occurredAtUtc = baseNow + i * 1000L
+                )
+            )
+        }
+
+        val repo = createRepo()
+        val result = repo.export(includeRecentLocations = false)
+
+        ZipFile(result.file).use { zip ->
+            val status = JSONObject(zip.readEntry("status.json")!!)
+            val arr = status.getJSONArray("recentPolicyTransitions")
+            assertEquals(20, arr.length())
+            assertEquals("reason-25", arr.getJSONObject(0).getString("reason"))
+            assertTrue(arr.getJSONObject(0).isNull("fromMode"))
+            assertEquals("A", arr.getJSONObject(1).getString("fromMode"))
+            assertEquals("reason-6", arr.getJSONObject(19).getString("reason"))
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                assertFalse(obj.has("id"))
+                assertTrue(obj.has("fromMode"))
+                assertTrue(obj.has("toMode"))
+                assertTrue(obj.has("reason"))
+                assertTrue(obj.has("occurredAtUtc"))
+            }
+        }
+    }
+
+    @Test
+    fun status_schedulePolicyFactsDontAddZipEntry() = runTest {
+        val repo = createRepo()
+        val result = repo.export(includeRecentLocations = false)
+
+        ZipFile(result.file).use { zip ->
+            val names = zip.entryNames()
+            val logNames = names.filter { it.startsWith("logs/") }.toSet()
+            assertEquals(coreEntries + logNames, names)
         }
     }
 

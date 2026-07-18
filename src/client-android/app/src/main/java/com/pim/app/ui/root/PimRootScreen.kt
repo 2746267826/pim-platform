@@ -48,7 +48,10 @@ fun PimRootScreen(initialDestination: PimDestination = PimDestination.Today) {
                     savedUrl = savedTracksUrl,
                     onUrlChanged = { savedTracksUrl = it }
                 )
-                PimDestination.Schedule -> SchedulePolicyScreen(modifier)
+                PimDestination.Schedule -> SchedulePolicyScreen(
+                    modifier = modifier,
+                    onOpenSettings = { selected = PimDestination.Settings }
+                )
                 PimDestination.Status -> StatusCenterScreen(
                     modifier = modifier,
                     onOpenSettings = { selected = PimDestination.Settings }

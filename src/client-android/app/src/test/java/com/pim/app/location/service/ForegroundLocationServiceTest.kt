@@ -11,18 +11,41 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.work.testing.WorkManagerTestInitHelper
 import com.pim.app.TestPimApp
 import com.pim.app.location.policy.LocationPolicyMode
+import com.pim.app.location.policy.PolicyDecision
+import com.pim.app.location.policy.ScheduleWindow
 import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.notifications.LocationNotificationRenderer
 import com.pim.app.notifications.LocationNotificationState
+import com.pim.app.schedule.ScheduleCacheDocument
+import com.pim.app.schedule.ScheduleCacheFreshness
+import com.pim.app.schedule.ScheduleCacheSnapshot
+import com.pim.app.schedule.ScheduleCacheStore
+import com.pim.app.schedule.ScheduleCacheWindow
 import com.pim.app.schedule.ScheduleWindowRepository
 import com.pim.app.settings.TrackingSettingsStore
+import com.pim.core.auth.AuthSessionSnapshot
+import com.pim.core.auth.AuthSessionStore
+import com.pim.core.models.ApiResponse
+import com.pim.core.models.EventResponse
 import com.pim.core.network.ApiService
+import com.pim.core.settings.PimServerEndpoints
+import com.pim.core.settings.ServerSettingsStore
+import java.io.IOException
 import java.lang.reflect.Proxy
+import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -37,6 +60,18 @@ import org.robolectric.annotation.LooperMode
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestPimApp::class)
 class ForegroundLocationServiceTest {
+    private val cacheDirs = mutableListOf<java.io.File>()
+
+    @org.junit.After
+    fun cleanUp() {
+        cacheDirs.forEach { it.deleteRecursively() }
+        cacheDirs.clear()
+    }
+
+    @Test
+    fun runtimeStateDefaultApiStateMatchesScheduleWaitingText() {
+        assertEquals("等待日程数据", ForegroundLocationRuntimeState().apiState)
+    }
 
     @Test
     fun resolveRequestIntervalPreservedBelowSixtySeconds() {
@@ -571,12 +606,23 @@ class ForegroundLocationServiceTest {
         } as ApiService
 
         val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
-        service.scheduleWindowRepository = ScheduleWindowRepository(apiService)
+        val testCacheDir = java.io.File(context.filesDir, "fg-test-cache-" + java.lang.System.nanoTime())
+        testCacheDir.mkdirs()
+        cacheDirs.add(testCacheDir)
+        val testCacheStore = com.pim.app.schedule.ScheduleCacheStore(testCacheDir, kotlinx.serialization.json.Json { ignoreUnknownKeys = true })
+        val testAuthStore = object : com.pim.core.auth.AuthSessionStore {
+            override fun snapshot() = com.pim.core.auth.AuthSessionSnapshot(null, null)
+            override fun save(accessToken: String, refreshToken: String, expiresAtUtcMillis: Long, serverIdentity: String) = true
+            override fun clear() = true
+        }
+        val testServerSettings = com.pim.core.settings.ServerSettingsStore(context, testAuthStore)
+        kotlin.runCatching { testServerSettings.setBaseUrl("http://127.0.0.1:5858/api/v1/") }
+        service.scheduleWindowRepository = ScheduleWindowRepository(apiService, testCacheStore, testServerSettings)
 
         val refresh = ForegroundLocationService::class.java
-            .getDeclaredMethod("refreshScheduleWindows")
+            .getDeclaredMethod("refreshScheduleWindows", Boolean::class.javaPrimitiveType)
             .apply { isAccessible = true }
-        refresh.invoke(service)
+        refresh.invoke(service, false)
 
         repeat(20) {
             Thread.sleep(25)
@@ -630,5 +676,680 @@ class ForegroundLocationServiceTest {
         assertFalse("STOP+SYNC 后不应有通知", nm.activeNotifications.any { it.id == LocationNotificationRenderer.NOTIFICATION_ID })
 
         service.onDestroy()
+    }
+
+    @Test
+    fun policyTransitionDeduperRecordsModeIntervalReasonChangesOnce() {
+        val deduper = PolicyTransitionDeduper()
+        val base = PolicyDecision(
+            mode = LocationPolicyMode.PowerSavingNormal,
+            requestIntervalMillis = 180_000L,
+            nextExpectedLocationAtMillis = 1_000L,
+            reason = "默认省电档",
+            scheduleLowFrequency = false
+        )
+
+        val first = deduper.note(base)
+        assertNotNull(first)
+        assertNull(first!!.fromMode)
+        assertEquals(LocationPolicyMode.PowerSavingNormal, first.decision.mode)
+
+        assertNull("完全相同 decision 不应再写", deduper.note(base))
+
+        val modeChanged = deduper.note(
+            base.copy(mode = LocationPolicyMode.ScheduleLowFrequency, scheduleLowFrequency = true, reason = "日程低频")
+        )
+        assertNotNull(modeChanged)
+        assertEquals(LocationPolicyMode.PowerSavingNormal, modeChanged!!.fromMode)
+        assertEquals(LocationPolicyMode.ScheduleLowFrequency, modeChanged.decision.mode)
+
+        val intervalChanged = deduper.note(
+            modeChanged.decision.copy(requestIntervalMillis = 300_000L)
+        )
+        assertNotNull(intervalChanged)
+        assertEquals(LocationPolicyMode.ScheduleLowFrequency, intervalChanged!!.fromMode)
+        assertEquals(300_000L, intervalChanged.decision.requestIntervalMillis)
+
+        val reasonChanged = deduper.note(
+            intervalChanged.decision.copy(reason = "原因变更")
+        )
+        assertNotNull(reasonChanged)
+        assertEquals("原因变更", reasonChanged!!.decision.reason)
+
+        assertNull(
+            deduper.note(reasonChanged.decision.copy(nextExpectedLocationAtMillis = 9_999L))
+        )
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun stoppingCollectionCancelsScheduleRefreshAndSnapshotJobs() {
+        val fixture = ScheduleServiceFixture()
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        fixture.api.started = started
+        fixture.api.block = release
+
+        val service = fixture.createService()
+        invokeRefresh(service)
+        idleUntil {
+            started.isCompleted &&
+                isScheduleRefreshJobActive(service) &&
+                isSnapshotCollectorActive(service)
+        }
+
+        invokeStopCollection(service)
+
+        assertTrue("停止采集后应取消日程刷新协程", readScheduleRefreshJob(service)!!.isCancelled)
+        assertTrue("停止采集后应取消日程快照收集协程", readSnapshotCollectorJob(service)!!.isCancelled)
+
+        release.complete(Unit)
+        service.onDestroy()
+        fixture.cleanup()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun refreshScheduleWindowsUsesRepositorySnapshotAndRuntimeFields() {
+        val fixture = ScheduleServiceFixture()
+        val now = System.currentTimeMillis()
+        val startIso = Instant.ofEpochMilli(now - 60_000L).toString()
+        val endIso = Instant.ofEpochMilli(now + 3_600_000L).toString()
+        fixture.api.events = listOf(
+            EventResponse(
+                id = "evt-1",
+                title = "会议",
+                location = "办公室",
+                dtStart = startIso,
+                dtEnd = endIso
+            )
+        )
+
+        val service = fixture.createService()
+        invokeRefresh(service)
+        idleUntil {
+            ForegroundLocationService.runtimeState.value.scheduleFreshness == ScheduleCacheFreshness.Fresh
+        }
+
+        assertEquals(1, fixture.api.callCount)
+        assertTrue("应走 refreshIfStale，不得调用 loadWindows 自定义范围", fixture.api.capturedStart != null)
+        val runtime = ForegroundLocationService.runtimeState.value
+        assertEquals(ScheduleCacheFreshness.Fresh, runtime.scheduleFreshness)
+        assertNotNull(runtime.scheduleLastSuccessAtMillis)
+        assertNotNull(runtime.scheduleLastAttemptAtMillis)
+        assertNull(runtime.scheduleLastError)
+        assertEquals("正常", runtime.apiState)
+        assertEquals(
+            listOf("evt-1"),
+            readScheduleWindows(service).map { it.id }
+        )
+        service.onDestroy()
+        fixture.cleanup()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun refreshFailureKeepsStaleWindowsAndCollectionIntent() {
+        val fixture = ScheduleServiceFixture()
+        val identity = PimServerEndpoints.from(fixture.serverSettings.getBaseUrl()).apiBaseUrl.toString()
+        val oldWindow = ScheduleCacheWindow(
+            id = "cached",
+            title = "旧会议",
+            locationText = "A",
+            startsAtMillis = 1_000L,
+            endsAtMillis = 2_000L
+        )
+        fixture.cacheStore.write(
+            identity,
+            ScheduleCacheDocument(
+                windows = listOf(oldWindow),
+                rangeStartMillis = 0L,
+                rangeEndMillis = 10_000L,
+                lastAttemptAtMillis = 100L,
+                lastSuccessAtMillis = 100L,
+                lastError = null,
+                lastErrorKind = null
+            )
+        )
+        fixture.store.setContinuousCollectionEnabled(true)
+        assertTrue(fixture.store.read().continuousCollectionEnabled)
+
+        fixture.api.failNext = IOException("network down")
+        val service = fixture.createService()
+        invokeRefresh(service)
+        idleUntil {
+            ForegroundLocationService.runtimeState.value.scheduleLastError != null
+        }
+
+        val runtime = ForegroundLocationService.runtimeState.value
+        assertEquals(ScheduleCacheFreshness.Stale, runtime.scheduleFreshness)
+        assertEquals("网络不可用", runtime.scheduleLastError)
+        assertEquals("日程缓存可能过期", runtime.apiState)
+        assertEquals(listOf("cached"), readScheduleWindows(service).map { it.id })
+        assertTrue(
+            "刷新失败不得关闭 continuousCollectionEnabled",
+            fixture.store.read().continuousCollectionEnabled
+        )
+        service.onDestroy()
+        fixture.cleanup()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun serverIdentityChangeClearsOldWindowsBeforeNewSnapshot() {
+        val fixture = ScheduleServiceFixture()
+        val oldIdentity = PimServerEndpoints.from(fixture.serverSettings.getBaseUrl()).apiBaseUrl.toString()
+        fixture.cacheStore.write(
+            oldIdentity,
+            ScheduleCacheDocument(
+                windows = listOf(
+                    ScheduleCacheWindow("old-server", "旧服", "", 1_000L, 2_000L)
+                ),
+                rangeStartMillis = 0L,
+                rangeEndMillis = 10_000L,
+                lastAttemptAtMillis = 50L,
+                lastSuccessAtMillis = 50L,
+                lastError = null,
+                lastErrorKind = null
+            )
+        )
+
+        // Seed service memory with old windows via first successful refresh.
+        fixture.api.events = listOf(
+            EventResponse(
+                id = "old-server",
+                title = "旧服",
+                location = null,
+                dtStart = Instant.ofEpochMilli(1_000L).toString(),
+                dtEnd = Instant.ofEpochMilli(2_000L).toString()
+            )
+        )
+        val service = fixture.createService()
+        invokeRefresh(service)
+        idleUntil { readScheduleWindows(service).any { it.id == "old-server" } }
+        // Repository may publish before the Main refresh job resumes; wait until it finishes
+        // so the next refresh is not skipped by scheduleRefreshJob?.isActive.
+        idleUntil { !isScheduleRefreshJobActive(service) }
+
+        // Switch server; next refresh must clear old windows before applying new ones.
+        fixture.serverSettings.setBaseUrl("http://other-server:5858/api/v1/")
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        fixture.api.started = started
+        fixture.api.block = release
+        fixture.api.events = listOf(
+            EventResponse(
+                id = "new-server",
+                title = "新服",
+                location = null,
+                dtStart = Instant.ofEpochMilli(3_000L).toString(),
+                dtEnd = Instant.ofEpochMilli(4_000L).toString()
+            )
+        )
+
+        invokeRefresh(service)
+        // PAUSED looper: drain Main so the refresh job can reach Dispatchers.IO/API.
+        idleUntil(timeoutMillis = 5_000L) { started.isCompleted }
+        idleUntil(timeoutMillis = 5_000L) {
+            readScheduleWindows(service).isEmpty()
+        }
+        assertTrue(
+            "server identity 变化后应先清空旧窗口",
+            readScheduleWindows(service).isEmpty()
+        )
+        release.complete(Unit)
+        idleUntil { readScheduleWindows(service).any { it.id == "new-server" } }
+        assertEquals(listOf("new-server"), readScheduleWindows(service).map { it.id })
+        service.onDestroy()
+        fixture.cleanup()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun applyDecisionDedupesTransitionsAndPublishesRuntimePolicyFields() {
+        val recorded = CopyOnWriteArrayList<Pair<LocationPolicyMode?, PolicyDecision>>()
+        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        setPolicyTransitionWriter(service) { from, decision ->
+            recorded += from to decision
+        }
+
+        val d1 = PolicyDecision(
+            mode = LocationPolicyMode.PowerSavingNormal,
+            requestIntervalMillis = 180_000L,
+            nextExpectedLocationAtMillis = 1_000L,
+            reason = "默认省电档",
+            scheduleLowFrequency = false
+        )
+        val d2 = d1.copy(mode = LocationPolicyMode.ScheduleLowFrequency, reason = "日程低频", scheduleLowFrequency = true)
+        val d3 = d2.copy(requestIntervalMillis = 300_000L)
+        val d4 = d3.copy(reason = "原因变更")
+
+        invokeApplyDecision(service, d1)
+        invokeApplyDecision(service, d1)
+        invokeApplyDecision(service, d2)
+        invokeApplyDecision(service, d3)
+        invokeApplyDecision(service, d4)
+        invokeApplyDecision(service, d4.copy(nextExpectedLocationAtMillis = 99_000L))
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(4, recorded.size)
+        assertNull(recorded[0].first)
+        assertEquals(LocationPolicyMode.PowerSavingNormal, recorded[0].second.mode)
+        assertEquals(LocationPolicyMode.PowerSavingNormal, recorded[1].first)
+        assertEquals(LocationPolicyMode.ScheduleLowFrequency, recorded[1].second.mode)
+        assertEquals(LocationPolicyMode.ScheduleLowFrequency, recorded[2].first)
+        assertEquals(300_000L, recorded[2].second.requestIntervalMillis)
+        assertEquals("原因变更", recorded[3].second.reason)
+
+        val runtime = ForegroundLocationService.runtimeState.value
+        assertEquals(LocationPolicyMode.ScheduleLowFrequency.name, runtime.currentPolicyMode)
+        assertEquals("原因变更", runtime.currentPolicyReason)
+        assertEquals(300_000L, runtime.requestIntervalMillis)
+
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun cancelledScheduleRefreshDoesNotMarkApiFailureOrClearCollection() {
+        val fixture = ScheduleServiceFixture()
+        fixture.store.setContinuousCollectionEnabled(true)
+        fixture.api.failNext = CancellationException("test cancellation")
+
+        val nm = fixture.context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        val service = fixture.createService()
+        invokeRefresh(service)
+        repeat(10) {
+            shadowOf(Looper.getMainLooper()).idle()
+        }
+
+        val runtime = ForegroundLocationService.runtimeState.value
+        assertNotEquals("API 无法连接", runtime.apiState)
+        assertFalse(
+            (runtime.apiState ?: "").contains("API 失败") ||
+                (runtime.apiState ?: "").contains("API 无法连接")
+        )
+        assertTrue(fixture.store.read().continuousCollectionEnabled)
+        service.onDestroy()
+        fixture.cleanup()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun emptySuccessfulScheduleFollowedByFailureShowsStaleCacheState() {
+        val fixture = ScheduleServiceFixture()
+        val identity = PimServerEndpoints.from(fixture.serverSettings.getBaseUrl()).apiBaseUrl.toString()
+        fixture.cacheStore.write(
+            identity,
+            ScheduleCacheDocument(
+                windows = emptyList(),
+                rangeStartMillis = 0L,
+                rangeEndMillis = 10_000L,
+                lastAttemptAtMillis = 100L,
+                lastSuccessAtMillis = 100L,
+                lastError = null,
+                lastErrorKind = null
+            )
+        )
+        fixture.api.failNext = IOException("network down")
+
+        val service = fixture.createService()
+        invokeRefresh(service)
+        idleUntil { ForegroundLocationService.runtimeState.value.scheduleLastError != null }
+
+        assertEquals(ScheduleCacheFreshness.Stale, ForegroundLocationService.runtimeState.value.scheduleFreshness)
+        assertEquals("日程缓存可能过期", ForegroundLocationService.runtimeState.value.apiState)
+        service.onDestroy()
+        fixture.cleanup()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun destroyingServicePreservesPublishedScheduleFacts() {
+        val fixture = ScheduleServiceFixture()
+        val now = System.currentTimeMillis()
+        fixture.api.events = listOf(
+            EventResponse(
+                id = "persisted-fact",
+                title = "事实",
+                location = null,
+                dtStart = Instant.ofEpochMilli(now - 1_000L).toString(),
+                dtEnd = Instant.ofEpochMilli(now + 60_000L).toString()
+            )
+        )
+
+        val service = fixture.createService()
+        invokeRefresh(service)
+        idleUntil { ForegroundLocationService.runtimeState.value.scheduleFreshness == ScheduleCacheFreshness.Fresh }
+        val before = ForegroundLocationService.runtimeState.value
+
+        service.onDestroy()
+
+        val after = ForegroundLocationService.runtimeState.value
+        assertEquals(false, after.isRunning)
+        assertEquals(before.scheduleFreshness, after.scheduleFreshness)
+        assertEquals(before.scheduleLastSuccessAtMillis, after.scheduleLastSuccessAtMillis)
+        assertEquals(before.scheduleLastAttemptAtMillis, after.scheduleLastAttemptAtMillis)
+        fixture.cleanup()
+    }
+
+    @Test
+    fun serviceUsesRepositorySnapshotInsteadOfSecondScheduleList() {
+        val relativePath = "app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt"
+        val source = sequenceOf(
+            java.io.File(relativePath),
+            java.io.File(relativePath.removePrefix("app/")),
+            java.io.File("..", relativePath)
+        ).firstOrNull { it.isFile }?.readText()
+            ?: error("source not found for $relativePath (cwd=${java.io.File(".").absolutePath})")
+
+        assertFalse("service must not maintain a second schedule list", source.contains("private var scheduleWindows"))
+        assertTrue(
+            "location policy must read repository snapshot",
+            source.contains("scheduleWindowRepository.snapshotForCurrentServer()") ||
+                source.contains("scheduleWindowRepository.snapshot.value.windows")
+        )
+    }
+
+    @Test
+    fun acceptedLocationDecisionBranchRefreshesNotification() {
+        val relativePath = "app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt"
+        val source = sequenceOf(
+            java.io.File(relativePath),
+            java.io.File(relativePath.removePrefix("app/")),
+            java.io.File("..", relativePath)
+        ).firstOrNull { it.isFile }?.readText()
+            ?: error("source not found for $relativePath (cwd=${java.io.File(".").absolutePath})")
+
+        val decisionBranch = source
+            .substringAfter("if (reduced != null) {")
+            .substringBefore("} else {")
+        assertTrue("accepted decision branch must apply the reduced policy", decisionBranch.contains("applyDecision(reduced)"))
+        assertTrue("accepted decision branch must refresh the notification", decisionBranch.contains("updateNotification()"))
+        assertTrue(
+            "accepted decision branch must guard requestLocationUpdates with reduced.requestIntervalMillis > 0L",
+            decisionBranch.contains("if (reduced.requestIntervalMillis > 0L)")
+        )
+        assertTrue(
+            "accepted decision branch must request location updates with reduced interval",
+            decisionBranch.contains("requestLocationUpdates(reduced.requestIntervalMillis)")
+        )
+    }
+
+    @Test
+    fun freshSnapshotWithCacheErrorIsNotReportedAsNormal() {
+        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val method = ForegroundLocationService::class.java
+            .getDeclaredMethod("scheduleApiStateText", ScheduleCacheSnapshot::class.java)
+            .apply { isAccessible = true }
+        val text = method.invoke(
+            service,
+            ScheduleCacheSnapshot(
+                serverIdentity = "https://server.example",
+                windows = emptyList(),
+                freshness = ScheduleCacheFreshness.Fresh,
+                lastAttemptAtMillis = 2L,
+                lastSuccessAtMillis = 2L,
+                lastError = "本地日程缓存不可用",
+                errorKind = com.pim.app.schedule.ScheduleRefreshErrorKind.Cache
+            )
+        ) as String
+
+        assertEquals("日程缓存异常", text)
+        service.onDestroy()
+    }
+
+    @Test
+    fun staleSnapshotWithoutErrorIsNotNormal() {
+        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val method = ForegroundLocationService::class.java
+            .getDeclaredMethod("scheduleApiStateText", ScheduleCacheSnapshot::class.java)
+            .apply { isAccessible = true }
+        val text = method.invoke(
+            service,
+            ScheduleCacheSnapshot(
+                serverIdentity = "https://server.example",
+                windows = emptyList(),
+                freshness = ScheduleCacheFreshness.Stale,
+                lastAttemptAtMillis = 100L,
+                lastSuccessAtMillis = 100L,
+                lastError = null,
+                errorKind = null
+            )
+        ) as String
+
+        assertEquals("日程缓存可能过期", text)
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun policyTransitionWriterDoesNotSwallowCancellation() {
+        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        setPolicyTransitionWriter(service) { _, _ ->
+            throw CancellationException("cancel transition write")
+        }
+
+        invokeApplyDecision(
+            service,
+            PolicyDecision(
+                mode = LocationPolicyMode.MotionObservation,
+                requestIntervalMillis = 30_000L,
+                nextExpectedLocationAtMillis = 1_000L,
+                reason = "测试运动",
+                scheduleLowFrequency = false
+            )
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val field = ForegroundLocationService::class.java
+            .getDeclaredField("policyTransitionWriteJob")
+            .apply { isAccessible = true }
+        assertTrue("取消必须传递到策略写入协程", (field.get(service) as Job).isCancelled)
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun policyTransitionWritesDoNotDropRapidChanges() {
+        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val recorded = CopyOnWriteArrayList<String>()
+        var first = true
+        setPolicyTransitionWriter(service) { _, decision ->
+            if (first) {
+                first = false
+                started.complete(Unit)
+                release.await()
+            }
+            recorded += decision.reason
+        }
+
+        val firstDecision = PolicyDecision(
+            mode = LocationPolicyMode.PowerSavingNormal,
+            requestIntervalMillis = 180_000L,
+            nextExpectedLocationAtMillis = 1_000L,
+            reason = "第一条",
+            scheduleLowFrequency = false
+        )
+        val secondDecision = firstDecision.copy(
+            mode = LocationPolicyMode.MotionObservation,
+            requestIntervalMillis = 30_000L,
+            reason = "第二条"
+        )
+        invokeApplyDecision(service, firstDecision)
+        runBlocking { withTimeout(5_000) { started.await() } }
+        invokeApplyDecision(service, secondDecision)
+        release.complete(Unit)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(listOf("第一条", "第二条"), recorded.toList())
+        service.onDestroy()
+    }
+
+    private fun invokeRefresh(service: ForegroundLocationService) {
+        ForegroundLocationService::class.java
+            .getDeclaredMethod("refreshScheduleWindows", Boolean::class.javaPrimitiveType)
+            .apply { isAccessible = true }
+            .invoke(service, false)
+    }
+
+    private fun invokeApplyDecision(service: ForegroundLocationService, decision: PolicyDecision) {
+        ForegroundLocationService::class.java
+            .getDeclaredMethod(
+                "applyDecision",
+                PolicyDecision::class.java,
+                Boolean::class.javaPrimitiveType
+            )
+            .apply { isAccessible = true }
+            .invoke(service, decision, true)
+    }
+
+    private fun readScheduleWindows(service: ForegroundLocationService): List<ScheduleWindow> {
+        return service.scheduleWindowRepository.snapshot.value.windows
+    }
+
+    private fun isScheduleRefreshJobActive(service: ForegroundLocationService): Boolean {
+        return readScheduleRefreshJob(service)?.isActive == true
+    }
+
+    private fun isSnapshotCollectorActive(service: ForegroundLocationService): Boolean {
+        return readSnapshotCollectorJob(service)?.isActive == true
+    }
+
+    private fun readScheduleRefreshJob(service: ForegroundLocationService): Job? {
+        val field = ForegroundLocationService::class.java.getDeclaredField("scheduleRefreshJob")
+        field.isAccessible = true
+        return field.get(service) as Job?
+    }
+
+    private fun readSnapshotCollectorJob(service: ForegroundLocationService): Job? {
+        val field = ForegroundLocationService::class.java.getDeclaredField("snapshotCollectJob")
+        field.isAccessible = true
+        return field.get(service) as Job?
+    }
+
+    private fun invokeStopCollection(service: ForegroundLocationService) {
+        ForegroundLocationService::class.java
+            .getDeclaredMethod("stopCollection")
+            .apply { isAccessible = true }
+            .invoke(service)
+    }
+
+    private fun setPolicyTransitionWriter(
+        service: ForegroundLocationService,
+        writer: suspend (LocationPolicyMode?, PolicyDecision) -> Unit
+    ) {
+        val field = ForegroundLocationService::class.java.getDeclaredField("policyTransitionWriter")
+        field.isAccessible = true
+        field.set(service, writer)
+    }
+
+    private fun idleUntil(timeoutMillis: Long = 5_000L, predicate: () -> Boolean) {
+        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis)
+        while (!predicate()) {
+            shadowOf(Looper.getMainLooper()).idle()
+            if (System.nanoTime() > deadline) {
+                throw AssertionError("condition not met within ${timeoutMillis}ms")
+            }
+            Thread.yield()
+        }
+        shadowOf(Looper.getMainLooper()).idle()
+    }
+
+    private class ScheduleServiceFixture {
+        val context: Application = ApplicationProvider.getApplicationContext()
+        val prefs = context.getSharedPreferences(
+            "fg_schedule_fixture_" + System.nanoTime(),
+            Context.MODE_PRIVATE
+        ).also { it.edit().clear().commit() }
+        val store = TrackingSettingsStore(prefs)
+        val cacheDir = java.io.File(context.filesDir, "fg-schedule-cache-" + System.nanoTime()).also {
+            it.mkdirs()
+        }
+        val cacheStore = ScheduleCacheStore(cacheDir, Json { ignoreUnknownKeys = true })
+        val authStore = object : AuthSessionStore {
+            override fun snapshot() = AuthSessionSnapshot(null, null)
+            override fun save(
+                accessToken: String,
+                refreshToken: String,
+                expiresAtUtcMillis: Long,
+                serverIdentity: String
+            ) = true
+            override fun clear() = true
+        }
+        val serverSettings = ServerSettingsStore(context, authStore).also {
+            it.setBaseUrl("http://test-server:5858/api/v1/")
+        }
+        val api = GatedApiService()
+        val repository = ScheduleWindowRepository(api, cacheStore, serverSettings)
+
+        fun createService(): ForegroundLocationService {
+            val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+            service.trackingSettingsStore = store
+            service.scheduleWindowRepository = repository
+            return service
+        }
+
+        fun cleanup() {
+            cacheDir.deleteRecursively()
+        }
+    }
+
+    private class GatedApiService : ApiService {
+        var events: List<EventResponse> = emptyList()
+        var failNext: Throwable? = null
+        var callCount = 0
+        var block: CompletableDeferred<Unit>? = null
+        var started: CompletableDeferred<Unit>? = null
+        var capturedStart: String? = null
+        var capturedEnd: String? = null
+
+        override suspend fun getEvents(start: String, end: String): ApiResponse<List<EventResponse>> {
+            callCount++
+            capturedStart = start
+            capturedEnd = end
+            started?.complete(Unit)
+            block?.await()
+            failNext?.let { t ->
+                failNext = null
+                throw t
+            }
+            return ApiResponse(code = 0, message = "ok", data = events)
+        }
+
+        override suspend fun login(body: com.pim.core.models.LoginRequest) = error("not mocked")
+        override suspend fun register(body: com.pim.core.models.RegisterRequest) = error("not mocked")
+        override suspend fun refresh(body: com.pim.core.models.RefreshRequest) = error("not mocked")
+        override suspend fun getCalendars() = error("not mocked")
+        override suspend fun createCalendar(body: com.pim.core.models.CreateCalendarRequest) = error("not mocked")
+        override suspend fun createEvent(body: com.pim.core.models.CreateEventRequest) = error("not mocked")
+        override suspend fun updateEvent(id: String, body: com.pim.core.models.CreateEventRequest) = error("not mocked")
+        override suspend fun deleteEvent(id: String) = error("not mocked")
+        override suspend fun getTasks(inbox: Boolean?) = error("not mocked")
+        override suspend fun createTask(body: com.pim.core.models.CreateTaskRequest) = error("not mocked")
+        override suspend fun updateTask(id: String, body: com.pim.core.models.CreateTaskRequest) = error("not mocked")
+        override suspend fun deleteTask(id: String) = error("not mocked")
+        override suspend fun search(query: String, type: String?) = error("not mocked")
+        override suspend fun importIcs(body: okhttp3.RequestBody) = error("not mocked")
+        override suspend fun exportIcs(start: String, end: String) = error("not mocked")
+        override suspend fun syncOutlook() = error("not mocked")
+        override suspend fun uploadStats(batch: com.pim.core.models.UploadBatch) = error("not mocked")
+        override suspend fun registerMobileDevice(body: com.pim.core.models.MobileDeviceRegisterRequest) = error("not mocked")
+        override suspend fun getMobileGaps(body: com.pim.core.models.MobileGapRequest) = error("not mocked")
+        override suspend fun uploadMobileUsage(body: com.pim.core.models.MobileUsageEventsUploadRequest) = error("not mocked")
+        override suspend fun uploadMobileLocation(body: com.pim.core.models.MobileLocationPointRequest) = error("not mocked")
+        override suspend fun getMobileSummary(date: String?, deviceId: String?) = error("not mocked")
+        override suspend fun getMobileTimeline(date: String?, deviceId: String?) = error("not mocked")
+        override suspend fun getMobileQuality(date: String?, deviceId: String?, rangeStartUtc: String?, rangeEndUtc: String?) = error("not mocked")
+        override suspend fun getMobileLocationHistory(rangeStartUtc: String?, rangeEndUtc: String?, deviceId: String?, maxAccuracyMeters: Double, includeRejected: Boolean, cursor: String?, pageSize: Int?) = error("not mocked")
+        override suspend fun getMobileLocationOverview(rangeStartUtc: String, rangeEndUtc: String, deviceId: String?, maxAccuracyMeters: Double) = error("not mocked")
+        override suspend fun getMobileLocationTracks(rangeStartUtc: String, rangeEndUtc: String, deviceId: String?, maxAccuracyMeters: Double) = error("not mocked")
+        override suspend fun getMobileLocationSegmentPoints(segmentId: String, rangeStartUtc: String?, rangeEndUtc: String?, timezone: String?, deviceId: String?, maxAccuracyMeters: Double, includeRejected: Boolean, cursor: String?, pageSize: Int?) = error("not mocked")
+        override suspend fun sendHeartbeat(body: com.pim.core.models.DaemonHeartbeatRequest) = error("not mocked")
+        override suspend fun sendEndpointNotificationAction(deviceId: String, body: com.pim.core.models.EndpointNotificationActionRequestDto) = error("not mocked")
     }
 }

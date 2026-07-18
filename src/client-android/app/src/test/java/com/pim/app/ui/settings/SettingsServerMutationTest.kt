@@ -12,6 +12,9 @@ import androidx.work.WorkManager
 import androidx.work.testing.WorkManagerTestInitHelper
 import com.pim.app.TestPimApp
 import com.pim.app.location.service.ForegroundLocationController
+import com.pim.app.schedule.ScheduleCacheStore
+import com.pim.app.schedule.ScheduleCacheWindow
+import com.pim.app.schedule.ScheduleCacheDocument
 import com.pim.app.status.PermissionStatusSnapshot
 import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.mobile.usage.UsageAccessChecker
@@ -64,6 +67,7 @@ import kotlinx.coroutines.CompletableDeferred
 class SettingsServerMutationTest {
     private val mainDispatcher = UnconfinedTestDispatcher()
     private lateinit var context: Context
+    private val cacheDirs = mutableListOf<File>()
 
     @Before
     fun setUp() {
@@ -85,6 +89,8 @@ class SettingsServerMutationTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        cacheDirs.forEach { it.deleteRecursively() }
+        cacheDirs.clear()
     }
 
     @Test
@@ -324,6 +330,115 @@ class SettingsServerMutationTest {
         assertEquals(false, stored.continuousCollectionEnabled)
         assertFalse(fixture.viewModel.state.value.continuousCollectionEnabled)
         assertEquals("持续采集已关闭。", fixture.viewModel.state.value.collectionStatus)
+    }
+
+    @Test
+    fun `saveApiAddress success clears old server cache when identity changes`() {
+        val fixture = fixture()
+        fixture.scheduleCacheStore.write(
+            SERVER_A_CACHE_IDENTITY,
+            ScheduleCacheDocument(windows = listOf(ScheduleCacheWindow("1", "a", "", 100L, 200L)), rangeStartMillis = 100L, rangeEndMillis = 200L)
+        )
+        fixture.scheduleCacheStore.write(
+            SERVER_B_CACHE_IDENTITY,
+            ScheduleCacheDocument(windows = listOf(ScheduleCacheWindow("2", "b", "", 100L, 200L)), rangeStartMillis = 100L, rangeEndMillis = 200L)
+        )
+        assertNotNull(fixture.scheduleCacheStore.read(SERVER_A_CACHE_IDENTITY))
+
+        fixture.viewModel.updateApiAddress(SERVER_B_URL)
+        assertTrue(fixture.viewModel.saveApiAddress())
+
+        assertNull("old server cache must be cleared", fixture.scheduleCacheStore.read(SERVER_A_CACHE_IDENTITY))
+        assertNotNull("new server cache must remain", fixture.scheduleCacheStore.read(SERVER_B_CACHE_IDENTITY))
+    }
+
+    @Test
+    fun `saveApiAddress validation failure does not clear cache`() {
+        val fixture = fixture()
+        fixture.scheduleCacheStore.write(
+            SERVER_A_CACHE_IDENTITY,
+            ScheduleCacheDocument(windows = listOf(ScheduleCacheWindow("1", "a", "", 100L, 200L)), rangeStartMillis = 100L, rangeEndMillis = 200L)
+        )
+
+        fixture.viewModel.updateApiAddress("not-a-valid-url")
+        assertFalse(fixture.viewModel.saveApiAddress())
+
+        assertNotNull("cache must not be cleared on validation failure", fixture.scheduleCacheStore.read(SERVER_A_CACHE_IDENTITY))
+    }
+
+    @Test
+    fun `saveApiAddress commit failure does not clear cache`() {
+        val fixture = fixture()
+        fixture.scheduleCacheStore.write(
+            SERVER_A_CACHE_IDENTITY,
+            ScheduleCacheDocument(windows = listOf(ScheduleCacheWindow("1", "a", "", 100L, 200L)), rangeStartMillis = 100L, rangeEndMillis = 200L)
+        )
+        fixture.serverPreferences.enqueueCommitResult(false)
+
+        fixture.viewModel.updateApiAddress(SERVER_B_URL)
+        assertFalse(fixture.viewModel.saveApiAddress())
+
+        assertNotNull("cache must not be cleared when save fails", fixture.scheduleCacheStore.read(SERVER_A_CACHE_IDENTITY))
+    }
+
+    @Test
+    fun `setContinuousCollectionEnabled success switch clears old server cache`() {
+        val fixture = fixture()
+        fixture.scheduleCacheStore.write(
+            SERVER_A_CACHE_IDENTITY,
+            ScheduleCacheDocument(windows = listOf(ScheduleCacheWindow("1", "a", "", 100L, 200L)), rangeStartMillis = 100L, rangeEndMillis = 200L)
+        )
+        fixture.scheduleCacheStore.write(
+            SERVER_B_CACHE_IDENTITY,
+            ScheduleCacheDocument(windows = listOf(ScheduleCacheWindow("2", "b", "", 100L, 200L)), rangeStartMillis = 100L, rangeEndMillis = 200L)
+        )
+
+        fixture.viewModel.updateApiAddress(SERVER_B_URL)
+        fixture.viewModel.setContinuousCollectionEnabled(true)
+
+        assertNull("old server cache must be cleared", fixture.scheduleCacheStore.read(SERVER_A_CACHE_IDENTITY))
+        assertNotNull("new server cache must remain", fixture.scheduleCacheStore.read(SERVER_B_CACHE_IDENTITY))
+    }
+
+    @Test
+    fun `setContinuousCollectionEnabled commit failure does not clear cache`() {
+        val fixture = fixture()
+        fixture.scheduleCacheStore.write(
+            SERVER_A_CACHE_IDENTITY,
+            ScheduleCacheDocument(windows = listOf(ScheduleCacheWindow("1", "a", "", 100L, 200L)), rangeStartMillis = 100L, rangeEndMillis = 200L)
+        )
+        fixture.serverPreferences.enqueueCommitResult(false)
+
+        fixture.viewModel.updateApiAddress(SERVER_B_URL)
+        fixture.viewModel.setContinuousCollectionEnabled(true)
+
+        assertNotNull("cache must not be cleared when save fails", fixture.scheduleCacheStore.read(SERVER_A_CACHE_IDENTITY))
+    }
+
+    @Test
+    fun `logout success clears current server cache`() {
+        val fixture = fixture()
+        fixture.scheduleCacheStore.write(
+            SERVER_A_CACHE_IDENTITY,
+            ScheduleCacheDocument(windows = listOf(ScheduleCacheWindow("1", "a", "", 100L, 200L)), rangeStartMillis = 100L, rangeEndMillis = 200L)
+        )
+
+        fixture.viewModel.logout()
+
+        assertNull("current server cache must be cleared on logout", fixture.scheduleCacheStore.read(SERVER_A_CACHE_IDENTITY))
+    }
+
+    @Test
+    fun `logout token clear failure does not clear cache`() {
+        val fixture = fixture(failSessionClear = true)
+        fixture.scheduleCacheStore.write(
+            SERVER_A_CACHE_IDENTITY,
+            ScheduleCacheDocument(windows = listOf(ScheduleCacheWindow("1", "a", "", 100L, 200L)), rangeStartMillis = 100L, rangeEndMillis = 200L)
+        )
+
+        fixture.viewModel.logout()
+
+        assertNotNull("cache must not be cleared when token clear fails", fixture.scheduleCacheStore.read(SERVER_A_CACHE_IDENTITY))
     }
 
     @Test
@@ -648,10 +763,28 @@ class SettingsServerMutationTest {
 
     @Test
     fun automaticSettingsProbeIsSilentOnFailure() {
-        val fixture = fixture(probeFailure = IllegalStateException("boom"))
-
+        val fixture = fixture(probeFailure = IllegalStateException("SECRET_URL_OR_PATH"))
+        fixture.viewModel.refresh()
+        mainDispatcher.scheduler.advanceUntilIdle()
         val state = fixture.viewModel.state.value
         assertNull("auto probe must not set apiStatus on failure", state.apiStatus)
+    }
+
+    @Test
+    fun `login failure does not leak raw exception message`() {
+        val fixture = fixture(
+            loginTransport = { _, _ -> throw IllegalStateException("SECRET_URL_OR_PATH") }
+        )
+        fixture.viewModel.login("valid_user", "valid_pass")
+        mainDispatcher.scheduler.advanceUntilIdle()
+
+        val state = fixture.viewModel.state.value
+        assertNotNull(state.loginStatus)
+        assertFalse(
+            "loginStatus must not contain raw exception message",
+            state.loginStatus!!.contains("SECRET_URL_OR_PATH")
+        )
+        assertEquals("登录失败，请重试", state.loginStatus)
     }
 
     @Test
@@ -777,8 +910,12 @@ class SettingsServerMutationTest {
         onProbeStarted: () -> Unit = {},
         diagnosticClearFails: Boolean = false,
         onEnsureRunningState: () -> Unit = {},
-        isServiceRunning: () -> Boolean = { ForegroundLocationService.isRunning() }
+        isServiceRunning: () -> Boolean = { ForegroundLocationService.isRunning() },
+        loginTransport: ServerBoundLoginTransport? = null
     ): Fixture {
+        val cacheDir = File(context.filesDir, "settings-cache-test-" + System.nanoTime())
+        cacheDir.mkdirs()
+        cacheDirs.add(cacheDir)
         val serverPreferences = ScriptedCommitSharedPreferences(
             context.getSharedPreferences(SERVER_PREFS, Context.MODE_PRIVATE)
         )
@@ -799,10 +936,11 @@ class SettingsServerMutationTest {
             context.getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
         )
         trackingSettings.setContinuousCollectionEnabled(true)
+        val transport = loginTransport ?: ServerBoundLoginTransport { _, _ -> error("login transport is not used") }
         val coordinator = ServerBoundLoginCoordinator(
             serverSettings,
             tokenManager,
-            ServerBoundLoginTransport { _, _ -> error("login transport is not used") }
+            transport
         )
         val probeStore = ConnectionProbeStore(
             context.getSharedPreferences(PROBE_PREFS, Context.MODE_PRIVATE),
@@ -843,6 +981,7 @@ class SettingsServerMutationTest {
             isServiceRunning = isServiceRunning,
             startCollection = { foregroundLocationController.start() }
         )
+        val scheduleCacheStore = ScheduleCacheStore(cacheDir, Json { ignoreUnknownKeys = true })
         val viewModel = SettingsViewModel(
             serverSettingsStore = serverSettings,
             tokenManager = tokenManager,
@@ -854,7 +993,8 @@ class SettingsServerMutationTest {
             connectionProbeStore = probeStore,
             mobileSyncScheduler = mobileSyncScheduler,
             diagnosticOperations = diagnosticOperations,
-            runningStateRestorer = runningStateRestorer
+            runningStateRestorer = runningStateRestorer,
+            scheduleCacheStore = scheduleCacheStore
         )
         return Fixture(
             viewModel = viewModel,
@@ -865,7 +1005,8 @@ class SettingsServerMutationTest {
             mobileSyncScheduler = mobileSyncScheduler,
             permissionStatusRepository = permissionStatusRepository,
             probeStore = probeStore,
-            diagnosticOperations = diagnosticOperations
+            diagnosticOperations = diagnosticOperations,
+            scheduleCacheStore = scheduleCacheStore
         )
     }
 
@@ -892,7 +1033,8 @@ class SettingsServerMutationTest {
         val mobileSyncScheduler: MobileSyncScheduler,
         val permissionStatusRepository: PermissionStatusRepository,
         val probeStore: ConnectionProbeStore,
-        val diagnosticOperations: FakeDiagnosticOperations
+        val diagnosticOperations: FakeDiagnosticOperations,
+        val scheduleCacheStore: ScheduleCacheStore
     )
 
     private companion object {
@@ -903,6 +1045,8 @@ class SettingsServerMutationTest {
         const val SERVER_A_URL = "https://server-a.example/api/v1/"
         const val SERVER_B_URL = "https://server-b.example/api/v1/"
         const val SERVER_A_IDENTITY = "https://server-a.example"
+        val SERVER_A_CACHE_IDENTITY = PimServerEndpoints.from(SERVER_A_URL).apiBaseUrl.toString()
+        val SERVER_B_CACHE_IDENTITY = PimServerEndpoints.from(SERVER_B_URL).apiBaseUrl.toString()
     }
 }
 

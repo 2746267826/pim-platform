@@ -1,5 +1,7 @@
 package com.pim.app.status
 
+import com.pim.app.schedule.ScheduleCacheFreshness
+
 object StatusDisplayText {
     fun apiReason(code: String?): String = when (code) {
         null, "" -> "暂无"
@@ -36,10 +38,38 @@ object StatusDisplayText {
         else -> "未知状态"
     }
 
+    fun scheduleFreshness(freshness: ScheduleCacheFreshness): String = when (freshness) {
+        ScheduleCacheFreshness.Fresh -> "新鲜"
+        ScheduleCacheFreshness.Stale -> "可能过期"
+        ScheduleCacheFreshness.Missing -> "暂无"
+    }
+
+    fun scheduleReason(reason: String?): String = when {
+        reason.isNullOrBlank() -> "暂无"
+        reason in SAFE_SCHEDULE_REASONS -> reason
+        reason.matches(SCHEDULE_DISTANCE_REASON) -> reason
+        reason.startsWith(MOTION_REASON_PREFIX) &&
+            reason.removePrefix(MOTION_REASON_PREFIX) in SAFE_MOTION_NAMES -> reason
+        else -> "策略已更新"
+    }
+
     fun heartbeat(value: String?): String = when (value) {
         "心跳上报成功" -> "正常"
         "心跳上报失败" -> "最近上报异常"
         null, "" -> "暂无"
         else -> "未知状态"
     }
+
+    private const val MOTION_REASON_PREFIX = "检测到运动状态："
+    private val SCHEDULE_DISTANCE_REASON = Regex("日程期间位置变化超过 \\d+(?:\\.\\d+)? 米")
+    private val SAFE_MOTION_NAMES = setOf("未知", "静止", "步行", "跑步", "骑行", "车载")
+    private val SAFE_SCHEDULE_REASONS = setOf(
+        "默认省电档",
+        "已暂停",
+        "缺少精确或后台定位权限",
+        "Google Play Services 不可用",
+        "系统定位服务未开启",
+        "连续采集未开启",
+        "当前日程时段，降低定位频率"
+    )
 }

@@ -30,7 +30,6 @@ import com.pim.app.location.policy.LocationPolicyInput
 import com.pim.app.location.policy.LocationPolicyMode
 import com.pim.app.location.policy.PolicyDecision
 import com.pim.app.location.policy.PolicyLocation
-import com.pim.app.location.policy.ScheduleWindow
 import com.pim.app.location.quality.AltitudeWaitCoordinator
 import com.pim.app.location.quality.LocationQualityGate
 import com.pim.app.location.quality.QualityAcceptedLocation
@@ -38,6 +37,8 @@ import com.pim.app.location.quality.RawLocationFix
 import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.notifications.LocationNotificationRenderer
 import com.pim.app.notifications.LocationNotificationState
+import com.pim.app.schedule.ScheduleCacheFreshness
+import com.pim.app.schedule.ScheduleCacheSnapshot
 import com.pim.app.schedule.ScheduleWindowRepository
 import com.pim.app.schedule.ScheduleWindowSelector
 import com.pim.app.settings.TrackingSettingsStore
@@ -58,6 +59,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -78,8 +81,13 @@ class ForegroundLocationService : Service() {
     private var registeredIntervalMillis: Long? = null
     private var registeredPriority: Int? = null
     private var locationRequestRetryJob: Job? = null
+    private var scheduleRefreshJob: Job? = null
+    private var snapshotCollectJob: Job? = null
     private var policyEngine: LocationPolicyEngine? = null
-    private var scheduleWindows: List<ScheduleWindow> = emptyList()
+    private var scheduleFreshness: ScheduleCacheFreshness = ScheduleCacheFreshness.Missing
+    private var scheduleLastSuccessAtMillis: Long? = null
+    private var scheduleLastAttemptAtMillis: Long? = null
+    private var scheduleLastError: String? = null
     private var currentDecision = PolicyDecision(
         mode = LocationPolicyMode.PowerSavingNormal,
         requestIntervalMillis = 3 * 60 * 1000L,
@@ -87,12 +95,17 @@ class ForegroundLocationService : Service() {
         reason = "默认省电档",
         scheduleLowFrequency = false
     )
+    private val policyTransitionDeduper = PolicyTransitionDeduper()
+    private val policyTransitionWriteMutex = Mutex()
     private var lastAcceptedLocationText = "无"
     private var lastAccuracyText = "无"
     private var pendingUploadCount = 0
-    private var apiState = "正常"
+    private var apiState = "等待日程数据"
     private var lastDroppedReason: String? = null
     private var isPausing = false
+    private var policyTransitionWriteJob: Job? = null
+
+    internal var policyTransitionWriter: (suspend (LocationPolicyMode?, PolicyDecision) -> Unit)? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -105,14 +118,16 @@ class ForegroundLocationService : Service() {
             ForegroundLocationController.ACTION_PAUSE_COLLECTION -> {
                 isPausing = true
                 trackingSettingsStore.setContinuousCollectionEnabled(false)
-                currentDecision = currentDecision.copy(
-                    mode = LocationPolicyMode.Off,
-                    requestIntervalMillis = 0L,
-                    nextExpectedLocationAtMillis = Long.MAX_VALUE,
-                    reason = "已暂停",
-                    scheduleLowFrequency = false
+                applyDecision(
+                    currentDecision.copy(
+                        mode = LocationPolicyMode.Off,
+                        requestIntervalMillis = 0L,
+                        nextExpectedLocationAtMillis = Long.MAX_VALUE,
+                        reason = "已暂停",
+                        scheduleLowFrequency = false
+                    ),
+                    isRunning = false
                 )
-                publishRuntimeState(isRunning = false)
                 stopCollection()
                 val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
                 nm.notify(LocationNotificationRenderer.NOTIFICATION_ID, notification())
@@ -147,7 +162,7 @@ class ForegroundLocationService : Service() {
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
             nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
         }
-        _runtimeState.value = ForegroundLocationRuntimeState(isRunning = false)
+        publishRuntimeState(isRunning = false)
         super.onDestroy()
     }
 
@@ -158,15 +173,17 @@ class ForegroundLocationService : Service() {
             trackingSettingsStore.setContinuousCollectionEnabled(true)
         }
         if (!hasRequiredLocationPermissions()) {
-            currentDecision = currentDecision.copy(
-                mode = LocationPolicyMode.Off,
-                requestIntervalMillis = 0L,
-                nextExpectedLocationAtMillis = Long.MAX_VALUE,
-                reason = "缺少精确或后台定位权限",
-                scheduleLowFrequency = false
-            )
             lastDroppedReason = "缺少精确或后台定位权限"
-            publishRuntimeState(isRunning = false)
+            applyDecision(
+                currentDecision.copy(
+                    mode = LocationPolicyMode.Off,
+                    requestIntervalMillis = 0L,
+                    nextExpectedLocationAtMillis = Long.MAX_VALUE,
+                    reason = "缺少精确或后台定位权限",
+                    scheduleLowFrequency = false
+                ),
+                isRunning = false
+            )
             stopCollection()
             stopSelf(startId)
             return
@@ -175,30 +192,34 @@ class ForegroundLocationService : Service() {
         if (GoogleApiAvailability.getInstance()
                 .isGooglePlayServicesAvailable(this) != ConnectionResult.SUCCESS
         ) {
-            currentDecision = currentDecision.copy(
-                mode = LocationPolicyMode.Off,
-                requestIntervalMillis = 0L,
-                nextExpectedLocationAtMillis = Long.MAX_VALUE,
-                reason = "Google Play Services 不可用",
-                scheduleLowFrequency = false
-            )
             lastDroppedReason = "Google Play Services 不可用"
-            publishRuntimeState(isRunning = false)
+            applyDecision(
+                currentDecision.copy(
+                    mode = LocationPolicyMode.Off,
+                    requestIntervalMillis = 0L,
+                    nextExpectedLocationAtMillis = Long.MAX_VALUE,
+                    reason = "Google Play Services 不可用",
+                    scheduleLowFrequency = false
+                ),
+                isRunning = false
+            )
             stopCollection()
             stopSelf(startId)
             return
         }
 
         if (!isLocationEnabled()) {
-            currentDecision = currentDecision.copy(
-                mode = LocationPolicyMode.Off,
-                requestIntervalMillis = 0L,
-                nextExpectedLocationAtMillis = Long.MAX_VALUE,
-                reason = "系统定位服务未开启",
-                scheduleLowFrequency = false
-            )
             lastDroppedReason = "系统定位服务未开启"
-            publishRuntimeState(isRunning = false)
+            applyDecision(
+                currentDecision.copy(
+                    mode = LocationPolicyMode.Off,
+                    requestIntervalMillis = 0L,
+                    nextExpectedLocationAtMillis = Long.MAX_VALUE,
+                    reason = "系统定位服务未开启",
+                    scheduleLowFrequency = false
+                ),
+                isRunning = false
+            )
             stopCollection()
             stopSelf(startId)
             return
@@ -210,13 +231,14 @@ class ForegroundLocationService : Service() {
         qualityCoordinator = AltitudeWaitCoordinator(
             LocationQualityGate.fromTrackingSettings(settings)
         )
-        currentDecision = policyEngine!!.reduce(
-            LocationPolicyInput(
-                nowMillis = System.currentTimeMillis(),
-                collectionEnabled = settings.continuousCollectionEnabled
+        applyDecision(
+            policyEngine!!.reduce(
+                LocationPolicyInput(
+                    nowMillis = System.currentTimeMillis(),
+                    collectionEnabled = settings.continuousCollectionEnabled
+                )
             )
         )
-        publishRuntimeState()
         startForeground(LocationNotificationRenderer.NOTIFICATION_ID, notification())
 
         if (!settings.continuousCollectionEnabled) {
@@ -233,6 +255,8 @@ class ForegroundLocationService : Service() {
 
     private fun stopCollection() {
         cancelPendingQualityWait()
+        scheduleRefreshJob?.cancel()
+        snapshotCollectJob?.cancel()
         locationRequestRetryJob?.cancel()
         locationRequestRetryJob = null
         locationCallback?.let { fusedClient.removeLocationUpdates(it) }
@@ -281,36 +305,96 @@ class ForegroundLocationService : Service() {
     }
 
     private fun markPausedState() {
-        currentDecision = currentDecision.copy(
-            mode = LocationPolicyMode.Off,
-            requestIntervalMillis = 0L,
-            nextExpectedLocationAtMillis = Long.MAX_VALUE,
-            reason = "已暂停",
-            scheduleLowFrequency = false
+        applyDecision(
+            currentDecision.copy(
+                mode = LocationPolicyMode.Off,
+                requestIntervalMillis = 0L,
+                nextExpectedLocationAtMillis = Long.MAX_VALUE,
+                reason = "已暂停",
+                scheduleLowFrequency = false
+            ),
+            isRunning = false
         )
-        publishRuntimeState(isRunning = false)
         isPausing = true
     }
 
-    private fun refreshScheduleWindows() {
-        val now = System.currentTimeMillis()
-        scope.launch {
+    private fun ensureSnapshotObserver() {
+        if (snapshotCollectJob?.isActive == true) return
+        if (!::scheduleWindowRepository.isInitialized) return
+        snapshotCollectJob = scope.launch {
+            scheduleWindowRepository.snapshot.collect { snapshot ->
+                applyScheduleSnapshot(snapshot)
+                publishRuntimeState()
+            }
+        }
+    }
+
+    private fun refreshScheduleWindows(force: Boolean = false) {
+        ensureSnapshotObserver()
+        if (scheduleRefreshJob?.isActive == true) return
+        scheduleRefreshJob = scope.launch {
             try {
-                scheduleWindows = withContext(Dispatchers.IO) {
-                    scheduleWindowRepository.loadWindows(
-                        startMillis = now - 6L * 60L * 60L * 1000L,
-                        endMillis = now + 24L * 60L * 60L * 1000L
-                    )
+                applyScheduleSnapshot(scheduleWindowRepository.snapshotForCurrentServer())
+                val snapshot = withContext(Dispatchers.IO) {
+                    scheduleWindowRepository.refreshIfStale(force = force)
                 }
-                apiState = "正常"
+                applyScheduleSnapshot(snapshot)
                 updateNotification()
             } catch (ex: CancellationException) {
                 throw ex
             } catch (_: Exception) {
-                apiState = "API 无法连接"
+                // Repository already publishes failure into snapshot when possible.
+                applyScheduleSnapshot(scheduleWindowRepository.snapshotForCurrentServer())
                 updateNotification()
             }
         }
+    }
+
+    private fun applyScheduleSnapshot(snapshot: ScheduleCacheSnapshot) {
+        scheduleFreshness = snapshot.freshness
+        scheduleLastSuccessAtMillis = snapshot.lastSuccessAtMillis
+        scheduleLastAttemptAtMillis = snapshot.lastAttemptAtMillis
+        scheduleLastError = snapshot.lastError
+        apiState = scheduleApiStateText(snapshot)
+    }
+
+    private fun scheduleApiStateText(snapshot: ScheduleCacheSnapshot): String {
+        return when {
+            snapshot.freshness == ScheduleCacheFreshness.Fresh && snapshot.lastError != null -> "日程缓存异常"
+            snapshot.freshness == ScheduleCacheFreshness.Fresh && snapshot.lastError == null -> "正常"
+            snapshot.freshness == ScheduleCacheFreshness.Stale -> "日程缓存可能过期"
+            snapshot.freshness == ScheduleCacheFreshness.Missing && snapshot.lastError != null -> "日程暂不可用"
+            snapshot.freshness == ScheduleCacheFreshness.Missing &&
+                snapshot.lastError == null &&
+                snapshot.lastSuccessAtMillis == null -> "等待日程数据"
+            else -> "正常"
+        }
+    }
+
+    private fun applyDecision(decision: PolicyDecision, isRunning: Boolean = isRunning()) {
+        currentDecision = decision
+        val transition = policyTransitionDeduper.note(decision)
+        if (transition != null) {
+            policyTransitionWriteJob = scope.launch {
+                policyTransitionWriteMutex.withLock {
+                    try {
+                        val writer = policyTransitionWriter
+                        if (writer != null) {
+                            writer(transition.fromMode, transition.decision)
+                        } else if (::locationQueueRepository.isInitialized) {
+                            locationQueueRepository.recordPolicyTransition(
+                                transition.fromMode,
+                                transition.decision
+                            )
+                        }
+                    } catch (ex: CancellationException) {
+                        throw ex
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+        }
+        publishRuntimeState(isRunning = isRunning)
     }
 
     @SuppressLint("MissingPermission")
@@ -396,7 +480,7 @@ class ForegroundLocationService : Service() {
     private fun handleLocation(location: Location) {
         val settings = trackingSettingsStore.read()
         if (!settings.continuousCollectionEnabled) {
-            currentDecision = policyEngine?.reduce(
+            val offDecision = policyEngine?.reduce(
                 LocationPolicyInput(nowMillis = System.currentTimeMillis(), collectionEnabled = false)
             ) ?: currentDecision.copy(
                 mode = LocationPolicyMode.Off,
@@ -405,22 +489,29 @@ class ForegroundLocationService : Service() {
                 reason = "连续采集未开启",
                 scheduleLowFrequency = false
             )
+            applyDecision(offDecision, isRunning = false)
             updateNotification()
             stopCollection()
             stopSelf()
             return
         }
 
+        refreshScheduleWindows()
+        applyScheduleSnapshot(scheduleWindowRepository.snapshotForCurrentServer())
+
         val now = System.currentTimeMillis()
         val decision = policyEngine?.reduce(
             LocationPolicyInput(
                 nowMillis = now,
                 collectionEnabled = true,
-                currentScheduleWindow = ScheduleWindowSelector.current(scheduleWindows, now),
+                currentScheduleWindow = ScheduleWindowSelector.current(
+                    scheduleWindowRepository.snapshotForCurrentServer().windows,
+                    now
+                ),
                 motionSignal = motionSignalRepository.status.value.signal
             )
         ) ?: currentDecision
-        currentDecision = decision
+        applyDecision(decision)
         requestLocationUpdates(decision.requestIntervalMillis)
         updateNotification()
 
@@ -461,7 +552,28 @@ class ForegroundLocationService : Service() {
         )
         lastAccuracyText = "${accepted.fix.horizontalAccuracyMeters?.toInt() ?: 0}m"
         lastDroppedReason = null
-        updateNotification()
+
+        val now = System.currentTimeMillis()
+        val reduced = policyEngine?.reduce(
+            LocationPolicyInput(
+                nowMillis = now,
+                collectionEnabled = trackingSettingsStore.read().continuousCollectionEnabled,
+                currentScheduleWindow = ScheduleWindowSelector.current(
+                    scheduleWindowRepository.snapshotForCurrentServer().windows,
+                    now
+                ),
+                motionSignal = motionSignalRepository.status.value.signal
+            )
+        )
+        if (reduced != null) {
+            applyDecision(reduced)
+            if (reduced.requestIntervalMillis > 0L) {
+                requestLocationUpdates(reduced.requestIntervalMillis)
+            }
+            updateNotification()
+        } else {
+            updateNotification()
+        }
     }
 
     private suspend fun recordDropped(fix: RawLocationFix, reason: String) {
@@ -493,13 +605,19 @@ class ForegroundLocationService : Service() {
         _runtimeState.value = ForegroundLocationRuntimeState(
             isRunning = isRunning,
             currentPolicyMode = currentDecision.mode.name,
+            currentPolicyReason = currentDecision.reason,
+            requestIntervalMillis = currentDecision.requestIntervalMillis.takeUnless { it <= 0L },
             nextExpectedLocationAtMillis = currentDecision.nextExpectedLocationAtMillis
                 .takeUnless { it == Long.MAX_VALUE },
             lastAcceptedLocationText = lastAcceptedLocationText,
             lastAccuracyText = lastAccuracyText,
             pendingUploadCount = pendingUploadCount,
             apiState = apiState,
-            lastDroppedReason = lastDroppedReason
+            lastDroppedReason = lastDroppedReason,
+            scheduleFreshness = scheduleFreshness,
+            scheduleLastSuccessAtMillis = scheduleLastSuccessAtMillis,
+            scheduleLastAttemptAtMillis = scheduleLastAttemptAtMillis,
+            scheduleLastError = scheduleLastError
         )
     }
 

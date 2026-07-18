@@ -2,15 +2,19 @@ package com.pim.app.status
 
 import com.pim.app.data.AppDatabase
 import com.pim.app.data.MobileDataDao
+import com.pim.app.data.MobileLocationPolicyTransitionEntity
 import com.pim.app.location.service.ForegroundLocationService
 import com.pim.app.location.service.ForegroundLocationRuntimeState
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.sync.MobileSyncCoordinator
 import com.pim.app.mobile.sync.MobileSyncState
 import com.pim.app.permissions.PermissionStatusRepository
+import com.pim.app.schedule.ScheduleCacheSnapshot
+import com.pim.app.schedule.ScheduleWindowRepository
 import com.pim.app.settings.TrackingSettingsStore
 import com.pim.core.auth.TokenManager
 import com.pim.core.settings.ServerSettingsStore
+import com.pim.core.settings.PimServerEndpoints
 import com.pim.core.settings.ServerUrlValidator
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,6 +29,11 @@ private data class CoreFacts(
     val diagnostics: DiagnosticSnapshot,
     val syncState: MobileSyncState,
     val runtime: ForegroundLocationRuntimeState
+)
+
+private data class ScheduleFacts(
+    val scheduleSnapshot: ScheduleCacheSnapshot,
+    val transitions: List<PolicyTransitionSnapshot>
 )
 
 private data class ExternalFacts(
@@ -67,7 +76,8 @@ class StatusCenterRepository @Inject constructor(
     private val connectionProbeStore: ConnectionProbeStore,
     private val networkStatusProvider: NetworkStatusProvider,
     private val workInfoStatusProvider: WorkInfoStatusProvider,
-    private val acceptedSignal: StatusAcceptedSignal
+    private val acceptedSignal: StatusAcceptedSignal,
+    private val scheduleWindowRepository: ScheduleWindowRepository
 ) {
     private val dao: MobileDataDao = database.mobileDataDao()
 
@@ -81,6 +91,14 @@ class StatusCenterRepository @Inject constructor(
             CoreFacts(queues, diagnostics, syncState, runtime)
         }
 
+        val scheduleFlow = scheduleWindowRepository.snapshot
+            .combine(dao.recentPolicyTransitions(limit = 5)) { snap, transitions ->
+                ScheduleFacts(
+                    scheduleSnapshot = snap,
+                    transitions = transitions.map { it.toPolicyTransitionSnapshot() }
+                )
+            }
+
         val externalFlow = combine(
             connectionProbeStore.result,
             networkStatusProvider.availability,
@@ -91,7 +109,7 @@ class StatusCenterRepository @Inject constructor(
             ExternalFacts(probeResult, availability, workInfos, rejected, accepted)
         }
 
-        return combine(coreFlow, externalFlow) { core, external ->
+        return combine(coreFlow, scheduleFlow, externalFlow) { core, scheduleFacts, external ->
             val mergedDiagnostics = core.diagnostics.copy(
                 lastHeartbeatStatus = core.syncState.heartbeatStatus,
                 lastLogMessage = core.diagnostics.lastLogMessage ?: core.syncState.lastError,
@@ -99,7 +117,7 @@ class StatusCenterRepository @Inject constructor(
                     listOfNotNull(core.syncState.lastError)
                 }
             )
-            val snapshot = buildSnapshot(core.queues, mergedDiagnostics, core.runtime)
+            val snapshot = buildSnapshot(core.queues, mergedDiagnostics, core.runtime, scheduleFacts)
             val state = StatusResultMapper.buildState(
                 snapshot = snapshot,
                 syncState = core.syncState,
@@ -128,10 +146,14 @@ class StatusCenterRepository @Inject constructor(
     private fun buildSnapshot(
         queues: QueueStatusSnapshot,
         diagnostics: DiagnosticSnapshot,
-        runtime: ForegroundLocationRuntimeState
+        runtime: ForegroundLocationRuntimeState,
+        scheduleFacts: ScheduleFacts
     ): StatusCenterSnapshot {
         val baseUrl = serverSettingsStore.getBaseUrl()
         val validation = ServerUrlValidator.validate(baseUrl)
+        val expectedServerIdentity = runCatching {
+            PimServerEndpoints.from(baseUrl).apiBaseUrl.toString()
+        }.getOrNull()
         val settings = trackingSettingsStore.read()
         return StatusCenterSnapshot(
             permissions = permissionStatusRepository.snapshot(),
@@ -151,7 +173,9 @@ class StatusCenterRepository @Inject constructor(
             ),
             tracking = StatusTrackingMapper.fromRuntime(settings.profile, runtime),
             queues = queues,
-            diagnostics = diagnostics
+            diagnostics = diagnostics,
+            schedule = scheduleFacts.scheduleSnapshot.toScheduleCacheStatusSnapshot(expectedServerIdentity),
+            recentPolicyTransitions = scheduleFacts.transitions
         )
     }
 
@@ -197,3 +221,24 @@ class StatusCenterRepository @Inject constructor(
         }
     }
 }
+
+internal fun MobileLocationPolicyTransitionEntity.toPolicyTransitionSnapshot(): PolicyTransitionSnapshot =
+    PolicyTransitionSnapshot(
+        fromMode = fromMode,
+        toMode = toMode,
+        reason = reason,
+        occurredAtMillis = occurredAtUtc
+    )
+
+internal fun ScheduleCacheSnapshot.toScheduleCacheStatusSnapshot(
+    expectedServerIdentity: String? = serverIdentity
+): ScheduleCacheStatusSnapshot =
+    if (expectedServerIdentity == null || serverIdentity != expectedServerIdentity) {
+        ScheduleCacheStatusSnapshot()
+    } else ScheduleCacheStatusSnapshot(
+        freshness = freshness,
+        hasCachedWindows = windows.isNotEmpty(),
+        lastSuccessAtMillis = lastSuccessAtMillis,
+        lastAttemptAtMillis = lastAttemptAtMillis,
+        lastError = lastError
+    )

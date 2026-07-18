@@ -5,8 +5,13 @@ import android.os.Build
 import android.os.StatFs
 import androidx.room.withTransaction
 import com.pim.app.data.AppDatabase
+import com.pim.app.location.service.ForegroundLocationRuntimeState
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.permissions.PermissionStatusRepository
+import com.pim.app.schedule.ScheduleCacheFreshness
+import com.pim.app.schedule.ScheduleCacheSnapshot
+import com.pim.app.schedule.ScheduleRefreshErrorKind
+import com.pim.app.schedule.ScheduleWindowRepository
 import com.pim.app.settings.TrackingSettingsStore
 import com.pim.app.status.ConnectionProbeStore
 import com.pim.app.status.PermissionStatusSnapshot
@@ -74,7 +79,21 @@ class DiagnosticExportRepository internal constructor(
         }
     },
     private val deleteExportFile: (File) -> Boolean = { it.delete() },
-    private val mutex: Mutex = Mutex()
+    private val mutex: Mutex = Mutex(),
+    private val scheduleSnapshot: () -> ScheduleCacheSnapshot = {
+        ScheduleCacheSnapshot(
+            serverIdentity = "",
+            windows = emptyList(),
+            freshness = ScheduleCacheFreshness.Missing,
+            lastAttemptAtMillis = null,
+            lastSuccessAtMillis = null,
+            lastError = null,
+            errorKind = null
+        )
+    },
+    private val runtimeSnapshot: () -> ForegroundLocationRuntimeState = {
+        ForegroundLocationRuntimeState()
+    }
 ) : DiagnosticOperations {
     @Inject constructor(
         @ApplicationContext context: Context,
@@ -83,7 +102,8 @@ class DiagnosticExportRepository internal constructor(
         trackingSettingsStore: TrackingSettingsStore,
         redactor: DiagnosticRedactor,
         connectionProbeStore: ConnectionProbeStore,
-        permissionStatusRepository: PermissionStatusRepository
+        permissionStatusRepository: PermissionStatusRepository,
+        scheduleWindowRepository: ScheduleWindowRepository
     ) : this(
         context = context,
         db = db,
@@ -92,7 +112,9 @@ class DiagnosticExportRepository internal constructor(
         redactor = redactor,
         connectionProbeStore = connectionProbeStore,
         permissionSnapshot = { permissionStatusRepository.snapshot() },
-        serviceRunning = { com.pim.app.location.service.ForegroundLocationService.isRunning() }
+        serviceRunning = { com.pim.app.location.service.ForegroundLocationService.isRunning() },
+        scheduleSnapshot = { scheduleWindowRepository.snapshot.value },
+        runtimeSnapshot = { com.pim.app.location.service.ForegroundLocationService.runtimeState.value }
     )
 
     override suspend fun export(includeRecentLocations: Boolean): DiagnosticExportResult = withContext(dispatcher) {
@@ -381,7 +403,45 @@ class DiagnosticExportRepository internal constructor(
         status.put("deviceProfilePendingCount", dao.pendingDeviceProfileCount().first())
         status.put("aggregateRejectedCount", dao.aggregateRejectedCount().first())
 
+        val sched = scheduleSnapshot()
+        status.put("scheduleFreshness", sched.freshness.name)
+        status.put("scheduleLastSuccessAtUtc", sched.lastSuccessAtMillis ?: JSONObject.NULL)
+        status.put("scheduleLastAttemptAtUtc", sched.lastAttemptAtMillis ?: JSONObject.NULL)
+        status.put("scheduleLastError", mapErrorKindToSummary(sched.lastError, sched.errorKind))
+
+        val rt = runtimeSnapshot()
+        status.put("currentPolicyMode", rt.currentPolicyMode)
+        status.put("currentPolicyReason", rt.currentPolicyReason ?: JSONObject.NULL)
+        status.put("currentPolicyRequestIntervalMillis", rt.requestIntervalMillis ?: JSONObject.NULL)
+
+        val transitions = dao.recentPolicyTransitions(limit = 20).first()
+        val transitionsArr = JSONArray()
+        for (t in transitions) {
+            transitionsArr.put(
+                JSONObject()
+                    .put("fromMode", t.fromMode ?: JSONObject.NULL)
+                    .put("toMode", t.toMode)
+                    .put("reason", t.reason)
+                    .put("occurredAtUtc", t.occurredAtUtc)
+            )
+        }
+        status.put("recentPolicyTransitions", transitionsArr)
+
         return status
+    }
+
+    private fun mapErrorKindToSummary(
+        lastError: String?,
+        errorKind: ScheduleRefreshErrorKind?
+    ): Any {
+        if (lastError == null) return JSONObject.NULL
+        return when (errorKind) {
+            ScheduleRefreshErrorKind.Authentication -> "认证失败"
+            ScheduleRefreshErrorKind.Network -> "网络错误"
+            ScheduleRefreshErrorKind.Server -> "服务器错误"
+            ScheduleRefreshErrorKind.Cache -> "缓存错误"
+            null -> "未知错误"
+        }
     }
 
     private fun buildSettings(): JSONObject {

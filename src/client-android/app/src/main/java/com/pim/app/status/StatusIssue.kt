@@ -1,5 +1,6 @@
 package com.pim.app.status
 
+import com.pim.app.schedule.ScheduleCacheFreshness
 import com.pim.app.location.service.ForegroundLocationRuntimeState
 
 enum class StatusSeverity {
@@ -183,6 +184,24 @@ data class StatusIssue(
             target = StatusActionTarget.Permissions
         )
 
+        fun scheduleCacheStale(): StatusIssue = StatusIssue(
+            code = "schedule-cache-stale",
+            severity = StatusSeverity.Warning,
+            title = "日程数据可能过期",
+            message = "日程数据可能不是最新，请检查网络连接。",
+            actionLabel = "检查连接",
+            target = StatusActionTarget.ConnectionCheck
+        )
+
+        fun scheduleCacheError(): StatusIssue = StatusIssue(
+            code = "schedule-cache-error",
+            severity = StatusSeverity.Critical,
+            title = "日程数据暂时不可用",
+            message = "日程数据暂时不可用，请稍后重试或检查网络连接。",
+            actionLabel = "检查连接",
+            target = StatusActionTarget.ConnectionCheck
+        )
+
         fun foregroundServiceNotRunning(): StatusIssue = StatusIssue(
             code = "foreground-service-not-running",
             severity = StatusSeverity.Critical,
@@ -324,10 +343,27 @@ data class ForegroundServiceSnapshot(
     val serviceRunning: Boolean
 )
 
+data class ScheduleCacheStatusSnapshot(
+    val freshness: ScheduleCacheFreshness = ScheduleCacheFreshness.Missing,
+    val hasCachedWindows: Boolean = false,
+    val lastSuccessAtMillis: Long? = null,
+    val lastAttemptAtMillis: Long? = null,
+    val lastError: String? = null
+)
+
+data class PolicyTransitionSnapshot(
+    val fromMode: String?,
+    val toMode: String,
+    val reason: String,
+    val occurredAtMillis: Long
+)
+
 data class TrackingPolicySnapshot(
     val profile: String,
     val currentPolicyMode: String,
-    val nextExpectedLocationAtMillis: Long?
+    val nextExpectedLocationAtMillis: Long? = null,
+    val currentPolicyReason: String? = null,
+    val requestIntervalMillis: Long? = null
 )
 
 data class QueueStatusSnapshot(
@@ -362,6 +398,8 @@ object StatusTrackingMapper {
     ): TrackingPolicySnapshot = TrackingPolicySnapshot(
         profile = profile,
         currentPolicyMode = runtime.currentPolicyMode,
+        currentPolicyReason = runtime.currentPolicyReason,
+        requestIntervalMillis = runtime.requestIntervalMillis,
         nextExpectedLocationAtMillis = runtime.nextExpectedLocationAtMillis
     )
 }
@@ -373,7 +411,9 @@ data class StatusCenterSnapshot(
     val service: ForegroundServiceSnapshot,
     val tracking: TrackingPolicySnapshot,
     val queues: QueueStatusSnapshot,
-    val diagnostics: DiagnosticSnapshot
+    val diagnostics: DiagnosticSnapshot,
+    val schedule: ScheduleCacheStatusSnapshot = ScheduleCacheStatusSnapshot(),
+    val recentPolicyTransitions: List<PolicyTransitionSnapshot> = emptyList()
 )
 
 data class StatusCenterState(
@@ -481,6 +521,20 @@ object StatusIssuePlanner {
 
         if (snapshot.queues.pendingLocationPoints >= LOCATION_QUEUE_BACKLOG_THRESHOLD) {
             issues += StatusIssue.uploadQueueBacklog(snapshot.queues.pendingLocationPoints)
+        }
+
+        when (snapshot.schedule.freshness) {
+            ScheduleCacheFreshness.Stale -> {
+                if (snapshot.schedule.hasCachedWindows) {
+                    issues += StatusIssue.scheduleCacheStale()
+                }
+            }
+            ScheduleCacheFreshness.Missing -> {
+                if (snapshot.schedule.lastError != null) {
+                    issues += StatusIssue.scheduleCacheError()
+                }
+            }
+            ScheduleCacheFreshness.Fresh -> { /* no issue */ }
         }
 
         val heartbeat = snapshot.diagnostics.lastHeartbeatStatus.orEmpty()

@@ -61,6 +61,8 @@ import com.pim.app.status.DiagnosticSnapshot
 import com.pim.app.status.NetworkAvailability
 import com.pim.app.status.NetworkSettingsNavigator
 import com.pim.app.status.PermissionStatusSnapshot
+import com.pim.app.status.PolicyTransitionSnapshot
+import com.pim.app.status.ScheduleCacheStatusSnapshot
 import com.pim.app.status.StatusActionRoute
 import com.pim.app.status.StatusActionRouter
 import com.pim.app.status.StatusActionTarget
@@ -457,6 +459,13 @@ private fun CollectionAndConnectionSection(state: StatusCenterState) {
             "status-next-location"
         )
 
+        FactRow("策略原因", StatusDisplayText.scheduleReason(snap.tracking.currentPolicyReason), "status-policy-reason")
+        snap.tracking.requestIntervalMillis?.let { interval ->
+            FactRow("采集间隔", formatPolicyInterval(interval), "status-policy-interval")
+        }
+
+        ScheduleFactsSection(snap.schedule, snap.recentPolicyTransitions)
+
         PermissionsSection(snap.permissions)
 
         FactRow("系统网络", when (state.networkAvailability) {
@@ -482,6 +491,57 @@ private fun PermissionsSection(permissions: PermissionStatusSnapshot) {
 @Composable
 private fun PermissionRow(label: String, granted: Boolean, tag: String) {
     FactRow("权限 $label", if (granted) "已就绪" else "未就绪", tag)
+}
+
+@Composable
+private fun ScheduleFactsSection(
+    schedule: ScheduleCacheStatusSnapshot,
+    transitions: List<PolicyTransitionSnapshot>
+) {
+    Column(
+        modifier = Modifier.testTag("status-schedule-facts"),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        FactRow("日程缓存", StatusDisplayText.scheduleFreshness(schedule.freshness), "status-schedule-freshness")
+        if (schedule.lastSuccessAtMillis != null && schedule.lastSuccessAtMillis > 0L) {
+            FactRow("上次成功", formatEpochMillis(schedule.lastSuccessAtMillis), "status-schedule-last-success")
+        }
+        if (schedule.lastAttemptAtMillis != null && schedule.lastAttemptAtMillis > 0L) {
+            FactRow("上次检查", formatEpochMillis(schedule.lastAttemptAtMillis), "status-schedule-last-attempt")
+        }
+
+        transitions.forEachIndexed { index, t ->
+            FactRow(
+                label = "策略切换",
+                value = formatPolicyTransition(t),
+                tag = "status-policy-transition-$index"
+            )
+        }
+    }
+}
+
+internal fun formatPolicyTransition(
+    transition: PolicyTransitionSnapshot,
+    zoneId: ZoneId = ZoneId.systemDefault()
+): String = buildString {
+    append(formatEpochMillis(transition.occurredAtMillis, zoneId))
+    append(" · ")
+    append(StatusDisplayText.policyMode(transition.fromMode))
+    append(" → ")
+    append(StatusDisplayText.policyMode(transition.toMode))
+    append(" · ")
+    append(StatusDisplayText.scheduleReason(transition.reason))
+}
+
+internal fun formatPolicyInterval(millis: Long): String {
+    if (millis <= 0L) return "未安排"
+    val minutes = millis / 60_000L
+    val seconds = (millis % 60_000L) / 1_000L
+    return when {
+        minutes > 0L && seconds > 0L -> "${minutes}分${seconds}秒"
+        minutes > 0L -> "${minutes} 分钟"
+        else -> "${seconds} 秒"
+    }
 }
 
 @Composable

@@ -381,15 +381,15 @@ git commit -m "feat: replace placeholder Android schedule screen"
 - Test: `src/client-android/app/src/test/java/com/pim/app/status/StatusIssueTest.kt`
 - Test: `src/client-android/app/src/test/java/com/pim/app/status/StatusCenterRepositoryFlowTest.kt`
 
-- [ ] **Step 1: 写失败测试。** 新鲜/成功空不产生 issue；stale + cache 产生 Warning；missing + error 产生 Critical；tracking 快照包含 reason/interval；Info issue 仍不进入“需要处理”。
+- [x] **Step 1: 写失败测试。** 新鲜/成功空不产生 issue；stale + cache 产生 Warning；missing + error 产生 Critical；tracking 快照包含 reason/interval；Info issue 仍不进入“需要处理”。
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest --tests "*StatusIssue*" --tests "*StatusCenterRepository*" --no-daemon
 ```
 
-- [ ] **Step 3: 实现最小状态模型扩展。**
+- [x] **Step 3: 实现最小状态模型扩展。**
 
 ```kotlin
 data class ScheduleCacheStatusSnapshot(
@@ -415,9 +415,9 @@ data class PolicyTransitionSnapshot(
 
 不要把原始 exception、服务器 URL 或机器码上屏。
 
-- [ ] **Step 4: 接入现有 Flow 并显示事实。** 在 `StatusCenterRepository` 的 `combine` 中加入 `ScheduleWindowRepository.snapshot`、`ForegroundLocationService.runtimeState` 和最近策略转换；不创建轮询。`StatusCenterScreen` 在现有跟踪/诊断区域增加缓存新鲜度、上次成功、策略原因和最多 5 条切换记录，不重排同步与问题列表。
+- [x] **Step 4: 接入现有 Flow 并显示事实。** 在 `StatusCenterRepository` 的 `combine` 中加入 `ScheduleWindowRepository.snapshot`、`ForegroundLocationService.runtimeState` 和最近策略转换；不创建轮询。`StatusCenterScreen` 在现有跟踪/诊断区域增加缓存新鲜度、上次成功、策略原因和最多 5 条切换记录，不重排同步与问题列表。
 
-- [ ] **Step 5: 运行绿色测试并提交。**
+- [x] **Step 5: 运行绿色测试并提交。**
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest --tests "*StatusIssue*" --tests "*StatusCenterRepository*" --no-daemon

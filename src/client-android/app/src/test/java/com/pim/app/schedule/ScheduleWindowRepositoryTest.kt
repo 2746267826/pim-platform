@@ -13,11 +13,16 @@ import java.io.File
 import java.io.IOException
 import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
@@ -645,6 +650,98 @@ class ScheduleWindowRepositoryTest {
 
         assertEquals(serverIdentity("http://server-b:5858/api/v1/"), scriptedRepo.snapshot.value.serverIdentity)
         assertEquals("B", scriptedRepo.snapshot.value.windows.single().id)
+    }
+
+    @Test
+    fun `snapshotForCurrentServer must not overwrite concurrent refresh result`() = runTest(UnconfinedTestDispatcher()) {
+        val identityA = serverIdentity("http://server-a:5858/api/v1/")
+        val identityB = serverIdentity("http://test-server:5858/api/v1/")
+
+        serverSettings.setBaseUrl("http://server-a:5858/api/v1/")
+        cacheStore.write(
+            identityA,
+            ScheduleCacheDocument(
+                windows = listOf(ScheduleCacheWindow("a-win", "A", "", 100L, 200L)),
+                rangeStartMillis = 0L, rangeEndMillis = 1000L,
+                lastAttemptAtMillis = 50L, lastSuccessAtMillis = 50L,
+                lastError = null, lastErrorKind = null
+            )
+        )
+        api.events = listOf(event(id = "a-win"))
+        repo.refreshIfStale(force = true, nowMillis = 100L)
+        assertEquals(listOf("a-win"), repo.snapshot.value.windows.map { it.id })
+
+        serverSettings.setBaseUrl("http://test-server:5858/api/v1/")
+
+        val snapshotField = ScheduleWindowRepository::class.java.getDeclaredField("_snapshot")
+        snapshotField.isAccessible = true
+        val realFlow = snapshotField.get(repo) as MutableStateFlow<ScheduleCacheSnapshot>
+        val readLatch = CountDownLatch(1)
+        val releaseLatch = CountDownLatch(1)
+        val interceptor = SnapshotInterceptor(realFlow, readLatch, releaseLatch)
+        snapshotField.set(repo, interceptor)
+
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            val future = executor.submit<ScheduleCacheSnapshot> {
+                repo.snapshotForCurrentServer()
+            }
+
+            assertTrue(
+                "readLatch timed out waiting for snapshot getter",
+                readLatch.await(5, TimeUnit.SECONDS)
+            )
+
+            api.events = listOf(event(id = "b-win"))
+            repo.refreshIfStale(force = true, nowMillis = 200L)
+
+            assertEquals(identityB, realFlow.value.serverIdentity)
+            assertTrue("realFlow must have B's windows after refresh", realFlow.value.windows.isNotEmpty())
+            assertEquals(listOf("b-win"), realFlow.value.windows.map { it.id })
+
+            releaseLatch.countDown()
+
+            val result = future.get(5, TimeUnit.SECONDS)
+
+            assertEquals(identityB, result.serverIdentity)
+            assertTrue(
+                "snapshotForCurrentServer must not discard windows from concurrent refresh",
+                result.windows.isNotEmpty()
+            )
+            assertEquals(listOf("b-win"), result.windows.map { it.id })
+            assertEquals(
+                listOf("b-win"),
+                interceptor.value.windows.map { it.id }
+            )
+        } finally {
+            releaseLatch.countDown()
+            executor.shutdownNow()
+        }
+    }
+
+    private class SnapshotInterceptor(
+        private val delegate: MutableStateFlow<ScheduleCacheSnapshot>,
+        private val readLatch: CountDownLatch,
+        private val releaseLatch: CountDownLatch
+    ) : MutableStateFlow<ScheduleCacheSnapshot> by delegate {
+        private val firstGetComplete = AtomicBoolean(false)
+        @Volatile private var captured: ScheduleCacheSnapshot? = null
+
+        override var value: ScheduleCacheSnapshot
+            get() {
+                if (firstGetComplete.compareAndSet(false, true)) {
+                    captured = delegate.value
+                    readLatch.countDown()
+                    if (!releaseLatch.await(5, TimeUnit.SECONDS)) {
+                        throw AssertionError("releaseLatch timed out in SnapshotInterceptor")
+                    }
+                    return captured!!
+                }
+                return delegate.value
+            }
+            set(v) {
+                delegate.value = v
+            }
     }
 
     private fun serverIdentity(url: String): String =

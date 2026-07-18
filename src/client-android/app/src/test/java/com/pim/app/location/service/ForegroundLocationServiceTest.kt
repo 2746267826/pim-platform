@@ -1068,6 +1068,14 @@ class ForegroundLocationServiceTest {
             .substringBefore("} else {")
         assertTrue("accepted decision branch must apply the reduced policy", decisionBranch.contains("applyDecision(reduced)"))
         assertTrue("accepted decision branch must refresh the notification", decisionBranch.contains("updateNotification()"))
+        assertTrue(
+            "accepted decision branch must guard requestLocationUpdates with reduced.requestIntervalMillis > 0L",
+            decisionBranch.contains("if (reduced.requestIntervalMillis > 0L)")
+        )
+        assertTrue(
+            "accepted decision branch must request location updates with reduced interval",
+            decisionBranch.contains("requestLocationUpdates(reduced.requestIntervalMillis)")
+        )
     }
 
     @Test
@@ -1090,6 +1098,29 @@ class ForegroundLocationServiceTest {
         ) as String
 
         assertEquals("日程缓存异常", text)
+        service.onDestroy()
+    }
+
+    @Test
+    fun staleSnapshotWithoutErrorIsNotNormal() {
+        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val method = ForegroundLocationService::class.java
+            .getDeclaredMethod("scheduleApiStateText", ScheduleCacheSnapshot::class.java)
+            .apply { isAccessible = true }
+        val text = method.invoke(
+            service,
+            ScheduleCacheSnapshot(
+                serverIdentity = "https://server.example",
+                windows = emptyList(),
+                freshness = ScheduleCacheFreshness.Stale,
+                lastAttemptAtMillis = 100L,
+                lastSuccessAtMillis = 100L,
+                lastError = null,
+                errorKind = null
+            )
+        ) as String
+
+        assertEquals("日程缓存可能过期", text)
         service.onDestroy()
     }
 

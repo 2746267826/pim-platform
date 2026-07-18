@@ -181,37 +181,37 @@ class ScheduleWindowRepository @Inject constructor(
 
     fun snapshotForCurrentServer(): ScheduleCacheSnapshot {
         val identity = resolveIdentity()
-        val current = _snapshot.value
-        if (identity == null) {
-            if (current.serverIdentity == "" && current.freshness == ScheduleCacheFreshness.Missing) {
+        while (true) {
+            val current = _snapshot.value
+            if (identity == null) {
+                if (current.serverIdentity == "" && current.freshness == ScheduleCacheFreshness.Missing) {
+                    return current
+                }
+                val invalid = ScheduleCacheSnapshot(
+                    serverIdentity = "",
+                    windows = emptyList(),
+                    freshness = ScheduleCacheFreshness.Missing,
+                    lastAttemptAtMillis = current.lastAttemptAtMillis,
+                    lastSuccessAtMillis = null,
+                    lastError = "API 地址未配置或无效",
+                    errorKind = ScheduleRefreshErrorKind.Server
+                )
+                if (_snapshot.compareAndSet(current, invalid)) return invalid
+            } else if (current.serverIdentity != identity) {
+                val cleared = ScheduleCacheSnapshot(
+                    serverIdentity = identity,
+                    windows = emptyList(),
+                    freshness = ScheduleCacheFreshness.Missing,
+                    lastAttemptAtMillis = null,
+                    lastSuccessAtMillis = null,
+                    lastError = null,
+                    errorKind = null
+                )
+                if (_snapshot.compareAndSet(current, cleared)) return cleared
+            } else {
                 return current
             }
-            val invalid = ScheduleCacheSnapshot(
-                serverIdentity = "",
-                windows = emptyList(),
-                freshness = ScheduleCacheFreshness.Missing,
-                lastAttemptAtMillis = current.lastAttemptAtMillis,
-                lastSuccessAtMillis = null,
-                lastError = "API 地址未配置或无效",
-                errorKind = ScheduleRefreshErrorKind.Server
-            )
-            _snapshot.value = invalid
-            return invalid
         }
-        if (current.serverIdentity != identity) {
-            val cleared = ScheduleCacheSnapshot(
-                serverIdentity = identity,
-                windows = emptyList(),
-                freshness = ScheduleCacheFreshness.Missing,
-                lastAttemptAtMillis = null,
-                lastSuccessAtMillis = null,
-                lastError = null,
-                errorKind = null
-            )
-            _snapshot.value = cleared
-            return cleared
-        }
-        return current
     }
 
     private fun ensureIdentityLocked(identity: String) {

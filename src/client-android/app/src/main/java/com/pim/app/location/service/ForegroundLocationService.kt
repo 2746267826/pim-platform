@@ -362,7 +362,7 @@ class ForegroundLocationService : Service() {
         return when {
             snapshot.freshness == ScheduleCacheFreshness.Fresh && snapshot.lastError != null -> "日程缓存异常"
             snapshot.freshness == ScheduleCacheFreshness.Fresh && snapshot.lastError == null -> "正常"
-            snapshot.freshness == ScheduleCacheFreshness.Stale && snapshot.lastError != null -> "日程缓存可能过期"
+            snapshot.freshness == ScheduleCacheFreshness.Stale -> "日程缓存可能过期"
             snapshot.freshness == ScheduleCacheFreshness.Missing && snapshot.lastError != null -> "日程暂不可用"
             snapshot.freshness == ScheduleCacheFreshness.Missing &&
                 snapshot.lastError == null &&
@@ -567,6 +567,9 @@ class ForegroundLocationService : Service() {
         )
         if (reduced != null) {
             applyDecision(reduced)
+            if (reduced.requestIntervalMillis > 0L) {
+                requestLocationUpdates(reduced.requestIntervalMillis)
+            }
             updateNotification()
         } else {
             updateNotification()

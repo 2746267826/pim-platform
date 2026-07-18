@@ -433,17 +433,17 @@ git commit -m "feat: show schedule freshness in status center"
 - Modify: `src/client-android/app/src/main/java/com/pim/app/mobile/diagnostics/DiagnosticExportRepository.kt`
 - Test: `src/client-android/app/src/test/java/com/pim/app/mobile/diagnostics/DiagnosticExportRepositoryTest.kt`
 
-- [ ] **Step 1: 写失败测试。** 导出后读取 `status.json`，断言包含 `scheduleFreshness`、`scheduleLastSuccessAtUtc`、`scheduleLastAttemptAtUtc`、`scheduleLastError`、`currentPolicyMode`、`currentPolicyReason` 和最多 20 条 `recentPolicyTransitions`；同时断言 token、refresh token、password 和完整认证设置不存在。
+- [x] **Step 1: 写失败测试。** 导出后读取 `status.json`，断言包含 `scheduleFreshness`、`scheduleLastSuccessAtUtc`、`scheduleLastAttemptAtUtc`、`scheduleLastError`、`currentPolicyMode`、`currentPolicyReason` 和最多 20 条 `recentPolicyTransitions`；同时断言 token、refresh token、password 和完整认证设置不存在。
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest --tests "*DiagnosticExportRepositoryTest" --no-daemon
 ```
 
-- [ ] **Step 3: 扩展 `buildStatus()`。** 注入 `ScheduleWindowRepository`，读取 `snapshot.value`；当前策略读取 `ForegroundLocationService.runtimeState.value`；从已有 `dao.recentPolicyTransitions(limit = 20).first()` 构造 JSON 数组。只在现有 `status.json` 追加白名单字段，不新增 ZIP entry、不改变 `CORE_ENTRIES`，继续经过 `DiagnosticRedactor` 和 credential leak 扫描。
+- [x] **Step 3: 扩展 `buildStatus()`。** 注入 `ScheduleWindowRepository`，读取 `snapshot.value`；当前策略读取 `ForegroundLocationService.runtimeState.value`；从已有 `dao.recentPolicyTransitions(limit = 20).first()` 构造 JSON 数组。只在现有 `status.json` 追加白名单字段，不新增 ZIP entry、不改变 `CORE_ENTRIES`，继续经过 `DiagnosticRedactor` 和 credential leak 扫描。
 
-- [ ] **Step 4: 运行绿色测试并提交。**
+- [x] **Step 4: 运行绿色测试并提交。**
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest --tests "*DiagnosticExportRepositoryTest" --no-daemon

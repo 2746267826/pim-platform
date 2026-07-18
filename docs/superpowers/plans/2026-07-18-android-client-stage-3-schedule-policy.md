@@ -459,7 +459,7 @@ git commit -m "feat: export schedule policy facts in diagnostics"
 - Modify only when a failing test exposes an in-scope defect; add a failing regression test first.
 - Do not modify `.github/workflows/*`.
 
-- [ ] **Step 1: 运行 Android 全量单元测试和 debug 构建。**
+- [x] **Step 1: 运行 Android 全量单元测试和 debug 构建。**
 
 ```powershell
 cd src/client-android
@@ -468,7 +468,7 @@ cd src/client-android
 
 预期：新增和现有测试全部通过；Room schema 版本、entities 和 migrations 没有变化。
 
-- [ ] **Step 2: 运行后端回归和差异检查。**
+- [x] **Step 2: 运行后端回归和差异检查。**
 
 ```powershell
 cd ../..
@@ -476,7 +476,7 @@ dotnet test Pim.sln
 git diff --check
 ```
 
-- [ ] **Step 3: 有设备时运行 instrumentation。**
+- [x] **Step 3: 有设备时运行 instrumentation。**
 
 ```powershell
 cd src/client-android
@@ -488,7 +488,9 @@ adb devices -l
 
 - [ ] **Step 4: 手动验收关键路径。** 使用真实服务器验证：有日程、成功空列表、断网旧缓存、首次失败无缓存、重试、无地点日程、日程进入/退出、静止/步行/车载间隔、距离恢复、进程重启和服务器切换。页面与状态中心必须显示同一时间戳和错误事实。
 
-- [ ] **Step 5: 检查提交边界。**
+> 尚待真实服务器账号、日程数据和运动场景；本轮未将自动化测试冒充人工验收。
+
+- [x] **Step 5: 检查提交边界。**
 
 ```powershell
 git status --short --branch

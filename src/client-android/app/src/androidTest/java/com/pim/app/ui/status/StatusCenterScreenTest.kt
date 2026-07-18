@@ -172,14 +172,14 @@ class StatusCenterScreenTest {
             PimTheme { StatusCenterContent(state = state) }
         }
 
-        composeTestRule.onNodeWithTag("status-permission-notification").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("status-permission-precise-location").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("status-permission-background-location").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("status-permission-usage-access").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("status-permission-activity-recognition").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("status-permission-battery-optimization").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("status-network").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("status-probe").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-permission-notification").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-permission-precise-location").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-permission-background-location").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-permission-usage-access").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-permission-activity-recognition").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-permission-battery-optimization").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-network").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-probe").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("status-diagnostics").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithTag("status-next-location").assertExists()
         composeTestRule.onNodeWithText("最近记录").assertExists()

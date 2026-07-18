@@ -22,6 +22,7 @@ import com.pim.app.ui.tracks.TracksScreen
 @Composable
 fun PimRootScreen(initialDestination: PimDestination = PimDestination.Today) {
     var selected by rememberSaveable(initialDestination.name) { mutableStateOf(initialDestination) }
+    var savedTracksUrl by rememberSaveable { mutableStateOf<String?>(null) }
 
     PimTheme {
         Scaffold(
@@ -40,8 +41,13 @@ fun PimRootScreen(initialDestination: PimDestination = PimDestination.Today) {
         ) { innerPadding ->
             val modifier = Modifier.padding(innerPadding)
             when (selected) {
-                PimDestination.Today -> TodayScreen(modifier)
-                PimDestination.Tracks -> TracksScreen(modifier)
+                PimDestination.Today -> TodayScreen(modifier, onOpenSettings = { selected = PimDestination.Settings })
+                PimDestination.Tracks -> TracksScreen(
+                    modifier = modifier,
+                    onOpenSettings = { selected = PimDestination.Settings },
+                    savedUrl = savedTracksUrl,
+                    onUrlChanged = { savedTracksUrl = it }
+                )
                 PimDestination.Schedule -> SchedulePolicyScreen(
                     modifier = modifier,
                     onOpenSettings = { selected = PimDestination.Settings }

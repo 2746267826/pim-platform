@@ -186,6 +186,11 @@ test('historical location dashboard controls emit range, segment, and raw point 
     isLoading: false,
     isFetching: false,
     errorMessage: null,
+    rawPointsLoading: false,
+    rawPointsError: null,
+    rawPointsCurrentPage: 1,
+    rawPointsHasNextPage: false,
+    rawPointsHasPreviousPage: false,
     onShortcutChange: value => shortcutChanges.push(value),
     onCustomRangeChange: value => customRangeChanges.push(value),
     onDeviceChange: () => undefined,
@@ -194,6 +199,9 @@ test('historical location dashboard controls emit range, segment, and raw point 
     onRefresh: () => undefined,
     onSelectSegment: value => segmentSelections.push(value),
     onSelectPoint: value => pointSelections.push(value),
+    onRawPointsPreviousPage: () => undefined,
+    onRawPointsNextPage: () => undefined,
+    onRawPointsRetry: () => undefined,
   });
 
   const thirtyDayButton = findElement(tree, node => textContent(node) === '30天');
@@ -224,8 +232,17 @@ test('historical location dashboard controls emit range, segment, and raw point 
 
   const pointTableTree = LocationRawPointTable({
     points,
+    selectedSegmentId: 'segment-move-1',
+    currentPage: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+    isFetching: false,
+    error: null,
     selectedPointId: null,
     onSelectPoint: value => pointSelections.push(value),
+    onPreviousPage: () => undefined,
+    onNextPage: () => undefined,
+    onRetry: () => undefined,
   });
   const pointButton = findElement(pointTableTree, node => node.props?.['data-point-id'] === 'point-1');
   (pointButton.props?.onClick as () => void)();
@@ -250,11 +267,13 @@ test('historical location page uses analytics APIs and Beijing 7 day defaults', 
     'getMobileLocationAnalyticsOverview',
     'getMobileLocationAnalyticsTracks',
     'getMobileLocationAnalyticsSegmentPoints',
-    "useState<MobileRangeShortcut>('7d')",
     'buildMobileAnalyticsDateRange',
     'toMobileAnalyticsUtcRange',
     'enabled: Boolean(effectiveSelectedSegmentId)',
     'setSelectedSegmentId',
+    'parseTracksUrlFilters',
+    'pageIndex',
+    'cursorStack',
   ]) {
     assert.equal(source.includes(text), true, `HistoricalLocationPage should include: ${text}`);
   }

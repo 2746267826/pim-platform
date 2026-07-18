@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import {
   getMobileDevices,
   getMobileLocationAnalyticsOverview,
@@ -11,26 +12,33 @@ import HistoricalLocationDashboard from '../components/mobile/HistoricalLocation
 import {
   buildMobileAnalyticsDateRange,
   toMobileAnalyticsUtcRange,
-  type MobileRangeShortcut,
 } from '../components/mobile/mobileFormatting';
-export { formatAccuracyLabel } from '../components/mobile/locationFormatting';
+import {
+  parseTracksUrlFilters,
+  serializeTracksUrlFilters,
+  tracksUrlFiltersToParams,
+  canAdvanceRawPointPage,
+  advanceRawPointCursorStack,
+} from './historicalLocationQuery';
 
 function errorMessage(error: unknown) {
-  if (error instanceof Error && error.message) return error.message;
-  return error ? '历史位置加载失败，请稍后刷新。' : null;
+  if (error) return '历史位置数据获取失败，请重试。';
+  return null;
 }
 
-export default function HistoricalLocationPage() {
-  const defaultRange = useMemo(() => buildMobileAnalyticsDateRange('7d'), []);
-  const [rangeShortcut, setRangeShortcut] = useState<MobileRangeShortcut>('7d');
-  const [rangeStartDate, setRangeStartDate] = useState(defaultRange.startDate);
-  const [rangeEndDate, setRangeEndDate] = useState(defaultRange.endDate);
-  const [selectedDeviceId, setSelectedDeviceId] = useState('');
-  const [maxAccuracyMeters, setMaxAccuracyMeters] = useState(50);
-  const [includeRejected, setIncludeRejected] = useState(false);
+export default function HistoricalLocationPage({ embedded }: { embedded?: boolean }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const urlFilters = useMemo(() => parseTracksUrlFilters(searchParams), [searchParams]);
+
+  const [rangeShortcut, setRangeShortcut] = useState(urlFilters.range);
+  const [rangeStartDate, setRangeStartDate] = useState(urlFilters.startDate);
+  const [rangeEndDate, setRangeEndDate] = useState(urlFilters.endDate);
+  const [selectedDeviceId, setSelectedDeviceId] = useState(urlFilters.deviceId);
+  const [maxAccuracyMeters, setMaxAccuracyMeters] = useState(urlFilters.maxAccuracyMeters);
+  const [includeRejected, setIncludeRejected] = useState(urlFilters.includeRejected);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
-  const deviceId = selectedDeviceId || undefined;
 
   const utcRange = useMemo(
     () => toMobileAnalyticsUtcRange({ startDate: rangeStartDate, endDate: rangeEndDate }),
@@ -40,11 +48,16 @@ export default function HistoricalLocationPage() {
   const locationQuery: MobileLocationAnalyticsParams = useMemo(
     () => ({
       ...utcRange,
-      deviceId,
-      maxAccuracyMeters,
-      includeRejected,
+      ...tracksUrlFiltersToParams({
+        range: rangeShortcut,
+        startDate: rangeStartDate,
+        endDate: rangeEndDate,
+        deviceId: selectedDeviceId,
+        maxAccuracyMeters,
+        includeRejected,
+      }),
     }),
-    [utcRange, deviceId, maxAccuracyMeters, includeRejected],
+    [utcRange, rangeShortcut, rangeStartDate, rangeEndDate, selectedDeviceId, maxAccuracyMeters, includeRejected],
   );
 
   const devicesQuery = useQuery({
@@ -71,28 +84,75 @@ export default function HistoricalLocationPage() {
     ? selectedSegmentId
     : segments[0]?.id ?? null;
 
+  const cursorStack = useRef<string[]>([]);
+  const [pageIndex, setPageIndex] = useState(0);
+  const pageSize = 200;
+  const previousEffectiveSegmentId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (previousEffectiveSegmentId.current === effectiveSelectedSegmentId) return;
+    previousEffectiveSegmentId.current = effectiveSelectedSegmentId;
+    cursorStack.current = [];
+    setPageIndex(0);
+    setSelectedPointId(null);
+  }, [effectiveSelectedSegmentId]);
+
   const pointsQuery = useQuery({
-    queryKey: ['mobile-location-analytics-segment-points', effectiveSelectedSegmentId, locationQuery],
-    queryFn: () => getMobileLocationAnalyticsSegmentPoints(effectiveSelectedSegmentId!, {
-      ...locationQuery,
-      pageSize: 100,
-    }),
+    queryKey: ['mobile-location-analytics-segment-points', effectiveSelectedSegmentId, locationQuery, pageIndex],
+    queryFn: async () => {
+      const cursor = pageIndex > 0 && pageIndex - 1 < cursorStack.current.length
+        ? cursorStack.current[pageIndex - 1]
+        : undefined;
+      const result = await getMobileLocationAnalyticsSegmentPoints(effectiveSelectedSegmentId!, {
+        ...locationQuery,
+        cursor: cursor || undefined,
+        pageSize,
+      });
+      return result;
+    },
     enabled: Boolean(effectiveSelectedSegmentId),
     refetchInterval: 30000,
   });
 
   const points = useMemo(() => pointsQuery.data?.items ?? [], [pointsQuery.data]);
+  const hasMore = pointsQuery.data?.hasMore ?? false;
+  const currentNextCursor = pointsQuery.data?.nextCursor ?? null;
+
   const effectiveSelectedPointId = selectedPointId && points.some(point => point.id === selectedPointId)
     ? selectedPointId
     : points[0]?.id ?? null;
 
-  function applyShortcut(shortcut: MobileRangeShortcut) {
-    const nextRange = buildMobileAnalyticsDateRange(shortcut);
-    setRangeShortcut(nextRange.shortcut);
-    setRangeStartDate(nextRange.startDate);
-    setRangeEndDate(nextRange.endDate);
-    setSelectedSegmentId(null);
+  const rawPointsCurrentPage = pageIndex + 1;
+  const rawPointsHasPreviousPage = pageIndex > 0;
+  const rawPointsHasNextPage = canAdvanceRawPointPage({ hasMore, nextCursor: currentNextCursor });
+
+  const syncUrl = useCallback((rangeValue: string, startDate: string, endDate: string, device: string, accuracy: number, rejected: boolean) => {
+    const filters = {
+      range: rangeValue as '7d' | '30d' | 'today' | 'custom',
+      startDate,
+      endDate,
+      deviceId: device,
+      maxAccuracyMeters: accuracy,
+      includeRejected: rejected,
+    };
+    const next = serializeTracksUrlFilters(filters, searchParams);
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  function resetPagination() {
+    cursorStack.current = [];
+    setPageIndex(0);
     setSelectedPointId(null);
+  }
+
+  function applyShortcut(shortcut: string) {
+    const range = buildMobileAnalyticsDateRange(shortcut as '7d' | '30d' | 'today' | 'custom');
+    setRangeShortcut(range.shortcut);
+    setRangeStartDate(range.startDate);
+    setRangeEndDate(range.endDate);
+    setSelectedSegmentId(null);
+    resetPagination();
+    syncUrl(range.shortcut, range.startDate, range.endDate, selectedDeviceId, maxAccuracyMeters, includeRejected);
   }
 
   function applyCustomRange(range: { startDate: string; endDate: string }) {
@@ -100,7 +160,8 @@ export default function HistoricalLocationPage() {
     setRangeStartDate(range.startDate);
     setRangeEndDate(range.endDate);
     setSelectedSegmentId(null);
-    setSelectedPointId(null);
+    resetPagination();
+    syncUrl('custom', range.startDate, range.endDate, selectedDeviceId, maxAccuracyMeters, includeRejected);
   }
 
   function refresh() {
@@ -113,21 +174,49 @@ export default function HistoricalLocationPage() {
   }
 
   function updateMaxAccuracy(value: number) {
-    setMaxAccuracyMeters(Math.max(1, Math.round(value)));
+    const next = Math.max(1, Math.round(value));
+    setMaxAccuracyMeters(next);
     setSelectedSegmentId(null);
-    setSelectedPointId(null);
+    resetPagination();
+    syncUrl(rangeShortcut, rangeStartDate, rangeEndDate, selectedDeviceId, next, includeRejected);
   }
 
   function updateDevice(value: string) {
     setSelectedDeviceId(value);
     setSelectedSegmentId(null);
-    setSelectedPointId(null);
+    resetPagination();
+    syncUrl(rangeShortcut, rangeStartDate, rangeEndDate, value, maxAccuracyMeters, includeRejected);
   }
 
   function updateIncludeRejected(value: boolean) {
     setIncludeRejected(value);
     setSelectedSegmentId(null);
+    resetPagination();
+    syncUrl(rangeShortcut, rangeStartDate, rangeEndDate, selectedDeviceId, maxAccuracyMeters, value);
+  }
+
+  function handleRawPointsPreviousPage() {
+    if (pageIndex <= 0) return;
+    setPageIndex(prev => prev - 1);
     setSelectedPointId(null);
+  }
+
+  function handleRawPointsNextPage() {
+    const advanced = advanceRawPointCursorStack({
+      cursorStack: cursorStack.current,
+      pageIndex,
+      hasMore,
+      nextCursor: currentNextCursor,
+    });
+    if (!advanced.didAdvance) return;
+    cursorStack.current = advanced.cursorStack;
+    setPageIndex(advanced.nextPageIndex);
+    setSelectedPointId(null);
+  }
+
+  function handleSegmentSelect(segmentId: string) {
+    setSelectedSegmentId(segmentId);
+    resetPagination();
   }
 
   return (
@@ -146,15 +235,29 @@ export default function HistoricalLocationPage() {
       points={points}
       isLoading={devicesQuery.isLoading || overviewQuery.isLoading || tracksQuery.isLoading}
       isFetching={devicesQuery.isFetching || overviewQuery.isFetching || tracksQuery.isFetching || pointsQuery.isFetching}
-      errorMessage={errorMessage(devicesQuery.error) ?? errorMessage(overviewQuery.error) ?? errorMessage(tracksQuery.error) ?? errorMessage(pointsQuery.error)}
+      errorMessage={
+        errorMessage(devicesQuery.error)
+        ?? errorMessage(overviewQuery.error)
+        ?? errorMessage(tracksQuery.error)
+        ?? null
+      }
+      rawPointsLoading={pointsQuery.isFetching}
+      rawPointsError={pointsQuery.error ? '原始点加载失败' : null}
+      rawPointsCurrentPage={rawPointsCurrentPage}
+      rawPointsHasNextPage={rawPointsHasNextPage}
+      rawPointsHasPreviousPage={rawPointsHasPreviousPage}
       onShortcutChange={applyShortcut}
       onCustomRangeChange={applyCustomRange}
       onDeviceChange={updateDevice}
       onMaxAccuracyChange={updateMaxAccuracy}
       onIncludeRejectedChange={updateIncludeRejected}
       onRefresh={refresh}
-      onSelectSegment={setSelectedSegmentId}
+      onSelectSegment={handleSegmentSelect}
       onSelectPoint={setSelectedPointId}
+      onRawPointsPreviousPage={handleRawPointsPreviousPage}
+      onRawPointsNextPage={handleRawPointsNextPage}
+      onRawPointsRetry={() => pointsQuery.refetch()}
+      embedded={embedded}
     />
   );
 }

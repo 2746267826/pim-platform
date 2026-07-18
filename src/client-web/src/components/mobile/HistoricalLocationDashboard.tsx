@@ -27,6 +27,11 @@ export interface HistoricalLocationDashboardProps {
   isLoading: boolean;
   isFetching: boolean;
   errorMessage: string | null;
+  rawPointsLoading: boolean;
+  rawPointsError: string | null;
+  rawPointsCurrentPage: number;
+  rawPointsHasNextPage: boolean;
+  rawPointsHasPreviousPage: boolean;
   onShortcutChange: (shortcut: MobileRangeShortcut) => void;
   onCustomRangeChange: (range: { startDate: string; endDate: string }) => void;
   onDeviceChange: (value: string) => void;
@@ -35,6 +40,10 @@ export interface HistoricalLocationDashboardProps {
   onRefresh: () => void;
   onSelectSegment: (segmentId: string) => void;
   onSelectPoint: (pointId: string) => void;
+  onRawPointsPreviousPage: () => void;
+  onRawPointsNextPage: () => void;
+  onRawPointsRetry: () => void;
+  embedded?: boolean;
 }
 
 const shortcuts: Array<{ value: MobileRangeShortcut; label: string }> = [
@@ -64,6 +73,11 @@ export default function HistoricalLocationDashboard({
   isLoading,
   isFetching,
   errorMessage,
+  rawPointsLoading,
+  rawPointsError,
+  rawPointsCurrentPage,
+  rawPointsHasNextPage,
+  rawPointsHasPreviousPage,
   onShortcutChange,
   onCustomRangeChange,
   onDeviceChange,
@@ -72,16 +86,33 @@ export default function HistoricalLocationDashboard({
   onRefresh,
   onSelectSegment,
   onSelectPoint,
+  onRawPointsPreviousPage,
+  onRawPointsNextPage,
+  onRawPointsRetry,
+  embedded,
 }: HistoricalLocationDashboardProps) {
+  const wrapperClass = embedded
+    ? 'space-y-3 pb-6'
+    : 'mx-auto max-w-[1500px] space-y-4 pb-8';
+  const sectionClass = embedded
+    ? 'rounded-md border border-slate-200 bg-white p-3'
+    : 'rounded-md border border-slate-200 bg-white p-4';
+  const gridClass = embedded
+    ? 'mt-3 grid grid-cols-1 gap-2 md:grid-cols-2'
+    : 'mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5';
+  const columnsClass = embedded
+    ? 'grid grid-cols-1 gap-3'
+    : 'grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_390px]';
+  const bottomColumnsClass = embedded
+    ? 'grid grid-cols-1 gap-3'
+    : 'grid grid-cols-1 gap-4 xl:grid-cols-2';
+
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4 pb-8">
-      <section className="rounded-md border border-slate-200 bg-white p-4">
+    <div className={wrapperClass}>
+      <section className={sectionClass}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-xl font-semibold text-slate-950">历史位置</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              从“地图 + 点列表”升级为“轨迹、停留、质量、选中详情”一屏完成。
-            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex overflow-hidden rounded-md border border-slate-200 bg-slate-50">
@@ -111,7 +142,7 @@ export default function HistoricalLocationDashboard({
           </div>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <div className={gridClass}>
           <label className="min-w-0 text-sm">
             <span className="mb-1 block text-xs font-semibold text-slate-500">设备</span>
             <select
@@ -160,13 +191,6 @@ export default function HistoricalLocationDashboard({
           </label>
 
           <label className="min-w-0 text-sm">
-            <span className="mb-1 block text-xs font-semibold text-slate-500">展示</span>
-            <select className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700" value="tracks-stays" onChange={() => undefined}>
-              <option value="tracks-stays">轨迹 + 停留点</option>
-            </select>
-          </label>
-
-          <label className="min-w-0 text-sm">
             <span className="mb-1 block text-xs font-semibold text-slate-500">质量</span>
             <span className="flex h-9 items-center justify-between gap-2 rounded-md border border-slate-200 px-3 text-sm text-slate-700">
               <span>隐藏已拒绝点</span>
@@ -179,15 +203,6 @@ export default function HistoricalLocationDashboard({
               />
             </span>
           </label>
-
-          <label className="min-w-0 text-sm">
-            <span className="mb-1 block text-xs font-semibold text-slate-500">搜索地点</span>
-            <input
-              type="search"
-              placeholder="地点或坐标"
-              className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm text-slate-700"
-            />
-          </label>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
@@ -197,9 +212,16 @@ export default function HistoricalLocationDashboard({
         </div>
 
         {errorMessage && (
-          <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {errorMessage}
-          </p>
+          <div className="mt-3 flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-3 py-2">
+            <span className="text-sm text-red-700">{errorMessage}</span>
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="rounded-md bg-red-100 px-3 py-1 text-sm text-red-700 hover:bg-red-200"
+            >
+              重试
+            </button>
+          </div>
         )}
       </section>
 
@@ -211,7 +233,7 @@ export default function HistoricalLocationDashboard({
         </section>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
+          <div className={columnsClass}>
             <LocationHistoryMap
               tracks={tracks}
               selectedSegmentId={selectedSegmentId}
@@ -222,7 +244,7 @@ export default function HistoricalLocationDashboard({
             <LocationSegmentDetail tracks={tracks} selectedSegmentId={selectedSegmentId} />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className={bottomColumnsClass}>
             <LocationStayMoveTimeline
               tracks={tracks}
               selectedSegmentId={selectedSegmentId}
@@ -230,8 +252,17 @@ export default function HistoricalLocationDashboard({
             />
             <LocationRawPointTable
               points={points}
+              selectedSegmentId={selectedSegmentId ?? null}
+              currentPage={rawPointsCurrentPage}
+              hasNextPage={rawPointsHasNextPage}
+              hasPreviousPage={rawPointsHasPreviousPage}
+              isFetching={rawPointsLoading}
+              error={rawPointsError}
               selectedPointId={selectedPointId}
               onSelectPoint={onSelectPoint}
+              onPreviousPage={onRawPointsPreviousPage}
+              onNextPage={onRawPointsNextPage}
+              onRetry={onRawPointsRetry}
             />
           </div>
         </>

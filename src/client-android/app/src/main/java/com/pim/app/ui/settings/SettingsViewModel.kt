@@ -67,6 +67,12 @@ data class SettingsUiState(
     val diagnosticClearFeedback: DiagnosticClearFeedback? = null
 )
 
+private enum class SaveServerUrlResult {
+    Success,
+    SessionClearFailed,
+    CommitFailed
+}
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val serverSettingsStore: ServerSettingsStore,
@@ -80,6 +86,7 @@ class SettingsViewModel @Inject constructor(
     private val mobileSyncScheduler: MobileSyncScheduler,
     private val diagnosticOperations: DiagnosticOperations,
     private val runningStateRestorer: RunningStateRestorer,
+    private val webViewSiteDataCleaner: WebViewSiteDataCleaner,
     private val scheduleCacheStore: ScheduleCacheStore
 ) : ViewModel() {
     private val _state = MutableStateFlow(SettingsUiState())
@@ -139,27 +146,29 @@ class SettingsViewModel @Inject constructor(
             return false
         }
 
-        val oldIdentity = serverIdentityFor(serverSettingsStore.getBaseUrl())
-
-        runCatching {
-            serverSettingsStore.setBaseUrl(validation.normalizedUrl)
-        }.getOrElse {
-            reloadPersistedServerState(
-                apiError = "API 地址保存失败",
-                apiStatus = "API 地址保存失败，已重新载入当前配置。"
-            )
-            return false
+        return when (saveServerUrl(validation.normalizedUrl)) {
+            SaveServerUrlResult.Success -> {
+                reloadPersistedServerState(
+                    apiError = null,
+                    apiStatus = "API 地址已保存。"
+                )
+                true
+            }
+            SaveServerUrlResult.SessionClearFailed -> {
+                reloadPersistedServerState(
+                    apiError = "旧会话无法清除，请重试。",
+                    apiStatus = "API 地址保存失败，无法清理旧会话。"
+                )
+                false
+            }
+            SaveServerUrlResult.CommitFailed -> {
+                reloadPersistedServerState(
+                    apiError = "API 地址无法写入本地设置，请重试。",
+                    apiStatus = "API 地址保存失败。"
+                )
+                false
+            }
         }
-        reloadPersistedServerState(
-            apiError = null,
-            apiStatus = "API 地址已保存。"
-        )
-
-        val newIdentity = serverIdentityFor(validation.normalizedUrl)
-        if (oldIdentity != null && newIdentity != null && oldIdentity != newIdentity) {
-            scheduleCacheStore.clear(oldIdentity)
-        }
-        return true
     }
 
     fun testConnection() {
@@ -231,6 +240,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun logout() {
+        val oldOrigin = extractOrigin(serverSettingsStore.getBaseUrl())
         if (!tokenManager.clear()) {
             _state.update {
                 it.copy(
@@ -239,6 +249,9 @@ class SettingsViewModel @Inject constructor(
                 )
             }
             return
+        }
+        if (oldOrigin != null) {
+            runCatching { webViewSiteDataCleaner.clearOrigin(oldOrigin) }
         }
         val collectionIntent = persistedCollectionEnabled()
         _state.update {
@@ -276,63 +289,69 @@ class SettingsViewModel @Inject constructor(
             return
         }
 
-        val oldIdentity = serverIdentityFor(serverSettingsStore.getBaseUrl())
-        val normalized = runCatching {
-            serverSettingsStore.setBaseUrl(validation.normalizedUrl)
-        }.getOrElse {
-            reloadPersistedServerState(
-                apiError = "API 地址保存失败",
-                apiStatus = "API 地址保存失败，已重新载入当前配置。"
-            )
-            _state.update {
-                it.copy(collectionStatus = "API 地址保存失败，持续采集设置保持不变。")
+        when (saveServerUrl(validation.normalizedUrl)) {
+            SaveServerUrlResult.Success -> {
+                val normalized = validation.normalizedUrl
+                reloadPersistedServerState(apiError = null, apiStatus = state.value.apiStatus)
+
+                if (!hasCurrentServerSession()) {
+                    showCollectionBlocked("请先登录后再开启持续采集。")
+                    return
+                }
+
+                trackingSettingsStore.setContinuousCollectionEnabled(true)
+
+                val missingPermissions = missingCollectionPermissions()
+                if (missingPermissions.isNotEmpty()) {
+                    _state.update {
+                        it.copy(
+                            apiAddress = normalized,
+                            apiWarnings = validation.warnings,
+                            apiError = null,
+                            continuousCollectionEnabled = true,
+                            collectionStatus = "缺少权限：${missingPermissions.joinToString("、")}。"
+                        )
+                    }
+                    return
+                }
+
+                _state.update {
+                    it.copy(
+                        apiAddress = normalized,
+                        apiWarnings = validation.warnings,
+                        apiError = null,
+                        continuousCollectionEnabled = true,
+                        collectionStatus = "正在启动前台定位服务。"
+                    )
+                }
+                runCatching {
+                    foregroundLocationController.start()
+                }.onFailure {
+                    _state.update {
+                        it.copy(
+                            continuousCollectionEnabled = true,
+                            collectionStatus = "启动失败，请查看状态页"
+                        )
+                    }
+                }
             }
-            return
-        }
-        reloadPersistedServerState(apiError = null, apiStatus = state.value.apiStatus)
-        val newIdentity = serverIdentityFor(normalized)
-        if (oldIdentity != null && newIdentity != null && oldIdentity != newIdentity) {
-            scheduleCacheStore.clear(oldIdentity)
-        }
-
-        if (!hasCurrentServerSession()) {
-            showCollectionBlocked("请先登录后再开启持续采集。")
-            return
-        }
-
-        trackingSettingsStore.setContinuousCollectionEnabled(true)
-
-        val missingPermissions = missingCollectionPermissions()
-        if (missingPermissions.isNotEmpty()) {
-            _state.update {
-                it.copy(
-                    apiAddress = normalized,
-                    apiWarnings = validation.warnings,
-                    apiError = null,
-                    continuousCollectionEnabled = true,
-                    collectionStatus = "缺少权限：${missingPermissions.joinToString("、")}。"
+            SaveServerUrlResult.SessionClearFailed -> {
+                reloadPersistedServerState(
+                    apiError = "旧会话无法清除，请重试。",
+                    apiStatus = "API 地址保存失败，已重新载入当前配置。"
                 )
+                _state.update {
+                    it.copy(collectionStatus = "API 地址保存失败，持续采集设置保持不变。")
+                }
             }
-            return
-        }
-
-        _state.update {
-            it.copy(
-                apiAddress = normalized,
-                apiWarnings = validation.warnings,
-                apiError = null,
-                continuousCollectionEnabled = true,
-                collectionStatus = "正在启动前台定位服务。"
-            )
-        }
-        runCatching {
-            foregroundLocationController.start()
-        }.onFailure {
-            _state.update {
-                it.copy(
-                    continuousCollectionEnabled = true,
-                    collectionStatus = "启动失败，请查看状态页"
+            SaveServerUrlResult.CommitFailed -> {
+                reloadPersistedServerState(
+                    apiError = "API 地址无法写入本地设置，请重试。",
+                    apiStatus = "API 地址保存失败，已重新载入当前配置。"
                 )
+                _state.update {
+                    it.copy(collectionStatus = "API 地址保存失败，持续采集设置保持不变。")
+                }
             }
         }
     }
@@ -553,6 +572,44 @@ class SettingsViewModel @Inject constructor(
                 }
             )
         }
+    }
+
+    private fun saveServerUrl(newUrl: String): SaveServerUrlResult {
+        val oldOrigin = extractOrigin(serverSettingsStore.getBaseUrl())
+        val newOrigin = extractOrigin(newUrl)
+        val oldIdentity = serverIdentityFor(serverSettingsStore.getBaseUrl())
+
+        var clearedOldSession = false
+        if (newOrigin != oldOrigin && newOrigin != null) {
+            val snapshot = tokenManager.snapshot()
+            if (snapshot.tokens != null && snapshot.serverIdentity != newOrigin) {
+                clearedOldSession = tokenManager.clear()
+                if (!clearedOldSession) return SaveServerUrlResult.SessionClearFailed
+            }
+        }
+
+        val success = runCatching {
+            serverSettingsStore.setBaseUrl(newUrl)
+        }.isSuccess
+
+        val shouldClearSiteData = oldOrigin != null && newOrigin != oldOrigin
+            && (clearedOldSession || success)
+        if (shouldClearSiteData) {
+            runCatching { webViewSiteDataCleaner.clearOrigin(oldOrigin!!) }
+        }
+
+        if (success) {
+            val newIdentity = serverIdentityFor(newUrl)
+            if (oldIdentity != null && newIdentity != null && oldIdentity != newIdentity) {
+                scheduleCacheStore.clear(oldIdentity)
+            }
+        }
+
+        return if (success) SaveServerUrlResult.Success else SaveServerUrlResult.CommitFailed
+    }
+
+    private fun extractOrigin(url: String): String? {
+        return runCatching { PimServerEndpoints.from(url).trustedOrigin }.getOrNull()
     }
 
     private fun missingCollectionPermissions(snapshot: PermissionStatusSnapshot? = null): List<String> {

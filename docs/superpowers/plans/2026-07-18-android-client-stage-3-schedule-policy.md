@@ -336,7 +336,7 @@ git commit -m "feat: expose schedule cache and policy transitions"
 - Modify: `src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ScreenContentTest.kt`
 - Create: `src/client-android/app/src/test/java/com/pim/app/ui/schedule/SchedulePolicyViewModelTest.kt`
 
-- [ ] **Step 1: 写失败的 ViewModel 测试。** 锁定五种状态、重试和时间选择：
+- [x] **Step 1: 写失败的 ViewModel 测试。** 锁定五种状态、重试和时间选择：
 
 ```kotlin
 @Test
@@ -352,17 +352,17 @@ fun `failed refresh with cache becomes StaleContent`() = runTest {
 }
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest --tests "*SchedulePolicyViewModelTest" --no-daemon
 ```
 
-- [ ] **Step 3: 实现状态模型和 ViewModel。** `SchedulePolicyUiState` 必须有 `Loading`、`Content`、`Empty`、`StaleContent`、`Error` 五种互斥状态；共享内容模型携带当前项、下一项、按日期分组列表、缓存时间和策略摘要。ViewModel 注入 repository 和 `TrackingSettingsStore`，初始化调用 `refreshIfStale()`，`retry()` 传 `force=true`。策略摘要从 `ForegroundLocationService.runtimeState` 读取 mode/reason/interval，恢复距离来自设置。
+- [x] **Step 3: 实现状态模型和 ViewModel。** `SchedulePolicyUiState` 必须有 `Loading`、`Content`、`Empty`、`StaleContent`、`Error` 五种互斥状态；共享内容模型携带当前项、下一项、按日期分组列表、缓存时间和策略摘要。ViewModel 注入 repository 和 `TrackingSettingsStore`，初始化调用 `refreshIfStale()`，`retry()` 传 `force=true`。策略摘要从 `ForegroundLocationService.runtimeState` 读取 mode/reason/interval，恢复距离来自设置。
 
-- [ ] **Step 4: 重写 Compose 页面。** 签名改为 `SchedulePolicyScreen(modifier: Modifier = Modifier, onOpenSettings: () -> Unit = {})`，内部使用 `hiltViewModel()` 和 `collectAsStateWithLifecycle()`。渲染来源/时间/刷新按钮、当前项、下一项、日期分组列表、策略摘要、stale 警告和错误重试；`Authentication` 错误显示“前往设置”并调用回调，其余错误显示重试。`PimRootScreen` 传入 `{ selected = PimDestination.Settings }`。按钮和内容使用稳定 testTag：`schedule-refresh`、`schedule-retry`、`schedule-settings`、`schedule-current`、`schedule-upcoming`、`schedule-policy`。不增加 CRUD、WebView 或完整日历控件。
+- [x] **Step 4: 重写 Compose 页面。** 签名改为 `SchedulePolicyScreen(modifier: Modifier = Modifier, onOpenSettings: () -> Unit = {})`，内部使用 `hiltViewModel()` 和 `collectAsStateWithLifecycle()`。渲染来源/时间/刷新按钮、当前项、下一项、日期分组列表、策略摘要、stale 警告和错误重试；`Authentication` 错误显示“前往设置”并调用回调，其余错误显示重试。`PimRootScreen` 传入 `{ selected = PimDestination.Settings }`。按钮和内容使用稳定 testTag：`schedule-refresh`、`schedule-retry`、`schedule-settings`、`schedule-current`、`schedule-upcoming`、`schedule-policy`。不增加 CRUD、WebView 或完整日历控件。
 
-- [ ] **Step 5: 更新静态契约测试，运行绿色测试并提交。**
+- [x] **Step 5: 更新静态契约测试，运行绿色测试并提交。**
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest --tests "*SchedulePolicyViewModelTest" --tests "*AndroidV2ScreenContentTest" --no-daemon

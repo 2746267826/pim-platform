@@ -201,4 +201,31 @@ class ScheduleCacheStoreTest {
         }
         assertFalse("tmp directory should be cleaned up", tmpFile.exists())
     }
+
+    @Test
+    fun `readOutcome returns Found for valid cache`() {
+        store.write("http://test:5858", ScheduleCacheDocument(windows = emptyList(), rangeStartMillis = 1L, rangeEndMillis = 2L))
+        val result = store.readOutcome("http://test:5858")
+        assertTrue(result is ScheduleCacheStore.CacheReadResult.Found)
+    }
+
+    @Test
+    fun `readOutcome returns Missing when file does not exist`() {
+        val result = store.readOutcome("http://not-written:5858")
+        assertTrue(result is ScheduleCacheStore.CacheReadResult.Missing)
+    }
+
+    @Test
+    fun `readOutcome returns Corrupt for damaged file`() {
+        store.cacheFile("http://test:5858").writeText("not-json-at-all")
+        val result = store.readOutcome("http://test:5858")
+        assertTrue(result is ScheduleCacheStore.CacheReadResult.Corrupt)
+    }
+
+    @Test
+    fun `read returns null for both Missing and Corrupt`() {
+        assertNull(store.read("http://not-written:5858"))
+        store.cacheFile("http://test:5858").writeText("broken")
+        assertNull(store.read("http://test:5858"))
+    }
 }

@@ -39,16 +39,27 @@ class ScheduleCacheStore(
 
     internal constructor(cacheDir: File, json: Json) : this(json, cacheDir)
 
-    fun read(serverIdentity: String): ScheduleCacheDocument? {
+    internal sealed class CacheReadResult {
+        data class Found(val document: ScheduleCacheDocument) : CacheReadResult()
+        data object Missing : CacheReadResult()
+        data object Corrupt : CacheReadResult()
+    }
+
+    internal fun readOutcome(serverIdentity: String): CacheReadResult {
         synchronized(lock) {
             val file = cacheFile(serverIdentity)
-            if (!file.exists()) return null
-            try {
-                return json.decodeFromString<ScheduleCacheDocument>(file.readText())
+            if (!file.exists()) return CacheReadResult.Missing
+            return try {
+                CacheReadResult.Found(json.decodeFromString<ScheduleCacheDocument>(file.readText()))
             } catch (_: Exception) {
-                return null
+                CacheReadResult.Corrupt
             }
         }
+    }
+
+    fun read(serverIdentity: String): ScheduleCacheDocument? {
+        val outcome = readOutcome(serverIdentity)
+        return if (outcome is CacheReadResult.Found) outcome.document else null
     }
 
     fun write(serverIdentity: String, document: ScheduleCacheDocument) {

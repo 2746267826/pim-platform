@@ -37,6 +37,13 @@ import org.robolectric.annotation.LooperMode
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = TestPimApp::class)
 class ForegroundLocationServiceTest {
+    private val cacheDirs = mutableListOf<java.io.File>()
+
+    @org.junit.After
+    fun cleanUp() {
+        cacheDirs.forEach { it.deleteRecursively() }
+        cacheDirs.clear()
+    }
 
     @Test
     fun resolveRequestIntervalPreservedBelowSixtySeconds() {
@@ -571,7 +578,18 @@ class ForegroundLocationServiceTest {
         } as ApiService
 
         val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
-        service.scheduleWindowRepository = ScheduleWindowRepository(apiService)
+        val testCacheDir = java.io.File(context.filesDir, "fg-test-cache-" + java.lang.System.nanoTime())
+        testCacheDir.mkdirs()
+        cacheDirs.add(testCacheDir)
+        val testCacheStore = com.pim.app.schedule.ScheduleCacheStore(testCacheDir, kotlinx.serialization.json.Json { ignoreUnknownKeys = true })
+        val testAuthStore = object : com.pim.core.auth.AuthSessionStore {
+            override fun snapshot() = com.pim.core.auth.AuthSessionSnapshot(null, null)
+            override fun save(accessToken: String, refreshToken: String, expiresAtUtcMillis: Long, serverIdentity: String) = true
+            override fun clear() = true
+        }
+        val testServerSettings = com.pim.core.settings.ServerSettingsStore(context, testAuthStore)
+        kotlin.runCatching { testServerSettings.setBaseUrl("http://127.0.0.1:5858/api/v1/") }
+        service.scheduleWindowRepository = ScheduleWindowRepository(apiService, testCacheStore, testServerSettings)
 
         val refresh = ForegroundLocationService::class.java
             .getDeclaredMethod("refreshScheduleWindows")

@@ -9,6 +9,24 @@ enum class LocationPolicyMode {
     SyncFallback
 }
 
+object TrackingIntervalBounds {
+    const val NORMAL_MIN_MILLIS = 60_000L
+    const val NORMAL_MAX_MILLIS = 900_000L
+    const val SCHEDULE_MIN_MILLIS = 300_000L
+    const val SCHEDULE_MAX_MILLIS = 3_600_000L
+    const val MOVEMENT_MIN_MILLIS = 30_000L
+    const val MOVEMENT_MAX_MILLIS = 300_000L
+}
+
+fun TrackingPolicy.movementIntervalFor(signal: MotionSignal): Long = when (signal) {
+    MotionSignal.OnBicycle, MotionSignal.InVehicle ->
+        (movementIntervalMillis / 2L).coerceAtLeast(TrackingIntervalBounds.MOVEMENT_MIN_MILLIS)
+    else -> movementIntervalMillis
+}.coerceIn(
+    TrackingIntervalBounds.MOVEMENT_MIN_MILLIS,
+    TrackingIntervalBounds.MOVEMENT_MAX_MILLIS
+)
+
 data class TrackingPolicy(
     val normalIntervalMillis: Long = 3 * 60 * 1000L,
     val scheduleLowFrequencyIntervalMillis: Long = 15 * 60 * 1000L,
@@ -34,16 +52,16 @@ data class ScheduleWindow(
     val endsAtMillis: Long
 ) {
     fun isActiveAt(nowMillis: Long): Boolean =
-        nowMillis in startsAtMillis until endsAtMillis && locationText.isNotBlank()
+        nowMillis in startsAtMillis until endsAtMillis
 }
 
-enum class MotionSignal {
-    Unknown,
-    Still,
-    Walking,
-    Running,
-    OnBicycle,
-    InVehicle
+enum class MotionSignal(val displayName: String) {
+    Unknown("未知"),
+    Still("静止"),
+    Walking("步行"),
+    Running("跑步"),
+    OnBicycle("骑行"),
+    InVehicle("车载")
 }
 
 data class PolicyLocation(

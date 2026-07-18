@@ -1,5 +1,7 @@
 package com.pim.app.settings
 
+import com.pim.app.location.policy.TrackingIntervalBounds
+
 data class ValidationError(val code: String, val message: String)
 
 class ValidationException(val errors: List<ValidationError>) : IllegalArgumentException(
@@ -7,12 +9,6 @@ class ValidationException(val errors: List<ValidationError>) : IllegalArgumentEx
 )
 
 object TrackingSettingsValidator {
-    private const val NORMAL_MIN = 60_000L
-    private const val NORMAL_MAX = 900_000L
-    private const val SCHEDULE_MIN = 300_000L
-    private const val SCHEDULE_MAX = 3_600_000L
-    private const val MOVEMENT_MIN = 30_000L
-    private const val MOVEMENT_MAX = 300_000L
     private const val RECOVERY_MIN = 25.0
     private const val RECOVERY_MAX = 500.0
     private const val ACCURACY_MIN = 10f
@@ -24,29 +20,29 @@ object TrackingSettingsValidator {
     fun validate(settings: TrackingSettings): List<ValidationError> {
         val errors = mutableListOf<ValidationError>()
 
-        if (settings.normalIntervalMillis < NORMAL_MIN || settings.normalIntervalMillis > NORMAL_MAX) {
+        if (settings.normalIntervalMillis < TrackingIntervalBounds.NORMAL_MIN_MILLIS || settings.normalIntervalMillis > TrackingIntervalBounds.NORMAL_MAX_MILLIS) {
             errors.add(
                 ValidationError(
                     "NORMAL_INTERVAL_OUT_OF_RANGE",
-                    "normalIntervalMillis must be between $NORMAL_MIN and $NORMAL_MAX, got ${settings.normalIntervalMillis}"
+                    "normalIntervalMillis must be between ${TrackingIntervalBounds.NORMAL_MIN_MILLIS} and ${TrackingIntervalBounds.NORMAL_MAX_MILLIS}, got ${settings.normalIntervalMillis}"
                 )
             )
         }
 
-        if (settings.scheduleLowFrequencyIntervalMillis < SCHEDULE_MIN || settings.scheduleLowFrequencyIntervalMillis > SCHEDULE_MAX) {
+        if (settings.scheduleLowFrequencyIntervalMillis < TrackingIntervalBounds.SCHEDULE_MIN_MILLIS || settings.scheduleLowFrequencyIntervalMillis > TrackingIntervalBounds.SCHEDULE_MAX_MILLIS) {
             errors.add(
                 ValidationError(
                     "SCHEDULE_INTERVAL_OUT_OF_RANGE",
-                    "scheduleLowFrequencyIntervalMillis must be between $SCHEDULE_MIN and $SCHEDULE_MAX, got ${settings.scheduleLowFrequencyIntervalMillis}"
+                    "scheduleLowFrequencyIntervalMillis must be between ${TrackingIntervalBounds.SCHEDULE_MIN_MILLIS} and ${TrackingIntervalBounds.SCHEDULE_MAX_MILLIS}, got ${settings.scheduleLowFrequencyIntervalMillis}"
                 )
             )
         }
 
-        if (settings.movementIntervalMillis < MOVEMENT_MIN || settings.movementIntervalMillis > MOVEMENT_MAX) {
+        if (settings.movementIntervalMillis < TrackingIntervalBounds.MOVEMENT_MIN_MILLIS || settings.movementIntervalMillis > TrackingIntervalBounds.MOVEMENT_MAX_MILLIS) {
             errors.add(
                 ValidationError(
                     "MOVEMENT_INTERVAL_OUT_OF_RANGE",
-                    "movementIntervalMillis must be between $MOVEMENT_MIN and $MOVEMENT_MAX, got ${settings.movementIntervalMillis}"
+                    "movementIntervalMillis must be between ${TrackingIntervalBounds.MOVEMENT_MIN_MILLIS} and ${TrackingIntervalBounds.MOVEMENT_MAX_MILLIS}, got ${settings.movementIntervalMillis}"
                 )
             )
         }

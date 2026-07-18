@@ -9,8 +9,7 @@ import javax.inject.Inject
 object ScheduleWindowSelector {
     fun current(windows: List<ScheduleWindow>, nowMillis: Long): ScheduleWindow? {
         return windows.firstOrNull { window ->
-            window.locationText.isNotBlank() &&
-                nowMillis >= window.startsAtMillis &&
+            nowMillis >= window.startsAtMillis &&
                 nowMillis < window.endsAtMillis
         }
     }
@@ -21,7 +20,7 @@ object ScheduleWindowSelector {
         limit: Int = 10
     ): List<ScheduleWindow> {
         return windows
-            .filter { it.locationText.isNotBlank() && it.startsAtMillis > nowMillis }
+            .filter { it.startsAtMillis > nowMillis }
             .sortedBy { it.startsAtMillis }
             .take(limit)
     }
@@ -53,7 +52,6 @@ class ScheduleWindowRepository @Inject constructor(
         fun mapEvents(events: List<EventResponse>): List<ScheduleWindow> {
             return events.mapNotNull { event ->
                 val location = event.location?.trim().orEmpty()
-                if (location.isBlank()) return@mapNotNull null
                 val startsAt = event.dtStart.toEpochMillisOrNull() ?: return@mapNotNull null
                 val endsAt = event.dtEnd.toEpochMillisOrNull() ?: return@mapNotNull null
                 ScheduleWindow(

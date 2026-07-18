@@ -37,13 +37,23 @@ class LocationPolicyEngine(
         }
 
         if (movementRecoveryActive) {
-            return decision(
-                mode = LocationPolicyMode.MovementRecovery,
-                intervalMillis = policy.movementIntervalMillis,
-                nowMillis = input.nowMillis,
-                reason = "日程期间位置变化超过 ${policy.scheduleRecoveryThresholdMeters.toInt()} 米",
-                scheduleLowFrequency = false
-            )
+            return if (input.motionSignal.isMoving()) {
+                decision(
+                    mode = LocationPolicyMode.MovementRecovery,
+                    intervalMillis = policy.movementIntervalFor(input.motionSignal),
+                    nowMillis = input.nowMillis,
+                    reason = "日程期间位置变化超过 ${policy.scheduleRecoveryThresholdMeters.toInt()} 米",
+                    scheduleLowFrequency = false
+                )
+            } else {
+                decision(
+                    mode = LocationPolicyMode.MovementRecovery,
+                    intervalMillis = policy.normalIntervalMillis,
+                    nowMillis = input.nowMillis,
+                    reason = "日程期间位置变化超过 ${policy.scheduleRecoveryThresholdMeters.toInt()} 米",
+                    scheduleLowFrequency = false
+                )
+            }
         }
 
         if (input.motionSignal.isMoving()) {
@@ -54,7 +64,7 @@ class LocationPolicyEngine(
             mode = LocationPolicyMode.ScheduleLowFrequency,
             intervalMillis = policy.scheduleLowFrequencyIntervalMillis,
             nowMillis = input.nowMillis,
-            reason = "当前日程包含位置信息，降低定位频率",
+            reason = "当前日程时段，降低定位频率",
             scheduleLowFrequency = true
         )
     }
@@ -85,9 +95,9 @@ class LocationPolicyEngine(
     private fun motionDecision(nowMillis: Long, motionSignal: MotionSignal): PolicyDecision =
         decision(
             mode = LocationPolicyMode.MotionObservation,
-            intervalMillis = policy.movementIntervalMillis,
+            intervalMillis = policy.movementIntervalFor(motionSignal),
             nowMillis = nowMillis,
-            reason = "检测到运动状态：$motionSignal",
+            reason = "检测到运动状态：${motionSignal.displayName}",
             scheduleLowFrequency = false
         )
 
@@ -123,14 +133,12 @@ class LocationPolicyEngine(
 
     private data class ScheduleKey(
         val id: String,
-        val locationText: String,
         val startsAtMillis: Long,
         val endsAtMillis: Long
     ) {
         companion object {
             fun from(window: ScheduleWindow): ScheduleKey = ScheduleKey(
                 id = window.id,
-                locationText = window.locationText,
                 startsAtMillis = window.startsAtMillis,
                 endsAtMillis = window.endsAtMillis
             )

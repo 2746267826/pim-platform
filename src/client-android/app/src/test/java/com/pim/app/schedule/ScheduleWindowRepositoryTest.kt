@@ -290,6 +290,22 @@ class ScheduleWindowRepositoryTest {
     }
 
     @Test
+    fun `current snapshot guard clears old windows synchronously after server switch`() = runTest {
+        api.events = listOf(event(id = "server-a"))
+        serverSettings.setBaseUrl("http://server-a:5858/api/v1/")
+        repo.refreshIfStale(force = true, nowMillis = 1_000L)
+
+        serverSettings.setBaseUrl("http://server-b:5858/api/v1/")
+
+        val guarded = repo.snapshotForCurrentServer()
+
+        assertEquals("server-b identity", serverIdentity("http://server-b:5858/api/v1/"), guarded.serverIdentity)
+        assertTrue("guarded snapshot must not expose old server windows", guarded.windows.isEmpty())
+        assertEquals(ScheduleCacheFreshness.Missing, guarded.freshness)
+        assertTrue("repository snapshot must also clear old windows", repo.snapshot.value.windows.isEmpty())
+    }
+
+    @Test
     fun `401 error maps to Authentication`() = runTest {
         api.failNext = HttpException(
             Response.error<Any>(401, "{}".toResponseBody("application/json".toMediaType()))

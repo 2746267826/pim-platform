@@ -51,7 +51,7 @@
 - Test: `src/client-android/app/src/test/java/com/pim/app/location/policy/LocationPolicyEngineTest.kt`
 - Create: `src/client-android/app/src/test/java/com/pim/app/settings/TrackingSettingsValidatorTest.kt`
 
-- [ ] **Step 1: 写失败测试，锁定已确认行为。** 在 `LocationPolicyEngineTest` 增加：无地点活动日程进入低频；车载/骑行使用运动间隔的一半且最低 30 秒；开始边界包含、结束边界排除；距离恢复时静止用常规间隔、运动用派生间隔。
+- [x] **Step 1: 写失败测试，锁定已确认行为。** 在 `LocationPolicyEngineTest` 增加：无地点活动日程进入低频；车载/骑行使用运动间隔的一半且最低 30 秒；开始边界包含、结束边界排除；距离恢复时静止用常规间隔、运动用派生间隔。
 
 ```kotlin
 @Test
@@ -70,7 +70,7 @@ fun `vehicle uses half movement interval but never below thirty seconds`() {
 }
 ```
 
-- [ ] **Step 2: 运行失败测试，确认失败来自旧逻辑。**
+- [x] **Step 2: 运行失败测试，确认失败来自旧逻辑。**
 
 ```powershell
 cd src/client-android
@@ -79,7 +79,7 @@ cd src/client-android
 
 预期：无地点日程仍返回普通模式，车载仍使用完整运动间隔。
 
-- [ ] **Step 3: 实现最小策略改动。** 在 `LocationPolicyTypes.kt` 增加统一范围和派生函数：
+- [x] **Step 3: 实现最小策略改动。** 在 `LocationPolicyTypes.kt` 增加统一范围和派生函数：
 
 ```kotlin
 object TrackingIntervalBounds {
@@ -103,7 +103,7 @@ fun TrackingPolicy.movementIntervalFor(signal: MotionSignal): Long = when (signa
 
 移除 `ScheduleWindow.isActiveAt()`、`ScheduleWindowSelector.current()` 和 `upcoming()` 中的地点过滤；保留时间边界。`LocationPolicyEngine` 的运动和恢复分支使用 `movementIntervalFor()`，低频原因改为“当前日程时段，降低定位频率”。`TrackingSettingsValidator` 改用同一组常量。
 
-- [ ] **Step 4: 运行绿色测试并提交。**
+- [x] **Step 4: 运行绿色测试并提交。**
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest --tests "*LocationPolicyEngineTest" --tests "*TrackingSettingsValidator*" --no-daemon
@@ -120,7 +120,7 @@ git commit -m "feat: make schedule policy intervals factual"
 - Create: `src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleCacheStoreTest.kt`
 - Modify: `src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt`
 
-- [ ] **Step 1: 写失败测试。** 使用测试 Context 的临时 filesDir，覆盖成功读写、成功空列表、损坏 JSON 返回 null、server identity 隔离、失败元数据不覆盖 windows、清理删除文件。
+- [x] **Step 1: 写失败测试。** 使用测试 Context 的临时 filesDir，覆盖成功读写、成功空列表、损坏 JSON 返回 null、server identity 隔离、失败元数据不覆盖 windows、清理删除文件。
 
 ```kotlin
 @Test
@@ -138,7 +138,7 @@ fun `corrupt json is treated as missing`() {
 }
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest --tests "*ScheduleCacheStoreTest" --no-daemon
@@ -146,7 +146,7 @@ fun `corrupt json is treated as missing`() {
 
 预期：类和 DTO 尚不存在，测试编译失败。
 
-- [ ] **Step 3: 实现缓存 DTO 和存储。** 使用 primitive `@Serializable` DTO：
+- [x] **Step 3: 实现缓存 DTO 和存储。** 使用 primitive `@Serializable` DTO：
 
 ```kotlin
 @Serializable
@@ -172,7 +172,7 @@ data class ScheduleCacheWindow(
 
 `ScheduleCacheStore(@ApplicationContext Context, Json)` 将文件放在 `filesDir/schedule-cache/`，文件名使用 server URL 的 SHA-256 十六进制摘要。`write()` 先写 `.tmp` 再替换正式文件；`read()` 损坏时返回 null；`clear(serverIdentity)` 和 `clearAll()` 仅操作该目录。测试可通过 internal 构造函数传入临时目录，生产 API 不暴露文件路径。
 
-- [ ] **Step 4: 在 Hilt 注册单例并运行绿色测试。**
+- [x] **Step 4: 在 Hilt 注册单例并运行绿色测试。**
 
 ```kotlin
 @Provides
@@ -199,7 +199,7 @@ git commit -m "feat: add server-scoped schedule cache"
 - Test: `src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt`
 - Test: `src/client-android/app/src/test/java/com/pim/app/ui/settings/SettingsServerMutationTest.kt`
 
-- [ ] **Step 1: 写失败测试。** 覆盖：`mapEvents()` 保留空地点事件；范围固定为 `now-6h` 到 `now+7d`；成功空列表为正常空；失败有缓存返回 stale；失败无缓存返回 missing/error；并发 `refreshIfStale()` 只调用一次 API。
+- [x] **Step 1: 写失败测试。** 覆盖：`mapEvents()` 保留空地点事件；范围固定为 `now-6h` 到 `now+7d`；成功空列表为正常空；失败有缓存返回 stale；失败无缓存返回 missing/error；并发 `refreshIfStale()` 只调用一次 API。
 
 ```kotlin
 @Test
@@ -219,13 +219,13 @@ fun `stale refresh keeps last successful windows`() = runTest {
 }
 ```
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest --tests "*ScheduleWindowRepositoryTest" --no-daemon
 ```
 
-- [ ] **Step 3: 实现快照类型和刷新算法。** 在 repository 同文件定义：
+- [x] **Step 3: 实现快照类型和刷新算法。** 在 repository 同文件定义：
 
 ```kotlin
 enum class ScheduleCacheFreshness { Fresh, Stale, Missing }
@@ -248,9 +248,9 @@ Repository 注入 `ApiService`、`ScheduleCacheStore`、`ServerSettingsStore`；
 
 保留 `loadWindows(startMillis,endMillis)` 作为纯 API 测试入口，但 service 不再传 24 小时范围。`currentWindow()`、`upcomingWindows()` 改为普通函数。
 
-- [ ] **Step 4: 将清理接入设置动作。** `SettingsViewModel` 注入 `ScheduleCacheStore`。保存新服务器地址前记录旧 identity，保存成功后清理旧 identity；`logout()` 成功清 token 后清理当前 identity。扩展 `SettingsServerMutationTest`，证明 token 清理失败时不误清缓存、成功切换只清旧服务器文件。
+- [x] **Step 4: 将清理接入设置动作。** `SettingsViewModel` 注入 `ScheduleCacheStore`。保存新服务器地址前记录旧 identity，保存成功后清理旧 identity；`logout()` 成功清 token 后清理当前 identity。扩展 `SettingsServerMutationTest`，证明 token 清理失败时不误清缓存、成功切换只清旧服务器文件。
 
-- [ ] **Step 5: 运行绿色测试并提交。**
+- [x] **Step 5: 运行绿色测试并提交。**
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest --tests "*ScheduleWindowRepositoryTest" --tests "*SettingsServerMutationTest" --no-daemon
@@ -265,21 +265,24 @@ git commit -m "feat: make schedule repository cache-aware"
 **Files:**
 - Modify: `src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt`
 - Modify: `src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt`
+- Modify: `src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt`
+- Create: `src/client-android/app/src/main/java/com/pim/app/location/service/PolicyTransitionDeduper.kt`
 - Test: `src/client-android/app/src/test/java/com/pim/app/location/service/ForegroundLocationServiceTest.kt`
+- Test: `src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt`
 
-- [ ] **Step 1: 写失败测试。** 覆盖：service 使用 repository 快照；刷新失败保留旧 windows；策略 mode/interval/reason 任一变化时写一次 transition；相同 decision 不重复写；服务器变化先清空旧内存窗口；策略刷新不改 `continuousCollectionEnabled`。
+- [x] **Step 1: 写失败测试。** 覆盖：service 使用 repository 快照；刷新失败保留旧 windows；策略 mode/interval/reason 任一变化时写一次 transition；相同 decision 不重复写；服务器变化先清空旧内存窗口；策略刷新不改 `continuousCollectionEnabled`；停止采集取消日程协程；已接受位置刷新通知。
 
-- [ ] **Step 2: 运行失败测试。**
+- [x] **Step 2: 运行失败测试。**
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest --tests "*ForegroundLocationServiceTest" --no-daemon
 ```
 
-- [ ] **Step 3: 实现最小接入。**
+- [x] **Step 3: 实现最小接入。**
 
-1. 保留 `scheduleWindows`，但只由 `scheduleWindowRepository.refreshIfStale()` 更新；启动时调用一次，位置评估循环复用该入口，新鲜时不会发网络请求。
-2. `handleLocation()` 使用当前快照和不再过滤地点的 `ScheduleWindowSelector.current()`；若 snapshot 的 server identity 与当前设置不同，先清空内存窗口并强制刷新。
-3. 增加 `lastRecordedDecision: PolicyDecision?` 和集中更新函数：
+1. 不维护第二份 `scheduleWindows` 列表；启动和位置评估统一调用 `scheduleWindowRepository.refreshIfStale()`，读取 `snapshotForCurrentServer()`，新鲜时不会发网络请求。
+2. `handleLocation()` 和 `queueAccepted()` 使用受服务器 identity 保护的快照；切换服务器时 Repository 立即发布空 Missing 快照，再由现有异步刷新获取新数据。
+3. 增加 `PolicyTransitionDeduper` 和集中 `applyDecision()`：
 
 ```kotlin
 private fun applyDecision(decision: PolicyDecision) {
@@ -298,7 +301,7 @@ private fun applyDecision(decision: PolicyDecision) {
 }
 ```
 
-并发写入通过 service 主线程的调用序列和单个 coroutine 路径保持顺序；测试必须证明相同 decision 不重复。
+并发写入通过 `Mutex` 串行，显式传播 `CancellationException`，普通写入异常隔离；测试证明相同 decision 不重复且快速连续转换不丢历史。
 
 4. 扩展 `ForegroundLocationRuntimeState`：
 
@@ -311,13 +314,13 @@ val scheduleLastAttemptAtMillis: Long? = null,
 val scheduleLastError: String? = null
 ```
 
-5. `publishRuntimeState()` 同时发布策略和缓存字段；缓存失败不得关闭采集或清空上传队列。
+5. `publishRuntimeState()` 同时发布策略和缓存字段；缓存失败不得关闭采集或清空上传队列。停止采集时取消日程刷新和快照 collector；接受位置后刷新通知，保证队列计数与最近位置可见。
 
-- [ ] **Step 4: 运行 location/service 回归并提交。**
+- [x] **Step 4: 运行 location/service 回归并提交。**
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest --tests "*ForegroundLocationServiceTest" --tests "*LocationQueueMappingTest" --no-daemon
-git add src/client-android/app/src/main/java/com/pim/app/location/service src/client-android/app/src/test/java/com/pim/app/location/service
+git add src/client-android/app/src/main/java/com/pim/app/location/service src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt src/client-android/app/src/test/java/com/pim/app/location/service src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt
 git commit -m "feat: expose schedule cache and policy transitions"
 ```
 

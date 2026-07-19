@@ -6,14 +6,14 @@ function isWritable(cal: CalendarResponse): boolean {
 
 export function resolveCalendarId(
   calendars: CalendarResponse[],
-  currentId: string,
-  hiddenIds: string[],
+  currentId: string | undefined,
+  hiddenCalendarIds: Set<string>,
 ): string {
   if (currentId && calendars.some(c => c.id === currentId)) {
     return currentId;
   }
 
-  const visible = calendars.filter(c => !hiddenIds.includes(c.id));
+  const visible = calendars.filter(c => !hiddenCalendarIds.has(c.id));
   const writable = visible.filter(isWritable);
 
   const defaultCal = writable.find(c => c.isDefault);
@@ -25,8 +25,11 @@ export function resolveCalendarId(
   return '';
 }
 
-export function hasWritableCalendar(calendars: CalendarResponse[]): boolean {
-  return calendars.some(isWritable);
+export function hasWritableCalendar(
+  calendars: CalendarResponse[],
+  hiddenCalendarIds: Set<string>,
+): boolean {
+  return calendars.some(c => !hiddenCalendarIds.has(c.id) && isWritable(c));
 }
 
 export function noWritableCalendarMessage(): string {

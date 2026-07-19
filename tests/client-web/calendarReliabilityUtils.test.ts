@@ -115,6 +115,26 @@ describe('durationInput', () => {
     it('returns { hours: 0, minutes: 30 } for invalid input', () => {
       assert.deepEqual(dotnetDurationToHoursMinutes('not-a-duration'), { hours: 0, minutes: 30 });
     });
+
+    it('rejects 01:60:00 (minutes out of range)', () => {
+      assert.deepEqual(dotnetDurationToHoursMinutes('01:60:00'), { hours: 0, minutes: 30 });
+    });
+
+    it('rejects 01:30:60 (seconds out of range)', () => {
+      assert.deepEqual(dotnetDurationToHoursMinutes('01:30:60'), { hours: 0, minutes: 30 });
+    });
+
+    it('rejects 01:30:00.12345678 (8 fractional digits)', () => {
+      assert.deepEqual(dotnetDurationToHoursMinutes('01:30:00.12345678'), { hours: 0, minutes: 30 });
+    });
+
+    it('accepts 01:30:00.1 (1 fractional digit)', () => {
+      assert.deepEqual(dotnetDurationToHoursMinutes('01:30:00.1'), { hours: 1, minutes: 30 });
+    });
+
+    it('accepts 01:30:00.1234567 (7 fractional digits)', () => {
+      assert.deepEqual(dotnetDurationToHoursMinutes('01:30:00.1234567'), { hours: 1, minutes: 30 });
+    });
   });
 
   describe('hoursMinutesToIsoDuration', () => {
@@ -137,6 +157,26 @@ describe('durationInput', () => {
 
     it('floors non-integer values', () => {
       assert.equal(hoursMinutesToIsoDuration(1.9, 30.7), 'PT1H30M');
+    });
+
+    it('normalizes 0h90m into PT1H30M', () => {
+      assert.equal(hoursMinutesToIsoDuration(0, 90), 'PT1H30M');
+    });
+
+    it('normalizes 2h120m into PT4H', () => {
+      assert.equal(hoursMinutesToIsoDuration(2, 120), 'PT4H');
+    });
+
+    it('computes total from negative hours plus overflow minutes (-1h90m = PT30M)', () => {
+      assert.equal(hoursMinutesToIsoDuration(-1, 90), 'PT30M');
+    });
+
+    it('returns empty string for Infinity hours', () => {
+      assert.equal(hoursMinutesToIsoDuration(Infinity, 0), '');
+    });
+
+    it('returns empty string for NaN minutes', () => {
+      assert.equal(hoursMinutesToIsoDuration(0, NaN), '');
     });
   });
 
@@ -223,43 +263,62 @@ describe('calendarSelection', () => {
 
   describe('resolveCalendarId', () => {
     it('keeps currentId when it exists in the list', () => {
-      assert.equal(resolveCalendarId(calendars, 'cal-2', []), 'cal-2');
+      assert.equal(resolveCalendarId(calendars, 'cal-2', new Set()), 'cal-2');
     });
 
     it('chooses visible writable default calendar when currentId is not found', () => {
-      assert.equal(resolveCalendarId(calendars, 'cal-nonexistent', []), 'cal-1');
+      assert.equal(resolveCalendarId(calendars, 'cal-nonexistent', new Set()), 'cal-1');
     });
 
     it('chooses first visible writable calendar when default is hidden', () => {
-      assert.equal(resolveCalendarId(calendars, 'cal-nonexistent', ['cal-1']), 'cal-2');
+      assert.equal(resolveCalendarId(calendars, 'cal-nonexistent', new Set(['cal-1'])), 'cal-2');
     });
 
     it('excludes read-only calendar from default selection', () => {
       const noWritable = [readOnly];
-      assert.equal(resolveCalendarId(noWritable, 'nonexistent', []), '');
+      assert.equal(resolveCalendarId(noWritable, 'nonexistent', new Set()), '');
     });
 
     it('treats undefined canEdit as writable', () => {
       const mixed = [readOnly, canEditUndefined];
-      assert.equal(resolveCalendarId(mixed, 'nonexistent', []), 'cal-4');
+      assert.equal(resolveCalendarId(mixed, 'nonexistent', new Set()), 'cal-4');
     });
 
     it('returns empty string when no writable calendar', () => {
-      assert.equal(resolveCalendarId([], 'gone', []), '');
+      assert.equal(resolveCalendarId([], 'gone', new Set()), '');
+    });
+
+    it('accepts undefined currentId and falls back to default', () => {
+      assert.equal(resolveCalendarId(calendars, undefined, new Set()), 'cal-1');
+    });
+
+    it('excludes hidden writable calendars from fallback selection', () => {
+      const hidden = new Set(['cal-1', 'cal-4']);
+      assert.equal(resolveCalendarId(calendars, undefined, hidden), 'cal-2');
     });
   });
 
   describe('hasWritableCalendar', () => {
     it('returns true when a writable calendar exists', () => {
-      assert.equal(hasWritableCalendar(calendars), true);
+      assert.equal(hasWritableCalendar(calendars, new Set()), true);
     });
 
     it('returns false when all are read-only', () => {
-      assert.equal(hasWritableCalendar([readOnly]), false);
+      assert.equal(hasWritableCalendar([readOnly], new Set()), false);
     });
 
     it('returns false for empty list', () => {
-      assert.equal(hasWritableCalendar([]), false);
+      assert.equal(hasWritableCalendar([], new Set()), false);
+    });
+
+    it('returns false when all writable calendars are hidden', () => {
+      const hidden = new Set(['cal-1', 'cal-2', 'cal-4']);
+      assert.equal(hasWritableCalendar(calendars, hidden), false);
+    });
+
+    it('returns true when at least one writable calendar is visible', () => {
+      const hidden = new Set(['cal-1', 'cal-2']);
+      assert.equal(hasWritableCalendar(calendars, hidden), true);
     });
   });
 

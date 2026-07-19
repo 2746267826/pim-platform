@@ -1,4 +1,4 @@
-const DOTNET_DURATION_RE = /^(?:(\d+)\.)?(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?$/;
+const DOTNET_DURATION_RE = /^(?:(\d+)\.)?(\d{2}):([0-5]\d):([0-5]\d)(?:\.(\d{1,7}))?$/;
 
 export function dotnetDurationToHoursMinutes(value?: string): { hours: number; minutes: number } {
   if (!value) {
@@ -15,13 +15,16 @@ export function dotnetDurationToHoursMinutes(value?: string): { hours: number; m
 }
 
 export function hoursMinutesToIsoDuration(hours: number, minutes: number): string {
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return '';
   const h = Math.floor(hours);
   const m = Math.floor(minutes);
   const totalMinutes = h * 60 + m;
   if (totalMinutes <= 0) return '';
+  const normHours = Math.floor(totalMinutes / 60);
+  const normMinutes = totalMinutes % 60;
   const parts: string[] = ['PT'];
-  if (h > 0) parts.push(`${h}H`);
-  if (m > 0) parts.push(`${m}M`);
+  if (normHours > 0) parts.push(`${normHours}H`);
+  if (normMinutes > 0) parts.push(`${normMinutes}M`);
   return parts.join('');
 }
 

@@ -16,7 +16,7 @@ PIM 日程系统已具备基础功能：日历管理、事件 CRUD、ICS 导入�
 4. **默认日历空 ID**：多日历时"默认日历"保留空 ID，前端无法识别实际默认日历的 Outlook 绑定，绕过写回流程，后端返回领域错误 02009/HTTP 400。
 5. **时区/UTC 不一致**：本地 datetime 字符串反序列化为 `+08:00`，创建/更新未统一为 UTC；Npgsql 8.0.6 拒绝向 `timestamptz` 写入非零 offset 的 `DateTimeOffset`，导致任务创建 HTTP 500。
 6. **结束时间校验缺失**：客户端和服务端都没有保证日程/任务结束时间严格晚于开始时间。
-7. **预估时长格式不友好**：任务预估时长直接暴露 ISO 8601 持续时间格式，人工输入不清晰。
+7. **预估时长格式不友好**：任务预估时长直接暴露机器格式；输入提示使用 ISO 8601，而现有 API 读回可能是 .NET `TimeSpan c` 格式，人工输入和往返编辑都不清晰。
 8. **HTML 描述暴露源码**：Outlook HTML 描述被直接作为纯文本显示，暴露 HTML 标签。
 9. **Graph 同步字段遗漏**：`ExternalMetadataJson` 已存在于实体中但未被 Graph 同步填充，大量 Graph 字段未映射。
 
@@ -269,7 +269,7 @@ Provider 能力只影响某个字段在当前来源上是否可写，不影响�
 
 ### 3.6 任务时长双输入
 
-**根因**：`EstimatedDuration` 暴露 ISO 8601 格式（如 `PT1H30M`），人工输入不友好。
+**根因**：`EstimatedDuration` 输入要求 ISO 8601（如 `PT1H30M`），现有 `TaskResponse` 又以 .NET `TimeSpan c` 格式（如 `01:30:00`）读回，人工输入和往返编辑都不友好。
 
 **修复规则**：
 - `EstimatedDuration` 属于 `CreateTaskRequest` / `UpdateTaskRequest` / `TaskResponse` 和 `TaskEditorDialog.tsx`。**不属于 Event 相关 DTO 或 `EventEditorDialog`**。
@@ -279,7 +279,7 @@ Provider 能力只影响某个字段在当前来源上是否可写，不影响�
   - **分钟**：整数 0-59，默认 30。
 - 至少有一项 > 0，否则显示错误"请至少设置 1 分钟"。
 - 保存时前端组合为 ISO 8601 格式（如 `PT1H30M`）发送给 API。
-- API 继续使用 ISO 8601 字符串格式（`TaskResponse.EstimatedDuration`），仅前端展示/编辑层做格式转换。
+- PR1 保持既有兼容契约：`CreateTaskRequest` / `UpdateTaskRequest` 接受 ISO 8601；`TaskResponse.EstimatedDuration` 继续返回 .NET `TimeSpan c` 格式。前端必须能解析读回的 `[d.]hh:mm:ss[.fffffff]`，并在保存时生成 ISO 8601，不在 PR1 改变出站 DTO 格式。
 - 后端 `CalendarService` 验证 `EstimatedDuration` 是否符合 ISO 8601 且正值（总时长至少 1 分钟）。
 
 **验证标准**：

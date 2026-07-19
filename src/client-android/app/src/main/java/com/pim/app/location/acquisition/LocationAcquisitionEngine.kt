@@ -1,0 +1,115 @@
+package com.pim.app.location.acquisition
+
+import com.pim.app.location.LocationSnapshot
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.withTimeoutOrNull
+import javax.inject.Inject
+import javax.inject.Singleton
+
+sealed interface LocationEngineCompletion {
+    data object TimedOut : LocationEngineCompletion
+    data class Failed(val reason: String) : LocationEngineCompletion
+}
+
+data class LocationEngineRequest(
+    val sessionId: String,
+    val priority: Int,
+    val timeoutMillis: Long,
+    val startedAtWallClockMillis: Long
+)
+
+data class LocationEngineResult(
+    val sessionId: String,
+    val bestLocation: LocationSnapshot?,
+    val completion: LocationEngineCompletion
+)
+
+interface LocationAcquisitionRunner {
+    suspend fun acquire(
+        request: LocationEngineRequest,
+        onCandidate: suspend (LocationSnapshot) -> Unit,
+        onAvailabilityChanged: suspend (Boolean) -> Unit = {}
+    ): LocationEngineResult
+}
+
+@Singleton
+class LocationAcquisitionEngine @Inject constructor(
+    private val source: LocationUpdateSource
+) : LocationAcquisitionRunner {
+
+    override suspend fun acquire(
+        request: LocationEngineRequest,
+        onCandidate: suspend (LocationSnapshot) -> Unit,
+        onAvailabilityChanged: suspend (Boolean) -> Unit
+    ): LocationEngineResult {
+        var bestLocation: LocationSnapshot? = null
+
+        return try {
+            withTimeoutOrNull(request.timeoutMillis) {
+                source.updates(
+                    LocationUpdateRequest(
+                        priority = request.priority,
+                        durationMillis = request.timeoutMillis
+                    )
+                ).collect { event ->
+                    when (event) {
+                        is LocationUpdateEvent.Candidate -> {
+                            val snapshot = event.location
+                            if (snapshot.timeMillis < request.startedAtWallClockMillis) return@collect
+
+                            if (isBetterThan(snapshot, bestLocation)) {
+                                bestLocation = snapshot
+                                onCandidate(snapshot)
+                            }
+                        }
+                        is LocationUpdateEvent.Availability -> {
+                            onAvailabilityChanged(event.available)
+                        }
+                    }
+                }
+            }
+
+            LocationEngineResult(
+                sessionId = request.sessionId,
+                bestLocation = bestLocation,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            LocationEngineResult(
+                sessionId = request.sessionId,
+                bestLocation = bestLocation,
+                completion = LocationEngineCompletion.Failed(
+                    reason = e.message ?: e.javaClass.simpleName
+                )
+            )
+        }
+    }
+
+    private fun isBetterThan(candidate: LocationSnapshot, current: LocationSnapshot?): Boolean {
+        val candidateAccuracy = candidate.horizontalAccuracyMeters
+        val currentAccuracy = current?.horizontalAccuracyMeters
+
+        val candidateValid = candidateAccuracy != null && candidateAccuracy.isFinite()
+        val currentValid = currentAccuracy != null && currentAccuracy.isFinite()
+
+        return when {
+            current == null -> true
+            candidateValid && !currentValid -> true
+            !candidateValid && currentValid -> false
+            !candidateValid && !currentValid -> {
+                candidate.timeMillis > current.timeMillis
+            }
+            else -> {
+                val cmp = candidateAccuracy!!.compareTo(currentAccuracy!!)
+                when {
+                    cmp < 0 -> true
+                    cmp > 0 -> false
+                    else -> candidate.timeMillis > current.timeMillis
+                }
+            }
+        }
+    }
+}

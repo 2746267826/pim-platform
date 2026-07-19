@@ -19,7 +19,8 @@ val hasCiSigning = listOf(
 
 android {
     namespace = "com.pim.app"
-    compileSdk = 34
+    compileSdk = 36
+    compileSdkMinor = 1
     defaultConfig {
         applicationId = "com.pim.app"
         minSdk = 26

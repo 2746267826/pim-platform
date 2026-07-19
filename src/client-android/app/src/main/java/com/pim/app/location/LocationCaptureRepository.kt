@@ -41,18 +41,6 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class LocationSnapshot(
-    val latitude: Double,
-    val longitude: Double,
-    val horizontalAccuracyMeters: Float?,
-    val provider: String,
-    val source: String,
-    val altitudeMeters: Double?,
-    val speedMetersPerSecond: Float?,
-    val bearingDegrees: Float?,
-    val timeMillis: Long
-)
-
 data class LocationCaptureState(
     val isCapturing: Boolean = false,
     val latest: LocationSnapshot? = null,

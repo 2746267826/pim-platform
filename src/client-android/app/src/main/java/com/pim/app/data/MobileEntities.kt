@@ -124,7 +124,11 @@ data class MobileLocationPointEntity(
     @ColumnInfo(name = "updated_at_utc") val updatedAtUtc: Long = System.currentTimeMillis()
 ) {
     companion object {
-        fun fromAccepted(accepted: QualityAcceptedLocation, rawJson: String): MobileLocationPointEntity {
+        fun fromAccepted(
+            accepted: QualityAcceptedLocation,
+            rawJson: String,
+            source: String = "auto"
+        ): MobileLocationPointEntity {
             return MobileLocationPointEntity(
                 latitude = accepted.fix.latitude,
                 longitude = accepted.fix.longitude,
@@ -134,7 +138,7 @@ data class MobileLocationPointEntity(
                 bearingDegrees = accepted.fix.bearingDegrees,
                 provider = accepted.fix.provider,
                 recordedAtUtc = accepted.fix.recordedAtMillis,
-                source = "auto",
+                source = source,
                 collectedAtUtc = accepted.acceptedAtMillis,
                 rawJson = rawJson,
                 submittedAtUtc = accepted.acceptedAtMillis,

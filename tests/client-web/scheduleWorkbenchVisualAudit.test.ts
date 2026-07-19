@@ -49,6 +49,7 @@ async function main() {
     await runScenarioF(browser, baseUrl);
     await runScenarioG(browser, baseUrl);
     await runScenarioH(browser, baseUrl);
+    await runScenarioI(browser, baseUrl);
   } finally {
     await browser?.close();
     stopServer(server);
@@ -423,6 +424,103 @@ async function runScenarioH(browser: Browser, baseUrl: string) {
   }
 }
 
+// ─── Scenario I: Time validation, calendar selection, HTML description ─
+
+async function runScenarioI(browser: Browser, baseUrl: string) {
+  const [w, h] = viewports[2];
+  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  try {
+    const captured: CapturedRequest[] = [];
+    await context.addInitScript(() => {
+      localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+    });
+    await context.route('**/api/v1/**', route => {
+      const url = new URL(route.request().url());
+      const fullPath = url.pathname + url.search;
+      const method = route.request().method();
+      if (method !== 'GET') {
+        const postBody = route.request().postDataJSON();
+        captured.push({ url: fullPath, method, body: postBody });
+      }
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify(mockApiResponse(fullPath, method)),
+      });
+    });
+
+    const page = await context.newPage();
+    await openCalendarMonth(page, baseUrl);
+
+    // I1: HTML description event shows sanitized preview
+    await openEventByText(page, '手动 HTML 描述事件');
+    const previewEl = page.locator('[data-description-html-preview]');
+    await previewEl.waitFor({ state: 'visible', timeout: 3_000 });
+    const previewHtml = await previewEl.innerHTML();
+    assert.ok(previewHtml.includes('<b>HTML</b>'), 'Allowed tags preserved in sanitized preview');
+    assert.ok(!previewHtml.includes('<script>'), 'Script tags removed from sanitized preview');
+    assert.ok(!previewHtml.includes('alert'), 'XSS payload absent from sanitized preview');
+
+    // Close editor
+    await page.locator('aside[role="dialog"] button', { hasText: '取消' }).click();
+    await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 3_000 }).catch(() => undefined);
+
+    // I2: Create new event — resolves default writable visible calendar
+    const inboxPanel = page.getByRole('heading', { name: '收集箱', exact: true }).locator('../..');
+    await inboxPanel.getByRole('button', { name: '+ 新建', exact: true }).click();
+    await inboxPanel.getByRole('button', { name: '日程', exact: true }).click();
+    await page.locator('aside[role="dialog"] h2', { hasText: '新建日程' }).waitFor({ state: 'visible', timeout: 5_000 });
+
+    // Wait for calendar resolution effect
+    await page.waitForTimeout(500);
+    const calSelect = page.locator('aside[role="dialog"] select').first();
+    const selectedCal = await calSelect.inputValue();
+    assert.equal(selectedCal, 'cal-manual-1', 'New event defaults to writable visible calendar');
+
+    const titleInput = page.locator('aside[role="dialog"] input[type="text"]').first();
+    await titleInput.fill('默认日历新建事件');
+
+    // I3: End <= start validation — blocks with error, no request
+    const dtInputs = page.locator('aside[role="dialog"] input[type="datetime-local"]');
+    await dtInputs.first().fill('2026-07-21T14:00');
+    await dtInputs.nth(1).fill('2026-07-21T13:00');
+    const reqCountBefore = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+    await page.waitForTimeout(500);
+    const errorVisible = await page.locator('text=结束时间必须晚于开始时间').isVisible({ timeout: 3_000 }).catch(() => false);
+    assert.ok(errorVisible, 'End <= start must show Chinese validation error');
+    const reqCountAfter = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    assert.equal(reqCountAfter, reqCountBefore, 'No request sent when end <= start');
+
+    // I4: Fix times and submit — verify UTC ISO in POST body
+    await dtInputs.nth(1).fill('2026-07-21T15:00');
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+
+    await page.waitForFunction(
+      () => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 5_000 },
+    ).catch(() => undefined);
+
+    const postCalls = captured.filter(c => c.method === 'POST' && c.url.includes('/calendar/events'));
+    assert.ok(postCalls.length >= 1, 'POST to /calendar/events for new event with default calendar');
+    const postBody = postCalls[postCalls.length - 1].body as Record<string, unknown>;
+    assert.equal(postBody.title, '默认日历新建事件');
+    assert.equal(postBody.calendarId, 'cal-manual-1');
+    assert.ok(
+      typeof postBody.dtStart === 'string' && postBody.dtStart.endsWith('.000Z'),
+      'dtStart must be UTC ISO in POST body',
+    );
+    assert.ok(
+      typeof postBody.dtEnd === 'string' && postBody.dtEnd.endsWith('.000Z'),
+      'dtEnd must be UTC ISO in POST body',
+    );
+
+    await page.close();
+  } finally {
+    await context.close();
+  }
+}
+
 async function assertDialogInViewport(page: Page, selector: string) {
   const info = await page.evaluate((sel) => {
     const el = document.querySelector(sel);
@@ -676,6 +774,13 @@ const allEvents = [
     outlookCalendarBindingId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
     outlookEventId: 'graph-evt-exception', outlookEtag: 'etag-exception-1',
     outlookEventType: 'exception', isAllDay: false,
+  },
+  {
+    id: 'evt-html-desc-1', calendarId: 'cal-manual-1', uid: 'uid-html-1',
+    title: '手动 HTML 描述事件',
+    description: '<p>描述包含 <b>HTML</b> 内容</p><script>alert("xss")</script>',
+    dtStart: '2026-07-21T09:00:00', dtEnd: '2026-07-21T10:00:00',
+    status: 'confirmed', source: 'manual', isAllDay: false,
   },
 ];
 

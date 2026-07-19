@@ -7,7 +7,7 @@ import BeforeAfterDiff from '../components/schedule/BeforeAfterDiff';
 import { Field } from './common';
 import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import { resolveCalendarId, hasWritableCalendar, noWritableCalendarMessage } from '../utils/calendarSelection';
-import { isoToDatetimeLocal, datetimeLocalToUtcIso, isEndAfterStart } from '../utils/dateTimeInput';
+import { isoToDatetimeLocal, datetimeLocalToUtcIso, isEndAfterStart, minimumEndValue } from '../utils/dateTimeInput';
 import { looksLikeHtml, sanitizeDescriptionHtml } from '../utils/safeHtml';
 import type { EventResponse, OutlookWriteRequest, OutlookEventDraft } from '../types';
 
@@ -310,17 +310,30 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
     e.preventDefault();
     if (isReadOnly) return;
 
+    if (!title.trim()) {
+      setWritebackValidationError('请输入标题');
+      return;
+    }
+    if (!dtStart || !dtEnd) {
+      setWritebackValidationError('请选择开始和结束时间');
+      return;
+    }
+    if (!event && !hasWritableCalendar(calendars || [], hiddenCalendarIds)) {
+      setWritebackValidationError(noWritableCalendarMessage());
+      return;
+    }
     if (!isEndAfterStart(dtStart, dtEnd)) {
       setWritebackValidationError('结束时间必须晚于开始时间');
       return;
     }
+
+    setWritebackValidationError('');
 
     const startUtc = datetimeLocalToUtcIso(dtStart, event?.timeZoneId);
     const endUtc = datetimeLocalToUtcIso(dtEnd, event?.timeZoneId);
 
     if (isOutlook) {
       if (writebackPhase.type !== 'idle') return;
-      setWritebackValidationError('');
       if (event && !event.outlookEtag) {
         setWritebackValidationError('缺少版本标识，无法执行写回操作。');
         return;
@@ -424,7 +437,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         </Field>
         <Field label="结束时间">
           <input type="datetime-local" value={dtEnd} onChange={e => setDtEnd(e.target.value)}
-            min={dtStart || undefined}
+            min={minimumEndValue(dtStart)}
             disabled={isFormDisabled}
             className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500" required />
         </Field>

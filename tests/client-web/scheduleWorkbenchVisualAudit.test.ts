@@ -433,6 +433,7 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
     const captured: CapturedRequest[] = [];
     await context.addInitScript(() => {
       localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+      (window as any).__pimHtmlExecuted = false;
     });
     await context.route('**/api/v1/**', route => {
       const url = new URL(route.request().url());
@@ -451,49 +452,96 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
     const page = await context.newPage();
     await openCalendarMonth(page, baseUrl);
 
-    // I1: HTML description event shows sanitized preview
-    await openEventByText(page, '手动 HTML 描述事件');
-    const previewEl = page.locator('[data-description-html-preview]');
-    await previewEl.waitFor({ state: 'visible', timeout: 3_000 });
-    const previewHtml = await previewEl.innerHTML();
-    assert.ok(previewHtml.includes('<b>HTML</b>'), 'Allowed tags preserved in sanitized preview');
-    assert.ok(!previewHtml.includes('<script>'), 'Script tags removed from sanitized preview');
-    assert.ok(!previewHtml.includes('alert'), 'XSS payload absent from sanitized preview');
+    // ── Part A: Manual event with timezone ──────────────────────
 
-    // Close editor
+    await openEventByText(page, '手动创建的事件');
+
+    const dtInputs = page.locator('aside[role="dialog"] input[type="datetime-local"]');
+    const startVal = await dtInputs.first().inputValue();
+    const endVal = await dtInputs.nth(1).inputValue();
+    assert.ok(startVal.length > 0, 'Start datetime-local must be non-empty');
+    assert.ok(endVal.length > 0, 'End datetime-local must be non-empty');
+    assert.ok(!startVal.includes('+') && !startVal.includes('Z'), 'Start must not contain UTC offset');
+    assert.ok(!endVal.includes('+') && !endVal.includes('Z'), 'End must not contain UTC offset');
+    assert.equal(startVal, '2026-07-14T14:00', 'Start must be 2026-07-14T14:00');
+
+    // End min attribute uses minimumEndValue
+    const minAttr = await dtInputs.nth(1).getAttribute('min');
+    assert.equal(minAttr, '2026-07-14T14:01', 'End input min must use minimumEndValue');
+
+    // Set end equal to start, submit, assert Chinese range error and no POST/PUT
+    await dtInputs.nth(1).fill(startVal);
+    const reqBefore = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+    await page.waitForTimeout(500);
+    const rangeError = await page.locator('text=结束时间必须晚于开始时间').isVisible({ timeout: 3_000 }).catch(() => false);
+    assert.ok(rangeError, 'End <= start must show Chinese validation error');
+    const reqAfter = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    assert.equal(reqAfter, reqBefore, 'No request sent when end equals start');
+
+    // Close and reopen
     await page.locator('aside[role="dialog"] button', { hasText: '取消' }).click();
     await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
       null, { timeout: 3_000 }).catch(() => undefined);
+    await openEventByText(page, '手动创建的事件');
 
-    // I2: Create new event — resolves default writable visible calendar
+    // Edit title and submit
+    const titleInput = page.locator('aside[role="dialog"] input[type="text"]').first();
+    await titleInput.fill('时区手动事件');
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+
+    await page.waitForFunction(
+      () => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 5_000 },
+    ).catch(() => undefined);
+
+    // Assert exactly one relevant PUT
+    const putCalls = captured.filter(c => c.method === 'PUT' && c.url.includes('evt-manual-1'));
+    assert.equal(putCalls.length, 1, 'Exactly one PUT for evt-manual-1');
+    const putBody = putCalls[0].body as Record<string, unknown>;
+    assert.ok(
+      typeof putBody.dtStart === 'string' && putBody.dtStart.includes('T06:00:00') && putBody.dtStart.endsWith('Z'),
+      'dtStart must be T06:00:00.000Z UTC in PUT body',
+    );
+    assert.ok(
+      typeof putBody.dtEnd === 'string' && putBody.dtEnd.endsWith('Z'),
+      'dtEnd must be UTC ISO in PUT body',
+    );
+    assert.equal(putBody.calendarId, 'cal-manual-1', 'PUT must use cal-manual-1');
+
+    // Close editor if still open
+    await page.locator('aside[role="dialog"] button', { hasText: '取消' }).click().catch(() => undefined);
+    await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 3_000 }).catch(() => undefined);
+
+    // ── Part B: New event with blank-title validation ────────────
+
     const inboxPanel = page.getByRole('heading', { name: '收集箱', exact: true }).locator('../..');
     await inboxPanel.getByRole('button', { name: '+ 新建', exact: true }).click();
     await inboxPanel.getByRole('button', { name: '日程', exact: true }).click();
     await page.locator('aside[role="dialog"] h2', { hasText: '新建日程' }).waitFor({ state: 'visible', timeout: 5_000 });
 
-    // Wait for calendar resolution effect
+    // Wait for calendar resolution
     await page.waitForTimeout(500);
     const calSelect = page.locator('aside[role="dialog"] select').first();
     const selectedCal = await calSelect.inputValue();
-    assert.equal(selectedCal, 'cal-manual-1', 'New event defaults to writable visible calendar');
+    assert.equal(selectedCal, 'cal-manual-1', 'New event defaults to cal-manual-1');
 
-    const titleInput = page.locator('aside[role="dialog"] input[type="text"]').first();
-    await titleInput.fill('默认日历新建事件');
-
-    // I3: End <= start validation — blocks with error, no request
-    const dtInputs = page.locator('aside[role="dialog"] input[type="datetime-local"]');
-    await dtInputs.first().fill('2026-07-21T14:00');
-    await dtInputs.nth(1).fill('2026-07-21T13:00');
-    const reqCountBefore = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    // Blank title path — submit without filling title, assert error and no request
+    const reqBefore2 = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
     await page.locator('aside[role="dialog"] button[type="submit"]').click();
     await page.waitForTimeout(500);
-    const errorVisible = await page.locator('text=结束时间必须晚于开始时间').isVisible({ timeout: 3_000 }).catch(() => false);
-    assert.ok(errorVisible, 'End <= start must show Chinese validation error');
-    const reqCountAfter = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
-    assert.equal(reqCountAfter, reqCountBefore, 'No request sent when end <= start');
+    const blankTitleError = await page.locator('text=请输入标题').isVisible({ timeout: 3_000 }).catch(() => false);
+    assert.ok(blankTitleError, 'Blank title must show Chinese validation error');
+    const reqAfter2 = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    assert.equal(reqAfter2, reqBefore2, 'No request sent when title is blank');
 
-    // I4: Fix times and submit — verify UTC ISO in POST body
-    await dtInputs.nth(1).fill('2026-07-21T15:00');
+    // Now fill title and valid times, submit
+    const newTitleInput = page.locator('aside[role="dialog"] input[type="text"]').first();
+    await newTitleInput.fill('默认日历新建事件');
+    const newDtInputs = page.locator('aside[role="dialog"] input[type="datetime-local"]');
+    await newDtInputs.first().fill('2026-07-21T14:00');
+    await newDtInputs.nth(1).fill('2026-07-21T15:00');
     await page.locator('aside[role="dialog"] button[type="submit"]').click();
 
     await page.waitForFunction(
@@ -502,7 +550,7 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
     ).catch(() => undefined);
 
     const postCalls = captured.filter(c => c.method === 'POST' && c.url.includes('/calendar/events'));
-    assert.ok(postCalls.length >= 1, 'POST to /calendar/events for new event with default calendar');
+    assert.ok(postCalls.length >= 1, 'POST to /calendar/events for new event');
     const postBody = postCalls[postCalls.length - 1].body as Record<string, unknown>;
     assert.equal(postBody.title, '默认日历新建事件');
     assert.equal(postBody.calendarId, 'cal-manual-1');
@@ -514,6 +562,34 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
       typeof postBody.dtEnd === 'string' && postBody.dtEnd.endsWith('.000Z'),
       'dtEnd must be UTC ISO in POST body',
     );
+
+    // Close editor if still open
+    await page.locator('aside[role="dialog"] button', { hasText: '取消' }).click().catch(() => undefined);
+    await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 3_000 }).catch(() => undefined);
+
+    // ── Part C: HTML description with sanitization ───────────────
+
+    await openEventByText(page, 'HTML 描述事件');
+
+    const previewEl = page.locator('[data-description-html-preview]');
+    await previewEl.waitFor({ state: 'visible', timeout: 3_000 });
+
+    // Formatted text visible
+    const previewText = await previewEl.textContent();
+    assert.ok(previewText.includes('HTML'), 'Formatted text visible in preview');
+
+    // Raw <div and <script not shown as visible text
+    assert.ok(!previewText.includes('<div'), 'Raw <div not shown as text');
+    assert.ok(!previewText.includes('<script'), 'Raw <script not shown as text');
+
+    // No visible textarea
+    const textareaVisible = await page.locator('aside[role="dialog"] textarea').isVisible({ timeout: 1_000 }).catch(() => false);
+    assert.ok(!textareaVisible, 'Textarea must not be visible when HTML preview shown');
+
+    // Script and onerror not executed
+    const htmlExecuted = await page.evaluate(() => (window as unknown as Record<string, unknown>).__pimHtmlExecuted);
+    assert.equal(htmlExecuted, false, 'Script/onerror must not have executed');
 
     await page.close();
   } finally {
@@ -728,8 +804,8 @@ const allEvents = [
   {
     id: 'evt-manual-1', calendarId: 'cal-manual-1', uid: 'uid-manual-1',
     title: '手动创建的事件',
-    dtStart: '2026-07-14T13:00:00', dtEnd: '2026-07-14T14:00:00',
-    status: 'confirmed', source: 'manual', isAllDay: false,
+    dtStart: '2026-07-14T14:00:00+08:00', dtEnd: '2026-07-14T15:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
   },
   {
     id: 'evt-outlook-no-etag', calendarId: 'cal-outlook-1', uid: 'uid-no-etag',
@@ -777,10 +853,10 @@ const allEvents = [
   },
   {
     id: 'evt-html-desc-1', calendarId: 'cal-manual-1', uid: 'uid-html-1',
-    title: '手动 HTML 描述事件',
-    description: '<p>描述包含 <b>HTML</b> 内容</p><script>alert("xss")</script>',
+    title: 'HTML 描述事件',
+    description: '<p>描述包含 <b>HTML</b> 内容</p><div>额外 div 内容</div><script>window.__pimHtmlExecuted = true</script><img src="x" onerror="window.__pimHtmlExecuted = true">',
     dtStart: '2026-07-21T09:00:00', dtEnd: '2026-07-21T10:00:00',
-    status: 'confirmed', source: 'manual', isAllDay: false,
+    status: 'confirmed', source: 'outlook', isAllDay: false, timeZoneId: 'Asia/Shanghai',
   },
 ];
 

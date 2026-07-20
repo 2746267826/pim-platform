@@ -186,7 +186,11 @@ private fun ActionsSection(
                 modifier = Modifier.fillMaxWidth().testTag("location-submit"),
                 enabled = !state.isSubmitting
             ) {
-                Text(if (state.isSubmitting) "提交中" else "提交位置")
+                if (state.isSubmitting) {
+                    Text("提交中", modifier = Modifier.testTag("location-submit-progress"))
+                } else {
+                    Text("提交位置")
+                }
             }
         }
 

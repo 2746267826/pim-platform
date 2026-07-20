@@ -73,6 +73,12 @@ class LocationAcquisitionCoordinator @Inject constructor(
 
         when (val precheck = prerequisiteChecker.check(TriggerType.MANUAL)) {
             is LocationPrerequisiteResult.Blocked -> {
+                _state.value = current.copy(
+                    phase = AcquisitionPhase.Idle,
+                    sessionId = null,
+                    triggerType = null,
+                    errorReason = precheck.reason
+                )
                 return SessionStartResult.Rejected(precheck.reason)
             }
             is LocationPrerequisiteResult.Ready -> {}
@@ -88,6 +94,12 @@ class LocationAcquisitionCoordinator @Inject constructor(
 
         when (val precheck = prerequisiteChecker.check(TriggerType.AUTOMATIC)) {
             is LocationPrerequisiteResult.Blocked -> {
+                _state.value = _state.value.copy(
+                    phase = AcquisitionPhase.Idle,
+                    sessionId = null,
+                    triggerType = null,
+                    errorReason = precheck.reason
+                )
                 return SessionStartResult.Rejected(precheck.reason)
             }
             is LocationPrerequisiteResult.Ready -> {}

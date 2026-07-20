@@ -283,14 +283,18 @@ class ForegroundLocationService : Service() {
     }
 
     private fun startManualSession(startId: Int) {
+        val result = locationAcquisitionCoordinator.startManualSession(replaceAwaitingManual = true)
+        if (result is SessionStartResult.Rejected) {
+            stopSelf(startId)
+            return
+        }
+
         startForeground(LocationNotificationRenderer.NOTIFICATION_ID, notification())
         val settings = trackingSettingsStore.read()
-        val result = locationAcquisitionCoordinator.startManualSession(replaceAwaitingManual = true)
         var automaticRuntimeReady = automaticLoopJob?.isActive == true
         if (settings.continuousCollectionEnabled) {
             isManualOnly = false
             if (
-                result !is SessionStartResult.Rejected &&
                 hasRequiredLocationPermissions() &&
                 !automaticRuntimeReady
             ) {
@@ -336,10 +340,12 @@ class ForegroundLocationService : Service() {
                     }
                 }
             }
-            is SessionStartResult.Busy,
-            is SessionStartResult.Rejected -> {
+            is SessionStartResult.Busy -> {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf(startId)
+            }
+            is SessionStartResult.Rejected -> {
+                // handled above; unreachable here
             }
         }
     }

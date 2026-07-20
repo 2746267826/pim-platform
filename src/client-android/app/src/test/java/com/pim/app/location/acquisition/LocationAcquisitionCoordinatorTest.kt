@@ -495,10 +495,69 @@ class LocationAcquisitionCoordinatorTest {
         val manual = coordinator.startManualSession()
         assertEquals(SessionStartResult.Rejected("缺少精确定位权限"), manual)
         assertFalse(runner.acquireCalled)
+        assertEquals(AcquisitionPhase.Idle, coordinator.state.value.phase)
+        assertNull(coordinator.state.value.sessionId)
+        assertNull(coordinator.state.value.triggerType)
+        assertEquals("缺少精确定位权限", coordinator.state.value.errorReason)
 
         val automatic = coordinator.startAutomaticSession(automaticContext)
         assertEquals(SessionStartResult.Rejected("缺少精确定位权限"), automatic)
         assertFalse(runner.acquireCalled)
+        assertEquals(AcquisitionPhase.Idle, coordinator.state.value.phase)
+        assertNull(coordinator.state.value.sessionId)
+        assertNull(coordinator.state.value.triggerType)
+        assertEquals("缺少精确定位权限", coordinator.state.value.errorReason)
+    }
+
+    @Test
+    fun `precheck blocked sets idle state preserving reason and allows retry`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.blocked("系统定位服务未开启")
+
+        val result1 = coordinator.startManualSession()
+        assertTrue(result1 is SessionStartResult.Rejected)
+        assertEquals("系统定位服务未开启", coordinator.state.value.errorReason)
+        assertEquals(AcquisitionPhase.Idle, coordinator.state.value.phase)
+
+        prerequisiteChecker.ready()
+
+        val result2 = coordinator.startManualSession()
+        assertTrue(result2 is SessionStartResult.Started)
+        assertNull(coordinator.state.value.errorReason)
+        assertEquals(AcquisitionPhase.Preparing, coordinator.state.value.phase)
+
+        runner.waitForAcquire()
+        runner.complete(LocationEngineResult(
+            sessionId = (result2 as SessionStartResult.Started).sessionId,
+            bestLocation = null,
+            completion = LocationEngineCompletion.TimedOut
+        ))
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `precheck blocked does not overwrite active session`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        val started = coordinator.startAutomaticSession(automaticContext) as SessionStartResult.Started
+        runner.waitForAcquire()
+        assertEquals(AcquisitionPhase.Acquiring, coordinator.state.value.phase)
+
+        prerequisiteChecker.blocked("缺少精确定位权限")
+
+        val busyResult = coordinator.startManualSession()
+        assertEquals(SessionStartResult.Busy, busyResult)
+        assertEquals(started.sessionId, coordinator.state.value.sessionId)
+        assertEquals(TriggerType.AUTOMATIC, coordinator.state.value.triggerType)
+        assertNull(coordinator.state.value.errorReason)
+
+        runner.complete(LocationEngineResult(
+            sessionId = started.sessionId,
+            bestLocation = null,
+            completion = LocationEngineCompletion.TimedOut
+        ))
+        advanceUntilIdle()
     }
 
     // ─── Spec gap 3: altitude deadline cap ───────────────────────

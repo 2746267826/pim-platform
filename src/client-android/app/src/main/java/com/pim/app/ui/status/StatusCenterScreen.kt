@@ -384,7 +384,14 @@ private fun TransportSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            CountChip("待传", state.pendingTotal.toString(), "status-pending", Modifier.weight(1f))
+            CountChip("待传总数", state.pendingTotal.toString(), "status-pending", Modifier.weight(1f))
+            CountChip("定位待传", state.snapshot.queues.pendingLocationPoints.toString(), "status-pending-location", Modifier.weight(1f))
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             CountChip("本轮确认", state.acceptedCount.toString(), "status-confirmed", Modifier.weight(1f))
             CountChip("本轮拒绝", state.rejectedCount.toString(), "status-rejected", Modifier.weight(1f))
             CountChip("永久拒绝", state.permanentRejectedCount.toString(), "status-permanent-rejected", Modifier.weight(1f))

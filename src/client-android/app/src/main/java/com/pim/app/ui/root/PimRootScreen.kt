@@ -12,6 +12,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import com.pim.app.ui.location.LocationScreen
 import com.pim.app.ui.schedule.SchedulePolicyScreen
 import com.pim.app.ui.settings.SettingsScreen
 import com.pim.app.ui.status.StatusCenterScreen
@@ -27,21 +29,19 @@ fun PimRootScreen(initialDestination: PimDestination = PimDestination.Today) {
     PimTheme {
         Scaffold(
             bottomBar = {
-                NavigationBar {
-                    PimDestination.entries.forEach { destination ->
-                        NavigationBarItem(
-                            selected = selected == destination,
-                            onClick = { selected = destination },
-                            icon = { Icon(destination.icon, contentDescription = destination.label) },
-                            label = { Text(destination.label) }
-                        )
-                    }
-                }
+                PimBottomNavigation(
+                    selected = selected,
+                    onSelected = { selected = it }
+                )
             }
         ) { innerPadding ->
             val modifier = Modifier.padding(innerPadding)
             when (selected) {
                 PimDestination.Today -> TodayScreen(modifier, onOpenSettings = { selected = PimDestination.Settings })
+                PimDestination.Location -> LocationScreen(
+                    modifier = modifier,
+                    onOpenSettings = { selected = PimDestination.Settings }
+                )
                 PimDestination.Tracks -> TracksScreen(
                     modifier = modifier,
                     onOpenSettings = { selected = PimDestination.Settings },
@@ -58,6 +58,24 @@ fun PimRootScreen(initialDestination: PimDestination = PimDestination.Today) {
                 )
                 PimDestination.Settings -> SettingsScreen(modifier)
             }
+        }
+    }
+}
+
+@Composable
+internal fun PimBottomNavigation(
+    selected: PimDestination,
+    onSelected: (PimDestination) -> Unit
+) {
+    NavigationBar(modifier = Modifier.testTag("pim-nav-bar")) {
+        PimDestination.entries.forEach { destination ->
+            NavigationBarItem(
+                selected = selected == destination,
+                onClick = { onSelected(destination) },
+                icon = { Icon(destination.icon, contentDescription = destination.label) },
+                label = { Text(destination.label) },
+                modifier = Modifier.weight(1f).testTag("pim-nav-${destination.name.lowercase()}")
+            )
         }
     }
 }

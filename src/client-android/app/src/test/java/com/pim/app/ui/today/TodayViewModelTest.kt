@@ -238,6 +238,28 @@ class TodayViewModelTest {
     }
 
     @Test
+    fun `mapper maps pendingLocationPoints from queue snapshot`() {
+        val snapshot = StatusCenterState.empty().snapshot
+        val state = StatusCenterState(
+            snapshot = snapshot.copy(
+                queues = QueueStatusSnapshot(
+                    pendingLocationPoints = 9,
+                    pendingUsageEvents = 3,
+                    pendingUsageSummaries = 0,
+                    pendingAppMetadata = 0,
+                    pendingDeviceProfile = 0
+                )
+            ),
+            issues = emptyList(),
+            isLoading = false,
+            pendingTotal = 12
+        )
+        val uiState = TodayStatusMapper.fromStatus(state, TodayPageReport.EMPTY)
+        assertEquals(9, uiState.pendingLocationPoints)
+        assertEquals(12, uiState.pendingCount)
+    }
+
+    @Test
     fun `mapper maps last successful upload and next attempt as ISO`() {
         val state = baseState(
             pendingTotal = 0,

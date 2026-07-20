@@ -1394,6 +1394,33 @@ class ForegroundLocationServiceTest {
     }
 
     @Test
+    fun `rejected manual session does not start foreground and preserves reason`() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val harness = CoordinatorHarness(
+            prerequisiteResult = LocationPrerequisiteResult.Blocked("缺少精确定位权限")
+        )
+        val service = buildService(harness = harness)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 91
+        )
+
+        assertEquals(91, shadowOf(service).stopSelfId)
+        assertFalse(
+            "no 7101 notification for rejected manual session",
+            nm.activeNotifications.any { it.id == LocationNotificationRenderer.NOTIFICATION_ID }
+        )
+        assertEquals("缺少精确定位权限", harness.coordinator.state.value.errorReason)
+        assertEquals(AcquisitionPhase.Idle, harness.coordinator.state.value.phase)
+        assertNull(harness.coordinator.state.value.sessionId)
+        service.onDestroy()
+    }
+
+    @Test
     fun cancelLocationSessionForwardsNullableSessionId() {
         val harness = newHarness()
         val service = buildService(harness = harness)
@@ -1711,13 +1738,15 @@ class ForegroundLocationServiceTest {
     }
 
 
-    class CoordinatorHarness {
+    class CoordinatorHarness(
+        var prerequisiteResult: LocationPrerequisiteResult = LocationPrerequisiteResult.Ready
+    ) {
         val runner = ControllableRunner()
         val coordinator = LocationAcquisitionCoordinator(
             runner = runner,
             prerequisiteChecker = object : LocationPrerequisiteChecker {
                 override fun check(triggerType: TriggerType): LocationPrerequisiteResult =
-                    LocationPrerequisiteResult.Ready
+                    prerequisiteResult
             },
             operations = object : LocationAcquisitionOperations {
                 override suspend fun enqueueAccepted(

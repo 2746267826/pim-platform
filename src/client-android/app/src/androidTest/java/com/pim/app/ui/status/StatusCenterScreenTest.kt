@@ -111,6 +111,7 @@ class StatusCenterScreenTest {
 
         composeTestRule.onNodeWithTag("status-pending").assertIsDisplayed()
         composeTestRule.onNodeWithText("42").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-pending-location").assertIsDisplayed()
         composeTestRule.onNodeWithTag("status-confirmed").assertIsDisplayed()
         composeTestRule.onNodeWithTag("status-rejected").assertIsDisplayed()
         composeTestRule.onNodeWithTag("status-permanent-rejected").assertIsDisplayed()

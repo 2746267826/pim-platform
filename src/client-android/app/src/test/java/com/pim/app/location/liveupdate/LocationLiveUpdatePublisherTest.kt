@@ -481,7 +481,7 @@ class LocationLiveUpdatePublisherTest {
         )
         testScope.advanceUntilIdle()
         assertEquals(
-            "baseline not advanced after false return, retry inside would-be throttle window",
+            "baseline not advanced after false return, retry succeeds at 12500ms (past 2000ms throttle from last successful publish at 10000ms)",
             3, publishCalls.size
         )
     }

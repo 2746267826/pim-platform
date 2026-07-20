@@ -1,6 +1,7 @@
 package com.pim.app.location.liveupdate
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -88,6 +89,7 @@ object LocationLiveUpdateNotificationRenderer {
         }
     }
 
+    @SuppressLint("NewApi")
     private fun buildNotification(
         ctx: Context,
         content: LocationLiveUpdateContent,

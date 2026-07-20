@@ -1,11 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient, useQuery, type QueryClient } from '@tanstack/react-query';
-import { createTask, updateTask, deleteTask, getCalendars, moveTask, taskToMutationData } from '../api/calendar';
+import { createTask, updateTask, deleteTask, getCalendars, taskToMutationData } from '../api/calendar';
 import type { TaskMutationData } from '../api/calendar';
 import EditorDrawer from '../ui/EditorDrawer';
 import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
 import { Field } from './common';
 import type { TaskResponse } from '../types';
+import { isoToDatetimeLocal, datetimeLocalToUtcIso, isEndAfterStart } from '../utils/dateTimeInput';
+import { dotnetDurationToHoursMinutes, hoursMinutesToIsoDuration, isValidDuration, durationErrorMessage } from '../utils/durationInput';
 
 interface Props {
   open: boolean;
@@ -35,10 +37,19 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [priority, setPriority] = useState(task?.priority || 0);
-  const [dtStart, setDtStart] = useState(defaultDtStart || task?.dtStart || '');
-  const [plannedEnd, setPlannedEnd] = useState(task?.plannedEnd || '');
-  const [due, setDue] = useState(task?.due || '');
-  const [duration, setDuration] = useState(task?.estimatedDuration || '');
+  const [dtStart, setDtStart] = useState(defaultDtStart || isoToDatetimeLocal(task?.dtStart ?? '') || '');
+  const [plannedEnd, setPlannedEnd] = useState(isoToDatetimeLocal(task?.plannedEnd ?? '') || '');
+  const [due, setDue] = useState(isoToDatetimeLocal(task?.due ?? '') || '');
+  const [durationHours, setDurationHours] = useState(() => {
+    if (!task) return '0';
+    if (!task.estimatedDuration) return '';
+    return String(dotnetDurationToHoursMinutes(task.estimatedDuration).hours);
+  });
+  const [durationMinutes, setDurationMinutes] = useState(() => {
+    if (!task) return '30';
+    if (!task.estimatedDuration) return '';
+    return String(dotnetDurationToHoursMinutes(task.estimatedDuration).minutes);
+  });
   const [calendarId, setCalendarId] = useState(task?.calendarId || '');
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
   const [validationErrorMessage, setValidationErrorMessage] = useState<string | null>(null);
@@ -56,13 +67,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   });
 
   const updateMut = useMutation({
-    mutationFn: async ({ data, confirmSchedule }: { data: TaskMutationData; confirmSchedule?: boolean }) => {
-      if (confirmSchedule && data.dtStart) {
-        await moveTask(task!.id, { scheduledStart: data.dtStart });
-      }
-      const updated = await updateTask(task!.id, data);
-      return updated;
-    },
+    mutationFn: (data: TaskMutationData) => updateTask(task!.id, data),
     onSuccess: () => { invalidateTaskRelatedQueries(queryClient); onClose(); }
   });
 
@@ -111,7 +116,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   function handleToggleComplete() {
     if (!task) return;
     const newStatus = task?.status === 'COMPLETED' ? 'NEEDS-ACTION' : 'COMPLETED';
-    updateMut.mutate({ data: taskToMutationData(task, { status: newStatus }) });
+    updateMut.mutate(taskToMutationData(task, { status: newStatus }));
   }
 
   function handleSubmit(e: FormEvent) {
@@ -122,19 +127,33 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
     }
 
     setValidationErrorMessage(null);
+
+    if (durationHours !== '' || durationMinutes !== '') {
+      if (!isValidDuration(durationHours, durationMinutes)) {
+        setValidationErrorMessage(durationErrorMessage());
+        return;
+      }
+    }
+
+    if (dtStart && plannedEnd && !isEndAfterStart(dtStart, plannedEnd)) {
+      setValidationErrorMessage('计划结束时间必须晚于开始时间');
+      return;
+    }
+
+    const estimatedDuration = (durationHours !== '' || durationMinutes !== '')
+      ? hoursMinutesToIsoDuration(Number(durationHours), Number(durationMinutes))
+      : undefined;
+
     const data: TaskMutationData = {
       title, description, priority,
-      dtStart: dtStart || undefined,
-      plannedEnd: plannedEnd || undefined,
-      due: due || undefined,
-      estimatedDuration: duration || undefined,
+      dtStart: datetimeLocalToUtcIso(dtStart) || undefined,
+      plannedEnd: datetimeLocalToUtcIso(plannedEnd) || undefined,
+      due: datetimeLocalToUtcIso(due) || undefined,
+      estimatedDuration,
       calendarId: calendarId || undefined
     };
     if (task) {
-      updateMut.mutate({
-        data: taskToMutationData(task, data),
-        confirmSchedule: Boolean(defaultDtStart && data.dtStart),
-      });
+      updateMut.mutate(taskToMutationData(task, data));
     }
     else createMut.mutate(data);
   }
@@ -237,8 +256,22 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
             className="w-full border rounded px-3 py-2 text-sm" />
         </Field>
         <Field label="预估时长">
-          <input type="text" value={duration} onChange={e => setDuration(e.target.value)}
-            className="w-full border rounded px-3 py-2 text-sm" placeholder="例如：PT1H30M" />
+          <div className="flex items-center gap-2">
+            <input id="task-duration-hours" type="number"
+              aria-label="时"
+              value={durationHours}
+              onChange={e => setDurationHours(e.target.value)}
+              min={0} step={1}
+              className="w-20 border rounded px-3 py-2 text-sm" />
+            <span className="text-sm text-gray-500">时</span>
+            <input id="task-duration-minutes" type="number"
+              aria-label="分钟"
+              value={durationMinutes}
+              onChange={e => setDurationMinutes(e.target.value)}
+              min={0} max={59} step={1}
+              className="w-20 border rounded px-3 py-2 text-sm" />
+            <span className="text-sm text-gray-500">分钟</span>
+          </div>
         </Field>
       </form>
     </EditorDrawer>

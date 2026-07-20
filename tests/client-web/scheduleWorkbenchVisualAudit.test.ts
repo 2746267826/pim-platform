@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
@@ -17,6 +17,7 @@ const routes = [
 ] as const;
 
 const viewports = [[390, 844], [768, 1024], [1440, 1000]] as const;
+const DEFAULT_TIMEZONE_ID = 'Asia/Shanghai';
 
 const forbiddenHeadings = new Set([
   'Endpoint Shell', 'Collection Quality', 'Notification Action',
@@ -33,6 +34,8 @@ interface CapturedRequest {
 }
 
 async function main() {
+  assertMobileCalendarHeightFallback();
+  assertTaskEditorUsesAtomicUpdate();
   const port = await freePort();
   const baseUrl = `http://127.0.0.1:${port}`;
   const server = startVite(port);
@@ -49,6 +52,9 @@ async function main() {
     await runScenarioF(browser, baseUrl);
     await runScenarioG(browser, baseUrl);
     await runScenarioH(browser, baseUrl);
+    await runScenarioI(browser, baseUrl);
+    await runScenarioJ(browser, baseUrl);
+    await runScenarioK(browser, baseUrl);
   } finally {
     await browser?.close();
     stopServer(server);
@@ -59,7 +65,10 @@ async function main() {
 
 async function runRouteAudit(browser: Browser, baseUrl: string) {
   for (const [width, height] of viewports) {
-    const context = await browser.newContext({ viewport: { width, height } });
+    const context = await browser.newContext({
+      viewport: { width, height },
+      timezoneId: DEFAULT_TIMEZONE_ID,
+    });
     try {
       await context.addInitScript(() => {
         localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
@@ -87,6 +96,22 @@ async function runRouteAudit(browser: Browser, baseUrl: string) {
         await assertRoute(page, route, width, height);
         assert.deepEqual(consoleErrors, [],
           `${route} at ${width}x${height} should not log browser errors`);
+        if (route === '/calendar' && width === 390) {
+          await page.waitForSelector('.calendar-board', { state: 'visible', timeout: 4_000 });
+          await page.waitForSelector('.calendar-board .fc', { state: 'visible', timeout: 4_000 });
+          const calendarHeights = await page.evaluate(() => {
+            const board = document.querySelector('.calendar-board');
+            const calendar = board?.querySelector('.fc');
+            return {
+              board: board?.getBoundingClientRect().height ?? -1,
+              calendar: calendar?.getBoundingClientRect().height ?? -1,
+            };
+          });
+          assert.ok(calendarHeights.board >= 360,
+            `390x844 calendar board height ${calendarHeights.board}px must be >= 360px`);
+          assert.ok(calendarHeights.calendar >= 360,
+            `390x844 FullCalendar height ${calendarHeights.calendar}px must be >= 360px`);
+        }
         await page.close();
       }
     } finally {
@@ -99,7 +124,10 @@ async function runRouteAudit(browser: Browser, baseUrl: string) {
 
 async function runScenarioF(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   try {
     const captured: CapturedRequest[] = [];
     await context.addInitScript(() => {
@@ -166,7 +194,10 @@ async function runScenarioF(browser: Browser, baseUrl: string) {
 
 async function runScenarioG(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   let accessPage: Page | undefined;
   try {
     const captured: CapturedRequest[] = [];
@@ -308,7 +339,10 @@ async function runScenarioH(browser: Browser, baseUrl: string) {
   if (CAPTURE_SCREENSHOTS) mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
   for (const [width, height] of viewports) {
-    const context = await browser.newContext({ viewport: { width, height } });
+    const context = await browser.newContext({
+      viewport: { width, height },
+      timezoneId: DEFAULT_TIMEZONE_ID,
+    });
     try {
       const captured: CapturedRequest[] = [];
       let conflictSeq = 0;
@@ -395,7 +429,10 @@ async function runScenarioH(browser: Browser, baseUrl: string) {
   // Preview screenshots at specific viewports
   if (CAPTURE_SCREENSHOTS) {
     for (const [w, h] of [[390, 844], [1440, 1000]] as const) {
-      const context = await browser.newContext({ viewport: { width: w, height: h } });
+      const context = await browser.newContext({
+        viewport: { width: w, height: h },
+        timezoneId: DEFAULT_TIMEZONE_ID,
+      });
       try {
         await context.addInitScript(() => {
           localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
@@ -421,6 +458,782 @@ async function runScenarioH(browser: Browser, baseUrl: string) {
       }
     }
   }
+}
+
+// ─── Scenario I: Time validation, calendar selection, HTML description ─
+
+async function runScenarioI(browser: Browser, baseUrl: string) {
+  const [w, h] = viewports[2];
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
+  try {
+    const captured: CapturedRequest[] = [];
+    await context.addInitScript(() => {
+      localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+      (window as any).__pimHtmlExecuted = false;
+    });
+    await context.route('**/api/v1/**', route => {
+      const url = new URL(route.request().url());
+      const fullPath = url.pathname + url.search;
+      const method = route.request().method();
+      if (method !== 'GET') {
+        const postBody = route.request().postDataJSON();
+        captured.push({ url: fullPath, method, body: postBody });
+      }
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify(mockApiResponse(fullPath, method)),
+      });
+    });
+
+    const page = await context.newPage();
+    await openCalendarMonth(page, baseUrl);
+
+    // ── Part A: Manual event with timezone ──────────────────────
+
+    await openEventByText(page, '手动创建的事件');
+
+    const dtInputs = page.locator('aside[role="dialog"] input[type="datetime-local"]');
+    const startVal = await dtInputs.first().inputValue();
+    const endVal = await dtInputs.nth(1).inputValue();
+    assert.ok(startVal.length > 0, 'Start datetime-local must be non-empty');
+    assert.ok(endVal.length > 0, 'End datetime-local must be non-empty');
+    assert.ok(!startVal.includes('+') && !startVal.includes('Z'), 'Start must not contain UTC offset');
+    assert.ok(!endVal.includes('+') && !endVal.includes('Z'), 'End must not contain UTC offset');
+    assert.equal(startVal, '2026-07-14T14:00', 'Start must be 2026-07-14T14:00');
+
+    // End min attribute uses minimumEndValue
+    const minAttr = await dtInputs.nth(1).getAttribute('min');
+    assert.equal(minAttr, '2026-07-14T14:01', 'End input min must use minimumEndValue');
+
+    // Set end equal to start, submit, assert Chinese range error and no POST/PUT
+    await dtInputs.nth(1).fill(startVal);
+    const reqBefore = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+    await page.waitForTimeout(500);
+    const rangeError = await page.locator('text=结束时间必须晚于开始时间').isVisible({ timeout: 3_000 }).catch(() => false);
+    assert.ok(rangeError, 'End <= start must show Chinese validation error');
+    const reqAfter = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    assert.equal(reqAfter, reqBefore, 'No request sent when end equals start');
+
+    // Close and reopen
+    await page.locator('aside[role="dialog"] button', { hasText: '取消' }).click();
+    await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 3_000 }).catch(() => undefined);
+    await openEventByText(page, '手动创建的事件');
+
+    // Edit title and submit
+    const titleInput = page.locator('aside[role="dialog"] input[type="text"]').first();
+    await titleInput.fill('时区手动事件');
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+
+    await page.waitForFunction(
+      () => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 5_000 },
+    ).catch(() => undefined);
+
+    // Assert exactly one relevant PUT
+    const putCalls = captured.filter(c => c.method === 'PUT' && c.url.includes('evt-manual-1'));
+    assert.equal(putCalls.length, 1, 'Exactly one PUT for evt-manual-1');
+    const putBody = putCalls[0].body as Record<string, unknown>;
+    assert.ok(
+      typeof putBody.dtStart === 'string' && putBody.dtStart.includes('T06:00:00') && putBody.dtStart.endsWith('Z'),
+      'dtStart must be T06:00:00.000Z UTC in PUT body',
+    );
+    assert.ok(
+      typeof putBody.dtEnd === 'string' && putBody.dtEnd.endsWith('Z'),
+      'dtEnd must be UTC ISO in PUT body',
+    );
+    assert.equal(putBody.calendarId, 'cal-manual-1', 'PUT must use cal-manual-1');
+
+    // Close editor if still open
+    await page.locator('aside[role="dialog"] button', { hasText: '取消' }).click().catch(() => undefined);
+    await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 3_000 }).catch(() => undefined);
+
+    // ── Part B: New event with blank-title validation ────────────
+
+    const inboxPanel = page.getByRole('heading', { name: '收集箱', exact: true }).locator('../..');
+    await inboxPanel.getByRole('button', { name: '+ 新建', exact: true }).click();
+    await inboxPanel.getByRole('button', { name: '日程', exact: true }).click();
+    await page.locator('aside[role="dialog"] h2', { hasText: '新建日程' }).waitFor({ state: 'visible', timeout: 5_000 });
+
+    const calSelect = page.locator('aside[role="dialog"] select').first();
+    await calSelect.locator('option[value="cal-manual-1"]').waitFor({ state: 'attached', timeout: 3_000 });
+    const selectedCal = await calSelect.inputValue();
+    assert.equal(selectedCal, 'cal-manual-1', 'New event defaults to cal-manual-1');
+
+    // Calendar select must have no empty placeholder option
+    const optionValues: string[] = await calSelect.evaluate(
+      (sel: HTMLSelectElement) => Array.from(sel.options).map(o => o.value)
+    );
+    assert.ok(!optionValues.includes(''), 'Calendar select must not have empty value="" placeholder option');
+
+    // Outlook calendar option must include (Outlook) suffix
+    const outlookOptionText = await calSelect.locator('option[value="cal-outlook-1"]').textContent();
+    assert.ok(outlookOptionText?.includes('(Outlook)'), 'Outlook calendar option must show (Outlook) suffix');
+
+    // Blank title path — submit without filling title, assert error and no request
+    const reqBefore2 = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+    const blankTitleAlert = page.getByRole('alert').filter({ hasText: '请输入标题' });
+    await blankTitleAlert.waitFor({ state: 'visible', timeout: 3_000 });
+    const reqAfter2 = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    assert.equal(reqAfter2, reqBefore2, 'No request sent when title is blank');
+
+    // Missing time path — fill title but leave datetime-local fields empty
+    const missingTitleInput = page.locator('aside[role="dialog"] input[type="text"]').first();
+    await missingTitleInput.fill('缺少时间测试');
+    const missingDtInputs = page.locator('aside[role="dialog"] input[type="datetime-local"]');
+    await missingDtInputs.first().fill('');
+    await missingDtInputs.nth(1).fill('');
+    assert.equal(await missingDtInputs.first().inputValue(), '', 'Start datetime-local must be empty after clear');
+    assert.equal(await missingDtInputs.nth(1).inputValue(), '', 'End datetime-local must be empty after clear');
+    const reqBefore3 = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+    const missingTimeAlert = page.getByRole('alert').filter({ hasText: '请选择开始和结束时间' });
+    await missingTimeAlert.waitFor({ state: 'visible', timeout: 3_000 });
+    const reqAfter3 = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    assert.equal(reqAfter3, reqBefore3, 'No request sent when start/end are empty');
+
+    // Now fill title and valid times, submit
+    const newTitleInput = page.locator('aside[role="dialog"] input[type="text"]').first();
+    await newTitleInput.fill('默认日历新建事件');
+    const newDtInputs = page.locator('aside[role="dialog"] input[type="datetime-local"]');
+    await newDtInputs.first().fill('2026-07-21T14:00');
+    await newDtInputs.nth(1).fill('2026-07-21T15:00');
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+
+    await page.waitForFunction(
+      () => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 5_000 },
+    ).catch(() => undefined);
+
+    const postCalls = captured.filter(c => c.method === 'POST' && c.url.includes('/calendar/events'));
+    assert.ok(postCalls.length >= 1, 'POST to /calendar/events for new event');
+    const postBody = postCalls[postCalls.length - 1].body as Record<string, unknown>;
+    assert.equal(postBody.title, '默认日历新建事件');
+    assert.equal(postBody.calendarId, 'cal-manual-1');
+    assert.ok(
+      typeof postBody.dtStart === 'string' && postBody.dtStart.endsWith('.000Z'),
+      'dtStart must be UTC ISO in POST body',
+    );
+    assert.ok(
+      typeof postBody.dtEnd === 'string' && postBody.dtEnd.endsWith('.000Z'),
+      'dtEnd must be UTC ISO in POST body',
+    );
+
+    // Close editor if still open
+    await page.locator('aside[role="dialog"] button', { hasText: '取消' }).click().catch(() => undefined);
+    await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 3_000 }).catch(() => undefined);
+
+    // ── Part C: HTML description with sanitization ───────────────
+
+    await openEventByText(page, 'HTML 描述事件');
+
+    const previewEl = page.locator('[data-description-html-preview]');
+    await previewEl.waitFor({ state: 'visible', timeout: 3_000 });
+
+    // Formatted text visible
+    const previewText = await previewEl.textContent();
+    assert.ok(previewText.includes('HTML'), 'Formatted text visible in preview');
+
+    // Raw <div and <script not shown as visible text
+    assert.ok(!previewText.includes('<div'), 'Raw <div not shown as text');
+    assert.ok(!previewText.includes('<script'), 'Raw <script not shown as text');
+
+    // No visible textarea
+    const textareaVisible = await page.locator('aside[role="dialog"] textarea').isVisible({ timeout: 1_000 }).catch(() => false);
+    assert.ok(!textareaVisible, 'Textarea must not be visible when HTML preview shown');
+
+    // Script and onerror not executed
+    const htmlExecuted = await page.evaluate(() => (window as unknown as Record<string, unknown>).__pimHtmlExecuted);
+    assert.equal(htmlExecuted, false, 'Script/onerror must not have executed');
+
+    // ── Part D: No writable calendars ──────────────────────
+    {
+      const noCtx = await browser.newContext({
+        viewport: { width: w, height: h },
+        timezoneId: DEFAULT_TIMEZONE_ID,
+      });
+      try {
+        const noCap: CapturedRequest[] = [];
+        await noCtx.addInitScript(() => {
+          localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+        });
+        await noCtx.route('**/api/v1/**', route => {
+          const url = new URL(route.request().url());
+          const fullPath = url.pathname + url.search;
+          const method = route.request().method();
+          if (method !== 'GET') {
+            const postBody = route.request().postDataJSON();
+            noCap.push({ url: fullPath, method, body: postBody });
+          }
+          const response = mockApiResponse(fullPath, method);
+          if (fullPath.includes('/calendar/calendars') && !fullPath.includes('outlook')) {
+            response.data = [
+              { id: 'cal-ro-1', name: '只读日历 A', color: '#888888', kind: 'calendar', isDefault: true, canEdit: false },
+              { id: 'cal-ro-2', name: '只读日历 B', color: '#999999', kind: 'calendar', isDefault: false, canEdit: false },
+            ];
+          }
+          return route.fulfill({
+            status: 200, contentType: 'application/json',
+            body: JSON.stringify(response),
+          });
+        });
+
+        const noPage = await noCtx.newPage();
+        await openCalendarMonth(noPage, baseUrl);
+
+        const inboxPanel = noPage.getByRole('heading', { name: '收集箱', exact: true }).locator('../..');
+        await inboxPanel.getByRole('button', { name: '+ 新建', exact: true }).click();
+        await inboxPanel.getByRole('button', { name: '日程', exact: true }).click();
+        await noPage.locator('aside[role="dialog"] h2', { hasText: '新建日程' }).waitFor({ state: 'visible', timeout: 5_000 });
+
+        const noWritableMessage = '没有可用的可写日历，请先在设置中添加或启用日历';
+        const inlineWarning = noPage.locator('aside[role="dialog"] p').filter({ hasText: noWritableMessage });
+        await inlineWarning.waitFor({ state: 'visible', timeout: 3_000 });
+        const submitButton = noPage.locator('aside[role="dialog"] button[type="submit"]');
+        assert.ok(await submitButton.isDisabled(), 'Create button must be disabled when no writable calendar exists');
+
+        // Fill form with valid data and try to submit
+        await noPage.locator('aside[role="dialog"] input[type="text"]').first().fill('无日历创建测试');
+        const dtInputs = noPage.locator('aside[role="dialog"] input[type="datetime-local"]');
+        await dtInputs.first().fill('2026-07-21T14:00');
+        await dtInputs.nth(1).fill('2026-07-21T15:00');
+
+        const reqBefore = noCap.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+        await noPage.locator('form#event-editor-form').evaluate(form => (form as HTMLFormElement).requestSubmit());
+        const noWritableAlert = noPage.getByRole('alert').filter({ hasText: noWritableMessage });
+        await noWritableAlert.waitFor({ state: 'visible', timeout: 3_000 });
+        assert.equal(noCap.filter(c => c.method === 'POST' || c.method === 'PUT').length, reqBefore,
+          'No POST/PUT request sent when no writable calendar');
+
+        await noPage.close();
+      } finally {
+        await noCtx.close();
+      }
+    }
+
+    // ── Part E: Calendar loading state ──────────────────────────
+    {
+      const loadCtx = await browser.newContext({
+        viewport: { width: w, height: h },
+        timezoneId: DEFAULT_TIMEZONE_ID,
+      });
+      let releaseCalendars!: () => void;
+      const calendarsGate = new Promise<void>(resolve => {
+        releaseCalendars = resolve;
+      });
+      try {
+        let calendarsBlocked = false;
+        await loadCtx.addInitScript(() => {
+          localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+        });
+        await loadCtx.route('**/api/v1/**', async route => {
+          const url = new URL(route.request().url());
+          const fullPath = url.pathname + url.search;
+          const method = route.request().method();
+          if (fullPath.includes('/calendar/calendars') && !fullPath.includes('outlook')) {
+            calendarsBlocked = true;
+            await calendarsGate;
+          }
+          return route.fulfill({
+            status: 200, contentType: 'application/json',
+            body: JSON.stringify(mockApiResponse(fullPath, method)),
+          });
+        });
+
+        const loadPage = await loadCtx.newPage();
+        await loadPage.goto(`${baseUrl}/calendar?view=month`, { waitUntil: 'domcontentloaded' });
+
+        // Open the new-event dialog
+        const inboxPanel = loadPage.getByRole('heading', { name: '收集箱', exact: true }).locator('../..');
+        await inboxPanel.getByRole('button', { name: '+ 新建', exact: true }).waitFor({ state: 'visible', timeout: 5_000 });
+        await inboxPanel.getByRole('button', { name: '+ 新建', exact: true }).click();
+        await inboxPanel.getByRole('button', { name: '日程', exact: true }).waitFor({ state: 'visible', timeout: 3_000 });
+        await inboxPanel.getByRole('button', { name: '日程', exact: true }).click();
+        await loadPage.locator('aside[role="dialog"] h2', { hasText: '新建日程' }).waitFor({ state: 'visible', timeout: 5_000 });
+
+        // Wait for the route handler to have trapped the calendars request
+        for (let attempt = 0; attempt < 100; attempt++) {
+          if (calendarsBlocked) break;
+          await new Promise(r => setTimeout(r, 50));
+        }
+
+        const calSelect = loadPage.locator('aside[role="dialog"] select').first();
+
+        // E1: Loading state assertions
+        const loadingOption = calSelect.locator('option[value=""]');
+        assert.equal(await loadingOption.count(), 1, 'Loading state must expose one empty-value option');
+        const loadingText = await loadingOption.textContent();
+        assert.equal(loadingText, '正在加载日历...', 'Loading state must show disabled empty-value option with "正在加载日历..." text');
+        assert.ok(await loadingOption.isDisabled(), 'Loading calendar option must be disabled');
+        assert.ok(await calSelect.isDisabled(), 'Calendar select must be disabled while loading');
+        assert.ok(await loadPage.locator('aside[role="dialog"] button[type="submit"]').isDisabled(),
+          'Submit button must be disabled while loading');
+
+        const noWritableWarning = '没有可用的可写日历，请先在设置中添加或启用日历';
+        const warningShown = await loadPage.locator('aside[role="dialog"] p').filter({ hasText: noWritableWarning }).isVisible({ timeout: 1_000 }).catch(() => false);
+        assert.ok(!warningShown, 'No-writable warning must not appear while loading');
+
+        // Release the gate so calendars response arrives
+        releaseCalendars();
+
+        // E2: After-load assertions
+        await calSelect.locator('option[value="cal-manual-1"]').waitFor({ state: 'attached', timeout: 5_000 });
+        assert.equal(await calSelect.inputValue(), 'cal-manual-1', 'Default calendar after load must be cal-manual-1');
+
+        const optionValues: string[] = await calSelect.evaluate(
+          (sel: HTMLSelectElement) => Array.from(sel.options).map(o => o.value),
+        );
+        assert.ok(!optionValues.includes(''), 'No empty placeholder option must remain after load');
+        assert.ok(await calSelect.isEnabled(), 'Calendar select must be enabled after load');
+
+        const warningAfterLoad = await loadPage.locator('aside[role="dialog"] p').filter({ hasText: noWritableWarning }).isVisible({ timeout: 1_000 }).catch(() => false);
+        assert.ok(!warningAfterLoad, 'No-writable warning must remain absent after load');
+
+        await loadPage.close();
+      } finally {
+        releaseCalendars();
+        await loadCtx.close();
+      }
+    }
+
+    await page.close();
+  } finally {
+    await context.close();
+  }
+}
+
+// ─── Scenario J: Task editor reliability ─────────────────────────────
+
+async function runScenarioJ(browser: Browser, baseUrl: string) {
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
+  try {
+    const captured: CapturedRequest[] = [];
+    await context.addInitScript(() => {
+      localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+    });
+    await context.route('**/api/v1/**', route => {
+      const url = new URL(route.request().url());
+      const fullPath = url.pathname + url.search;
+      const method = route.request().method();
+      if (method !== 'GET') {
+        const postBody = route.request().postDataJSON();
+        captured.push({ url: fullPath, method, body: postBody });
+      }
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify(mockApiResponse(fullPath, method)),
+      });
+    });
+
+    const page = await context.newPage();
+    await openCalendarMonth(page, baseUrl);
+
+    // ── Part A: Existing scheduled-task edit ──────────────────────
+
+    await openEventByText(page, '排程任务');
+
+    // Assert exactly two input[type="number"] controls
+    const numberInputs = page.locator('aside[role="dialog"] input[type="number"]');
+    assert.equal(await numberInputs.count(), 2);
+
+    // Locate by accessible labels 时 and 分钟
+    const hourInput = page.locator('aside[role="dialog"]')
+      .getByRole('spinbutton', { name: '时', exact: true });
+    const minuteInput = page.locator('aside[role="dialog"]')
+      .getByRole('spinbutton', { name: '分钟', exact: true });
+    assert.equal(await hourInput.inputValue(), '1');
+    assert.equal(await minuteInput.inputValue(), '30');
+
+    // Assert three datetime-local values are non-empty and contain neither Z nor +
+    const dtInputs = page.locator('aside[role="dialog"] input[type="datetime-local"]');
+    assert.equal(await dtInputs.count(), 3);
+    const startVal = await dtInputs.nth(0).inputValue();
+    const plannedEndVal = await dtInputs.nth(1).inputValue();
+    const dueVal = await dtInputs.nth(2).inputValue();
+    assert.ok(startVal.length > 0, 'Start datetime-local must be non-empty');
+    assert.ok(plannedEndVal.length > 0, 'Planned end datetime-local must be non-empty');
+    assert.ok(dueVal.length > 0, 'Due datetime-local must be non-empty');
+    assert.ok(!startVal.includes('Z') && !startVal.includes('+'), 'Start must not contain Z or +');
+    assert.ok(!plannedEndVal.includes('Z') && !plannedEndVal.includes('+'), 'Planned end must not contain Z or +');
+    assert.ok(!dueVal.includes('Z') && !dueVal.includes('+'), 'Due must not contain Z or +');
+
+    // Set duration 0/0, submit, expect alert
+    await hourInput.fill('0');
+    await minuteInput.fill('0');
+    const reqBefore = captured.length;
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+    const alert1 = page.getByRole('alert').filter({ hasText: '请至少设置 1 分钟' });
+    await alert1.waitFor({ state: 'visible', timeout: 3_000 });
+    assert.equal(captured.length, reqBefore,
+      'No non-GET request when duration is 0');
+
+    // Set duration 1/30, start > planned end, submit, expect alert
+    await hourInput.fill('1');
+    await minuteInput.fill('30');
+    await dtInputs.nth(0).fill('2026-07-14T15:00');
+    await dtInputs.nth(1).fill('2026-07-14T14:00');
+    const reqBefore2 = captured.length;
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+    const alert2 = page.getByRole('alert').filter({ hasText: '计划结束时间必须晚于开始时间' });
+    await alert2.waitFor({ state: 'visible', timeout: 3_000 });
+    assert.equal(captured.length, reqBefore2,
+      'No non-GET request when planned end <= start');
+
+    // Set valid local values
+    await dtInputs.nth(0).fill('2026-07-14T14:00');
+    await dtInputs.nth(1).fill('2026-07-14T15:30');
+    await dtInputs.nth(2).fill('2026-07-15T12:00');
+    await hourInput.fill('1');
+    await minuteInput.fill('30');
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+
+    // Wait for drawer to close
+    await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 5_000 }).catch(() => undefined);
+
+    // Assert exactly one PUT to /calendar/tasks/task-audit-1 and zero /move
+    const putCalls = captured.filter(c => c.method === 'PUT' && c.url === '/api/v1/calendar/tasks/task-audit-1');
+    assert.equal(putCalls.length, 1, 'Exactly one PUT to task-audit-1');
+    const moveCalls = captured.filter(c => c.url.includes('/move'));
+    assert.equal(moveCalls.length, 0, 'Zero /move calls');
+
+    // Unconditionally inspect PUT body
+    const putBody = putCalls[0].body as Record<string, unknown>;
+    assert.equal(putBody.estimatedDuration, 'PT1H30M');
+    assert.equal(putBody.dtStart, '2026-07-14T06:00:00.000Z');
+    assert.equal(putBody.plannedEnd, '2026-07-14T07:30:00.000Z');
+    assert.equal(putBody.due, '2026-07-15T04:00:00.000Z');
+    assert.equal(putBody.calendarId, 'cal-manual-1');
+
+    // ── Part A2: Existing task with no estimated duration ──────────
+
+    await openEventByText(page, '无预估时长任务');
+
+    // Locate duration spinbuttons by accessible names
+    const emptyDurHour = page.locator('aside[role="dialog"]')
+      .getByRole('spinbutton', { name: '时', exact: true });
+    const emptyDurMinute = page.locator('aside[role="dialog"]')
+      .getByRole('spinbutton', { name: '分钟', exact: true });
+
+    // Existing task with no duration must show blank inputs, not 0 and 30
+    assert.equal(await emptyDurHour.inputValue(), '');
+    assert.equal(await emptyDurMinute.inputValue(), '');
+
+    // Close drawer without submitting
+    await page.locator('aside[role="dialog"] button', { hasText: '取消' }).click();
+    await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 5_000 }).catch(() => undefined);
+
+    // ── Part B: New-task creation ─────────────────────────────────
+
+    // Use Inbox panel + 新建 menu, click 任务
+    const inboxPanel = page.getByRole('heading', { name: '收集箱', exact: true }).locator('../..');
+    await inboxPanel.getByRole('button', { name: '+ 新建', exact: true }).click();
+    await inboxPanel.getByRole('button', { name: '任务', exact: true }).click();
+    await page.locator('aside[role="dialog"] h2', { hasText: '新建任务' }).waitFor({ state: 'visible', timeout: 5_000 });
+
+    // Assert duration defaults to 0 and 30
+    const newHourInput = page.locator('aside[role="dialog"]')
+      .getByRole('spinbutton', { name: '时', exact: true });
+    const newMinuteInput = page.locator('aside[role="dialog"]')
+      .getByRole('spinbutton', { name: '分钟', exact: true });
+    assert.equal(await newHourInput.inputValue(), '0');
+    assert.equal(await newMinuteInput.inputValue(), '30');
+
+    // Fill title
+    const titleInput = page.locator('aside[role="dialog"] input[type="text"]').first();
+    await titleInput.fill('新建任务可靠性测试');
+
+    // Select calendar cal-manual-1 explicitly
+    const calSelect = page.locator('aside[role="dialog"] select').first();
+    await calSelect.selectOption({ value: 'cal-manual-1' });
+
+    // Fill duration
+    await newHourInput.fill('2');
+    await newMinuteInput.fill('15');
+
+    // Fill datetime-local fields
+    const newDtInputs = page.locator('aside[role="dialog"] input[type="datetime-local"]');
+    await newDtInputs.nth(0).fill('2026-07-16T09:00');
+    await newDtInputs.nth(1).fill('2026-07-16T11:15');
+    await newDtInputs.nth(2).fill('2026-07-17T18:00');
+
+    // Submit and wait for drawer to close
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+    await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 5_000 }).catch(() => undefined);
+
+    // Assert exactly one POST to /api/v1/calendar/tasks
+    const postCalls = captured.filter(c => c.method === 'POST' && c.url === '/api/v1/calendar/tasks');
+    assert.equal(postCalls.length, 1, 'Exactly one POST to /api/v1/calendar/tasks');
+
+    // Unconditionally inspect POST body
+    const postBody = postCalls[0].body as Record<string, unknown>;
+    assert.equal(postBody.title, '新建任务可靠性测试');
+    assert.equal(postBody.estimatedDuration, 'PT2H15M');
+    assert.equal(postBody.dtStart, '2026-07-16T01:00:00.000Z');
+    assert.equal(postBody.plannedEnd, '2026-07-16T03:15:00.000Z');
+    assert.equal(postBody.due, '2026-07-17T10:00:00.000Z');
+    assert.equal(postBody.calendarId, 'cal-manual-1');
+
+    await page.close();
+  } finally {
+    await context.close();
+  }
+}
+
+// ─── Scenario K: Timeline density, month capacity, local timezone ─────
+
+async function runScenarioK(browser: Browser, baseUrl: string) {
+  // ── K1 Timeline density and visual ──────────────────────────────
+  {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 1000 },
+      timezoneId: DEFAULT_TIMEZONE_ID,
+    });
+    try {
+      await context.addInitScript(() => {
+        localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+      });
+      await context.route('**/api/v1/**', route => {
+        const url = new URL(route.request().url());
+        const fullPath = url.pathname + url.search;
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify(mockApiResponse(fullPath, undefined, true)),
+        });
+      });
+
+      const page = await context.newPage();
+      await setScenarioKClock(page);
+      const consoleErrors: string[] = [];
+      page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
+      await page.goto(`${baseUrl}/calendar?view=timeline`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      await page.waitForSelector('.fc-event, .calendar-event-card', { timeout: 8_000 }).catch(() => undefined);
+
+      const longCard = page.locator('.fc-timegrid-event:has-text("密度详情事件") .calendar-event-card').first();
+      await longCard.waitFor({ state: 'visible', timeout: 5_000 });
+
+      const compactCard = page.locator('.fc-timegrid-event:has-text("密度紧凑事件") .calendar-event-card').first();
+      await compactCard.waitFor({ state: 'visible', timeout: 5_000 });
+
+      // Long card assertions
+      const longLevel = await longCard.getAttribute('data-content-level');
+      assert.equal(longLevel, '5', 'Long card must have data-content-level="5"');
+
+      const longBorderLeftWidth = await longCard.evaluate(el => getComputedStyle(el).borderLeftWidth);
+      assert.equal(longBorderLeftWidth, '3px', 'Long card must have 3px left border');
+
+      const longBorderLeftColor = await longCard.evaluate(el => getComputedStyle(el).borderLeftColor);
+      assert.equal(longBorderLeftColor, 'rgb(170, 68, 0)', 'Long card border must be calendar accent color');
+
+      const longBg = await longCard.evaluate(el => getComputedStyle(el).backgroundColor);
+      const longAlpha = extractAlpha(longBg);
+      assert.ok(Math.abs(longAlpha - 0.15) < 0.03,
+        `Long card background alpha ${longAlpha} must be approximately 0.15`);
+
+      // Visible sub-elements in long card
+      assert.ok(await longCard.locator('.calendar-event-location').isVisible({ timeout: 1_000 }).catch(() => false),
+        'Long card must show location');
+      assert.ok(await longCard.locator('.calendar-event-source').isVisible({ timeout: 1_000 }).catch(() => false),
+        'Long card must show source label');
+      assert.ok(await longCard.locator('.calendar-event-description').isVisible({ timeout: 1_000 }).catch(() => false),
+        'Long card must show description summary');
+      assert.ok(await longCard.locator('.calendar-event-rrule').isVisible({ timeout: 1_000 }).catch(() => false),
+        'Long card must show recurrence icon');
+
+      // Compact card assertions
+      const compactLevel = await compactCard.getAttribute('data-content-level');
+      assert.equal(compactLevel, '1', 'Compact card must have data-content-level="1"');
+
+      assert.ok(!await compactCard.locator('.calendar-event-location').isVisible({ timeout: 500 }).catch(() => false),
+        'Compact card must hide location');
+      assert.ok(!await compactCard.locator('.calendar-event-source').isVisible({ timeout: 500 }).catch(() => false),
+        'Compact card must hide source label');
+      assert.ok(!await compactCard.locator('.calendar-event-description').isVisible({ timeout: 500 }).catch(() => false),
+        'Compact card must hide description');
+      assert.ok(!await compactCard.locator('.calendar-event-rrule').isVisible({ timeout: 500 }).catch(() => false),
+        'Compact card must hide recurrence icon');
+
+      assert.deepEqual(consoleErrors, [], 'K1 must not log console errors');
+      await page.close();
+    } finally {
+      await context.close();
+    }
+  }
+
+  // ── K2/K3/K4 Month capacity ────────────────────────────────────
+  {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 1200 },
+      timezoneId: DEFAULT_TIMEZONE_ID,
+    });
+    try {
+      await context.addInitScript(() => {
+        localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+      });
+      await context.route('**/api/v1/**', route => {
+        const url = new URL(route.request().url());
+        const fullPath = url.pathname + url.search;
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify(mockApiResponse(fullPath, undefined, true)),
+        });
+      });
+
+      const page = await context.newPage();
+      await setScenarioKClock(page);
+      const consoleErrors: string[] = [];
+      page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
+      await page.goto(`${baseUrl}/calendar?view=month`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      await page.waitForSelector('.fc-event, .calendar-event-card', { timeout: 8_000 }).catch(() => undefined);
+
+      // K2: Tall board — all capacity titles visible, no more link
+      await page.evaluate(() => {
+        const board = document.querySelector('.calendar-board') as HTMLElement | null;
+        if (board) {
+          board.style.flex = '0 0 auto';
+          board.style.height = '900px';
+        }
+      });
+      await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+
+      const capacityDay = page.locator('.fc-daygrid-day[data-date="2026-07-15"]');
+      const capacityMoreLink = capacityDay.locator('.fc-more-link');
+      await capacityMoreLink.waitFor({ state: 'hidden', timeout: 5_000 });
+      const moreLinkVisible = await capacityMoreLink.isVisible().catch(() => false);
+      assert.ok(!moreLinkVisible, 'K2: No +N more link with tall board');
+
+      for (let i = 1; i <= 5; i++) {
+        const title = capacityDay.locator('.fc-event').filter({ hasText: `容量日程 ${i}` }).first();
+        await title.waitFor({ state: 'visible', timeout: 5_000 });
+      }
+
+      // K3: Short board — more link appears
+      await page.evaluate(() => {
+        const board = document.querySelector('.calendar-board') as HTMLElement | null;
+        if (board) board.style.height = '280px';
+      });
+      await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+
+      const shortMoreLink = capacityMoreLink.first();
+      await shortMoreLink.waitFor({ state: 'visible', timeout: 5_000 });
+
+      // K4: Click more link, popover shows all capacity titles
+      const moreLinkCount = await capacityMoreLink.count();
+      assert.ok(moreLinkCount > 0, 'K4: At least one more link must exist');
+
+      await shortMoreLink.click();
+
+      const popover = page.locator('.fc-more-popover');
+      await popover.waitFor({ state: 'visible', timeout: 3_000 });
+
+      for (let i = 1; i <= 5; i++) {
+        const inPopover = await popover.getByText(`容量日程 ${i}`, { exact: true }).isVisible({ timeout: 1_000 }).catch(() => false);
+        assert.ok(inPopover, `K4: 容量日程 ${i} must be in more popover`);
+      }
+
+      const closeBtn = popover.locator('.fc-popover-close');
+      await closeBtn.click();
+      await popover.waitFor({ state: 'hidden', timeout: 3_000 });
+      const popoverClosed = await page.locator('.fc-more-popover').isVisible().catch(() => false);
+      assert.ok(!popoverClosed, 'K4: Popover must close without opening editor');
+
+      assert.deepEqual(consoleErrors, [], 'K2-K4 must not log console errors');
+      await page.close();
+    } finally {
+      await context.close();
+    }
+  }
+
+  // ── K5 Browser-local timezone ───────────────────────────────────
+  {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 1000 },
+      timezoneId: 'America/New_York',
+    });
+    try {
+      await context.addInitScript(() => {
+        localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+      });
+      await context.route('**/api/v1/**', route => {
+        const url = new URL(route.request().url());
+        const fullPath = url.pathname + url.search;
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify(mockApiResponse(fullPath, undefined, true)),
+        });
+      });
+
+      const page = await context.newPage();
+      await setScenarioKClock(page);
+      const consoleErrors: string[] = [];
+      page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
+      await page.goto(`${baseUrl}/calendar?view=month`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      await page.waitForSelector('.fc-event, .calendar-event-card', { timeout: 8_000 }).catch(() => undefined);
+
+      const tzEvent = page.locator('.fc-event').filter({ hasText: '本地时区验证事件' }).first();
+      await tzEvent.waitFor({ state: 'visible', timeout: 5_000 });
+
+      const timeText = await tzEvent.locator('.calendar-event-time, .fc-event-time').first().textContent({ timeout: 3_000 });
+      assert.equal(timeText?.trim(), '10:00',
+        `K5: Event time must be 10:00 in America/New_York, got "${timeText}"`);
+
+      assert.deepEqual(consoleErrors, [], 'K5 must not log console errors');
+      await page.close();
+    } finally {
+      await context.close();
+    }
+  }
+}
+
+async function setScenarioKClock(page: Page) {
+  await page.clock.setFixedTime(new Date('2026-07-20T12:00:00.000Z'));
+}
+
+function extractAlpha(bg: string): number {
+  const rgba = bg.match(/^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)$/);
+  if (rgba) {
+    const alpha = Number(rgba[1]);
+    if (alpha <= 0) throw new Error(`Expected translucent background, got ${bg}`);
+    return alpha;
+  }
+  const colorMatch = bg.match(/^color\(\s*(?:srgb\s+)?[\d.]+\s+[\d.]+\s+[\d.]+\s*\/\s*([\d.]+)\s*\)$/);
+  if (colorMatch) {
+    const alpha = Number(colorMatch[1]);
+    if (alpha <= 0) throw new Error(`Expected translucent background, got ${bg}`);
+    return alpha;
+  }
+  throw new Error(`Unable to extract alpha from computed background: ${bg}`);
+}
+
+function assertMobileCalendarHeightFallback() {
+  const css = readFileSync('src/client-web/src/index.css', 'utf8');
+  assert.match(css,
+    /\.calendar-board\s*\{[^}]*height:\s*24rem;[^}]*height:\s*max\(24rem,\s*calc\(100dvh\s*-\s*28rem\)\);/,
+    'mobile calendar board must keep a fixed-height fallback before the dynamic viewport height');
+}
+
+function assertTaskEditorUsesAtomicUpdate() {
+  const source = readFileSync('src/client-web/src/dialogs/TaskEditorDialog.tsx', 'utf8');
+  assert.doesNotMatch(source, /\bmoveTask\b/,
+    'task editor must schedule and update through one atomic request');
 }
 
 async function assertDialogInViewport(page: Page, selector: string) {
@@ -630,8 +1443,8 @@ const allEvents = [
   {
     id: 'evt-manual-1', calendarId: 'cal-manual-1', uid: 'uid-manual-1',
     title: '手动创建的事件',
-    dtStart: '2026-07-14T13:00:00', dtEnd: '2026-07-14T14:00:00',
-    status: 'confirmed', source: 'manual', isAllDay: false,
+    dtStart: '2026-07-14T14:00:00+08:00', dtEnd: '2026-07-14T15:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
   },
   {
     id: 'evt-outlook-no-etag', calendarId: 'cal-outlook-1', uid: 'uid-no-etag',
@@ -677,6 +1490,63 @@ const allEvents = [
     outlookEventId: 'graph-evt-exception', outlookEtag: 'etag-exception-1',
     outlookEventType: 'exception', isAllDay: false,
   },
+  {
+    id: 'evt-html-desc-1', calendarId: 'cal-manual-1', uid: 'uid-html-1',
+    title: 'HTML 描述事件',
+    description: '<p>描述包含 <b>HTML</b> 内容</p><div>额外 div 内容</div><script>window.__pimHtmlExecuted = true</script><img src="x" onerror="window.__pimHtmlExecuted = true">',
+    dtStart: '2026-07-21T09:00:00', dtEnd: '2026-07-21T10:00:00',
+    status: 'confirmed', source: 'outlook', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  // ── Scenario K fixtures ──────────────────────────────────────────
+  {
+    id: 'evt-density-detail', calendarId: 'cal-manual-1', uid: 'uid-density-detail',
+    title: '密度详情事件', location: '会议室 A',
+    description: '这是一个包含详细描述的事件，用于测试日历卡片的层级展示功能。描述内容需要足够长以确保在层级 4 能够显示摘要。这里继续添加更多文本内容以增加描述的长度。',
+    dtStart: '2026-07-20T09:00:00+08:00', dtEnd: '2026-07-20T12:00:00+08:00',
+    status: 'confirmed', source: 'manual', rrule: 'FREQ=WEEKLY', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-density-compact', calendarId: 'cal-manual-1', uid: 'uid-density-compact',
+    title: '密度紧凑事件', location: '隐藏的位置', description: '隐藏的描述',
+    dtStart: '2026-07-20T13:00:00+08:00', dtEnd: '2026-07-20T13:15:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-capacity-1', calendarId: 'cal-manual-1', uid: 'uid-capacity-1',
+    title: '容量日程 1',
+    dtStart: '2026-07-15T09:00:00+08:00', dtEnd: '2026-07-15T10:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-capacity-2', calendarId: 'cal-manual-1', uid: 'uid-capacity-2',
+    title: '容量日程 2',
+    dtStart: '2026-07-15T10:00:00+08:00', dtEnd: '2026-07-15T11:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-capacity-3', calendarId: 'cal-manual-1', uid: 'uid-capacity-3',
+    title: '容量日程 3',
+    dtStart: '2026-07-15T11:00:00+08:00', dtEnd: '2026-07-15T12:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-capacity-4', calendarId: 'cal-manual-1', uid: 'uid-capacity-4',
+    title: '容量日程 4',
+    dtStart: '2026-07-15T12:00:00+08:00', dtEnd: '2026-07-15T13:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-capacity-5', calendarId: 'cal-manual-1', uid: 'uid-capacity-5',
+    title: '容量日程 5',
+    dtStart: '2026-07-15T13:00:00+08:00', dtEnd: '2026-07-15T14:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-local-tz', calendarId: 'cal-manual-1', uid: 'uid-local-tz',
+    title: '本地时区验证事件',
+    dtStart: '2026-07-20T14:00:00Z', dtEnd: '2026-07-20T15:00:00Z',
+    status: 'confirmed', source: 'manual', isAllDay: false,
+  },
 ];
 
 const calendars = [
@@ -686,7 +1556,68 @@ const calendars = [
   { id: 'cal-ics-1', name: 'ICS 导入日历', color: '#6633CC', kind: 'calendar', isDefault: false, canEdit: true },
 ];
 
-function mockApiResponse(fullPath: string, method?: string): { code: number; message: string; data: unknown; timestamp: string } {
+const allTasks = [
+  {
+    id: 'task-audit-1',
+    calendarId: 'cal-manual-1',
+    title: '排程任务',
+    description: '测试描述',
+    priority: 1,
+    estimatedDuration: '01:30:00',
+    minimumSegment: null,
+    dtStart: '2026-07-14T06:00:00Z',
+    plannedEnd: '2026-07-14T07:30:00Z',
+    due: '2026-07-15T04:00:00Z',
+    status: 'NEEDS-ACTION',
+    isInbox: false,
+    sortOrder: 1,
+    subTasks: [],
+  },
+  {
+    id: 'task-audit-2',
+    calendarId: 'cal-manual-1',
+    title: '无预估时长任务',
+    description: null,
+    priority: 0,
+    estimatedDuration: null,
+    minimumSegment: null,
+    dtStart: '2026-07-15T08:00:00Z',
+    plannedEnd: '2026-07-15T09:30:00Z',
+    due: '2026-07-16T06:00:00Z',
+    status: 'NEEDS-ACTION',
+    isInbox: false,
+    sortOrder: 0,
+    subTasks: [],
+  },
+  {
+    id: 'task-created-1',
+    calendarId: 'cal-manual-1',
+    title: '新建任务可靠性测试',
+    description: null,
+    priority: 0,
+    estimatedDuration: '02:15:00',
+    minimumSegment: null,
+    dtStart: '2026-07-16T01:00:00Z',
+    plannedEnd: '2026-07-16T03:15:00Z',
+    due: '2026-07-17T10:00:00Z',
+    status: 'NEEDS-ACTION',
+    isInbox: false,
+    sortOrder: 0,
+    subTasks: [],
+  },
+];
+
+function mockApiResponse(
+  fullPath: string,
+  method?: string,
+  includeScenarioKFixtures = false,
+): { code: number; message: string; data: unknown; timestamp: string } {
+  const eventsForScenario = allEvents.filter(event => {
+    const isScenarioKFixture = event.id.startsWith('evt-density-')
+      || event.id.startsWith('evt-capacity-')
+      || event.id === 'evt-local-tz';
+    return includeScenarioKFixtures ? isScenarioKFixture : !isScenarioKFixture;
+  });
   let data: unknown = [];
   if (fullPath.endsWith('/status/summary')) {
     data = { status: 'Healthy', checks: [] };
@@ -749,7 +1680,22 @@ function mockApiResponse(fullPath: string, method?: string): { code: number; mes
       data = allEvents.find(e => e.id === evtId) || allEvents[0];
     }
   } else if (fullPath.includes('/calendar/events')) {
-    data = allEvents;
+    data = eventsForScenario;
+  } else if (fullPath.match(/\/calendar\/tasks\/[^/]+-[^/]+$/)) {
+    const taskId = fullPath.split('/').pop()?.split('?')[0] || '';
+    if (method === 'PUT') {
+      data = allTasks.find(t => t.id === taskId) || allTasks[0];
+    } else if (method === 'DELETE') {
+      data = null;
+    } else {
+      data = allTasks.find(t => t.id === taskId) || allTasks[0];
+    }
+  } else if (fullPath.match(/\/calendar\/tasks(\?|$)/)) {
+    if (method === 'POST') {
+      data = allTasks.find(t => t.id === 'task-created-1') || allTasks[0];
+    } else {
+      data = includeScenarioKFixtures ? [] : allTasks;
+    }
   } else if (fullPath.includes('/calendar/calendars') && !fullPath.includes('outlook')) {
     data = calendars;
   } else if (fullPath.includes('/calendar/outlook/events/writeback')) {
@@ -778,7 +1724,17 @@ async function openCalendarMonth(page: Page, baseUrl: string) {
 }
 
 async function openEventByText(page: Page, text: string, force = false) {
-  const evt = page.locator('.fc-event').filter({ hasText: text }).first();
+  let evt = page.locator('.fc-event').filter({ hasText: text }).first();
+  await evt.waitFor({ state: 'attached', timeout: 8_000 });
+  if (!await evt.isVisible()) {
+    const dayCell = evt.locator('xpath=ancestor::*[contains(@class, "fc-daygrid-day")][1]');
+    const moreLink = dayCell.locator('.fc-more-link');
+    await moreLink.waitFor({ state: 'visible', timeout: 5_000 });
+    await moreLink.click();
+    const popover = page.locator('.fc-more-popover');
+    await popover.waitFor({ state: 'visible', timeout: 3_000 });
+    evt = popover.locator('.fc-event').filter({ hasText: text }).first();
+  }
   await evt.waitFor({ state: 'visible', timeout: 8_000 });
   if (force) {
     await evt.dispatchEvent('click');
@@ -817,7 +1773,10 @@ async function waitForNoWritebackDialog(page: Page) {
 
 async function runScenarioA(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   try {
     const captured: CapturedRequest[] = [];
     await context.addInitScript(() => {
@@ -898,7 +1857,10 @@ async function runScenarioA(browser: Browser, baseUrl: string) {
 
 async function runScenarioB(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   let conflictPage: Page | undefined;
   try {
     const captured: CapturedRequest[] = [];
@@ -1067,7 +2029,10 @@ async function runScenarioB(browser: Browser, baseUrl: string) {
 
 async function runScenarioC(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   let deletePage: Page | undefined;
   try {
     const captured: CapturedRequest[] = [];
@@ -1140,7 +2105,10 @@ async function runScenarioC(browser: Browser, baseUrl: string) {
 
 async function runScenarioD(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   let createPage: Page | undefined;
   try {
     const captured: CapturedRequest[] = [];
@@ -1188,7 +2156,7 @@ async function runScenarioD(browser: Browser, baseUrl: string) {
     // Select Outlook calendar
     const calSelect = createPage.locator('aside[role="dialog"] select').first();
     await calSelect.waitFor({ state: 'visible', timeout: 3_000 });
-    await calSelect.selectOption({ label: 'Outlook 工作日历' });
+    await calSelect.selectOption({ label: 'Outlook 工作日历 (Outlook)' });
 
     // Fill fields
     const titleInput = createPage.locator('aside[role="dialog"] input[type="text"]').first();
@@ -1233,7 +2201,10 @@ async function runScenarioD(browser: Browser, baseUrl: string) {
 
 async function runScenarioE(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   try {
     await context.addInitScript(() => {
       localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
@@ -1378,7 +2349,7 @@ async function runScenarioE(browser: Browser, baseUrl: string) {
     await calSelect.waitFor({ state: 'visible', timeout: 3_000 });
 
     // Select read-only Outlook calendar
-    await calSelect.selectOption({ label: 'Outlook 只读日历' });
+    await calSelect.selectOption({ label: 'Outlook 只读日历 (Outlook)' });
 
     const hasSubmitBtnRo = await page.locator('aside[role="dialog"] button[type="submit"]').isVisible().catch(() => false);
     assert.ok(!hasSubmitBtnRo, 'New event with read-only calendar must not show submit button');
@@ -1403,7 +2374,7 @@ async function runScenarioE(browser: Browser, baseUrl: string) {
     assert.ok(!hasReadonlyPreview, 'Read-only new event must ignore direct form submission');
 
     // Switch back to a writable calendar — controls re-enable
-    await calSelect.selectOption({ label: 'Outlook 工作日历' });
+    await calSelect.selectOption({ label: 'Outlook 工作日历 (Outlook)' });
     const titleReEnabled = await page.locator('aside[role="dialog"] input[type="text"]').first().isEnabled().catch(() => false);
     assert.ok(titleReEnabled, 'Title input must be re-enabled after switching to writable calendar');
     const hasSubmitAfterSwitch = await page.locator('aside[role="dialog"] button[type="submit"]').isVisible().catch(() => false);

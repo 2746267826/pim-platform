@@ -192,6 +192,7 @@ textarea {
 }
 
 .calendar-board .fc-daygrid-day-frame {
+  height: 100%;
   min-height: 7.5rem;
   padding: 0.35rem;
 }
@@ -318,4 +319,98 @@ textarea {
   .pim-card {
     border-radius: var(--pim-radius-sm);
   }
+
+  .calendar-board {
+    flex: none;
+    height: 24rem;
+    height: max(24rem, calc(100dvh - 28rem));
+  }
+}
+
+.calendar-event-card[data-calendar-event-card] {
+  background: color-mix(in srgb, var(--calendar-accent, #2563eb) 15%, transparent);
+  border-left: 3px solid var(--calendar-accent, #2563eb);
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.fc-timegrid-event .calendar-event-card[data-calendar-event-card] {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: hidden;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  line-height: 1.3;
+}
+
+.fc-timegrid-event .calendar-event-card[data-calendar-event-card] .calendar-event-dot {
+  display: none;
+}
+
+.fc-daygrid-event .calendar-event-card[data-calendar-event-card] {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0 0.3rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  border-radius: 3px;
+  gap: 0.2rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.fc-daygrid-event .calendar-event-card[data-calendar-event-card] .calendar-event-title,
+.fc-daygrid-event .calendar-event-card[data-calendar-event-card] .calendar-event-time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar-event-location,
+.calendar-event-source,
+.calendar-event-description,
+.calendar-event-rrule {
+  display: none;
+}
+
+.calendar-event-card[data-content-level="2"] > .calendar-event-location,
+.calendar-event-card[data-content-level="3"] > .calendar-event-location,
+.calendar-event-card[data-content-level="4"] > .calendar-event-location,
+.calendar-event-card[data-content-level="5"] > .calendar-event-location,
+.calendar-event-card[data-content-level="3"] > .calendar-event-source,
+.calendar-event-card[data-content-level="4"] > .calendar-event-source,
+.calendar-event-card[data-content-level="5"] > .calendar-event-source,
+.calendar-event-card[data-content-level="4"] > .calendar-event-description,
+.calendar-event-card[data-content-level="5"] > .calendar-event-description,
+.calendar-event-card[data-content-level="5"] > .calendar-event-rrule {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.calendar-event-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 12ch;
+  color: var(--pim-text-muted);
+  font-weight: 400;
+  font-size: 0.65rem;
+}
+
+.calendar-event-location,
+.calendar-event-source {
+  color: var(--pim-text-muted);
+  font-weight: 400;
+  font-size: 0.65rem;
+}
+
+.calendar-event-rrule {
+  color: var(--pim-text-muted);
 }

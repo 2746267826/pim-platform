@@ -70,6 +70,20 @@ if (!editorSource.includes('conflict')) failures.push('Editor must handle confli
 if (!editorSource.includes('实例')) failures.push('Editor must show 实例 scope option');
 if (!editorSource.includes('系列')) failures.push('Editor must show 系列 scope option');
 
+// --- Every manual and Outlook mutation must invalidate both calendar layer caches ---
+{
+  const invalidationCalls = editorSource.match(/invalidateEventQueries\(\);/g) ?? [];
+  if (invalidationCalls.length < 4) {
+    failures.push('Create, update, delete, and Outlook writeback must share event query invalidation');
+  }
+  if (!editorSource.includes("queryKey: ['calendar-layers']")) {
+    failures.push('Event query invalidation must include calendar-layers');
+  }
+  if (!editorSource.includes("queryKey: ['workbench-calendar-layers']")) {
+    failures.push('Event query invalidation must include workbench-calendar-layers');
+  }
+}
+
 // --- Forbidden strings ---
 if (editorSource.includes('强制覆盖')) failures.push('Editor must NOT contain 强制覆盖');
 if (editorSource.includes('复制为 PIM 日程')) failures.push('Editor must NOT contain 复制为 PIM 日程');

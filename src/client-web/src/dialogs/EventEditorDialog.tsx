@@ -5,6 +5,10 @@ import EditorDrawer from '../ui/EditorDrawer';
 import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
 import BeforeAfterDiff from '../components/schedule/BeforeAfterDiff';
 import { Field } from './common';
+import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
+import { resolveCalendarId, hasWritableCalendar, noWritableCalendarMessage } from '../utils/calendarSelection';
+import { isoToDatetimeLocal, datetimeLocalToUtcIso, isEndAfterStart, minimumEndValue } from '../utils/dateTimeInput';
+import { looksLikeHtml, sanitizeDescriptionHtml } from '../utils/safeHtml';
 import type { EventResponse, OutlookWriteRequest, OutlookEventDraft } from '../types';
 
 interface Props {
@@ -67,12 +71,22 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   const [title, setTitle] = useState(event?.title || '');
   const [description, setDescription] = useState(event?.description || '');
   const [location, setLocation] = useState(event?.location || '');
-  const [dtStart, setDtStart] = useState(event?.dtStart || defaultStart || '');
-  const [dtEnd, setDtEnd] = useState(event?.dtEnd || defaultEnd || '');
+  const [dtStart, setDtStart] = useState(event ? isoToDatetimeLocal(event.dtStart, event.timeZoneId) : (defaultStart || ''));
+  const [dtEnd, setDtEnd] = useState(event ? isoToDatetimeLocal(event.dtEnd, event.timeZoneId) : (defaultEnd || ''));
   const [isAllDay, setIsAllDay] = useState(Boolean(event?.isAllDay));
   const [calendarId, setCalendarId] = useState(event?.calendarId || '');
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
   const queryClient = useQueryClient();
+  const { hiddenCalendarIds } = useCalendarVisibility();
+
+  const { data: calendars, isLoading } = useQuery({
+    queryKey: ['calendars', 'calendar'],
+    queryFn: () => getCalendars('calendar'),
+    enabled: open
+  });
+
+  const showHtmlPreview = event && looksLikeHtml(event.description || '');
+  const sanitizedPreviewHtml = showHtmlPreview ? sanitizeDescriptionHtml(event.description || '') : '';
 
   const [writebackPhase, setWritebackPhase] = useState<WritebackPhase>({ type: 'idle' });
   const [pendingRequest, setPendingRequest] = useState<OutlookWriteRequest | null>(null);
@@ -83,12 +97,11 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   const [diffAfter, setDiffAfter] = useState('{}');
   const [writebackValidationError, setWritebackValidationError] = useState('');
 
-  const { data: calendars } = useQuery({
-    queryKey: ['calendars', 'calendar'],
-    queryFn: () => getCalendars('calendar'),
-    enabled: open
-  });
-  const selectedCalendarId = calendarId || (!event && calendars?.length === 1 ? calendars[0].id : '');
+  const selectedCalendarId = resolveCalendarId(
+    calendars || [],
+    calendarId || (event ? event.calendarId : undefined),
+    hiddenCalendarIds,
+  );
 
   const isOutlookExisting = event?.source === 'outlook' && !!event?.outlookCalendarBindingId;
   const selectedCalendar = calendars?.find(c => c.id === selectedCalendarId);
@@ -111,8 +124,8 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
       title,
       description: description || undefined,
       location: location || undefined,
-      dtStart,
-      dtEnd,
+      dtStart: datetimeLocalToUtcIso(dtStart, event?.timeZoneId),
+      dtEnd: datetimeLocalToUtcIso(dtEnd, event?.timeZoneId),
       isAllDay,
       timeZoneId: event?.timeZoneId || undefined,
       uid: event?.uid || undefined,
@@ -157,12 +170,16 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
     setWritebackPhase({ type: 'preview' });
   }
 
-  function invalidateWritebackQueries(operation: string) {
+  function invalidateEventQueries() {
     queryClient.invalidateQueries({ queryKey: ['events'] });
     queryClient.invalidateQueries({ queryKey: ['events-paged'] });
     queryClient.invalidateQueries({ queryKey: ['calendars'] });
     queryClient.invalidateQueries({ queryKey: ['calendar-layers'] });
     queryClient.invalidateQueries({ queryKey: ['workbench-calendar-layers'] });
+  }
+
+  function invalidateWritebackQueries(operation: string) {
+    invalidateEventQueries();
     queryClient.invalidateQueries({ queryKey: ['outlook-sync-batches'] });
     if (operation === 'delete') {
       queryClient.invalidateQueries({ queryKey: ['calendar-recycle-bin'] });
@@ -213,26 +230,20 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   const createMut = useMutation({
     mutationFn: (data: Partial<EventResponse>) => createEvent(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      queryClient.invalidateQueries({ queryKey: ['events-paged'] });
-      queryClient.invalidateQueries({ queryKey: ['calendars'] });
+      invalidateEventQueries();
       onClose();
     }
   });
 
   function invalidateEventDeleteQueries() {
-    queryClient.invalidateQueries({ queryKey: ['events'] });
-    queryClient.invalidateQueries({ queryKey: ['events-paged'] });
-    queryClient.invalidateQueries({ queryKey: ['calendars'] });
+    invalidateEventQueries();
     queryClient.invalidateQueries({ queryKey: ['calendar-recycle-bin'] });
   }
 
   const updateMut = useMutation({
     mutationFn: (data: Partial<EventResponse>) => updateEvent(event!.id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      queryClient.invalidateQueries({ queryKey: ['events-paged'] });
-      queryClient.invalidateQueries({ queryKey: ['calendars'] });
+      invalidateEventQueries();
       onClose();
     }
   });
@@ -289,16 +300,38 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (isReadOnly) return;
+
+    if (!title.trim()) {
+      setWritebackValidationError('请输入标题');
+      return;
+    }
+    if (!dtStart || !dtEnd) {
+      setWritebackValidationError('请选择开始和结束时间');
+      return;
+    }
+    if (!event && !hasWritableCalendar(calendars || [], hiddenCalendarIds)) {
+      setWritebackValidationError(noWritableCalendarMessage());
+      return;
+    }
+    if (!isEndAfterStart(dtStart, dtEnd)) {
+      setWritebackValidationError('结束时间必须晚于开始时间');
+      return;
+    }
+
+    setWritebackValidationError('');
+
+    const startUtc = datetimeLocalToUtcIso(dtStart, event?.timeZoneId);
+    const endUtc = datetimeLocalToUtcIso(dtEnd, event?.timeZoneId);
+
     if (isOutlook) {
       if (writebackPhase.type !== 'idle') return;
-      setWritebackValidationError('');
       if (event && !event.outlookEtag) {
         setWritebackValidationError('缺少版本标识，无法执行写回操作。');
         return;
       }
       openWritebackPreview(event ? 'update' : 'create');
     } else {
-      const data = { title, description, location, dtStart, dtEnd, isAllDay, calendarId: selectedCalendarId || undefined };
+      const data = { title, description, location, dtStart: startUtc, dtEnd: endUtc, isAllDay, calendarId: selectedCalendarId || undefined };
       if (event) updateMut.mutate(data);
       else createMut.mutate(data);
     }
@@ -323,7 +356,8 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         <button type="button" onClick={onClose}
           className="pim-button-secondary px-4 py-2 text-sm">取消</button>
         {!isReadOnly && (
-          <button type="submit" form="event-editor-form" disabled={isProcessing}
+          <button type="submit" form="event-editor-form"
+            disabled={isProcessing || isLoading || (!event && !hasWritableCalendar(calendars || [], hiddenCalendarIds))}
             className="pim-button-primary px-4 py-2 text-sm disabled:opacity-50">
             {event ? '保存' : '创建'}
           </button>
@@ -337,7 +371,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   return (
     <>
     <EditorDrawer open={open} onClose={onClose} title={titleText} footer={footer}>
-      <form id="event-editor-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="event-editor-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
         {writebackValidationError && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
             {writebackValidationError}
@@ -360,13 +394,17 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         )}
         <Field label="日历本">
           <select value={selectedCalendarId} onChange={e => setCalendarId(e.target.value)}
-            disabled={!!event && (isFormDisabled || isOutlookExisting)}
+            disabled={isLoading || (!!event && (isFormDisabled || isOutlookExisting))}
             className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500">
-            <option value="">默认日历</option>
-            {calendars?.map(cal => (
-              <option key={cal.id} value={cal.id}>{cal.name}</option>
+            {isLoading ? (
+              <option value="" disabled>正在加载日历...</option>
+            ) : calendars?.map(cal => (
+              <option key={cal.id} value={cal.id}>{cal.name}{cal.outlookCalendarBindingId ? ' (Outlook)' : ''}</option>
             ))}
           </select>
+          {!isLoading && !isReadOnly && !hasWritableCalendar(calendars || [], hiddenCalendarIds) && (
+            <p className="mt-1 text-xs text-red-600">{noWritableCalendarMessage()}</p>
+          )}
         </Field>
         <Field label="标题">
           <input type="text" value={title} onChange={e => setTitle(e.target.value)}
@@ -390,6 +428,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         </Field>
         <Field label="结束时间">
           <input type="datetime-local" value={dtEnd} onChange={e => setDtEnd(e.target.value)}
+            min={minimumEndValue(dtStart)}
             disabled={isFormDisabled}
             className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500" required />
         </Field>
@@ -399,9 +438,15 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
             className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500" />
         </Field>
         <Field label="描述">
-          <textarea value={description} onChange={e => setDescription(e.target.value)}
-            disabled={isFormDisabled}
-            className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500" rows={3} />
+          {showHtmlPreview ? (
+            <div data-description-html-preview
+              dangerouslySetInnerHTML={{ __html: sanitizedPreviewHtml }}
+              className="w-full border rounded px-3 py-2 text-sm bg-slate-50 min-h-[4rem]" />
+          ) : (
+            <textarea value={description} onChange={e => setDescription(e.target.value)}
+              disabled={isFormDisabled}
+              className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500" rows={3} />
+          )}
         </Field>
       </form>
     </EditorDrawer>

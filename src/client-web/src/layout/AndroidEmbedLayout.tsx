@@ -20,7 +20,7 @@ export default class AndroidEmbedLayout extends Component<{ children: ReactNode 
       return (
         <div
           role="alert"
-          className="h-screen w-full overflow-y-auto bg-white flex flex-col items-center justify-center gap-4 p-4"
+          className="w-full overflow-y-auto bg-white flex flex-col items-center justify-center gap-4 p-4"
           style={{
             paddingTop: 'env(safe-area-inset-top, 0px)',
             paddingRight: 'env(safe-area-inset-right, 0px)',
@@ -42,7 +42,7 @@ export default class AndroidEmbedLayout extends Component<{ children: ReactNode 
 
     return (
       <div
-        className="h-screen w-full overflow-y-auto bg-white"
+        className="w-full overflow-y-auto bg-white"
         style={{
           paddingTop: 'env(safe-area-inset-top, 0px)',
           paddingRight: 'env(safe-area-inset-right, 0px)',

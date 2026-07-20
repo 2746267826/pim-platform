@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:net';
@@ -34,6 +34,8 @@ interface CapturedRequest {
 }
 
 async function main() {
+  assertMobileCalendarHeightFallback();
+  assertTaskEditorUsesAtomicUpdate();
   const port = await freePort();
   const baseUrl = `http://127.0.0.1:${port}`;
   const server = startVite(port);
@@ -94,6 +96,22 @@ async function runRouteAudit(browser: Browser, baseUrl: string) {
         await assertRoute(page, route, width, height);
         assert.deepEqual(consoleErrors, [],
           `${route} at ${width}x${height} should not log browser errors`);
+        if (route === '/calendar' && width === 390) {
+          await page.waitForSelector('.calendar-board', { state: 'visible', timeout: 4_000 });
+          await page.waitForSelector('.calendar-board .fc', { state: 'visible', timeout: 4_000 });
+          const calendarHeights = await page.evaluate(() => {
+            const board = document.querySelector('.calendar-board');
+            const calendar = board?.querySelector('.fc');
+            return {
+              board: board?.getBoundingClientRect().height ?? -1,
+              calendar: calendar?.getBoundingClientRect().height ?? -1,
+            };
+          });
+          assert.ok(calendarHeights.board >= 360,
+            `390x844 calendar board height ${calendarHeights.board}px must be >= 360px`);
+          assert.ok(calendarHeights.calendar >= 360,
+            `390x844 FullCalendar height ${calendarHeights.calendar}px must be >= 360px`);
+        }
         await page.close();
       }
     } finally {
@@ -997,6 +1015,7 @@ async function runScenarioK(browser: Browser, baseUrl: string) {
       });
 
       const page = await context.newPage();
+      await setScenarioKClock(page);
       const consoleErrors: string[] = [];
       page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
 
@@ -1075,6 +1094,7 @@ async function runScenarioK(browser: Browser, baseUrl: string) {
       });
 
       const page = await context.newPage();
+      await setScenarioKClock(page);
       const consoleErrors: string[] = [];
       page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
 
@@ -1160,6 +1180,7 @@ async function runScenarioK(browser: Browser, baseUrl: string) {
       });
 
       const page = await context.newPage();
+      await setScenarioKClock(page);
       const consoleErrors: string[] = [];
       page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
 
@@ -1182,6 +1203,10 @@ async function runScenarioK(browser: Browser, baseUrl: string) {
   }
 }
 
+async function setScenarioKClock(page: Page) {
+  await page.clock.setFixedTime(new Date('2026-07-20T12:00:00.000Z'));
+}
+
 function extractAlpha(bg: string): number {
   const rgba = bg.match(/^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)$/);
   if (rgba) {
@@ -1196,6 +1221,19 @@ function extractAlpha(bg: string): number {
     return alpha;
   }
   throw new Error(`Unable to extract alpha from computed background: ${bg}`);
+}
+
+function assertMobileCalendarHeightFallback() {
+  const css = readFileSync('src/client-web/src/index.css', 'utf8');
+  assert.match(css,
+    /\.calendar-board\s*\{[^}]*height:\s*24rem;[^}]*height:\s*max\(24rem,\s*calc\(100dvh\s*-\s*28rem\)\);/,
+    'mobile calendar board must keep a fixed-height fallback before the dynamic viewport height');
+}
+
+function assertTaskEditorUsesAtomicUpdate() {
+  const source = readFileSync('src/client-web/src/dialogs/TaskEditorDialog.tsx', 'utf8');
+  assert.doesNotMatch(source, /\bmoveTask\b/,
+    'task editor must schedule and update through one atomic request');
 }
 
 async function assertDialogInViewport(page: Page, selector: string) {

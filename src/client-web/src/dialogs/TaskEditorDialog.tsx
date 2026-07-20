@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient, useQuery, type QueryClient } from '@tanstack/react-query';
-import { createTask, updateTask, deleteTask, getCalendars, moveTask, taskToMutationData } from '../api/calendar';
+import { createTask, updateTask, deleteTask, getCalendars, taskToMutationData } from '../api/calendar';
 import type { TaskMutationData } from '../api/calendar';
 import EditorDrawer from '../ui/EditorDrawer';
 import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
@@ -67,13 +67,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   });
 
   const updateMut = useMutation({
-    mutationFn: async ({ data, confirmSchedule }: { data: TaskMutationData; confirmSchedule?: boolean }) => {
-      if (confirmSchedule && data.dtStart) {
-        await moveTask(task!.id, { scheduledStart: data.dtStart });
-      }
-      const updated = await updateTask(task!.id, data);
-      return updated;
-    },
+    mutationFn: (data: TaskMutationData) => updateTask(task!.id, data),
     onSuccess: () => { invalidateTaskRelatedQueries(queryClient); onClose(); }
   });
 
@@ -122,7 +116,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   function handleToggleComplete() {
     if (!task) return;
     const newStatus = task?.status === 'COMPLETED' ? 'NEEDS-ACTION' : 'COMPLETED';
-    updateMut.mutate({ data: taskToMutationData(task, { status: newStatus }) });
+    updateMut.mutate(taskToMutationData(task, { status: newStatus }));
   }
 
   function handleSubmit(e: FormEvent) {
@@ -159,10 +153,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
       calendarId: calendarId || undefined
     };
     if (task) {
-      updateMut.mutate({
-        data: taskToMutationData(task, data),
-        confirmSchedule: Boolean(defaultDtStart && data.dtStart),
-      });
+      updateMut.mutate(taskToMutationData(task, data));
     }
     else createMut.mutate(data);
   }

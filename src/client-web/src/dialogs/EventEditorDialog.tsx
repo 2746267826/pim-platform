@@ -170,12 +170,16 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
     setWritebackPhase({ type: 'preview' });
   }
 
-  function invalidateWritebackQueries(operation: string) {
+  function invalidateEventQueries() {
     queryClient.invalidateQueries({ queryKey: ['events'] });
     queryClient.invalidateQueries({ queryKey: ['events-paged'] });
     queryClient.invalidateQueries({ queryKey: ['calendars'] });
     queryClient.invalidateQueries({ queryKey: ['calendar-layers'] });
     queryClient.invalidateQueries({ queryKey: ['workbench-calendar-layers'] });
+  }
+
+  function invalidateWritebackQueries(operation: string) {
+    invalidateEventQueries();
     queryClient.invalidateQueries({ queryKey: ['outlook-sync-batches'] });
     if (operation === 'delete') {
       queryClient.invalidateQueries({ queryKey: ['calendar-recycle-bin'] });
@@ -226,26 +230,20 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   const createMut = useMutation({
     mutationFn: (data: Partial<EventResponse>) => createEvent(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      queryClient.invalidateQueries({ queryKey: ['events-paged'] });
-      queryClient.invalidateQueries({ queryKey: ['calendars'] });
+      invalidateEventQueries();
       onClose();
     }
   });
 
   function invalidateEventDeleteQueries() {
-    queryClient.invalidateQueries({ queryKey: ['events'] });
-    queryClient.invalidateQueries({ queryKey: ['events-paged'] });
-    queryClient.invalidateQueries({ queryKey: ['calendars'] });
+    invalidateEventQueries();
     queryClient.invalidateQueries({ queryKey: ['calendar-recycle-bin'] });
   }
 
   const updateMut = useMutation({
     mutationFn: (data: Partial<EventResponse>) => updateEvent(event!.id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] });
-      queryClient.invalidateQueries({ queryKey: ['events-paged'] });
-      queryClient.invalidateQueries({ queryKey: ['calendars'] });
+      invalidateEventQueries();
       onClose();
     }
   });

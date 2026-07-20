@@ -319,6 +319,12 @@ textarea {
   .pim-card {
     border-radius: var(--pim-radius-sm);
   }
+
+  .calendar-board {
+    flex: none;
+    height: 24rem;
+    height: max(24rem, calc(100dvh - 28rem));
+  }
 }
 
 .calendar-event-card[data-calendar-event-card] {

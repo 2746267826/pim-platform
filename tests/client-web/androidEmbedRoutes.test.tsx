@@ -56,6 +56,10 @@ assert.ok(
   layoutSource.includes('overflow') || layoutSource.includes('safe'),
   'AndroidEmbedLayout should have scroll or safe-area container'
 );
+assert.ok(
+  !layoutSource.includes('h-screen'),
+  'AndroidEmbedLayout must not use 100vh because an initially zero-height Android WebView can keep it at 0px'
+);
 
 // --- Runtime rendering assertions ---
 

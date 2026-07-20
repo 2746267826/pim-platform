@@ -521,20 +521,43 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
     await inboxPanel.getByRole('button', { name: '日程', exact: true }).click();
     await page.locator('aside[role="dialog"] h2', { hasText: '新建日程' }).waitFor({ state: 'visible', timeout: 5_000 });
 
-    // Wait for calendar resolution
-    await page.waitForTimeout(500);
     const calSelect = page.locator('aside[role="dialog"] select').first();
+    await calSelect.locator('option[value="cal-manual-1"]').waitFor({ state: 'attached', timeout: 3_000 });
     const selectedCal = await calSelect.inputValue();
     assert.equal(selectedCal, 'cal-manual-1', 'New event defaults to cal-manual-1');
+
+    // Calendar select must have no empty placeholder option
+    const optionValues: string[] = await calSelect.evaluate(
+      (sel: HTMLSelectElement) => Array.from(sel.options).map(o => o.value)
+    );
+    assert.ok(!optionValues.includes(''), 'Calendar select must not have empty value="" placeholder option');
+
+    // Outlook calendar option must include (Outlook) suffix
+    const outlookOptionText = await calSelect.locator('option[value="cal-outlook-1"]').textContent();
+    assert.ok(outlookOptionText?.includes('(Outlook)'), 'Outlook calendar option must show (Outlook) suffix');
 
     // Blank title path — submit without filling title, assert error and no request
     const reqBefore2 = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
     await page.locator('aside[role="dialog"] button[type="submit"]').click();
-    await page.waitForTimeout(500);
-    const blankTitleError = await page.locator('text=请输入标题').isVisible({ timeout: 3_000 }).catch(() => false);
-    assert.ok(blankTitleError, 'Blank title must show Chinese validation error');
+    const blankTitleAlert = page.getByRole('alert').filter({ hasText: '请输入标题' });
+    await blankTitleAlert.waitFor({ state: 'visible', timeout: 3_000 });
     const reqAfter2 = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
     assert.equal(reqAfter2, reqBefore2, 'No request sent when title is blank');
+
+    // Missing time path — fill title but leave datetime-local fields empty
+    const missingTitleInput = page.locator('aside[role="dialog"] input[type="text"]').first();
+    await missingTitleInput.fill('缺少时间测试');
+    const missingDtInputs = page.locator('aside[role="dialog"] input[type="datetime-local"]');
+    await missingDtInputs.first().fill('');
+    await missingDtInputs.nth(1).fill('');
+    assert.equal(await missingDtInputs.first().inputValue(), '', 'Start datetime-local must be empty after clear');
+    assert.equal(await missingDtInputs.nth(1).inputValue(), '', 'End datetime-local must be empty after clear');
+    const reqBefore3 = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+    const missingTimeAlert = page.getByRole('alert').filter({ hasText: '请选择开始和结束时间' });
+    await missingTimeAlert.waitFor({ state: 'visible', timeout: 3_000 });
+    const reqAfter3 = captured.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+    assert.equal(reqAfter3, reqBefore3, 'No request sent when start/end are empty');
 
     // Now fill title and valid times, submit
     const newTitleInput = page.locator('aside[role="dialog"] input[type="text"]').first();
@@ -590,6 +613,150 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
     // Script and onerror not executed
     const htmlExecuted = await page.evaluate(() => (window as unknown as Record<string, unknown>).__pimHtmlExecuted);
     assert.equal(htmlExecuted, false, 'Script/onerror must not have executed');
+
+    // ── Part D: No writable calendars ──────────────────────
+    {
+      const noCtx = await browser.newContext({ viewport: { width: w, height: h } });
+      try {
+        const noCap: CapturedRequest[] = [];
+        await noCtx.addInitScript(() => {
+          localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+        });
+        await noCtx.route('**/api/v1/**', route => {
+          const url = new URL(route.request().url());
+          const fullPath = url.pathname + url.search;
+          const method = route.request().method();
+          if (method !== 'GET') {
+            const postBody = route.request().postDataJSON();
+            noCap.push({ url: fullPath, method, body: postBody });
+          }
+          const response = mockApiResponse(fullPath, method);
+          if (fullPath.includes('/calendar/calendars') && !fullPath.includes('outlook')) {
+            response.data = [
+              { id: 'cal-ro-1', name: '只读日历 A', color: '#888888', kind: 'calendar', isDefault: true, canEdit: false },
+              { id: 'cal-ro-2', name: '只读日历 B', color: '#999999', kind: 'calendar', isDefault: false, canEdit: false },
+            ];
+          }
+          return route.fulfill({
+            status: 200, contentType: 'application/json',
+            body: JSON.stringify(response),
+          });
+        });
+
+        const noPage = await noCtx.newPage();
+        await openCalendarMonth(noPage, baseUrl);
+
+        const inboxPanel = noPage.getByRole('heading', { name: '收集箱', exact: true }).locator('../..');
+        await inboxPanel.getByRole('button', { name: '+ 新建', exact: true }).click();
+        await inboxPanel.getByRole('button', { name: '日程', exact: true }).click();
+        await noPage.locator('aside[role="dialog"] h2', { hasText: '新建日程' }).waitFor({ state: 'visible', timeout: 5_000 });
+
+        const noWritableMessage = '没有可用的可写日历，请先在设置中添加或启用日历';
+        const inlineWarning = noPage.locator('aside[role="dialog"] p').filter({ hasText: noWritableMessage });
+        await inlineWarning.waitFor({ state: 'visible', timeout: 3_000 });
+        const submitButton = noPage.locator('aside[role="dialog"] button[type="submit"]');
+        assert.ok(await submitButton.isDisabled(), 'Create button must be disabled when no writable calendar exists');
+
+        // Fill form with valid data and try to submit
+        await noPage.locator('aside[role="dialog"] input[type="text"]').first().fill('无日历创建测试');
+        const dtInputs = noPage.locator('aside[role="dialog"] input[type="datetime-local"]');
+        await dtInputs.first().fill('2026-07-21T14:00');
+        await dtInputs.nth(1).fill('2026-07-21T15:00');
+
+        const reqBefore = noCap.filter(c => c.method === 'POST' || c.method === 'PUT').length;
+        await noPage.locator('form#event-editor-form').evaluate(form => (form as HTMLFormElement).requestSubmit());
+        const noWritableAlert = noPage.getByRole('alert').filter({ hasText: noWritableMessage });
+        await noWritableAlert.waitFor({ state: 'visible', timeout: 3_000 });
+        assert.equal(noCap.filter(c => c.method === 'POST' || c.method === 'PUT').length, reqBefore,
+          'No POST/PUT request sent when no writable calendar');
+
+        await noPage.close();
+      } finally {
+        await noCtx.close();
+      }
+    }
+
+    // ── Part E: Calendar loading state ──────────────────────────
+    {
+      const loadCtx = await browser.newContext({ viewport: { width: w, height: h } });
+      let releaseCalendars!: () => void;
+      const calendarsGate = new Promise<void>(resolve => {
+        releaseCalendars = resolve;
+      });
+      try {
+        let calendarsBlocked = false;
+        await loadCtx.addInitScript(() => {
+          localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+        });
+        await loadCtx.route('**/api/v1/**', async route => {
+          const url = new URL(route.request().url());
+          const fullPath = url.pathname + url.search;
+          const method = route.request().method();
+          if (fullPath.includes('/calendar/calendars') && !fullPath.includes('outlook')) {
+            calendarsBlocked = true;
+            await calendarsGate;
+          }
+          return route.fulfill({
+            status: 200, contentType: 'application/json',
+            body: JSON.stringify(mockApiResponse(fullPath, method)),
+          });
+        });
+
+        const loadPage = await loadCtx.newPage();
+        await loadPage.goto(`${baseUrl}/calendar?view=month`, { waitUntil: 'domcontentloaded' });
+
+        // Open the new-event dialog
+        const inboxPanel = loadPage.getByRole('heading', { name: '收集箱', exact: true }).locator('../..');
+        await inboxPanel.getByRole('button', { name: '+ 新建', exact: true }).waitFor({ state: 'visible', timeout: 5_000 });
+        await inboxPanel.getByRole('button', { name: '+ 新建', exact: true }).click();
+        await inboxPanel.getByRole('button', { name: '日程', exact: true }).waitFor({ state: 'visible', timeout: 3_000 });
+        await inboxPanel.getByRole('button', { name: '日程', exact: true }).click();
+        await loadPage.locator('aside[role="dialog"] h2', { hasText: '新建日程' }).waitFor({ state: 'visible', timeout: 5_000 });
+
+        // Wait for the route handler to have trapped the calendars request
+        for (let attempt = 0; attempt < 100; attempt++) {
+          if (calendarsBlocked) break;
+          await new Promise(r => setTimeout(r, 50));
+        }
+
+        const calSelect = loadPage.locator('aside[role="dialog"] select').first();
+
+        // E1: Loading state assertions
+        const loadingOption = calSelect.locator('option[value=""]');
+        assert.equal(await loadingOption.count(), 1, 'Loading state must expose one empty-value option');
+        const loadingText = await loadingOption.textContent();
+        assert.equal(loadingText, '正在加载日历...', 'Loading state must show disabled empty-value option with "正在加载日历..." text');
+        assert.ok(await loadingOption.isDisabled(), 'Loading calendar option must be disabled');
+        assert.ok(await calSelect.isDisabled(), 'Calendar select must be disabled while loading');
+        assert.ok(await loadPage.locator('aside[role="dialog"] button[type="submit"]').isDisabled(),
+          'Submit button must be disabled while loading');
+
+        const noWritableWarning = '没有可用的可写日历，请先在设置中添加或启用日历';
+        const warningShown = await loadPage.locator('aside[role="dialog"] p').filter({ hasText: noWritableWarning }).isVisible({ timeout: 1_000 }).catch(() => false);
+        assert.ok(!warningShown, 'No-writable warning must not appear while loading');
+
+        // Release the gate so calendars response arrives
+        releaseCalendars();
+
+        // E2: After-load assertions
+        await calSelect.locator('option[value="cal-manual-1"]').waitFor({ state: 'attached', timeout: 5_000 });
+        assert.equal(await calSelect.inputValue(), 'cal-manual-1', 'Default calendar after load must be cal-manual-1');
+
+        const optionValues: string[] = await calSelect.evaluate(
+          (sel: HTMLSelectElement) => Array.from(sel.options).map(o => o.value),
+        );
+        assert.ok(!optionValues.includes(''), 'No empty placeholder option must remain after load');
+        assert.ok(await calSelect.isEnabled(), 'Calendar select must be enabled after load');
+
+        const warningAfterLoad = await loadPage.locator('aside[role="dialog"] p').filter({ hasText: noWritableWarning }).isVisible({ timeout: 1_000 }).catch(() => false);
+        assert.ok(!warningAfterLoad, 'No-writable warning must remain absent after load');
+
+        await loadPage.close();
+      } finally {
+        releaseCalendars();
+        await loadCtx.close();
+      }
+    }
 
     await page.close();
   } finally {
@@ -1369,7 +1536,7 @@ async function runScenarioD(browser: Browser, baseUrl: string) {
     // Select Outlook calendar
     const calSelect = createPage.locator('aside[role="dialog"] select').first();
     await calSelect.waitFor({ state: 'visible', timeout: 3_000 });
-    await calSelect.selectOption({ label: 'Outlook 工作日历' });
+    await calSelect.selectOption({ label: 'Outlook 工作日历 (Outlook)' });
 
     // Fill fields
     const titleInput = createPage.locator('aside[role="dialog"] input[type="text"]').first();
@@ -1559,7 +1726,7 @@ async function runScenarioE(browser: Browser, baseUrl: string) {
     await calSelect.waitFor({ state: 'visible', timeout: 3_000 });
 
     // Select read-only Outlook calendar
-    await calSelect.selectOption({ label: 'Outlook 只读日历' });
+    await calSelect.selectOption({ label: 'Outlook 只读日历 (Outlook)' });
 
     const hasSubmitBtnRo = await page.locator('aside[role="dialog"] button[type="submit"]').isVisible().catch(() => false);
     assert.ok(!hasSubmitBtnRo, 'New event with read-only calendar must not show submit button');
@@ -1584,7 +1751,7 @@ async function runScenarioE(browser: Browser, baseUrl: string) {
     assert.ok(!hasReadonlyPreview, 'Read-only new event must ignore direct form submission');
 
     // Switch back to a writable calendar — controls re-enable
-    await calSelect.selectOption({ label: 'Outlook 工作日历' });
+    await calSelect.selectOption({ label: 'Outlook 工作日历 (Outlook)' });
     const titleReEnabled = await page.locator('aside[role="dialog"] input[type="text"]').first().isEnabled().catch(() => false);
     assert.ok(titleReEnabled, 'Title input must be re-enabled after switching to writable calendar');
     const hasSubmitAfterSwitch = await page.locator('aside[role="dialog"] button[type="submit"]').isVisible().catch(() => false);

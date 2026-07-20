@@ -78,9 +78,8 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
   const queryClient = useQueryClient();
   const { hiddenCalendarIds } = useCalendarVisibility();
-  const calendarResolvedRef = useRef(false);
 
-  const { data: calendars } = useQuery({
+  const { data: calendars, isLoading } = useQuery({
     queryKey: ['calendars', 'calendar'],
     queryFn: () => getCalendars('calendar'),
     enabled: open
@@ -88,16 +87,6 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
 
   const showHtmlPreview = event && looksLikeHtml(event.description || '');
   const sanitizedPreviewHtml = showHtmlPreview ? sanitizeDescriptionHtml(event.description || '') : '';
-
-  useEffect(() => {
-    if (!event && calendars && calendars.length > 0 && !calendarResolvedRef.current) {
-      calendarResolvedRef.current = true;
-      const resolved = resolveCalendarId(calendars, undefined, hiddenCalendarIds);
-      if (resolved) {
-        setCalendarId(resolved);
-      }
-    }
-  }, [event, calendars, hiddenCalendarIds]);
 
   const [writebackPhase, setWritebackPhase] = useState<WritebackPhase>({ type: 'idle' });
   const [pendingRequest, setPendingRequest] = useState<OutlookWriteRequest | null>(null);
@@ -108,7 +97,11 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   const [diffAfter, setDiffAfter] = useState('{}');
   const [writebackValidationError, setWritebackValidationError] = useState('');
 
-  const selectedCalendarId = calendarId || (!event && calendars?.length === 1 ? calendars[0].id : '');
+  const selectedCalendarId = resolveCalendarId(
+    calendars || [],
+    calendarId || (event ? event.calendarId : undefined),
+    hiddenCalendarIds,
+  );
 
   const isOutlookExisting = event?.source === 'outlook' && !!event?.outlookCalendarBindingId;
   const selectedCalendar = calendars?.find(c => c.id === selectedCalendarId);
@@ -365,7 +358,8 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         <button type="button" onClick={onClose}
           className="pim-button-secondary px-4 py-2 text-sm">取消</button>
         {!isReadOnly && (
-          <button type="submit" form="event-editor-form" disabled={isProcessing}
+          <button type="submit" form="event-editor-form"
+            disabled={isProcessing || isLoading || (!event && !hasWritableCalendar(calendars || [], hiddenCalendarIds))}
             className="pim-button-primary px-4 py-2 text-sm disabled:opacity-50">
             {event ? '保存' : '创建'}
           </button>
@@ -395,11 +389,6 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
             此日历为只读，无法编辑或删除。
           </div>
         )}
-        {!event && !hasWritableCalendar(calendars || [], hiddenCalendarIds) && (
-          <div className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700">
-            {noWritableCalendarMessage()}
-          </div>
-        )}
         {event?.source === 'outlook-ics' && (
           <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm leading-6 text-blue-700">
             这是从 Outlook ICS 导入的事件，会议上下文已保留，PIM 暂不处理会议接受/拒绝/参会状态。
@@ -407,13 +396,17 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         )}
         <Field label="日历本">
           <select value={selectedCalendarId} onChange={e => setCalendarId(e.target.value)}
-            disabled={!!event && (isFormDisabled || isOutlookExisting)}
+            disabled={isLoading || (!!event && (isFormDisabled || isOutlookExisting))}
             className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500">
-            <option value="">默认日历</option>
-            {calendars?.map(cal => (
-              <option key={cal.id} value={cal.id}>{cal.name}</option>
+            {isLoading ? (
+              <option value="" disabled>正在加载日历...</option>
+            ) : calendars?.map(cal => (
+              <option key={cal.id} value={cal.id}>{cal.name}{cal.outlookCalendarBindingId ? ' (Outlook)' : ''}</option>
             ))}
           </select>
+          {!isLoading && !isReadOnly && !hasWritableCalendar(calendars || [], hiddenCalendarIds) && (
+            <p className="mt-1 text-xs text-red-600">{noWritableCalendarMessage()}</p>
+          )}
         </Field>
         <Field label="标题">
           <input type="text" value={title} onChange={e => setTitle(e.target.value)}

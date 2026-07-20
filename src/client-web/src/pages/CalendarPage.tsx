@@ -1,21 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { Draggable } from '@fullcalendar/interaction';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import luxon3Plugin from '@fullcalendar/luxon3';
-import type { DateSelectArg, DatesSetArg, EventClickArg, EventContentArg, EventInput } from '@fullcalendar/core';
+import type { DateSelectArg, DatesSetArg, EventClickArg, EventContentArg, EventInput, EventMountArg } from '@fullcalendar/core';
 import { format } from 'date-fns';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { getCalendarLayers, getEvents, getTasks, planTask } from '../api/calendar';
+import { Repeat2 } from 'lucide-react';
+import { getCalendarLayers, getCalendars, getEvents, getTasks, planTask } from '../api/calendar';
 import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
 import CalendarLayerToolbar from '../components/schedule/CalendarLayerToolbar';
 import PageHeader from '../ui/PageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
-import type { CalendarLayerId, CalendarLayerItem, EventResponse, TaskResponse } from '../types';
+import type { CalendarLayerId, CalendarLayerItem, CalendarResponse, EventResponse, TaskResponse } from '../types';
+import { looksLikeHtml, sanitizeDescriptionHtml } from '../utils/safeHtml';
 
 type CalendarMode = 'timeline' | 'month';
 type CalendarLayerToggleId = CalendarLayerId;
@@ -29,14 +31,19 @@ type CalendarEventProps =
   | {
       type: 'event';
       raw: EventResponse;
+      accentColor: string;
+      calendarLabel: string;
     }
   | {
       type: 'task';
       raw: TaskResponse;
+      accentColor: string;
+      calendarLabel: string;
     }
   | {
       type: 'layer';
       raw: CalendarLayerItem;
+      accentColor: string;
     };
 
 type CalendarEventInput = EventInput & {
@@ -109,6 +116,11 @@ export default function CalendarPage() {
     queryFn: () => getTasks(),
   });
 
+  const { data: calendars = [] } = useQuery({
+    queryKey: ['calendars'],
+    queryFn: () => getCalendars(),
+  });
+
   const enabledLayerKey = enabledLayerIds.join(',');
   const enabledLayerSet = useMemo(() => new Set(enabledLayerIds), [enabledLayerIds]);
 
@@ -155,8 +167,9 @@ export default function CalendarPage() {
       tasks,
       layerItems,
       enabledLayerSet,
+      calendars,
     );
-  }, [calendarLayerData?.items, enabledLayerSet, events, hiddenCalendarIds, tasks]);
+  }, [calendarLayerData?.items, calendars, enabledLayerSet, events, hiddenCalendarIds, tasks]);
 
   function toggleCalendarLayer(layerId: CalendarLayerToggleId) {
     setEnabledLayerIds(current => (
@@ -229,6 +242,58 @@ export default function CalendarPage() {
     setEventDefaultStart(undefined);
     setEventDefaultEnd(undefined);
     setEventEditorOpen(true);
+  }, []);
+
+  const cardObserverMap = useRef(new WeakMap<HTMLElement, () => void>());
+
+  const handleEventMount = useCallback((info: EventMountArg) => {
+    cardObserverMap.current.get(info.el)?.();
+    cardObserverMap.current.delete(info.el);
+
+    const props = info.event.extendedProps as CalendarEventProps;
+    if (props.type === 'layer') return;
+    let mountObserver: MutationObserver | undefined;
+    let resizeObserver: ResizeObserver | undefined;
+
+    const attachResizeObserver = () => {
+      if (resizeObserver) return true;
+      const cardEl = info.el.querySelector<HTMLElement>('[data-calendar-event-card]');
+      if (!cardEl) return false;
+
+      const computeLevel = () => {
+        const height = info.el.clientHeight;
+        let level = 1;
+        if (height >= 80) level = 5;
+        else if (height >= 64) level = 4;
+        else if (height >= 48) level = 3;
+        else if (height >= 32) level = 2;
+        cardEl.dataset.contentLevel = String(level);
+      };
+
+      computeLevel();
+      resizeObserver = new ResizeObserver(computeLevel);
+      resizeObserver.observe(info.el);
+      mountObserver?.disconnect();
+      return true;
+    };
+
+    if (!attachResizeObserver()) {
+      mountObserver = new MutationObserver(attachResizeObserver);
+      mountObserver.observe(info.el, { childList: true, subtree: true });
+    }
+
+    cardObserverMap.current.set(info.el, () => {
+      mountObserver?.disconnect();
+      resizeObserver?.disconnect();
+    });
+  }, []);
+
+  const handleEventUnmount = useCallback((info: EventMountArg) => {
+    const cleanup = cardObserverMap.current.get(info.el);
+    if (cleanup) {
+      cleanup();
+      cardObserverMap.current.delete(info.el);
+    }
   }, []);
 
   const handleExternalDrop = useCallback((dropInfo: CalendarDropArg) => {
@@ -307,11 +372,11 @@ export default function CalendarPage() {
           initialDate={toDateStr(activeDate)}
           events={calendarEvents}
           locale="zh-cn"
-          timeZone="Asia/Shanghai"
+          timeZone="local"
           height="100%"
           headerToolbar={false}
           eventContent={renderCalendarEvent}
-          dayMaxEvents={mode === 'month' ? 3 : undefined}
+          dayMaxEvents={mode === 'month' ? true : undefined}
           slotLabelFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
           eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }}
           allDaySlot={mode === 'timeline' ? false : undefined}
@@ -325,6 +390,8 @@ export default function CalendarPage() {
           select={handleDateSelect}
           eventClick={handleEventClick}
           drop={handleExternalDrop}
+          eventDidMount={handleEventMount}
+          eventWillUnmount={handleEventUnmount}
         />
       </section>
 
@@ -367,6 +434,18 @@ function formatCalendarTitle(date: Date, mode: CalendarMode): string {
   return mode === 'month' ? format(date, 'yyyy年M月') : format(date, 'yyyy年M月d日');
 }
 
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength - 1) + '…';
+}
+
+function htmlToPlainText(html: string): string {
+  if (!looksLikeHtml(html)) return html;
+  const sanitized = sanitizeDescriptionHtml(html);
+  const parsed = new DOMParser().parseFromString(sanitized, 'text/html');
+  return (parsed.body.textContent ?? '').replace(/\s+/g, ' ').trim();
+}
+
 function renderCalendarEvent(arg: EventContentArg) {
   const props = arg.event.extendedProps as CalendarEventInput['extendedProps'];
   if (props.type === 'layer') {
@@ -387,22 +466,44 @@ function renderCalendarEvent(arg: EventContentArg) {
     );
   }
 
-  const isTask = props.type === 'task';
-  const raw = props.raw as Partial<TaskResponse & EventResponse>;
-  const priority = isTask ? (raw.priority ?? 0) : 0;
-  const toneClass = isTask
-    ? priority === 1
-      ? 'calendar-event--danger'
-      : priority === 3
-        ? 'calendar-event--quiet'
-        : 'calendar-event--warning'
-    : 'calendar-event--primary';
+  const { accentColor, calendarLabel } = props;
+  const style = { '--calendar-accent': accentColor } as CSSProperties;
+
+  if (props.type === 'event') {
+    const raw = props.raw;
+    const description = raw.description
+      ? truncateText(htmlToPlainText(raw.description), 80)
+      : undefined;
+
+    return (
+      <div className="calendar-event-card" data-calendar-event-card style={style}>
+        <span className="calendar-event-dot" />
+        <span className="calendar-event-title">{arg.event.title}</span>
+        {arg.timeText && <span className="calendar-event-time">{arg.timeText}</span>}
+        {raw.location && <span className="calendar-event-location">{raw.location}</span>}
+        {calendarLabel && <span className="calendar-event-source">{calendarLabel}</span>}
+        {description && <span className="calendar-event-description">{description}</span>}
+        {raw.rrule && (
+          <span className="calendar-event-rrule">
+            <Repeat2 size={10} aria-label="重复" />
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  const raw = props.raw;
+  const description = raw.description
+    ? truncateText(htmlToPlainText(raw.description), 80)
+    : undefined;
 
   return (
-    <div className={`calendar-event-card ${toneClass}`}>
+    <div className="calendar-event-card" data-calendar-event-card style={style}>
       <span className="calendar-event-dot" />
       <span className="calendar-event-title">{arg.event.title}</span>
       {arg.timeText && <span className="calendar-event-time">{arg.timeText}</span>}
+      {calendarLabel && <span className="calendar-event-source">{calendarLabel}</span>}
+      {description && <span className="calendar-event-description">{description}</span>}
     </div>
   );
 }
@@ -415,10 +516,15 @@ function toLocalDateTimeInputValue(date: Date): string {
   return format(date, "yyyy-MM-dd'T'HH:mm");
 }
 
-function taskColor(priority: number): string {
-  if (priority === 1) return '#E53935';
-  if (priority === 3) return '#14B8A6';
-  return '#F59E0B';
+function calendarDisplayName(cal: CalendarResponse | undefined): string | undefined {
+  if (!cal) return undefined;
+  return cal.outlookCalendarBindingId ? `${cal.name} (Outlook)` : cal.name;
+}
+
+function eventSourceDisplayName(source: string): string {
+  if (source === 'outlook') return 'Outlook';
+  if (source === 'outlook-ics') return 'Outlook ICS';
+  return '日程';
 }
 
 export function buildCalendarEvents(
@@ -426,36 +532,49 @@ export function buildCalendarEvents(
   tasks: TaskResponse[],
   layerItems: CalendarLayerItem[],
   enabledLayerSet: Set<CalendarLayerToggleId>,
+  calendars: CalendarResponse[] = [],
 ): CalendarEventInput[] {
+  const calMap = new Map(calendars.map(c => [c.id, c]));
+
   return [
-    ...events.map(event => ({
-      id: event.id,
-      title: event.title,
-      start: event.dtStart,
-      end: event.dtEnd,
-      allDay: event.isAllDay,
-      backgroundColor: '#2563EB',
-      borderColor: '#2563EB',
-      extendedProps: {
-        type: 'event' as const,
-        raw: event,
-      },
-    })),
+    ...events.map(event => {
+      const cal = calMap.get(event.calendarId);
+      const accentColor = cal?.color ?? '#2563eb';
+      const calendarLabel = calendarDisplayName(cal) ?? eventSourceDisplayName(event.source);
+
+      return {
+        id: event.id,
+        title: event.title,
+        start: event.dtStart,
+        end: event.dtEnd,
+        allDay: event.isAllDay,
+        extendedProps: {
+          type: 'event' as const,
+          raw: event,
+          accentColor,
+          calendarLabel,
+        },
+      };
+    }),
     ...(enabledLayerSet.has('task-segments') ? tasks : []).filter(task => task.dtStart).map(task => {
-      const color = taskColor(task.priority);
+      const cal = task.calendarId ? calMap.get(task.calendarId) : undefined;
+      const accentColor = task.priority === 1 ? '#ef4444'
+        : task.priority === 3 ? '#14b8a6'
+        : '#f59e0b';
+      const calendarLabel = calendarDisplayName(cal) ?? '任务';
 
       return {
         id: task.id,
         title: task.title,
         start: task.dtStart,
         end: task.plannedEnd || task.due,
-        backgroundColor: color,
-        borderColor: color,
         extendedProps: {
           type: 'task' as const,
-        raw: task,
-      },
-    };
+          raw: task,
+          accentColor,
+          calendarLabel,
+        },
+      };
     }),
     ...layerItems
       .filter(item => enabledLayerSet.has(item.layer as CalendarLayerToggleId))
@@ -473,6 +592,7 @@ export function buildCalendarEvents(
         extendedProps: {
           type: 'layer' as const,
           raw: item,
+          accentColor: item.color,
         },
       })),
   ];

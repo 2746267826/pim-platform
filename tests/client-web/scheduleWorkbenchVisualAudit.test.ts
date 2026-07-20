@@ -17,6 +17,7 @@ const routes = [
 ] as const;
 
 const viewports = [[390, 844], [768, 1024], [1440, 1000]] as const;
+const DEFAULT_TIMEZONE_ID = 'Asia/Shanghai';
 
 const forbiddenHeadings = new Set([
   'Endpoint Shell', 'Collection Quality', 'Notification Action',
@@ -51,6 +52,7 @@ async function main() {
     await runScenarioH(browser, baseUrl);
     await runScenarioI(browser, baseUrl);
     await runScenarioJ(browser, baseUrl);
+    await runScenarioK(browser, baseUrl);
   } finally {
     await browser?.close();
     stopServer(server);
@@ -61,7 +63,10 @@ async function main() {
 
 async function runRouteAudit(browser: Browser, baseUrl: string) {
   for (const [width, height] of viewports) {
-    const context = await browser.newContext({ viewport: { width, height } });
+    const context = await browser.newContext({
+      viewport: { width, height },
+      timezoneId: DEFAULT_TIMEZONE_ID,
+    });
     try {
       await context.addInitScript(() => {
         localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
@@ -101,7 +106,10 @@ async function runRouteAudit(browser: Browser, baseUrl: string) {
 
 async function runScenarioF(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   try {
     const captured: CapturedRequest[] = [];
     await context.addInitScript(() => {
@@ -168,7 +176,10 @@ async function runScenarioF(browser: Browser, baseUrl: string) {
 
 async function runScenarioG(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   let accessPage: Page | undefined;
   try {
     const captured: CapturedRequest[] = [];
@@ -310,7 +321,10 @@ async function runScenarioH(browser: Browser, baseUrl: string) {
   if (CAPTURE_SCREENSHOTS) mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
   for (const [width, height] of viewports) {
-    const context = await browser.newContext({ viewport: { width, height } });
+    const context = await browser.newContext({
+      viewport: { width, height },
+      timezoneId: DEFAULT_TIMEZONE_ID,
+    });
     try {
       const captured: CapturedRequest[] = [];
       let conflictSeq = 0;
@@ -397,7 +411,10 @@ async function runScenarioH(browser: Browser, baseUrl: string) {
   // Preview screenshots at specific viewports
   if (CAPTURE_SCREENSHOTS) {
     for (const [w, h] of [[390, 844], [1440, 1000]] as const) {
-      const context = await browser.newContext({ viewport: { width: w, height: h } });
+      const context = await browser.newContext({
+        viewport: { width: w, height: h },
+        timezoneId: DEFAULT_TIMEZONE_ID,
+      });
       try {
         await context.addInitScript(() => {
           localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
@@ -429,7 +446,10 @@ async function runScenarioH(browser: Browser, baseUrl: string) {
 
 async function runScenarioI(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   try {
     const captured: CapturedRequest[] = [];
     await context.addInitScript(() => {
@@ -617,7 +637,10 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
 
     // ── Part D: No writable calendars ──────────────────────
     {
-      const noCtx = await browser.newContext({ viewport: { width: w, height: h } });
+      const noCtx = await browser.newContext({
+        viewport: { width: w, height: h },
+        timezoneId: DEFAULT_TIMEZONE_ID,
+      });
       try {
         const noCap: CapturedRequest[] = [];
         await noCtx.addInitScript(() => {
@@ -679,7 +702,10 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
 
     // ── Part E: Calendar loading state ──────────────────────────
     {
-      const loadCtx = await browser.newContext({ viewport: { width: w, height: h } });
+      const loadCtx = await browser.newContext({
+        viewport: { width: w, height: h },
+        timezoneId: DEFAULT_TIMEZONE_ID,
+      });
       let releaseCalendars!: () => void;
       const calendarsGate = new Promise<void>(resolve => {
         releaseCalendars = resolve;
@@ -770,7 +796,7 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
 async function runScenarioJ(browser: Browser, baseUrl: string) {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
-    timezoneId: 'Asia/Shanghai',
+    timezoneId: DEFAULT_TIMEZONE_ID,
   });
   try {
     const captured: CapturedRequest[] = [];
@@ -946,6 +972,230 @@ async function runScenarioJ(browser: Browser, baseUrl: string) {
   } finally {
     await context.close();
   }
+}
+
+// ─── Scenario K: Timeline density, month capacity, local timezone ─────
+
+async function runScenarioK(browser: Browser, baseUrl: string) {
+  // ── K1 Timeline density and visual ──────────────────────────────
+  {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 1000 },
+      timezoneId: DEFAULT_TIMEZONE_ID,
+    });
+    try {
+      await context.addInitScript(() => {
+        localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+      });
+      await context.route('**/api/v1/**', route => {
+        const url = new URL(route.request().url());
+        const fullPath = url.pathname + url.search;
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify(mockApiResponse(fullPath, undefined, true)),
+        });
+      });
+
+      const page = await context.newPage();
+      const consoleErrors: string[] = [];
+      page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
+      await page.goto(`${baseUrl}/calendar?view=timeline`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      await page.waitForSelector('.fc-event, .calendar-event-card', { timeout: 8_000 }).catch(() => undefined);
+
+      const longCard = page.locator('.fc-timegrid-event:has-text("密度详情事件") .calendar-event-card').first();
+      await longCard.waitFor({ state: 'visible', timeout: 5_000 });
+
+      const compactCard = page.locator('.fc-timegrid-event:has-text("密度紧凑事件") .calendar-event-card').first();
+      await compactCard.waitFor({ state: 'visible', timeout: 5_000 });
+
+      // Long card assertions
+      const longLevel = await longCard.getAttribute('data-content-level');
+      assert.equal(longLevel, '5', 'Long card must have data-content-level="5"');
+
+      const longBorderLeftWidth = await longCard.evaluate(el => getComputedStyle(el).borderLeftWidth);
+      assert.equal(longBorderLeftWidth, '3px', 'Long card must have 3px left border');
+
+      const longBorderLeftColor = await longCard.evaluate(el => getComputedStyle(el).borderLeftColor);
+      assert.equal(longBorderLeftColor, 'rgb(170, 68, 0)', 'Long card border must be calendar accent color');
+
+      const longBg = await longCard.evaluate(el => getComputedStyle(el).backgroundColor);
+      const longAlpha = extractAlpha(longBg);
+      assert.ok(Math.abs(longAlpha - 0.15) < 0.03,
+        `Long card background alpha ${longAlpha} must be approximately 0.15`);
+
+      // Visible sub-elements in long card
+      assert.ok(await longCard.locator('.calendar-event-location').isVisible({ timeout: 1_000 }).catch(() => false),
+        'Long card must show location');
+      assert.ok(await longCard.locator('.calendar-event-source').isVisible({ timeout: 1_000 }).catch(() => false),
+        'Long card must show source label');
+      assert.ok(await longCard.locator('.calendar-event-description').isVisible({ timeout: 1_000 }).catch(() => false),
+        'Long card must show description summary');
+      assert.ok(await longCard.locator('.calendar-event-rrule').isVisible({ timeout: 1_000 }).catch(() => false),
+        'Long card must show recurrence icon');
+
+      // Compact card assertions
+      const compactLevel = await compactCard.getAttribute('data-content-level');
+      assert.equal(compactLevel, '1', 'Compact card must have data-content-level="1"');
+
+      assert.ok(!await compactCard.locator('.calendar-event-location').isVisible({ timeout: 500 }).catch(() => false),
+        'Compact card must hide location');
+      assert.ok(!await compactCard.locator('.calendar-event-source').isVisible({ timeout: 500 }).catch(() => false),
+        'Compact card must hide source label');
+      assert.ok(!await compactCard.locator('.calendar-event-description').isVisible({ timeout: 500 }).catch(() => false),
+        'Compact card must hide description');
+      assert.ok(!await compactCard.locator('.calendar-event-rrule').isVisible({ timeout: 500 }).catch(() => false),
+        'Compact card must hide recurrence icon');
+
+      assert.deepEqual(consoleErrors, [], 'K1 must not log console errors');
+      await page.close();
+    } finally {
+      await context.close();
+    }
+  }
+
+  // ── K2/K3/K4 Month capacity ────────────────────────────────────
+  {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 1200 },
+      timezoneId: DEFAULT_TIMEZONE_ID,
+    });
+    try {
+      await context.addInitScript(() => {
+        localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+      });
+      await context.route('**/api/v1/**', route => {
+        const url = new URL(route.request().url());
+        const fullPath = url.pathname + url.search;
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify(mockApiResponse(fullPath, undefined, true)),
+        });
+      });
+
+      const page = await context.newPage();
+      const consoleErrors: string[] = [];
+      page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
+      await page.goto(`${baseUrl}/calendar?view=month`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      await page.waitForSelector('.fc-event, .calendar-event-card', { timeout: 8_000 }).catch(() => undefined);
+
+      // K2: Tall board — all capacity titles visible, no more link
+      await page.evaluate(() => {
+        const board = document.querySelector('.calendar-board') as HTMLElement | null;
+        if (board) {
+          board.style.flex = '0 0 auto';
+          board.style.height = '900px';
+        }
+      });
+      await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+
+      const capacityDay = page.locator('.fc-daygrid-day[data-date="2026-07-15"]');
+      const capacityMoreLink = capacityDay.locator('.fc-more-link');
+      await capacityMoreLink.waitFor({ state: 'hidden', timeout: 5_000 });
+      const moreLinkVisible = await capacityMoreLink.isVisible().catch(() => false);
+      assert.ok(!moreLinkVisible, 'K2: No +N more link with tall board');
+
+      for (let i = 1; i <= 5; i++) {
+        const title = capacityDay.locator('.fc-event').filter({ hasText: `容量日程 ${i}` }).first();
+        await title.waitFor({ state: 'visible', timeout: 5_000 });
+      }
+
+      // K3: Short board — more link appears
+      await page.evaluate(() => {
+        const board = document.querySelector('.calendar-board') as HTMLElement | null;
+        if (board) board.style.height = '280px';
+      });
+      await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+
+      const shortMoreLink = capacityMoreLink.first();
+      await shortMoreLink.waitFor({ state: 'visible', timeout: 5_000 });
+
+      // K4: Click more link, popover shows all capacity titles
+      const moreLinkCount = await capacityMoreLink.count();
+      assert.ok(moreLinkCount > 0, 'K4: At least one more link must exist');
+
+      await shortMoreLink.click();
+
+      const popover = page.locator('.fc-more-popover');
+      await popover.waitFor({ state: 'visible', timeout: 3_000 });
+
+      for (let i = 1; i <= 5; i++) {
+        const inPopover = await popover.getByText(`容量日程 ${i}`, { exact: true }).isVisible({ timeout: 1_000 }).catch(() => false);
+        assert.ok(inPopover, `K4: 容量日程 ${i} must be in more popover`);
+      }
+
+      const closeBtn = popover.locator('.fc-popover-close');
+      await closeBtn.click();
+      await popover.waitFor({ state: 'hidden', timeout: 3_000 });
+      const popoverClosed = await page.locator('.fc-more-popover').isVisible().catch(() => false);
+      assert.ok(!popoverClosed, 'K4: Popover must close without opening editor');
+
+      assert.deepEqual(consoleErrors, [], 'K2-K4 must not log console errors');
+      await page.close();
+    } finally {
+      await context.close();
+    }
+  }
+
+  // ── K5 Browser-local timezone ───────────────────────────────────
+  {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 1000 },
+      timezoneId: 'America/New_York',
+    });
+    try {
+      await context.addInitScript(() => {
+        localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+      });
+      await context.route('**/api/v1/**', route => {
+        const url = new URL(route.request().url());
+        const fullPath = url.pathname + url.search;
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify(mockApiResponse(fullPath, undefined, true)),
+        });
+      });
+
+      const page = await context.newPage();
+      const consoleErrors: string[] = [];
+      page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
+      await page.goto(`${baseUrl}/calendar?view=month`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      await page.waitForSelector('.fc-event, .calendar-event-card', { timeout: 8_000 }).catch(() => undefined);
+
+      const tzEvent = page.locator('.fc-event').filter({ hasText: '本地时区验证事件' }).first();
+      await tzEvent.waitFor({ state: 'visible', timeout: 5_000 });
+
+      const timeText = await tzEvent.locator('.calendar-event-time, .fc-event-time').first().textContent({ timeout: 3_000 });
+      assert.equal(timeText?.trim(), '10:00',
+        `K5: Event time must be 10:00 in America/New_York, got "${timeText}"`);
+
+      assert.deepEqual(consoleErrors, [], 'K5 must not log console errors');
+      await page.close();
+    } finally {
+      await context.close();
+    }
+  }
+}
+
+function extractAlpha(bg: string): number {
+  const rgba = bg.match(/^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)$/);
+  if (rgba) {
+    const alpha = Number(rgba[1]);
+    if (alpha <= 0) throw new Error(`Expected translucent background, got ${bg}`);
+    return alpha;
+  }
+  const colorMatch = bg.match(/^color\(\s*(?:srgb\s+)?[\d.]+\s+[\d.]+\s+[\d.]+\s*\/\s*([\d.]+)\s*\)$/);
+  if (colorMatch) {
+    const alpha = Number(colorMatch[1]);
+    if (alpha <= 0) throw new Error(`Expected translucent background, got ${bg}`);
+    return alpha;
+  }
+  throw new Error(`Unable to extract alpha from computed background: ${bg}`);
 }
 
 async function assertDialogInViewport(page: Page, selector: string) {
@@ -1209,6 +1459,56 @@ const allEvents = [
     dtStart: '2026-07-21T09:00:00', dtEnd: '2026-07-21T10:00:00',
     status: 'confirmed', source: 'outlook', isAllDay: false, timeZoneId: 'Asia/Shanghai',
   },
+  // ── Scenario K fixtures ──────────────────────────────────────────
+  {
+    id: 'evt-density-detail', calendarId: 'cal-manual-1', uid: 'uid-density-detail',
+    title: '密度详情事件', location: '会议室 A',
+    description: '这是一个包含详细描述的事件，用于测试日历卡片的层级展示功能。描述内容需要足够长以确保在层级 4 能够显示摘要。这里继续添加更多文本内容以增加描述的长度。',
+    dtStart: '2026-07-20T09:00:00+08:00', dtEnd: '2026-07-20T12:00:00+08:00',
+    status: 'confirmed', source: 'manual', rrule: 'FREQ=WEEKLY', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-density-compact', calendarId: 'cal-manual-1', uid: 'uid-density-compact',
+    title: '密度紧凑事件', location: '隐藏的位置', description: '隐藏的描述',
+    dtStart: '2026-07-20T13:00:00+08:00', dtEnd: '2026-07-20T13:15:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-capacity-1', calendarId: 'cal-manual-1', uid: 'uid-capacity-1',
+    title: '容量日程 1',
+    dtStart: '2026-07-15T09:00:00+08:00', dtEnd: '2026-07-15T10:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-capacity-2', calendarId: 'cal-manual-1', uid: 'uid-capacity-2',
+    title: '容量日程 2',
+    dtStart: '2026-07-15T10:00:00+08:00', dtEnd: '2026-07-15T11:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-capacity-3', calendarId: 'cal-manual-1', uid: 'uid-capacity-3',
+    title: '容量日程 3',
+    dtStart: '2026-07-15T11:00:00+08:00', dtEnd: '2026-07-15T12:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-capacity-4', calendarId: 'cal-manual-1', uid: 'uid-capacity-4',
+    title: '容量日程 4',
+    dtStart: '2026-07-15T12:00:00+08:00', dtEnd: '2026-07-15T13:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-capacity-5', calendarId: 'cal-manual-1', uid: 'uid-capacity-5',
+    title: '容量日程 5',
+    dtStart: '2026-07-15T13:00:00+08:00', dtEnd: '2026-07-15T14:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  {
+    id: 'evt-local-tz', calendarId: 'cal-manual-1', uid: 'uid-local-tz',
+    title: '本地时区验证事件',
+    dtStart: '2026-07-20T14:00:00Z', dtEnd: '2026-07-20T15:00:00Z',
+    status: 'confirmed', source: 'manual', isAllDay: false,
+  },
 ];
 
 const calendars = [
@@ -1269,7 +1569,17 @@ const allTasks = [
   },
 ];
 
-function mockApiResponse(fullPath: string, method?: string): { code: number; message: string; data: unknown; timestamp: string } {
+function mockApiResponse(
+  fullPath: string,
+  method?: string,
+  includeScenarioKFixtures = false,
+): { code: number; message: string; data: unknown; timestamp: string } {
+  const eventsForScenario = allEvents.filter(event => {
+    const isScenarioKFixture = event.id.startsWith('evt-density-')
+      || event.id.startsWith('evt-capacity-')
+      || event.id === 'evt-local-tz';
+    return includeScenarioKFixtures ? isScenarioKFixture : !isScenarioKFixture;
+  });
   let data: unknown = [];
   if (fullPath.endsWith('/status/summary')) {
     data = { status: 'Healthy', checks: [] };
@@ -1332,7 +1642,7 @@ function mockApiResponse(fullPath: string, method?: string): { code: number; mes
       data = allEvents.find(e => e.id === evtId) || allEvents[0];
     }
   } else if (fullPath.includes('/calendar/events')) {
-    data = allEvents;
+    data = eventsForScenario;
   } else if (fullPath.match(/\/calendar\/tasks\/[^/]+-[^/]+$/)) {
     const taskId = fullPath.split('/').pop()?.split('?')[0] || '';
     if (method === 'PUT') {
@@ -1346,7 +1656,7 @@ function mockApiResponse(fullPath: string, method?: string): { code: number; mes
     if (method === 'POST') {
       data = allTasks.find(t => t.id === 'task-created-1') || allTasks[0];
     } else {
-      data = allTasks;
+      data = includeScenarioKFixtures ? [] : allTasks;
     }
   } else if (fullPath.includes('/calendar/calendars') && !fullPath.includes('outlook')) {
     data = calendars;
@@ -1376,7 +1686,17 @@ async function openCalendarMonth(page: Page, baseUrl: string) {
 }
 
 async function openEventByText(page: Page, text: string, force = false) {
-  const evt = page.locator('.fc-event').filter({ hasText: text }).first();
+  let evt = page.locator('.fc-event').filter({ hasText: text }).first();
+  await evt.waitFor({ state: 'attached', timeout: 8_000 });
+  if (!await evt.isVisible()) {
+    const dayCell = evt.locator('xpath=ancestor::*[contains(@class, "fc-daygrid-day")][1]');
+    const moreLink = dayCell.locator('.fc-more-link');
+    await moreLink.waitFor({ state: 'visible', timeout: 5_000 });
+    await moreLink.click();
+    const popover = page.locator('.fc-more-popover');
+    await popover.waitFor({ state: 'visible', timeout: 3_000 });
+    evt = popover.locator('.fc-event').filter({ hasText: text }).first();
+  }
   await evt.waitFor({ state: 'visible', timeout: 8_000 });
   if (force) {
     await evt.dispatchEvent('click');
@@ -1415,7 +1735,10 @@ async function waitForNoWritebackDialog(page: Page) {
 
 async function runScenarioA(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   try {
     const captured: CapturedRequest[] = [];
     await context.addInitScript(() => {
@@ -1496,7 +1819,10 @@ async function runScenarioA(browser: Browser, baseUrl: string) {
 
 async function runScenarioB(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   let conflictPage: Page | undefined;
   try {
     const captured: CapturedRequest[] = [];
@@ -1665,7 +1991,10 @@ async function runScenarioB(browser: Browser, baseUrl: string) {
 
 async function runScenarioC(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   let deletePage: Page | undefined;
   try {
     const captured: CapturedRequest[] = [];
@@ -1738,7 +2067,10 @@ async function runScenarioC(browser: Browser, baseUrl: string) {
 
 async function runScenarioD(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   let createPage: Page | undefined;
   try {
     const captured: CapturedRequest[] = [];
@@ -1831,7 +2163,10 @@ async function runScenarioD(browser: Browser, baseUrl: string) {
 
 async function runScenarioE(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({ viewport: { width: w, height: h } });
+  const context = await browser.newContext({
+    viewport: { width: w, height: h },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
   try {
     await context.addInitScript(() => {
       localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');

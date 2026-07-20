@@ -498,7 +498,6 @@ class LocationCaptureViewModel @Inject constructor(
     fun submitCurrentLocationManually() = repository.submitCurrentLocationManually()
 
     override fun onCleared() {
-        repository.stopCapture()
         super.onCleared()
     }
 }

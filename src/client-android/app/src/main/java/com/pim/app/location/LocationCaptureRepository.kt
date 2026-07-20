@@ -1,45 +1,19 @@
 package com.pim.app.location
 
-import android.Manifest
-import android.annotation.SuppressLint
-import android.content.Context
-import android.content.pm.PackageManager
-import android.location.Location
-import android.location.LocationManager
-import android.os.Build
-import android.os.Looper
-import android.os.SystemClock
-import androidx.core.content.ContextCompat
-import com.google.android.gms.common.ConnectionResult
-import com.google.android.gms.common.GoogleApiAvailability
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationAvailability
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
-import com.pim.app.location.quality.AltitudeWaitCoordinator
-import com.pim.app.location.quality.LocationQualityGate
-import com.pim.app.location.quality.QualityAcceptedLocation
-import com.pim.app.location.quality.RawLocationFix
-import com.pim.app.mobile.sync.MobileSyncScheduler
-import com.pim.app.settings.TrackingSettingsStore
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
-import javax.inject.Singleton
+import com.pim.app.location.acquisition.AcquisitionPhase
+import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
+import com.pim.app.location.acquisition.LocationAcquisitionState
+import com.pim.app.location.service.ForegroundLocationController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.json.JSONArray
-import org.json.JSONObject
+import javax.inject.Inject
+import javax.inject.Singleton
 
 data class LocationCaptureState(
     val isCapturing: Boolean = false,
@@ -55,326 +29,35 @@ data class LocationCaptureState(
 
 @Singleton
 class LocationCaptureRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val locationQueueRepository: LocationQueueRepository,
-    private val mobileSyncScheduler: MobileSyncScheduler,
-    private val trackingSettingsStore: TrackingSettingsStore
+    private val coordinator: LocationAcquisitionCoordinator,
+    private val controller: ForegroundLocationController
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-    private lateinit var qualityCoordinator: AltitudeWaitCoordinator
-
-    private var locationCallback: LocationCallback? = null
-    private var startedAtElapsedMs: Long = 0L
+    private val mappingScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val _state = MutableStateFlow(LocationCaptureState())
     val state: StateFlow<LocationCaptureState> = _state.asStateFlow()
 
+    init {
+        mappingScope.launch {
+            coordinator.state.collect { acqState ->
+                _state.value = acqState.toCaptureState()
+            }
+        }
+    }
+
     fun startCapture() {
-        val settings = trackingSettingsStore.read()
-        cancelPendingQualityWait()
-
-        if (GoogleApiAvailability.getInstance()
-                .isGooglePlayServicesAvailable(context) != ConnectionResult.SUCCESS
-        ) {
-            _state.update {
-                it.copy(
-                    statusMessage = "Google Play Services 不可用，无法定位。",
-                    inlineReason = "请安装或更新 Google Play Services。"
-                )
-            }
-            return
-        }
-
-        if (!hasAnyLocationPermission()) {
-            _state.update {
-                it.copy(
-                    isCapturing = false,
-                    statusMessage = "缺少定位权限，请先授权精确定位。",
-                    inlineReason = "缺少定位权限。",
-                    maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
-                )
-            }
-            return
-        }
-
-        if (!isLocationEnabled()) {
-            _state.value = LocationCaptureState(
-                statusMessage = "系统定位服务未开启。",
-                inlineReason = "请先在系统设置中开启定位服务。",
-                maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
-            )
-            return
-        }
-
-        stopCapture(clearStatus = true)
-
-        startedAtElapsedMs = SystemClock.elapsedRealtime()
-        qualityCoordinator = AltitudeWaitCoordinator(
-            LocationQualityGate.fromTrackingSettings(settings)
-        )
-        _state.value = LocationCaptureState(
-            isCapturing = true,
-            statusMessage = "正在等待位置更新...",
-            maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
-        )
-
-        val request = LocationRequest.Builder(1_000L)
-            .setMinUpdateIntervalMillis(800L)
-            .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-            .build()
-
-        val callback = object : LocationCallback() {
-            override fun onLocationResult(result: LocationResult) {
-                if (locationCallback !== this || !_state.value.isCapturing) return
-                result.lastLocation?.let { handleLocation(it, source = "实时更新") }
-            }
-
-            override fun onLocationAvailability(availability: LocationAvailability) {
-                if (locationCallback !== this) return
-                if (!availability.isLocationAvailable && _state.value.isCapturing) {
-                    _state.update {
-                        it.copy(
-                            statusMessage = "定位暂时不可用",
-                            inlineReason = "请检查系统定位是否开启。"
-                        )
-                    }
-                }
-            }
-        }
-        locationCallback = callback
-        fusedClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
-            .addOnFailureListener { e ->
-                if (locationCallback === callback) {
-                    runCatching { fusedClient.removeLocationUpdates(callback) }
-                    locationCallback = null
-                    _state.update { current ->
-                        applyLocationRequestFailure(current, e.message)
-                    }
-                }
-            }
-        seedLastKnownLocation()
-        startWaitTimer()
+        controller.start()
+        coordinator.startManualSession()
     }
 
     fun stopCapture() {
-        stopCapture(clearStatus = false)
-    }
-
-    private fun stopCapture(clearStatus: Boolean) {
-        cancelPendingQualityWait()
-        locationCallback?.let { fusedClient.removeLocationUpdates(it) }
-        locationCallback = null
-        if (!clearStatus) {
-            _state.update { it.copy(isCapturing = false, statusMessage = "定位已停止") }
-        }
+        controller.stop()
+        coordinator.cancelCurrentSession()
     }
 
     fun submitCurrentLocationManually() {
-        val snapshot = state.value.latest
-        if (snapshot == null) {
-            _state.update {
-                it.copy(
-                    submitStatus = "没有可提交的位置。",
-                    inlineReason = "请先获取当前位置。"
-                )
-            }
-            return
-        }
-
-        val decision = LocationSubmissionPolicy.decide(
-            snapshot.horizontalAccuracyMeters,
-            state.value.autoSubmitted,
-            state.value.maxUploadAccuracyMetersExclusive
-        )
-        if (!decision.canSubmitManually) {
-            _state.update {
-                it.copy(
-                    submitStatus = "未提交",
-                    inlineReason = decision.reason
-                )
-            }
-            return
-        }
-
-        scope.launch { submitSnapshot(snapshot, isAutoSubmitted = false) }
+        coordinator.submitManualResult()
     }
-
-    @SuppressLint("MissingPermission")
-    private fun seedLastKnownLocation() {
-        fusedClient.lastLocation
-            .addOnSuccessListener { location ->
-                // 只在仍活跃时处理，防止 stop 后传入过期/陈旧缓存
-                if (
-                    location != null &&
-                    locationCallback != null &&
-                    state.value.isCapturing &&
-                    isUsableSeedLocation(location.time, System.currentTimeMillis())
-                ) {
-                    handleLocation(location, source = "缓存位置")
-                }
-            }
-            .addOnFailureListener { /* seed 失败不阻塞整体流程 */ }
-    }
-
-    private fun isLocationEnabled(): Boolean {
-        val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            lm.isLocationEnabled
-        } else {
-            @Suppress("DEPRECATION")
-            lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ||
-                lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
-        }
-    }
-
-    private fun startWaitTimer() {
-        scope.launch {
-            while (isActive && state.value.isCapturing) {
-                _state.update { it.copy(waitDurationMs = SystemClock.elapsedRealtime() - startedAtElapsedMs) }
-                delay(1_000L)
-            }
-        }
-    }
-
-    private fun handleLocation(location: Location, source: String) {
-        val snapshot = LocationSnapshot(
-            latitude = location.latitude,
-            longitude = location.longitude,
-            horizontalAccuracyMeters = if (location.hasAccuracy()) location.accuracy else null,
-            provider = location.provider ?: "unknown",
-            source = source,
-            altitudeMeters = if (location.hasAltitude()) location.altitude else null,
-            speedMetersPerSecond = if (location.hasSpeed()) location.speed else null,
-            bearingDegrees = if (location.hasBearing()) location.bearing else null,
-            timeMillis = location.time
-        )
-        val decision = LocationSubmissionPolicy.decide(
-            snapshot.horizontalAccuracyMeters,
-            state.value.autoSubmitted,
-            state.value.maxUploadAccuracyMetersExclusive
-        )
-        _state.update {
-            it.copy(
-                latest = snapshot,
-                waitDurationMs = SystemClock.elapsedRealtime() - startedAtElapsedMs,
-                statusMessage = "已收到 ${snapshot.provider} 位置。",
-                inlineReason = decision.reason
-            )
-        }
-
-        if (decision.shouldAutoSubmit) {
-            scope.launch { submitSnapshot(snapshot, isAutoSubmitted = true) }
-        }
-    }
-
-    private suspend fun submitSnapshot(snapshot: LocationSnapshot, isAutoSubmitted: Boolean) {
-        if (state.value.isSubmitting) return
-        var acceptedLocation: QualityAcceptedLocation? = null
-        var droppedReason: String? = null
-        qualityCoordinator.handleFix(
-            fix = snapshot.toRawLocationFix(),
-            onAccepted = { acceptedLocation = it },
-            onDropped = { _, reason -> droppedReason = reason }
-        )
-
-        val accepted = acceptedLocation
-        if (accepted == null) {
-            _state.update {
-                it.copy(
-                    submitStatus = "未提交",
-                    inlineReason = droppedReason?.toLocationMessage(state.value.maxUploadAccuracyMetersExclusive)
-                )
-            }
-            return
-        }
-        if (state.value.isSubmitting) return
-
-        _state.update {
-            it.copy(
-                isSubmitting = true,
-                submitStatus = if (isAutoSubmitted) {
-                    "误差符合要求，自动提交中..."
-                } else {
-                    "手动提交中..."
-                },
-                inlineReason = null
-            )
-        }
-
-        val json = rawJson(accepted, snapshot.source, isAutoSubmitted)
-        val result = enqueueThenSchedule(
-            enqueue = { locationQueueRepository.enqueueAccepted(accepted, json) },
-            schedule = { mobileSyncScheduler.enqueueNow() }
-        )
-
-        _state.update { current ->
-            current.copy(
-                isSubmitting = false,
-                autoSubmitted = resolveAutoSubmittedState(current.autoSubmitted, isAutoSubmitted, result.isSuccess),
-                submitStatus = formatSubmitStatus(result.isSuccess, result.exceptionOrNull()?.message),
-                inlineReason = if (result.isSuccess) null else result.exceptionOrNull()?.message
-            )
-        }
-    }
-
-    private fun LocationSnapshot.toRawLocationFix(): RawLocationFix = RawLocationFix(
-        latitude = latitude,
-        longitude = longitude,
-        horizontalAccuracyMeters = horizontalAccuracyMeters,
-        altitudeMeters = altitudeMeters,
-        provider = provider,
-        recordedAtMillis = timeMillis,
-        policyMode = "PowerSavingNormal",
-        scheduleLowFrequency = false,
-        motionSignal = "Unknown",
-        speedMetersPerSecond = speedMetersPerSecond,
-        bearingDegrees = bearingDegrees
-    )
-
-    private fun hasAnyLocationPermission(): Boolean {
-        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
-        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
-        return fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun cancelPendingQualityWait() {
-        if (::qualityCoordinator.isInitialized) {
-            qualityCoordinator.cancelPending()
-        }
-    }
-
-    private fun rawJson(
-        accepted: QualityAcceptedLocation,
-        source: String,
-        isAutoSubmitted: Boolean
-    ): String {
-        val fix = accepted.fix
-        return JSONObject()
-            .put("latitude", fix.latitude)
-            .put("longitude", fix.longitude)
-            .put("horizontalAccuracyMeters", fix.horizontalAccuracyMeters?.toDouble() ?: JSONObject.NULL)
-            .put("provider", fix.provider)
-            .put("source", source)
-            .put("altitudeMeters", accepted.altitudeMeters ?: JSONObject.NULL)
-            .put("speedMetersPerSecond", fix.speedMetersPerSecond?.toDouble() ?: JSONObject.NULL)
-            .put("bearingDegrees", fix.bearingDegrees?.toDouble() ?: JSONObject.NULL)
-            .put("recordedAtUnixMs", fix.recordedAtMillis)
-            .put("submittedAtUnixMs", System.currentTimeMillis())
-            .put("isAutoSubmitted", isAutoSubmitted)
-            .put("policyMode", fix.policyMode)
-            .put("scheduleLowFrequency", fix.scheduleLowFrequency)
-            .put("motionSignal", fix.motionSignal)
-            .put("qualityFlags", JSONArray(accepted.qualityFlags.sorted()))
-            .toString()
-    }
-
-    private fun String.toLocationMessage(threshold: Float): String = when (this) {
-        "missing-horizontal-accuracy" -> "缺少水平精度信息，不能提交。"
-        "horizontal-accuracy-too-low" -> "误差必须小于 ${formatAccuracyThresholdMeters(threshold)} 米，不能提交。"
-        else -> this
-    }
-
 }
 
 internal fun formatSubmitStatus(enqueued: Boolean, error: String? = null): String {
@@ -421,4 +104,43 @@ internal suspend fun enqueueThenSchedule(
     } catch (ex: Exception) {
         return Result.failure(ex)
     }
+}
+
+internal fun LocationAcquisitionState.toCaptureState(): LocationCaptureState {
+    return LocationCaptureState(
+        isCapturing = phase in setOf(
+            AcquisitionPhase.Preparing,
+            AcquisitionPhase.Acquiring,
+            AcquisitionPhase.Evaluating,
+            AcquisitionPhase.AwaitingManualSubmit,
+            AcquisitionPhase.Enqueuing
+        ),
+        latest = bestLocation,
+        waitDurationMs = elapsedMs,
+        submitStatus = when (phase) {
+            AcquisitionPhase.Completed -> "已加入上传队列"
+            AcquisitionPhase.Failed -> "失败：${errorReason ?: "未知错误"}"
+            AcquisitionPhase.Cancelled -> "已取消"
+            AcquisitionPhase.AwaitingManualSubmit -> "等待手动提交"
+            AcquisitionPhase.Enqueuing -> "提交中..."
+            AcquisitionPhase.TimedOut -> "获取超时"
+            else -> "尚未提交"
+        },
+        statusMessage = when (phase) {
+            AcquisitionPhase.Idle -> "尚未开始定位"
+            AcquisitionPhase.Acquiring -> "正在获取位置..."
+            AcquisitionPhase.Evaluating -> "正在评估位置质量..."
+            AcquisitionPhase.AwaitingManualSubmit -> "已获取满足质量要求的位置"
+            AcquisitionPhase.Enqueuing -> "正在提交位置..."
+            AcquisitionPhase.Completed -> "定位完成"
+            AcquisitionPhase.TimedOut -> "获取位置超时"
+            AcquisitionPhase.Failed -> "获取位置失败"
+            AcquisitionPhase.Cancelled -> "定位已取消"
+            else -> "准备中..."
+        },
+        inlineReason = errorReason,
+        isSubmitting = phase == AcquisitionPhase.Enqueuing,
+        autoSubmitted = false,
+        maxUploadAccuracyMetersExclusive = maxUploadAccuracyMetersExclusive
+    )
 }

@@ -39,8 +39,8 @@ object LocationSubmissionPolicy {
             )
             horizontalAccuracyMeters <= 10f -> LocationSubmissionDecision(
                 canSubmitManually = true,
-                shouldAutoSubmit = !autoAlreadySubmitted,
-                statusLabel = "误差 <= 10m，可自动提交",
+                shouldAutoSubmit = false,
+                statusLabel = "误差 <= 10m，可手动提交",
                 reason = null
             )
             else -> LocationSubmissionDecision(

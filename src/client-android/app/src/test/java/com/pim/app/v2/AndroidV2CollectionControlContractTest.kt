@@ -160,11 +160,12 @@ class AndroidV2CollectionControlContractTest {
         ).readText(Charsets.UTF_8)
 
         val register = service.indexOf("motionSignalRepository.registerActivityTransitions()")
-        val requestLocations = service.indexOf("requestLocationUpdates(currentDecision.requestIntervalMillis)")
+        val startAutomaticSession = service.indexOf("locationAcquisitionCoordinator.startAutomaticSession(")
         val unregister = service.indexOf("motionSignalRepository.unregisterActivityTransitions()")
 
-        assertTrue("motion transitions must be registered before location updates", register >= 0)
-        assertTrue(register < requestLocations)
+        assertTrue("motion transitions must be registered before automatic acquisition", register >= 0)
+        assertTrue(startAutomaticSession >= 0)
+        assertTrue(register < startAutomaticSession)
         assertTrue("motion transitions must be unregistered when collection stops", unregister >= 0)
     }
 

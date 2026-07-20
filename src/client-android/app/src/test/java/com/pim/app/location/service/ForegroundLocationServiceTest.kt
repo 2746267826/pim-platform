@@ -6,10 +6,27 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.location.LocationManager
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.testing.WorkManagerTestInitHelper
+import com.google.android.gms.location.Priority
 import com.pim.app.TestPimApp
+import com.pim.app.location.LocationSnapshot
+import com.pim.app.location.acquisition.AcquisitionPhase
+import com.pim.app.location.acquisition.AutomaticSessionContext
+import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
+import com.pim.app.location.acquisition.LocationAcquisitionOperations
+import com.pim.app.location.acquisition.LocationAcquisitionRunner
+import com.pim.app.location.acquisition.LocationAcquisitionState
+import com.pim.app.location.acquisition.LocationEngineCompletion
+import com.pim.app.location.acquisition.LocationEngineRequest
+import com.pim.app.location.acquisition.LocationEngineResult
+import com.pim.app.location.acquisition.LocationPrerequisiteChecker
+import com.pim.app.location.acquisition.LocationPrerequisiteResult
+import com.pim.app.location.acquisition.SessionStartResult
+import com.pim.app.location.acquisition.TriggerType
+import com.pim.app.location.motion.MotionSignalRepository
 import com.pim.app.location.policy.LocationPolicyMode
 import com.pim.app.location.policy.PolicyDecision
 import com.pim.app.location.policy.ScheduleWindow
@@ -23,6 +40,8 @@ import com.pim.app.schedule.ScheduleCacheStore
 import com.pim.app.schedule.ScheduleCacheWindow
 import com.pim.app.schedule.ScheduleWindowRepository
 import com.pim.app.settings.TrackingSettingsStore
+import com.pim.app.status.QueueStatusRepository
+import com.pim.app.status.QueueStatusSnapshot
 import com.pim.core.auth.AuthSessionSnapshot
 import com.pim.core.auth.AuthSessionStore
 import com.pim.core.models.ApiResponse
@@ -40,6 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
@@ -66,6 +86,129 @@ class ForegroundLocationServiceTest {
     fun cleanUp() {
         cacheDirs.forEach { it.deleteRecursively() }
         cacheDirs.clear()
+    }
+
+    private fun emptyQueueStatusRepo(
+        locations: MutableStateFlow<Int> = MutableStateFlow(0)
+    ): QueueStatusRepository {
+        return QueueStatusRepository(
+            locations = locations,
+            usageEvents = MutableStateFlow(0),
+            usageSummaries = MutableStateFlow(0),
+            appMetadata = MutableStateFlow(0),
+            deviceProfiles = MutableStateFlow(0),
+            syncBatches = MutableStateFlow(0)
+        )
+    }
+
+    private fun newHarness(
+        configure: CoordinatorHarness.() -> Unit = {}
+    ): CoordinatorHarness {
+        return CoordinatorHarness().apply(configure)
+    }
+
+    private fun buildService(
+        harness: CoordinatorHarness = newHarness(),
+        queueStatusRepository: QueueStatusRepository = emptyQueueStatusRepo(),
+        trackingStore: TrackingSettingsStore? = null
+    ): ForegroundLocationService {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        service.locationAcquisitionCoordinator = harness.coordinator
+        service.queueStatusRepository = queueStatusRepository
+        service.motionSignalRepository = MotionSignalRepository(context)
+        service.scheduleWindowRepository = minimalScheduleRepository(context)
+        if (trackingStore != null) {
+            service.trackingSettingsStore = trackingStore
+        } else {
+            service.trackingSettingsStore = trackingStore("fg_default_", enabled = false)
+        }
+        return service
+    }
+
+    private fun minimalScheduleRepository(context: Application): ScheduleWindowRepository {
+        val cacheDir = java.io.File(context.filesDir, "fg-min-sched-" + System.nanoTime()).also {
+            it.mkdirs()
+            cacheDirs.add(it)
+        }
+        val authStore = object : AuthSessionStore {
+            override fun snapshot() = AuthSessionSnapshot(null, null)
+            override fun save(
+                accessToken: String,
+                refreshToken: String,
+                expiresAtUtcMillis: Long,
+                serverIdentity: String
+            ) = true
+            override fun clear() = true
+        }
+        val serverSettings = ServerSettingsStore(context, authStore).also {
+            runCatching { it.setBaseUrl("http://127.0.0.1:5858/api/v1/") }
+        }
+        val api = Proxy.newProxyInstance(
+            ApiService::class.java.classLoader,
+            arrayOf(ApiService::class.java)
+        ) { _, method, _ ->
+            if (method.name == "getEvents") {
+                ApiResponse(code = 0, message = "ok", data = emptyList<EventResponse>())
+            } else {
+                error("Unexpected ApiService call: ${method.name}")
+            }
+        } as ApiService
+        return ScheduleWindowRepository(
+            api,
+            ScheduleCacheStore(cacheDir, Json { ignoreUnknownKeys = true }),
+            serverSettings
+        )
+    }
+
+    private fun invokeStartAutomaticLoop(service: ForegroundLocationService) {
+        ForegroundLocationService::class.java
+            .getDeclaredMethod("startAutomaticLoop")
+            .apply { isAccessible = true }
+            .invoke(service)
+    }
+
+    private fun invokeObserveQueueStatus(service: ForegroundLocationService) {
+        ForegroundLocationService::class.java
+            .getDeclaredMethod("observeQueueStatus")
+            .apply { isAccessible = true }
+            .invoke(service)
+    }
+
+    private fun grantCollectionPrerequisites(context: Application = ApplicationProvider.getApplicationContext()) {
+        shadowOf(context).grantPermissions(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+            Manifest.permission.ACTIVITY_RECOGNITION
+        )
+        val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val shadowLm = shadowOf(lm)
+        shadowLm.setProviderEnabled(LocationManager.GPS_PROVIDER, true)
+        shadowLm.setProviderEnabled(LocationManager.NETWORK_PROVIDER, true)
+    }
+
+    private fun trackingStore(name: String, enabled: Boolean): TrackingSettingsStore {
+        val prefs = ApplicationProvider.getApplicationContext<Application>()
+            .getSharedPreferences(name + System.nanoTime(), Context.MODE_PRIVATE)
+            .also { it.edit().clear().commit() }
+        return TrackingSettingsStore(prefs).also {
+            it.setContinuousCollectionEnabled(enabled)
+        }
+    }
+
+    private fun acceptedSnapshot(timeMillis: Long = System.currentTimeMillis()): LocationSnapshot {
+        return LocationSnapshot(
+            latitude = 31.2304,
+            longitude = 121.4737,
+            horizontalAccuracyMeters = 5f,
+            provider = "gps",
+            source = "test",
+            altitudeMeters = 12.0,
+            speedMetersPerSecond = null,
+            bearingDegrees = null,
+            timeMillis = timeMillis
+        )
     }
 
     @Test
@@ -121,57 +264,6 @@ class ForegroundLocationServiceTest {
     }
 
     @Test
-    fun shouldSkipLocationReregisterWhenIntervalAndPriorityMatch() {
-        assertTrue(
-            ForegroundLocationService.shouldSkipLocationReregister(
-                registeredIntervalMillis = 60_000L,
-                registeredPriority = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
-                hasActiveCallback = true,
-                nextIntervalMillis = 60_000L,
-                nextPriority = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY
-            )
-        )
-    }
-
-    @Test
-    fun shouldNotSkipLocationReregisterWhenPriorityChanges() {
-        assertFalse(
-            ForegroundLocationService.shouldSkipLocationReregister(
-                registeredIntervalMillis = 60_000L,
-                registeredPriority = com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                hasActiveCallback = true,
-                nextIntervalMillis = 60_000L,
-                nextPriority = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY
-            )
-        )
-    }
-
-    @Test
-    fun shouldNotSkipLocationReregisterWithoutActiveCallback() {
-        assertFalse(
-            ForegroundLocationService.shouldSkipLocationReregister(
-                registeredIntervalMillis = 60_000L,
-                registeredPriority = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
-                hasActiveCallback = false,
-                nextIntervalMillis = 60_000L,
-                nextPriority = com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY
-            )
-        )
-    }
-
-    @Test
-    fun resolveMinUpdateIntervalUsesEightyPercentFloor() {
-        assertEquals(48_000L, ForegroundLocationService.resolveMinUpdateIntervalMillis(60_000L))
-        assertEquals(800L, ForegroundLocationService.resolveMinUpdateIntervalMillis(1_000L))
-        assertEquals(1L, ForegroundLocationService.resolveMinUpdateIntervalMillis(1L))
-    }
-
-    @Test
-    fun locationRequestRetryDelayIsThirtySeconds() {
-        assertEquals(30_000L, ForegroundLocationService.LOCATION_REQUEST_RETRY_DELAY_MILLIS)
-    }
-
-    @Test
     fun permissionDenialMustNotOverwritePersistedCollectionIntent() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         shadowOf(context).denyPermissions(
@@ -184,11 +276,35 @@ class ForegroundLocationServiceTest {
         store.setContinuousCollectionEnabled(true)
         assertTrue(store.read().continuousCollectionEnabled)
 
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         service.trackingSettingsStore = store
         service.onStartCommand(null, 0, 1)
 
         assertTrue(store.read().continuousCollectionEnabled)
+    }
+
+    @Test
+    fun prerequisiteFailureMustNotEnableDisabledCollectionIntent() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        shadowOf(context).denyPermissions(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        )
+        val prefs = context.getSharedPreferences("fg_perm_disabled_test", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        val store = TrackingSettingsStore(prefs)
+        store.setContinuousCollectionEnabled(false)
+
+        val service = buildService()
+        service.trackingSettingsStore = store
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_COLLECTION),
+            0,
+            2
+        )
+
+        assertFalse(store.read().continuousCollectionEnabled)
     }
 
     private fun findNotification(nm: NotificationManager): Notification? {
@@ -202,7 +318,7 @@ class ForegroundLocationServiceTest {
         nextExpectedLocationText = "暂停",
         lastAcceptedLocationText = "无",
         lastAccuracyText = "无",
-        pendingUploadCount = 0,
+        pendingUploadTotal = 0,
         apiState = "等待采集",
         lastDroppedReason = null
     )
@@ -218,7 +334,7 @@ class ForegroundLocationServiceTest {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
 
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         service.trackingSettingsStore = store
         service.onStartCommand(
             Intent(context, ForegroundLocationService::class.java)
@@ -255,7 +371,7 @@ class ForegroundLocationServiceTest {
 
         assertTrue(nm.activeNotifications.any { it.id == LocationNotificationRenderer.NOTIFICATION_ID })
 
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         service.trackingSettingsStore = store
         service.onStartCommand(
             Intent(context, ForegroundLocationService::class.java)
@@ -274,7 +390,7 @@ class ForegroundLocationServiceTest {
         prefs.edit().clear().commit()
         val store = TrackingSettingsStore(prefs)
 
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         service.trackingSettingsStore = store
         service.onStartCommand(
             Intent(context, ForegroundLocationService::class.java)
@@ -292,7 +408,7 @@ class ForegroundLocationServiceTest {
         prefs.edit().clear().commit()
         val store = TrackingSettingsStore(prefs)
 
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         service.trackingSettingsStore = store
         service.onStartCommand(
             Intent(context, ForegroundLocationService::class.java)
@@ -314,7 +430,7 @@ class ForegroundLocationServiceTest {
         prefs.edit().clear().commit()
         val store = TrackingSettingsStore(prefs)
 
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         service.trackingSettingsStore = store
 
         // PAUSE sets isPausing = true
@@ -346,7 +462,7 @@ class ForegroundLocationServiceTest {
         // initial: continuousCollectionEnabled == false (default)
         assertFalse(store.read().continuousCollectionEnabled)
 
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         service.trackingSettingsStore = store
         service.onStartCommand(
             Intent(context, ForegroundLocationService::class.java)
@@ -372,7 +488,7 @@ class ForegroundLocationServiceTest {
         nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
 
         // service1: PAUSE then onDestroy
-        val service1 = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service1 = buildService()
         service1.trackingSettingsStore = store
         service1.onStartCommand(
             Intent(context, ForegroundLocationService::class.java)
@@ -394,7 +510,7 @@ class ForegroundLocationServiceTest {
 
         // service2: simulate service rebuild, inject same store + scheduler
         val scheduler = MobileSyncScheduler(context, store)
-        val service2 = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service2 = buildService()
         service2.trackingSettingsStore = store
         service2.mobileSyncScheduler = scheduler
 
@@ -440,7 +556,7 @@ class ForegroundLocationServiceTest {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
 
-        val service1 = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service1 = buildService()
         service1.trackingSettingsStore = store
         service1.onStartCommand(
             Intent(context, ForegroundLocationService::class.java)
@@ -453,7 +569,7 @@ class ForegroundLocationServiceTest {
         assertNotNull("暂停通知应存在", nBefore)
 
         val scheduler = MobileSyncScheduler(context, store)
-        val service2 = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service2 = buildService()
         service2.trackingSettingsStore = store
         service2.mobileSyncScheduler = scheduler
 
@@ -508,7 +624,7 @@ class ForegroundLocationServiceTest {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
 
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         service.trackingSettingsStore = store
         // PAUSE on this instance
         service.onStartCommand(
@@ -552,7 +668,7 @@ class ForegroundLocationServiceTest {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
 
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         service.trackingSettingsStore = store
 
         // STOP_COLLECTION sets isPausing = false
@@ -568,7 +684,7 @@ class ForegroundLocationServiceTest {
             nextExpectedLocationText = "3 分钟后",
             lastAcceptedLocationText = "12:00",
             lastAccuracyText = "10m",
-            pendingUploadCount = 1,
+            pendingUploadTotal = 1,
             apiState = "正常",
             lastDroppedReason = null
         )
@@ -605,7 +721,7 @@ class ForegroundLocationServiceTest {
             error("Unexpected ApiService call: ${method.name}")
         } as ApiService
 
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         val testCacheDir = java.io.File(context.filesDir, "fg-test-cache-" + java.lang.System.nanoTime())
         testCacheDir.mkdirs()
         cacheDirs.add(testCacheDir)
@@ -649,7 +765,7 @@ class ForegroundLocationServiceTest {
         nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
         assertFalse("不应有残留通知", nm.activeNotifications.any { it.id == LocationNotificationRenderer.NOTIFICATION_ID })
 
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         service.trackingSettingsStore = store
 
         // STOP_COLLECTION (no prior PAUSE — collection was never enabled)
@@ -908,7 +1024,7 @@ class ForegroundLocationServiceTest {
     @LooperMode(LooperMode.Mode.PAUSED)
     fun applyDecisionDedupesTransitionsAndPublishesRuntimePolicyFields() {
         val recorded = CopyOnWriteArrayList<Pair<LocationPolicyMode?, PolicyDecision>>()
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         setPolicyTransitionWriter(service) { from, decision ->
             recorded += from to decision
         }
@@ -1037,14 +1153,7 @@ class ForegroundLocationServiceTest {
 
     @Test
     fun serviceUsesRepositorySnapshotInsteadOfSecondScheduleList() {
-        val relativePath = "app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt"
-        val source = sequenceOf(
-            java.io.File(relativePath),
-            java.io.File(relativePath.removePrefix("app/")),
-            java.io.File("..", relativePath)
-        ).firstOrNull { it.isFile }?.readText()
-            ?: error("source not found for $relativePath (cwd=${java.io.File(".").absolutePath})")
-
+        val source = serviceSource()
         assertFalse("service must not maintain a second schedule list", source.contains("private var scheduleWindows"))
         assertTrue(
             "location policy must read repository snapshot",
@@ -1054,33 +1163,332 @@ class ForegroundLocationServiceTest {
     }
 
     @Test
-    fun acceptedLocationDecisionBranchRefreshesNotification() {
+    fun serviceDoesNotOwnFusedLocationProviderCallback() {
+        val source = serviceSource()
+        assertFalse(source.contains("FusedLocationProviderClient"))
+        assertFalse(source.contains("LocationCallback"))
+        assertFalse(source.contains("LocationRequest"))
+        assertFalse(source.contains("LocationResult"))
+        assertFalse(source.contains("LocationServices"))
+        assertFalse(source.contains("requestLocationUpdates"))
+        assertFalse(source.contains("AltitudeWaitCoordinator"))
+        assertFalse(source.contains("LocationQualityGate"))
+        assertFalse(source.contains("queueAccepted"))
+        assertFalse(source.contains("recordDropped"))
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun automaticLoopStartsImmediatelyWithMappedPriority() {
+        val harness = newHarness()
+        val store = trackingStore("fg_auto_priority_", enabled = true)
+        val service = buildService(harness = harness, trackingStore = store)
+
+        invokeStartAutomaticLoop(service)
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+
+        assertEquals(1, harness.runner.acquireCount.get())
+        assertEquals(Priority.PRIORITY_BALANCED_POWER_ACCURACY, harness.runner.lastRequest!!.priority)
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun automaticLoopWaitsForMatchingTerminalBeforeNextRound() {
+        val harness = newHarness()
+        val store = trackingStore("fg_auto_terminal_", enabled = true)
+        val service = buildService(harness = harness, trackingStore = store)
+        invokeApplyDecision(
+            service,
+            PolicyDecision(
+                mode = LocationPolicyMode.PowerSavingNormal,
+                requestIntervalMillis = 1_000L,
+                nextExpectedLocationAtMillis = 1_000L,
+                reason = "测试间隔",
+                scheduleLowFrequency = false
+            )
+        )
+
+        invokeStartAutomaticLoop(service)
+        idleUntil { harness.runner.acquireCount.get() == 1 }
+        val firstSessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(firstSessionId)
+        assertEquals(1, harness.runner.acquireCount.get())
+
+        // Completing a different session id must not advance the loop.
+        harness.forceState(
+            LocationAcquisitionState(
+                sessionId = "other-session",
+                triggerType = TriggerType.AUTOMATIC,
+                phase = AcquisitionPhase.Completed
+            )
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(1, harness.runner.acquireCount.get())
+
+        harness.forceState(
+            LocationAcquisitionState(
+                sessionId = firstSessionId,
+                triggerType = TriggerType.AUTOMATIC,
+                phase = AcquisitionPhase.Completed,
+                bestLocation = acceptedSnapshot()
+            )
+        )
+        shadowOf(Looper.getMainLooper()).idleFor(1_000L, TimeUnit.MILLISECONDS)
+        idleUntil { harness.runner.acquireCount.get() >= 2 }
+        assertTrue(harness.runner.acquireCount.get() >= 2)
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun automaticLoopWaitsWhileManualSessionIsBusy() {
+        val harness = newHarness()
+        val store = trackingStore("fg_auto_busy_", enabled = true)
+        val service = buildService(harness = harness, trackingStore = store)
+
+        // Occupy coordinator with a manual session before automatic loop starts.
+        val manualStarted = harness.coordinator.startManualSession()
+        assertTrue(manualStarted is SessionStartResult.Started)
+        idleUntil {
+            harness.coordinator.state.value.phase == AcquisitionPhase.Acquiring &&
+                harness.runner.acquireCount.get() >= 1
+        }
+        val acquiresWhileManual = harness.runner.acquireCount.get()
+
+        invokeStartAutomaticLoop(service)
+        // Busy path must not start another acquire while manual remains busy.
+        repeat(5) { shadowOf(Looper.getMainLooper()).idle() }
+        assertEquals(acquiresWhileManual, harness.runner.acquireCount.get())
+        assertEquals(TriggerType.MANUAL, harness.coordinator.state.value.triggerType)
+
+        harness.runner.completeCurrent(
+            LocationEngineResult(
+                sessionId = harness.runner.lastRequest!!.sessionId,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
+        idleUntil {
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.TimedOut,
+                AcquisitionPhase.Failed,
+                AcquisitionPhase.Completed,
+                AcquisitionPhase.Cancelled,
+                AcquisitionPhase.Idle
+            )
+        }
+        idleUntil { harness.runner.acquireCount.get() > acquiresWhileManual }
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun disablingContinuousCollectionCancelsOnlyAutomaticSession() {
+        grantCollectionPrerequisites()
+        val harness = newHarness()
+        val store = trackingStore("fg_disable_manual_", enabled = true)
+        val service = buildService(harness = harness, trackingStore = store)
+
+        val manual = harness.coordinator.startManualSession() as SessionStartResult.Started
+        idleUntil { harness.coordinator.state.value.sessionId == manual.sessionId }
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_PAUSE_COLLECTION),
+            0,
+            11
+        )
+        assertEquals(manual.sessionId, harness.coordinator.state.value.sessionId)
+        assertEquals(TriggerType.MANUAL, harness.coordinator.state.value.triggerType)
+        assertTrue(
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+
+        // Force an automatic active session and stop; only AUTOMATIC must cancel.
+        harness.forceState(
+            LocationAcquisitionState(
+                sessionId = "auto-cancel",
+                triggerType = TriggerType.AUTOMATIC,
+                phase = AcquisitionPhase.Acquiring
+            )
+        )
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_STOP_COLLECTION),
+            0,
+            12
+        )
+        assertEquals(AcquisitionPhase.Cancelled, harness.coordinator.state.value.phase)
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun manualOnlyKeepsForegroundUntilAwaitingManualSubmit() {
+        grantCollectionPrerequisites()
+        val harness = newHarness()
+        val store = trackingStore("fg_manual_only_", enabled = false)
+        val service = buildService(harness = harness, trackingStore = store)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0,
+            21
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        assertFalse(shadowOf(service).isForegroundStopped)
+        assertNotNull(findNotification(nm))
+
+        val sessionId = harness.runner.lastRequest!!.sessionId
+        harness.runner.emitCandidate(acceptedSnapshot())
+        idleUntil {
+            harness.coordinator.state.value.sessionId == sessionId &&
+                harness.coordinator.state.value.phase == AcquisitionPhase.AwaitingManualSubmit
+        }
+        idleUntil { shadowOf(service).isForegroundStopped || shadowOf(service).isStoppedBySelf }
+        assertTrue(shadowOf(service).isForegroundStopped || shadowOf(service).isStoppedBySelf)
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun enabledCollectionManualActionInitializesAutomaticRuntime() {
+        grantCollectionPrerequisites()
+        val locations = MutableStateFlow(4)
+        val harness = newHarness()
+        val store = trackingStore("fg_manual_enabled_", enabled = true)
+        val service = buildService(
+            harness = harness,
+            queueStatusRepository = emptyQueueStatusRepo(locations),
+            trackingStore = store
+        )
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0,
+            22
+        )
+
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        idleUntil { ForegroundLocationService.runtimeState.value.pendingUploadTotal == 4 }
+        val policyEngineField = ForegroundLocationService::class.java
+            .getDeclaredField("policyEngine")
+            .apply { isAccessible = true }
+        val automaticLoopJobField = ForegroundLocationService::class.java
+            .getDeclaredField("automaticLoopJob")
+            .apply { isAccessible = true }
+
+        assertNotNull(policyEngineField.get(service))
+        assertTrue((automaticLoopJobField.get(service) as Job).isActive)
+        assertEquals(TriggerType.MANUAL, harness.coordinator.state.value.triggerType)
+        service.onDestroy()
+    }
+
+    @Test
+    fun cancelLocationSessionForwardsNullableSessionId() {
+        val harness = newHarness()
+        val service = buildService(harness = harness)
+        val context = ApplicationProvider.getApplicationContext<Application>()
+
+        val started = harness.coordinator.startManualSession() as SessionStartResult.Started
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_CANCEL_LOCATION_SESSION)
+                .putExtra(ForegroundLocationController.EXTRA_SESSION_ID, started.sessionId),
+            0,
+            31
+        )
+        assertEquals(AcquisitionPhase.Cancelled, harness.coordinator.state.value.phase)
+
+        // Null extra cancels current session when present.
+        val started2 = harness.coordinator.startManualSession() as SessionStartResult.Started
+        assertEquals(started2.sessionId, harness.coordinator.state.value.sessionId)
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_CANCEL_LOCATION_SESSION),
+            0,
+            32
+        )
+        assertEquals(AcquisitionPhase.Cancelled, harness.coordinator.state.value.phase)
+        service.onDestroy()
+    }
+
+    @Test
+    fun onDestroyPreservesAwaitingManualSubmit() {
+        val harness = newHarness()
+        val service = buildService(harness = harness)
+        harness.forceState(
+            LocationAcquisitionState(
+                sessionId = "manual-await",
+                triggerType = TriggerType.MANUAL,
+                phase = AcquisitionPhase.AwaitingManualSubmit
+            )
+        )
+        service.onDestroy()
+        assertEquals(AcquisitionPhase.AwaitingManualSubmit, harness.coordinator.state.value.phase)
+        assertEquals("manual-await", harness.coordinator.state.value.sessionId)
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun queueStatusRepositoryDecreasesPendingUploadTotal() {
+        val locations = MutableStateFlow(5)
+        val queueRepo = emptyQueueStatusRepo(locations)
+        val harness = newHarness()
+        val store = trackingStore("fg_queue_total_", enabled = true)
+
+        val service = buildService(
+            harness = harness,
+            queueStatusRepository = queueRepo,
+            trackingStore = store
+        )
+        invokeObserveQueueStatus(service)
+        idleUntil { ForegroundLocationService.runtimeState.value.pendingUploadTotal == 5 }
+        assertEquals(5, ForegroundLocationService.runtimeState.value.pendingUploadTotal)
+
+        locations.value = 2
+        idleUntil { ForegroundLocationService.runtimeState.value.pendingUploadTotal == 2 }
+        assertEquals(2, ForegroundLocationService.runtimeState.value.pendingUploadTotal)
+        service.onDestroy()
+    }
+
+    @Test
+    fun automaticLoopSourceStartsImmediateRoundAndWaitsMatchingTerminal() {
+        val source = serviceSource()
+        assertTrue(source.contains("startAutomaticLoop()"))
+        assertTrue(source.contains("startAutomaticSession("))
+        assertTrue(source.contains("resolveLocationPriority(decision.mode)"))
+        assertTrue(source.contains("state.sessionId == startedId"))
+        assertTrue(source.contains("SessionStartResult.Busy"))
+        assertTrue(source.contains("state.first { !it.isBusy }") || source.contains(".first { !it.isBusy }"))
+        assertFalse(
+            "automatic loop must not insert an initial delay before the first round",
+            source.contains("delay(currentDecision.requestIntervalMillis")
+        )
+    }
+
+    private fun serviceSource(): String {
         val relativePath = "app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt"
-        val source = sequenceOf(
+        return sequenceOf(
             java.io.File(relativePath),
             java.io.File(relativePath.removePrefix("app/")),
             java.io.File("..", relativePath)
         ).firstOrNull { it.isFile }?.readText()
             ?: error("source not found for $relativePath (cwd=${java.io.File(".").absolutePath})")
-
-        val decisionBranch = source
-            .substringAfter("if (reduced != null) {")
-            .substringBefore("} else {")
-        assertTrue("accepted decision branch must apply the reduced policy", decisionBranch.contains("applyDecision(reduced)"))
-        assertTrue("accepted decision branch must refresh the notification", decisionBranch.contains("updateNotification()"))
-        assertTrue(
-            "accepted decision branch must guard requestLocationUpdates with reduced.requestIntervalMillis > 0L",
-            decisionBranch.contains("if (reduced.requestIntervalMillis > 0L)")
-        )
-        assertTrue(
-            "accepted decision branch must request location updates with reduced interval",
-            decisionBranch.contains("requestLocationUpdates(reduced.requestIntervalMillis)")
-        )
     }
 
     @Test
     fun freshSnapshotWithCacheErrorIsNotReportedAsNormal() {
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         val method = ForegroundLocationService::class.java
             .getDeclaredMethod("scheduleApiStateText", ScheduleCacheSnapshot::class.java)
             .apply { isAccessible = true }
@@ -1103,7 +1511,7 @@ class ForegroundLocationServiceTest {
 
     @Test
     fun staleSnapshotWithoutErrorIsNotNormal() {
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         val method = ForegroundLocationService::class.java
             .getDeclaredMethod("scheduleApiStateText", ScheduleCacheSnapshot::class.java)
             .apply { isAccessible = true }
@@ -1127,7 +1535,7 @@ class ForegroundLocationServiceTest {
     @Test
     @LooperMode(LooperMode.Mode.PAUSED)
     fun policyTransitionWriterDoesNotSwallowCancellation() {
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         setPolicyTransitionWriter(service) { _, _ ->
             throw CancellationException("cancel transition write")
         }
@@ -1154,7 +1562,7 @@ class ForegroundLocationServiceTest {
     @Test
     @LooperMode(LooperMode.Mode.PAUSED)
     fun policyTransitionWritesDoNotDropRapidChanges() {
-        val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+        val service = buildService()
         val started = CompletableDeferred<Unit>()
         val release = CompletableDeferred<Unit>()
         val recorded = CopyOnWriteArrayList<String>()
@@ -1260,7 +1668,7 @@ class ForegroundLocationServiceTest {
         shadowOf(Looper.getMainLooper()).idle()
     }
 
-    private class ScheduleServiceFixture {
+    private inner class ScheduleServiceFixture {
         val context: Application = ApplicationProvider.getApplicationContext()
         val prefs = context.getSharedPreferences(
             "fg_schedule_fixture_" + System.nanoTime(),
@@ -1289,6 +1697,9 @@ class ForegroundLocationServiceTest {
 
         fun createService(): ForegroundLocationService {
             val service = Robolectric.buildService(ForegroundLocationService::class.java).get()
+            service.locationAcquisitionCoordinator = newHarness().coordinator
+            service.queueStatusRepository = emptyQueueStatusRepo()
+            service.motionSignalRepository = MotionSignalRepository(context)
             service.trackingSettingsStore = store
             service.scheduleWindowRepository = repository
             return service
@@ -1296,6 +1707,78 @@ class ForegroundLocationServiceTest {
 
         fun cleanup() {
             cacheDir.deleteRecursively()
+        }
+    }
+
+
+    class CoordinatorHarness {
+        val runner = ControllableRunner()
+        val coordinator = LocationAcquisitionCoordinator(
+            runner = runner,
+            prerequisiteChecker = object : LocationPrerequisiteChecker {
+                override fun check(triggerType: TriggerType): LocationPrerequisiteResult =
+                    LocationPrerequisiteResult.Ready
+            },
+            operations = object : LocationAcquisitionOperations {
+                override suspend fun enqueueAccepted(
+                    accepted: com.pim.app.location.quality.QualityAcceptedLocation,
+                    rawJson: String,
+                    source: String
+                ) = Unit
+
+                override suspend fun recordDropped(
+                    fix: com.pim.app.location.quality.RawLocationFix,
+                    reason: String
+                ) = Unit
+
+                override fun scheduleSync() = Unit
+            },
+            json = Json { ignoreUnknownKeys = true }
+        )
+        private val stateField = LocationAcquisitionCoordinator::class.java
+            .getDeclaredField("_state")
+            .apply { isAccessible = true }
+
+        @Suppress("UNCHECKED_CAST")
+        private val mutableState: MutableStateFlow<LocationAcquisitionState>
+            get() = stateField.get(coordinator) as MutableStateFlow<LocationAcquisitionState>
+
+        fun forceState(state: LocationAcquisitionState) {
+            mutableState.value = state
+        }
+    }
+
+    class ControllableRunner : LocationAcquisitionRunner {
+        data class Session(
+            val request: LocationEngineRequest,
+            val onCandidate: suspend (LocationSnapshot) -> Unit,
+            val result: CompletableDeferred<LocationEngineResult> = CompletableDeferred()
+        )
+
+        private val sessions = CopyOnWriteArrayList<Session>()
+        val acquireCount = AtomicInteger(0)
+        val lastRequest: LocationEngineRequest?
+            get() = sessions.lastOrNull()?.request
+
+        override suspend fun acquire(
+            request: LocationEngineRequest,
+            onCandidate: suspend (LocationSnapshot) -> Unit,
+            onAvailabilityChanged: suspend (Boolean) -> Unit
+        ): LocationEngineResult {
+            val session = Session(request, onCandidate)
+            sessions += session
+            acquireCount.incrementAndGet()
+            return session.result.await()
+        }
+
+        fun emitCandidate(snapshot: LocationSnapshot) {
+            val session = sessions.lastOrNull() ?: error("no active acquire session")
+            runBlocking { session.onCandidate(snapshot) }
+        }
+
+        fun completeCurrent(result: LocationEngineResult) {
+            val session = sessions.lastOrNull() ?: error("no active acquire session")
+            session.result.complete(result)
         }
     }
 

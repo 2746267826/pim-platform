@@ -46,13 +46,11 @@ class LocationCaptureRepository @Inject constructor(
     }
 
     fun startCapture() {
-        controller.start()
-        coordinator.startManualSession()
+        controller.startManualSession()
     }
 
     fun stopCapture() {
-        controller.stop()
-        coordinator.cancelCurrentSession()
+        controller.cancelLocationSession(coordinator.state.value.sessionId)
     }
 
     fun submitCurrentLocationManually() {

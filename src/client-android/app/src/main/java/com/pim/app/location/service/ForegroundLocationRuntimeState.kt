@@ -10,7 +10,7 @@ data class ForegroundLocationRuntimeState(
     val nextExpectedLocationAtMillis: Long? = null,
     val lastAcceptedLocationText: String = "无",
     val lastAccuracyText: String = "无",
-    val pendingUploadCount: Int = 0,
+    val pendingUploadTotal: Int = 0,
     val apiState: String = "等待日程数据",
     val lastDroppedReason: String? = null,
     val scheduleFreshness: ScheduleCacheFreshness = ScheduleCacheFreshness.Missing,

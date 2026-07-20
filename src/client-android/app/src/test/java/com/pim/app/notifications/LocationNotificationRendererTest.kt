@@ -18,6 +18,20 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34], application = TestPimApp::class)
 class LocationNotificationRendererTest {
     @Test
+    fun notificationStateUsesPendingUploadTotal() {
+        val ns = LocationNotificationState(
+            mode = LocationPolicyMode.PowerSavingNormal,
+            nextExpectedLocationText = "1 分钟后",
+            lastAcceptedLocationText = "12:00",
+            lastAccuracyText = "10m",
+            pendingUploadTotal = 7,
+            apiState = "正常",
+            lastDroppedReason = null
+        )
+        assertEquals(7, ns.pendingUploadTotal)
+    }
+
+    @Test
     fun collapsedTextShowsStrategyNextAccuracyQueueAndApi() {
         val text = LocationNotificationRenderer.collapsedText(
             state = state(mode = LocationPolicyMode.ScheduleLowFrequency)
@@ -38,7 +52,7 @@ class LocationNotificationRendererTest {
                 nextExpectedLocationText = "1 分钟后",
                 lastAcceptedLocationText = "无",
                 lastAccuracyText = "无",
-                pendingUploadCount = 0,
+                pendingUploadTotal = 0,
                 apiState = "API 无法连接",
                 lastDroppedReason = "误差必须小于 50 米"
             )
@@ -103,7 +117,7 @@ class LocationNotificationRendererTest {
                 nextExpectedLocationText = "3 分钟后",
                 lastAcceptedLocationText = "12:00",
                 lastAccuracyText = "10m",
-                pendingUploadCount = 1,
+                pendingUploadTotal = 1,
                 apiState = "API 无法连接",
                 lastDroppedReason = null
             )
@@ -120,7 +134,7 @@ class LocationNotificationRendererTest {
         val text = LocationNotificationRenderer.expandedText(
             state = state(
                 mode = LocationPolicyMode.PowerSavingNormal,
-                pendingUploadCount = 2,
+                pendingUploadTotal = 2,
                 apiState = "正常"
             )
         )
@@ -136,7 +150,7 @@ class LocationNotificationRendererTest {
         nextExpectedLocationText: String = "12 分钟后",
         lastAcceptedLocationText: String = "21:24",
         lastAccuracyText: String = "18m",
-        pendingUploadCount: Int = 3,
+        pendingUploadTotal: Int = 3,
         apiState: String = "正常",
         lastDroppedReason: String? = null
     ): LocationNotificationState {
@@ -145,7 +159,7 @@ class LocationNotificationRendererTest {
             nextExpectedLocationText = nextExpectedLocationText,
             lastAcceptedLocationText = lastAcceptedLocationText,
             lastAccuracyText = lastAccuracyText,
-            pendingUploadCount = pendingUploadCount,
+            pendingUploadTotal = pendingUploadTotal,
             apiState = apiState,
             lastDroppedReason = lastDroppedReason
         )

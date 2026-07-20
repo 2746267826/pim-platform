@@ -50,6 +50,7 @@ async function main() {
     await runScenarioG(browser, baseUrl);
     await runScenarioH(browser, baseUrl);
     await runScenarioI(browser, baseUrl);
+    await runScenarioJ(browser, baseUrl);
   } finally {
     await browser?.close();
     stopServer(server);
@@ -764,6 +765,189 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
   }
 }
 
+// ─── Scenario J: Task editor reliability ─────────────────────────────
+
+async function runScenarioJ(browser: Browser, baseUrl: string) {
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 },
+    timezoneId: 'Asia/Shanghai',
+  });
+  try {
+    const captured: CapturedRequest[] = [];
+    await context.addInitScript(() => {
+      localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+    });
+    await context.route('**/api/v1/**', route => {
+      const url = new URL(route.request().url());
+      const fullPath = url.pathname + url.search;
+      const method = route.request().method();
+      if (method !== 'GET') {
+        const postBody = route.request().postDataJSON();
+        captured.push({ url: fullPath, method, body: postBody });
+      }
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify(mockApiResponse(fullPath, method)),
+      });
+    });
+
+    const page = await context.newPage();
+    await openCalendarMonth(page, baseUrl);
+
+    // ── Part A: Existing scheduled-task edit ──────────────────────
+
+    await openEventByText(page, '排程任务');
+
+    // Assert exactly two input[type="number"] controls
+    const numberInputs = page.locator('aside[role="dialog"] input[type="number"]');
+    assert.equal(await numberInputs.count(), 2);
+
+    // Locate by accessible labels 时 and 分钟
+    const hourInput = page.locator('aside[role="dialog"]')
+      .getByRole('spinbutton', { name: '时', exact: true });
+    const minuteInput = page.locator('aside[role="dialog"]')
+      .getByRole('spinbutton', { name: '分钟', exact: true });
+    assert.equal(await hourInput.inputValue(), '1');
+    assert.equal(await minuteInput.inputValue(), '30');
+
+    // Assert three datetime-local values are non-empty and contain neither Z nor +
+    const dtInputs = page.locator('aside[role="dialog"] input[type="datetime-local"]');
+    assert.equal(await dtInputs.count(), 3);
+    const startVal = await dtInputs.nth(0).inputValue();
+    const plannedEndVal = await dtInputs.nth(1).inputValue();
+    const dueVal = await dtInputs.nth(2).inputValue();
+    assert.ok(startVal.length > 0, 'Start datetime-local must be non-empty');
+    assert.ok(plannedEndVal.length > 0, 'Planned end datetime-local must be non-empty');
+    assert.ok(dueVal.length > 0, 'Due datetime-local must be non-empty');
+    assert.ok(!startVal.includes('Z') && !startVal.includes('+'), 'Start must not contain Z or +');
+    assert.ok(!plannedEndVal.includes('Z') && !plannedEndVal.includes('+'), 'Planned end must not contain Z or +');
+    assert.ok(!dueVal.includes('Z') && !dueVal.includes('+'), 'Due must not contain Z or +');
+
+    // Set duration 0/0, submit, expect alert
+    await hourInput.fill('0');
+    await minuteInput.fill('0');
+    const reqBefore = captured.length;
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+    const alert1 = page.getByRole('alert').filter({ hasText: '请至少设置 1 分钟' });
+    await alert1.waitFor({ state: 'visible', timeout: 3_000 });
+    assert.equal(captured.length, reqBefore,
+      'No non-GET request when duration is 0');
+
+    // Set duration 1/30, start > planned end, submit, expect alert
+    await hourInput.fill('1');
+    await minuteInput.fill('30');
+    await dtInputs.nth(0).fill('2026-07-14T15:00');
+    await dtInputs.nth(1).fill('2026-07-14T14:00');
+    const reqBefore2 = captured.length;
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+    const alert2 = page.getByRole('alert').filter({ hasText: '计划结束时间必须晚于开始时间' });
+    await alert2.waitFor({ state: 'visible', timeout: 3_000 });
+    assert.equal(captured.length, reqBefore2,
+      'No non-GET request when planned end <= start');
+
+    // Set valid local values
+    await dtInputs.nth(0).fill('2026-07-14T14:00');
+    await dtInputs.nth(1).fill('2026-07-14T15:30');
+    await dtInputs.nth(2).fill('2026-07-15T12:00');
+    await hourInput.fill('1');
+    await minuteInput.fill('30');
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+
+    // Wait for drawer to close
+    await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 5_000 }).catch(() => undefined);
+
+    // Assert exactly one PUT to /calendar/tasks/task-audit-1 and zero /move
+    const putCalls = captured.filter(c => c.method === 'PUT' && c.url === '/api/v1/calendar/tasks/task-audit-1');
+    assert.equal(putCalls.length, 1, 'Exactly one PUT to task-audit-1');
+    const moveCalls = captured.filter(c => c.url.includes('/move'));
+    assert.equal(moveCalls.length, 0, 'Zero /move calls');
+
+    // Unconditionally inspect PUT body
+    const putBody = putCalls[0].body as Record<string, unknown>;
+    assert.equal(putBody.estimatedDuration, 'PT1H30M');
+    assert.equal(putBody.dtStart, '2026-07-14T06:00:00.000Z');
+    assert.equal(putBody.plannedEnd, '2026-07-14T07:30:00.000Z');
+    assert.equal(putBody.due, '2026-07-15T04:00:00.000Z');
+    assert.equal(putBody.calendarId, 'cal-manual-1');
+
+    // ── Part A2: Existing task with no estimated duration ──────────
+
+    await openEventByText(page, '无预估时长任务');
+
+    // Locate duration spinbuttons by accessible names
+    const emptyDurHour = page.locator('aside[role="dialog"]')
+      .getByRole('spinbutton', { name: '时', exact: true });
+    const emptyDurMinute = page.locator('aside[role="dialog"]')
+      .getByRole('spinbutton', { name: '分钟', exact: true });
+
+    // Existing task with no duration must show blank inputs, not 0 and 30
+    assert.equal(await emptyDurHour.inputValue(), '');
+    assert.equal(await emptyDurMinute.inputValue(), '');
+
+    // Close drawer without submitting
+    await page.locator('aside[role="dialog"] button', { hasText: '取消' }).click();
+    await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 5_000 }).catch(() => undefined);
+
+    // ── Part B: New-task creation ─────────────────────────────────
+
+    // Use Inbox panel + 新建 menu, click 任务
+    const inboxPanel = page.getByRole('heading', { name: '收集箱', exact: true }).locator('../..');
+    await inboxPanel.getByRole('button', { name: '+ 新建', exact: true }).click();
+    await inboxPanel.getByRole('button', { name: '任务', exact: true }).click();
+    await page.locator('aside[role="dialog"] h2', { hasText: '新建任务' }).waitFor({ state: 'visible', timeout: 5_000 });
+
+    // Assert duration defaults to 0 and 30
+    const newHourInput = page.locator('aside[role="dialog"]')
+      .getByRole('spinbutton', { name: '时', exact: true });
+    const newMinuteInput = page.locator('aside[role="dialog"]')
+      .getByRole('spinbutton', { name: '分钟', exact: true });
+    assert.equal(await newHourInput.inputValue(), '0');
+    assert.equal(await newMinuteInput.inputValue(), '30');
+
+    // Fill title
+    const titleInput = page.locator('aside[role="dialog"] input[type="text"]').first();
+    await titleInput.fill('新建任务可靠性测试');
+
+    // Select calendar cal-manual-1 explicitly
+    const calSelect = page.locator('aside[role="dialog"] select').first();
+    await calSelect.selectOption({ value: 'cal-manual-1' });
+
+    // Fill duration
+    await newHourInput.fill('2');
+    await newMinuteInput.fill('15');
+
+    // Fill datetime-local fields
+    const newDtInputs = page.locator('aside[role="dialog"] input[type="datetime-local"]');
+    await newDtInputs.nth(0).fill('2026-07-16T09:00');
+    await newDtInputs.nth(1).fill('2026-07-16T11:15');
+    await newDtInputs.nth(2).fill('2026-07-17T18:00');
+
+    // Submit and wait for drawer to close
+    await page.locator('aside[role="dialog"] button[type="submit"]').click();
+    await page.waitForFunction(() => !document.querySelector('aside[role="dialog"]'),
+      null, { timeout: 5_000 }).catch(() => undefined);
+
+    // Assert exactly one POST to /api/v1/calendar/tasks
+    const postCalls = captured.filter(c => c.method === 'POST' && c.url === '/api/v1/calendar/tasks');
+    assert.equal(postCalls.length, 1, 'Exactly one POST to /api/v1/calendar/tasks');
+
+    // Unconditionally inspect POST body
+    const postBody = postCalls[0].body as Record<string, unknown>;
+    assert.equal(postBody.title, '新建任务可靠性测试');
+    assert.equal(postBody.estimatedDuration, 'PT2H15M');
+    assert.equal(postBody.dtStart, '2026-07-16T01:00:00.000Z');
+    assert.equal(postBody.plannedEnd, '2026-07-16T03:15:00.000Z');
+    assert.equal(postBody.due, '2026-07-17T10:00:00.000Z');
+    assert.equal(postBody.calendarId, 'cal-manual-1');
+
+    await page.close();
+  } finally {
+    await context.close();
+  }
+}
+
 async function assertDialogInViewport(page: Page, selector: string) {
   const info = await page.evaluate((sel) => {
     const el = document.querySelector(sel);
@@ -1034,6 +1218,57 @@ const calendars = [
   { id: 'cal-ics-1', name: 'ICS 导入日历', color: '#6633CC', kind: 'calendar', isDefault: false, canEdit: true },
 ];
 
+const allTasks = [
+  {
+    id: 'task-audit-1',
+    calendarId: 'cal-manual-1',
+    title: '排程任务',
+    description: '测试描述',
+    priority: 1,
+    estimatedDuration: '01:30:00',
+    minimumSegment: null,
+    dtStart: '2026-07-14T06:00:00Z',
+    plannedEnd: '2026-07-14T07:30:00Z',
+    due: '2026-07-15T04:00:00Z',
+    status: 'NEEDS-ACTION',
+    isInbox: false,
+    sortOrder: 1,
+    subTasks: [],
+  },
+  {
+    id: 'task-audit-2',
+    calendarId: 'cal-manual-1',
+    title: '无预估时长任务',
+    description: null,
+    priority: 0,
+    estimatedDuration: null,
+    minimumSegment: null,
+    dtStart: '2026-07-15T08:00:00Z',
+    plannedEnd: '2026-07-15T09:30:00Z',
+    due: '2026-07-16T06:00:00Z',
+    status: 'NEEDS-ACTION',
+    isInbox: false,
+    sortOrder: 0,
+    subTasks: [],
+  },
+  {
+    id: 'task-created-1',
+    calendarId: 'cal-manual-1',
+    title: '新建任务可靠性测试',
+    description: null,
+    priority: 0,
+    estimatedDuration: '02:15:00',
+    minimumSegment: null,
+    dtStart: '2026-07-16T01:00:00Z',
+    plannedEnd: '2026-07-16T03:15:00Z',
+    due: '2026-07-17T10:00:00Z',
+    status: 'NEEDS-ACTION',
+    isInbox: false,
+    sortOrder: 0,
+    subTasks: [],
+  },
+];
+
 function mockApiResponse(fullPath: string, method?: string): { code: number; message: string; data: unknown; timestamp: string } {
   let data: unknown = [];
   if (fullPath.endsWith('/status/summary')) {
@@ -1098,6 +1333,21 @@ function mockApiResponse(fullPath: string, method?: string): { code: number; mes
     }
   } else if (fullPath.includes('/calendar/events')) {
     data = allEvents;
+  } else if (fullPath.match(/\/calendar\/tasks\/[^/]+-[^/]+$/)) {
+    const taskId = fullPath.split('/').pop()?.split('?')[0] || '';
+    if (method === 'PUT') {
+      data = allTasks.find(t => t.id === taskId) || allTasks[0];
+    } else if (method === 'DELETE') {
+      data = null;
+    } else {
+      data = allTasks.find(t => t.id === taskId) || allTasks[0];
+    }
+  } else if (fullPath.match(/\/calendar\/tasks(\?|$)/)) {
+    if (method === 'POST') {
+      data = allTasks.find(t => t.id === 'task-created-1') || allTasks[0];
+    } else {
+      data = allTasks;
+    }
   } else if (fullPath.includes('/calendar/calendars') && !fullPath.includes('outlook')) {
     data = calendars;
   } else if (fullPath.includes('/calendar/outlook/events/writeback')) {

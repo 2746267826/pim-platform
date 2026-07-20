@@ -6,6 +6,7 @@ import androidx.annotation.RequiresApi
 
 object LocationLiveUpdateCapability {
 
+    @SuppressLint("NewApi")
     fun isAvailable(): Boolean = supportsLiveUpdates(Build.VERSION.SDK_INT) {
         Api36.atLeastBaklava1()
     }

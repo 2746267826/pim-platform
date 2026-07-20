@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicReference
 
 class LocationLiveUpdatePublisher(
     private val stateFlow: StateFlow<LocationAcquisitionState>,
@@ -33,7 +34,7 @@ class LocationLiveUpdatePublisher(
     private var collectionJob: Job? = null
     private var lastPublishTimeMs: Long = -1L
     private var lastPublishedAccuracy: Float? = null
-    private var suppressedSessionId: String? = null
+    private val suppressedSessionId = AtomicReference<String?>(null)
     private var currentSessionId: String? = null
 
     fun start(scope: CoroutineScope) {
@@ -57,7 +58,7 @@ class LocationLiveUpdatePublisher(
     }
 
     fun suppressSession(sessionId: String) {
-        suppressedSessionId = sessionId
+        suppressedSessionId.set(sessionId)
     }
 
     private fun handleState(state: LocationAcquisitionState) {
@@ -69,7 +70,7 @@ class LocationLiveUpdatePublisher(
         }
 
         if (sessionId == null) return
-        if (sessionId == suppressedSessionId) return
+        if (sessionId == suppressedSessionId.get()) return
 
         val now = clockMs()
 

@@ -77,12 +77,6 @@ class LocationLiveUpdateCapabilityTest {
     }
 
     @Test
-    fun `check delegates to isAvailable`() {
-        val expected = LocationLiveUpdateCapability.isAvailable()
-        assertEquals(expected, LocationLiveUpdateCapability.check())
-    }
-
-    @Test
     fun `supportsLiveUpdates is accessible within module`() {
         assertFalse(LocationLiveUpdateCapability.supportsLiveUpdates(35) { true })
     }

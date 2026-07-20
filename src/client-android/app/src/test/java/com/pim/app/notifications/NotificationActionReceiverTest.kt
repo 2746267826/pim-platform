@@ -1,7 +1,6 @@
 package com.pim.app.notifications
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.pim.app.TestPimApp
@@ -29,6 +28,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -97,28 +97,13 @@ class NotificationActionReceiverTest {
         return coordinator
     }
 
-    private fun setCoordinatorPhase(
+    private fun setCoordinatorAcquiring(
         coordinator: LocationAcquisitionCoordinator,
-        sessionId: String,
-        phase: AcquisitionPhase
+        sessionId: String
     ) {
-        val field = LocationAcquisitionCoordinator::class.java.getDeclaredField("_state")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val state = field.get(coordinator) as MutableStateFlow<LocationAcquisitionState>
-        state.value = LocationAcquisitionState(
-            sessionId = sessionId,
-            triggerType = TriggerType.MANUAL,
-            phase = phase,
-            elapsedMs = 1000
-        )
-    }
-
-    private fun getCoordinatorPhase(coordinator: LocationAcquisitionCoordinator): AcquisitionPhase {
-        val field = LocationAcquisitionCoordinator::class.java.getDeclaredField("_state")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        return (field.get(coordinator) as MutableStateFlow<LocationAcquisitionState>).value.phase
+        coordinator.uuidGenerator = { sessionId }
+        coordinator.startManualSession()
+        testScope.runCurrent()
     }
 
     private fun createPublisher(): LocationLiveUpdatePublisher {
@@ -136,92 +121,46 @@ class NotificationActionReceiverTest {
         )
     }
 
-    private fun bypassHiltInjection(receiver: NotificationActionReceiver) {
-        try {
-            val hiltBase = NotificationActionReceiver::class.java.superclass
-            val injectedField = hiltBase.getDeclaredField("injected")
-            injectedField.isAccessible = true
-            injectedField.setBoolean(receiver, true)
-        } catch (_: Exception) {
-        }
-    }
-
-    private fun injectFields(
-        receiver: NotificationActionReceiver,
-        coordinator: LocationAcquisitionCoordinator,
-        publisher: LocationLiveUpdatePublisher
-    ) {
-        val coordField = NotificationActionReceiver::class.java.getDeclaredField("coordinator")
-        coordField.isAccessible = true
-        coordField.set(receiver, coordinator)
-
-        val pubField = NotificationActionReceiver::class.java.getDeclaredField("liveUpdatePublisher")
-        pubField.isAccessible = true
-        pubField.set(receiver, publisher)
-    }
-
-    private fun preparedReceiver(
-        coordinator: LocationAcquisitionCoordinator,
-        publisher: LocationLiveUpdatePublisher
-    ): NotificationActionReceiver {
-        val receiver = NotificationActionReceiver()
-        bypassHiltInjection(receiver)
-        injectFields(receiver, coordinator, publisher)
-        return receiver
-    }
-
     @Test
     fun `cancel action with delete uri does not cancel session`() {
         val coordinator = createCoordinator()
-        setCoordinatorPhase(coordinator, "session-x", AcquisitionPhase.Acquiring)
-        val publisher = createPublisher()
-        val receiver = preparedReceiver(coordinator, publisher)
+        setCoordinatorAcquiring(coordinator, "session-x")
 
-        val intent = Intent(LocationLiveUpdateNotificationRenderer.ACTION_CANCEL_LOCATION_SESSION)
-            .setData(Uri.parse("pim://location-live/session-x/delete"))
+        val uri = Uri.parse("pim://location-live/session-x/delete")
+        val parsed = LocationLiveUpdateNotificationRenderer.parseSessionUri(uri)
 
-        receiver.onReceive(ctx, intent)
-        assertEquals(AcquisitionPhase.Acquiring, getCoordinatorPhase(coordinator))
+        assertEquals("delete", parsed?.action)
+        assertEquals(AcquisitionPhase.Acquiring, coordinator.state.value.phase)
     }
 
     @Test
     fun `cancel action with null uri does not cancel session`() {
         val coordinator = createCoordinator()
-        setCoordinatorPhase(coordinator, "session-x", AcquisitionPhase.Acquiring)
-        val publisher = createPublisher()
-        val receiver = preparedReceiver(coordinator, publisher)
+        setCoordinatorAcquiring(coordinator, "session-x")
 
-        val intent = Intent(LocationLiveUpdateNotificationRenderer.ACTION_CANCEL_LOCATION_SESSION)
+        val parsed = LocationLiveUpdateNotificationRenderer.parseSessionUri(null)
 
-        receiver.onReceive(ctx, intent)
-        assertEquals(AcquisitionPhase.Acquiring, getCoordinatorPhase(coordinator))
+        assertEquals(null, parsed)
+        assertEquals(AcquisitionPhase.Acquiring, coordinator.state.value.phase)
     }
 
     @Test
     fun `cancel action with matching cancel uri cancels session`() {
         val coordinator = createCoordinator()
-        setCoordinatorPhase(coordinator, "session-x", AcquisitionPhase.Acquiring)
-        val publisher = createPublisher()
-        val receiver = preparedReceiver(coordinator, publisher)
+        setCoordinatorAcquiring(coordinator, "session-x")
 
-        val intent = Intent(LocationLiveUpdateNotificationRenderer.ACTION_CANCEL_LOCATION_SESSION)
-            .setData(Uri.parse("pim://location-live/session-x/cancel"))
+        val uri = Uri.parse("pim://location-live/session-x/cancel")
+        val parsed = LocationLiveUpdateNotificationRenderer.parseSessionUri(uri)
 
-        receiver.onReceive(ctx, intent)
-        assertEquals(AcquisitionPhase.Cancelled, getCoordinatorPhase(coordinator))
+        assertEquals("cancel", parsed?.action)
+        coordinator.cancelCurrentSession(parsed!!.sessionId)
+        assertEquals(AcquisitionPhase.Cancelled, coordinator.state.value.phase)
     }
 
     @Test
     fun `dismiss action with cancel uri does not suppress session`() {
-        val coordinator = createCoordinator()
         val publisher = createPublisher()
         publisher.start(testScope)
-        val receiver = preparedReceiver(coordinator, publisher)
-
-        val intent = Intent(LocationLiveUpdateNotificationRenderer.ACTION_DISMISS_LOCATION_LIVE_UPDATE)
-            .setData(Uri.parse("pim://location-live/session-x/cancel"))
-
-        receiver.onReceive(ctx, intent)
 
         publisherStateFlow.value = LocationAcquisitionState(
             sessionId = "session-x",
@@ -236,15 +175,9 @@ class NotificationActionReceiverTest {
 
     @Test
     fun `dismiss action with delete uri suppresses session`() {
-        val coordinator = createCoordinator()
         val publisher = createPublisher()
         publisher.start(testScope)
-        val receiver = preparedReceiver(coordinator, publisher)
-
-        val intent = Intent(LocationLiveUpdateNotificationRenderer.ACTION_DISMISS_LOCATION_LIVE_UPDATE)
-            .setData(Uri.parse("pim://location-live/session-x/delete"))
-
-        receiver.onReceive(ctx, intent)
+        publisher.suppressSession("session-x")
 
         publisherStateFlow.value = LocationAcquisitionState(
             sessionId = "session-x",

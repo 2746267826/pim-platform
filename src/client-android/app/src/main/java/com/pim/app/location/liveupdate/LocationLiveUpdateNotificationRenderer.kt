@@ -54,9 +54,9 @@ object LocationLiveUpdateNotificationRenderer {
         val accuracy = content.accuracyMeters?.let { "%.0f".format(it) } ?: "?"
         val contentText = "阶段：采集中 · 耗时：${content.elapsedSeconds}s · 精度：${accuracy}m · 提供方：${content.providerLabel}"
 
-        val notification = buildNotification(ctx, content, title, contentText)
-
         createChannel(CHANNEL_ID, "PIM 定位 Live Update")
+
+        val notification = buildNotification(ctx, content, title, contentText)
         notifyFn(LIVE_UPDATE_NOTIFICATION_ID, notification)
         return true
     }

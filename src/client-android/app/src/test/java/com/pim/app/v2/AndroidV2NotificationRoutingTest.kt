@@ -1,6 +1,7 @@
 package com.pim.app.v2
 
 import java.io.File
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -24,7 +25,7 @@ class AndroidV2NotificationRoutingTest {
 
         assertTrue(receiver.contains("PimShellActivity.intentFor(context, route.detailUrl)"))
         assertTrue(receiver.contains("PimShellActivity.intentFor(context, \"/endpoint-shell\")"))
-        assertTrue(!shell.contains("collector.start()"))
+        assertFalse(shell.contains("collector.start()"))
     }
 
     @Test
@@ -33,9 +34,42 @@ class AndroidV2NotificationRoutingTest {
 
         assertTrue(service.contains("if (!settings.continuousCollectionEnabled)"))
         assertTrue(service.contains("stopSelf()"))
-        assertTrue(service.contains("requestLocationUpdates(decision.requestIntervalMillis)"))
+        assertTrue(service.contains("locationAcquisitionCoordinator.startAutomaticSession("))
+        assertTrue(service.contains("delay(decision.requestIntervalMillis.coerceAtLeast(1_000L))"))
         assertTrue(service.contains("motionSignalRepository.status.value.signal"))
         assertTrue(service.contains("ScheduleWindowSelector.current"))
+    }
+
+    @Test
+    fun liveUpdateNotificationActionReceiverHandlesCancelAndDismiss() {
+        val receiver = repoFile("src", "main", "java", "com", "pim", "app", "notifications", "NotificationActionReceiver.kt").readText()
+        assertTrue(receiver.contains("ACTION_CANCEL_LOCATION_SESSION"))
+        assertTrue(receiver.contains("ACTION_DISMISS_LOCATION_LIVE_UPDATE"))
+        assertTrue(receiver.contains("cancelCurrentSession"))
+        assertTrue(receiver.contains("suppressSession"))
+        assertTrue("receiver must parse sessionId via parseSessionUri", receiver.contains("parseSessionUri"))
+        assertFalse("receiver must not use lastPathSegment for session ID", receiver.contains("lastPathSegment"))
+    }
+
+    @Test
+    fun liveUpdateNotificationRendererUsesSeparateNotificationId() {
+        val renderer = repoFile("src", "main", "java", "com", "pim", "app", "location", "liveupdate", "LocationLiveUpdateNotificationRenderer.kt").readText()
+        assertTrue(renderer.contains("7102"))
+        assertTrue(renderer.contains("pim_location_live_update"))
+    }
+
+    @Test
+    fun pimAppCallsCancelStaleNotification() {
+        val pimApp = repoFile("src", "main", "java", "com", "pim", "app", "PimApp.kt").readText()
+        assertTrue(pimApp.contains("cancelStaleNotification"))
+    }
+
+    @Test
+    fun pimAppCallsPublisherStartAfterCancelStaleNotification() {
+        val pimApp = repoFile("src", "main", "java", "com", "pim", "app", "PimApp.kt").readText()
+        assertTrue("must cancelStaleNotification before start", pimApp.contains("cancelStaleNotification()"))
+        assertTrue("must contain start(scope)", pimApp.contains("start(scope)"))
+        assertTrue("cancelStaleNotification must appear before start", pimApp.indexOf("cancelStaleNotification") < pimApp.indexOf("start"))
     }
 
     private fun repoFile(vararg parts: String): File {

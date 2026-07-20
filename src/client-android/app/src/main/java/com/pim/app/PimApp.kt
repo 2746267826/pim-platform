@@ -3,6 +3,7 @@ package com.pim.app
 import android.app.Application
 import androidx.work.Configuration
 import com.pim.app.di.PimWorkerFactory
+import com.pim.app.location.liveupdate.LocationLiveUpdatePublisher
 import com.pim.app.recovery.RunningStateRestorer
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -20,10 +21,15 @@ class PimApp : Application(), Configuration.Provider {
     @Inject
     lateinit var runningStateRestorer: RunningStateRestorer
 
+    @Inject
+    lateinit var liveUpdatePublisher: LocationLiveUpdatePublisher
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
+        liveUpdatePublisher.cancelStaleNotification()
+        liveUpdatePublisher.start(scope)
         scope.launch {
             runningStateRestorer.ensureRunningState()
         }

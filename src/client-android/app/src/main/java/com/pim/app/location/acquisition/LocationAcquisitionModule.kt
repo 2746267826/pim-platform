@@ -1,6 +1,8 @@
 package com.pim.app.location.acquisition
 
+import android.content.Context
 import com.pim.app.location.LocationQueueRepository
+import com.pim.app.location.liveupdate.LocationLiveUpdatePublisher
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
 import com.pim.app.mobile.sync.MobileSyncScheduler
@@ -8,6 +10,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -57,5 +60,18 @@ object LocationAcquisitionOperationsProvider {
         override fun scheduleSync() {
             scheduler.enqueueNow()
         }
+    }
+
+    @Provides
+    @Singleton
+    @JvmStatic
+    fun provideLocationLiveUpdatePublisher(
+        @ApplicationContext context: Context,
+        coordinator: LocationAcquisitionCoordinator
+    ): LocationLiveUpdatePublisher {
+        return LocationLiveUpdatePublisher(
+            stateFlow = coordinator.state,
+            context = context
+        )
     }
 }

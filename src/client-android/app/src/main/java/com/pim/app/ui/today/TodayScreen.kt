@@ -71,14 +71,14 @@ fun TodayScreen(
     }
 }
 
-    @Composable
-    internal fun TodayStatusBar(
-        state: TodayUiState,
-        syncFeedback: String?,
-        onSyncNow: () -> Unit
-    ) {
-        val busy = state.isSyncButtonDisabled
-        val showSpinner = state.syncButtonShowSpinner
+@Composable
+internal fun TodayStatusBar(
+    state: TodayUiState,
+    syncFeedback: String?,
+    onSyncNow: () -> Unit
+) {
+    val busy = state.isSyncButtonDisabled
+    val showSpinner = state.syncButtonShowSpinner
     Column(
         modifier = Modifier
             .fillMaxWidth()

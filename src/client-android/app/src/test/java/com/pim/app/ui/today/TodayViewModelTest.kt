@@ -1014,6 +1014,7 @@ class TodayViewModelTest {
     private fun baseState(
         continuousCollectionEnabled: Boolean = true,
         pendingTotal: Int = 0,
+        pendingLocationPoints: Int = 0,
         isLoading: Boolean = true,
         syncPhase: SyncPhase = SyncPhase.Idle,
         acceptedCount: Int = 0,
@@ -1056,7 +1057,7 @@ class TodayViewModelTest {
                     currentPolicyReason = currentPolicyReason
                 ),
                 queues = QueueStatusSnapshot(
-                    pendingLocationPoints = pendingTotal,
+                    pendingLocationPoints = pendingLocationPoints,
                     pendingUsageEvents = 0,
                     pendingUsageSummaries = 0,
                     pendingAppMetadata = 0,

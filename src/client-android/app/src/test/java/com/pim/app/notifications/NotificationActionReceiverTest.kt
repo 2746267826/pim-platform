@@ -1,6 +1,7 @@
 package com.pim.app.notifications
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.pim.app.TestPimApp
@@ -121,15 +122,56 @@ class NotificationActionReceiverTest {
         )
     }
 
+    private fun ensureHiltInjected(receiver: NotificationActionReceiver) {
+        var clazz: Class<*>? = receiver.javaClass
+        while (clazz != null) {
+            try {
+                val field = clazz.getDeclaredField("injected")
+                field.isAccessible = true
+                field.setBoolean(receiver, true)
+                return
+            } catch (_: NoSuchFieldException) {
+                clazz = clazz.superclass
+            }
+        }
+        throw AssertionError(
+            "Could not find Hilt 'injected' field in NotificationActionReceiver hierarchy"
+        )
+    }
+
+    @Test
+    fun `cancel action with matching cancel uri cancels session`() {
+        val coordinator = createCoordinator()
+        setCoordinatorAcquiring(coordinator, "session-x")
+
+        val receiver = NotificationActionReceiver()
+        ensureHiltInjected(receiver)
+        receiver.coordinator = coordinator
+
+        val intent = Intent().apply {
+            action = LocationLiveUpdateNotificationRenderer.ACTION_CANCEL_LOCATION_SESSION
+            data = Uri.parse("pim://location-live/session-x/cancel")
+        }
+        receiver.onReceive(ctx, intent)
+
+        assertEquals(AcquisitionPhase.Cancelled, coordinator.state.value.phase)
+    }
+
     @Test
     fun `cancel action with delete uri does not cancel session`() {
         val coordinator = createCoordinator()
         setCoordinatorAcquiring(coordinator, "session-x")
 
-        val uri = Uri.parse("pim://location-live/session-x/delete")
-        val parsed = LocationLiveUpdateNotificationRenderer.parseSessionUri(uri)
+        val receiver = NotificationActionReceiver()
+        ensureHiltInjected(receiver)
+        receiver.coordinator = coordinator
 
-        assertEquals("delete", parsed?.action)
+        val intent = Intent().apply {
+            action = LocationLiveUpdateNotificationRenderer.ACTION_CANCEL_LOCATION_SESSION
+            data = Uri.parse("pim://location-live/session-x/delete")
+        }
+        receiver.onReceive(ctx, intent)
+
         assertEquals(AcquisitionPhase.Acquiring, coordinator.state.value.phase)
     }
 
@@ -138,54 +180,74 @@ class NotificationActionReceiverTest {
         val coordinator = createCoordinator()
         setCoordinatorAcquiring(coordinator, "session-x")
 
-        val parsed = LocationLiveUpdateNotificationRenderer.parseSessionUri(null)
+        val receiver = NotificationActionReceiver()
+        ensureHiltInjected(receiver)
+        receiver.coordinator = coordinator
 
-        assertEquals(null, parsed)
+        val intent = Intent().apply {
+            action = LocationLiveUpdateNotificationRenderer.ACTION_CANCEL_LOCATION_SESSION
+        }
+        receiver.onReceive(ctx, intent)
+
         assertEquals(AcquisitionPhase.Acquiring, coordinator.state.value.phase)
     }
 
     @Test
-    fun `cancel action with matching cancel uri cancels session`() {
+    fun `dismiss action with delete uri suppresses session`() {
         val coordinator = createCoordinator()
         setCoordinatorAcquiring(coordinator, "session-x")
+        val publisher = createPublisher()
 
-        val uri = Uri.parse("pim://location-live/session-x/cancel")
-        val parsed = LocationLiveUpdateNotificationRenderer.parseSessionUri(uri)
+        val receiver = NotificationActionReceiver()
+        ensureHiltInjected(receiver)
+        receiver.coordinator = coordinator
+        receiver.liveUpdatePublisher = publisher
 
-        assertEquals("cancel", parsed?.action)
-        coordinator.cancelCurrentSession(parsed!!.sessionId)
-        assertEquals(AcquisitionPhase.Cancelled, coordinator.state.value.phase)
+        val intent = Intent().apply {
+            action = LocationLiveUpdateNotificationRenderer.ACTION_DISMISS_LOCATION_LIVE_UPDATE
+            data = Uri.parse("pim://location-live/session-x/delete")
+        }
+        receiver.onReceive(ctx, intent)
+
+        assertEquals(AcquisitionPhase.Acquiring, coordinator.state.value.phase)
+
+        publisher.start(testScope)
+        publisherStateFlow.value = LocationAcquisitionState(
+            sessionId = "session-x",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 1000
+        )
+        testScope.runCurrent()
+        assertTrue("should suppress session, no publish calls", publishCalls.isEmpty())
     }
 
     @Test
     fun `dismiss action with cancel uri does not suppress session`() {
+        val coordinator = createCoordinator()
+        setCoordinatorAcquiring(coordinator, "session-x")
         val publisher = createPublisher()
-        publisher.start(testScope)
 
+        val receiver = NotificationActionReceiver()
+        ensureHiltInjected(receiver)
+        receiver.coordinator = coordinator
+        receiver.liveUpdatePublisher = publisher
+
+        val intent = Intent().apply {
+            action = LocationLiveUpdateNotificationRenderer.ACTION_DISMISS_LOCATION_LIVE_UPDATE
+            data = Uri.parse("pim://location-live/session-x/cancel")
+        }
+        receiver.onReceive(ctx, intent)
+
+        publisher.start(testScope)
         publisherStateFlow.value = LocationAcquisitionState(
             sessionId = "session-x",
             triggerType = TriggerType.MANUAL,
             phase = AcquisitionPhase.Acquiring,
             elapsedMs = 1000
         )
-        testScope.advanceUntilIdle()
+        testScope.runCurrent()
         assertTrue("should publish because session not suppressed", publishCalls.isNotEmpty())
         assertEquals("session-x", publishCalls.first().sessionId)
-    }
-
-    @Test
-    fun `dismiss action with delete uri suppresses session`() {
-        val publisher = createPublisher()
-        publisher.start(testScope)
-        publisher.suppressSession("session-x")
-
-        publisherStateFlow.value = LocationAcquisitionState(
-            sessionId = "session-x",
-            triggerType = TriggerType.MANUAL,
-            phase = AcquisitionPhase.Acquiring,
-            elapsedMs = 1000
-        )
-        testScope.advanceUntilIdle()
-        assertTrue("should suppress session, no publish calls", publishCalls.isEmpty())
     }
 }

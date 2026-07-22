@@ -215,7 +215,7 @@ git commit -m "feat: add unified event field contracts"
 - Create: `tests/Pim.UnitTests/Calendar/EventDescriptionSanitizerTests.cs`
 - Create: `tests/Pim.UnitTests/Calendar/OutlookAdditionalInfoBuilderTests.cs`
 
-- [ ] **Step 2.1: Write RED tests for typed round trips and validation**
+- [x] **Step 2.1: Write RED tests for typed round trips and validation**
 
 Cover:
 
@@ -231,7 +231,7 @@ Cover:
 
 The full-field fixture must include two categories, organizer, required/optional attendees, meeting fields, external link, and one `pimFile` attachment reference.
 
-- [ ] **Step 2.2: Write RED sanitizer and metadata-summary tests**
+- [x] **Step 2.2: Write RED sanitizer and metadata-summary tests**
 
 Require safe formatting to survive while executable content is removed:
 
@@ -249,7 +249,7 @@ public void NormalizeHtml_RemovesExecutableContent(string input, string expected
 - values are truncated to 200 characters;
 - extension property values are hidden while their count is reported.
 
-- [ ] **Step 2.3: Run the RED tests**
+- [x] **Step 2.3: Run the RED tests**
 
 ```powershell
 dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "FullyQualifiedName~CalendarServiceUnifiedEventTests|FullyQualifiedName~EventDescriptionSanitizerTests|FullyQualifiedName~OutlookAdditionalInfoBuilderTests"
@@ -257,7 +257,7 @@ dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "Full
 
 Expected: FAIL because codecs, sanitizer, projection, and CRUD mappings are absent.
 
-- [ ] **Step 2.4: Add the proven HTML sanitizer dependency and wrapper**
+- [x] **Step 2.4: Add the proven HTML sanitizer dependency and wrapper**
 
 Run:
 
@@ -267,7 +267,7 @@ dotnet add src/modules/Pim.Module.Calendar/Pim.Module.Calendar.csproj package Ht
 
 Implement `EventDescriptionSanitizer.Normalize(description, descriptionFormat)` with an allowlist containing `p`, `br`, `strong`, `b`, `em`, `i`, `u`, `s`, `ul`, `ol`, `li`, `blockquote`, `pre`, `code`, `h2`, `h3`, and `a`; allow only safe `href`, `target`, and `rel` attributes and `http`, `https`, `mailto` schemes. Plain descriptions continue through `ManualDescriptionValidator` and are not converted to HTML server-side.
 
-- [ ] **Step 2.5: Implement JSON codecs and validation**
+- [x] **Step 2.5: Implement JSON codecs and validation**
 
 `EventFieldCodec` must use one shared `JsonSerializerOptions(JsonSerializerDefaults.Web)` and expose deterministic methods:
 
@@ -298,7 +298,7 @@ Attachment.Kind: pimFile, outlook
 
 Reminder minutes must be non-negative. `IsReminderOn != true` normalizes minutes to null. Empty optional strings normalize to null.
 
-- [ ] **Step 2.6: Centralize entity writes and response mapping**
+- [x] **Step 2.6: Centralize entity writes and response mapping**
 
 Add a shared method used by manual CRUD and Outlook writeback:
 
@@ -310,7 +310,7 @@ If an interface would force JSON model-binding changes, use overloads for `Creat
 
 `EventResponseMapper.Map` returns typed fields and `OutlookAdditionalInfoBuilder.Build(entity)` but never returns `ExternalMetadataJson`. Replace both private `MapEvent` implementations in `CalendarService` and `OutlookEventWriteService` with this mapper.
 
-- [ ] **Step 2.7: Run the GREEN and regression tests**
+- [x] **Step 2.7: Run the GREEN and regression tests**
 
 ```powershell
 dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "FullyQualifiedName~CalendarServiceUnifiedEventTests|FullyQualifiedName~EventDescriptionSanitizerTests|FullyQualifiedName~OutlookAdditionalInfoBuilderTests|FullyQualifiedName~CalendarServiceReliabilityTests|FullyQualifiedName~OutlookEventWriteServiceTests"
@@ -318,7 +318,7 @@ dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "Full
 
 Expected: PASS. Invalid writes must not mutate tracked entities.
 
-- [ ] **Step 2.8: Commit the field behavior checkpoint**
+- [x] **Step 2.8: Commit the field behavior checkpoint**
 
 ```powershell
 git add src/modules/Pim.Module.Calendar tests/Pim.UnitTests/Calendar

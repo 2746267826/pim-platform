@@ -16,6 +16,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.double
@@ -762,6 +763,22 @@ class LocationAcquisitionCoordinatorTest {
     }
 
     // ─── Quality fix 2: structured Json encoding ───────────────
+
+    @Test
+    fun `eager dispatcher session reaches Acquiring`() = runTest(UnconfinedTestDispatcher()) {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        coordinator.startManualSession()
+        // Before the fix, startSession launches the coroutine (and passes the
+        // uninitialized lateinit job to runSession) before assigning sessionJob.
+        // With an eager dispatcher this makes the phase stay at Preparing or
+        // crashes with UninitializedPropertyAccessException.
+        assertEquals(AcquisitionPhase.Acquiring, coordinator.state.value.phase)
+
+        coordinator.cancelCurrentSession()
+        advanceUntilIdle()
+    }
 
     @Test
     fun `enqueueAccepted rawJson encodes control characters and parses back via kotlinx Json`() = runTest {

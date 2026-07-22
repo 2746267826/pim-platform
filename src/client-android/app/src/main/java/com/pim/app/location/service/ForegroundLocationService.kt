@@ -165,7 +165,8 @@ class ForegroundLocationService : Service() {
         val phase = locationAcquisitionCoordinator.state.value.phase
         if (phase in setOf(
                 com.pim.app.location.acquisition.AcquisitionPhase.Preparing,
-                com.pim.app.location.acquisition.AcquisitionPhase.Acquiring
+                com.pim.app.location.acquisition.AcquisitionPhase.Acquiring,
+                com.pim.app.location.acquisition.AcquisitionPhase.Evaluating
             )
         ) {
             locationAcquisitionCoordinator.cancelCurrentSession()

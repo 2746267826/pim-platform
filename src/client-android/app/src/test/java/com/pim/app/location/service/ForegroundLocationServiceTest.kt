@@ -1466,6 +1466,29 @@ class ForegroundLocationServiceTest {
     }
 
     @Test
+    fun onDestroyCancelsEvaluatingSessionViaExplicitCheck() {
+        val harness = newHarness()
+        val service = buildService(harness = harness)
+        // The isPausing=true path skips stopCollection → cancelActiveAutomaticSession,
+        // so the explicit phase check in onDestroy() is the only cleanup.
+        // Currently it omits Evaluating; the test verifies it gets added.
+        val isPausingField = ForegroundLocationService::class.java
+            .getDeclaredField("isPausing")
+            .apply { isAccessible = true }
+        isPausingField.setBoolean(service, true)
+
+        harness.forceState(
+            LocationAcquisitionState(
+                sessionId = "eval-session",
+                triggerType = TriggerType.MANUAL,
+                phase = AcquisitionPhase.Evaluating
+            )
+        )
+        service.onDestroy()
+        assertEquals(AcquisitionPhase.Cancelled, harness.coordinator.state.value.phase)
+    }
+
+    @Test
     @LooperMode(LooperMode.Mode.PAUSED)
     fun queueStatusRepositoryDecreasesPendingUploadTotal() {
         val locations = MutableStateFlow(5)

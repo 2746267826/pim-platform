@@ -8,6 +8,7 @@ import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -192,10 +193,12 @@ class LocationAcquisitionCoordinator @Inject constructor(
             deadlineAtElapsedRealtimeMs = nowElapsed + 30_000L
         )
         lateinit var job: Job
-        job = scope.launch {
+        val newJob = scope.launch(start = CoroutineStart.LAZY) {
             runSession(sessionId, triggerType, context, job)
         }
-        sessionJob = job
+        job = newJob
+        sessionJob = newJob
+        newJob.start()
     }
 
     private suspend fun runSession(

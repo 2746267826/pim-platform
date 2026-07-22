@@ -90,8 +90,6 @@ class ForegroundLocationService : Service() {
     private var lastDroppedReason: String? = null
     private var isPausing = false
     private var policyTransitionWriteJob: Job? = null
-    private var isManualOnly = false
-
     internal var policyTransitionWriter: (suspend (LocationPolicyMode?, PolicyDecision) -> Unit)? = null
 
     override fun onCreate() {
@@ -103,7 +101,6 @@ class ForegroundLocationService : Service() {
         when (intent?.action) {
             ForegroundLocationController.ACTION_PAUSE_COLLECTION -> {
                 isPausing = true
-                isManualOnly = false
                 trackingSettingsStore.setContinuousCollectionEnabled(false)
                 applyDecision(
                     currentDecision.copy(
@@ -123,7 +120,6 @@ class ForegroundLocationService : Service() {
             }
             ForegroundLocationController.ACTION_STOP_COLLECTION -> {
                 isPausing = false
-                isManualOnly = false
                 trackingSettingsStore.setContinuousCollectionEnabled(false)
                 stopCollection()
                 val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
@@ -181,7 +177,6 @@ class ForegroundLocationService : Service() {
         persistCollectionIntentBeforePrerequisites: Boolean = false
     ) {
         isPausing = false
-        isManualOnly = false
         if (enableCollection && persistCollectionIntentBeforePrerequisites) {
             trackingSettingsStore.setContinuousCollectionEnabled(true)
         }
@@ -294,7 +289,6 @@ class ForegroundLocationService : Service() {
         val settings = trackingSettingsStore.read()
         var automaticRuntimeReady = automaticLoopJob?.isActive == true
         if (settings.continuousCollectionEnabled) {
-            isManualOnly = false
             if (
                 hasRequiredLocationPermissions() &&
                 !automaticRuntimeReady
@@ -310,12 +304,11 @@ class ForegroundLocationService : Service() {
             }
         }
 
-        isManualOnly = true
         when (result) {
             is SessionStartResult.Started -> {
                 val startedId = result.sessionId
                 scope.launch {
-                    val releaseState = locationAcquisitionCoordinator.state.first { acqState ->
+                    locationAcquisitionCoordinator.state.first { acqState ->
                         acqState.sessionId == startedId &&
                             acqState.phase in setOf(
                                 com.pim.app.location.acquisition.AcquisitionPhase.AwaitingManualSubmit,
@@ -324,16 +317,6 @@ class ForegroundLocationService : Service() {
                                 com.pim.app.location.acquisition.AcquisitionPhase.Failed,
                                 com.pim.app.location.acquisition.AcquisitionPhase.Cancelled
                             )
-                    }
-                    if (releaseState.phase !in setOf(
-                            com.pim.app.location.acquisition.AcquisitionPhase.AwaitingManualSubmit,
-                            com.pim.app.location.acquisition.AcquisitionPhase.Completed,
-                            com.pim.app.location.acquisition.AcquisitionPhase.TimedOut,
-                            com.pim.app.location.acquisition.AcquisitionPhase.Failed,
-                            com.pim.app.location.acquisition.AcquisitionPhase.Cancelled
-                        )
-                    ) {
-                        return@launch
                     }
                     if (!trackingSettingsStore.read().continuousCollectionEnabled) {
                         stopForeground(STOP_FOREGROUND_REMOVE)

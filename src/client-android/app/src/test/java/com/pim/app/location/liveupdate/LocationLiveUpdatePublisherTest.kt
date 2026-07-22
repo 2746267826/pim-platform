@@ -373,6 +373,39 @@ class LocationLiveUpdatePublisherTest {
     }
 
     @Test
+    fun `null to finite accuracy within throttle window triggers immediate second publish`() {
+        publisher.start(testScope)
+        fakeClockMs = 10000L
+
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 1000,
+            bestLocation = null
+        )
+        testScope.advanceUntilIdle()
+        assertEquals("first publish with no accuracy should happen", 1, publishCalls.size)
+        assertEquals(null, publishCalls.first().accuracyMeters)
+
+        fakeClockMs = 11500L
+
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 2500,
+            bestLocation = locationSnapshot(accuracy = 10f)
+        )
+        testScope.advanceUntilIdle()
+        assertEquals(
+            "null-to-finite accuracy transition should trigger immediate second publish within throttle",
+            2, publishCalls.size
+        )
+        assertEquals(10f, publishCalls.last().accuracyMeters)
+    }
+
+    @Test
     fun `session id change resets throttle without requiring restart`() {
         publisher.start(testScope)
         fakeClockMs = 10000L

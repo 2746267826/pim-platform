@@ -89,7 +89,7 @@ class LocationLiveUpdatePublisher(
                 if (accuracy != null && prevAccuracy != null) {
                     val improvement = prevAccuracy - accuracy
                     if (improvement < 5f) return
-                } else {
+                } else if (accuracy == null) {
                     return
                 }
             }

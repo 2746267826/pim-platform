@@ -213,6 +213,74 @@ class LocationLiveUpdateNotificationRendererTest {
     }
 
     @Test
+    fun `channel name is 定位动态`() {
+        var capturedName = ""
+        LocationLiveUpdateNotificationRenderer.tryBuildAndNotify(
+            ctx = ctx,
+            content = content(),
+            createChannel = { _, name -> capturedName = name },
+            notifyFn = { _, _ -> }
+        )
+        assertEquals("定位动态", capturedName)
+    }
+
+    @Test
+    fun `short critical text is 定位中 when accuracy is null`() {
+        assertEquals(
+            "定位中",
+            LocationLiveUpdateNotificationRenderer.shortCriticalText(null)
+        )
+    }
+
+    @Test
+    fun `short critical text shows rounded accuracy when available`() {
+        assertEquals("±18m", LocationLiveUpdateNotificationRenderer.shortCriticalText(18f))
+        assertEquals("±3m", LocationLiveUpdateNotificationRenderer.shortCriticalText(3.4f))
+        assertEquals("±0m", LocationLiveUpdateNotificationRenderer.shortCriticalText(0.2f))
+    }
+
+    @Test
+    fun `normalizeProviderLabel uppercases standard labels`() {
+        assertEquals("GPS", LocationLiveUpdateNotificationRenderer.normalizeProviderLabel("gps"))
+        assertEquals("NETWORK", LocationLiveUpdateNotificationRenderer.normalizeProviderLabel("network"))
+        assertEquals("FUSED", LocationLiveUpdateNotificationRenderer.normalizeProviderLabel("fused"))
+    }
+
+    @Test
+    fun `normalizeProviderLabel uppercases unknown labels`() {
+        assertEquals("PASSIVE", LocationLiveUpdateNotificationRenderer.normalizeProviderLabel("passive"))
+        assertEquals("TEST", LocationLiveUpdateNotificationRenderer.normalizeProviderLabel("test"))
+    }
+
+    @Test
+    fun `collapsed text contains normalized provider`() {
+        var capturedNotification: Notification? = null
+        LocationLiveUpdateNotificationRenderer.tryBuildAndNotify(
+            ctx = ctx,
+            content = content(providerLabel = "gps"),
+            createChannel = { _, _ -> },
+            notifyFn = { _, notification -> capturedNotification = notification }
+        )
+        val collapsed = capturedNotification?.extras?.getString(Notification.EXTRA_TEXT) ?: ""
+        assertTrue("collapsed text should contain GPS", collapsed.contains("GPS"))
+        assertFalse("collapsed text should not contain raw lowercase gps", collapsed.contains("· gps"))
+    }
+
+    @Test
+    fun `big text contains normalized provider`() {
+        var capturedNotification: Notification? = null
+        LocationLiveUpdateNotificationRenderer.tryBuildAndNotify(
+            ctx = ctx,
+            content = content(providerLabel = "network"),
+            createChannel = { _, _ -> },
+            notifyFn = { _, notification -> capturedNotification = notification }
+        )
+        val bigText = capturedNotification?.extras?.getString(Notification.EXTRA_BIG_TEXT) ?: ""
+        assertTrue("big text should contain NETWORK", bigText.contains("NETWORK"))
+        assertFalse("big text should not contain raw lowercase network", bigText.contains("network"))
+    }
+
+    @Test
     fun `cancel pending intent action uses pim scheme with sessionId and cancel`() {
         val cancelIntent = LocationLiveUpdateNotificationRenderer.cancelPendingIntent(ctx, "test-session-42")
         val shadow = Shadows.shadowOf(cancelIntent)

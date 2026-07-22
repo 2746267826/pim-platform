@@ -26,6 +26,12 @@ object LocationLiveUpdateNotificationRenderer {
     const val OPEN_REQUEST_CODE = 71021
     const val DELETE_REQUEST_CODE = 71022
 
+    internal fun shortCriticalText(accuracyMeters: Float?): String =
+        if (accuracyMeters != null) "±%.0fm".format(accuracyMeters) else "定位中"
+
+    internal fun normalizeProviderLabel(provider: String): String =
+        provider.uppercase()
+
     const val ACTION_CANCEL_LOCATION_SESSION = "com.pim.app.location.action.CANCEL_LOCATION_SESSION"
     const val ACTION_DISMISS_LOCATION_LIVE_UPDATE = "com.pim.app.location.action.DISMISS_LOCATION_LIVE_UPDATE"
 
@@ -52,9 +58,10 @@ object LocationLiveUpdateNotificationRenderer {
 
         val title = if (content.triggerType.name == "MANUAL") "手动定位" else "自动定位"
         val accuracy = content.accuracyMeters?.let { "%.0f".format(it) } ?: "?"
-        val contentText = "阶段：采集中 · 耗时：${content.elapsedSeconds}s · 精度：${accuracy}m · 提供方：${content.providerLabel}"
+        val normalizedProvider = normalizeProviderLabel(content.providerLabel)
+        val contentText = "阶段：采集中 · 耗时：${content.elapsedSeconds}s · 精度：${accuracy}m · 提供方：$normalizedProvider"
 
-        createChannel(CHANNEL_ID, "PIM 定位 Live Update")
+        createChannel(CHANNEL_ID, "定位动态")
 
         val notification = buildNotification(ctx, content, title, contentText)
         notifyFn(LIVE_UPDATE_NOTIFICATION_ID, notification)
@@ -96,10 +103,11 @@ object LocationLiveUpdateNotificationRenderer {
         title: String,
         contentText: String
     ): Notification {
+        val collapsedProvider = normalizeProviderLabel(content.providerLabel)
         val builder = Notification.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle(title)
-            .setContentText(collapsedText(content.elapsedSeconds, content.providerLabel))
+            .setContentText(collapsedText(content.elapsedSeconds, collapsedProvider))
             .setStyle(Notification.BigTextStyle().bigText(contentText))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -128,7 +136,7 @@ object LocationLiveUpdateNotificationRenderer {
         if (Build.VERSION.SDK_INT >= 36) {
             try {
                 builder.setRequestPromotedOngoing(true)
-                builder.setShortCriticalText("定位采集中")
+                builder.setShortCriticalText(shortCriticalText(content.accuracyMeters))
             } catch (_: LinkageError) {
             }
         }

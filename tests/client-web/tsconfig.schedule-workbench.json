@@ -6,6 +6,9 @@
     "typeRoots": ["../../src/client-web/node_modules/@types"]
   },
   "include": [
+    "./unifiedEventFields.test.ts",
+    "./eventFieldDiff.test.ts",
+    "./safeHtml.test.ts",
     "./scheduleWorkbenchTypes.test.ts",
     "./scheduleWorkbenchCompletionTypes.test.ts"
   ]

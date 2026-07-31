@@ -24,6 +24,43 @@ export interface CalendarResponse {
   canEdit?: boolean;
 }
 
+export interface EventPerson {
+  name?: string | null;
+  email?: string | null;
+}
+
+export interface EventAttendee {
+  name?: string | null;
+  email: string;
+  type?: string;
+}
+
+export interface EventAttachmentReference {
+  kind: string;
+  id: string;
+  name: string;
+  contentType?: string | null;
+  size?: number | null;
+  canDownload?: boolean;
+}
+
+export interface OutlookAdditionalInfoItem {
+  key: string;
+  label: string;
+  value: string;
+}
+
+export interface OutlookAdditionalInfoGroup {
+  key: string;
+  label: string;
+  items: OutlookAdditionalInfoItem[];
+}
+
+export interface OutlookAdditionalInfo {
+  groups: OutlookAdditionalInfoGroup[];
+  hiddenFieldCount: number;
+}
+
 export interface EventResponse {
   id: string;
   calendarId: string;
@@ -41,7 +78,6 @@ export interface EventResponse {
   timeZoneId?: string;
   sourceTimeZoneId?: string;
   sourceUid?: string;
-  externalMetadataJson?: string;
   recurrenceId?: string;
   exDatesJson?: string;
   recurrenceMetadataJson?: string;
@@ -49,6 +85,21 @@ export interface EventResponse {
   outlookEventId?: string;
   outlookEtag?: string;
   outlookEventType?: string;
+  outlookAdditionalInfo?: OutlookAdditionalInfo | null;
+  descriptionFormat?: string | null;
+  showAs?: string | null;
+  importance?: string | null;
+  sensitivity?: string | null;
+  categories?: string[] | null;
+  isReminderOn?: boolean | null;
+  reminderMinutesBeforeStart?: number | null;
+  organizer?: EventPerson | null;
+  attendees?: EventAttendee[] | null;
+  isOnlineMeeting?: boolean | null;
+  onlineMeetingProvider?: string | null;
+  onlineMeetingUrl?: string | null;
+  externalLink?: string | null;
+  attachmentReferences?: EventAttachmentReference[] | null;
 }
 
 export interface TaskResponse {
@@ -527,17 +578,34 @@ export interface OutlookLocalDataPreview {
   eventCount: number;
 }
 
-export interface OutlookEventDraft {
+export interface UnifiedEventDraft {
   calendarId: string;
   title: string;
-  description?: string;
-  location?: string;
+  description?: string | null;
+  descriptionFormat?: string | null;
+  location?: string | null;
   dtStart: string;
   dtEnd: string;
+  isAllDay?: boolean;
+  timeZoneId?: string | null;
+  showAs?: string | null;
+  importance?: string | null;
+  sensitivity?: string | null;
+  categories?: string[] | null;
+  isReminderOn?: boolean | null;
+  reminderMinutesBeforeStart?: number | null;
+  organizer?: EventPerson | null;
+  attendees?: EventAttendee[] | null;
+  isOnlineMeeting?: boolean | null;
+  onlineMeetingProvider?: string | null;
+  onlineMeetingUrl?: string | null;
+  externalLink?: string | null;
+  attachmentReferences?: EventAttachmentReference[] | null;
+}
+
+export interface OutlookEventDraft extends UnifiedEventDraft {
   rRule?: string;
   uid?: string;
-  isAllDay?: boolean;
-  timeZoneId?: string;
 }
 
 export interface OutlookWriteRequest {
@@ -553,7 +621,9 @@ export interface OutlookWriteRequest {
 export interface OutlookWriteResult {
   status: string;
   event?: EventResponse | null;
+  /** @deprecated Raw Outlook JSON snapshot; use latestEvent instead. */
   latestOutlookJson?: string | null;
+  latestEvent?: EventResponse | null;
   latestEtag?: string | null;
   errorCode?: string | null;
   errorMessage?: string | null;

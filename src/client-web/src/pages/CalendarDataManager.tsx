@@ -423,16 +423,6 @@ export default function CalendarDataManager() {
                   </dd>
                 </div>
               )}
-              {detailEvent.externalMetadataJson && detailEvent.externalMetadataJson !== '{}' && (
-                <div>
-                  <dt className="text-gray-400">保留元数据</dt>
-                  <dd>
-                    <pre className="max-h-40 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-700 whitespace-pre-wrap">
-                      {detailEvent.externalMetadataJson}
-                    </pre>
-                  </dd>
-                </div>
-              )}
               <div><dt className="text-gray-400">状态</dt><dd>{detailEvent.status}</dd></div>
             </dl>
           </div>

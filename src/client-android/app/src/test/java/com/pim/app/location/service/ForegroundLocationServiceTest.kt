@@ -1213,31 +1213,56 @@ class ForegroundLocationServiceTest {
 
         invokeStartAutomaticLoop(service)
         idleUntil { harness.runner.acquireCount.get() == 1 }
-        val firstSessionId = harness.coordinator.state.value.sessionId
-        assertNotNull(firstSessionId)
-        assertEquals(1, harness.runner.acquireCount.get())
-
-        // Completing a different session id must not advance the loop.
-        harness.forceState(
-            LocationAcquisitionState(
-                sessionId = "other-session",
-                triggerType = TriggerType.AUTOMATIC,
-                phase = AcquisitionPhase.Completed
+        val startedId = harness.coordinator.state.value.sessionId
+        assertNotNull(startedId)
+        assertTrue(
+            "started automatic session must still be non-terminal while the loop waits",
+            harness.coordinator.state.value.phase !in setOf(
+                AcquisitionPhase.Completed,
+                AcquisitionPhase.TimedOut,
+                AcquisitionPhase.Failed,
+                AcquisitionPhase.Cancelled
             )
         )
-        shadowOf(Looper.getMainLooper()).idle()
-        assertEquals(1, harness.runner.acquireCount.get())
 
+        // A non-terminal transition of the SAME session resumes the terminal
+        // waiter, which must re-suspend instead of starting the next round.
         harness.forceState(
             LocationAcquisitionState(
-                sessionId = firstSessionId,
+                sessionId = startedId,
                 triggerType = TriggerType.AUTOMATIC,
-                phase = AcquisitionPhase.Completed,
+                phase = AcquisitionPhase.Evaluating,
                 bestLocation = acceptedSnapshot()
             )
         )
+        shadowOf(Looper.getMainLooper()).idle()
+        // Deterministic: the counter can only be advanced by a new acquire,
+        // which requires the waiter to release, and the own session is still
+        // non-terminal, so no other thread can increment it here.
+        assertEquals(1, harness.runner.acquireCount.get())
+
+        // The same session reaching its matching terminal releases the waiter
+        // and starts the next round.
+        harness.runner.completeCurrent(
+            LocationEngineResult(
+                sessionId = startedId!!,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
+        idleUntil { harness.coordinator.state.value.phase == AcquisitionPhase.TimedOut }
+        // The loop registers its own 1s delay for the next round only after
+        // the terminal lands on the main looper, so keep advancing virtual
+        // time until the next acquire actually starts (idleUntil never does).
         shadowOf(Looper.getMainLooper()).idleFor(1_000L, TimeUnit.MILLISECONDS)
-        idleUntil { harness.runner.acquireCount.get() >= 2 }
+        val diagDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (harness.runner.acquireCount.get() < 2) {
+            shadowOf(Looper.getMainLooper()).idleFor(100L, TimeUnit.MILLISECONDS)
+            if (System.nanoTime() > diagDeadline) {
+                throw AssertionError("automatic loop must start the next round after the matching terminal")
+            }
+            Thread.yield()
+        }
         assertTrue(harness.runner.acquireCount.get() >= 2)
         service.onDestroy()
     }

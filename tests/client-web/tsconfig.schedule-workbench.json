@@ -10,6 +10,7 @@
     "./eventFieldDiff.test.ts",
     "./safeHtml.test.ts",
     "./scheduleWorkbenchTypes.test.ts",
-    "./scheduleWorkbenchCompletionTypes.test.ts"
+    "./scheduleWorkbenchCompletionTypes.test.ts",
+    "./unifiedEventEditorUi.test.tsx"
   ]
 }

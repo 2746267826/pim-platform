@@ -338,7 +338,7 @@ git commit -m "feat: persist unified event fields safely"
 - Modify: `tests/Pim.UnitTests/Calendar/OutlookCalendarSyncServiceTests.cs`
 - Create: `tests/Pim.UnitTests/Calendar/Fixtures/graph-event-pr2.json`
 
-- [ ] **Step 3.1: Add a complete real-shape Graph fixture and RED mapper tests**
+- [x] **Step 3.1: Add a complete real-shape Graph fixture and RED mapper tests**
 
 The fixture must include:
 
@@ -371,11 +371,11 @@ The fixture must include:
 
 Tests must assert typed mappings, Teams provider normalization to `teams`, reminder-off semantics, safe normalized `Description`, exact raw body under `sourceSnapshot.body`, read-only/unknown fields under `unmapped`, and absence of mapped keys from `unmapped`.
 
-- [ ] **Step 3.2: Add RED Graph projection tests**
+- [x] **Step 3.2: Add RED Graph projection tests**
 
-Require `CalendarEventSelect` to contain all PR2 known fields plus `hasAttachments`, `singleValueExtendedProperties`, and `multiValueExtendedProperties`. Preserve pagination, authentication, retry, and URL escaping assertions unchanged.
+Require `CalendarEventSelect` to contain all PR2 supported scalar fields plus `hasAttachments`. `singleValueExtendedProperties` and `multiValueExtendedProperties` are Graph navigation collections and must not be sent as `$select` fields; if a response includes them, the mapper preserves them in the private property bag. Preserve pagination, authentication, retry, and URL escaping assertions unchanged.
 
-- [ ] **Step 3.3: Run the RED tests**
+- [x] **Step 3.3: Run the RED tests**
 
 ```powershell
 dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "FullyQualifiedName~OutlookEventMapperTests|FullyQualifiedName~GraphCalendarClientTests"
@@ -383,20 +383,21 @@ dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "Full
 
 Expected: FAIL on missing fields and empty `ExternalMetadataJson`.
 
-- [ ] **Step 3.4: Extend the Graph projection without changing transport behavior**
+- [x] **Step 3.4: Extend the Graph projection without changing transport behavior**
 
-Append these fields to `CalendarEventSelect`:
+Append these supported scalar fields to `CalendarEventSelect`:
 
 ```text
 importance,sensitivity,showAs,categories,isReminderOn,reminderMinutesBeforeStart,
 organizer,attendees,isOnlineMeeting,onlineMeetingProvider,onlineMeeting,webLink,
-responseRequested,allowNewTimeProposals,hideAttendees,hasAttachments,
-singleValueExtendedProperties,multiValueExtendedProperties
+responseRequested,allowNewTimeProposals,hideAttendees,hasAttachments
 ```
 
 Do not alter `GraphBase`, authentication, pagination, retry, or opaque nextLink handling.
 
-- [ ] **Step 3.5: Implement mapping and a versioned private metadata envelope**
+Graph extended-property navigation collections require an explicit `$expand` with known property IDs and cannot be requested generically through `$select`. PR2 therefore uses a passive lossless path: any extended properties present in a Graph response are retained structurally in the private envelope, while the normal event queries avoid an unsupported request shape.
+
+- [x] **Step 3.5: Implement mapping and a versioned private metadata envelope**
 
 Use this stable JSON shape:
 
@@ -404,7 +405,8 @@ Use this stable JSON shape:
 {
   "mappingVersion": 2,
   "sourceSnapshot": {
-    "body": { "contentType": "html", "content": "original source" }
+    "body": { "contentType": "html", "content": "original source" },
+    "event": "complete raw Graph event clone"
   },
   "unmapped": {
     "responseRequested": true,
@@ -413,15 +415,15 @@ Use this stable JSON shape:
 }
 ```
 
-`ApplyGraphEvent` must enumerate the complete `JsonElement`, map known fields, remove known top-level keys from the private `unmapped` object, and serialize the remaining values without converting them to strings. Never include request/response headers or tokens. Preserve extended properties exactly when returned.
+`ApplyGraphEvent` must enumerate the complete `JsonElement`, map known fields, remove known top-level keys from the private `unmapped` object, and serialize the remaining values without converting them to strings. The complete raw event is also cloned under `sourceSnapshot.event` so unmapped nested members of known objects are not discarded. Never include request/response headers or tokens. Preserve extended properties exactly when returned.
 
 Map providers as follows: `teamsForBusiness`/`skypeForBusiness`/`skypeForConsumer` -> `teams`; `unknown` -> null; other non-empty providers -> `other`. Map `onlineMeeting.joinUrl`, falling back to root `onlineMeetingUrl` if present.
 
-- [ ] **Step 3.6: Verify full-resources backfill uses the new mapper**
+- [x] **Step 3.6: Verify full-resources backfill uses the new mapper**
 
 Add a sync test that seeds an old Outlook event with `ExternalMetadataJson == "{}"`, executes an existing `full-resources` sync page, and asserts the same row is updated with mapping version 2 and new typed fields. Do not invent a second backfill engine; the existing full-resource sync is the supported idempotent recovery path.
 
-- [ ] **Step 3.7: Run GREEN tests and commit**
+- [x] **Step 3.7: Run GREEN tests and commit**
 
 ```powershell
 dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "FullyQualifiedName~OutlookEventMapperTests|FullyQualifiedName~GraphCalendarClientTests|FullyQualifiedName~OutlookCalendarSyncServiceTests"

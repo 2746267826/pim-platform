@@ -4,8 +4,14 @@ import com.pim.app.location.LocationSnapshot
 import com.pim.app.location.acquisition.AcquisitionPhase
 import com.pim.app.location.acquisition.LocationAcquisitionState
 import com.pim.app.location.acquisition.TriggerType
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.OptIn
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -202,6 +208,196 @@ class LocationLiveUpdatePublisherTest {
         testScope.advanceUntilIdle()
         assertTrue("new session should publish despite old suppression", publishCalls.isNotEmpty())
         assertEquals("s-new", publishCalls.first().sessionId)
+    }
+
+    @Test
+    fun `suppress after publish immediately cancels the posted notification exactly once`() {
+        publisher.start(testScope)
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 1000
+        )
+        testScope.advanceUntilIdle()
+        assertEquals(1, publishCalls.size)
+
+        publisher.suppressSession("s1")
+
+        assertEquals(
+            "suppress must immediately cancel the already posted notification exactly once",
+            1, cancelCalls
+        )
+    }
+
+    @Test
+    fun `suppress after publish blocks future publishes for that session`() {
+        publisher.start(testScope)
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 1000
+        )
+        testScope.advanceUntilIdle()
+        assertEquals(1, publishCalls.size)
+
+        publisher.suppressSession("s1")
+        fakeClockMs = 5000L
+
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 6000
+        )
+        testScope.advanceUntilIdle()
+        assertEquals("suppressed session must not republish", 1, publishCalls.size)
+    }
+
+    @Test
+    fun `suppress old session does not cancel notification owned by newer session`() {
+        publisher.start(testScope)
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 1000
+        )
+        testScope.advanceUntilIdle()
+        assertEquals(1, publishCalls.size)
+
+        fakeClockMs = 5000L
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s2",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 2000
+        )
+        testScope.advanceUntilIdle()
+        assertEquals(2, publishCalls.size)
+        assertEquals("s2", publishCalls.last().sessionId)
+
+        publisher.suppressSession("s1")
+
+        assertEquals(
+            "suppressing an older session must not remove the newer session notification",
+            0, cancelCalls
+        )
+    }
+
+    @Test
+    fun `cancelStaleNotification does not remove a published session notification`() {
+        publisher.start(testScope)
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 1000
+        )
+        testScope.advanceUntilIdle()
+        fakeClockMs = 5000L
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s2",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 2000
+        )
+        testScope.advanceUntilIdle()
+        assertEquals("s2", publishCalls.last().sessionId)
+
+        publisher.cancelStaleNotification()
+
+        assertEquals(
+            "stale cleanup must not cancel the notification owned by the current published session",
+            0, cancelCalls
+        )
+    }
+
+    @Test
+    fun `leaving acquiring after suppress does not re-cancel the removed session`() {
+        publisher.start(testScope)
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 1000
+        )
+        testScope.advanceUntilIdle()
+        assertEquals(1, publishCalls.size)
+
+        publisher.suppressSession("s1")
+        assertEquals(1, cancelCalls)
+
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = null,
+            phase = AcquisitionPhase.Idle,
+            elapsedMs = 0
+        )
+        testScope.advanceUntilIdle()
+        assertEquals(
+            "leaving acquiring must not cancel again a session already removed by suppress",
+            1, cancelCalls
+        )
+    }
+
+    @Test
+    fun `suppress racing in-flight publish cancels exactly once and blocks republish`() {
+        val publishEntered = CountDownLatch(1)
+        val releasePublish = CountDownLatch(1)
+        val executor = Executors.newSingleThreadExecutor()
+        val scope = CoroutineScope(executor.asCoroutineDispatcher())
+        publisher = LocationLiveUpdatePublisher(
+            stateFlow = stateFlow,
+            clockMs = { fakeClockMs },
+            publishFn = { content ->
+                publishCalls.add(PublishCall(
+                    content.sessionId,
+                    content.triggerType,
+                    content.elapsedSeconds,
+                    content.accuracyMeters,
+                    content.providerLabel
+                ))
+                publishEntered.countDown()
+                releasePublish.await()
+                true
+            },
+            cancelFn = { cancelCalls++ }
+        )
+        publisher.start(scope)
+
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 1000
+        )
+        publishEntered.await()
+
+        val suppressThread = Thread { publisher.suppressSession("s1") }
+        suppressThread.start()
+        releasePublish.countDown()
+        suppressThread.join()
+
+        fakeClockMs = 5000L
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 6000
+        )
+        val collectorDrained = CompletableFuture<Void>()
+        executor.execute { collectorDrained.complete(null) }
+        collectorDrained.get(5, TimeUnit.SECONDS)
+
+        scope.cancel()
+        executor.shutdown()
+
+        assertEquals(
+            "concurrent suppress while publish is in flight must still cancel exactly once",
+            1, cancelCalls
+        )
+        assertEquals("suppressed session must not republish after the race", 1, publishCalls.size)
     }
 
     @Test
@@ -403,6 +599,79 @@ class LocationLiveUpdatePublisherTest {
             2, publishCalls.size
         )
         assertEquals(10f, publishCalls.last().accuracyMeters)
+    }
+
+    @Test
+    fun `Acquiring to Evaluating candidate update neither cancels nor suppresses null-to-finite accuracy refresh`() {
+        publisher.start(testScope)
+        fakeClockMs = 10000L
+
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 1000,
+            bestLocation = null
+        )
+        testScope.advanceUntilIdle()
+        assertEquals("first publish with no accuracy should happen", 1, publishCalls.size)
+        assertEquals(null, publishCalls.first().accuracyMeters)
+
+        fakeClockMs = 11500L
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Evaluating,
+            elapsedMs = 2500,
+            bestLocation = locationSnapshot(accuracy = 10f)
+        )
+        testScope.advanceUntilIdle()
+        assertEquals("Evaluating must remain an active publication phase", 0, cancelCalls)
+        assertEquals(
+            "null-to-finite accuracy refresh must publish while Evaluating",
+            2, publishCalls.size
+        )
+        assertEquals(10f, publishCalls.last().accuracyMeters)
+    }
+
+    @Test
+    fun `Evaluating candidate transition to terminal phase still cancels the live update`() {
+        publisher.start(testScope)
+        fakeClockMs = 10000L
+
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 1000,
+            bestLocation = locationSnapshot(accuracy = 50f)
+        )
+        testScope.advanceUntilIdle()
+        assertEquals("first publish should happen", 1, publishCalls.size)
+        val cancelBefore = cancelCalls
+
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Evaluating,
+            elapsedMs = 2000,
+            bestLocation = locationSnapshot(accuracy = 50f)
+        )
+        testScope.advanceUntilIdle()
+        assertEquals("Evaluating must not cancel", 0, cancelCalls)
+
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Cancelled,
+            elapsedMs = 3000,
+            bestLocation = locationSnapshot(accuracy = 50f)
+        )
+        testScope.advanceUntilIdle()
+        assertTrue(
+            "terminal transition from Evaluating must cancel the live update",
+            cancelCalls > cancelBefore
+        )
     }
 
     @Test

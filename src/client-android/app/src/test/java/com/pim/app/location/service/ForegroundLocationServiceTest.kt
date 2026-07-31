@@ -42,6 +42,7 @@ import com.pim.app.schedule.ScheduleWindowRepository
 import com.pim.app.settings.TrackingSettingsStore
 import com.pim.app.status.QueueStatusRepository
 import com.pim.app.status.QueueStatusSnapshot
+import com.pim.app.testing.InMemorySharedPreferences
 import com.pim.core.auth.AuthSessionSnapshot
 import com.pim.core.auth.AuthSessionStore
 import com.pim.core.models.ApiResponse
@@ -533,7 +534,8 @@ class ForegroundLocationServiceTest {
             "collapsedText 应包含同步状态: $syncMsg",
             syncMsg.contains("同步请求已提交")
         )
-        assertEquals(73, shadowOf(service2).stopSelfId)
+        // 手动专用实例的 sync 收尾必须使用无条件 stopSelf()（不记录 startId）
+        assertEquals(0, shadowOf(service2).stopSelfId)
 
         service2.onDestroy()
         val nFinal = findNotification(nm)
@@ -1353,8 +1355,11 @@ class ForegroundLocationServiceTest {
             harness.coordinator.state.value.sessionId == sessionId &&
                 harness.coordinator.state.value.phase == AcquisitionPhase.AwaitingManualSubmit
         }
-        idleUntil { shadowOf(service).isForegroundStopped || shadowOf(service).isStoppedBySelf }
-        assertTrue(shadowOf(service).isForegroundStopped || shadowOf(service).isStoppedBySelf)
+        idleUntil { shadowOf(service).isStoppedBySelf }
+        assertTrue(
+            "manual-only session must stop the service itself, not merely remove foreground",
+            shadowOf(service).isStoppedBySelf
+        )
         service.onDestroy()
     }
 
@@ -1436,16 +1441,299 @@ class ForegroundLocationServiceTest {
         )
         assertEquals(AcquisitionPhase.Cancelled, harness.coordinator.state.value.phase)
 
-        // Null extra cancels current session when present.
+        // A missing extra must never be forwarded to the coordinator as a
+        // wildcard cancellation: the current session stays untouched.
         val started2 = harness.coordinator.startManualSession() as SessionStartResult.Started
         assertEquals(started2.sessionId, harness.coordinator.state.value.sessionId)
-        service.onStartCommand(
+        val result = service.onStartCommand(
             Intent(context, ForegroundLocationService::class.java)
                 .setAction(ForegroundLocationController.ACTION_CANCEL_LOCATION_SESSION),
             0,
             32
         )
+        assertEquals(android.app.Service.START_STICKY, result)
+        assertEquals(started2.sessionId, harness.coordinator.state.value.sessionId)
+        assertTrue(
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun manualOnlyCancelReleasesForegroundTeardownWaiter() {
+        grantCollectionPrerequisites()
+        val harness = newHarness()
+        val store = trackingStore("fg_manual_cancel_release_", enabled = false)
+        val service = buildService(harness = harness, trackingStore = store)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0,
+            61
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        assertFalse(shadowOf(service).isForegroundStopped)
+        assertNotNull(findNotification(nm))
+
+        val sessionId = harness.runner.lastRequest!!.sessionId
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_CANCEL_LOCATION_SESSION)
+                .putExtra(ForegroundLocationController.EXTRA_SESSION_ID, sessionId),
+            0,
+            62
+        )
+        idleUntil { shadowOf(service).isStoppedBySelf }
+        assertTrue(
+            "cancelled manual session must stop the service (not merely remove foreground)",
+            shadowOf(service).isStoppedBySelf
+        )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun secondManualStartWhileAcquiringKeepsFirstSessionAndForeground() {
+        grantCollectionPrerequisites()
+        val harness = newHarness()
+        val store = trackingStore("fg_double_start_", enabled = false)
+        val service = buildService(harness = harness, trackingStore = store)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 81
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        assertFalse(shadowOf(service).isForegroundStopped)
+        assertNotNull(findNotification(nm))
+        val firstSessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(firstSessionId)
+
+        // A rapid double-start while the first session is still acquiring must
+        // be idempotent: the first manual session and its foreground
+        // notification are preserved; only its terminal waiter tears down.
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 82
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(firstSessionId, harness.coordinator.state.value.sessionId)
+        assertTrue(
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+        assertFalse(
+            "busy second start must not stop the service",
+            shadowOf(service).isStoppedBySelf
+        )
+        assertFalse(
+            "busy second start must not remove the foreground state",
+            shadowOf(service).isForegroundStopped
+        )
+        assertNotNull(
+            "busy second start must keep the first session notification",
+            findNotification(nm)
+        )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun manualCancelOnFreshInstanceWithoutWaiterStopsServiceUnconditionally() {
+        grantCollectionPrerequisites()
+        val harness = newHarness()
+        val store = trackingStore("fg_cancel_fresh_", enabled = false)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        // Instance A runs a manual-only session to AwaitingManualSubmit; its
+        // terminal waiter stops the instance.
+        val serviceA = buildService(harness = harness, trackingStore = store)
+        serviceA.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 71
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        harness.runner.emitCandidate(acceptedSnapshot())
+        idleUntil {
+            harness.coordinator.state.value.phase == AcquisitionPhase.AwaitingManualSubmit
+        }
+        idleUntil { shadowOf(serviceA).isStoppedBySelf }
+        val sessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(sessionId)
+        serviceA.onDestroy()
+
+        // A fresh instance handles the cancel; it has no terminal waiter, so the
+        // cancel itself must stop the service unconditionally and stay
+        // non-sticky, otherwise the instance is a zombie that may be recreated
+        // with a null sticky intent.
+        val serviceB = buildService(harness = harness, trackingStore = store)
+        val result = serviceB.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_CANCEL_LOCATION_SESSION)
+                .putExtra(ForegroundLocationController.EXTRA_SESSION_ID, sessionId),
+            0, 72
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
         assertEquals(AcquisitionPhase.Cancelled, harness.coordinator.state.value.phase)
+        assertEquals(android.app.Service.START_NOT_STICKY, result)
+        assertTrue(
+            "cancel on a waiter-less manual-only instance must stop the service",
+            shadowOf(serviceB).isStoppedBySelf
+        )
+        assertTrue(
+            "cancel must remove the foreground state",
+            shadowOf(serviceB).isForegroundStopped
+        )
+        assertNull(findNotification(nm))
+        serviceB.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun manualSyncFinallyStopsUnconditionallyDespiteNewerStartId() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        WorkManagerTestInitHelper.initializeTestWorkManager(context)
+        val store = trackingStore("fg_sync_unconditional_", enabled = false)
+        val service = buildService(trackingStore = store)
+        service.mobileSyncScheduler = MobileSyncScheduler(context, store)
+
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_SYNC_NOW),
+            0, 73
+        )
+        // A newer sync start id must not keep the manual-only service alive:
+        // the finally path must terminate with unconditional stopSelf().
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_SYNC_NOW),
+            0, 74
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertTrue(shadowOf(service).isStoppedBySelf)
+        assertEquals(
+            "manual-only sync termination must use unconditional stopSelf(), not stopSelf(startId)",
+            0,
+            shadowOf(service).stopSelfId
+        )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun automaticLoopProgressesWhenMatchingSessionIsCancelled() {
+        val harness = newHarness()
+        val store = trackingStore("fg_auto_cancel_progress_", enabled = true)
+        val service = buildService(harness = harness, trackingStore = store)
+        invokeApplyDecision(
+            service,
+            PolicyDecision(
+                mode = LocationPolicyMode.PowerSavingNormal,
+                requestIntervalMillis = 1_000L,
+                nextExpectedLocationAtMillis = 1_000L,
+                reason = "测试间隔",
+                scheduleLowFrequency = false
+            )
+        )
+
+        invokeStartAutomaticLoop(service)
+        idleUntil { harness.runner.acquireCount.get() == 1 }
+        val firstSessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(firstSessionId)
+
+        harness.coordinator.cancelCurrentSession(firstSessionId)
+        shadowOf(Looper.getMainLooper()).idleFor(1_000L, TimeUnit.MILLISECONDS)
+        idleUntil { harness.runner.acquireCount.get() >= 2 }
+        assertTrue(
+            "cancelled matching session must release the automatic loop waiter",
+            harness.runner.acquireCount.get() >= 2
+        )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun cancelWithoutSessionIdDuringCancellablePhaseIsFailClosed() {
+        grantCollectionPrerequisites()
+        val harness = newHarness()
+        val store = trackingStore("fg_cancel_null_cancellable_", enabled = false)
+        val service = buildService(harness = harness, trackingStore = store)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 71
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val sessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(sessionId)
+        assertTrue(
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+        assertNotNull(findNotification(nm))
+
+        // A cancel intent without EXTRA_SESSION_ID must fail closed during a
+        // cancellable phase: no wildcard cancellation, no stop, no foreground
+        // teardown, no 7101 removal.
+        val result = service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_CANCEL_LOCATION_SESSION),
+            0, 72
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(sessionId, harness.coordinator.state.value.sessionId)
+        assertTrue(
+            "session must remain active and cancellable",
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+        assertEquals(android.app.Service.START_STICKY, result)
+        assertFalse(
+            "missing-id cancel must not stop the service",
+            shadowOf(service).isStoppedBySelf
+        )
+        assertFalse(
+            "missing-id cancel must not remove the foreground state",
+            shadowOf(service).isForegroundStopped
+        )
+        assertNotNull(
+            "missing-id cancel must keep the 7101 notification",
+            findNotification(nm)
+        )
         service.onDestroy()
     }
 
@@ -1466,26 +1754,961 @@ class ForegroundLocationServiceTest {
     }
 
     @Test
-    fun onDestroyCancelsEvaluatingSessionViaExplicitCheck() {
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun onDestroyDuringOwnedAwaitingManualSubmitWindowPreservesResult() {
+        grantCollectionPrerequisites()
+        val harness = newHarness()
+        val store = trackingStore("fg_await_window_destroy_", enabled = false)
+        val service = buildService(harness = harness, trackingStore = store)
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 1
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val sessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(sessionId)
+
+        // Advance the coordinator to AwaitingManualSubmit WITHOUT idling the
+        // paused main looper: the terminal waiter's resumption is queued but
+        // has not run yet, which is exactly the deterministic window in which
+        // an unexpected onDestroy must not cancel the owned result.
+        harness.runner.emitCandidate(acceptedSnapshot())
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (harness.coordinator.state.value.phase != AcquisitionPhase.AwaitingManualSubmit) {
+            if (System.nanoTime() > deadline) {
+                throw AssertionError("manual result did not reach AwaitingManualSubmit")
+            }
+            Thread.yield()
+        }
+
+        service.onDestroy()
+
+        assertEquals(sessionId, harness.coordinator.state.value.sessionId)
+        assertEquals(
+            "owned AwaitingManualSubmit result must survive an unexpected onDestroy",
+            AcquisitionPhase.AwaitingManualSubmit,
+            harness.coordinator.state.value.phase
+        )
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun onDestroyCancelsOwnedManualSessionOnUnexpectedDestruction() {
+        val harness = newHarness()
+        val store = trackingStore("fg_owned_destroy_", enabled = false)
+        val service = buildService(harness = harness, trackingStore = store)
+        // Unexpected service destruction (no explicit PAUSE/STOP_COLLECTION teardown)
+        // must still cancel the manual session this instance actually started.
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 1
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val sessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(sessionId)
+
+        service.onDestroy()
+        assertEquals(sessionId, harness.coordinator.state.value.sessionId)
+        assertEquals(AcquisitionPhase.Cancelled, harness.coordinator.state.value.phase)
+    }
+
+    @Test
+    fun onDestroyPreservesExternalManualSession() {
         val harness = newHarness()
         val service = buildService(harness = harness)
-        // The isPausing=true path skips stopCollection → cancelActiveAutomaticSession,
-        // so the explicit phase check in onDestroy() is the only cleanup.
-        // Currently it omits Evaluating; the test verifies it gets added.
-        val isPausingField = ForegroundLocationService::class.java
-            .getDeclaredField("isPausing")
-            .apply { isAccessible = true }
-        isPausingField.setBoolean(service, true)
-
+        // The active manual session was started by another instance, the UI
+        // controller or an unrelated path, not by this instance: unexpected
+        // destruction must preserve it.
         harness.forceState(
             LocationAcquisitionState(
-                sessionId = "eval-session",
+                sessionId = "external-manual",
                 triggerType = TriggerType.MANUAL,
                 phase = AcquisitionPhase.Evaluating
             )
         )
         service.onDestroy()
+        assertEquals("external-manual", harness.coordinator.state.value.sessionId)
+        assertTrue(
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun explicitCollectionStopPreservesActiveManualSessionAcrossTeardown() {
+        grantCollectionPrerequisites()
+        val harness = newHarness()
+        val store = trackingStore("fg_stop_manual_preserve_", enabled = true)
+        val service = buildService(harness = harness, trackingStore = store)
+
+        val manual = harness.coordinator.startManualSession() as SessionStartResult.Started
+        idleUntil { harness.coordinator.state.value.sessionId == manual.sessionId }
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_STOP_COLLECTION),
+            0,
+            51
+        )
+        // Production teardown runs onDestroy() after the explicit stop.
+        service.onDestroy()
+
+        assertEquals(manual.sessionId, harness.coordinator.state.value.sessionId)
+        assertEquals(TriggerType.MANUAL, harness.coordinator.state.value.triggerType)
+        assertTrue(
+            "explicit collection stop must not cancel an active manual session",
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun explicitPausePreservesActiveManualSessionAcrossTeardown() {
+        grantCollectionPrerequisites()
+        val harness = newHarness()
+        val store = trackingStore("fg_pause_manual_preserve_", enabled = true)
+        val service = buildService(harness = harness, trackingStore = store)
+
+        val manual = harness.coordinator.startManualSession() as SessionStartResult.Started
+        idleUntil { harness.coordinator.state.value.sessionId == manual.sessionId }
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_PAUSE_COLLECTION),
+            0,
+            53
+        )
+        // Production teardown runs onDestroy() after the explicit pause.
+        service.onDestroy()
+
+        assertEquals(manual.sessionId, harness.coordinator.state.value.sessionId)
+        assertEquals(TriggerType.MANUAL, harness.coordinator.state.value.triggerType)
+        assertTrue(
+            "explicit pause must not cancel an active manual session",
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun stopThenManualSessionUnexpectedDestroyCancelsNewManualSession() {
+        val harness = newHarness()
+        val store = trackingStore("fg_stop_then_manual_", enabled = true)
+        val service = buildService(harness = harness, trackingStore = store)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_STOP_COLLECTION),
+            0,
+            1
+        )
+
+        // A new manual session on the same instance clears the explicit-teardown
+        // flags; unexpected destruction must then cancel this new session.
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0,
+            2
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val manualSessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(manualSessionId)
+
+        service.onDestroy()
+
+        assertEquals(manualSessionId, harness.coordinator.state.value.sessionId)
         assertEquals(AcquisitionPhase.Cancelled, harness.coordinator.state.value.phase)
+        assertNull(
+            "unexpected destruction after STOP+manual session must remove the notification",
+            findNotification(nm)
+        )
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun pauseThenManualSessionUnexpectedDestroyCancelsNewManualSessionAndPausedNotification() {
+        val harness = newHarness()
+        val store = trackingStore("fg_pause_then_manual_", enabled = true)
+        val service = buildService(harness = harness, trackingStore = store)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_PAUSE_COLLECTION),
+            0,
+            1
+        )
+        assertNotNull("pause must leave its paused notification", findNotification(nm))
+
+        // A fresh manual session must clear the paused lifecycle flags so a later
+        // unexpected destruction cancels the session and removes the notification.
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0,
+            2
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val manualSessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(manualSessionId)
+
+        service.onDestroy()
+
+        assertEquals(manualSessionId, harness.coordinator.state.value.sessionId)
+        assertEquals(AcquisitionPhase.Cancelled, harness.coordinator.state.value.phase)
+        assertNull(
+            "paused notification must not outlive unexpected destruction after a new manual session",
+            findNotification(nm)
+        )
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun cancelWithWrongSessionIdPreservesActiveManualSessionAndForeground() {
+        val harness = newHarness()
+        val store = trackingStore("fg_cancel_wrong_id_", enabled = false)
+        val service = buildService(harness = harness, trackingStore = store)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 61
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val sessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(sessionId)
+        assertNotNull(findNotification(nm))
+
+        // A stale/wrong session id must fail closed: the coordinator refuses the
+        // cancel, so the service must keep the active session, its 7101
+        // notification and its foreground state untouched, and must not induce
+        // an onDestroy() that would cancel the valid session.
+        val result = service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_CANCEL_LOCATION_SESSION)
+                .putExtra(ForegroundLocationController.EXTRA_SESSION_ID, "wrong-or-stale-id"),
+            0, 62
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(sessionId, harness.coordinator.state.value.sessionId)
+        assertTrue(
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+        assertEquals(android.app.Service.START_STICKY, result)
+        assertFalse(
+            "failed cancel must not stop the service",
+            shadowOf(service).isStoppedBySelf
+        )
+        assertFalse(
+            "failed cancel must not remove the foreground state",
+            shadowOf(service).isForegroundStopped
+        )
+        assertNotNull(
+            "failed cancel must keep the 7101 notification",
+            findNotification(nm)
+        )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun cancelWithoutSessionIdWhileSessionNonCancellablePreservesSessionAndForeground() {
+        val harness = newHarness()
+        val store = trackingStore("fg_cancel_missing_id_", enabled = false)
+        val service = buildService(harness = harness, trackingStore = store)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 63
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val sessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(sessionId)
+        // A confirmed-but-uploading submission is not cancellable; a cancel
+        // intent without a session id must fail closed and leave the session,
+        // the 7101 notification and the foreground state alone.
+        harness.forceState(
+            LocationAcquisitionState(
+                sessionId = sessionId,
+                triggerType = TriggerType.MANUAL,
+                phase = AcquisitionPhase.Enqueuing
+            )
+        )
+
+        val result = service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_CANCEL_LOCATION_SESSION),
+            0, 64
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(sessionId, harness.coordinator.state.value.sessionId)
+        assertEquals(AcquisitionPhase.Enqueuing, harness.coordinator.state.value.phase)
+        assertEquals(android.app.Service.START_STICKY, result)
+        assertFalse(
+            "failed cancel must not stop the service",
+            shadowOf(service).isStoppedBySelf
+        )
+        assertFalse(
+            "failed cancel must not remove the foreground state",
+            shadowOf(service).isForegroundStopped
+        )
+        assertNotNull(
+            "failed cancel must keep the 7101 notification",
+            findNotification(nm)
+        )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun busyManualStartOnNewInstanceRetiresForegroundWhenSessionCompletes() {
+        val harness = newHarness()
+        val store = trackingStore("fg_busy_waiter_", enabled = false)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        val serviceA = buildService(harness = harness, trackingStore = store)
+        serviceA.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 81
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val sessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(sessionId)
+
+        // A new manual-only instance arriving while the coordinator is Busy must
+        // adopt the existing session for its lifecycle: it stays foreground until
+        // that exact session completes, then retires its foreground and stops.
+        val serviceB = buildService(harness = harness, trackingStore = store)
+        serviceB.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 82
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertFalse(
+            "busy start must not stop the new instance while the session is active",
+            shadowOf(serviceB).isStoppedBySelf
+        )
+        assertFalse(
+            "busy start must keep the new instance foreground",
+            shadowOf(serviceB).isForegroundStopped
+        )
+        assertNotNull(
+            "busy start must keep the foreground notification",
+            findNotification(nm)
+        )
+
+        harness.runner.completeCurrent(
+            LocationEngineResult(
+                sessionId = harness.runner.lastRequest!!.sessionId,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
+        idleUntil { shadowOf(serviceB).isStoppedBySelf }
+
+        assertTrue(
+            "busy instance must retire its foreground when the adopted session completes",
+            shadowOf(serviceB).isForegroundStopped
+        )
+        serviceA.onDestroy()
+        serviceB.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun busyManualStartRetiresOnReplacementWithoutTouchingReplacement() {
+        val harness = newHarness()
+        val store = trackingStore("fg_busy_waiter_replace_", enabled = false)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        val serviceA = buildService(harness = harness, trackingStore = store)
+        serviceA.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 83
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val sessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(sessionId)
+
+        val serviceB = buildService(harness = harness, trackingStore = store)
+        serviceB.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 84
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        assertFalse(
+            "busy start must not stop the new instance while the session is active",
+            shadowOf(serviceB).isStoppedBySelf
+        )
+
+        // The adopted session ends while a replacement starts. The busy
+        // instance must retire its own service (not wait forever) but must
+        // not cancel, stop or remove the replacement session's foreground.
+        harness.forceState(
+            LocationAcquisitionState(
+                sessionId = sessionId,
+                triggerType = TriggerType.MANUAL,
+                phase = AcquisitionPhase.Idle
+            )
+        )
+        val replacement = harness.coordinator.startManualSession() as SessionStartResult.Started
+        assertNotEquals(sessionId, replacement.sessionId)
+        idleUntil { shadowOf(serviceB).isStoppedBySelf }
+        assertTrue(
+            "busy instance must retire itself once its observed session is replaced",
+            shadowOf(serviceB).isStoppedBySelf
+        )
+
+        assertEquals(replacement.sessionId, harness.coordinator.state.value.sessionId)
+        assertTrue(
+            "replacement session must stay active",
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+        assertFalse(
+            "retiring instance must not remove the foreground state",
+            shadowOf(serviceB).isForegroundStopped
+        )
+        assertNotNull(
+            "replacement session must keep the 7101 notification",
+            findNotification(nm)
+        )
+        serviceA.onDestroy()
+        serviceB.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun startedManualSessionWaiterRetiresOnReplacementWithoutTouchingReplacement() {
+        grantCollectionPrerequisites()
+        val harness = newHarness()
+        val store = trackingStore("fg_started_waiter_replace_", enabled = false)
+        val service = buildService(harness = harness, trackingStore = store)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 85
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val startedId = harness.coordinator.state.value.sessionId
+        assertNotNull(startedId)
+        assertFalse(shadowOf(service).isStoppedBySelf)
+        assertNotNull(findNotification(nm))
+
+        // Advance the coordinator to AwaitingManualSubmit WITHOUT idling the
+        // paused main looper: the Started waiter's terminal observation is
+        // queued but has not resumed yet, which is exactly the deterministic
+        // window in which a replaceAwaitingManual start switches the session id
+        // before the old waiter ever sees the old terminal state.
+        harness.runner.emitCandidate(acceptedSnapshot())
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (harness.coordinator.state.value.phase != AcquisitionPhase.AwaitingManualSubmit) {
+            if (System.nanoTime() > deadline) {
+                throw AssertionError("manual result did not reach AwaitingManualSubmit")
+            }
+            Thread.yield()
+        }
+
+        // The old Started session is replaced while its waiter is still
+        // suspended: the waiter must self-retire (never wait forever) and must
+        // not cancel, stop or remove the replacement session's foreground.
+        val replacement = harness.coordinator.startManualSession(
+            replaceAwaitingManual = true
+        ) as SessionStartResult.Started
+        assertNotEquals(startedId, replacement.sessionId)
+        idleUntil { shadowOf(service).isStoppedBySelf }
+
+        assertTrue(
+            "Started waiter must retire itself once its observed session is replaced",
+            shadowOf(service).isStoppedBySelf
+        )
+        assertEquals(replacement.sessionId, harness.coordinator.state.value.sessionId)
+        assertTrue(
+            "replacement session must stay active",
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+        assertFalse(
+            "retiring instance must not remove the foreground state",
+            shadowOf(service).isForegroundStopped
+        )
+        assertNotNull(
+            "replacement session must keep the 7101 notification",
+            findNotification(nm)
+        )
+        val ownedField = ForegroundLocationService::class.java
+            .getDeclaredField("ownedManualSessionId")
+            .apply { isAccessible = true }
+        assertNull(
+            "old instance must no longer own the replaced session",
+            ownedField.get(service)
+        )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun sameInstanceManualReplacementMustNotRetireServiceWhileReplacementOwned() {
+        grantCollectionPrerequisites()
+        val harness = newHarness()
+        val store = trackingStore("fg_same_instance_replace_", enabled = false)
+        val service = buildService(harness = harness, trackingStore = store)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 85
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val startedId = harness.coordinator.state.value.sessionId
+        assertNotNull(startedId)
+        assertFalse(shadowOf(service).isStoppedBySelf)
+        assertNotNull(findNotification(nm))
+
+        // Advance the coordinator to AwaitingManualSubmit WITHOUT idling the
+        // paused main looper: the Started waiter's terminal continuation is
+        // queued but has not executed yet, which is exactly the deterministic
+        // window in which a second start through the SAME instance switches
+        // ownership before the old waiter ever resumes.
+        harness.runner.emitCandidate(acceptedSnapshot())
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (harness.coordinator.state.value.phase != AcquisitionPhase.AwaitingManualSubmit) {
+            if (System.nanoTime() > deadline) {
+                throw AssertionError("manual result did not reach AwaitingManualSubmit")
+            }
+            Thread.yield()
+        }
+
+        // Second ACTION_START_MANUAL_SESSION through the same service instance:
+        // the instance now owns the replacement, so the old Started waiter must
+        // NOT retire the service or drop ownership of the replacement.
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 86
+        )
+        val replacementId = harness.coordinator.state.value.sessionId
+        assertNotEquals(startedId, replacementId)
+        shadowOf(Looper.getMainLooper()).idle()
+        idleUntil {
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        }
+
+        assertFalse(
+            "the old Started waiter must not stop the service while the same instance owns the replacement",
+            shadowOf(service).isStoppedBySelf
+        )
+        val ownedField = ForegroundLocationService::class.java
+            .getDeclaredField("ownedManualSessionId")
+            .apply { isAccessible = true }
+        assertEquals(
+            "ownership must remain on the replacement session started by the same instance",
+            replacementId,
+            ownedField.get(service)
+        )
+        assertEquals(replacementId, harness.coordinator.state.value.sessionId)
+        assertTrue(
+            "replacement session must stay active",
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+        assertFalse(
+            "replacement session must keep the foreground state",
+            shadowOf(service).isForegroundStopped
+        )
+        assertNotNull(
+            "replacement session must keep the 7101 notification",
+            findNotification(nm)
+        )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun sameInstanceBusyWaiterMustNotRetireReplacementOwnedBySameService() {
+        grantCollectionPrerequisites()
+        val harness = newHarness()
+        val store = trackingStore("fg_same_instance_busy_replace_", enabled = false)
+        val service = buildService(harness = harness, trackingStore = store)
+        val nm = ApplicationProvider.getApplicationContext<Application>()
+            .getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        // Session A starts through this instance and stays Acquiring.
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 87
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val startedId = harness.coordinator.state.value.sessionId
+        assertNotNull(startedId)
+        assertFalse(shadowOf(service).isStoppedBySelf)
+        assertNotNull(findNotification(nm))
+
+        // Second start through the same instance while A is still Acquiring:
+        // the coordinator answers Busy and the instance attaches a Busy waiter.
+        // Idling main only lets that waiter suspend on A; A is not ended.
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 88
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(startedId, harness.coordinator.state.value.sessionId)
+        assertFalse(shadowOf(service).isStoppedBySelf)
+
+        // Advance the coordinator to AwaitingManualSubmit WITHOUT idling the
+        // paused main looper: both the Started waiter and the Busy waiter have
+        // their continuations queued but not executed yet, which is exactly the
+        // deterministic window in which a third start through the same instance
+        // switches ownership before the Busy waiter ever resumes.
+        harness.runner.emitCandidate(acceptedSnapshot())
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (harness.coordinator.state.value.phase != AcquisitionPhase.AwaitingManualSubmit) {
+            if (System.nanoTime() > deadline) {
+                throw AssertionError("manual result did not reach AwaitingManualSubmit")
+            }
+            Thread.yield()
+        }
+
+        // Third ACTION_START_MANUAL_SESSION through the SAME instance replaces A
+        // with B while both waiters are still suspended; the instance now owns B.
+        service.onStartCommand(
+            Intent(ApplicationProvider.getApplicationContext(), ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 89
+        )
+        val replacementId = harness.coordinator.state.value.sessionId
+        assertNotEquals(startedId, replacementId)
+
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertFalse(
+            "the Busy waiter must not stop the service while the same instance owns the replacement",
+            shadowOf(service).isStoppedBySelf
+        )
+        val ownedField = ForegroundLocationService::class.java
+            .getDeclaredField("ownedManualSessionId")
+            .apply { isAccessible = true }
+        assertEquals(
+            "ownership must remain on the replacement session started by the same instance",
+            replacementId,
+            ownedField.get(service)
+        )
+        assertEquals(replacementId, harness.coordinator.state.value.sessionId)
+        assertTrue(
+            "replacement session must stay active",
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+        assertFalse(
+            "replacement session must keep the foreground state",
+            shadowOf(service).isForegroundStopped
+        )
+        assertNotNull(
+            "replacement session must keep the 7101 notification",
+            findNotification(nm)
+        )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun automaticLoopStartsNextRoundAfterManualReplacementInsteadOfWaitingForOldTerminal() {
+        val harness = newHarness()
+        val store = trackingStore("fg_auto_replace_", enabled = true)
+        val service = buildService(harness = harness, trackingStore = store)
+        invokeApplyDecision(
+            service,
+            PolicyDecision(
+                mode = LocationPolicyMode.PowerSavingNormal,
+                requestIntervalMillis = 1_000L,
+                nextExpectedLocationAtMillis = 1_000L,
+                reason = "测试间隔",
+                scheduleLowFrequency = false
+            )
+        )
+
+        invokeStartAutomaticLoop(service)
+        idleUntil { harness.runner.acquireCount.get() == 1 }
+        val startedId = harness.coordinator.state.value.sessionId
+        assertNotNull(startedId)
+
+        // Session A times out; the loop's terminal waiter is queued on the
+        // PAUSED main looper and has not resumed yet when the manual
+        // replacement starts.
+        harness.runner.completeCurrent(
+            LocationEngineResult(
+                sessionId = startedId!!,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (harness.coordinator.state.value.phase != AcquisitionPhase.TimedOut) {
+            if (System.nanoTime() > deadline) {
+                throw AssertionError("automatic session did not reach TimedOut")
+            }
+            Thread.yield()
+        }
+
+        // Manual session B replaces A while the loop waiter is still suspended.
+        val replacement = harness.coordinator.startManualSession() as SessionStartResult.Started
+        assertNotEquals(startedId, replacement.sessionId)
+        idleUntil { harness.runner.acquireCount.get() >= 2 }
+
+        // Complete B; the automatic loop must eventually start a third acquire
+        // rather than wait forever for A's terminal.
+        harness.runner.completeCurrent(
+            LocationEngineResult(
+                sessionId = replacement.sessionId,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
+        idleUntil { harness.coordinator.state.value.phase == AcquisitionPhase.TimedOut }
+        shadowOf(Looper.getMainLooper()).idleFor(1_000L, TimeUnit.MILLISECONDS)
+        val diagDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (harness.runner.acquireCount.get() < 3) {
+            shadowOf(Looper.getMainLooper()).idleFor(100L, TimeUnit.MILLISECONDS)
+            if (System.nanoTime() > diagDeadline) {
+                throw AssertionError("automatic loop must start a third acquire after the manual replacement")
+            }
+            Thread.yield()
+        }
+        assertTrue(
+            "automatic loop must start a third acquire after the manual replacement",
+            harness.runner.acquireCount.get() >= 3
+        )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun manualSyncTeardownPreservesExternalActiveManualSession() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        WorkManagerTestInitHelper.initializeTestWorkManager(context)
+        val harness = newHarness()
+        val store = trackingStore("fg_sync_preserve_ext_", enabled = false)
+
+        val serviceA = buildService(harness = harness, trackingStore = store)
+        serviceA.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 91
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val sessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(sessionId)
+
+        // A manual sync on a different instance must not cancel the manual
+        // session the other instance is running, even though the sync tears
+        // its own service instance down afterwards.
+        val serviceB = buildService(harness = harness, trackingStore = store)
+        serviceB.mobileSyncScheduler = MobileSyncScheduler(context, store)
+        serviceB.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_SYNC_NOW),
+            0, 92
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(shadowOf(serviceB).isStoppedBySelf)
+        serviceB.onDestroy()
+
+        assertEquals(sessionId, harness.coordinator.state.value.sessionId)
+        assertEquals(TriggerType.MANUAL, harness.coordinator.state.value.triggerType)
+        assertTrue(
+            "sync teardown must not cancel another instance's manual session",
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+        serviceA.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun sameInstanceManualSyncMustNotRetireOwnedActiveManualSession() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        WorkManagerTestInitHelper.initializeTestWorkManager(context)
+        val harness = newHarness()
+        val store = trackingStore("fg_sync_preserve_owned_", enabled = false)
+
+        val service = buildService(harness = harness, trackingStore = store)
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
+            0, 91
+        )
+        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        val sessionId = harness.coordinator.state.value.sessionId
+        assertNotNull(sessionId)
+        assertFalse(shadowOf(service).isStoppedBySelf)
+
+        // A manual sync on the SAME instance must not retire the service nor
+        // cancel the active manual session this instance owns and is running,
+        // even though the sync's manual-only teardown would normally stop the
+        // instance (which would then destroy the owned session via onDestroy).
+        service.mobileSyncScheduler = MobileSyncScheduler(context, store)
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_SYNC_NOW),
+            0, 92
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertFalse(
+            "sync teardown must not stop the service while the same instance owns an active manual session",
+            shadowOf(service).isStoppedBySelf
+        )
+        assertEquals(sessionId, harness.coordinator.state.value.sessionId)
+        assertEquals(TriggerType.MANUAL, harness.coordinator.state.value.triggerType)
+        assertTrue(
+            "same-instance sync must not cancel the owned manual session",
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun syncOnlyInstanceDestroyPreservesExternalAutomaticSessionAndNotification() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        WorkManagerTestInitHelper.initializeTestWorkManager(context)
+        val harness = newHarness()
+        val store = trackingStore("fg_sync_only_destroy_", enabled = true)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
+
+        // An automatic session is running and owned elsewhere (e.g. by another
+        // service instance's automatic loop).
+        val auto = harness.coordinator.startAutomaticSession(
+            AutomaticSessionContext(
+                priority = 100,
+                policyMode = "PowerSavingNormal",
+                scheduleLowFrequency = false,
+                motionSignal = "Static"
+            )
+        ) as SessionStartResult.Started
+        idleUntil {
+            harness.coordinator.state.value.sessionId == auto.sessionId &&
+                harness.coordinator.state.value.phase in setOf(
+                    AcquisitionPhase.Preparing,
+                    AcquisitionPhase.Acquiring,
+                    AcquisitionPhase.Evaluating
+                )
+        }
+
+        val service = buildService(harness = harness, trackingStore = store)
+        service.mobileSyncScheduler = MobileSyncScheduler(context, store)
+        service.onStartCommand(
+            Intent(context, ForegroundLocationService::class.java)
+                .setAction(ForegroundLocationController.ACTION_SYNC_NOW),
+            0, 101
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNotNull(
+            "sync-only instance posts its own foreground notification",
+            findNotification(nm)
+        )
+        // An unexpected destruction of the sync-only instance must neither
+        // cancel the automatic session started by another instance nor remove
+        // its 7101 notification itself. (Robolectric's shadow removes a
+        // foreground service's notification at onDestroy like the system
+        // tears down an FGS, so the assertion targets the service's own
+        // foreground state: the old code called stopForeground(REMOVE) here.)
+        service.onDestroy()
+
+        assertEquals(auto.sessionId, harness.coordinator.state.value.sessionId)
+        assertEquals(
+            "external automatic session must not be cancelled by sync-only teardown",
+            TriggerType.AUTOMATIC,
+            harness.coordinator.state.value.triggerType
+        )
+        assertTrue(
+            harness.coordinator.state.value.phase in setOf(
+                AcquisitionPhase.Preparing,
+                AcquisitionPhase.Acquiring,
+                AcquisitionPhase.Evaluating
+            )
+        )
+        assertFalse(
+            "sync-only onDestroy must not remove the foreground (shared 7101) itself",
+            shadowOf(service).isForegroundStopped
+        )
     }
 
     @Test
@@ -1765,6 +2988,9 @@ class ForegroundLocationServiceTest {
         var prerequisiteResult: LocationPrerequisiteResult = LocationPrerequisiteResult.Ready
     ) {
         val runner = ControllableRunner()
+        val trackingSettingsStore = TrackingSettingsStore(
+            InMemorySharedPreferences()
+        )
         val coordinator = LocationAcquisitionCoordinator(
             runner = runner,
             prerequisiteChecker = object : LocationPrerequisiteChecker {
@@ -1785,7 +3011,8 @@ class ForegroundLocationServiceTest {
 
                 override fun scheduleSync() = Unit
             },
-            json = Json { ignoreUnknownKeys = true }
+            json = Json { ignoreUnknownKeys = true },
+            trackingSettingsStore = trackingSettingsStore
         )
         private val stateField = LocationAcquisitionCoordinator::class.java
             .getDeclaredField("_state")

@@ -3,6 +3,9 @@ package com.pim.app.location.acquisition
 import com.pim.app.location.LocationSnapshot
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
+import com.pim.app.settings.TrackingSettings
+import com.pim.app.settings.TrackingSettingsStore
+import com.pim.app.testing.InMemorySharedPreferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -25,11 +28,15 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LocationAcquisitionCoordinatorTest {
@@ -60,6 +67,15 @@ class LocationAcquisitionCoordinatorTest {
         timeMillis = 200L
     )
 
+    private val mediumQualitySnapshot = LocationSnapshot(
+        latitude = 31.24, longitude = 121.48,
+        horizontalAccuracyMeters = 40f,
+        provider = "gps", source = "test",
+        altitudeMeters = 10.0,
+        speedMetersPerSecond = null, bearingDegrees = null,
+        timeMillis = 200L
+    )
+
     private val automaticContext = AutomaticSessionContext(
         priority = 100,
         policyMode = "BatterySaver",
@@ -77,12 +93,16 @@ class LocationAcquisitionCoordinatorTest {
         elapsedTime = 0L
     }
 
-    private fun createCoordinator(scope: CoroutineScope) {
+    private fun createCoordinator(
+        scope: CoroutineScope,
+        trackingSettingsStore: TrackingSettingsStore = TrackingSettingsStore(InMemorySharedPreferences())
+    ) {
         coordinator = LocationAcquisitionCoordinator(
             runner = runner,
             prerequisiteChecker = prerequisiteChecker,
             operations = operations,
-            json = Json
+            json = Json,
+            trackingSettingsStore = trackingSettingsStore
         )
         coordinator.testScope = scope
         coordinator.uuidGenerator = { "test-session-${++uuidCounter}" }
@@ -119,7 +139,7 @@ class LocationAcquisitionCoordinatorTest {
     // ─── submitManualResult ─────────────────────────────────────
 
     @Test
-    fun `submitManualResult enters Enqueuing then Completed and enqueues once with source manual`() = runTest {
+    fun `submitManualResult enters Enqueuing then Completed enqueues once and schedules sync exactly once with source manual`() = runTest {
         createCoordinator(this)
         prerequisiteChecker.ready()
 
@@ -139,7 +159,7 @@ class LocationAcquisitionCoordinatorTest {
 
         assertEquals(AcquisitionPhase.Completed, coordinator.state.value.phase)
         assertEquals(1, operations.enqueueCount)
-        assertEquals(0, operations.syncCount)
+        assertEquals(1, operations.syncCount)
         assertEquals("manual", operations.lastSource)
     }
 
@@ -166,6 +186,8 @@ class LocationAcquisitionCoordinatorTest {
 
         assertEquals(AcquisitionPhase.AwaitingManualSubmit, coordinator.state.value.phase)
         assertEquals(aSnapshot, coordinator.state.value.bestLocation)
+        assertEquals(0, operations.enqueueCount)
+        assertEquals(0, operations.syncCount)
 
         operations.failNextEnqueue = false
         coordinator.submitManualResult()
@@ -173,6 +195,7 @@ class LocationAcquisitionCoordinatorTest {
 
         assertEquals(AcquisitionPhase.Completed, coordinator.state.value.phase)
         assertEquals(1, operations.enqueueCount)
+        assertEquals(1, operations.syncCount)
     }
 
     // ─── Automatic success ──────────────────────────────────────
@@ -291,6 +314,25 @@ class LocationAcquisitionCoordinatorTest {
         assertNull(coordinator.state.value.bestLocation)
     }
 
+    @Test
+    fun `no candidate with engine Failed completion reaches Failed with errorReason`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        coordinator.startManualSession()
+        runner.waitForAcquire()
+        runner.complete(LocationEngineResult(
+            sessionId = runner.acquiredRequest!!.sessionId,
+            bestLocation = null,
+            completion = LocationEngineCompletion.Failed("engine crashed")
+        ))
+        advanceUntilIdle()
+
+        assertEquals(AcquisitionPhase.Failed, coordinator.state.value.phase)
+        assertEquals("engine crashed", coordinator.state.value.errorReason)
+        assertNull(coordinator.state.value.bestLocation)
+    }
+
     // ─── Precheck failure ───────────────────────────────────────
 
     @Test
@@ -338,7 +380,7 @@ class LocationAcquisitionCoordinatorTest {
     // ─── Cancellation ───────────────────────────────────────────
 
     @Test
-    fun `matching session cancellation reaches Cancelled`() = runTest {
+    fun `matching session cancellation reaches Cancelled and retains sessionId`() = runTest {
         createCoordinator(this)
         prerequisiteChecker.ready()
 
@@ -349,6 +391,26 @@ class LocationAcquisitionCoordinatorTest {
         advanceUntilIdle()
 
         assertEquals(AcquisitionPhase.Cancelled, coordinator.state.value.phase)
+        assertEquals(
+            "cancelled terminal state must retain its sessionId so waiters can match it",
+            sessionId,
+            coordinator.state.value.sessionId
+        )
+
+        // Restart behavior: a new session can start after the cancelled terminal state.
+        val restart = coordinator.startManualSession() as SessionStartResult.Started
+        runner.waitForAcquire()
+        assertNotEquals(sessionId, restart.sessionId)
+        assertEquals(AcquisitionPhase.Acquiring, coordinator.state.value.phase)
+
+        runner.complete(
+            LocationEngineResult(
+                sessionId = restart.sessionId,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
+        advanceUntilIdle()
     }
 
     @Test
@@ -375,6 +437,38 @@ class LocationAcquisitionCoordinatorTest {
             )
         )
         advanceUntilIdle()
+    }
+
+    // ─── Terminal cancellation is a no-op ───────────────────────
+
+    @Test
+    fun `cancel after a completed manual session is a no-op and preserves the result`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        coordinator.startManualSession()
+        runner.waitForAcquire()
+        runner.emitCandidate(aSnapshot)
+        runner.complete(LocationEngineResult(
+            sessionId = runner.acquiredRequest!!.sessionId,
+            bestLocation = aSnapshot,
+            completion = LocationEngineCompletion.TimedOut
+        ))
+        advanceUntilIdle()
+        coordinator.submitManualResult()
+        advanceUntilIdle()
+        assertEquals(AcquisitionPhase.Completed, coordinator.state.value.phase)
+
+        // Late cancel intents (e.g. from NotificationActionReceiver) must not
+        // relabel an already-completed result, but the sessionId must stay for
+        // service waiters.
+        coordinator.cancelCurrentSession()
+        advanceUntilIdle()
+
+        assertEquals(AcquisitionPhase.Completed, coordinator.state.value.phase)
+        assertEquals(aSnapshot, coordinator.state.value.bestLocation)
+        assertEquals(1, operations.enqueueCount)
+        assertEquals(1, operations.syncCount)
     }
 
     // ─── Late engine callbacks with old session ID ──────────────
@@ -456,6 +550,45 @@ class LocationAcquisitionCoordinatorTest {
 
         runner.complete(LocationEngineResult("s1", null, LocationEngineCompletion.TimedOut))
         advanceUntilIdle()
+    }
+
+    @Test
+    fun `blocked manual restart preserves AwaitingManualSubmit and allows later submit`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        coordinator.startManualSession()
+        runner.waitForAcquire()
+        runner.emitCandidate(aSnapshot)
+        runner.complete(LocationEngineResult(
+            sessionId = runner.acquiredRequest!!.sessionId,
+            bestLocation = aSnapshot,
+            completion = LocationEngineCompletion.TimedOut
+        ))
+        advanceUntilIdle()
+        assertEquals(AcquisitionPhase.AwaitingManualSubmit, coordinator.state.value.phase)
+
+        // The replacement attempt is blocked by the prerequisite check: the
+        // accepted-but-unsubmitted manual result must survive the attempt.
+        prerequisiteChecker.blocked("no gps")
+        val result = coordinator.startManualSession(replaceAwaitingManual = true)
+        assertEquals(SessionStartResult.Rejected("no gps"), result)
+
+        assertEquals(
+            "a blocked replacement must preserve the AwaitingManualSubmit result",
+            AcquisitionPhase.AwaitingManualSubmit,
+            coordinator.state.value.phase
+        )
+        assertEquals(aSnapshot, coordinator.state.value.bestLocation)
+
+        // The preserved result can still be submitted once prerequisites are ready.
+        prerequisiteChecker.ready()
+        coordinator.submitManualResult()
+        advanceUntilIdle()
+
+        assertEquals(AcquisitionPhase.Completed, coordinator.state.value.phase)
+        assertEquals(1, operations.enqueueCount)
+        assertEquals(1, operations.syncCount)
     }
 
     // ─── Spec gap 1: Preparing phase ────────────────────────────
@@ -649,10 +782,66 @@ class LocationAcquisitionCoordinatorTest {
         assertFalse(runner.isAcquireActive)
     }
 
+    // ─── Spec gap 7: cancel must clean up only its own snapshot's job ──
+
+    @Test
+    fun `cancellation cleanup keeps a new session owner intact when a new session starts after the Cancelled claim wins`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        val first = coordinator.startManualSession() as SessionStartResult.Started
+        runner.waitForAcquire(0)
+        assertEquals(AcquisitionPhase.Acquiring, coordinator.state.value.phase)
+
+        // Test seam: a new manual session starts immediately after the old
+        // cancellation wins its Cancelled state claim, before the old method
+        // picks up / cancels a job. The new session must not be cancelled.
+        // The seam disarms itself so a later cancel claim does not start yet
+        // another session.
+        var secondId: String? = null
+        coordinator.afterSessionCancelledClaim = {
+            coordinator.afterSessionCancelledClaim = null
+            val started = coordinator.startManualSession()
+            secondId = (started as SessionStartResult.Started).sessionId
+        }
+
+        val firstCancelled = coordinator.cancelCurrentSession(first.sessionId)
+        assertTrue("first-session cancellation must report true", firstCancelled)
+        assertNotNull("the seam must have started a second session", secondId)
+        assertNotEquals("second session must have a distinct id", first.sessionId, secondId)
+
+        runCurrent()
+
+        assertEquals(
+            "the old cancellation must not cancel the session started in its claim window",
+            AcquisitionPhase.Acquiring,
+            coordinator.state.value.phase
+        )
+        assertEquals(secondId, coordinator.state.value.sessionId)
+        assertEquals(secondId, runner.sessionAt(1).request.sessionId)
+
+        // The second session must remain cancellable through the normal path.
+        val secondCancelled = coordinator.cancelCurrentSession(secondId!!)
+        assertTrue("second session must be cancellable", secondCancelled)
+        runCurrent()
+
+        runner.complete(
+            LocationEngineResult(
+                sessionId = secondId!!,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            ),
+            index = 1
+        )
+        advanceUntilIdle()
+
+        assertEquals(AcquisitionPhase.Cancelled, coordinator.state.value.phase)
+    }
+
     // ─── Spec gap 5: automatic post-enqueue session guard ───────
 
     @Test
-    fun `automatic enqueue completion cannot overwrite a newer session`() = runTest {
+    fun `cancellation during Enqueuing is ignored so in-flight automatic submission completes`() = runTest {
         createCoordinator(this)
         prerequisiteChecker.ready()
 
@@ -676,30 +865,177 @@ class LocationAcquisitionCoordinatorTest {
         coordinator.cancelCurrentSession(first.sessionId)
         runCurrent()
 
-        val second = coordinator.startAutomaticSession(automaticContext) as SessionStartResult.Started
-        runner.waitForAcquire(1)
-        assertEquals(second.sessionId, coordinator.state.value.sessionId)
-        assertEquals(AcquisitionPhase.Acquiring, coordinator.state.value.phase)
+        assertEquals(
+            "cancellation during Enqueuing must be ignored",
+            AcquisitionPhase.Enqueuing,
+            coordinator.state.value.phase
+        )
+        assertEquals(first.sessionId, coordinator.state.value.sessionId)
 
         enqueueGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(AcquisitionPhase.Completed, coordinator.state.value.phase)
+        assertEquals(first.sessionId, coordinator.state.value.sessionId)
+        assertEquals(1, operations.enqueueCount)
+        assertEquals(1, operations.syncCount)
+    }
+
+    @Test
+    fun `cancellation during manual Enqueuing is ignored so in-flight submission completes`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        val enqueueGate = CompletableDeferred<Unit>()
+        operations.enqueueBlock = enqueueGate
+
+        coordinator.startManualSession()
+        runner.waitForAcquire()
+        runner.emitCandidate(aSnapshot)
+        runner.complete(LocationEngineResult(
+            sessionId = runner.acquiredRequest!!.sessionId,
+            bestLocation = aSnapshot,
+            completion = LocationEngineCompletion.TimedOut
+        ))
+        advanceUntilIdle()
+        assertEquals(AcquisitionPhase.AwaitingManualSubmit, coordinator.state.value.phase)
+
+        coordinator.submitManualResult()
+        runCurrent()
+        assertEquals(AcquisitionPhase.Enqueuing, coordinator.state.value.phase)
+
+        coordinator.cancelCurrentSession()
         runCurrent()
 
-        assertEquals(second.sessionId, coordinator.state.value.sessionId)
-        assertEquals(AcquisitionPhase.Acquiring, coordinator.state.value.phase)
-        assertTrue(operations.syncCount <= 1)
-        assertTrue(operations.enqueueCount <= 1)
+        assertEquals(
+            "cancellation during Enqueuing must be ignored",
+            AcquisitionPhase.Enqueuing,
+            coordinator.state.value.phase
+        )
 
+        enqueueGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(AcquisitionPhase.Completed, coordinator.state.value.phase)
+        assertEquals(1, operations.enqueueCount)
+        assertEquals(1, operations.syncCount)
+    }
+
+    @Test
+    fun `cancellation before automatic Enqueuing claim prevents enqueue and sync`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        val first = coordinator.startAutomaticSession(automaticContext) as SessionStartResult.Started
+        runner.waitForAcquire(0)
+
+        // Deterministic cancellation TOCTOU: the cancel lands after quality has
+        // accepted the fix but before handleAccepted atomically claims Enqueuing.
+        val claimReached = CompletableDeferred<Unit>()
+        coordinator.beforeAutomaticEnqueueClaim = {
+            coordinator.cancelCurrentSession(first.sessionId)
+            claimReached.complete(Unit)
+        }
+
+        runner.emitCandidate(aSnapshot, index = 0)
         runner.complete(
             LocationEngineResult(
-                sessionId = second.sessionId,
-                bestLocation = null,
+                sessionId = first.sessionId,
+                bestLocation = aSnapshot,
                 completion = LocationEngineCompletion.TimedOut
             ),
-            index = 1
+            index = 0
         )
+        runCurrent()
+        claimReached.await()
+        assertEquals(AcquisitionPhase.Cancelled, coordinator.state.value.phase)
+
         advanceUntilIdle()
-        assertEquals(AcquisitionPhase.TimedOut, coordinator.state.value.phase)
-        assertEquals(second.sessionId, coordinator.state.value.sessionId)
+
+        assertEquals(
+            "a user seeing Cancelled must not get a new automatic queued point",
+            AcquisitionPhase.Cancelled,
+            coordinator.state.value.phase
+        )
+        assertEquals(0, operations.enqueueCount)
+        assertEquals(0, operations.syncCount)
+    }
+
+    @Test
+    fun `cancel racing the automatic Enqueuing claim loses and the in-flight enqueue completes`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        val enqueueGate = CompletableDeferred<Unit>()
+        operations.enqueueBlock = enqueueGate
+        // The automatic session parks at the claim seam (a real latch) until the
+        // cancel thread has paused after reading the Evaluating snapshot.
+        val cancelStart = CountDownLatch(1)
+        val cancelPaused = CountDownLatch(1)
+        val cancelGo = CountDownLatch(1)
+        var cancelResult = true
+        var cancelObservedPhase: AcquisitionPhase? = null
+        coordinator.beforeAutomaticEnqueueClaim = {
+            cancelStart.countDown()
+            cancelPaused.await(5, TimeUnit.SECONDS)
+        }
+        coordinator.beforeCancellingSessionJob = {
+            cancelObservedPhase = coordinator.state.value.phase
+            cancelPaused.countDown()
+            cancelGo.await(5, TimeUnit.SECONDS)
+        }
+
+        val first = coordinator.startAutomaticSession(automaticContext) as SessionStartResult.Started
+        runner.waitForAcquire(0)
+
+        val cancelThread = thread(isDaemon = true, name = "cancel-session") {
+            cancelStart.await(5, TimeUnit.SECONDS)
+            cancelResult = coordinator.cancelCurrentSession(first.sessionId)
+        }
+
+        runner.emitCandidate(aSnapshot, index = 0)
+        runner.complete(
+            LocationEngineResult(
+                sessionId = first.sessionId,
+                bestLocation = aSnapshot,
+                completion = LocationEngineCompletion.TimedOut
+            ),
+            index = 0
+        )
+        // The session reaches Evaluating, the cancel thread reads it and pauses at
+        // its seam, then the automatic claim wins Enqueuing and blocks enqueueing.
+        runCurrent()
+        assertEquals(
+            "the automatic claim must win the Evaluating -> Enqueuing transition",
+            AcquisitionPhase.Enqueuing,
+            coordinator.state.value.phase
+        )
+        assertEquals(
+            "the cancel must have paused on the stale Evaluating snapshot",
+            AcquisitionPhase.Evaluating,
+            cancelObservedPhase
+        )
+
+        cancelGo.countDown()
+        cancelThread.join(5_000)
+        assertFalse("cancel thread must have finished", cancelThread.isAlive)
+        assertFalse(
+            "a cancel whose CAS lost to the Enqueuing claim must return false without cancelling the job",
+            cancelResult
+        )
+        assertEquals(
+            "the session must stay Enqueuing: the stale-read cancel must not cancel the job",
+            AcquisitionPhase.Enqueuing,
+            coordinator.state.value.phase
+        )
+
+        enqueueGate.complete(Unit)
+        advanceUntilIdle()
+
+        assertEquals(AcquisitionPhase.Completed, coordinator.state.value.phase)
+        assertEquals(first.sessionId, coordinator.state.value.sessionId)
+        assertEquals(1, operations.enqueueCount)
+        assertEquals(1, operations.syncCount)
     }
 
     // ─── Spec gap 6: structured recordDropped ───────────────────
@@ -759,6 +1095,7 @@ class LocationAcquisitionCoordinatorTest {
 
         assertEquals(AcquisitionPhase.Completed, coordinator.state.value.phase)
         assertEquals(1, operations.enqueueCount)
+        assertEquals(1, operations.syncCount)
         assertEquals("manual", operations.lastSource)
     }
 
@@ -822,6 +1159,107 @@ class LocationAcquisitionCoordinatorTest {
         assertEquals(10.0, parsed["altitudeMeters"]!!.jsonPrimitive.double, 0.0)
         assertTrue(parsed["speedMetersPerSecond"] is JsonNull)
         assertTrue(parsed["bearingDegrees"] is JsonNull)
+    }
+
+    // ─── Settings snapshot: quality threshold ──────────────────
+
+    @Test
+    fun `session reads maxUploadAccuracyMetersExclusive from settings store and surfaces it in state`() = runTest {
+        val settingsStore = TrackingSettingsStore(InMemorySharedPreferences())
+        settingsStore.write(
+            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = 30f)
+        )
+        createCoordinator(this, trackingSettingsStore = settingsStore)
+        prerequisiteChecker.ready()
+
+        // A 40m fix is accepted by the default 50m threshold but rejected by the
+        // 30m threshold snapshotted from settings; the threshold must be surfaced.
+        coordinator.startManualSession()
+        runner.waitForAcquire()
+        runner.emitCandidate(mediumQualitySnapshot)
+        runner.complete(LocationEngineResult(
+            sessionId = runner.acquiredRequest!!.sessionId,
+            bestLocation = mediumQualitySnapshot,
+            completion = LocationEngineCompletion.TimedOut
+        ))
+        advanceUntilIdle()
+
+        assertEquals(AcquisitionPhase.Failed, coordinator.state.value.phase)
+        assertEquals(30f, coordinator.state.value.maxUploadAccuracyMetersExclusive, 0f)
+    }
+
+    @Test
+    fun `settings changes affect later sessions but never mutate the active session`() = runTest {
+        val settingsStore = TrackingSettingsStore(InMemorySharedPreferences())
+        settingsStore.write(
+            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = 30f)
+        )
+        createCoordinator(this, trackingSettingsStore = settingsStore)
+        prerequisiteChecker.ready()
+
+        // The active session snapshots the 30f threshold.
+        coordinator.startManualSession()
+        runner.waitForAcquire(0)
+        settingsStore.write(
+            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = 50f)
+        )
+        runner.emitCandidate(mediumQualitySnapshot, index = 0)
+        runner.complete(
+            LocationEngineResult(
+                sessionId = runner.acquiredRequest!!.sessionId,
+                bestLocation = mediumQualitySnapshot,
+                completion = LocationEngineCompletion.TimedOut
+            ),
+            index = 0
+        )
+        advanceUntilIdle()
+
+        assertEquals(AcquisitionPhase.Failed, coordinator.state.value.phase)
+        assertEquals(30f, coordinator.state.value.maxUploadAccuracyMetersExclusive, 0f)
+
+        // The next session reads the updated 50f threshold and accepts the same fix.
+        coordinator.startManualSession()
+        runner.waitForAcquire(1)
+        runner.emitCandidate(mediumQualitySnapshot, index = 1)
+        runner.complete(
+            LocationEngineResult(
+                sessionId = runner.acquiredRequest!!.sessionId,
+                bestLocation = mediumQualitySnapshot,
+                completion = LocationEngineCompletion.TimedOut
+            ),
+            index = 1
+        )
+        advanceUntilIdle()
+
+        assertEquals(AcquisitionPhase.AwaitingManualSubmit, coordinator.state.value.phase)
+        assertEquals(50f, coordinator.state.value.maxUploadAccuracyMetersExclusive, 0f)
+    }
+
+    @Test
+    fun `automatic session applies non-default accuracy threshold from settings snapshot`() = runTest {
+        val settingsStore = TrackingSettingsStore(InMemorySharedPreferences())
+        settingsStore.write(
+            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = 30f)
+        )
+        createCoordinator(this, trackingSettingsStore = settingsStore)
+        prerequisiteChecker.ready()
+
+        // The 40m fix is accepted by the default 50m threshold but rejected by
+        // the 30m threshold; automatic sessions must use the same shared snapshot.
+        coordinator.startAutomaticSession(automaticContext)
+        runner.waitForAcquire()
+        runner.emitCandidate(mediumQualitySnapshot)
+        runner.complete(LocationEngineResult(
+            sessionId = runner.acquiredRequest!!.sessionId,
+            bestLocation = mediumQualitySnapshot,
+            completion = LocationEngineCompletion.TimedOut
+        ))
+        advanceUntilIdle()
+
+        assertEquals(AcquisitionPhase.Failed, coordinator.state.value.phase)
+        assertEquals(30f, coordinator.state.value.maxUploadAccuracyMetersExclusive, 0f)
+        assertEquals(1, operations.recordDroppedCount)
+        assertEquals(0, operations.enqueueCount)
     }
 }
 

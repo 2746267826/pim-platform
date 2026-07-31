@@ -903,10 +903,10 @@ fun api36LinkageFailureReturnsFalse() {
 
 Publisher fake-platform tests must verify:
 
-- only Acquiring publishes;
+- only the Acquiring/Evaluating window publishes;
 - elapsed/accuracy updates are limited to once per 2_000 ms;
 - an accuracy improvement smaller than 5 m does not force an early update;
-- leaving Acquiring cancels immediately;
+- leaving the Acquiring/Evaluating window (AwaitingManualSubmit/Enqueuing/terminal/Idle/Preparing) cancels immediately;
 - suppressSession blocks the same session but not a new session;
 - notification content contains no latitude or longitude field.
 
@@ -1171,7 +1171,7 @@ Stable tags:
 - location-bearing
 - location-recorded-time
 
-Idle shows 开始定位. Preparing/Acquiring/Evaluating shows 取消. AwaitingManualSubmit shows 提交位置 and 重新定位. Enqueuing shows disabled 提交中. Final phases show 重新定位.
+Idle shows 开始定位. Automatic busy (TriggerType.AUTOMATIC with Preparing/Acquiring/Evaluating) keeps the location-start entry visible but disabled with 定位进行中 text; manual busy does not show it. Preparing/Acquiring/Evaluating shows 取消. AwaitingManualSubmit shows 提交位置 and 重新定位. Enqueuing shows disabled 提交中. Final phases show 重新定位.
 
 For missing precise permission, disabled system location or unavailable Google Play services, show 打开设置 and route to the existing Settings destination. Display horizontal accuracy, Provider, latitude, longitude, altitude, speed, bearing and localized recorded time in the best-position section. Display latitude/longitude only in LocationScreen. Do not pass them to liveupdate package.
 
@@ -1217,7 +1217,7 @@ LocationScreenTest:
 - four sections visible;
 - manual/automatic trigger labels;
 - coordinates visible on page;
-- automatic active state has no enabled manual-start action;
+- automatic active state keeps location-start visible but disabled with 定位进行中 text;
 - total/location counts both visible;
 - submit/restart/cancel states.
 - precheck failure exposes the 打开设置 action;
@@ -1317,9 +1317,9 @@ API 36.0:
 API 36.1:
 
 - promotion disabled: no 7102 notification;
-- promotion enabled: notification is promotable, only exists in Acquiring, has cancel/open actions and no coordinates;
+- promotion enabled: notification is promotable, only exists in the Acquiring/Evaluating window, has cancel/open actions and no coordinates;
 - delete suppresses only the current session;
-- leaving Acquiring cancels 7102 immediately;
+- leaving the Acquiring/Evaluating window cancels 7102 immediately;
 - persistent 7101 remains independent.
 
 The final system chip shape is a manual observation, not a pass/fail assertion.
@@ -1347,8 +1347,8 @@ Skip this commit when no integration fix is needed.
 - [ ] **Step 8: Push and open a PR**
 
 ~~~powershell
-git push -u origin codex/android-live-updates-design
-gh pr create --base master --head codex/android-live-updates-design --title "feat: add Android location live updates" --body "Adds bounded manual and automatic location sessions, API 36.1 Live Updates with an older-version no-op, independent notification IDs 7101/7102, a native Location page, authoritative total/location queue counts, and the Android 36.1 CI SDK package. Verification evidence is included in the PR checks and description updates."
+git push -u origin codex/android-live-updates-espresso-fix
+gh pr create --base master --head codex/android-live-updates-espresso-fix --title "feat: add Android location live updates" --body "Adds bounded manual and automatic location sessions, API 36.1 Live Updates with an older-version no-op, independent notification IDs 7101/7102, a native Location page, authoritative total/location queue counts, and the Android 36.1 CI SDK package. Verification evidence is included in the PR checks and description updates."
 ~~~
 
 The PR body must summarize:

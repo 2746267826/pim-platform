@@ -15,8 +15,10 @@ import com.pim.app.location.acquisition.FakePrerequisiteChecker
 import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
 import com.pim.app.location.acquisition.TestLocationAcquisitionOperations
 import com.pim.app.location.service.ForegroundLocationController
+import com.pim.app.settings.TrackingSettingsStore
 import com.pim.app.status.QueueStatusRepository
 import com.pim.app.status.QueueStatusSnapshot
+import com.pim.app.testing.InMemorySharedPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -275,7 +277,7 @@ class LocationViewModelTest {
     }
 
     @Test
-    fun `auto session shows auto labels and disables manual start`() {
+    fun `auto session shows auto labels and disabled start`() {
         val state = mapToLocationUiState(
             acqState = LocationAcquisitionState(
                 sessionId = "s2",
@@ -290,7 +292,33 @@ class LocationViewModelTest {
 
         assertEquals("自动定位", state.triggerLabel)
         assertFalse(state.manualStartEnabled)
-        assertFalse(state.showStart)
+        assertTrue(state.showStart)
+        assertTrue(state.showCancel)
+    }
+
+    @Test
+    fun `auto session in every busy phase keeps start visible but disabled`() {
+        for (phase in listOf(
+            AcquisitionPhase.Preparing,
+            AcquisitionPhase.Acquiring,
+            AcquisitionPhase.Evaluating
+        )) {
+            val state = mapToLocationUiState(
+                acqState = LocationAcquisitionState(
+                    sessionId = "s2",
+                    triggerType = TriggerType.AUTOMATIC,
+                    phase = phase,
+                    startedAtElapsedRealtimeMs = 1000L,
+                    deadlineAtElapsedRealtimeMs = 31000L,
+                    elapsedMs = 2000L
+                ),
+                queueSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0)
+            )
+
+            assertTrue("auto $phase must keep start visible", state.showStart)
+            assertFalse("auto $phase must disable start", state.manualStartEnabled)
+            assertTrue("auto $phase must show cancel", state.showCancel)
+        }
     }
 
     @Test
@@ -520,7 +548,10 @@ class LocationViewModelTest {
         val runner = FakeLocationAcquisitionRunner()
         val prereq = FakePrerequisiteChecker()
         val ops = TestLocationAcquisitionOperations()
-        val coordinator = LocationAcquisitionCoordinator(runner, prereq, ops, Json)
+        val coordinator = LocationAcquisitionCoordinator(
+            runner, prereq, ops, Json,
+            TrackingSettingsStore(InMemorySharedPreferences())
+        )
 
         val queueRepo = QueueStatusRepository(
             MutableStateFlow(0), MutableStateFlow(0), MutableStateFlow(0),
@@ -546,7 +577,10 @@ class LocationViewModelTest {
         val runner = FakeLocationAcquisitionRunner()
         val prereq = FakePrerequisiteChecker().apply { ready() }
         val ops = TestLocationAcquisitionOperations()
-        val coordinator = LocationAcquisitionCoordinator(runner, prereq, ops, Json)
+        val coordinator = LocationAcquisitionCoordinator(
+            runner, prereq, ops, Json,
+            TrackingSettingsStore(InMemorySharedPreferences())
+        )
         coordinator.uuidGenerator = { "test-session-cancel" }
 
         val queueRepo = QueueStatusRepository(
@@ -578,7 +612,10 @@ class LocationViewModelTest {
         val runner = FakeLocationAcquisitionRunner()
         val prereq = FakePrerequisiteChecker().apply { ready() }
         val ops = TestLocationAcquisitionOperations()
-        val coordinator = LocationAcquisitionCoordinator(runner, prereq, ops, Json)
+        val coordinator = LocationAcquisitionCoordinator(
+            runner, prereq, ops, Json,
+            TrackingSettingsStore(InMemorySharedPreferences())
+        )
         coordinator.testScope = this
         coordinator.uuidGenerator = { "test-session-submit" }
 

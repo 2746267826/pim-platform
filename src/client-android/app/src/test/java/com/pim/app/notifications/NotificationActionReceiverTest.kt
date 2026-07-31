@@ -21,6 +21,8 @@ import com.pim.app.location.liveupdate.LocationLiveUpdateNotificationRenderer
 import com.pim.app.location.liveupdate.LocationLiveUpdatePublisher
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
+import com.pim.app.settings.TrackingSettingsStore
+import com.pim.app.testing.InMemorySharedPreferences
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
@@ -92,7 +94,8 @@ class NotificationActionReceiverTest {
             runner = noOpRunner,
             prerequisiteChecker = readyChecker,
             operations = noOpOperations,
-            json = Json
+            json = Json,
+            trackingSettingsStore = TrackingSettingsStore(InMemorySharedPreferences())
         )
         coordinator.testScope = testScope
         return coordinator

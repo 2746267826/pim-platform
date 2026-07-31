@@ -6,6 +6,8 @@ import com.pim.app.location.quality.AltitudeWaitCoordinator
 import com.pim.app.location.quality.LocationQualityGate
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
+import com.pim.app.settings.TrackingSettings
+import com.pim.app.settings.TrackingSettingsStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -43,12 +45,24 @@ class LocationAcquisitionCoordinator @Inject constructor(
     private val runner: LocationAcquisitionRunner,
     private val prerequisiteChecker: LocationPrerequisiteChecker,
     private val operations: LocationAcquisitionOperations,
-    private val json: Json
+    private val json: Json,
+    private val trackingSettingsStore: TrackingSettingsStore
 ) {
     internal var testScope: CoroutineScope? = null
     internal var uuidGenerator: () -> String = { UUID.randomUUID().toString() }
     internal var wallClockMillis: () -> Long = { System.currentTimeMillis() }
     internal var elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() }
+    // Test seam: invoked in the automatic-acceptance path immediately before the
+    // Enqueuing claim, so a cancellation TOCTOU can be reproduced deterministically.
+    internal var beforeAutomaticEnqueueClaim: (() -> Unit)? = null
+    // Test seam: invoked in cancelCurrentSession after a cancellable state snapshot
+    // is read but before the CAS to Cancelled, so a stale-read interleaving with the
+    // automatic Enqueuing claim can be reproduced deterministically.
+    internal var beforeCancellingSessionJob: (() -> Unit)? = null
+    // Test seam: invoked in cancelCurrentSession immediately after the Cancelled
+    // state claim wins and before the session job is cancelled/cleared, so a new
+    // session starting in that window can be reproduced deterministically.
+    internal var afterSessionCancelledClaim: (() -> Unit)? = null
 
     private val internalScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val scope: CoroutineScope get() = testScope ?: internalScope
@@ -61,28 +75,34 @@ class LocationAcquisitionCoordinator @Inject constructor(
 
     fun startManualSession(replaceAwaitingManual: Boolean = false): SessionStartResult {
         val current = _state.value
-        if (current.isBusy) {
-            if (current.phase == AcquisitionPhase.AwaitingManualSubmit && replaceAwaitingManual) {
-                val oldJob = sessionJob
-                oldJob?.cancel()
-                clearSessionJobIfOwned(oldJob)
-                pendingAccepted = null
-            } else {
-                return SessionStartResult.Busy
-            }
-        }
+        val replacing = current.isBusy &&
+            current.phase == AcquisitionPhase.AwaitingManualSubmit &&
+            replaceAwaitingManual
 
+        if (current.isBusy && !replacing) return SessionStartResult.Busy
+
+        // Check prerequisites before replacing: a blocked restart must not
+        // destroy the accepted-but-unsubmitted manual result.
         when (val precheck = prerequisiteChecker.check(TriggerType.MANUAL)) {
             is LocationPrerequisiteResult.Blocked -> {
-                _state.value = current.copy(
-                    phase = AcquisitionPhase.Idle,
-                    sessionId = null,
-                    triggerType = null,
-                    errorReason = precheck.reason
-                )
+                if (!replacing) {
+                    _state.value = current.copy(
+                        phase = AcquisitionPhase.Idle,
+                        sessionId = null,
+                        triggerType = null,
+                        errorReason = precheck.reason
+                    )
+                }
                 return SessionStartResult.Rejected(precheck.reason)
             }
             is LocationPrerequisiteResult.Ready -> {}
+        }
+
+        if (replacing) {
+            val oldJob = sessionJob
+            oldJob?.cancel()
+            clearSessionJobIfOwned(oldJob)
+            pendingAccepted = null
         }
 
         val sessionId = uuidGenerator()
@@ -111,17 +131,48 @@ class LocationAcquisitionCoordinator @Inject constructor(
         return SessionStartResult.Started(sessionId)
     }
 
-    fun cancelCurrentSession(expectedSessionId: String? = null) {
-        val current = _state.value
-        if (expectedSessionId != null && current.sessionId != expectedSessionId) return
-        if (current.phase == AcquisitionPhase.Idle) return
+    fun cancelCurrentSession(expectedSessionId: String? = null): Boolean {
+        val cancellablePhases = setOf(
+            AcquisitionPhase.Preparing,
+            AcquisitionPhase.Acquiring,
+            AcquisitionPhase.Evaluating,
+            AcquisitionPhase.AwaitingManualSubmit
+        )
+        while (true) {
+            val current = _state.value
+            if (expectedSessionId != null && current.sessionId != expectedSessionId) return false
+            // Only genuinely cancellable phases may be cancelled. Idle and Enqueuing
+            // are excluded (an in-flight confirmed submission must not be represented
+            // as cancelled), and terminal phases keep their result: a late cancel
+            // intent must not relabel a completed/timed-out/failed/cancelled session.
+            if (current.phase !in cancellablePhases) return false
 
-        val job = sessionJob
-        job?.cancel()
-        clearSessionJobIfOwned(job)
-        pendingAccepted = null
-        updateStateIfCurrent(current.sessionId, job) {
-            it.copy(phase = AcquisitionPhase.Cancelled, sessionId = null, errorReason = null)
+            // Capture the job that owns this snapshot's session while the snapshot
+            // is still current: only this job may be cancelled once the Cancelled
+            // claim wins. A session started after the claim owns a different job.
+            val ownerJob = sessionJob
+            beforeCancellingSessionJob?.invoke()
+
+            if (_state.compareAndSet(
+                    current,
+                    current.copy(phase = AcquisitionPhase.Cancelled, errorReason = null)
+                )
+            ) {
+                // The Cancelled claim won; only now may the captured job be cancelled
+                // and its ownership cleared. A lost CAS (e.g. the automatic Evaluating
+                // -> Enqueuing claim) is retried and observed as not cancellable.
+                // Test seam: invoked immediately after the successful Cancelled claim
+                // and before the captured job is cancelled/cleared, so a new session
+                // starting in that window can be reproduced deterministically.
+                afterSessionCancelledClaim?.invoke()
+                ownerJob?.cancel()
+                clearSessionJobIfOwned(ownerJob)
+                // Stale pendingAccepted (e.g. an accepted-but-unsubmitted manual
+                // result) is intentionally retained: claimManualSubmission is gated
+                // on the AwaitingManualSubmit phase and the next startSession resets
+                // it, so this cleanup can never discard a newer session's result.
+                return true
+            }
         }
     }
 
@@ -141,6 +192,8 @@ class LocationAcquisitionCoordinator @Inject constructor(
                     rawJson,
                     TriggerType.MANUAL.storageSource
                 )
+                // Record is already enqueued; schedule sync at most once even if session changed.
+                operations.scheduleSync()
                 updateStateIfCurrent(claim.sessionId, claim.ownerJob) {
                     it.copy(phase = AcquisitionPhase.Completed, errorReason = null)
                 }
@@ -178,6 +231,22 @@ class LocationAcquisitionCoordinator @Inject constructor(
         }
     }
 
+    // Atomic claim of the automatic Enqueuing transition. Returns true only when
+    // the transition actually happened; a session already terminal (e.g. Cancelled
+    // after a quality accept) must never be enqueued, and once claimed, the
+    // in-flight enqueue is the user-approved completion that later cancels ignore.
+    private fun claimAutomaticEnqueuing(sessionId: String?): Boolean {
+        if (sessionId == null) return false
+        while (true) {
+            val current = _state.value
+            if (current.sessionId != sessionId) return false
+            if (current.phase != AcquisitionPhase.Evaluating) return false
+            if (_state.compareAndSet(current, current.copy(phase = AcquisitionPhase.Enqueuing))) {
+                return true
+            }
+        }
+    }
+
     private fun startSession(
         sessionId: String,
         triggerType: TriggerType,
@@ -185,16 +254,20 @@ class LocationAcquisitionCoordinator @Inject constructor(
     ) {
         val nowElapsed = elapsedRealtimeMillis()
         pendingAccepted = null
+        // Snapshot tracking settings once per session; later changes only affect
+        // the next session, never the active one.
+        val settings = trackingSettingsStore.read()
         _state.value = LocationAcquisitionState(
             sessionId = sessionId,
             triggerType = triggerType,
             phase = AcquisitionPhase.Preparing,
             startedAtElapsedRealtimeMs = nowElapsed,
-            deadlineAtElapsedRealtimeMs = nowElapsed + 30_000L
+            deadlineAtElapsedRealtimeMs = nowElapsed + 30_000L,
+            maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
         )
         lateinit var job: Job
         val newJob = scope.launch(start = CoroutineStart.LAZY) {
-            runSession(sessionId, triggerType, context, job)
+            runSession(sessionId, triggerType, context, job, settings)
         }
         job = newJob
         sessionJob = newJob
@@ -205,7 +278,8 @@ class LocationAcquisitionCoordinator @Inject constructor(
         sessionId: String,
         triggerType: TriggerType,
         context: AutomaticSessionContext?,
-        ownerJob: Job
+        ownerJob: Job,
+        settings: TrackingSettings
     ) = coroutineScope {
         val tickerJob = launch {
             while (isActive) {
@@ -221,7 +295,7 @@ class LocationAcquisitionCoordinator @Inject constructor(
             }
         }
         try {
-            acquireAndEvaluate(sessionId, triggerType, context, ownerJob)
+            acquireAndEvaluate(sessionId, triggerType, context, ownerJob, settings)
         } catch (e: CancellationException) {
             updateStateIfCurrent(sessionId, ownerJob) {
                 it.copy(phase = AcquisitionPhase.Cancelled)
@@ -241,7 +315,8 @@ class LocationAcquisitionCoordinator @Inject constructor(
         sessionId: String,
         triggerType: TriggerType,
         context: AutomaticSessionContext?,
-        ownerJob: Job
+        ownerJob: Job,
+        settings: TrackingSettings
     ) = coroutineScope {
         updateStateIfCurrent(sessionId, ownerJob) {
             it.copy(phase = AcquisitionPhase.Acquiring)
@@ -251,7 +326,7 @@ class LocationAcquisitionCoordinator @Inject constructor(
         val sessionStartedWallClockMillis = wallClockMillis()
         val deadlineCapMillis = sessionStartedWallClockMillis + 30_000L
         val altitudeWaitCoordinator = AltitudeWaitCoordinator(
-            gate = LocationQualityGate(),
+            gate = LocationQualityGate.fromTrackingSettings(settings),
             nowMillis = wallClockMillis,
             delayMillis = { delay(it) }
         )
@@ -265,6 +340,7 @@ class LocationAcquisitionCoordinator @Inject constructor(
 
         val bestSnapshot = AtomicReference<LocationSnapshot?>(null)
         val acceptedLocation = AtomicReference<QualityAcceptedLocation?>(null)
+        val engineResult = AtomicReference<LocationEngineResult?>(null)
         val qualityAccepted = AtomicBoolean(false)
         val qualityJobs = mutableListOf<Job>()
         val engineJobRef = AtomicReference<Job?>(null)
@@ -279,32 +355,34 @@ class LocationAcquisitionCoordinator @Inject constructor(
 
         val engineJob = launch {
             try {
-                runner.acquire(
-                    request = request,
-                    onCandidate = { snapshot ->
-                        if (!isCurrentSession(sessionId) || qualityAccepted.get()) return@acquire
-                        bestSnapshot.set(snapshot)
-                        updateStateIfCurrent(sessionId, ownerJob) {
-                            it.copy(bestLocation = snapshot, phase = AcquisitionPhase.Evaluating)
-                        }
+                engineResult.set(
+                    runner.acquire(
+                        request = request,
+                        onCandidate = { snapshot ->
+                            if (!isCurrentSession(sessionId) || qualityAccepted.get()) return@acquire
+                            bestSnapshot.set(snapshot)
+                            updateStateIfCurrent(sessionId, ownerJob) {
+                                it.copy(bestLocation = snapshot, phase = AcquisitionPhase.Evaluating)
+                            }
 
-                        val fix = snapshot.toRawFix(triggerType, context)
-                        // Concurrent quality work: later candidates can satisfy altitude while an
-                        // earlier missing-altitude wait is still suspended inside the coordinator.
-                        val qualityJob = sessionScope.launch {
-                            altitudeWaitCoordinator.handleFix(
-                                fix = fix,
-                                deadlineCapMillis = deadlineCapMillis,
-                                onAccepted = { accepted -> onQualityAccepted(accepted) },
-                                onDropped = { droppedFix, reason ->
-                                    if (triggerType == TriggerType.AUTOMATIC) {
-                                        recordDrop(droppedFix, reason)
+                            val fix = snapshot.toRawFix(triggerType, context)
+                            // Concurrent quality work: later candidates can satisfy altitude while an
+                            // earlier missing-altitude wait is still suspended inside the coordinator.
+                            val qualityJob = sessionScope.launch {
+                                altitudeWaitCoordinator.handleFix(
+                                    fix = fix,
+                                    deadlineCapMillis = deadlineCapMillis,
+                                    onAccepted = { accepted -> onQualityAccepted(accepted) },
+                                    onDropped = { droppedFix, reason ->
+                                        if (triggerType == TriggerType.AUTOMATIC) {
+                                            recordDrop(droppedFix, reason)
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
+                            qualityJobs += qualityJob
                         }
-                        qualityJobs += qualityJob
-                    }
+                    )
                 )
             } catch (_: CancellationException) {
                 // quality acceptance or external cancel
@@ -320,6 +398,9 @@ class LocationAcquisitionCoordinator @Inject constructor(
         }
 
         if (!isCurrentSession(sessionId)) return@coroutineScope
+        // A cancelled terminal state retains its sessionId; leftover session work
+        // must not turn it into Failed/TimedOut or start an enqueue.
+        if (_state.value.phase == AcquisitionPhase.Cancelled) return@coroutineScope
 
         val accepted = acceptedLocation.get()
         if (accepted != null) {
@@ -333,8 +414,15 @@ class LocationAcquisitionCoordinator @Inject constructor(
                 it.copy(phase = AcquisitionPhase.Failed, bestLocation = best)
             }
         } else {
-            updateStateIfCurrent(sessionId, ownerJob) {
-                it.copy(phase = AcquisitionPhase.TimedOut)
+            val completion = engineResult.get()?.completion
+            if (completion is LocationEngineCompletion.Failed) {
+                updateStateIfCurrent(sessionId, ownerJob) {
+                    it.copy(phase = AcquisitionPhase.Failed, errorReason = completion.reason)
+                }
+            } else {
+                updateStateIfCurrent(sessionId, ownerJob) {
+                    it.copy(phase = AcquisitionPhase.TimedOut)
+                }
             }
         }
     }
@@ -353,9 +441,8 @@ class LocationAcquisitionCoordinator @Inject constructor(
                 it.copy(phase = AcquisitionPhase.AwaitingManualSubmit)
             }
         } else {
-            updateStateIfCurrent(sessionId, ownerJob) {
-                it.copy(phase = AcquisitionPhase.Enqueuing)
-            }
+            beforeAutomaticEnqueueClaim?.invoke()
+            if (!claimAutomaticEnqueuing(sessionId)) return
             try {
                 val json = rawJson(accepted, triggerType.storageSource)
                 operations.enqueueAccepted(accepted, json, triggerType.storageSource)
@@ -398,7 +485,17 @@ class LocationAcquisitionCoordinator @Inject constructor(
         if (ownerJob != null && sessionJob != null && sessionJob !== ownerJob) return
         if (_state.value.sessionId != sessionId) return
         _state.update { current ->
-            if (current.sessionId != sessionId) current else transform(current)
+            if (current.sessionId != sessionId) return@update current
+            val next = transform(current)
+            // The Cancelled terminal state is final for this session: leftover
+            // work must not resurrect or relabel it.
+            if (current.phase == AcquisitionPhase.Cancelled &&
+                next.phase != AcquisitionPhase.Cancelled
+            ) {
+                current
+            } else {
+                next
+            }
         }
     }
 

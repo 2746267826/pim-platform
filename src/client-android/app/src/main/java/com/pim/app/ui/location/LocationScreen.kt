@@ -167,7 +167,7 @@ private fun ActionsSection(
                 modifier = Modifier.fillMaxWidth().testTag("location-start"),
                 enabled = state.manualStartEnabled
             ) {
-                Text("开始定位")
+                Text(if (state.manualStartEnabled) "开始定位" else "定位进行中")
             }
         }
 

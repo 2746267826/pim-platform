@@ -10,7 +10,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicReference
 
 class LocationLiveUpdatePublisher(
     private val stateFlow: StateFlow<LocationAcquisitionState>,
@@ -31,17 +30,22 @@ class LocationLiveUpdatePublisher(
         mgr.cancel(LocationLiveUpdateNotificationRenderer.LIVE_UPDATE_NOTIFICATION_ID)
     }
 
+    private val lock = Any()
     private var collectionJob: Job? = null
     private var lastPublishTimeMs: Long = -1L
     private var lastPublishedAccuracy: Float? = null
-    private val suppressedSessionId = AtomicReference<String?>(null)
+    private var suppressedSessionId: String? = null
     private var currentSessionId: String? = null
+    private var publishedSessionId: String? = null
 
     fun start(scope: CoroutineScope) {
         collectionJob?.cancel(CancellationException("restart"))
-        lastPublishTimeMs = -1L
-        lastPublishedAccuracy = null
-        currentSessionId = null
+        synchronized(lock) {
+            lastPublishTimeMs = -1L
+            lastPublishedAccuracy = null
+            currentSessionId = null
+            publishedSessionId = null
+        }
         collectionJob = scope.launch {
             try {
                 stateFlow.collect { state ->
@@ -54,72 +58,96 @@ class LocationLiveUpdatePublisher(
     }
 
     fun cancelStaleNotification() {
-        runCatching { effectiveCancel() }
+        synchronized(lock) {
+            if (publishedSessionId == null) {
+                runCatching { effectiveCancel() }
+            }
+        }
     }
 
     fun suppressSession(sessionId: String) {
-        suppressedSessionId.set(sessionId)
+        synchronized(lock) {
+            suppressedSessionId = sessionId
+            if (publishedSessionId == sessionId) {
+                runCatching { effectiveCancel() }
+                lastPublishTimeMs = -1L
+                lastPublishedAccuracy = null
+                currentSessionId = null
+                publishedSessionId = null
+            }
+        }
     }
 
     private fun handleState(state: LocationAcquisitionState) {
         val sessionId = state.sessionId
 
-        if (state.phase != AcquisitionPhase.Acquiring) {
+        if (state.phase != AcquisitionPhase.Acquiring &&
+            state.phase != AcquisitionPhase.Evaluating
+        ) {
             cancelAndReset()
             return
         }
 
         if (sessionId == null) return
-        if (sessionId == suppressedSessionId.get()) return
 
-        val now = clockMs()
+        synchronized(lock) {
+            if (sessionId == suppressedSessionId) return
 
-        if (sessionId != currentSessionId) {
-            currentSessionId = sessionId
-            lastPublishTimeMs = -1L
-            lastPublishedAccuracy = null
-        }
+            val now = clockMs()
 
-        val accuracy = state.bestLocation?.horizontalAccuracyMeters
+            if (sessionId != currentSessionId) {
+                currentSessionId = sessionId
+                lastPublishTimeMs = -1L
+                lastPublishedAccuracy = null
+            }
 
-        if (lastPublishTimeMs >= 0L) {
-            val elapsed = now - lastPublishTimeMs
-            if (elapsed < 2000L) {
-                val prevAccuracy = lastPublishedAccuracy
-                if (accuracy != null && prevAccuracy != null) {
-                    val improvement = prevAccuracy - accuracy
-                    if (improvement < 5f) return
-                } else if (accuracy == null) {
-                    return
+            val accuracy = state.bestLocation?.horizontalAccuracyMeters
+
+            if (lastPublishTimeMs >= 0L) {
+                val elapsed = now - lastPublishTimeMs
+                if (elapsed < 2000L) {
+                    val prevAccuracy = lastPublishedAccuracy
+                    if (accuracy != null && prevAccuracy != null) {
+                        val improvement = prevAccuracy - accuracy
+                        if (improvement < 5f) return
+                    } else if (accuracy == null) {
+                        return
+                    }
                 }
             }
-        }
 
-        val triggerType = state.triggerType ?: TriggerType.MANUAL
-        val providerLabel = state.bestLocation?.provider ?: "unknown"
+            val triggerType = state.triggerType ?: TriggerType.MANUAL
+            val providerLabel = state.bestLocation?.provider ?: "unknown"
 
-        runCatching {
-            effectivePublish(
-                LocationLiveUpdateContent(
-                    sessionId = sessionId,
-                    triggerType = triggerType,
-                    elapsedSeconds = state.elapsedMs / 1000,
-                    accuracyMeters = accuracy,
-                    providerLabel = providerLabel
+            runCatching {
+                effectivePublish(
+                    LocationLiveUpdateContent(
+                        sessionId = sessionId,
+                        triggerType = triggerType,
+                        elapsedSeconds = state.elapsedMs / 1000,
+                        accuracyMeters = accuracy,
+                        providerLabel = providerLabel
+                    )
                 )
-            )
-        }.onSuccess { published ->
-            if (published) {
-                lastPublishTimeMs = now
-                lastPublishedAccuracy = accuracy
+            }.onSuccess { published ->
+                if (published) {
+                    lastPublishTimeMs = now
+                    lastPublishedAccuracy = accuracy
+                    publishedSessionId = sessionId
+                }
             }
         }
     }
 
     private fun cancelAndReset() {
-        runCatching { effectiveCancel() }
-        lastPublishTimeMs = -1L
-        lastPublishedAccuracy = null
-        currentSessionId = null
+        synchronized(lock) {
+            if (publishedSessionId != null) {
+                runCatching { effectiveCancel() }
+            }
+            lastPublishTimeMs = -1L
+            lastPublishedAccuracy = null
+            currentSessionId = null
+            publishedSessionId = null
+        }
     }
 }

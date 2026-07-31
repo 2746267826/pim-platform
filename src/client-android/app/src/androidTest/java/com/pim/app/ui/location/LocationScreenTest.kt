@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -137,7 +138,9 @@ class LocationScreenTest {
             }
         }
         composeTestRule.onNodeWithTag("location-submit").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("提交中").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("location-submit-progress", useUnmergedTree = true)
+            .assertTextEquals("提交中")
+            .assertIsDisplayed()
     }
 
     @Test
@@ -322,6 +325,50 @@ class LocationScreenTest {
     }
 
     @Test
+    fun automaticBusyShowsDisabledStartWithProgressLabel() {
+        val uiState = mutableStateOf(
+            LocationUiState(
+                triggerLabel = "自动定位",
+                phaseLabel = "采集位置中",
+                showStart = true,
+                showCancel = true,
+                manualStartEnabled = false
+            )
+        )
+        composeTestRule.setContent {
+            PimTheme {
+                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+            }
+        }
+        composeTestRule.onNodeWithTag("location-start")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .assertIsNotEnabled()
+        composeTestRule.onNodeWithText("定位进行中").assertIsDisplayed()
+        composeTestRule.onNodeWithText("开始定位").assertDoesNotExist()
+    }
+
+    @Test
+    fun manualBusyDoesNotShowStartButton() {
+        val uiState = mutableStateOf(
+            LocationUiState(
+                triggerLabel = "手动定位",
+                phaseLabel = "采集位置中",
+                showStart = false,
+                showCancel = true,
+                manualStartEnabled = true
+            )
+        )
+        composeTestRule.setContent {
+            PimTheme {
+                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+            }
+        }
+        composeTestRule.onNodeWithTag("location-start").assertDoesNotExist()
+        composeTestRule.onNodeWithText("开始定位").assertDoesNotExist()
+    }
+
+    @Test
     fun pendingCountsDisplayed() {
         val uiState = mutableStateOf(
             LocationUiState(
@@ -338,6 +385,8 @@ class LocationScreenTest {
             }
         }
         composeTestRule.onNodeWithTag("location-pending-total").performScrollTo().assertIsDisplayed()
+            .assertTextEquals("15")
         composeTestRule.onNodeWithTag("location-pending-points").performScrollTo().assertIsDisplayed()
+            .assertTextEquals("9")
     }
 }

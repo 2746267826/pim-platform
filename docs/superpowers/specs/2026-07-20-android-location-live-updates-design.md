@@ -41,7 +41,7 @@ Android 16 API 36 引入 progress-centric notification，Android 16 QPR1 full SD
 
 ### 非功能需求
 
-- 同时只允许一个采集会话。自动定位进行中时，手动按钮显示“定位进行中”并禁用，但定位页面仍然显示该自动过程的进展。手动定位进行中时，到期自动轮次延后等待；手动会话不改变连续采集开关的开关状态。
+- 同时只允许一个采集会话。自动定位进行中（`TriggerType.AUTOMATIC` 且 `Preparing`/`Acquiring`/`Evaluating`）时，“开始定位”入口保持可见但禁用并显示“定位进行中”，定位页面仍然显示该自动过程的进展；手动定位进行中不显示“开始定位”入口。手动定位进行中时，到期自动轮次延后等待；手动会话不改变连续采集开关的开关状态。
 - 使用唯一 session ID 忽略取消或替换后迟到的位置回调。
 - 所有代码标识、API 名、字段名使用英文；用户可见文案使用简体中文。
 - 本规范中的所有产品和实现选择均为已确认决定。
@@ -124,16 +124,16 @@ enum class AcquisitionPhase { Idle, Preparing, Acquiring, Evaluating, AwaitingMa
 仅 API 36.1+ 可用，职责范围：
 
 - 在 `LocationAcquisitionCoordinator.stateFlow` 上订阅。
-- 当 phase 进入 `Acquiring` 时，发布一条 ongoing BigTextStyle Live Update。
+- 当 phase 进入 `Acquiring` 或 `Evaluating` 时，发布一条 ongoing BigTextStyle Live Update。
 - 使用平台 `android.app.Notification.Builder` 和 `Notification.BigTextStyle` 构建通知；由于该路径只会在 API 36.1+ 执行，不使用 `NotificationCompat.Builder` 包装这些新平台 API。
-- 在 `Acquiring` 内，当精度明显改善（horizontal accuracy 改善超过 `notificationThrottleAccuracyImprovementMeters`）或已等待秒数需要刷新时更新通知；进入该阶段时发布，离开该阶段时撤销。
+- 在 `Acquiring`/`Evaluating` 窗口内，当精度明显改善（horizontal accuracy 改善超过 `notificationThrottleAccuracyImprovementMeters`）或已等待秒数需要刷新时更新通知；进入该窗口时发布，离开该窗口时撤销。
 - 更新节流：最多每 `notificationThrottleIntervalMs`（2 秒）更新一次。
 - Live Update 内容规则：
   - `setShortCriticalText()`：初始为“定位中”，有候选后显示类似“±18m”。
   - 展开内容（`setBigText`）：显示“手动/自动定位”、已等待秒数、最佳精度和来源。
   - 绝不显示经纬度。
 - 操作：提供“取消”和“打开定位页”两个 `PendingIntent`。
-- 当 phase 离开 `Acquiring` 时立即取消（撤销）Live Update，包括进入 `Evaluating`、`AwaitingManualSubmit`、`Enqueuing` 或任何最终态；不发“完成”通知。
+- 当 phase 离开 `Acquiring`/`Evaluating` 发布窗口时立即取消（撤销）Live Update，包括进入 `AwaitingManualSubmit`、`Enqueuing` 或任何最终态；`Idle`/`Preparing` 也不发布；不发“完成”通知。
 - 使用独立的 NotificationChannel（id: `pim_location_live_update`，name: “定位动态”，importance 为 `IMPORTANCE_LOW`，不得为 `IMPORTANCE_MIN`）。
 - 使用独立的 notification ID（`LIVE_UPDATE_NOTIFICATION_ID = 7102`）。
 - 预检查执行顺序：调用统一 capability helper 判断 full SDK 36.1，随后检查 `POST_NOTIFICATIONS`、`canPostPromotedNotifications()`，最后构建通知并在测试/调试校验 `hasPromotableCharacteristics()`。
@@ -161,7 +161,7 @@ Capability helper 必须覆盖 36.0 运行时：
   - `AwaitingManualSubmit`：显示“提交位置”和“重新定位”按钮。
   - `Enqueuing`：显示不可重复触发的“提交中”状态。
   - 其他最终态：显示“重新定位”按钮。
-  - 自动采集进行中时，手动按钮显示“定位进行中”并禁用。
+  - 自动采集进行中（`TriggerType.AUTOMATIC` 且 `Preparing`/`Acquiring`/`Evaluating`）时，“开始定位”入口保持可见但禁用，文案显示“定位进行中”；手动采集进行中不显示“开始定位”入口。
 - 上传队列区域：显示 `pendingUploadTotal`（所有类型待上传总数）和 `pendingLocationPoints`（定位记录待上传数量）。
 
 #### 导航更新
@@ -201,7 +201,7 @@ Evaluating ├→ AwaitingManualSubmit → Enqueuing → Completed
 |------|------|
 | `Idle` | 无活跃采集会话 |
 | `Preparing` | 检查精确定位权限、系统定位开关、Google Play services 可用性、互斥条件、读取连续采集设置 |
-| `Acquiring` | 最长 30 秒位置采集窗口；Live Update 只在此阶段存在；手动使用高精度，自动保持现有策略优先级但拒绝早于会话开始的陈旧缓存结果 |
+| `Acquiring` | 最长 30 秒位置采集窗口；Live Update 在采集与评估窗口（`Acquiring`/`Evaluating`）存在；手动使用高精度，自动保持现有策略优先级但拒绝早于会话开始的陈旧缓存结果 |
 | `Evaluating` | 硬件采集已结束；判断位置质量；无位置→超时；低质量→失败但页面可查看不可提交；自动采集记录丢弃原因 |
 | `AwaitingManualSubmit` | 手动模式合格位置等待用户确认；用户可提交或重新定位；离开页面不自动提交 |
 | `Enqueuing` | 自动采集通过质量门，或手动结果经用户确认后，将合格结果写入 Room 并触发现有同步调度 |
@@ -213,7 +213,7 @@ Evaluating ├→ AwaitingManualSubmit → Enqueuing → Completed
 ### 并发规则
 
 - 同时只允许一个采集会话。
-- 自动定位进行中时，手动按钮显示“定位进行中”并禁用；定位页面仍显示该自动过程。
+- 自动定位进行中时，“开始定位”入口保持可见但禁用并显示“定位进行中”；定位页面仍显示该自动过程。
 - 手动定位进行中时，到期自动轮次延后等待；手动会话不改变连续采集开关。
 - 迟到回调（session ID 不匹配）直接丢弃。
 
@@ -254,7 +254,7 @@ Evaluating ├→ AwaitingManualSubmit → Enqueuing → Completed
 - `AwaitingManualSubmit`：“提交位置”主要按钮 + “重新定位”次要按钮
 - `Enqueuing`：显示“提交中”，禁用重复提交和重新定位
 - 最终状态（Completed/TimedOut/Failed/Cancelled）：“重新定位”按钮
-- 自动采集中：手动按钮禁用并显示“定位进行中”
+- 自动采集中：保持“开始定位”入口可见但禁用，显示“定位进行中”；手动采集中不显示该入口
 
 **区域 4：上传队列**
 - 待上传总数：`pendingUploadTotal`
@@ -370,7 +370,7 @@ Evaluating ├→ AwaitingManualSubmit → Enqueuing → Completed
 
 ### 应用启动/服务恢复
 
-- Coordinator 为进程内状态，进程重建后默认没有活跃 session。`PimApp`/`RunningStateRestorer` 在启动和服务恢复时无条件取消残留的 `LIVE_UPDATE_NOTIFICATION_ID`，之后只有新 session 才能重新发布。
+- Coordinator 为进程内状态，进程重建后默认没有活跃 session。仅在 `PimApp.onCreate`（进程创建）时清理残留的 `LIVE_UPDATE_NOTIFICATION_ID`（`cancelStaleNotification()`）；`RunningStateRestorer.ensureRunningState()` 不清理该通知，之后只有新 session 才能重新发布。
 
 ## 测试验收
 
@@ -409,6 +409,7 @@ Evaluating ├→ AwaitingManualSubmit → Enqueuing → Completed
 | API 36.0 | capability helper 捕获缺失 full SDK 类型或字段造成的 `LinkageError`，不崩溃且不发布 Live Update |
 | API 36.1 `canPostPromotedNotifications() = false` | 不发布 Live Update |
 | API 36.1 | 构建的 Live Update 满足 `hasPromotableCharacteristics()` |
+| API 36.1 | `Acquiring` 和 `Evaluating` 阶段均保持 7102 通知可见；离开该窗口进入 `AwaitingManualSubmit`/`Enqueuing`/终态时立即撤销，不发布“完成”通知 |
 | 渠道和 ID | `pim_location_live_update` 与 `pim_location_collection` 不同 |
 | 渠道和 ID | `LIVE_UPDATE_NOTIFICATION_ID = 7102`，与 `LocationNotificationRenderer.NOTIFICATION_ID = 7101` 不同 |
 
@@ -419,7 +420,7 @@ Evaluating ├→ AwaitingManualSubmit → Enqueuing → Completed
 | 导航 | 六项底部导航在 320dp/360dp 不重叠 |
 | 页面 | 四个区域完整显示 |
 | 状态 | 手动时显示手动状态、自动时显示自动状态 |
-| 互斥 | 自动定位进行中时手动按钮禁用 |
+| 互斥 | 自动定位进行中时“开始定位”入口可见但禁用并显示“定位进行中”；手动定位进行中不显示“开始定位”入口 |
 | 坐标 | 页面显示经纬度、Live Update 不显示经纬度 |
 | 队列 | 总数和定位数均正确更新 |
 
@@ -465,7 +466,7 @@ gradlew.bat :app:connectedDebugAndroidTest --no-daemon
 ```
 用户点击“定位” → LocationCoordinator.startManualSession()
     → Preparing（检查权限、开关、GMS、互斥）
-    → Acquiring（Engine 注册高精度回调，Publisher 发布 Live Update）
+    → Acquiring/Evaluating（Engine 注册高精度回调，Publisher 发布 Live Update）
     → Evaluating（判断质量）
     → AwaitingManualSubmit（页面显示结果，Live Update 撤销）
     → 用户点击“提交位置” → Enqueuing（写入 Room）
@@ -478,7 +479,7 @@ gradlew.bat :app:connectedDebugAndroidTest --no-daemon
 ForegroundLocationService 策略到期
     → LocationCoordinator.startAutomaticSession()
         → Preparing
-        → Acquiring（Engine 注册策略优先级回调，Publisher 发布 Live Update）
+        → Acquiring/Evaluating（Engine 注册策略优先级回调，Publisher 发布 Live Update）
         → Evaluating（判断质量）
           → 合格：Enqueuing（写入 Room）→ Completed
           → 不合格：Failed（Live Update 撤销，记录日志）

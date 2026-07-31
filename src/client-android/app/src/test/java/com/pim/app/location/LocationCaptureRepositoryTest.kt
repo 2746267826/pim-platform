@@ -262,7 +262,10 @@ class LocationCaptureRepositoryTest {
                 override suspend fun recordDropped(fix: com.pim.app.location.quality.RawLocationFix, reason: String) {}
                 override fun scheduleSync() {}
             },
-            json = json
+            json = json,
+            trackingSettingsStore = com.pim.app.settings.TrackingSettingsStore(
+                com.pim.app.testing.InMemorySharedPreferences()
+            )
         )
     }
 }

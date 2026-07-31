@@ -80,7 +80,8 @@ internal fun mapToLocationUiState(
         pendingUploadTotal = queueSnapshot.pendingUploadTotal,
         pendingLocationPoints = queueSnapshot.pendingLocationPoints,
         errorMessage = errorMessage,
-        showStart = isIdle && triggerType == null,
+        showStart = (isIdle && triggerType == null) ||
+            (triggerType == com.pim.app.location.acquisition.TriggerType.AUTOMATIC && isBusy),
         showCancel = isBusy,
         showSubmit = isAwaitingManual,
         showRestart = isAwaitingManual || isTerminal,

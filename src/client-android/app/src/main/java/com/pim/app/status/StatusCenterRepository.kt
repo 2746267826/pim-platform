@@ -77,13 +77,14 @@ class StatusCenterRepository @Inject constructor(
     private val networkStatusProvider: NetworkStatusProvider,
     private val workInfoStatusProvider: WorkInfoStatusProvider,
     private val acceptedSignal: StatusAcceptedSignal,
-    private val scheduleWindowRepository: ScheduleWindowRepository
+    private val scheduleWindowRepository: ScheduleWindowRepository,
+    private val queueStatusRepository: QueueStatusRepository
 ) {
     private val dao: MobileDataDao = database.mobileDataDao()
 
     fun observe(): Flow<StatusCenterState> {
         val coreFlow = combine(
-            queueSnapshotFlow(),
+            queueStatusRepository.observe(),
             diagnosticSnapshotFlow(),
             syncCoordinator.currentState,
             ForegroundLocationService.runtimeState
@@ -177,30 +178,6 @@ class StatusCenterRepository @Inject constructor(
             schedule = scheduleFacts.scheduleSnapshot.toScheduleCacheStatusSnapshot(expectedServerIdentity),
             recentPolicyTransitions = scheduleFacts.transitions
         )
-    }
-
-    private fun queueSnapshotFlow(): Flow<QueueStatusSnapshot> {
-        return combine(
-            combine(
-                dao.pendingLocationPointCount(),
-                dao.pendingUsageEventCount(),
-                dao.pendingUsageSummaryCount()
-            ) { loc, events, summaries -> Triple(loc, events, summaries) },
-            combine(
-                dao.pendingAppMetadataCount(),
-                dao.pendingDeviceProfileCount(),
-                dao.pendingSyncBatchCount()
-            ) { meta, profile, batches -> Triple(meta, profile, batches) }
-        ) { (loc, events, summaries), (meta, profile, batches) ->
-            QueueStatusSnapshot(
-                pendingLocationPoints = loc,
-                pendingUsageEvents = events,
-                pendingUsageSummaries = summaries,
-                pendingAppMetadata = meta,
-                pendingDeviceProfile = profile,
-                pendingSyncBatches = batches
-            )
-        }
     }
 
     private fun diagnosticSnapshotFlow(): Flow<DiagnosticSnapshot> {

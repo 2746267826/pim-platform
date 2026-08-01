@@ -19,7 +19,8 @@ val hasCiSigning = listOf(
 
 android {
     namespace = "com.pim.app"
-    compileSdk = 34
+    compileSdk = 36
+    compileSdkMinor = 1
     defaultConfig {
         applicationId = "com.pim.app"
         minSdk = 26
@@ -131,6 +132,7 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.12.2")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test:runner:1.5.2")
     androidTestImplementation("androidx.test:rules:1.5.0")

@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -71,7 +72,7 @@ fun TodayScreen(
 }
 
 @Composable
-private fun TodayStatusBar(
+internal fun TodayStatusBar(
     state: TodayUiState,
     syncFeedback: String?,
     onSyncNow: () -> Unit
@@ -151,7 +152,8 @@ private fun TodayStatusBar(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            FactChip("待上传", state.pendingCount.toString())
+            FactChip("待传总数", state.pendingCount.toString(), "today-pending-total")
+            FactChip("定位待传", state.pendingLocationPoints.toString(), "today-pending-location")
             FactChip(
                 "上传中",
                 if (state.isSyncing) "是" else "否"
@@ -167,14 +169,16 @@ private fun TodayStatusBar(
 }
 
 @Composable
-private fun FactChip(label: String, value: String) {
+private fun FactChip(label: String, value: String, tag: String? = null) {
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
         tonalElevation = 0.dp
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp).let { m ->
+                if (tag != null) m.testTag(tag) else m
+            },
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(

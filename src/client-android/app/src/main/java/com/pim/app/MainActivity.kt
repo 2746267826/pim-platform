@@ -1,8 +1,10 @@
 package com.pim.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.lifecycleScope
 import com.pim.app.location.service.ForegroundLocationController
 import com.pim.app.mobile.sync.MobileSyncScheduler
@@ -23,13 +25,12 @@ class MainActivity : AppCompatActivity() {
     @Inject
     lateinit var runningStateRestorer: RunningStateRestorer
 
+    private val activeDestination = mutableStateOf(PimDestination.Today)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val initialDestination = when (intent.getStringExtra(ForegroundLocationController.EXTRA_OPEN_DESTINATION)) {
-            "status" -> PimDestination.Status
-            else -> PimDestination.Today
-        }
-        setContent { PimRootScreen(initialDestination = initialDestination) }
+        activeDestination.value = resolveDestination(intent)
+        setContent { PimRootScreen(initialDestination = activeDestination.value) }
         lifecycle.addObserver(
             ForegroundRecoveryObserver(
                 scope = lifecycleScope,
@@ -38,5 +39,18 @@ class MainActivity : AppCompatActivity() {
                 recover = { runningStateRestorer.ensureRunningState() }
             )
         )
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        activeDestination.value = resolveDestination(intent)
+    }
+
+    private fun resolveDestination(intent: Intent?): PimDestination {
+        return when (intent?.getStringExtra(ForegroundLocationController.EXTRA_OPEN_DESTINATION)) {
+            "location" -> PimDestination.Location
+            "status" -> PimDestination.Status
+            else -> PimDestination.Today
+        }
     }
 }

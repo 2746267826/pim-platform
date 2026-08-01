@@ -115,7 +115,9 @@ class MotionSignalRepository @Inject constructor(
         )
     }
 
+    @SuppressLint("MissingPermission")
     fun unregisterActivityTransitions() {
+        if (!hasActivityRecognitionPermission()) return
         ActivityRecognition.getClient(context).removeActivityTransitionUpdates(
             MotionTransitionReceiver.pendingIntent(context)
         )

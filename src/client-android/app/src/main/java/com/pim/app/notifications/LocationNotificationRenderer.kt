@@ -17,7 +17,7 @@ data class LocationNotificationState(
     val nextExpectedLocationText: String,
     val lastAcceptedLocationText: String,
     val lastAccuracyText: String,
-    val pendingUploadCount: Int,
+    val pendingUploadTotal: Int,
     val apiState: String,
     val lastDroppedReason: String?
 )
@@ -43,7 +43,7 @@ object LocationNotificationRenderer {
             modeLabel(state.mode),
             state.nextExpectedLocationText,
             "精度 ${state.lastAccuracyText}",
-            "待上传 ${state.pendingUploadCount}",
+            "待上传 ${state.pendingUploadTotal}",
             state.apiState
         ).joinToString(" · ")
     }
@@ -53,7 +53,7 @@ object LocationNotificationRenderer {
             add("策略：${modeLabel(state.mode)}")
             add("下次定位：${state.nextExpectedLocationText}")
             add("最近位置：${state.lastAcceptedLocationText}，精度 ${state.lastAccuracyText}")
-            add("待上传 ${state.pendingUploadCount}，${apiStateLabel(state.apiState)}")
+            add("待上传 ${state.pendingUploadTotal}，${apiStateLabel(state.apiState)}")
             state.lastDroppedReason?.let { add("最近丢弃：$it") }
         }.joinToString("\n")
     }

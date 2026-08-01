@@ -13,8 +13,12 @@ import javax.inject.Inject
 class LocationQueueRepository @Inject constructor(
     private val dao: MobileDataDao
 ) {
-    suspend fun enqueueAccepted(accepted: QualityAcceptedLocation, rawJson: String): Long {
-        return dao.insertLocationPoint(MobileLocationPointEntity.fromAccepted(accepted, rawJson))
+    suspend fun enqueueAccepted(
+        accepted: QualityAcceptedLocation,
+        rawJson: String,
+        source: String = "auto"
+    ): Long {
+        return dao.insertLocationPoint(MobileLocationPointEntity.fromAccepted(accepted, rawJson, source))
     }
 
     suspend fun recordDropped(

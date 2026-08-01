@@ -3,6 +3,9 @@ package com.pim.app.notifications
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
+import com.pim.app.location.liveupdate.LocationLiveUpdateNotificationRenderer
+import com.pim.app.location.liveupdate.LocationLiveUpdatePublisher
 import com.pim.app.location.service.ForegroundLocationController
 import com.pim.app.ui.shell.PimShellActivity
 import com.pim.core.network.ApiClientProvider
@@ -16,6 +19,8 @@ import kotlinx.coroutines.launch
 class NotificationActionReceiver : BroadcastReceiver() {
     @Inject lateinit var apiClientProvider: ApiClientProvider
     @Inject lateinit var foregroundLocationController: ForegroundLocationController
+    @Inject lateinit var coordinator: LocationAcquisitionCoordinator
+    @Inject lateinit var liveUpdatePublisher: LocationLiveUpdatePublisher
 
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
@@ -33,6 +38,20 @@ class NotificationActionReceiver : BroadcastReceiver() {
             }
             ForegroundLocationController.ACTION_OPEN_STATUS -> {
                 context.startActivity(foregroundLocationController.openStatusIntent())
+                return
+            }
+            LocationLiveUpdateNotificationRenderer.ACTION_CANCEL_LOCATION_SESSION -> {
+                val parsed = LocationLiveUpdateNotificationRenderer.parseSessionUri(intent.data)
+                if (parsed != null && parsed.action == "cancel") {
+                    coordinator.cancelCurrentSession(parsed.sessionId)
+                }
+                return
+            }
+            LocationLiveUpdateNotificationRenderer.ACTION_DISMISS_LOCATION_LIVE_UPDATE -> {
+                val parsed = LocationLiveUpdateNotificationRenderer.parseSessionUri(intent.data)
+                if (parsed != null && parsed.action == "delete") {
+                    liveUpdatePublisher.suppressSession(parsed.sessionId)
+                }
                 return
             }
         }

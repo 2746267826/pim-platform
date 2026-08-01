@@ -15,6 +15,7 @@ class AltitudeWaitCoordinator(
 
     suspend fun handleFix(
         fix: RawLocationFix,
+        deadlineCapMillis: Long? = null,
         onAccepted: suspend (QualityAcceptedLocation) -> Unit,
         onDropped: suspend (RawLocationFix, String) -> Unit
     ) {
@@ -25,8 +26,15 @@ class AltitudeWaitCoordinator(
             }
             is QualityDecision.Drop -> onDropped(decision.fix, decision.reason)
             is QualityDecision.WaitForAltitude -> {
-                pendingAltitudeFix = decision.pending
-                waitThenHandleTimeout(decision.pending, onAccepted, onDropped)
+                val pending = if (deadlineCapMillis != null) {
+                    decision.pending.copy(
+                        deadlineMillis = minOf(decision.pending.deadlineMillis, deadlineCapMillis)
+                    )
+                } else {
+                    decision.pending
+                }
+                pendingAltitudeFix = pending
+                waitThenHandleTimeout(pending, onAccepted, onDropped)
             }
         }
     }
@@ -42,7 +50,7 @@ class AltitudeWaitCoordinator(
         }
         if (pendingAltitudeFix != pending) return
 
-        when (val decision = gate.timeoutDecision(pending, nowMillis())) {
+        when (val decision = gate.timeoutDecision(pending, nowMillis().coerceAtLeast(pending.deadlineMillis))) {
             is QualityDecision.AcceptNow -> {
                 pendingAltitudeFix = null
                 onAccepted(decision.accepted)

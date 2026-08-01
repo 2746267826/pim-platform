@@ -8,12 +8,20 @@ import org.junit.Test
 class AndroidV2ScreenContentTest {
     @Test
     fun screensExposeApprovedInformationArchitecture() {
-        assertContains("ui/today/TodayScreen.kt", listOf("syncButtonLabel", "syncButtonShowSpinner", "待上传", "上传中", "已确认", "本轮拒绝", "永久拒绝", "服务器版本不支持嵌入页面", "打开设置"))
+        assertContains("ui/today/TodayScreen.kt", listOf("syncButtonLabel", "syncButtonShowSpinner", "待传总数", "定位待传", "上传中", "已确认", "本轮拒绝", "永久拒绝", "服务器版本不支持嵌入页面", "打开设置"))
         assertContains("ui/tracks/TracksScreen.kt", listOf("PimWebViewScreen", "/embed/android/tracks", "viewModel.bridge", "服务器版本不支持嵌入页面", "打开设置", "embedSupported"))
         assertContains(
             "ui/settings/SettingsScreen.kt",
             listOf("API 地址", "账号", "持续采集", "采集预设", "高级参数", "网络", "日志", "权限", "恢复默认")
         )
+        assertContains("ui/location/LocationScreen.kt", listOf(
+            "location-status-section", "location-best-section", "location-actions-section", "location-queue-section",
+            "location-start", "location-cancel", "location-submit", "location-restart", "location-open-settings",
+            "location-pending-total", "location-pending-points",
+            "location-submit-progress",
+            "location-accuracy", "location-provider", "location-latitude", "location-longitude",
+            "location-altitude", "location-speed", "location-bearing", "location-recorded-time"
+        ))
     }
 
     @Test

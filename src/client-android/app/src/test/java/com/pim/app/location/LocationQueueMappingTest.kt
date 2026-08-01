@@ -14,6 +14,37 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LocationQueueMappingTest {
+    private fun acceptedLocation(): QualityAcceptedLocation = QualityAcceptedLocation(
+        fix = RawLocationFix(
+            latitude = 31.230416,
+            longitude = 121.473701,
+            horizontalAccuracyMeters = 18f,
+            altitudeMeters = null,
+            provider = "gps",
+            recordedAtMillis = 1_000L,
+            policyMode = LocationPolicyMode.ScheduleLowFrequency.name,
+            scheduleLowFrequency = true,
+            motionSignal = "Still"
+        ),
+        altitudeMeters = null,
+        acceptedAtMillis = 16_000L,
+        qualityFlags = setOf("altitude-missing-timeout")
+    )
+
+    @Test
+    fun acceptedLocationPreservesManualSource() {
+        val accepted = acceptedLocation()
+        val entity = MobileLocationPointEntity.fromAccepted(accepted, rawJson = "{}", source = "manual")
+        assertEquals("manual", entity.source)
+    }
+
+    @Test
+    fun acceptedLocationPreservesAutomaticSource() {
+        val accepted = acceptedLocation()
+        val entity = MobileLocationPointEntity.fromAccepted(accepted, rawJson = "{}", source = "auto")
+        assertEquals("auto", entity.source)
+    }
+
     @Test
     fun acceptedLocationStoresPolicyAndNullAltitudeFlag() {
         val accepted = QualityAcceptedLocation(

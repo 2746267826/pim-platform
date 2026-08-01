@@ -57,4 +57,16 @@ class LocationSubmissionPolicyTest {
             assertFalse(decision.shouldAutoSubmit)
         }
     }
+
+    @Test
+    fun `accurate manual location never auto-submits`() {
+        // shouldAutoSubmit must always be false per the new coordinator design
+        val decision = LocationSubmissionPolicy.decide(
+            horizontalAccuracyMeters = 5f,
+            autoAlreadySubmitted = false
+        )
+
+        assertTrue(decision.canSubmitManually)
+        assertFalse("auto-submit must be disabled", decision.shouldAutoSubmit)
+    }
 }

@@ -12,6 +12,7 @@ for (const expectedTest of [
   'microsoftCalendarSyncApi.test.ts',
   'scheduleWorkbenchE2e.test.ts',
   'scheduleWorkbenchVisualAudit.test.ts',
+  'beforeAfterDiff.test.tsx',
 ]) {
   assert.ok(
     completeScript.includes(expectedTest),

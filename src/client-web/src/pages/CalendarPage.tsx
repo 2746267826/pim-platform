@@ -4,11 +4,11 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin, { Draggable } from '@fullcalendar/interaction';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import luxon3Plugin from '@fullcalendar/luxon3';
-import type { DateSelectArg, DatesSetArg, EventClickArg, EventContentArg, EventInput, EventMountArg } from '@fullcalendar/core';
+import type { DateSelectArg, DatesSetArg, EventClickArg, EventContentArg, EventMountArg } from '@fullcalendar/core';
 import { format } from 'date-fns';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { Repeat2 } from 'lucide-react';
+import { AlertTriangle, Bell, Repeat2 } from 'lucide-react';
 import { getCalendarLayers, getCalendars, getEvents, getTasks, planTask } from '../api/calendar';
 import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
@@ -16,8 +16,10 @@ import TaskEditorDialog from '../dialogs/TaskEditorDialog';
 import CalendarLayerToolbar from '../components/schedule/CalendarLayerToolbar';
 import PageHeader from '../ui/PageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
-import type { CalendarLayerId, CalendarLayerItem, CalendarResponse, EventResponse, TaskResponse } from '../types';
+import type { CalendarLayerId, EventResponse, TaskResponse } from '../types';
 import { looksLikeHtml, sanitizeDescriptionHtml } from '../utils/safeHtml';
+import { buildCalendarEvents, type CalendarEventInput, type CalendarEventProps } from '../utils/calendarEvents';
+import { getPlannedEndForDrop, toLocalDateTimeInputValue } from '../utils/dropDuration';
 
 type CalendarMode = 'timeline' | 'month';
 type CalendarLayerToggleId = CalendarLayerId;
@@ -25,29 +27,6 @@ type CalendarLayerToggleId = CalendarLayerId;
 type CalendarDropArg = {
   draggedEl: HTMLElement;
   date: Date;
-};
-
-type CalendarEventProps =
-  | {
-      type: 'event';
-      raw: EventResponse;
-      accentColor: string;
-      calendarLabel: string;
-    }
-  | {
-      type: 'task';
-      raw: TaskResponse;
-      accentColor: string;
-      calendarLabel: string;
-    }
-  | {
-      type: 'layer';
-      raw: CalendarLayerItem;
-      accentColor: string;
-    };
-
-type CalendarEventInput = EventInput & {
-  extendedProps: CalendarEventProps;
 };
 
 const CALENDAR_MODE_OPTIONS: Array<{ value: CalendarMode; label: string }> = [
@@ -474,18 +453,37 @@ function renderCalendarEvent(arg: EventContentArg) {
     const description = raw.description
       ? truncateText(htmlToPlainText(raw.description), 80)
       : undefined;
+    const isImportant = raw.importance === 'high';
+    const showAsLabel = raw.showAs === 'free' || raw.showAs === 'tentative'
+      ? (raw.showAs === 'free' ? '空闲' : '暂定')
+      : undefined;
+    const cardClass = `calendar-event-card${isImportant ? ' calendar-event--important' : ''}`;
 
     return (
-      <div className="calendar-event-card" data-calendar-event-card style={style}>
+      <div className={cardClass} data-calendar-event-card style={style}>
         <span className="calendar-event-dot" />
         <span className="calendar-event-title">{arg.event.title}</span>
         {arg.timeText && <span className="calendar-event-time">{arg.timeText}</span>}
+        {showAsLabel && (
+          <span className={`calendar-event-showas calendar-event-showas--${raw.showAs}`}>{showAsLabel}</span>
+        )}
         {raw.location && <span className="calendar-event-location">{raw.location}</span>}
         {calendarLabel && <span className="calendar-event-source">{calendarLabel}</span>}
         {description && <span className="calendar-event-description">{description}</span>}
         {raw.rrule && (
           <span className="calendar-event-rrule">
             <Repeat2 size={10} aria-label="重复" />
+          </span>
+        )}
+        {isImportant && (
+          <span className="calendar-event-importance" aria-label="重要">
+            <AlertTriangle size={10} aria-hidden="true" />
+            重要
+          </span>
+        )}
+        {raw.isReminderOn && (
+          <span className="calendar-event-reminder" aria-label="提醒">
+            <Bell size={10} aria-hidden="true" />
           </span>
         )}
       </div>
@@ -510,136 +508,4 @@ function renderCalendarEvent(arg: EventContentArg) {
 
 function toDateStr(date: Date): string {
   return format(date, 'yyyy-MM-dd');
-}
-
-function toLocalDateTimeInputValue(date: Date): string {
-  return format(date, "yyyy-MM-dd'T'HH:mm");
-}
-
-function calendarDisplayName(cal: CalendarResponse | undefined): string | undefined {
-  if (!cal) return undefined;
-  return cal.outlookCalendarBindingId ? `${cal.name} (Outlook)` : cal.name;
-}
-
-function eventSourceDisplayName(source: string): string {
-  if (source === 'outlook') return 'Outlook';
-  if (source === 'outlook-ics') return 'Outlook ICS';
-  return '日程';
-}
-
-export function buildCalendarEvents(
-  events: EventResponse[],
-  tasks: TaskResponse[],
-  layerItems: CalendarLayerItem[],
-  enabledLayerSet: Set<CalendarLayerToggleId>,
-  calendars: CalendarResponse[] = [],
-): CalendarEventInput[] {
-  const calMap = new Map(calendars.map(c => [c.id, c]));
-
-  return [
-    ...events.map(event => {
-      const cal = calMap.get(event.calendarId);
-      const accentColor = cal?.color ?? '#2563eb';
-      const calendarLabel = calendarDisplayName(cal) ?? eventSourceDisplayName(event.source);
-
-      return {
-        id: event.id,
-        title: event.title,
-        start: event.dtStart,
-        end: event.dtEnd,
-        allDay: event.isAllDay,
-        extendedProps: {
-          type: 'event' as const,
-          raw: event,
-          accentColor,
-          calendarLabel,
-        },
-      };
-    }),
-    ...(enabledLayerSet.has('task-segments') ? tasks : []).filter(task => task.dtStart).map(task => {
-      const cal = task.calendarId ? calMap.get(task.calendarId) : undefined;
-      const accentColor = task.priority === 1 ? '#ef4444'
-        : task.priority === 3 ? '#14b8a6'
-        : '#f59e0b';
-      const calendarLabel = calendarDisplayName(cal) ?? '任务';
-
-      return {
-        id: task.id,
-        title: task.title,
-        start: task.dtStart,
-        end: task.plannedEnd || task.due,
-        extendedProps: {
-          type: 'task' as const,
-          raw: task,
-          accentColor,
-          calendarLabel,
-        },
-      };
-    }),
-    ...layerItems
-      .filter(item => enabledLayerSet.has(item.layer as CalendarLayerToggleId))
-      .filter(item => item.layer !== 'events')
-      .map(item => ({
-        id: `layer-${item.layer}-${item.id}`,
-        title: item.title,
-        start: item.startsAt,
-        end: item.endsAt,
-        backgroundColor: 'transparent',
-        borderColor: 'transparent',
-        classNames: item.layer === 'task-segments'
-          ? ['pim-calendar-layer-task-segment']
-          : ['pim-calendar-layer'],
-        extendedProps: {
-          type: 'layer' as const,
-          raw: item,
-          accentColor: item.color,
-        },
-      })),
-  ];
-}
-
-function getPlannedEndForDrop(task: TaskResponse, plannedStart: string): string | undefined {
-  const plannedStartDate = parseCalendarDate(plannedStart);
-  if (!plannedStartDate) return task.due;
-
-  const existingPlannedEnd = parseCalendarDate(task.plannedEnd);
-  const existingPlannedStart = parseCalendarDate(task.dtStart);
-  if (existingPlannedEnd && existingPlannedStart) {
-    const durationMs = existingPlannedEnd.getTime() - existingPlannedStart.getTime();
-    if (durationMs > 0) return toLocalDateTimeInputValue(new Date(plannedStartDate.getTime() + durationMs));
-  }
-
-  const estimatedDurationMs = parseTimeSpanMs(task.estimatedDuration);
-  if (estimatedDurationMs && estimatedDurationMs > 0) {
-    return toLocalDateTimeInputValue(new Date(plannedStartDate.getTime() + estimatedDurationMs));
-  }
-
-  return task.due;
-}
-
-function parseCalendarDate(value?: string): Date | null {
-  if (!value) return null;
-
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function parseTimeSpanMs(value?: string): number | null {
-  if (!value) return null;
-
-  const match = /^(?:(\d+)\.)?(\d+):([0-5]\d):([0-5]\d)(?:\.(\d{1,7}))?$/.exec(value);
-  if (!match) return null;
-
-  const [, days = '0', hours, minutes, seconds, fraction = ''] = match;
-  const baseMs = (
-    Number(days) * 24 * 60 * 60
-    + Number(hours) * 60 * 60
-    + Number(minutes) * 60
-    + Number(seconds)
-  ) * 1000;
-  const fractionMs = fraction
-    ? Number(`0.${fraction}`) * 1000
-    : 0;
-
-  return baseMs + fractionMs;
 }

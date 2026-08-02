@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { outlookSyncInvalidationKeys } from '../../src/client-web/src/pages/SyncPage';
+import { outlookSyncInvalidationKeys } from '../../src/client-web/src/utils/outlookSyncInvalidation';
 
 const invalidationKeys = new Set(outlookSyncInvalidationKeys.map(key => JSON.stringify(key)));
 

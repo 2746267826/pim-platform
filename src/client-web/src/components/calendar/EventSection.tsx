@@ -3,11 +3,12 @@ import { ChevronDown } from 'lucide-react';
 
 interface EventSectionProps {
   title: string;
+  summary?: string;
   defaultOpen?: boolean;
   children: ReactNode;
 }
 
-export default function EventSection({ title, defaultOpen = false, children }: EventSectionProps) {
+export default function EventSection({ title, summary, defaultOpen = false, children }: EventSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
   const contentId = useId();
 
@@ -22,6 +23,7 @@ export default function EventSection({ title, defaultOpen = false, children }: E
           className="event-editor-section-toggle"
         >
           <span className="event-editor-section-title">{title}</span>
+          {summary && <span className="event-editor-section-summary">{summary}</span>}
           <ChevronDown
             aria-hidden="true"
             size={16}

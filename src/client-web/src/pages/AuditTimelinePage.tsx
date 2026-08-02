@@ -7,6 +7,7 @@ import {
   getRestorePreview,
 } from '../api/operations';
 import BeforeAfterDiff from '../components/schedule/BeforeAfterDiff';
+import { safeChangedFields } from '../utils/eventFieldDiff';
 import type { AuditVersion } from '../types';
 import PageHeader from '../ui/PageHeader';
 
@@ -18,7 +19,8 @@ function formatDateTime(value?: string | null) {
 }
 
 function versionTitle(version: AuditVersion) {
-  const fields = version.changedFields.length > 0 ? version.changedFields.join('、') : '无字段摘要';
+  const labels = safeChangedFields(version.changedFields).map(item => item.label);
+  const fields = labels.length > 0 ? labels.join('、') : '无字段摘要';
   return `${version.source ?? 'PIM'} · ${fields}`;
 }
 
@@ -165,7 +167,6 @@ export default function AuditTimelinePage() {
               <BeforeAfterDiff
                 beforeJson={selectedVersion.beforeJson}
                 afterJson={selectedVersion.afterJson}
-                changedFields={selectedVersion.changedFields}
               />
             </div>
           ) : (

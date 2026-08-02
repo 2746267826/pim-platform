@@ -107,6 +107,9 @@ const typesSource = readSource('types/index.ts');
   if (!richEditorSource.includes("from '@tiptap/extension-link'")) failures.push('Rich editor must use Link extension');
   if (!richEditorSource.includes("from '@tiptap/extension-underline'")) failures.push('Rich editor must use Underline extension');
   if (!richEditorSource.includes('levels: [2, 3]')) failures.push('StarterKit headings must be limited to levels [2, 3]');
+  if (!richEditorSource.includes('link: false') || !richEditorSource.includes('underline: false')) {
+    failures.push('StarterKit must explicitly disable its built-in link and underline so the explicit Link/Underline extensions are the only instances');
+  }
   if (!richEditorSource.includes('immediatelyRender: false') && !richEditorSource.includes('immediatelyRender={false}')) {
     failures.push('Rich editor must set immediatelyRender: false');
   }
@@ -230,7 +233,10 @@ const typesSource = readSource('types/index.ts');
 // ── Outlook additional info: allowlisted summary only ────────────────────────
 {
   if (!outlookInfoSource.includes('Outlook 附加信息')) failures.push('Outlook info must use the 附加信息 section label');
-  if (!outlookInfoSource.includes('<EventSection title="Outlook 附加信息">')) failures.push('Outlook info must be a default-collapsed EventSection');
+  if (!outlookInfoSource.includes('<EventSection title="Outlook 附加信息"')) {
+    failures.push('Outlook info must be a default-collapsed EventSection');
+  }
+  if (!outlookInfoSource.includes('summary=')) failures.push('Outlook info must surface the hidden-field count in the collapsed header');
   if (!outlookInfoSource.includes('info.groups')) failures.push('Outlook info must use only event.outlookAdditionalInfo.groups');
   if (!outlookInfoSource.includes('hiddenFieldCount')) failures.push('Outlook info must show hiddenFieldCount');
   if (!outlookInfoSource.includes('hiddenFieldCount <= 0')) {
@@ -278,11 +284,14 @@ const typesSource = readSource('types/index.ts');
     '缺少版本标识',
     'crypto.randomUUID',
     'expectedEtag',
-    'latestOutlookJson',
+    'latestEvent',
     '基于 Outlook 最新版本重新比较',
     'formKey',
   ]) {
     if (!editorSource.includes(preserved)) failures.push(`Editor must preserve ${preserved}`);
+  }
+  if (editorSource.includes('latestOutlookJson')) {
+    failures.push('Editor must not consume the deprecated latestOutlookJson');
   }
   if (!editorSource.includes("queryKey: ['events']")) failures.push('Editor must preserve event query invalidation');
   if (!editorSource.includes("queryKey: ['calendar-layers']")) failures.push('Editor must preserve calendar-layer invalidation');

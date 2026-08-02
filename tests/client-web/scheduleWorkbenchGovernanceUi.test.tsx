@@ -36,6 +36,18 @@ assertPageSourceContains('src/client-web/src/pages/ConfirmationsPage.tsx', [
   'allowedActions',
 ]);
 
+{
+  const source = readFileSync('src/client-web/src/pages/ConfirmationsPage.tsx', 'utf8');
+  assert.ok(!source.includes('<pre'),
+    'ConfirmationsPage must never render raw JSON <pre>');
+  assert.ok(!source.includes('active.previewJson ||'),
+    'ConfirmationsPage must not embed raw previewJson content');
+  assert.ok(source.includes('操作预览'),
+    'ConfirmationsPage must keep an operation preview summary panel');
+  assert.ok(source.includes('原始内容已隐藏'),
+    'ConfirmationsPage preview summary must state that raw content is hidden');
+}
+
 assertPageSourceContains('src/client-web/src/pages/DataCenterPage.tsx', [
   'DataCenterBatchPreview',
   '审计导出',

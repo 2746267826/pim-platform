@@ -24,7 +24,7 @@ interface RichDescriptionEditorProps {
 }
 
 const RICH_DESCRIPTION_EXTENSIONS = [
-  StarterKit.configure({ heading: { levels: [2, 3] } }),
+  StarterKit.configure({ heading: { levels: [2, 3] }, link: false, underline: false }),
   Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
   Underline,
 ];

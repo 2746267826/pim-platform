@@ -315,6 +315,8 @@ export interface RestorePreviewResponse {
   summary: string;
   requiresConfirmation: boolean;
   changedFields: string[];
+  beforeJson?: string | null;
+  afterJson?: string | null;
 }
 
 export interface DataCenterObjectRef {

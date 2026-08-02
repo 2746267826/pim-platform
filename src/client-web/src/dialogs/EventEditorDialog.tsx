@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useId, useEffect, type FormEvent, type KeyboardEvent } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { createEvent, updateEvent, deleteEvent, getCalendars, writeOutlookEvent } from '../api/calendar';
+import { createEvent, updateEvent, deleteEvent, getCalendars, getOutlookSettings, writeOutlookEvent } from '../api/calendar';
 import EditorDrawer from '../ui/EditorDrawer';
 import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
 import BeforeAfterDiff from '../components/schedule/BeforeAfterDiff';
@@ -10,6 +10,7 @@ import { resolveCalendarId, hasWritableCalendar, noWritableCalendarMessage } fro
 import { isoToDatetimeLocal, isEndAfterStart, minimumEndValue } from '../utils/dateTimeInput';
 import { looksLikeHtml, sanitizeDescriptionHtml } from '../utils/safeHtml';
 import { buildUnifiedEventDraft, type EventFormValue } from '../utils/eventDraft';
+import { formatFieldValue, summarizeEventFields, toDiffRecord, type EventFieldDiffInput } from '../utils/eventFieldDiff';
 import EventSection from '../components/calendar/EventSection';
 import RichDescriptionEditor from '../components/calendar/RichDescriptionEditor';
 import EventAdvancedFields from '../components/calendar/EventAdvancedFields';
@@ -43,38 +44,8 @@ type WritebackPhase =
   | { type: 'idle' }
   | { type: 'preview' }
   | { type: 'submitting' }
-  | { type: 'conflict'; latestOutlookJson: string; latestEtag?: string | null; errorMessage?: string | null }
+  | { type: 'conflict'; latestEvent: EventResponse | null; latestEtag?: string | null; errorMessage?: string | null }
   | { type: 'error'; message: string };
-
-function buildEventJson(event: EventResponse): string {
-  return JSON.stringify({
-    calendarId: event.calendarId,
-    title: event.title,
-    description: event.description,
-    location: event.location,
-    dtStart: event.dtStart,
-    dtEnd: event.dtEnd,
-    isAllDay: Boolean(event.isAllDay),
-    timeZoneId: event.timeZoneId,
-  }, null, 2);
-}
-
-function buildDraftJson(draft: OutlookEventDraft): string {
-  return JSON.stringify({
-    calendarId: draft.calendarId,
-    title: draft.title,
-    description: draft.description,
-    location: draft.location,
-    dtStart: draft.dtStart,
-    dtEnd: draft.dtEnd,
-    isAllDay: draft.isAllDay,
-    timeZoneId: draft.timeZoneId,
-  }, null, 2);
-}
-
-function buildDeleteAfterJson(): string {
-  return JSON.stringify({ '操作': '删除此 Outlook 日程' }, null, 2);
-}
 
 function escapePlainTextToParagraphHtml(text: string): string {
   const escaped = text
@@ -146,8 +117,8 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   const [outlookScope, setOutlookScope] = useState<'instance' | 'series'>(() =>
     event?.outlookEventType === 'seriesMaster' ? 'series' : 'instance',
   );
-  const [diffBefore, setDiffBefore] = useState('{}');
-  const [diffAfter, setDiffAfter] = useState('{}');
+  const [diffBefore, setDiffBefore] = useState<EventFieldDiffInput>({});
+  const [diffAfter, setDiffAfter] = useState<EventFieldDiffInput>({});
   const [writebackValidationError, setWritebackValidationError] = useState('');
 
   const selectedCalendarId = resolveCalendarId(
@@ -166,6 +137,12 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   const isFormDisabled = isReadOnly;
 
   const showScopeRadio = !!event && (event.outlookEventType === 'occurrence' || event.outlookEventType === 'exception' || event.outlookEventType === 'seriesMaster');
+
+  const { data: outlookSettings } = useQuery({
+    queryKey: ['outlook-settings', 'writeback'],
+    queryFn: () => getOutlookSettings(),
+    enabled: open && isOutlook,
+  });
 
   function getCalendarBindingId(): string {
     return selectedCalendar?.outlookCalendarBindingId || event?.outlookCalendarBindingId || '';
@@ -202,19 +179,18 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
 
   function openWritebackPreview(operation: 'create' | 'update' | 'delete') {
     const req = buildWritebackRequest(operation);
-    let before = '{}';
-    let after: string;
-    if (operation === 'create') {
-      after = req.draft ? buildDraftJson(req.draft) : '{}';
-    } else if (operation === 'delete') {
-      before = event ? buildEventJson(event) : '{}';
-      after = buildDeleteAfterJson();
-    } else {
-      before = event ? buildEventJson(event) : '{}';
-      after = req.draft ? buildDraftJson(req.draft) : '{}';
-    }
-    setDiffBefore(before);
-    setDiffAfter(after);
+    const beforeRecord = operation === 'create'
+      ? {}
+      : event
+        ? toDiffRecord(event as unknown as Record<string, unknown>)
+        : {};
+    const afterRecord = operation === 'delete'
+      ? {}
+      : req.draft
+        ? toDiffRecord(req.draft as unknown as Record<string, unknown>)
+        : {};
+    setDiffBefore(beforeRecord);
+    setDiffAfter(afterRecord);
     setPendingRequest(req);
     setWritebackPhase({ type: 'preview' });
   }
@@ -249,10 +225,10 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         return;
       }
       if (status === 'conflict') {
-        setDiffBefore(result.latestOutlookJson || '{}');
+        setDiffBefore(toDiffRecord((result.latestEvent ?? {}) as Record<string, unknown>));
         setWritebackPhase({
           type: 'conflict',
-          latestOutlookJson: result.latestOutlookJson || '{}',
+          latestEvent: result.latestEvent ?? null,
           latestEtag: result.latestEtag,
           errorMessage: result.errorMessage,
         });
@@ -268,7 +244,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
     if (writebackPhase.type !== 'conflict' || !writebackPhase.latestEtag) return;
     if (!pendingRequest) return;
     setPendingRequest({ ...pendingRequest, expectedEtag: writebackPhase.latestEtag });
-    setDiffBefore(writebackPhase.latestOutlookJson);
+    setDiffBefore(toDiffRecord((writebackPhase.latestEvent ?? {}) as Record<string, unknown>));
     setWritebackPhase({ type: 'preview' });
   }
 
@@ -538,10 +514,12 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         open={isWritebackActive}
         phase={writebackPhase}
         operation={pendingRequest?.operation || 'update'}
-        beforeJson={diffBefore}
-        afterJson={diffAfter}
+        before={diffBefore}
+        after={diffAfter}
         scope={outlookScope}
         showScope={showScopeRadio}
+        accountName={outlookSettings?.activeAuthorization?.accountDisplayName || null}
+        calendarName={selectedCalendar?.name ?? eventCalendar?.name ?? null}
         onScopeChange={setOutlookScope}
         onConfirm={confirmWriteback}
         onCancel={cancelWriteback}
@@ -556,10 +534,12 @@ function OutlookWritebackConfirmDialog({
   open,
   phase,
   operation,
-  beforeJson,
-  afterJson,
+  before,
+  after,
   scope,
   showScope,
+  accountName,
+  calendarName,
   onScopeChange,
   onConfirm,
   onCancel,
@@ -568,10 +548,12 @@ function OutlookWritebackConfirmDialog({
   open: boolean;
   phase: WritebackPhase;
   operation: string;
-  beforeJson: string;
-  afterJson: string;
+  before: EventFieldDiffInput;
+  after: EventFieldDiffInput;
   scope: 'instance' | 'series';
   showScope: boolean;
+  accountName: string | null;
+  calendarName: string | null;
   onScopeChange: (value: 'instance' | 'series') => void;
   onConfirm: () => void;
   onCancel: () => void;
@@ -580,6 +562,13 @@ function OutlookWritebackConfirmDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
+
+  const latestSummary = useMemo(() => {
+    if (phase.type !== 'conflict' || !phase.latestEvent) return [];
+    return summarizeEventFields(
+      toDiffRecord(phase.latestEvent as unknown as Record<string, unknown>),
+    );
+  }, [phase]);
 
   useEffect(() => {
     if (!open) return;
@@ -710,16 +699,30 @@ function OutlookWritebackConfirmDialog({
           {isConflict && (
             <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
               <p className="text-sm font-medium text-slate-700 mb-2">最新 Outlook 内容</p>
-              <pre className="max-h-40 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
-                {beforeJson || '{}'}
-              </pre>
+              {latestSummary.length === 0 ? (
+                <p className="text-xs text-slate-500">无法获取最新内容，请关闭后重试。</p>
+              ) : (
+                <ul className="space-y-1">
+                  {latestSummary.map(item => (
+                    <li key={item.key} className="flex min-w-0 gap-2 text-sm leading-6 text-slate-600">
+                      <span className="w-24 shrink-0 truncate text-xs font-semibold text-slate-500">{item.label}</span>
+                      <span className="min-w-0 flex-1 break-words">{formatFieldValue(item.after, item.key)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 
           <BeforeAfterDiff
-            beforeJson={beforeJson}
-            afterJson={afterJson}
-            changedFields={null}
+            before={before}
+            after={after}
+            meta={{
+              operation,
+              accountName,
+              calendarName,
+              scope: showScope ? scope : undefined,
+            }}
           />
         </section>
 

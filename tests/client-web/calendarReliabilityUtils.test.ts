@@ -6,6 +6,7 @@ import {
   datetimeLocalToUtcIso,
   minimumEndValue,
   isEndAfterStart,
+  normalizeZoneId,
 } from '../../src/client-web/src/utils/dateTimeInput';
 
 import {
@@ -37,6 +38,32 @@ describe('dateTimeInput', () => {
       assert.equal(isoToDatetimeLocal('not-a-date'), '');
       assert.equal(isoToDatetimeLocal(''), '');
     });
+
+    it('converts UTC ISO with the Windows timezone ID China Standard Time', () => {
+      const result = isoToDatetimeLocal('2026-07-20T06:00:00.000Z', 'China Standard Time');
+      assert.equal(result, '2026-07-20T14:00');
+    });
+
+    it('falls back to the local zone for an unknown timezone ID instead of returning empty', () => {
+      const result = isoToDatetimeLocal('2026-07-20T06:00:00.000Z', 'Totally Unknown Time');
+      assert.notEqual(result, '', 'isoToDatetimeLocal must not return empty for a valid ISO input');
+    });
+  });
+
+  describe('normalizeZoneId', () => {
+    it('maps Windows timezone IDs to their IANA equivalents', () => {
+      assert.equal(normalizeZoneId('China Standard Time'), 'Asia/Shanghai');
+    });
+
+    it('passes through IANA IDs unchanged', () => {
+      assert.equal(normalizeZoneId('Asia/Shanghai'), 'Asia/Shanghai');
+    });
+
+    it('passes through empty or unknown values unchanged', () => {
+      assert.equal(normalizeZoneId(''), '');
+      assert.equal(normalizeZoneId(undefined), undefined);
+      assert.equal(normalizeZoneId('Totally Unknown Time'), 'Totally Unknown Time');
+    });
   });
 
   describe('datetimeLocalToUtcIso', () => {
@@ -48,6 +75,16 @@ describe('dateTimeInput', () => {
     it('returns empty string for invalid datetime-local input', () => {
       assert.equal(datetimeLocalToUtcIso('not-a-datetime', 'Asia/Shanghai'), '');
       assert.equal(datetimeLocalToUtcIso('', 'Asia/Shanghai'), '');
+    });
+
+    it('normalizes the Windows timezone ID China Standard Time to Asia/Shanghai', () => {
+      const result = datetimeLocalToUtcIso('2026-07-20T14:00', 'China Standard Time');
+      assert.equal(result, '2026-07-20T06:00:00.000Z');
+    });
+
+    it('falls back to the local zone for an unknown timezone ID instead of dropping the moment', () => {
+      const result = datetimeLocalToUtcIso('2026-07-20T14:00', 'Totally Unknown Time');
+      assert.notEqual(result, '', 'datetimeLocalToUtcIso must not return empty for a valid local value');
     });
   });
 

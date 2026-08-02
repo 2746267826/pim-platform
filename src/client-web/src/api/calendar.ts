@@ -678,7 +678,7 @@ export async function writeOutlookEvent(request: OutlookWriteRequest) {
   const r = await authedFetch<ApiResponse<OutlookWriteResult>>(
     calendarApiPaths.outlookWriteback(),
     { method: 'POST', body: JSON.stringify(request) },
-    [409],
+    [409, 412],
   );
   return r.data;
 }

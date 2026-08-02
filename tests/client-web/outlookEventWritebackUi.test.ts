@@ -21,6 +21,11 @@ const clientSource = readFileSync(
   'utf8',
 );
 
+const beforeAfterDiffSource = readFileSync(
+  new URL('../../src/client-web/src/components/schedule/BeforeAfterDiff.tsx', import.meta.url),
+  'utf8',
+);
+
 const failures: unknown[] = [];
 
 // --- CalendarResponse must have optional outlook fields and canEdit ---
@@ -55,12 +60,13 @@ const failures: unknown[] = [];
   if (!iface.includes('clientOperationId:')) failures.push('OutlookWriteRequest must have clientOperationId');
 }
 
-// --- OutlookWriteResult must have latestOutlookJson and latestEtag ---
+// --- OutlookWriteResult must have typed latestEvent/latestEtag; latestOutlookJson is a deprecated compat field ---
 {
   const ifaceMatch = typesSource.match(/interface OutlookWriteResult\s*\{[^}]+\}/);
   assert.ok(ifaceMatch, 'OutlookWriteResult interface must exist');
   const iface = ifaceMatch[0];
-  if (!iface.includes('latestOutlookJson?:')) failures.push('OutlookWriteResult missing latestOutlookJson');
+  if (!iface.includes('latestOutlookJson?:')) failures.push('OutlookWriteResult keeps deprecated latestOutlookJson');
+  if (!iface.includes('latestEvent?:')) failures.push('OutlookWriteResult missing latestEvent');
   if (!iface.includes('latestEtag?:')) failures.push('OutlookWriteResult missing latestEtag');
 }
 
@@ -69,6 +75,43 @@ if (!editorSource.includes('最新 Outlook 内容')) failures.push('Editor must 
 if (!editorSource.includes('conflict')) failures.push('Editor must handle conflict status');
 if (!editorSource.includes('实例')) failures.push('Editor must show 实例 scope option');
 if (!editorSource.includes('系列')) failures.push('Editor must show 系列 scope option');
+
+// --- Task 8: typed field-level writeback confirmation, no raw JSON <pre> ---
+{
+  if (!editorSource.includes("from '../utils/eventFieldDiff'")) {
+    failures.push('Editor must build typed field-level diffs');
+  }
+  if (!editorSource.includes('toDiffRecord')) failures.push('Editor must convert events to typed diff records');
+  if (!editorSource.includes('formatFieldValue')) failures.push('Editor must format typed values safely');
+  if (!editorSource.includes('summarizeEventFields')) failures.push('Editor must summarize the typed latest event');
+  if (!editorSource.includes('<BeforeAfterDiff')) failures.push('Editor must keep BeforeAfterDiff');
+  if (!editorSource.includes('meta={')) failures.push('Writeback dialog must pass operation/account/calendar/scope meta');
+  if (!editorSource.includes('变更范围')) failures.push('Writeback dialog must show the scope');
+  if (!editorSource.includes("type: 'conflict'; latestEvent")) {
+    failures.push('Conflict phase must carry the typed latestEvent, not raw JSON');
+  }
+  if (editorSource.includes('<pre')) failures.push('Writeback UI must not render raw JSON <pre>');
+  if (editorSource.includes('buildDraftJson')) failures.push('Raw draft JSON builder must be removed');
+  if (editorSource.includes('buildEventJson')) failures.push('Raw event JSON builder must be removed');
+  if (editorSource.includes('latestOutlookJson')) failures.push('Editor must not consume the deprecated latestOutlookJson');
+  if (editorSource.includes('JSON.stringify')) failures.push('Editor must never build diff payloads via JSON.stringify');
+}
+
+// --- BeforeAfterDiff must stay a typed field-level diff, never raw JSON ---
+{
+  if (!beforeAfterDiffSource.includes('export default function BeforeAfterDiff')) {
+    failures.push('BeforeAfterDiff default export must be preserved');
+  }
+  if (!beforeAfterDiffSource.includes('diffs?:') || !beforeAfterDiffSource.includes('before?:')) {
+    failures.push('BeforeAfterDiff props must accept typed before/after or EventFieldDiff[]');
+  }
+  if (!beforeAfterDiffSource.includes('meta?')) failures.push('BeforeAfterDiff must render meta (operation/account/calendar/scope)');
+  for (const label of ['操作', '账户', '日历', '范围']) {
+    if (!beforeAfterDiffSource.includes(label)) failures.push(`BeforeAfterDiff meta must show ${label}`);
+  }
+  if (beforeAfterDiffSource.includes('<pre')) failures.push('BeforeAfterDiff must not render raw JSON <pre>');
+  if (beforeAfterDiffSource.includes('JSON.stringify')) failures.push('BeforeAfterDiff must not build raw JSON');
+}
 
 // --- Every manual and Outlook mutation must invalidate both calendar layer caches ---
 {
@@ -136,17 +179,23 @@ if (!editorSource.includes('crypto.randomUUID')) failures.push('Editor must gene
 }
 
 async function main() {
-  // --- API: writeOutlookEvent must handle 409 and return conflict body ---
+  // --- API: writeOutlookEvent must handle 409 and return typed conflict body ---
   const conflictBody = {
     code: 0,
     message: 'Conflict',
     data: {
-      status: 'conflict',
-      latestOutlookJson: JSON.stringify({
-        id: 'graph-evt-1',
-        subject: 'Updated from Outlook',
-        start: { dateTime: '2026-07-14T09:00:00', timeZone: 'UTC' },
-      }),
+    status: 'conflict',
+      latestEvent: {
+        id: 'pim-evt-1',
+        calendarId: 'cal-1',
+        uid: 'uid-1',
+        title: 'Updated from Outlook',
+        dtStart: '2026-07-14T09:00:00',
+        dtEnd: '2026-07-14T10:00:00',
+        status: 'confirmed',
+        source: 'outlook',
+        outlookEventId: 'graph-evt-1',
+      },
       latestEtag: 'new-etag-456',
     },
     timestamp: new Date().toISOString(),
@@ -185,13 +234,56 @@ async function main() {
 
     if (result.status !== 'conflict') failures.push('writeOutlookEvent should return conflict status on 409');
     if (result.latestEtag !== 'new-etag-456') failures.push('writeOutlookEvent should return latestEtag');
-    if (!result.latestOutlookJson) failures.push('writeOutlookEvent should return latestOutlookJson');
+    if (result.latestOutlookJson) failures.push('writeOutlookEvent must not expose raw latestOutlookJson');
+    if (!result.latestEvent) failures.push('writeOutlookEvent should return typed latestEvent');
+    if (result.latestEvent?.title !== 'Updated from Outlook') {
+      failures.push('latestEvent must carry the typed latest event fields');
+    }
     if (!capturedUrl?.includes('/api/v1/calendar/outlook/events/writeback')) failures.push('Wrong URL');
     if (capturedInit?.method !== 'POST') failures.push('Must be POST');
   } catch {
     failures.push('writeOutlookEvent must NOT throw on HTTP 409');
   } finally {
     globalThis.fetch = originalFetch;
+  }
+
+  // --- API: writeOutlookEvent must accept HTTP 412 as a typed conflict too ---
+  {
+    const typedConflict = (status: number) => async (input: RequestInfo | URL, init?: RequestInit) => {
+      return new Response(JSON.stringify(conflictBody), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+
+    const { writeOutlookEvent: writeOutlookEvent412 } = await import('../../src/client-web/src/api/calendar');
+    for (const status of [409, 412]) {
+      globalThis.fetch = typedConflict(status);
+      try {
+        const result = await writeOutlookEvent412({
+          operation: 'update',
+          calendarBindingId: 'binding-1',
+          eventId: 'pim-evt-1',
+          draft: {
+            calendarId: 'cal-1',
+            title: 'Updated Event',
+            dtStart: '2026-07-14T09:00:00Z',
+            dtEnd: '2026-07-14T10:00:00Z',
+          },
+          scope: 'instance',
+          clientOperationId: 'test-op-001',
+          expectedEtag: 'old-etag-123',
+        });
+        if (result.status !== 'conflict') failures.push(`writeOutlookEvent should return conflict status on HTTP ${status}`);
+        if (result.latestEtag !== 'new-etag-456') failures.push(`writeOutlookEvent should return latestEtag on HTTP ${status}`);
+        if (!result.latestEvent) failures.push(`writeOutlookEvent should return typed latestEvent on HTTP ${status}`);
+        if (result.latestEvent?.title !== 'Updated from Outlook') {
+          failures.push(`latestEvent must carry the typed latest event fields on HTTP ${status}`);
+        }
+      } catch {
+        failures.push(`writeOutlookEvent must NOT throw on HTTP ${status}`);
+      }
+    }
   }
 
   // --- Manual CRUD must never call writeback endpoint ---

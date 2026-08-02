@@ -19,6 +19,18 @@ const routes = [
 const viewports = [[390, 844], [768, 1024], [1440, 1000]] as const;
 const DEFAULT_TIMEZONE_ID = 'Asia/Shanghai';
 
+// Mock fixtures in this suite use fixed 2026-07 dates, so the browser clock must
+// be pinned to July 2026 instead of the real current date; otherwise the calendar
+// month view shows a different month and every `.fc-event` lookup times out
+// (regression: CI started failing on 2026-08-01 with no web changes).
+const FIXED_TEST_TIME = new Date('2026-07-14T00:00:00.000Z');
+
+async function newFixedContext(browser: Browser, options: Parameters<Browser['newContext']>[0]) {
+  const context = await browser.newContext(options);
+  await context.clock.setFixedTime(FIXED_TEST_TIME);
+  return context;
+}
+
 const forbiddenHeadings = new Set([
   'Endpoint Shell', 'Collection Quality', 'Notification Action',
   'Confirmations Page', 'Reports Page',
@@ -65,7 +77,7 @@ async function main() {
 
 async function runRouteAudit(browser: Browser, baseUrl: string) {
   for (const [width, height] of viewports) {
-    const context = await browser.newContext({
+    const context = await newFixedContext(browser, {
       viewport: { width, height },
       timezoneId: DEFAULT_TIMEZONE_ID,
     });
@@ -124,7 +136,7 @@ async function runRouteAudit(browser: Browser, baseUrl: string) {
 
 async function runScenarioF(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({
+  const context = await newFixedContext(browser, {
     viewport: { width: w, height: h },
     timezoneId: DEFAULT_TIMEZONE_ID,
   });
@@ -194,7 +206,7 @@ async function runScenarioF(browser: Browser, baseUrl: string) {
 
 async function runScenarioG(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({
+  const context = await newFixedContext(browser, {
     viewport: { width: w, height: h },
     timezoneId: DEFAULT_TIMEZONE_ID,
   });
@@ -339,7 +351,7 @@ async function runScenarioH(browser: Browser, baseUrl: string) {
   if (CAPTURE_SCREENSHOTS) mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
   for (const [width, height] of viewports) {
-    const context = await browser.newContext({
+    const context = await newFixedContext(browser, {
       viewport: { width, height },
       timezoneId: DEFAULT_TIMEZONE_ID,
     });
@@ -429,7 +441,7 @@ async function runScenarioH(browser: Browser, baseUrl: string) {
   // Preview screenshots at specific viewports
   if (CAPTURE_SCREENSHOTS) {
     for (const [w, h] of [[390, 844], [1440, 1000]] as const) {
-      const context = await browser.newContext({
+      const context = await newFixedContext(browser, {
         viewport: { width: w, height: h },
         timezoneId: DEFAULT_TIMEZONE_ID,
       });
@@ -464,7 +476,7 @@ async function runScenarioH(browser: Browser, baseUrl: string) {
 
 async function runScenarioI(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({
+  const context = await newFixedContext(browser, {
     viewport: { width: w, height: h },
     timezoneId: DEFAULT_TIMEZONE_ID,
   });
@@ -655,7 +667,7 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
 
     // ── Part D: No writable calendars ──────────────────────
     {
-      const noCtx = await browser.newContext({
+      const noCtx = await newFixedContext(browser, {
         viewport: { width: w, height: h },
         timezoneId: DEFAULT_TIMEZONE_ID,
       });
@@ -720,7 +732,7 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
 
     // ── Part E: Calendar loading state ──────────────────────────
     {
-      const loadCtx = await browser.newContext({
+      const loadCtx = await newFixedContext(browser, {
         viewport: { width: w, height: h },
         timezoneId: DEFAULT_TIMEZONE_ID,
       });
@@ -812,7 +824,7 @@ async function runScenarioI(browser: Browser, baseUrl: string) {
 // ─── Scenario J: Task editor reliability ─────────────────────────────
 
 async function runScenarioJ(browser: Browser, baseUrl: string) {
-  const context = await browser.newContext({
+  const context = await newFixedContext(browser, {
     viewport: { width: 1440, height: 1000 },
     timezoneId: DEFAULT_TIMEZONE_ID,
   });
@@ -997,7 +1009,7 @@ async function runScenarioJ(browser: Browser, baseUrl: string) {
 async function runScenarioK(browser: Browser, baseUrl: string) {
   // ── K1 Timeline density and visual ──────────────────────────────
   {
-    const context = await browser.newContext({
+    const context = await newFixedContext(browser, {
       viewport: { width: 1440, height: 1000 },
       timezoneId: DEFAULT_TIMEZONE_ID,
     });
@@ -1076,7 +1088,7 @@ async function runScenarioK(browser: Browser, baseUrl: string) {
 
   // ── K2/K3/K4 Month capacity ────────────────────────────────────
   {
-    const context = await browser.newContext({
+    const context = await newFixedContext(browser, {
       viewport: { width: 1440, height: 1200 },
       timezoneId: DEFAULT_TIMEZONE_ID,
     });
@@ -1162,7 +1174,7 @@ async function runScenarioK(browser: Browser, baseUrl: string) {
 
   // ── K5 Browser-local timezone ───────────────────────────────────
   {
-    const context = await browser.newContext({
+    const context = await newFixedContext(browser, {
       viewport: { width: 1440, height: 1000 },
       timezoneId: 'America/New_York',
     });
@@ -1773,7 +1785,7 @@ async function waitForNoWritebackDialog(page: Page) {
 
 async function runScenarioA(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({
+  const context = await newFixedContext(browser, {
     viewport: { width: w, height: h },
     timezoneId: DEFAULT_TIMEZONE_ID,
   });
@@ -1857,7 +1869,7 @@ async function runScenarioA(browser: Browser, baseUrl: string) {
 
 async function runScenarioB(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({
+  const context = await newFixedContext(browser, {
     viewport: { width: w, height: h },
     timezoneId: DEFAULT_TIMEZONE_ID,
   });
@@ -2029,7 +2041,7 @@ async function runScenarioB(browser: Browser, baseUrl: string) {
 
 async function runScenarioC(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({
+  const context = await newFixedContext(browser, {
     viewport: { width: w, height: h },
     timezoneId: DEFAULT_TIMEZONE_ID,
   });
@@ -2105,7 +2117,7 @@ async function runScenarioC(browser: Browser, baseUrl: string) {
 
 async function runScenarioD(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({
+  const context = await newFixedContext(browser, {
     viewport: { width: w, height: h },
     timezoneId: DEFAULT_TIMEZONE_ID,
   });
@@ -2201,7 +2213,7 @@ async function runScenarioD(browser: Browser, baseUrl: string) {
 
 async function runScenarioE(browser: Browser, baseUrl: string) {
   const [w, h] = viewports[2];
-  const context = await browser.newContext({
+  const context = await newFixedContext(browser, {
     viewport: { width: w, height: h },
     timezoneId: DEFAULT_TIMEZONE_ID,
   });

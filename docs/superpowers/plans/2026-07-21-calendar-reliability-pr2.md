@@ -444,7 +444,7 @@ git commit -m "feat: preserve Outlook event fields losslessly"
 - Modify: `tests/Pim.UnitTests/Calendar/OutlookEventWriteServiceTests.cs`
 - Modify: `tests/Pim.UnitTests/Calendar/OutlookCalendarApiContractTests.cs`
 
-- [ ] **Step 4.1: Write RED payload and conflict privacy tests**
+- [x] **Step 4.1: Write RED payload and conflict privacy tests**
 
 Require PATCH payloads to include:
 
@@ -467,17 +467,17 @@ Assert that organizer, externalLink, onlineMeetingUrl, Outlook attachments, recu
 
 Change conflict expectations from raw `LatestOutlookJson` to a typed, sanitized `LatestEvent`. Assert the API response contains no `externalMetadataJson`, raw body source, token-like value, or unknown Graph field.
 
-- [ ] **Step 4.2: Run RED tests**
+- [x] **Step 4.2: Run RED tests**
 
 ```powershell
 dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "FullyQualifiedName~OutlookEventMapperTests|FullyQualifiedName~OutlookEventWriteServiceTests|FullyQualifiedName~OutlookCalendarApiContractTests"
 ```
 
-- [ ] **Step 4.3: Extend `BuildWritePayload` with writable common fields**
+- [x] **Step 4.3: Extend `BuildWritePayload` with writable common fields**
 
 Use `DescriptionFormat` to select Graph `body.contentType`. Normalize internal `teams` to Graph `teamsForBusiness`. Omit nullable fields when the user did not provide them; send explicit empty arrays when clearing categories or attendees. When reminder is off, send `isReminderOn=false` and omit reminder minutes.
 
-- [ ] **Step 4.4: Replace raw conflict output with typed latest event**
+- [x] **Step 4.4: Replace raw conflict output with typed latest event**
 
 Define:
 
@@ -493,11 +493,11 @@ public record OutlookWriteResult(
 
 On 412, map the latest Graph response into an untracked transient `EventEntity`, then use `EventResponseMapper`. Preserve raw source only in the transient entity and never serialize it.
 
-- [ ] **Step 4.5: Keep the writeback endpoint as a command, not a second model**
+- [x] **Step 4.5: Keep the writeback endpoint as a command, not a second model**
 
 Document in endpoint tests that `/outlook/events/writeback` exists only for preview confirmation, ETag, scope, idempotency, and audit. Its `Draft` and successful/conflict responses use the same common fields and `EventResponse` as `/events`; no second Outlook event DTO is allowed.
 
-- [ ] **Step 4.6: Run GREEN tests and commit**
+- [x] **Step 4.6: Run GREEN tests and commit**
 
 ```powershell
 dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "FullyQualifiedName~OutlookEventMapperTests|FullyQualifiedName~OutlookEventWriteServiceTests|FullyQualifiedName~OutlookCalendarApiContractTests"
@@ -518,7 +518,7 @@ git commit -m "feat: write unified fields back to Outlook"
 - Create: `tests/Pim.UnitTests/Calendar/EventAttachmentServiceTests.cs`
 - Modify: `tests/Pim.UnitTests/Calendar/OutlookCalendarSyncServiceTests.cs`
 
-- [ ] **Step 5.1: Write RED attachment metadata and authorization tests**
+- [x] **Step 5.1: Write RED attachment metadata and authorization tests**
 
 Cover:
 
@@ -529,13 +529,13 @@ Cover:
 - `pimFile` references are stored by manual CRUD and point to existing, non-deleted file items owned by the current user;
 - binary content is streamed without persisting it in `events`.
 
-- [ ] **Step 5.2: Run RED tests**
+- [x] **Step 5.2: Run RED tests**
 
 ```powershell
 dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "FullyQualifiedName~EventAttachmentServiceTests|FullyQualifiedName~GraphCalendarClientTests|FullyQualifiedName~OutlookCalendarSyncServiceTests"
 ```
 
-- [ ] **Step 5.3: Add Graph attachment metadata and binary methods**
+- [x] **Step 5.3: Add Graph attachment metadata and binary methods**
 
 Add methods that retain existing token refresh/retry behavior:
 
@@ -549,11 +549,11 @@ public Task<GraphBinaryContent> DownloadEventAttachmentAsync(
 
 Use `/attachments?$select=id,name,contentType,size,isInline,@odata.type` and `/attachments/{attachmentId}/$value`. `GraphBinaryContent` contains bytes/stream, content type, and sanitized filename; it never contains authorization headers.
 
-- [ ] **Step 5.4: Hydrate Outlook attachment references during sync**
+- [x] **Step 5.4: Hydrate Outlook attachment references during sync**
 
 Capture old changeKey before `ApplyGraphEvent`. Only fetch metadata when `hasAttachments` is true and hydration is required. Preserve existing references when the attachment metadata request fails after the event page has already been mapped; record the binding failure using existing safe error handling rather than clearing references.
 
-- [ ] **Step 5.5: Add the authorized proxy endpoint**
+- [x] **Step 5.5: Add the authorized proxy endpoint**
 
 Add:
 
@@ -563,7 +563,7 @@ GET /api/v1/calendar/events/{eventId}/attachments/{attachmentId}/download
 
 Return `Results.File` with Graph content type and filename. Native `pimFile` references continue to use `/api/v1/files/items/{id}/download`; do not proxy or duplicate their bytes through Calendar.
 
-- [ ] **Step 5.6: Run GREEN tests and commit**
+- [x] **Step 5.6: Run GREEN tests and commit**
 
 ```powershell
 dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "FullyQualifiedName~EventAttachmentServiceTests|FullyQualifiedName~GraphCalendarClientTests|FullyQualifiedName~OutlookCalendarSyncServiceTests"
@@ -587,13 +587,13 @@ git commit -m "feat: add unified event attachment references"
 - Create: `tests/client-web/eventFieldDiff.test.ts`
 - Modify: `tests/client-web/safeHtml.test.ts`
 
-- [ ] **Step 6.1: Write RED TypeScript tests for unified drafts and response privacy**
+- [x] **Step 6.1: Write RED TypeScript tests for unified drafts and response privacy**
 
 `unifiedEventFields.test.ts` must create both a manual request and `OutlookEventDraft` from one `EventFormValue` and assert identical common field values. It must also compile a response fixture with `outlookAdditionalInfo` and no `externalMetadataJson`.
 
 Add `tests/client-web/tsconfig.schedule-workbench.json` coverage for the new utilities/types if the existing glob does not include them.
 
-- [ ] **Step 6.2: Write RED field-level diff tests**
+- [x] **Step 6.2: Write RED field-level diff tests**
 
 Require:
 
@@ -604,11 +604,11 @@ diffEventFields(before, after)
 
 Cover added, removed, modified, unchanged exclusion, arrays, nested organizer/attendees, null/undefined equivalence, HTML descriptions rendered as safe text summaries, and the approved Chinese label map.
 
-- [ ] **Step 6.3: Extend HTML sanitization tests for Tiptap output**
+- [x] **Step 6.3: Extend HTML sanitization tests for Tiptap output**
 
 Allow `h2`, `h3`, `blockquote`, `pre`, `code`, `u`, `s`, and safe links. Continue rejecting scripts, iframes, images, styles, `on*`, `javascript:`, data attributes, and unsafe URL schemes.
 
-- [ ] **Step 6.4: Run the RED tests**
+- [x] **Step 6.4: Run the RED tests**
 
 ```powershell
 npm --prefix src/client-web exec tsx -- tests/client-web/unifiedEventFields.test.ts
@@ -616,7 +616,7 @@ npm --prefix src/client-web exec tsx -- tests/client-web/eventFieldDiff.test.ts
 npm --prefix src/client-web exec tsx -- tests/client-web/safeHtml.test.ts
 ```
 
-- [ ] **Step 6.5: Install Tiptap and implement pure utilities**
+- [x] **Step 6.5: Install Tiptap and implement pure utilities**
 
 Run:
 
@@ -630,7 +630,7 @@ Define shared TypeScript types for person, attendee, attachment reference, addit
 
 `buildUnifiedEventDraft(form)` returns all common fields. Manual API and Outlook command code must call this one function.
 
-- [ ] **Step 6.6: Run GREEN tests and commit**
+- [x] **Step 6.6: Run GREEN tests and commit**
 
 ```powershell
 npm --prefix src/client-web exec tsx -- tests/client-web/unifiedEventFields.test.ts
@@ -657,7 +657,7 @@ git commit -m "feat: add unified event frontend contracts"
 - Modify: `src/client-web/src/index.css`
 - Create: `tests/client-web/unifiedEventEditorUi.test.tsx`
 
-- [ ] **Step 7.1: Write RED editor structure and interaction tests**
+- [x] **Step 7.1: Write RED editor structure and interaction tests**
 
 Require one editor for manual and Outlook events with these visible section labels:
 
@@ -683,29 +683,29 @@ Test all control semantics:
 - existing recurrence displays a human-readable summary and no raw RRule editor;
 - raw metadata and raw HTML source never appear.
 
-- [ ] **Step 7.2: Run the RED UI test**
+- [x] **Step 7.2: Run the RED UI test**
 
 ```powershell
 npm --prefix src/client-web exec tsx -- tests/client-web/unifiedEventEditorUi.test.tsx
 ```
 
-- [ ] **Step 7.3: Implement `RichDescriptionEditor`**
+- [x] **Step 7.3: Implement `RichDescriptionEditor`**
 
 Use Tiptap StarterKit with headings limited to levels 2 and 3, plus Link. Toolbar icon buttons use Lucide `Bold`, `Italic`, `Underline` only when an extension exists, `List`, `ListOrdered`, `Quote`, `Code`, `Link`, `Undo2`, and `Redo2`, with Chinese tooltips/`aria-label`s. Sanitize `editor.getHTML()` before updating form state. Maintain stable editor height and support disabled read-only rendering.
 
-- [ ] **Step 7.4: Implement unframed, single-column sections**
+- [x] **Step 7.4: Implement unframed, single-column sections**
 
 `EventSection` uses a semantic heading and disclosure button; it is not a nested card. Basic information is open by default. Advanced/collaboration/meeting/attachments/repeat are collapsed by default on mobile and remember only local dialog state.
 
 Use existing form styling, 8px-or-less radii, and no decorative gradients/orbs. All labels and errors are Simplified Chinese.
 
-- [ ] **Step 7.5: Integrate every common field into one form state**
+- [x] **Step 7.5: Integrate every common field into one form state**
 
 Replace manual and Outlook draft construction with `buildUnifiedEventDraft`. The only source-specific conditions are provider capability/read-only states and the Outlook confirmation step. Both paths must submit the same common field values.
 
 When an event has legacy plain text, convert it to escaped paragraph HTML for editing and save it with `descriptionFormat="html"` after the first rich-text edit. Read-only HTML remains sanitized.
 
-- [ ] **Step 7.6: Run GREEN UI tests, build, and targeted lint**
+- [x] **Step 7.6: Run GREEN UI tests, build, and targeted lint**
 
 ```powershell
 npm --prefix src/client-web exec tsx -- tests/client-web/unifiedEventEditorUi.test.tsx
@@ -715,7 +715,7 @@ npm --prefix src/client-web exec eslint -- src/dialogs/EventEditorDialog.tsx src
 
 Expected: tests/build pass; targeted lint has 0 errors and 0 warnings.
 
-- [ ] **Step 7.7: Commit the editor checkpoint**
+- [x] **Step 7.7: Commit the editor checkpoint**
 
 ```powershell
 git add src/client-web tests/client-web
@@ -736,7 +736,7 @@ git commit -m "feat: build the unified event editor"
 - Modify: `tests/client-web/scheduleWorkbenchVisualAudit.test.ts`
 - Modify: `tests/client-web/microsoftCalendarSyncUi.test.ts`
 
-- [ ] **Step 8.1: Write RED confirmation and privacy tests**
+- [x] **Step 8.1: Write RED confirmation and privacy tests**
 
 Require the confirmation dialog to show operation, account/calendar name, scope, and field-level rows. Added values use green semantics, removed red, modified amber, and unchanged fields are omitted. No raw JSON `<pre>` is permitted.
 
@@ -748,7 +748,7 @@ On 412:
 - allow canceling back to the editor without losing edits;
 - never display `ExternalMetadataJson` or raw Graph body.
 
-- [ ] **Step 8.2: Write RED calendar semantics tests**
+- [x] **Step 8.2: Write RED calendar semantics tests**
 
 Require event rendering to expose:
 
@@ -757,7 +757,7 @@ Require event rendering to expose:
 - `showAs=tentative` with a “暂定” status;
 - reminder/importance status icons only at the existing highest content level.
 
-- [ ] **Step 8.3: Run RED interaction tests**
+- [x] **Step 8.3: Run RED interaction tests**
 
 ```powershell
 npm --prefix src/client-web exec tsx -- tests/client-web/outlookEventWritebackUi.test.ts
@@ -765,19 +765,19 @@ npm --prefix src/client-web exec tsx -- tests/client-web/calendarLayerVisibility
 npm --prefix src/client-web exec tsx -- tests/client-web/microsoftCalendarSyncUi.test.ts
 ```
 
-- [ ] **Step 8.4: Replace raw JSON diff with parsed field rows**
+- [x] **Step 8.4: Replace raw JSON diff with parsed field rows**
 
 Keep the `BeforeAfterDiff.tsx` file/export for source compatibility, but change its props to typed before/after event values or precomputed `EventFieldDiff[]`. Render semantic rows and safe summaries. Do not render JSON strings.
 
-- [ ] **Step 8.5: Render the private Outlook additional-info summary**
+- [x] **Step 8.5: Render the private Outlook additional-info summary**
 
 Use only `event.outlookAdditionalInfo.groups`. Show group labels and allowlisted items in a default-collapsed disclosure. Display hidden-field count without exposing keys/values. Long values must already be truncated server-side, and the component also applies text overflow protection.
 
-- [ ] **Step 8.6: Make full-resource sync discoverable as PR2 backfill**
+- [x] **Step 8.6: Make full-resource sync discoverable as PR2 backfill**
 
 Update the existing `full-resources` action copy to state that it refreshes all Microsoft events and backfills newly supported fields. Reuse the existing sync mode and endpoint; do not create another backfill job.
 
-- [ ] **Step 8.7: Add Playwright desktop/mobile PR2 scenarios**
+- [x] **Step 8.7: Add Playwright desktop/mobile PR2 scenarios**
 
 At 1440x1000 and 390x844 verify:
 
@@ -791,7 +791,7 @@ At 1440x1000 and 390x844 verify:
 - no console errors;
 - screenshots have nonblank pixels and stable dimensions.
 
-- [ ] **Step 8.8: Run the full frontend suite and targeted lint**
+- [x] **Step 8.8: Run the full frontend suite and targeted lint**
 
 ```powershell
 npm --prefix src/client-web run test:schedule-workbench-complete
@@ -799,7 +799,7 @@ npm --prefix src/client-web run build
 npm --prefix src/client-web exec eslint -- src/dialogs/EventEditorDialog.tsx src/components/calendar src/components/schedule/BeforeAfterDiff.tsx src/pages/CalendarPage.tsx src/pages/SyncPage.tsx src/utils/eventDraft.ts src/utils/eventFieldDiff.ts
 ```
 
-- [ ] **Step 8.9: Commit the end-to-end UI checkpoint**
+- [x] **Step 8.9: Commit the end-to-end UI checkpoint**
 
 ```powershell
 git add src/client-web tests/client-web
@@ -814,7 +814,7 @@ git commit -m "feat: complete Outlook event writeback UX"
 - Modify: `docs/superpowers/plans/2026-07-21-calendar-reliability-pr2.md` (checkbox status only)
 - Modify as needed: `docs/operations/microsoft-calendar-sync-acceptance.md`
 
-- [ ] **Step 9.1: Run focused backend suites**
+- [x] **Step 9.1: Run focused backend suites**
 
 ```powershell
 dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "FullyQualifiedName~UnifiedEvent|FullyQualifiedName~EventDescription|FullyQualifiedName~OutlookAdditionalInfo|FullyQualifiedName~OutlookEventMapper|FullyQualifiedName~OutlookEventWriteService|FullyQualifiedName~OutlookCalendarSyncService|FullyQualifiedName~GraphCalendarClient|FullyQualifiedName~EventAttachmentService"
@@ -822,7 +822,7 @@ dotnet test tests/Pim.UnitTests/Pim.UnitTests.csproj --no-restore --filter "Full
 
 Expected: all PR2 tests pass.
 
-- [ ] **Step 9.2: Run complete backend and frontend verification**
+- [x] **Step 9.2: Run complete backend and frontend verification**
 
 ```powershell
 dotnet test Pim.sln --no-restore
@@ -833,7 +833,7 @@ git diff --check
 
 Expected: backend has 0 failures; frontend suite/build pass; diff check is clean.
 
-- [ ] **Step 9.3: Record the known global lint baseline and prove no PR2 regression**
+- [x] **Step 9.3: Record the known global lint baseline and prove no PR2 regression**
 
 ```powershell
 npm --prefix src/client-web run lint
@@ -842,11 +842,11 @@ npm --prefix src/client-web exec eslint -- src/dialogs/EventEditorDialog.tsx src
 
 Expected: global lint may reproduce the pre-existing 18 errors/23 warnings outside PR2 files; targeted lint must pass with 0 errors and 0 warnings. If global counts change, inspect every delta before proceeding.
 
-- [ ] **Step 9.4: Run live API and browser acceptance**
+- [x] **Step 9.4: Run live API and browser acceptance**
 
 Use an isolated temporary PostgreSQL database. Start API at `http://127.0.0.1:5858` and Vite at the first free port starting from 5173. Verify manual create/edit round-trip for every common field, Outlook preview/conflict behavior with test doubles, sanitized HTML, attachment references, and full-resource backfill copy. Inspect desktop/mobile screenshots and console output.
 
-- [ ] **Step 9.5: Clean generated outputs safely**
+- [x] **Step 9.5: Clean generated outputs safely**
 
 Remove only generated `src/Pim.Api/wwwroot` content after verifying it is untracked and inside this worktree. Preserve all other untracked files. Remove `.codex-tmp/` audit artifacts. Re-run:
 
@@ -856,7 +856,7 @@ git status --short --branch
 
 Expected: only intentional source/test/docs files remain.
 
-- [ ] **Step 9.6: Final review and commit**
+- [x] **Step 9.6: Final review and commit**
 
 Use `superpowers:requesting-code-review`. Resolve every spec-compliance finding before code-quality findings. Re-run focused tests after each correction.
 
@@ -865,7 +865,7 @@ git add docs src tests
 git commit -m "docs: record calendar PR2 acceptance"
 ```
 
-- [ ] **Step 9.7: Push and open the PR**
+- [x] **Step 9.7: Push and open the PR**
 
 ```powershell
 git push -u origin codex/calendar-reliability-pr2
@@ -874,7 +874,7 @@ gh pr create --base master --head codex/calendar-reliability-pr2 --title "feat: 
 
 The PR body must list schema compatibility, fields, Graph lossless preservation, typed conflict response, rich editor, attachment boundary, local verification, known baseline lint, and rollback notes.
 
-- [ ] **Step 9.8: Monitor CI**
+- [x] **Step 9.8: Monitor CI**
 
 ```powershell
 gh pr checks --watch --fail-fast

@@ -1,0 +1,26 @@
+{
+  "slot": "A1",
+  "wave": "wave009",
+  "nodes": [
+    {
+      "id": "tests/Pim.UnitTests/Services/AppNameNormalizerTests.cs",
+      "label": "AppNameNormalizerTests",
+      "path": "tests/Pim.UnitTests/Services/AppNameNormalizerTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/AppNameNormalizerTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Services/PcTrackerServiceTests.cs",
+      "label": "PcTrackerServiceTests",
+      "path": "tests/Pim.UnitTests/Services/PcTrackerServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/PcTrackerServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "tests/Pim.UnitTests/Services/AppNameNormalizerTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/AppNameNormalizer.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Services/PcTrackerServiceTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/PcTrackerService.cs", "type": "tests" }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "slot": "A10",
+  "wave": "wave009",
+  "nodes": [
+    {
+      "id": "tests/Pim.UnitTests/Services/PcTrackerQualityServiceTests.cs",
+      "label": "PcTrackerQualityServiceTests",
+      "path": "tests/Pim.UnitTests/Services/PcTrackerQualityServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/PcTrackerQualityServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "tests/Pim.UnitTests/Services/PcTrackerQualityServiceTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/PcTrackerQualityService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Services/PcTrackerQualityServiceTests.cs", "to": "src/modules/Pim.Module.PcTracker/PcTrackerModule.cs", "type": "tests" }
+  ]
+}

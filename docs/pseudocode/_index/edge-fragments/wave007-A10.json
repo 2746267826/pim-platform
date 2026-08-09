@@ -1,0 +1,269 @@
+{
+  "slot": "A10",
+  "wave": "wave007",
+  "nodes": [
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/notifications/PimNotificationRouter.kt",
+      "label": "PimNotificationRouter",
+      "path": "src/client-android/app/src/main/java/com/pim/app/notifications/PimNotificationRouter.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/notifications/PimNotificationRouter.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "label": "StatusCenterRepository",
+      "path": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt",
+      "label": "SettingsViewModel",
+      "path": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt.md",
+      "layer": "client-android",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/location/LocationCaptureRepositoryTest.kt",
+      "label": "LocationCaptureRepositoryTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/location/LocationCaptureRepositoryTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/LocationCaptureRepositoryTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncAckProcessingTest.kt",
+      "label": "MobileSyncAckProcessingTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncAckProcessingTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncAckProcessingTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/settings/TrackingSettingsStoreTest.kt",
+      "label": "TrackingSettingsStoreTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/settings/TrackingSettingsStoreTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/settings/TrackingSettingsStoreTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NativeShellTest.kt",
+      "label": "AndroidV2NativeShellTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NativeShellTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NativeShellTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/models/DaemonModels.kt",
+      "label": "DaemonModels",
+      "path": "src/client-android/core/src/main/java/com/pim/core/models/DaemonModels.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/DaemonModels.kt.md",
+      "layer": "client-android",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/settings/PimServerEndpoints.kt",
+      "label": "PimServerEndpoints",
+      "path": "src/client-android/core/src/main/java/com/pim/core/settings/PimServerEndpoints.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/settings/PimServerEndpoints.kt.md",
+      "layer": "client-android",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-android/core/src/test/java/com/pim/core/network/OkHttpTimeoutsTest.kt",
+      "label": "OkHttpTimeoutsTest",
+      "path": "src/client-android/core/src/test/java/com/pim/core/network/OkHttpTimeoutsTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/OkHttpTimeoutsTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/calendarLayerVisibility.test.ts",
+      "label": "calendarLayerVisibility.test",
+      "path": "tests/client-web/calendarLayerVisibility.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/calendarLayerVisibility.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/locationAnalyticsInteractions.test.tsx",
+      "label": "locationAnalyticsInteractions.test",
+      "path": "tests/client-web/locationAnalyticsInteractions.test.tsx",
+      "doc": "docs/pseudocode/files/tests/client-web/locationAnalyticsInteractions.test.tsx.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/permissions/PermissionStatusRepository.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/auth/TokenManager.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/settings/ServerUrlValidator.kt",
+      "type": "calls"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/permissions/PermissionStatusRepository.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/auth/TokenManager.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/settings/ServerUrlValidator.kt",
+      "type": "calls"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/settings/PimServerEndpoints.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/location/LocationCaptureRepositoryTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncAckProcessingTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncAckProcessingTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncAckProcessingTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncAckProcessingTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/models",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/settings/TrackingSettingsStoreTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NativeShellTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/ui/root/PimDestination.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NativeShellTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/ui/root/PimRootScreen.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/core/src/test/java/com/pim/core/network/OkHttpTimeoutsTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/calendarLayerVisibility.test.ts",
+      "to": "src/client-web/src/pages/CalendarPage.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/calendarLayerVisibility.test.ts",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "tests/client-web/locationAnalyticsInteractions.test.tsx",
+      "to": "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/locationAnalyticsInteractions.test.tsx",
+      "to": "src/client-web/src/components/mobile/LocationRawPointTable.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/locationAnalyticsInteractions.test.tsx",
+      "to": "src/client-web/src/components/mobile/LocationStayMoveTimeline.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/locationAnalyticsInteractions.test.tsx",
+      "to": "src/client-web/src/pages/HistoricalLocationPage.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/locationAnalyticsInteractions.test.tsx",
+      "to": "src/client-web/src/api/mobile.ts",
+      "type": "depends_on"
+    }
+  ]
+}

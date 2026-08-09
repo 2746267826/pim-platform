@@ -1,0 +1,249 @@
+{
+  "slot": "A9",
+  "wave": "wave007",
+  "nodes": [
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt",
+      "label": "NotificationActionReceiver",
+      "path": "src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt.md",
+      "layer": "client-android",
+      "kind": "entrypoint"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/status/StatusActions.kt",
+      "label": "StatusActions",
+      "path": "src/client-android/app/src/main/java/com/pim/app/status/StatusActions.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/StatusActions.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsScreen.kt",
+      "label": "SettingsScreen",
+      "path": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsScreen.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsScreen.kt.md",
+      "layer": "client-android",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/auth/ServerBoundLoginCoordinatorTest.kt",
+      "label": "ServerBoundLoginCoordinatorTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/auth/ServerBoundLoginCoordinatorTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/auth/ServerBoundLoginCoordinatorTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileAcknowledgementPlannerTest.kt",
+      "label": "MobileAcknowledgementPlannerTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileAcknowledgementPlannerTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileAcknowledgementPlannerTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt",
+      "label": "ScheduleWindowRepositoryTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ManifestTest.kt",
+      "label": "AndroidV2ManifestTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ManifestTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ManifestTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/models/AuthModels.kt",
+      "label": "AuthModels",
+      "path": "src/client-android/core/src/main/java/com/pim/core/models/AuthModels.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/AuthModels.kt.md",
+      "layer": "client-android",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/network/RetrofitAuthRefreshOperation.kt",
+      "label": "RetrofitAuthRefreshOperation",
+      "path": "src/client-android/core/src/main/java/com/pim/core/network/RetrofitAuthRefreshOperation.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/RetrofitAuthRefreshOperation.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/core/src/test/java/com/pim/core/network/MobileQueryApiContractTest.kt",
+      "label": "MobileQueryApiContractTest",
+      "path": "src/client-android/core/src/test/java/com/pim/core/network/MobileQueryApiContractTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/network/MobileQueryApiContractTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/calendarApiPath.test.ts",
+      "label": "calendarApiPath.test",
+      "path": "tests/client-web/calendarApiPath.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/calendarApiPath.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/locationAnalyticsComponents.test.tsx",
+      "label": "locationAnalyticsComponents.test",
+      "path": "tests/client-web/locationAnalyticsComponents.test.tsx",
+      "doc": "docs/pseudocode/files/tests/client-web/locationAnalyticsComponents.test.tsx.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/ui/shell/PimShellActivity.kt",
+      "type": "calls"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/notifications/PimNotificationRouter.kt",
+      "type": "calls"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/notifications/NotificationActionReceiver.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/notifications/EndpointNotificationActionDispatcher.kt",
+      "type": "calls"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/status/StatusActions.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/status/StatusIssue.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsScreen.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsViewModel.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/settings/SettingsScreen.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/ui/components/PimSection.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/auth/ServerBoundLoginCoordinatorTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/auth/ServerBoundLoginCoordinator.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/auth/ServerBoundLoginCoordinatorTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/auth/TokenManager.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/auth/ServerBoundLoginCoordinatorTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/auth/ServerBoundLoginCoordinatorTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/models/AuthModels.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileAcknowledgementPlannerTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileAcknowledgementPlannerTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/models/MobileModels.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileAcknowledgementPlannerTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileUsageEventEntity.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/policy/ScheduleWindow.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/schedule/ScheduleWindowRepositoryTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/models/AuthModels.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2ManifestTest.kt",
+      "to": "src/client-android/app/src/main/AndroidManifest.xml",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/network/RetrofitAuthRefreshOperation.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/auth/AuthRefreshOperation.kt",
+      "type": "implements"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/network/RetrofitAuthRefreshOperation.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/models/AuthModels.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/test/java/com/pim/core/network/MobileQueryApiContractTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/core/src/test/java/com/pim/core/network/MobileQueryApiContractTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/models/MobileModels.kt",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/calendarApiPath.test.ts",
+      "to": "src/client-web/src/api/calendar.ts",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/calendarApiPath.test.ts",
+      "to": "src/client-web/src/pages/TaskListPage.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/locationAnalyticsComponents.test.tsx",
+      "to": "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/locationAnalyticsComponents.test.tsx",
+      "to": "src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/locationAnalyticsComponents.test.tsx",
+      "to": "src/client-web/src/api/mobile.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "tests/client-web/locationAnalyticsComponents.test.tsx",
+      "to": "src/client-web/src/index.css",
+      "type": "depends_on"
+    }
+  ]
+}

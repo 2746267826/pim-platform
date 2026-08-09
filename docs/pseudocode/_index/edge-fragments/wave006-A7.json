@@ -1,0 +1,214 @@
+{
+  "slot": "A7",
+  "wave": "wave006",
+  "nodes": [
+    {
+      "id": "src/client-web/src/components/pc-tracker/ContextConfirmationPanel.tsx",
+      "label": "ContextConfirmationPanel",
+      "path": "src/client-web/src/components/pc-tracker/ContextConfirmationPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ContextConfirmationPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx",
+      "label": "RuleImpactPreviewPanel",
+      "path": "src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/schedule/HabitRoutineEditor.tsx",
+      "label": "HabitRoutineEditor",
+      "path": "src/client-web/src/components/schedule/HabitRoutineEditor.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/schedule/HabitRoutineEditor.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/today/TodayPcQualitySection.tsx",
+      "label": "TodayPcQualitySection",
+      "path": "src/client-web/src/components/today/TodayPcQualitySection.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/today/TodayPcQualitySection.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/layout/Sidebar.tsx",
+      "label": "Sidebar",
+      "path": "src/client-web/src/layout/Sidebar.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/layout/Sidebar.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/EndpointShellPage.tsx",
+      "label": "EndpointShellPage",
+      "path": "src/client-web/src/pages/EndpointShellPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/EndpointShellPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/RemindersPage.tsx",
+      "label": "RemindersPage",
+      "path": "src/client-web/src/pages/RemindersPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/RemindersPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/ui/ConfirmActionDialog.tsx",
+      "label": "ConfirmActionDialog",
+      "path": "src/client-web/src/ui/ConfirmActionDialog.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/ui/ConfirmActionDialog.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/tailwind.config.ts",
+      "label": "tailwind.config",
+      "path": "src/client-web/tailwind.config.ts",
+      "doc": "docs/pseudocode/files/src/client-web/tailwind.config.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt",
+      "label": "MobileSyncStatus",
+      "path": "src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt.md",
+      "layer": "client-android",
+      "kind": "entity"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt",
+      "label": "LocationPolicyEngine",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt",
+      "label": "LocationUploadBatchResult",
+      "path": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/client-web/src/components/pc-tracker/ContextConfirmationPanel.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/schedule/HabitRoutineEditor.tsx",
+      "to": "src/client-web/src/api/calendar.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayPcQualitySection.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayPcQualitySection.tsx",
+      "to": "src/client-web/src/ui/EmptyState.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayPcQualitySection.tsx",
+      "to": "src/client-web/src/ui/StatusBadge.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/Sidebar.tsx",
+      "to": "src/client-web/src/api/calendar.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/Sidebar.tsx",
+      "to": "src/client-web/src/auth/AuthContext.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/Sidebar.tsx",
+      "to": "src/client-web/src/components/status/SidebarStatusIndicator.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/Sidebar.tsx",
+      "to": "src/client-web/src/context/CalendarVisibilityContext.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/Sidebar.tsx",
+      "to": "src/client-web/src/ui/ConfirmActionDialog.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/EndpointShellPage.tsx",
+      "to": "src/client-web/src/api/endpoints.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/EndpointShellPage.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/EndpointShellPage.tsx",
+      "to": "src/client-web/src/ui/PageHeader.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/RemindersPage.tsx",
+      "to": "src/client-web/src/api/calendar.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/RemindersPage.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/RemindersPage.tsx",
+      "to": "src/client-web/src/ui/PageHeader.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/RemindersPage.tsx",
+      "to": "src/client-web/src/ui/SegmentedControl.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/ui/ConfirmActionDialog.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/ui/ConfirmActionDialog.tsx",
+      "to": "src/client-web/src/ui/confirmActionDialogModel.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/LocationUploadCoordinator.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+      "type": "depends_on"
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "slot": "A9",
+  "nodes": [
+    {
+      "id": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs",
+      "label": "QuickNoteAttachmentService",
+      "path": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs.md",
+      "layer": "module.quicknotes",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.App/DaemonConfig.cs",
+      "label": "DaemonConfig",
+      "path": "src/client-windows/Pim.Client.App/DaemonConfig.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.App/DaemonConfig.cs.md",
+      "layer": "client-windows",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.App/TrayIcon.cs",
+      "label": "TrayIcon",
+      "path": "src/client-windows/Pim.Client.App/TrayIcon.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.App/TrayIcon.cs.md",
+      "layer": "client-windows",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs",
+      "label": "DaemonHeartbeatReporter",
+      "path": "src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/api/appSignatures.ts",
+      "label": "appSignatures",
+      "path": "src/client-web/src/api/appSignatures.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/api/appSignatures.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/api/today.ts",
+      "label": "today",
+      "path": "src/client-web/src/api/today.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/api/today.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/components/app-knowledge/AppKnowledgeImpactSummary.tsx",
+      "label": "AppKnowledgeImpactSummary",
+      "path": "src/client-web/src/components/app-knowledge/AppKnowledgeImpactSummary.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/app-knowledge/AppKnowledgeImpactSummary.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/LocationStayMoveTimeline.tsx",
+      "label": "LocationStayMoveTimeline",
+      "path": "src/client-web/src/components/mobile/LocationStayMoveTimeline.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/LocationStayMoveTimeline.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileMetricGrid.tsx",
+      "label": "MobileMetricGrid",
+      "path": "src/client-web/src/components/mobile/MobileMetricGrid.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileMetricGrid.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/pc-classification/ClassificationRuleEditor.tsx",
+      "label": "ClassificationRuleEditor",
+      "path": "src/client-web/src/components/pc-classification/ClassificationRuleEditor.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRuleEditor.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    }
+  ],
+  "edges": [
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs", "to": "src/Pim.Infrastructure/Auth", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs", "to": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs", "to": "src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.QuickNotes", "to": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/DaemonConfig.cs", "to": "src/client-windows/Pim.Client.Core/ClientDefaults.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/TrayIcon.cs", "to": "src/client-windows/Pim.Client.App/DaemonConfig.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/TrayIcon.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/TrayIcon.cs", "to": "src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/TrayIcon.cs", "to": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/TrayIcon.cs", "to": "src/client-windows/Pim.Client.Core/ClientDefaults.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/TrayIcon.cs", "to": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/TrayIcon.cs", "to": "src/client-windows/Pim.Client.App/LoginWindow.xaml.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App", "to": "src/client-windows/Pim.Client.App/TrayIcon.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs", "to": "src/client-windows/Pim.Client.Core/Models/DaemonHeartbeatDtos.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs", "to": "src/client-windows/Pim.Client.Core/ClientDefaults.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs", "to": "daemon/heartbeat", "type": "http" },
+    { "from": "src/client-web/src/api/appSignatures.ts", "to": "src/client-web/src/api/client.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/api/appSignatures.ts", "to": "src/client-web/src/api/client.ts", "type": "calls" },
+    { "from": "src/client-web/src/api/appSignatures.ts", "to": "/pc/app-signatures", "type": "http" },
+    { "from": "src/client-web/src/api/today.ts", "to": "src/client-web/src/api/client.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/api/today.ts", "to": "src/client-web/src/api/client.ts", "type": "calls" },
+    { "from": "src/client-web/src/api/today.ts", "to": "/today/sections", "type": "http" },
+    { "from": "src/client-web/src/components/app-knowledge", "to": "src/client-web/src/components/app-knowledge/AppKnowledgeImpactSummary.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/LocationStayMoveTimeline.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/LocationStayMoveTimeline.tsx", "to": "src/client-web/src/components/mobile/locationFormatting.ts", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile", "to": "src/client-web/src/components/mobile/MobileMetricGrid.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/components/pc-classification/ClassificationRuleEditor.tsx", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/components/pc-classification", "to": "src/client-web/src/components/pc-classification/ClassificationRuleEditor.tsx", "type": "depends_on" }
+  ]
+}

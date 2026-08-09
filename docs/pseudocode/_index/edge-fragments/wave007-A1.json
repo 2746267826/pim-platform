@@ -1,0 +1,127 @@
+{
+  "slot": "A1",
+  "wave": "wave007",
+  "nodes": [
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt",
+      "label": "MobileSyncOutcome",
+      "path": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/offline/OnlineOperationGuard.kt",
+      "label": "OnlineOperationGuard",
+      "path": "src/client-android/app/src/main/java/com/pim/app/offline/OnlineOperationGuard.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/offline/OnlineOperationGuard.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/status/StatusIssue.kt",
+      "label": "StatusIssue",
+      "path": "src/client-android/app/src/main/java/com/pim/app/status/StatusIssue.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/status/StatusIssue.kt.md",
+      "layer": "client-android",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/ui/shell/PimShellActivity.kt",
+      "label": "PimShellActivity",
+      "path": "src/client-android/app/src/main/java/com/pim/app/ui/shell/PimShellActivity.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/shell/PimShellActivity.kt.md",
+      "layer": "client-android",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/location/LocationQueueMappingTest.kt",
+      "label": "LocationQueueMappingTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/location/LocationQueueMappingTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/LocationQueueMappingTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncOutcomeMappingTest.kt",
+      "label": "MobileSyncOutcomeMappingTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncOutcomeMappingTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncOutcomeMappingTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/status/CancellableCallTest.kt",
+      "label": "CancellableCallTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/status/CancellableCallTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/status/CancellableCallTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NotificationRoutingTest.kt",
+      "label": "AndroidV2NotificationRoutingTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NotificationRoutingTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NotificationRoutingTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/models/EndpointModels.kt",
+      "label": "EndpointModels",
+      "path": "src/client-android/core/src/main/java/com/pim/core/models/EndpointModels.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/EndpointModels.kt.md",
+      "layer": "client-android",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt",
+      "label": "ServerSettingsStore",
+      "path": "src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/core/src/test/java/com/pim/core/settings/PimServerEndpointsTest.kt",
+      "label": "PimServerEndpointsTest",
+      "path": "src/client-android/core/src/test/java/com/pim/core/settings/PimServerEndpointsTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/settings/PimServerEndpointsTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/calendarStage5Types.test.ts",
+      "label": "calendarStage5Types.test",
+      "path": "tests/client-web/calendarStage5Types.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/calendarStage5Types.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt", "to": "androidx.work.ListenableWorker", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt", "to": "retrofit2.HttpException", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/status/StatusIssue.kt", "to": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt", "type": "depends_on" },
+    { "from": "StatusIssuePlanner", "to": "StatusIssue", "type": "calls" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/ui/shell/PimShellActivity.kt", "to": "com.pim.app.ui.permissions.PermissionCenterScreen", "type": "calls" },
+    { "from": "PimShellScreen", "to": "PimWebViewScreen", "type": "calls" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/location/LocationQueueMappingTest.kt", "to": "com.pim.app.data.MobileLocationPointEntity", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/location/LocationQueueMappingTest.kt", "to": "com.pim.app.data.MobileLocationDroppedDiagnosticEntity", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/location/LocationQueueMappingTest.kt", "to": "com.pim.app.data.MobileLocationPolicyTransitionEntity", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/location/LocationQueueMappingTest.kt", "to": "com.pim.app.data.PimDatabaseMigrations", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncOutcomeMappingTest.kt", "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncOutcomeMappingTest.kt", "to": "com.pim.core.models.MobileIngestResponse", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/status/CancellableCallTest.kt", "to": "okhttp3.Call", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NotificationRoutingTest.kt", "to": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NotificationRoutingTest.kt", "to": "src/client-android/app/src/main/java/com/pim/app/ui/shell/PimShellActivity.kt", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2NotificationRoutingTest.kt", "to": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt", "type": "tests" },
+    { "from": "src/client-android/core/src/main/java/com/pim/core/models/EndpointModels.kt", "to": "kotlinx.serialization.Serializable", "type": "depends_on" },
+    { "from": "src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt", "to": "com.pim.core.auth.AuthSessionStore", "type": "depends_on" },
+    { "from": "src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt", "to": "com.pim.core.settings.ServerUrlValidator", "type": "calls" },
+    { "from": "src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt", "to": "com.pim.core.settings.PimServerEndpoints", "type": "calls" },
+    { "from": "src/client-android/core/src/test/java/com/pim/core/settings/PimServerEndpointsTest.kt", "to": "com.pim.core.settings.PimServerEndpoints", "type": "tests" },
+    { "from": "tests/client-web/calendarStage5Types.test.ts", "to": "src/client-web/src/types", "type": "tests" },
+    { "from": "tests/client-web/calendarStage5Types.test.ts", "to": "src/client-web/src/types/index.ts", "type": "depends_on" }
+  ]
+}

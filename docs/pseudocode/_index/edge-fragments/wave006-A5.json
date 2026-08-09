@@ -1,0 +1,184 @@
+{
+  "slot": "A5",
+  "wave": "wave006",
+  "nodes": [
+    {
+      "id": "src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx",
+      "label": "ClassificationPreviewDialog",
+      "path": "src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/pc-tracker/ProductivityDashboard.tsx",
+      "label": "ProductivityDashboard",
+      "path": "src/client-web/src/components/pc-tracker/ProductivityDashboard.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ProductivityDashboard.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/schedule/CalendarLayerToolbar.tsx",
+      "label": "CalendarLayerToolbar",
+      "path": "src/client-web/src/components/schedule/CalendarLayerToolbar.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/schedule/CalendarLayerToolbar.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/today/TodayHealthSection.tsx",
+      "label": "TodayHealthSection",
+      "path": "src/client-web/src/components/today/TodayHealthSection.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/today/TodayHealthSection.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/i18n/scheduleWorkbench.zh-CN.ts",
+      "label": "scheduleWorkbench.zh-CN",
+      "path": "src/client-web/src/i18n/scheduleWorkbench.zh-CN.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/i18n/scheduleWorkbench.zh-CN.ts.md",
+      "layer": "client-web",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-web/src/pages/ConfirmationsPage.tsx",
+      "label": "ConfirmationsPage",
+      "path": "src/client-web/src/pages/ConfirmationsPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/ConfirmationsPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/QuickNotesPage.tsx",
+      "label": "QuickNotesPage",
+      "path": "src/client-web/src/pages/QuickNotesPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/QuickNotesPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/panels/InboxPanel.tsx",
+      "label": "InboxPanel",
+      "path": "src/client-web/src/panels/InboxPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/panels/InboxPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/ui/StatusBadge.tsx",
+      "label": "StatusBadge",
+      "path": "src/client-web/src/ui/StatusBadge.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/ui/StatusBadge.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+      "label": "MobileDataDao",
+      "path": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/PimServerUrls.kt",
+      "label": "PimServerUrls",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/PimServerUrls.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/PimServerUrls.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt",
+      "label": "StructuredLogRepository",
+      "path": "src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx",
+      "to": "src/client-web/src/components/pc-tracker/RuleImpactPreviewPanel.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx",
+      "to": "src/client-web/src/types/index.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/pc-tracker/ProductivityDashboard.tsx",
+      "to": "src/client-web/src/api/pcTracker.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/schedule/CalendarLayerToolbar.tsx",
+      "to": "src/client-web/src/types/index.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayHealthSection.tsx",
+      "to": "src/client-web/src/ui/StatusBadge.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayHealthSection.tsx",
+      "to": "src/client-web/src/ui/EmptyState.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/ConfirmationsPage.tsx",
+      "to": "src/client-web/src/api/operations.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/ConfirmationsPage.tsx",
+      "to": "src/client-web/src/components/schedule/BeforeAfterDiff.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/ConfirmationsPage.tsx",
+      "to": "src/client-web/src/components/schedule/StrictConfirmationPanel.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/QuickNotesPage.tsx",
+      "to": "src/client-web/src/api/quickNotes.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/QuickNotesPage.tsx",
+      "to": "src/client-web/src/components/quick-notes/QuickNoteEditor.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/QuickNotesPage.tsx",
+      "to": "src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/panels/InboxPanel.tsx",
+      "to": "src/client-web/src/api/calendar.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/panels/InboxPanel.tsx",
+      "to": "src/client-web/src/dialogs/TaskEditorDialog.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/panels/InboxPanel.tsx",
+      "to": "src/client-web/src/dialogs/EventEditorDialog.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileEntities.kt",
+      "type": "depends_on"
+    }
+  ]
+}

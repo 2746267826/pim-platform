@@ -1,0 +1,106 @@
+{
+  "slot": "A3",
+  "nodes": [
+    {
+      "id": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs",
+      "label": "QuickNoteEntity",
+      "path": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs.md",
+      "layer": "module.quicknotes",
+      "kind": "entity"
+    },
+    {
+      "id": "src/modules/Pim.Module.Stats/Entities/AppUsageEntity.cs",
+      "label": "AppUsageEntity",
+      "path": "src/modules/Pim.Module.Stats/Entities/AppUsageEntity.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Stats/Entities/AppUsageEntity.cs.md",
+      "layer": "module.stats",
+      "kind": "entity"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.App/NotificationActionRouter.cs",
+      "label": "NotificationActionRouter",
+      "path": "src/client-windows/Pim.Client.App/NotificationActionRouter.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.App/NotificationActionRouter.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Models/EndpointDtos.cs",
+      "label": "EndpointDtos",
+      "path": "src/client-windows/Pim.Client.Core/Models/EndpointDtos.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Models/EndpointDtos.cs.md",
+      "layer": "client-windows",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs",
+      "label": "KeyStatsProcessManager",
+      "path": "src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/api/files.ts",
+      "label": "files",
+      "path": "src/client-web/src/api/files.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/api/files.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/auth/LoginPage.tsx",
+      "label": "LoginPage",
+      "path": "src/client-web/src/auth/LoginPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/auth/LoginPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/locationFormatting.ts",
+      "label": "locationFormatting",
+      "path": "src/client-web/src/components/mobile/locationFormatting.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/locationFormatting.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileAppCatalogManager.tsx",
+      "label": "MobileAppCatalogManager",
+      "path": "src/client-web/src/components/mobile/MobileAppCatalogManager.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileAppCatalogManager.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileTimeline.tsx",
+      "label": "MobileTimeline",
+      "path": "src/client-web/src/components/mobile/MobileTimeline.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileTimeline.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    }
+  ],
+  "edges": [
+    { "from": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs", "to": "src/Pim.Core/Data/ISoftDeletable.cs", "type": "implements" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs", "to": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/modules/Pim.Module.Stats/Entities/AppUsageEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Stats/Services/StatsService.cs", "to": "src/modules/Pim.Module.Stats/Entities/AppUsageEntity.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/NotificationActionRouter.cs", "to": "src/client-windows/Pim.Client.Core/Services/NotificationActionRouter.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/NotificationActionRouter.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/NotificationActionRouter.cs", "to": "src/client-windows/Pim.Client.Core/Models/EndpointDtos.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "to": "src/client-windows/Pim.Client.Core/Models/EndpointDtos.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs", "to": "src/client-windows/Pim.Client.Core/Models", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs", "to": "System.Diagnostics.Process", "type": "calls" },
+    { "from": "src/client-web/src/api/files.ts", "to": "src/client-web/src/api/client.ts", "type": "calls" },
+    { "from": "src/client-web/src/api/files.ts", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/auth/LoginPage.tsx", "to": "src/client-web/src/auth/AuthContext.tsx", "type": "calls" },
+    { "from": "src/client-web/src/auth/LoginPage.tsx", "to": "react-router-dom", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile", "to": "src/client-web/src/components/mobile/locationFormatting.ts", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/MobileAppCatalogManager.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileTimeline.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileTimeline.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "calls" }
+  ]
+}

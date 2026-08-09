@@ -1,0 +1,117 @@
+{
+  "slot": "A8",
+  "nodes": [
+    {
+      "id": "src/modules/Pim.Module.QuickNotes/Services/NullQuickNoteObjectStorage.cs",
+      "label": "NullQuickNoteObjectStorage",
+      "path": "src/modules/Pim.Module.QuickNotes/Services/NullQuickNoteObjectStorage.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/NullQuickNoteObjectStorage.cs.md",
+      "layer": "module.quicknotes",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.App/AutoStartManager.cs",
+      "label": "AutoStartManager",
+      "path": "src/client-windows/Pim.Client.App/AutoStartManager.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.App/AutoStartManager.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs",
+      "label": "StatusWindow",
+      "path": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.App/StatusWindow.xaml.cs.md",
+      "layer": "client-windows",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs",
+      "label": "AwCollectorService",
+      "path": "src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/api/appKnowledge.ts",
+      "label": "appKnowledgeApi",
+      "path": "src/client-web/src/api/appKnowledge.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/api/appKnowledge.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/api/status.ts",
+      "label": "statusApi",
+      "path": "src/client-web/src/api/status.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/api/status.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/components/app-knowledge/AppKnowledgeContextList.tsx",
+      "label": "AppKnowledgeContextList",
+      "path": "src/client-web/src/components/app-knowledge/AppKnowledgeContextList.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/app-knowledge/AppKnowledgeContextList.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/LocationSegmentDetail.tsx",
+      "label": "LocationSegmentDetail",
+      "path": "src/client-web/src/components/mobile/LocationSegmentDetail.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/LocationSegmentDetail.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileInsightStrip.tsx",
+      "label": "MobileInsightStrip",
+      "path": "src/client-web/src/components/mobile/MobileInsightStrip.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileInsightStrip.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/pc-classification/ClassificationRecomputePanel.tsx",
+      "label": "ClassificationRecomputePanel",
+      "path": "src/client-web/src/components/pc-classification/ClassificationRecomputePanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRecomputePanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    }
+  ],
+  "edges": [
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/NullQuickNoteObjectStorage.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs", "type": "implements" },
+    { "from": "src/client-windows/Pim.Client.App/AutoStartManager.cs", "to": "Microsoft.Win32.Registry", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/AutoStartManager.cs", "to": "src/client-windows/Pim.Client.App/Services/Logger.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/AuthService.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/StatusCenterEvaluator.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "to": "src/client-windows/Pim.Client.App/AutoStartManager.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "to": "src/client-windows/Pim.Client.App/LoginWindow.xaml.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "to": "http://127.0.0.1:5600", "type": "http" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs", "to": "src/client-windows/Pim.Client.Core/Services/AwBucketSelection.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs", "to": "http://127.0.0.1:5600", "type": "http" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs", "to": "/pc/aw/upload-complete", "type": "http" },
+    { "from": "src/client-web/src/api/appKnowledge.ts", "to": "src/client-web/src/api/client.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/api/appKnowledge.ts", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/api/appKnowledge.ts", "to": "/pc/app-knowledge", "type": "http" },
+    { "from": "src/client-web/src/api/status.ts", "to": "src/client-web/src/api/client.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/api/status.ts", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/api/status.ts", "to": "/status", "type": "http" },
+    { "from": "src/client-web/src/components/app-knowledge/AppKnowledgeContextList.tsx", "to": "src/client-web/src/api/appKnowledge.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/app-knowledge/AppKnowledgeContextList.tsx", "to": "src/client-web/src/components/app-knowledge/AppKnowledgeImpactSummary.tsx", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/LocationSegmentDetail.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/LocationSegmentDetail.tsx", "to": "src/client-web/src/components/mobile/locationFormatting.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileInsightStrip.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileInsightStrip.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileInsightStrip.tsx", "to": "src/client-web/src/components/mobile/MobileMetricGrid.tsx", "type": "calls" },
+    { "from": "src/client-web/src/components/pc-classification/ClassificationRecomputePanel.tsx", "to": "src/client-web/src/types", "type": "depends_on" }
+  ]
+}

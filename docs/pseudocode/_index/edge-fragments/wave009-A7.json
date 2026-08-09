@@ -1,0 +1,17 @@
+{
+  "slot": "A7",
+  "wave": "wave009",
+  "nodes": [
+    {
+      "id": "tests/Pim.UnitTests/Services/PcActivityRecordKeyServiceTests.cs",
+      "label": "PcActivityRecordKeyServiceTests",
+      "path": "tests/Pim.UnitTests/Services/PcActivityRecordKeyServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/PcActivityRecordKeyServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "tests/Pim.UnitTests/Services/PcActivityRecordKeyServiceTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/PcActivityRecordKeyService.cs", "type": "tests" }
+  ]
+}

@@ -19,7 +19,7 @@
 | 日志清理 | PIM 自身日志保留当天 + 前一天（Serilog 滚动，`PIM_LOG_RETAINED_FILES=2`）；容器 stdout 由 Docker json-file driver max-size 轮转 |
 | 宿主机 logreader | 保持现状，不做任何改动 |
 | CI | 新增 `build-docker.yml`，api/web/docker 变更时构建；`is_release=true` 时 push GHCR 并把 `docker save` 产物经 release job 上传为 release asset |
-| 代码变更分离 | `PIM_LOG_RETAINED_FILES` 为独立 PR（本设计不含代码改动） |
+| 代码变更 | `PIM_LOG_RETAINED_FILES`（Program.cs 读环境变量）**并入本 PR**（几行代码） |
 
 ## 现状分析
 
@@ -280,14 +280,15 @@ AI（统一网关）：
 | 权限链 | authorized_keys 600/目录 700；root 运行 dotnet → 0644 日志 → pimlog 可读 |
 | base64 密钥 | 多行公钥 → base64 → 容器内解码后 authorized_keys 内容一致 |
 | host keys | 容器重建后指纹不变（named volume 生效） |
-| 日志保留 | `PIM_LOG_RETAINED_FILES=2` 下滚动后仅剩当天+昨天（依赖独立代码 PR 合并后生效） |
+| 日志保留 | `PIM_LOG_RETAINED_FILES=2` 下滚动后仅剩当天+昨天（本 PR 内直接生效） |
 | 回归 | `dotnet test Pim.sln` 与 web 构建不受影响（本 PR 无 C#/前端代码改动） |
 
 ## 范围外 / 后续工作
 
-- **独立 PR（代码变更）**：`Program.cs` Serilog `retainedFileCountLimit` 改为读 `PIM_LOG_RETAINED_FILES` 环境变量（默认 30）。compose 从第一天即设 `PIM_LOG_RETAINED_FILES=2`（代码 PR 未合并时无害，合并后生效）。按 AGENTS.md 需独立分支 + PR，与本 Docker 工作分离。
 - 宿主机 `logreader` 通道保持现状（不做支持、不改动）；`/data/pim/logs` bind mount 保证其继续可读。
 - dev 版 `docker-compose.yml` 与现有 Dockerfile 的本地构建路径不受影响。
+
+> 注：`PIM_LOG_RETAINED_FILES`（Program.cs 读环境变量）已决定并入本 PR，不再是后续工作。
 
 ## 验收标准
 

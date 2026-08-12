@@ -22,7 +22,7 @@ class LocationSubmissionPolicyTest {
     }
 
     @Test
-    fun maxUploadAccuracyThresholdReplacesHardcodedFiftyMeters() {
+    fun customAccuracyThresholdReplacesDefault() {
         val decision = LocationSubmissionPolicy.decide(
             horizontalAccuracyMeters = 45f,
             maxUploadAccuracyMetersExclusive = 35.5f,

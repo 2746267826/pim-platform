@@ -222,13 +222,13 @@ class LocationPolicyEngineTest {
 
     @Test
     fun `walking uses the configured movement interval`() {
-        val engine = LocationPolicyEngine(TrackingPolicy(movementIntervalMillis = 60_000L))
+        val engine = LocationPolicyEngine(TrackingPolicy(movementIntervalMillis = 90_000L))
 
         val decision = engine.reduce(
             LocationPolicyInput(nowMillis = now, collectionEnabled = true, motionSignal = MotionSignal.Walking)
         )
 
-        assertEquals(60_000L, decision.requestIntervalMillis)
+        assertEquals(90_000L, decision.requestIntervalMillis)
     }
 
     @Test

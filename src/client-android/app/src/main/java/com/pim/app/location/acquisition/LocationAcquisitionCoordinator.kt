@@ -324,10 +324,13 @@ class LocationAcquisitionCoordinator @Inject constructor(
 
         val sessionScope = this
         val sessionStartedWallClockMillis = wallClockMillis()
+        val sessionStartedElapsedRealtimeMillis = elapsedRealtimeMillis()
         val deadlineCapMillis = sessionStartedWallClockMillis + 30_000L
+        val deadlineCapElapsedRealtimeMillis = sessionStartedElapsedRealtimeMillis + 30_000L
         val altitudeWaitCoordinator = AltitudeWaitCoordinator(
             gate = LocationQualityGate.fromTrackingSettings(settings),
             nowMillis = wallClockMillis,
+            nowElapsedRealtimeMillis = elapsedRealtimeMillis,
             delayMillis = { delay(it) }
         )
 
@@ -372,6 +375,7 @@ class LocationAcquisitionCoordinator @Inject constructor(
                                 altitudeWaitCoordinator.handleFix(
                                     fix = fix,
                                     deadlineCapMillis = deadlineCapMillis,
+                                    deadlineCapElapsedRealtimeMillis = deadlineCapElapsedRealtimeMillis,
                                     onAccepted = { accepted -> onQualityAccepted(accepted) },
                                     onDropped = { droppedFix, reason ->
                                         if (triggerType == TriggerType.AUTOMATIC) {

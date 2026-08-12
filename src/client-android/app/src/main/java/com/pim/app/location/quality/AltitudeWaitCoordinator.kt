@@ -1,10 +1,12 @@
 package com.pim.app.location.quality
 
+import android.os.SystemClock
 import kotlinx.coroutines.delay
 
 class AltitudeWaitCoordinator(
     private val gate: LocationQualityGate = LocationQualityGate(),
     private val nowMillis: () -> Long = { System.currentTimeMillis() },
+    private val nowElapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() },
     private val delayMillis: suspend (Long) -> Unit = { delay(it) }
 ) {
     private var pendingAltitudeFix: PendingAltitudeFix? = null
@@ -16,6 +18,7 @@ class AltitudeWaitCoordinator(
     suspend fun handleFix(
         fix: RawLocationFix,
         deadlineCapMillis: Long? = null,
+        deadlineCapElapsedRealtimeMillis: Long? = null,
         onAccepted: suspend (QualityAcceptedLocation) -> Unit,
         onDropped: suspend (RawLocationFix, String) -> Unit
     ) {
@@ -34,17 +37,31 @@ class AltitudeWaitCoordinator(
                     decision.pending
                 }
                 pendingAltitudeFix = pending
-                waitThenHandleTimeout(pending, onAccepted, onDropped)
+                waitThenHandleTimeout(
+                    pending,
+                    deadlineCapElapsedRealtimeMillis,
+                    onAccepted,
+                    onDropped
+                )
             }
         }
     }
 
     private suspend fun waitThenHandleTimeout(
         pending: PendingAltitudeFix,
+        deadlineCapElapsedRealtimeMillis: Long?,
         onAccepted: suspend (QualityAcceptedLocation) -> Unit,
         onDropped: suspend (RawLocationFix, String) -> Unit
     ) {
-        val remainingMillis = (pending.deadlineMillis - nowMillis()).coerceAtLeast(0L)
+        // The wait must never outlive the overall session deadline. The wall-clock
+        // based remaining can be arbitrarily large when the device wall clock is
+        // rolled back (e.g. NTP correction after reboot) while GPS timestamps stay
+        // on satellite time; the monotonic deadline caps the actual sleep duration.
+        val wallClockRemaining = (pending.deadlineMillis - nowMillis()).coerceAtLeast(0L)
+        val monotonicRemaining = deadlineCapElapsedRealtimeMillis
+            ?.let { cap -> (cap - nowElapsedRealtimeMillis()).coerceAtLeast(0L) }
+            ?: Long.MAX_VALUE
+        val remainingMillis = minOf(wallClockRemaining, monotonicRemaining)
         if (remainingMillis > 0L) {
             delayMillis(remainingMillis)
         }
@@ -58,6 +75,7 @@ class AltitudeWaitCoordinator(
             is QualityDecision.Drop -> onDropped(decision.fix, decision.reason)
             is QualityDecision.WaitForAltitude -> waitThenHandleTimeout(
                 decision.pending,
+                deadlineCapElapsedRealtimeMillis,
                 onAccepted,
                 onDropped
             )

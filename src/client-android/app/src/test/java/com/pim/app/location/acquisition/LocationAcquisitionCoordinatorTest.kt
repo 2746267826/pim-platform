@@ -694,6 +694,103 @@ class LocationAcquisitionCoordinatorTest {
         advanceUntilIdle()
     }
 
+    // ─── Wall-clock rollback regression (user bug report) ────────
+
+    @Test
+    fun `wall clock rollback after candidate arrival does not hang the session`() = runTest {
+        val sessionStartWall = 1_000_000L
+        wallClockTime = sessionStartWall
+        createCoordinator(this)
+        var rolledBack = false
+        // Wall clock is correct until a candidate arrives, then NTP-style correction
+        // rolls the wall clock back 600s. The GPS timestamp (Location.time) stays on
+        // satellite time, so fix.recordedAtMillis is 600s ahead of nowMillis().
+        coordinator.wallClockMillis = {
+            if (rolledBack) sessionStartWall + testScheduler.currentTime - 600_000L
+            else sessionStartWall + testScheduler.currentTime
+        }
+        prerequisiteChecker.ready()
+
+        val missingAltitude = LocationSnapshot(
+            latitude = 31.23,
+            longitude = 121.47,
+            horizontalAccuracyMeters = 5f,
+            provider = "gps",
+            source = "test",
+            altitudeMeters = null,
+            speedMetersPerSecond = null,
+            bearingDegrees = null,
+            timeMillis = sessionStartWall + 5_000L
+        )
+
+        val started = coordinator.startManualSession() as SessionStartResult.Started
+        runner.waitForAcquire()
+        advanceTimeBy(5_000L)
+        rolledBack = true
+        runner.emitCandidate(missingAltitude)
+        runner.complete(
+            LocationEngineResult(
+                sessionId = started.sessionId,
+                bestLocation = missingAltitude,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
+        runCurrent()
+
+        // Bug reproduction: with a 600s wall-clock rollback, the quality wait computes
+        // remainingMillis = deadline(1_005_000+20_000) - nowMillis(405_000) = 620s,
+        // so the session is still busy at the 30s deadline and only ends ~620s later.
+        advanceTimeBy(30_000L)
+        runCurrent()
+        assertTrue(
+            "session must end within the 30s deadline; wall-clock rollback must not stretch the wait",
+            coordinator.state.value.phase == AcquisitionPhase.AwaitingManualSubmit ||
+                coordinator.state.value.phase == AcquisitionPhase.TimedOut ||
+                coordinator.state.value.phase == AcquisitionPhase.Failed
+        )
+        assertFalse(runner.isAcquireActive)
+    }
+
+    @Test
+    fun `session deadline uses elapsed realtime and is not stretched by wall clock rollback`() = runTest {
+        val sessionStartWall = 1_000_000L
+        wallClockTime = sessionStartWall
+        createCoordinator(this)
+        // Wall clock advances normally, but elapsedRealtime is the monotonic authority.
+        coordinator.wallClockMillis = { sessionStartWall + testScheduler.currentTime }
+        prerequisiteChecker.ready()
+
+        val missingAltitude = LocationSnapshot(
+            latitude = 31.23,
+            longitude = 121.47,
+            horizontalAccuracyMeters = 5f,
+            provider = "gps",
+            source = "test",
+            altitudeMeters = null,
+            speedMetersPerSecond = null,
+            bearingDegrees = null,
+            timeMillis = sessionStartWall + 25_000L
+        )
+
+        val started = coordinator.startManualSession() as SessionStartResult.Started
+        runner.waitForAcquire()
+        advanceTimeBy(25_000L)
+        runner.emitCandidate(missingAltitude)
+        runner.complete(
+            LocationEngineResult(
+                sessionId = started.sessionId,
+                bestLocation = missingAltitude,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
+        runCurrent()
+        advanceTimeBy(5_000L)
+        runCurrent()
+        advanceUntilIdle()
+
+        assertEquals(AcquisitionPhase.AwaitingManualSubmit, coordinator.state.value.phase)
+    }
+
     // ─── Spec gap 3: altitude deadline cap ───────────────────────
 
     @Test

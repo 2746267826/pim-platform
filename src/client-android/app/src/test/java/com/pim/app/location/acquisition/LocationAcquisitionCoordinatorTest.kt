@@ -1222,91 +1222,15 @@ class LocationAcquisitionCoordinatorTest {
         assertTrue(parsed["bearingDegrees"] is JsonNull)
     }
 
-    // ─── Settings snapshot: quality threshold ──────────────────
+    // ─── Fixed 20m quality gate ────────────────────────────────
 
     @Test
-    fun `session reads maxUploadAccuracyMetersExclusive from settings store and surfaces it in state`() = runTest {
-        val settingsStore = TrackingSettingsStore(InMemorySharedPreferences())
-        settingsStore.write(
-            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = 30f)
-        )
-        createCoordinator(this, trackingSettingsStore = settingsStore)
+    fun `session applies the fixed 20m quality gate`() = runTest {
+        createCoordinator(this)
         prerequisiteChecker.ready()
 
-        // A 40m fix is accepted by the default 50m threshold but rejected by the
-        // 30m threshold snapshotted from settings; the threshold must be surfaced.
-        coordinator.startManualSession()
-        runner.waitForAcquire()
-        runner.emitCandidate(mediumQualitySnapshot)
-        runner.complete(LocationEngineResult(
-            sessionId = runner.acquiredRequest!!.sessionId,
-            bestLocation = mediumQualitySnapshot,
-            completion = LocationEngineCompletion.TimedOut
-        ))
-        advanceUntilIdle()
-
-        assertEquals(AcquisitionPhase.Failed, coordinator.state.value.phase)
-        assertEquals(30f, coordinator.state.value.maxUploadAccuracyMetersExclusive, 0f)
-    }
-
-    @Test
-    fun `settings changes affect later sessions but never mutate the active session`() = runTest {
-        val settingsStore = TrackingSettingsStore(InMemorySharedPreferences())
-        settingsStore.write(
-            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = 30f)
-        )
-        createCoordinator(this, trackingSettingsStore = settingsStore)
-        prerequisiteChecker.ready()
-
-        // The active session snapshots the 30f threshold.
-        coordinator.startManualSession()
-        runner.waitForAcquire(0)
-        settingsStore.write(
-            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = 50f)
-        )
-        runner.emitCandidate(mediumQualitySnapshot, index = 0)
-        runner.complete(
-            LocationEngineResult(
-                sessionId = runner.acquiredRequest!!.sessionId,
-                bestLocation = mediumQualitySnapshot,
-                completion = LocationEngineCompletion.TimedOut
-            ),
-            index = 0
-        )
-        advanceUntilIdle()
-
-        assertEquals(AcquisitionPhase.Failed, coordinator.state.value.phase)
-        assertEquals(30f, coordinator.state.value.maxUploadAccuracyMetersExclusive, 0f)
-
-        // The next session reads the updated 50f threshold and accepts the same fix.
-        coordinator.startManualSession()
-        runner.waitForAcquire(1)
-        runner.emitCandidate(mediumQualitySnapshot, index = 1)
-        runner.complete(
-            LocationEngineResult(
-                sessionId = runner.acquiredRequest!!.sessionId,
-                bestLocation = mediumQualitySnapshot,
-                completion = LocationEngineCompletion.TimedOut
-            ),
-            index = 1
-        )
-        advanceUntilIdle()
-
-        assertEquals(AcquisitionPhase.AwaitingManualSubmit, coordinator.state.value.phase)
-        assertEquals(50f, coordinator.state.value.maxUploadAccuracyMetersExclusive, 0f)
-    }
-
-    @Test
-    fun `automatic session applies non-default accuracy threshold from settings snapshot`() = runTest {
-        val settingsStore = TrackingSettingsStore(InMemorySharedPreferences())
-        settingsStore.write(
-            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = 30f)
-        )
-        createCoordinator(this, trackingSettingsStore = settingsStore)
-        prerequisiteChecker.ready()
-
-        // The 40m fix is accepted by the default 50m threshold but rejected by
-        // the 30m threshold; automatic sessions must use the same shared snapshot.
+        // A 40m fix exceeds the fixed 20m gate and must never be enqueued,
+        // regardless of any stored settings value.
         coordinator.startAutomaticSession(automaticContext)
         runner.waitForAcquire()
         runner.emitCandidate(mediumQualitySnapshot)
@@ -1318,7 +1242,6 @@ class LocationAcquisitionCoordinatorTest {
         advanceUntilIdle()
 
         assertEquals(AcquisitionPhase.Failed, coordinator.state.value.phase)
-        assertEquals(30f, coordinator.state.value.maxUploadAccuracyMetersExclusive, 0f)
         assertEquals(1, operations.recordDroppedCount)
         assertEquals(0, operations.enqueueCount)
     }

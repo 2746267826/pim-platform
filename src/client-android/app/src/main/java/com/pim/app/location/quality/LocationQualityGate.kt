@@ -35,7 +35,7 @@ sealed class QualityDecision {
 }
 
 class LocationQualityGate(
-    private val maxAccuracyMetersExclusive: Float = 50f,
+    private val maxAccuracyMetersExclusive: Float = MAX_ACCURACY_METERS_EXCLUSIVE,
     private val altitudeWaitTimeoutMillis: Long = 15_000L
 ) {
     fun evaluate(fix: RawLocationFix, nowMillis: Long = fix.recordedAtMillis): QualityDecision {
@@ -82,9 +82,10 @@ class LocationQualityGate(
     }
 
     companion object {
+        const val MAX_ACCURACY_METERS_EXCLUSIVE = 20f
+
         fun fromTrackingSettings(settings: TrackingSettings): LocationQualityGate =
             LocationQualityGate(
-                maxAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive,
                 altitudeWaitTimeoutMillis = settings.altitudeWaitTimeoutMillis
             )
     }

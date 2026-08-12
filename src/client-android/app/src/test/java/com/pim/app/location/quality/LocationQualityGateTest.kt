@@ -9,7 +9,6 @@ import org.junit.Test
 
 class LocationQualityGateTest {
     private val gate = LocationQualityGate(
-        maxAccuracyMetersExclusive = 50f,
         altitudeWaitTimeoutMillis = 15_000L
     )
 
@@ -25,9 +24,24 @@ class LocationQualityGateTest {
     }
 
     @Test
-    fun accuracyBelowFiftyMetersIsAccepted() {
+    fun defaultGateThresholdIsTwentyMetersExclusive() {
+        val defaultGate = LocationQualityGate()
+        val accepted = defaultGate.evaluate(
+            fix(horizontalAccuracyMeters = 19.9f, altitudeMeters = 12.0),
+            nowMillis = 2_000L
+        )
+        assertTrue(accepted is QualityDecision.AcceptNow)
+        val dropped = defaultGate.evaluate(
+            fix(horizontalAccuracyMeters = 20f, altitudeMeters = 12.0),
+            nowMillis = 2_000L
+        )
+        assertEquals("horizontal-accuracy-too-low", (dropped as QualityDecision.Drop).reason)
+    }
+
+    @Test
+    fun accuracyBelowTwentyMetersIsAccepted() {
         val result = gate.evaluate(
-            fix(horizontalAccuracyMeters = 49.9f, altitudeMeters = 12.0),
+            fix(horizontalAccuracyMeters = 19.9f, altitudeMeters = 12.0),
             nowMillis = 2_000L
         )
 
@@ -40,17 +54,17 @@ class LocationQualityGateTest {
     }
 
     @Test
-    fun accuracyAtFiftyMetersIsDropped() {
-        val result = gate.evaluate(fix(horizontalAccuracyMeters = 50.0f), nowMillis = 2_000L)
+    fun accuracyAtTwentyMetersIsDropped() {
+        val result = gate.evaluate(fix(horizontalAccuracyMeters = 20.0f), nowMillis = 2_000L)
 
         assertTrue(result is QualityDecision.Drop)
         val dropped = result as QualityDecision.Drop
         assertEquals("horizontal-accuracy-too-low", dropped.reason)
-        assertEquals(50.0f, dropped.fix.horizontalAccuracyMeters)
+        assertEquals(20.0f, dropped.fix.horizontalAccuracyMeters)
     }
 
     @Test
-    fun accuracyAboveFiftyMetersIsDropped() {
+    fun accuracyAboveTwentyMetersIsDropped() {
         val result = gate.evaluate(fix(horizontalAccuracyMeters = 80.0f), nowMillis = 2_000L)
 
         assertTrue(result is QualityDecision.Drop)
@@ -99,22 +113,21 @@ class LocationQualityGateTest {
     }
 
     @Test
-    fun fromTrackingSettingsUsesMaxUploadAccuracyAndAltitudeWait() {
+    fun fromTrackingSettingsAppliesFixedTwentyMeterThresholdAndSettingsAltitudeWait() {
         val settings = TrackingSettings.defaults().copy(
-            maxUploadAccuracyMetersExclusive = 35f,
             altitudeWaitTimeoutMillis = 20_000L
         )
         val gate = LocationQualityGate.fromTrackingSettings(settings)
 
         val dropped = gate.evaluate(
-            fix(horizontalAccuracyMeters = 40f, altitudeMeters = null, recordedAtMillis = 1_000L),
+            fix(horizontalAccuracyMeters = 25f, altitudeMeters = null, recordedAtMillis = 1_000L),
             nowMillis = 1_000L
         )
         assertTrue(dropped is QualityDecision.Drop)
         assertEquals("horizontal-accuracy-too-low", (dropped as QualityDecision.Drop).reason)
 
         val waiting = gate.evaluate(
-            fix(horizontalAccuracyMeters = 30f, altitudeMeters = null, recordedAtMillis = 1_000L),
+            fix(horizontalAccuracyMeters = 15f, altitudeMeters = null, recordedAtMillis = 1_000L),
             nowMillis = 1_000L
         )
         assertTrue(waiting is QualityDecision.WaitForAltitude)

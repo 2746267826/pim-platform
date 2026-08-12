@@ -11,7 +11,6 @@ data class TrackingSettings(
     val movementIntervalMillis: Long,
     val scheduleRecoveryThresholdMeters: Double,
     val altitudeWaitTimeoutMillis: Long,
-    val maxUploadAccuracyMetersExclusive: Float,
     val syncOnUnmeteredOnly: Boolean,
     val logRetentionDays: Int = 7,
     val verboseLoggingUntilUtcMillis: Long? = null
@@ -25,7 +24,6 @@ data class TrackingSettings(
             movementIntervalMillis = 60 * 1000L,
             scheduleRecoveryThresholdMeters = 100.0,
             altitudeWaitTimeoutMillis = 15 * 1000L,
-            maxUploadAccuracyMetersExclusive = 50f,
             syncOnUnmeteredOnly = false
         )
     }
@@ -56,10 +54,6 @@ class TrackingSettingsStore(
                 KEY_ALTITUDE_WAIT_TIMEOUT,
                 defaults.altitudeWaitTimeoutMillis
             ),
-            maxUploadAccuracyMetersExclusive = preferences.getFloat(
-                KEY_MAX_UPLOAD_ACCURACY_EXCLUSIVE,
-                defaults.maxUploadAccuracyMetersExclusive
-            ),
             syncOnUnmeteredOnly = preferences.getBoolean(
                 KEY_SYNC_ON_UNMETERED_ONLY,
                 defaults.syncOnUnmeteredOnly
@@ -84,7 +78,6 @@ class TrackingSettingsStore(
             .putLong(KEY_MOVEMENT_INTERVAL, settings.movementIntervalMillis)
             .putFloat(KEY_SCHEDULE_RECOVERY_THRESHOLD, settings.scheduleRecoveryThresholdMeters.toFloat())
             .putLong(KEY_ALTITUDE_WAIT_TIMEOUT, settings.altitudeWaitTimeoutMillis)
-            .putFloat(KEY_MAX_UPLOAD_ACCURACY_EXCLUSIVE, settings.maxUploadAccuracyMetersExclusive)
             .putBoolean(KEY_SYNC_ON_UNMETERED_ONLY, settings.syncOnUnmeteredOnly)
             .putInt(KEY_LOG_RETENTION_DAYS, settings.logRetentionDays)
             .putString(KEY_VERBOSE_LOGGING_UNTIL, settings.verboseLoggingUntilUtcMillis?.toString())
@@ -134,7 +127,6 @@ class TrackingSettingsStore(
         const val KEY_MOVEMENT_INTERVAL = "tracking.movement_interval_millis"
         const val KEY_SCHEDULE_RECOVERY_THRESHOLD = "tracking.schedule_recovery_threshold_meters"
         const val KEY_ALTITUDE_WAIT_TIMEOUT = "tracking.altitude_wait_timeout_millis"
-        const val KEY_MAX_UPLOAD_ACCURACY_EXCLUSIVE = "tracking.max_upload_accuracy_meters_exclusive"
         const val KEY_SYNC_ON_UNMETERED_ONLY = "tracking.sync_on_unmetered_only"
         const val KEY_LOG_RETENTION_DAYS = "tracking.log_retention_days"
         const val KEY_VERBOSE_LOGGING_UNTIL = "tracking.verbose_logging_until_utc_millis"
@@ -146,6 +138,5 @@ fun TrackingSettings.toTrackingPolicy(): TrackingPolicy = TrackingPolicy(
     scheduleLowFrequencyIntervalMillis = scheduleLowFrequencyIntervalMillis,
     movementIntervalMillis = movementIntervalMillis,
     scheduleRecoveryThresholdMeters = scheduleRecoveryThresholdMeters,
-    altitudeWaitTimeoutMillis = altitudeWaitTimeoutMillis,
-    maxUploadAccuracyMetersExclusive = maxUploadAccuracyMetersExclusive
+    altitudeWaitTimeoutMillis = altitudeWaitTimeoutMillis
 )

@@ -105,7 +105,7 @@ class LocationPolicyEngineTest {
     }
 
     @Test
-    fun `active schedule without location still enters low frequency`() {
+    fun `active schedule without location does not enter low frequency`() {
         val noLocation = ScheduleWindow("s2", "会议", "", now - 1_000L, now + 60_000L)
         val engine = LocationPolicyEngine(policy)
 
@@ -113,13 +113,26 @@ class LocationPolicyEngineTest {
             LocationPolicyInput(nowMillis = now, collectionEnabled = true, currentScheduleWindow = noLocation)
         )
 
-        assertEquals(LocationPolicyMode.ScheduleLowFrequency, decision.mode)
-        assertTrue(decision.scheduleLowFrequency)
+        assertEquals(LocationPolicyMode.PowerSavingNormal, decision.mode)
+        assertFalse(decision.scheduleLowFrequency)
     }
 
     @Test
-    fun `vehicle uses half movement interval but never below thirty seconds`() {
-        val engine = LocationPolicyEngine(TrackingPolicy(movementIntervalMillis = 60_000L))
+    fun `active schedule with blank whitespace location does not enter low frequency`() {
+        val noLocation = ScheduleWindow("s2", "会议", "   ", now - 1_000L, now + 60_000L)
+        val engine = LocationPolicyEngine(policy)
+
+        val decision = engine.reduce(
+            LocationPolicyInput(nowMillis = now, collectionEnabled = true, currentScheduleWindow = noLocation)
+        )
+
+        assertEquals(LocationPolicyMode.PowerSavingNormal, decision.mode)
+        assertFalse(decision.scheduleLowFrequency)
+    }
+
+    @Test
+    fun `vehicle uses the hardcoded thirty second interval regardless of movement setting`() {
+        val engine = LocationPolicyEngine(TrackingPolicy(movementIntervalMillis = 90_000L))
 
         val decision = engine.reduce(
             LocationPolicyInput(nowMillis = now, collectionEnabled = true, motionSignal = MotionSignal.InVehicle)
@@ -168,9 +181,9 @@ class LocationPolicyEngineTest {
     }
 
     @Test
-    fun `movement recovery with vehicle uses derived interval`() {
+    fun `movement recovery with vehicle uses the hardcoded interval`() {
         val longSchedule = schedule.copy(endsAtMillis = now + 180_000L)
-        val engine = LocationPolicyEngine(TrackingPolicy(movementIntervalMillis = 60_000L))
+        val engine = LocationPolicyEngine(TrackingPolicy(movementIntervalMillis = 90_000L))
         engine.reduce(LocationPolicyInput(nowMillis = now, collectionEnabled = true, currentScheduleWindow = longSchedule))
         engine.onAcceptedLocation(PolicyLocation(31.230416, 121.473701, now))
         engine.onAcceptedLocation(PolicyLocation(31.232000, 121.473701, now + 60_000L))
@@ -181,6 +194,70 @@ class LocationPolicyEngineTest {
 
         assertEquals(LocationPolicyMode.MovementRecovery, recovered.mode)
         assertEquals(30_000L, recovered.requestIntervalMillis)
+    }
+
+    @Test
+    fun `running uses the hardcoded thirty second interval regardless of movement setting`() {
+        val engine = LocationPolicyEngine(TrackingPolicy(movementIntervalMillis = 300_000L))
+
+        val decision = engine.reduce(
+            LocationPolicyInput(nowMillis = now, collectionEnabled = true, motionSignal = MotionSignal.Running)
+        )
+
+        assertEquals(LocationPolicyMode.MotionObservation, decision.mode)
+        assertEquals(30_000L, decision.requestIntervalMillis)
+    }
+
+    @Test
+    fun `moving uses the hardcoded thirty second interval`() {
+        val engine = LocationPolicyEngine(TrackingPolicy(movementIntervalMillis = 300_000L))
+
+        val decision = engine.reduce(
+            LocationPolicyInput(nowMillis = now, collectionEnabled = true, motionSignal = MotionSignal.Moving)
+        )
+
+        assertEquals(LocationPolicyMode.MotionObservation, decision.mode)
+        assertEquals(30_000L, decision.requestIntervalMillis)
+    }
+
+    @Test
+    fun `walking uses the configured movement interval`() {
+        val engine = LocationPolicyEngine(TrackingPolicy(movementIntervalMillis = 60_000L))
+
+        val decision = engine.reduce(
+            LocationPolicyInput(nowMillis = now, collectionEnabled = true, motionSignal = MotionSignal.Walking)
+        )
+
+        assertEquals(60_000L, decision.requestIntervalMillis)
+    }
+
+    @Test
+    fun `moving signal breaks schedule low frequency and enters motion observation`() {
+        val engine = LocationPolicyEngine(policy)
+
+        val decision = engine.reduce(
+            LocationPolicyInput(
+                nowMillis = now,
+                collectionEnabled = true,
+                currentScheduleWindow = schedule,
+                motionSignal = MotionSignal.Moving
+            )
+        )
+
+        assertEquals(LocationPolicyMode.MotionObservation, decision.mode)
+        assertFalse(decision.scheduleLowFrequency)
+    }
+
+    @Test
+    fun `cycling uses the hardcoded thirty second interval`() {
+        val engine = LocationPolicyEngine(TrackingPolicy(movementIntervalMillis = 300_000L))
+
+        val decision = engine.reduce(
+            LocationPolicyInput(nowMillis = now, collectionEnabled = true, motionSignal = MotionSignal.OnBicycle)
+        )
+
+        assertEquals(LocationPolicyMode.MotionObservation, decision.mode)
+        assertEquals(30_000L, decision.requestIntervalMillis)
     }
 
     @Test

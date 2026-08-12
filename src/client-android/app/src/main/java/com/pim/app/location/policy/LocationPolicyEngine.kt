@@ -20,7 +20,9 @@ class LocationPolicyEngine(
             )
         }
 
-        val activeSchedule = input.currentScheduleWindow?.takeIf { it.isActiveAt(input.nowMillis) }
+        val activeSchedule = input.currentScheduleWindow?.takeIf {
+            it.isActiveAt(input.nowMillis) && it.locationText.isNotBlank()
+        }
         if (activeSchedule == null) {
             resetScheduleState()
             if (input.motionSignal.isMoving()) {
@@ -126,7 +128,8 @@ class LocationPolicyEngine(
         MotionSignal.Walking,
         MotionSignal.Running,
         MotionSignal.OnBicycle,
-        MotionSignal.InVehicle -> true
+        MotionSignal.InVehicle,
+        MotionSignal.Moving -> true
         MotionSignal.Unknown,
         MotionSignal.Still -> false
     }

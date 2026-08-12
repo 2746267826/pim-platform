@@ -694,6 +694,67 @@ class LocationAcquisitionCoordinatorTest {
         advanceUntilIdle()
     }
 
+    // ─── Wall-clock rollback regression (user bug report) ────────
+
+    @Test
+    fun `wall clock rollback after candidate arrival does not hang the session`() = runTest {
+        val sessionStartWall = 1_000_000L
+        wallClockTime = sessionStartWall
+        createCoordinator(this)
+        // elapsedRealtime is the monotonic authority and keeps advancing normally
+        // even while the wall clock is rolled back (NTP correction after reboot).
+        coordinator.elapsedRealtimeMillis = { testScheduler.currentTime }
+        var rolledBack = false
+        // Wall clock is correct until a candidate arrives, then NTP-style correction
+        // rolls the wall clock back 600s. The GPS timestamp (Location.time) stays on
+        // satellite time, so fix.recordedAtMillis is 600s ahead of nowMillis().
+        coordinator.wallClockMillis = {
+            if (rolledBack) sessionStartWall + testScheduler.currentTime - 600_000L
+            else sessionStartWall + testScheduler.currentTime
+        }
+        prerequisiteChecker.ready()
+
+        val missingAltitude = LocationSnapshot(
+            latitude = 31.23,
+            longitude = 121.47,
+            horizontalAccuracyMeters = 5f,
+            provider = "gps",
+            source = "test",
+            altitudeMeters = null,
+            speedMetersPerSecond = null,
+            bearingDegrees = null,
+            timeMillis = sessionStartWall + 5_000L
+        )
+
+        val started = coordinator.startManualSession() as SessionStartResult.Started
+        runner.waitForAcquire()
+        advanceTimeBy(5_000L)
+        rolledBack = true
+        runner.emitCandidate(missingAltitude)
+        runner.complete(
+            LocationEngineResult(
+                sessionId = started.sessionId,
+                bestLocation = missingAltitude,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
+        runCurrent()
+
+        // Bug reproduction: with a 600s wall-clock rollback, the quality wait computes
+        // wallClockRemaining = deadline(1_005_000+20_000) - nowMillis(405_000) = 620s,
+        // but the monotonic cap (30_000 - 5_000 elapsed = 25_000) must win, so the
+        // session ends by the 30s deadline instead of hanging ~620s.
+        advanceTimeBy(30_000L)
+        runCurrent()
+        assertTrue(
+            "session must end within the 30s deadline; wall-clock rollback must not stretch the wait",
+            coordinator.state.value.phase == AcquisitionPhase.AwaitingManualSubmit ||
+                coordinator.state.value.phase == AcquisitionPhase.TimedOut ||
+                coordinator.state.value.phase == AcquisitionPhase.Failed
+        )
+        assertFalse(runner.isAcquireActive)
+    }
+
     // ─── Spec gap 3: altitude deadline cap ───────────────────────
 
     @Test

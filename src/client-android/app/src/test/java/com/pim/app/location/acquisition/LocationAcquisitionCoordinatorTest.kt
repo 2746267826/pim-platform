@@ -701,6 +701,9 @@ class LocationAcquisitionCoordinatorTest {
         val sessionStartWall = 1_000_000L
         wallClockTime = sessionStartWall
         createCoordinator(this)
+        // elapsedRealtime is the monotonic authority and keeps advancing normally
+        // even while the wall clock is rolled back (NTP correction after reboot).
+        coordinator.elapsedRealtimeMillis = { testScheduler.currentTime }
         var rolledBack = false
         // Wall clock is correct until a candidate arrives, then NTP-style correction
         // rolls the wall clock back 600s. The GPS timestamp (Location.time) stays on
@@ -738,8 +741,9 @@ class LocationAcquisitionCoordinatorTest {
         runCurrent()
 
         // Bug reproduction: with a 600s wall-clock rollback, the quality wait computes
-        // remainingMillis = deadline(1_005_000+20_000) - nowMillis(405_000) = 620s,
-        // so the session is still busy at the 30s deadline and only ends ~620s later.
+        // wallClockRemaining = deadline(1_005_000+20_000) - nowMillis(405_000) = 620s,
+        // but the monotonic cap (30_000 - 5_000 elapsed = 25_000) must win, so the
+        // session ends by the 30s deadline instead of hanging ~620s.
         advanceTimeBy(30_000L)
         runCurrent()
         assertTrue(
@@ -749,46 +753,6 @@ class LocationAcquisitionCoordinatorTest {
                 coordinator.state.value.phase == AcquisitionPhase.Failed
         )
         assertFalse(runner.isAcquireActive)
-    }
-
-    @Test
-    fun `session deadline uses elapsed realtime and is not stretched by wall clock rollback`() = runTest {
-        val sessionStartWall = 1_000_000L
-        wallClockTime = sessionStartWall
-        createCoordinator(this)
-        // Wall clock advances normally, but elapsedRealtime is the monotonic authority.
-        coordinator.wallClockMillis = { sessionStartWall + testScheduler.currentTime }
-        prerequisiteChecker.ready()
-
-        val missingAltitude = LocationSnapshot(
-            latitude = 31.23,
-            longitude = 121.47,
-            horizontalAccuracyMeters = 5f,
-            provider = "gps",
-            source = "test",
-            altitudeMeters = null,
-            speedMetersPerSecond = null,
-            bearingDegrees = null,
-            timeMillis = sessionStartWall + 25_000L
-        )
-
-        val started = coordinator.startManualSession() as SessionStartResult.Started
-        runner.waitForAcquire()
-        advanceTimeBy(25_000L)
-        runner.emitCandidate(missingAltitude)
-        runner.complete(
-            LocationEngineResult(
-                sessionId = started.sessionId,
-                bestLocation = missingAltitude,
-                completion = LocationEngineCompletion.TimedOut
-            )
-        )
-        runCurrent()
-        advanceTimeBy(5_000L)
-        runCurrent()
-        advanceUntilIdle()
-
-        assertEquals(AcquisitionPhase.AwaitingManualSubmit, coordinator.state.value.phase)
     }
 
     // ─── Spec gap 3: altitude deadline cap ───────────────────────

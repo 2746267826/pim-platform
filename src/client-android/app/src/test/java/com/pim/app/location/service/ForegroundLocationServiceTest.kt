@@ -229,31 +229,14 @@ class ForegroundLocationServiceTest {
     }
 
     @Test
-    fun resolveLocationPriorityMapsPolicyModes() {
-        assertEquals(
-            com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-            ForegroundLocationService.resolveLocationPriority(LocationPolicyMode.PowerSavingNormal)
-        )
-        assertEquals(
-            com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-            ForegroundLocationService.resolveLocationPriority(LocationPolicyMode.ScheduleLowFrequency)
-        )
-        assertEquals(
-            com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-            ForegroundLocationService.resolveLocationPriority(LocationPolicyMode.Off)
-        )
-        assertEquals(
-            com.google.android.gms.location.Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-            ForegroundLocationService.resolveLocationPriority(LocationPolicyMode.SyncFallback)
-        )
-        assertEquals(
-            com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
-            ForegroundLocationService.resolveLocationPriority(LocationPolicyMode.MotionObservation)
-        )
-        assertEquals(
-            com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
-            ForegroundLocationService.resolveLocationPriority(LocationPolicyMode.MovementRecovery)
-        )
+    fun resolveLocationPriorityIsHighAccuracyForEveryMode() {
+        LocationPolicyMode.entries.forEach { mode ->
+            assertEquals(
+                "mode $mode must use HIGH_ACCURACY",
+                com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY,
+                ForegroundLocationService.resolveLocationPriority(mode)
+            )
+        }
     }
 
     @Test
@@ -1181,7 +1164,7 @@ class ForegroundLocationServiceTest {
 
     @Test
     @LooperMode(LooperMode.Mode.PAUSED)
-    fun automaticLoopStartsImmediatelyWithMappedPriority() {
+    fun automaticLoopStartsImmediatelyWithHighAccuracyPriority() {
         val harness = newHarness()
         val store = trackingStore("fg_auto_priority_", enabled = true)
         val service = buildService(harness = harness, trackingStore = store)
@@ -1190,7 +1173,7 @@ class ForegroundLocationServiceTest {
         idleUntil { harness.runner.acquireCount.get() >= 1 }
 
         assertEquals(1, harness.runner.acquireCount.get())
-        assertEquals(Priority.PRIORITY_BALANCED_POWER_ACCURACY, harness.runner.lastRequest!!.priority)
+        assertEquals(Priority.PRIORITY_HIGH_ACCURACY, harness.runner.lastRequest!!.priority)
         service.onDestroy()
     }
 

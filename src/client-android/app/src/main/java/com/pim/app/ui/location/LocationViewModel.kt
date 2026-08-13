@@ -42,8 +42,4 @@ class LocationViewModel @Inject constructor(
         val sessionId = coordinator.state.value.sessionId
         controller.cancelLocationSession(sessionId)
     }
-
-    fun submit() {
-        coordinator.submitManualResult()
-    }
 }

@@ -179,8 +179,7 @@ fun PimAppScaffold(
                             )
                         },
                         onStart = locationViewModel::startCapture,
-                        onStop = locationViewModel::stopCapture,
-                        onSubmit = locationViewModel::submitCurrentLocationManually
+                        onStop = locationViewModel::stopCapture
                     )
                     PimTab.Settings -> SettingsTab(
                         uiState = uiState,
@@ -292,8 +291,7 @@ private fun LocationTab(
     state: LocationCaptureState,
     onRequestPermission: () -> Unit,
     onStart: () -> Unit,
-    onStop: () -> Unit,
-    onSubmit: () -> Unit
+    onStop: () -> Unit
 ) {
     val snapshot = state.latest
     val decision = LocationSubmissionPolicy.decide(
@@ -337,13 +335,12 @@ private fun LocationTab(
                 Text("停止")
             }
         }
-        Button(
-            onClick = onSubmit,
-            enabled = decision.canSubmitManually && snapshot != null && !state.isSubmitting
-        ) {
-            Icon(Icons.Filled.Send, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("手动提交")
+        if (state.showLowQualityWarning) {
+            Text(
+                text = "精度不足，已标记低质量",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
     }
 }
@@ -493,8 +490,6 @@ class LocationCaptureViewModel @Inject constructor(
     fun startCapture() = repository.startCapture()
 
     fun stopCapture() = repository.stopCapture()
-
-    fun submitCurrentLocationManually() = repository.submitCurrentLocationManually()
 
     override fun onCleared() {
         super.onCleared()

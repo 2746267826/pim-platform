@@ -13,9 +13,10 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.location.Priority
-import com.pim.app.location.acquisition.AutomaticSessionContext
+import com.pim.app.location.LocationSnapshot
+import com.pim.app.location.acquisition.AcquisitionContext
+import com.pim.app.location.acquisition.AcquisitionPhase
 import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
-import com.pim.app.location.acquisition.LocationAcquisitionState
 import com.pim.app.location.acquisition.SessionStartResult
 import com.pim.app.location.motion.MotionSignalRepository
 import com.pim.app.location.policy.LocationPolicyEngine
@@ -51,6 +52,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -322,25 +324,8 @@ class ForegroundLocationService : Service() {
         scheduleRefreshJob?.cancel()
         snapshotCollectJob?.cancel()
         runCatching { motionSignalRepository.unregister() }
-        cancelActiveAutomaticSession()
+        locationAcquisitionCoordinator.stopAutomaticStream()
         stopForeground(STOP_FOREGROUND_REMOVE)
-    }
-
-    private fun cancelActiveAutomaticSession() {
-        val current = locationAcquisitionCoordinator.state.value
-        if (current.triggerType != com.pim.app.location.acquisition.TriggerType.AUTOMATIC) return
-        // Enqueuing is intentionally excluded: the coordinator ignores
-        // cancellation during Enqueuing, so an already-confirmed submission
-        // must not be cancelled or rolled back by the service.
-        if (current.phase !in setOf(
-                com.pim.app.location.acquisition.AcquisitionPhase.Preparing,
-                com.pim.app.location.acquisition.AcquisitionPhase.Acquiring,
-                com.pim.app.location.acquisition.AcquisitionPhase.Evaluating
-            )
-        ) {
-            return
-        }
-        locationAcquisitionCoordinator.cancelCurrentSession(current.sessionId)
     }
 
     private fun startManualSession(startId: Int) {
@@ -349,144 +334,75 @@ class ForegroundLocationService : Service() {
         // new session and removes the notification instead of preserving it.
         isPausing = false
         explicitTeardown = false
-        val result = locationAcquisitionCoordinator.startManualSession(replaceAwaitingManual = true)
+        val result = locationAcquisitionCoordinator.startManualSession()
         if (result is SessionStartResult.Rejected) {
             stopSelf(startId)
             return
         }
-        if (result is SessionStartResult.Started) {
-            ownedManualSessionId = result.sessionId
+        val startedId = (result as? SessionStartResult.Started)?.sessionId
+        if (startedId != null) {
+            ownedManualSessionId = startedId
+        } else {
+            // 防御：coordinator 现已保证启动即 Started，Busy 不再产生；
+            // 若未来回归，拒绝滞留前台。
+            stopSelf(startId)
+            return
         }
 
         startForeground(LocationNotificationRenderer.NOTIFICATION_ID, notification())
         val settings = trackingSettingsStore.read()
-        var automaticRuntimeReady = automaticLoopJob?.isActive == true
-        if (settings.continuousCollectionEnabled) {
-            if (
-                hasRequiredLocationPermissions() &&
-                !automaticRuntimeReady
-            ) {
-                initializeAutomaticRuntime(settings)
-                startAutomaticLoop()
-                automaticRuntimeReady = true
-            }
-            if (automaticRuntimeReady &&
-                (result is SessionStartResult.Started || result is SessionStartResult.Busy)
-            ) {
-                return
-            }
+        if (settings.continuousCollectionEnabled &&
+            automaticLoopJob?.isActive != true &&
+            hasRequiredLocationPermissions()
+        ) {
+            initializeAutomaticRuntime(settings)
+            startAutomaticLoop()
+            return
         }
 
-        when (result) {
-            is SessionStartResult.Started -> {
-                val startedId = result.sessionId
-                scope.launch {
-                    // 观察本会话的终结状态；若该会话在 waiter 挂起期间被新的
-                    // 手动会话替换（replaceAwaitingManual 或旧终态后的再次启动，
-                    // 会话 ID 变化且不再回到本会话），waiter 不得永远等待，也
-                    // 不得误把替换会话的终态当成自己的终态。
-                    locationAcquisitionCoordinator.state.first { acqState ->
-                        acqState.sessionId != startedId ||
-                            acqState.phase in setOf(
-                                com.pim.app.location.acquisition.AcquisitionPhase.AwaitingManualSubmit,
-                                com.pim.app.location.acquisition.AcquisitionPhase.Completed,
-                                com.pim.app.location.acquisition.AcquisitionPhase.TimedOut,
-                                com.pim.app.location.acquisition.AcquisitionPhase.Failed,
-                                com.pim.app.location.acquisition.AcquisitionPhase.Cancelled
-                            )
-                    }
-                    // 终结状态被观察到后、前台/服务拆除前，重新校验当前会话
-                    // 仍是本 waiter 捕获的 startedId；若已被新的手动会话替换，
-                    // 只退役本实例的本地服务，不得拆除新会话的前台通知或取消
-                    // 该会话（同时清除所有权，防止随后的 onDestroy 误删其 7101）。
-                    // 但仅当本实例仍拥有被替换的 startedId（即替换来自外部实例
-                    // 或 UI/控制器）时才可自我退役；若同一实例已通过新的
-                    // ACTION_START_MANUAL_SESSION 把 owner 设为替换会话，旧
-                    // waiter 不得清除新 owner，也不得停止服务或触碰前台。
-                    if (locationAcquisitionCoordinator.state.value.sessionId != startedId) {
-                        if (ownedManualSessionId == startedId) {
-                            ownedManualSessionId = null
-                            stopSelf()
-                        }
-                        return@launch
-                    }
-                    // 本实例拥有的会话已由其终结 waiter 接管收尾：清除所有权，
-                    // 使随后的 onDestroy() 不再尝试取消该会话（例如
-                    // AwaitingManualSubmit 仍可被协调器取消，但已由 waiter 按
-                    // 用户流程交给提交/取消路径处理，不得被服务拆除误取消）。
+        scope.launch {
+            // 观察本会话的终结状态；若该会话在 waiter 挂起期间被新的手动
+            // 会话替换（会话 ID 变化且不再回到本会话），waiter 不得永远等待，
+            // 也不得误把替换会话的终态当成自己的终态。
+            locationAcquisitionCoordinator.state.first { acqState ->
+                acqState.sessionId != startedId ||
+                    acqState.phase in setOf(
+                        AcquisitionPhase.Completed,
+                        AcquisitionPhase.TimedOut,
+                        AcquisitionPhase.Failed,
+                        AcquisitionPhase.Cancelled
+                    )
+            }
+            // 终结状态被观察到后、前台/服务拆除前，重新校验当前会话
+            // 仍是本 waiter 捕获的 startedId；若已被新的手动会话替换，
+            // 只退役本实例的本地服务，不得拆除新会话的前台通知或取消
+            // 该会话（同时清除所有权，防止随后的 onDestroy 误删其 7101）。
+            if (locationAcquisitionCoordinator.state.value.sessionId != startedId) {
+                if (ownedManualSessionId == startedId) {
                     ownedManualSessionId = null
-                    if (!trackingSettingsStore.read().continuousCollectionEnabled) {
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                        // The captured startId may be older than a later
-                        // ACTION_CANCEL_LOCATION_SESSION startId, which Android
-                        // ignores for stopSelf(startId); stop unconditionally so
-                        // the manual-only service really terminates.
-                        stopSelf()
-                    }
+                    stopSelf()
                 }
+                return@launch
             }
-            is SessionStartResult.Busy -> {
-                // 幂等处理：首个手动会话仍在 Preparing/Acquiring 时收到重复
-                // 启动，必须保留首个会话及其前台通知，由其终结 waiter 负责
-                // 拆除；此处拆除会触发 onDestroy 取消首个会话。
-                // 全新手动专用实例收到 Busy 时采纳现有会话的生命周期：挂接该
-                // 会话的终结 waiter，在会话结束时拆除自身前台并停止，且拆除
-                // 前重新校验会话 ID，防止误停替换会话；实例不得长期滞留前台。
-                val existingSessionId = locationAcquisitionCoordinator.state.value.sessionId
-                if (existingSessionId == null) {
-                    stopSelf(startId)
-                    return
-                }
-                scope.launch {
-                    // 观察被采纳会话的终结状态；若该会话被新的手动会话替换
-                    // （会话 ID 变化且不再回到终结状态），waiter 不得永远等待。
-                    locationAcquisitionCoordinator.state.first { acqState ->
-                        acqState.sessionId != existingSessionId ||
-                            acqState.phase in setOf(
-                                com.pim.app.location.acquisition.AcquisitionPhase.AwaitingManualSubmit,
-                                com.pim.app.location.acquisition.AcquisitionPhase.Completed,
-                                com.pim.app.location.acquisition.AcquisitionPhase.TimedOut,
-                                com.pim.app.location.acquisition.AcquisitionPhase.Failed,
-                                com.pim.app.location.acquisition.AcquisitionPhase.Cancelled
-                            )
-                    }
-                    // 终结状态被观察到后、前台/服务拆除前，重新校验当前会话
-                    // 仍是本 waiter 捕获的 existingSessionId；若已被新的手动
-                    // 会话替换，只退役本实例的本地服务，不得执行
-                    // stopForeground(REMOVE)，也不得触发随后 onDestroy 对替换
-                    // 会话 7101 通知的清理。
-                    val currentSessionId = locationAcquisitionCoordinator.state.value.sessionId
-                    if (currentSessionId != existingSessionId) {
-                        // 本实例可能通过同实例 replacement 已拥有替换会话（owner
-                        // 非 null 且不等于 existingSessionId）；此时不得清除新
-                        // owner、不得停止服务，也不得触碰前台，否则 onDestroy
-                        // 会取消替换会话。若本实例没有 owner（外部 Busy-adoption）
-                        // 或仍拥有 existingSessionId，则保持旧实例退役行为。
-                        val ownedId = ownedManualSessionId
-                        if (ownedId != null && ownedId != existingSessionId) {
-                            return@launch
-                        }
-                        if (ownedId == existingSessionId) {
-                            ownedManualSessionId = null
-                        }
-                        stopSelf()
-                        return@launch
-                    }
-                    if (!trackingSettingsStore.read().continuousCollectionEnabled) {
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                        stopSelf()
-                    }
-                }
-                return
-            }
-            is SessionStartResult.Rejected -> {
-                // handled above; unreachable here
+            // 本实例拥有的会话已终结：清除所有权，使随后的 onDestroy() 不再
+            // 尝试取消该会话。
+            ownedManualSessionId = null
+            if (!trackingSettingsStore.read().continuousCollectionEnabled) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                // The captured startId may be older than a later
+                // ACTION_CANCEL_LOCATION_SESSION startId, which Android
+                // ignores for stopSelf(startId); stop unconditionally so
+                // the manual-only service really terminates.
+                stopSelf()
             }
         }
     }
 
     private fun initializeAutomaticRuntime(settings: TrackingSettings) {
         policyEngine = LocationPolicyEngine(settings.toTrackingPolicy())
+        locationAcquisitionCoordinator.onRecorded = { snapshot ->
+            recordAccepted(snapshot)
+        }
         applyDecision(
             policyEngine!!.reduce(
                 LocationPolicyInput(
@@ -500,76 +416,63 @@ class ForegroundLocationService : Service() {
         observeQueueStatus()
     }
 
+    private suspend fun recordAccepted(snapshot: LocationSnapshot) {
+        policyEngine?.onAcceptedLocation(
+            PolicyLocation(
+                latitude = snapshot.latitude,
+                longitude = snapshot.longitude,
+                recordedAtMillis = snapshot.timeMillis
+            )
+        )
+        lastAcceptedLocationText = timeFormatter.format(
+            Instant.ofEpochMilli(snapshot.timeMillis)
+                .atZone(ZoneId.systemDefault())
+        )
+        lastAccuracyText = "${snapshot.horizontalAccuracyMeters?.toInt() ?: 0}m"
+        lastDroppedReason = null
+        currentDecision = currentDecision.copy(
+            nextExpectedLocationAtMillis = System.currentTimeMillis() +
+                currentDecision.requestIntervalMillis
+        )
+        updateNotification()
+    }
+
     private fun startAutomaticLoop() {
         automaticLoopJob?.cancel()
         automaticLoopJob = scope.launch {
             while (trackingSettingsStore.read().continuousCollectionEnabled) {
                 refreshScheduleWindows()
-                motionSignalRepository.register()
                 applyScheduleSnapshot(scheduleWindowRepository.snapshotForCurrentServer())
                 val decision = recomputePolicyDecision()
-                applyDecision(decision)
-                updateNotification()
-
-                val result = locationAcquisitionCoordinator.startAutomaticSession(
-                    AutomaticSessionContext(
-                        priority = resolveLocationPriority(decision.mode),
+                // 只按关键字段比较：nextExpectedLocationAtMillis 每轮必然不同
+                // （now + interval），不能进 data class equals。
+                if (decision.mode != currentDecision.mode ||
+                    decision.requestIntervalMillis != currentDecision.requestIntervalMillis ||
+                    decision.scheduleLowFrequency != currentDecision.scheduleLowFrequency ||
+                    decision.reason != currentDecision.reason
+                ) {
+                    applyDecision(decision)
+                    updateNotification()
+                }
+                if (decision.mode != LocationPolicyMode.Off) {
+                    val context = AcquisitionContext(
                         policyMode = decision.mode.name,
                         scheduleLowFrequency = decision.scheduleLowFrequency,
-                        motionSignal = motionSignalRepository.status.value.signal.name
+                        motionSignal = motionSignalRepository.status.value.signal.name,
+                        requestIntervalMillis = decision.requestIntervalMillis.coerceAtLeast(1_000L)
                     )
-                )
-                when (result) {
-                    is SessionStartResult.Busy -> {
-                        locationAcquisitionCoordinator.state.first { !it.isBusy }
-                        continue
+                    if (!locationAcquisitionCoordinator.isAutomaticStreamActive()) {
+                        locationAcquisitionCoordinator.startAutomaticStream(context)
+                    } else {
+                        locationAcquisitionCoordinator.updateAutomaticStream(context)
                     }
-                    is SessionStartResult.Rejected -> {
-                        lastDroppedReason = result.reason
-                        updateNotification()
-                        delay(decision.requestIntervalMillis.coerceAtLeast(1_000L))
-                        continue
-                    }
-                    is SessionStartResult.Started -> {
-                        val startedId = result.sessionId
-                        val finalState = locationAcquisitionCoordinator.state.first { state ->
-                            // 等待本会话的终态；若会话已被替换（sessionId 变化），
-                            // 观察必须放行，不能永久等待已被覆盖的旧终态。
-                            (state.sessionId == startedId && state.phase in setOf(
-                                com.pim.app.location.acquisition.AcquisitionPhase.Completed,
-                                com.pim.app.location.acquisition.AcquisitionPhase.TimedOut,
-                                com.pim.app.location.acquisition.AcquisitionPhase.Failed,
-                                com.pim.app.location.acquisition.AcquisitionPhase.Cancelled
-                            )) || state.sessionId != startedId
-                        }
-                        if (finalState.sessionId != startedId) {
-                            // 本会话已被手动替换：跳过旧会话的
-                            // accepted-location/policy/delay 处理，继续下一轮，
-                            // 由 Busy 分支协调替换会话的生命周期。
-                            continue
-                        }
-                        if (finalState.phase == com.pim.app.location.acquisition.AcquisitionPhase.Completed) {
-                            finalState.bestLocation?.let { snapshot ->
-                                policyEngine?.onAcceptedLocation(
-                                    PolicyLocation(
-                                        latitude = snapshot.latitude,
-                                        longitude = snapshot.longitude,
-                                        recordedAtMillis = snapshot.timeMillis
-                                    )
-                                )
-                                lastAcceptedLocationText = timeFormatter.format(
-                                    Instant.ofEpochMilli(snapshot.timeMillis)
-                                        .atZone(ZoneId.systemDefault())
-                                )
-                                lastAccuracyText = "${snapshot.horizontalAccuracyMeters?.toInt() ?: 0}m"
-                                lastDroppedReason = null
-                            }
-                        }
-                        val nextDecision = recomputePolicyDecision()
-                        applyDecision(nextDecision)
-                        updateNotification()
-                        delay(nextDecision.requestIntervalMillis.coerceAtLeast(1_000L))
-                    }
+                } else {
+                    locationAcquisitionCoordinator.stopAutomaticStream()
+                }
+                // 运动信号变化即时唤醒；最迟 30s 重算一次（覆盖日程/设置变化）
+                withTimeoutOrNull(30_000L) {
+                    val currentSignal = motionSignalRepository.status.value.signal
+                    motionSignalRepository.status.first { it.signal != currentSignal }
                 }
             }
             // The loop exits because collection became disabled; this is an
@@ -577,6 +480,7 @@ class ForegroundLocationService : Service() {
             // active manual session or keep a foreground notification.
             explicitTeardown = true
             isPausing = false
+            locationAcquisitionCoordinator.stopAutomaticStream()
             stopCollection()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()

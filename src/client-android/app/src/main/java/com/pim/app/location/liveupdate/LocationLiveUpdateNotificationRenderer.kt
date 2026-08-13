@@ -12,6 +12,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import com.pim.app.MainActivity
+import com.pim.app.notifications.LocationNotificationRenderer
 import com.pim.app.notifications.NotificationActionReceiver
 
 internal data class ParsedLiveUpdateUri(
@@ -66,6 +67,70 @@ object LocationLiveUpdateNotificationRenderer {
         val notification = buildNotification(ctx, content, title, contentText)
         notifyFn(LIVE_UPDATE_NOTIFICATION_ID, notification)
         return true
+    }
+
+    /**
+     * 高速档 Live Update：文案与定位会话专用版不同，且没有"取消会话"动作
+     * （高速档是长期状态，无会话可取消）。与 [tryBuildAndNotify] 共用 7102 单 ID，
+     * 由 [LocationLiveUpdatePublisher] 按"高速档优先/覆盖会话"规则切换。
+     */
+    fun tryBuildAndNotifyHighSpeed(
+        ctx: Context,
+        content: HighSpeedLiveUpdateContent,
+        createChannel: (String, String) -> Unit = { id, name ->
+            val manager = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channel = NotificationChannel(id, name, NotificationManager.IMPORTANCE_LOW)
+            manager.createNotificationChannel(channel)
+        },
+        notifyFn: (Int, Notification) -> Unit = { id, notification ->
+            val manager = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(id, notification)
+        }
+    ): Boolean {
+        if (!(capabilityOverride?.invoke() ?: LocationLiveUpdateCapability.isAvailable())) return false
+        if (!(canShowNotificationsOverride?.invoke(ctx) ?: hasPostNotificationsPermission(ctx))) return false
+        if (!(canPostPromotedOverride?.invoke() ?: canPostPromoted(ctx))) return false
+
+        createChannel(CHANNEL_ID, "定位动态")
+
+        val title = "高速轨迹记录中"
+        val contentText = "已记录 ${LocationNotificationRenderer.elapsedText(content.elapsedSeconds)} · 2.5s 密集采样"
+
+        val builder = Notification.Builder(ctx, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setContentTitle(title)
+            .setContentText(contentText)
+            .setStyle(Notification.BigTextStyle().bigText(contentText))
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setContentIntent(openLocationPendingIntent(ctx))
+
+        if (Build.VERSION.SDK_INT >= 36) {
+            try {
+                builder.setRequestPromotedOngoing(true)
+            } catch (_: LinkageError) {
+            }
+        }
+
+        notifyFn(LIVE_UPDATE_NOTIFICATION_ID, builder.build())
+        return true
+    }
+
+    private fun openLocationPendingIntent(ctx: Context): PendingIntent {
+        val intent = Intent(ctx, MainActivity::class.java)
+            .putExtra("com.pim.app.location.extra.OPEN_DESTINATION", "location")
+            .addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+            )
+        return PendingIntent.getActivity(
+            ctx,
+            OPEN_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
     }
 
     internal fun parseSessionUri(uri: Uri?): ParsedLiveUpdateUri? {

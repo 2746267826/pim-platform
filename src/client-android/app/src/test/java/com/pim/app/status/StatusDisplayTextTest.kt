@@ -135,6 +135,11 @@ class StatusDisplayTextTest {
     }
 
     @Test
+    fun policyModeHighSpeedReturnsChinese() {
+        assertEquals("高速轨迹", StatusDisplayText.policyMode("HighSpeed"))
+    }
+
+    @Test
     fun policyModeUnknownDoesNotEchoRawValue() {
         assertEquals("未知状态", StatusDisplayText.policyMode("SomeUnknownMode"))
     }

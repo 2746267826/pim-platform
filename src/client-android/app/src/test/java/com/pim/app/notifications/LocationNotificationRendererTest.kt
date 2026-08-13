@@ -145,6 +145,52 @@ class LocationNotificationRendererTest {
         )
     }
 
+    @Test
+    fun collapsedTextShowsHighSpeedCopyWhenActive() {
+        val text = LocationNotificationRenderer.collapsedText(
+            state = state(mode = LocationPolicyMode.HighSpeed)
+                .copy(highSpeedActive = true, highSpeedElapsedSeconds = 95)
+        )
+
+        assertTrue("collapsed text must show high-speed copy but was: $text", text.contains("高速轨迹记录中"))
+        assertTrue("collapsed text must show elapsed but was: $text", text.contains("1 分 35 秒"))
+    }
+
+    @Test
+    fun collapsedTextRestoresNormalCopyWhenHighSpeedInactive() {
+        val text = LocationNotificationRenderer.collapsedText(
+            state = state(mode = LocationPolicyMode.HighSpeed)
+        )
+
+        assertFalse("inactive high-speed must not show dedicated copy: $text", text.contains("高速轨迹记录中"))
+        assertTrue(text.contains("高速轨迹"))
+    }
+
+    @Test
+    fun expandedTextShowsDenseSamplingAndElapsedWhenActive() {
+        val text = LocationNotificationRenderer.expandedText(
+            state = state(mode = LocationPolicyMode.HighSpeed)
+                .copy(highSpeedActive = true, highSpeedElapsedSeconds = 130)
+        )
+
+        assertTrue(text.contains("2.5s 密集采样"))
+        assertTrue(text.contains("2 分 10 秒"))
+        assertTrue(text.contains("待上传 3"))
+    }
+
+    @Test
+    fun modeLabelHighSpeedIsChinese() {
+        assertEquals("高速轨迹", LocationNotificationRenderer.modeLabel(LocationPolicyMode.HighSpeed))
+    }
+
+    @Test
+    fun elapsedTextFormatsSecondsAndMinutes() {
+        assertEquals("5 秒", LocationNotificationRenderer.elapsedText(5))
+        assertEquals("59 秒", LocationNotificationRenderer.elapsedText(59))
+        assertEquals("1 分 0 秒", LocationNotificationRenderer.elapsedText(60))
+        assertEquals("1 分 35 秒", LocationNotificationRenderer.elapsedText(95))
+    }
+
     private fun state(
         mode: LocationPolicyMode,
         nextExpectedLocationText: String = "12 分钟后",

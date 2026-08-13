@@ -12,7 +12,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import com.pim.app.MainActivity
-import com.pim.app.notifications.LocationNotificationRenderer
+import com.pim.app.location.highspeed.highSpeedElapsedText
 import com.pim.app.notifications.NotificationActionReceiver
 
 internal data class ParsedLiveUpdateUri(
@@ -94,7 +94,7 @@ object LocationLiveUpdateNotificationRenderer {
         createChannel(CHANNEL_ID, "定位动态")
 
         val title = "高速轨迹记录中"
-        val contentText = "已记录 ${LocationNotificationRenderer.elapsedText(content.elapsedSeconds)} · 2.5s 密集采样"
+        val contentText = "已记录 ${highSpeedElapsedText(content.elapsedSeconds)} · 2.5s 密集采样"
 
         val builder = Notification.Builder(ctx, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)

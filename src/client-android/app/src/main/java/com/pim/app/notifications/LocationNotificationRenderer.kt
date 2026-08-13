@@ -9,6 +9,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.pim.app.MainActivity
+import com.pim.app.location.highspeed.highSpeedElapsedText
 import com.pim.app.location.policy.LocationPolicyMode
 import com.pim.app.location.service.ForegroundLocationController
 
@@ -72,10 +73,7 @@ object LocationNotificationRenderer {
         }.joinToString("\n")
     }
 
-    internal fun elapsedText(seconds: Long): String {
-        if (seconds < 60L) return "${seconds} 秒"
-        return "${seconds / 60} 分 ${seconds % 60} 秒"
-    }
+    internal fun elapsedText(seconds: Long): String = highSpeedElapsedText(seconds)
 
     private fun apiStateLabel(apiState: String): String {
         return "API ${apiState.removePrefix("API ")}"

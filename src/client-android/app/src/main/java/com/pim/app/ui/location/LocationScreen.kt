@@ -24,8 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pim.app.location.LocationSnapshot
-import com.pim.app.notifications.LocationNotificationRenderer
+import com.pim.app.location.highspeed.highSpeedElapsedText
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -120,7 +119,7 @@ private fun StatusSection(state: LocationUiState) {
                 Text("高速轨迹", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "记录中 · ${LocationNotificationRenderer.elapsedText(state.highSpeedElapsedSeconds)}",
+                    "记录中 · ${highSpeedElapsedText(state.highSpeedElapsedSeconds)}",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium
                 )

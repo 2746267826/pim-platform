@@ -2699,7 +2699,14 @@ class ForegroundLocationServiceTest {
 
         idleUntil { ForegroundLocationService.runtimeState.value.highSpeedActive }
         assertTrue(ForegroundLocationService.runtimeState.value.highSpeedActive)
-        assertTrue(ForegroundLocationService.runtimeState.value.highSpeedElapsedSeconds >= 0L)
+
+        // 高速档持续期间：新 fix 刷新已记录时长
+        shadowOf(Looper.getMainLooper()).idleFor(5_000L, TimeUnit.MILLISECONDS)
+        harness.runner.emitStreamCandidate(fast.copy(timeMillis = base + 17_000L))
+        idleUntil {
+            ForegroundLocationService.runtimeState.value.highSpeedElapsedSeconds >= 5L
+        }
+        assertTrue(ForegroundLocationService.runtimeState.value.highSpeedElapsedSeconds >= 5L)
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notification = findNotification(nm)
@@ -2794,6 +2801,47 @@ class ForegroundLocationServiceTest {
             "paused collection must not keep high-speed state",
             ForegroundLocationService.runtimeState.value.highSpeedActive
         )
+        service.onDestroy()
+    }
+
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun gpsLossWithoutNewFixesFallsBackFromHighSpeed() {
+        val harness = newHarness()
+        val store = trackingStore("fg_hs_gpsloss_", enabled = true)
+        val service = buildService(harness = harness, trackingStore = store)
+        invokeInitializeAutomaticRuntime(service)
+        invokeStartAutomaticLoop(service)
+        idleUntil { harness.runner.acquireCount.get() == 1 }
+        harness.runner.completeCurrent(
+            LocationEngineResult(
+                sessionId = harness.runner.lastRequest!!.sessionId,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
+        harness.runner.waitForStreamStart()
+
+        val base = System.currentTimeMillis()
+        val fast = acceptedSnapshot(timeMillis = base).copy(speedMetersPerSecond = 9f)
+        harness.runner.emitStreamCandidate(fast)
+        idleUntil { harness.coordinator.streamState.value.requestIntervalMillis == 2_500L }
+        shadowOf(Looper.getMainLooper()).idleFor(4_000L, TimeUnit.MILLISECONDS)
+        harness.runner.emitStreamCandidate(fast.copy(timeMillis = base + 4_000L))
+        shadowOf(Looper.getMainLooper()).idleFor(4_000L, TimeUnit.MILLISECONDS)
+        harness.runner.emitStreamCandidate(fast.copy(timeMillis = base + 8_000L))
+        shadowOf(Looper.getMainLooper()).idleFor(4_000L, TimeUnit.MILLISECONDS)
+        harness.runner.emitStreamCandidate(fast.copy(timeMillis = base + 12_000L))
+        idleUntil { ForegroundLocationService.runtimeState.value.highSpeedActive }
+
+        // GPS 失锁：不再有新 fix，仅 30s 兜底重算按 null 观察速度，
+        // 60s（含首个 30s 兜底）后回落
+        shadowOf(Looper.getMainLooper()).idleFor(30_000L, TimeUnit.MILLISECONDS)
+        shadowOf(Looper.getMainLooper()).idleFor(30_000L, TimeUnit.MILLISECONDS)
+        shadowOf(Looper.getMainLooper()).idleFor(30_000L, TimeUnit.MILLISECONDS)
+
+        idleUntil { !ForegroundLocationService.runtimeState.value.highSpeedActive }
+        assertFalse(ForegroundLocationService.runtimeState.value.highSpeedActive)
         service.onDestroy()
     }
 

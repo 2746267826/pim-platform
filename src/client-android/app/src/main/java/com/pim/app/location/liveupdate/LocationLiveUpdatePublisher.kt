@@ -48,9 +48,11 @@ class LocationLiveUpdatePublisher(
     private var lastPublishedAccuracy: Float? = null
     private var suppressedSessionId: String? = null
     private var currentSessionId: String? = null
+    // 会话/高速档两条 collect 运行在同一个 scope（应用级 IO dispatcher），
+    // 可能并发；7102 单 ID 的切换状态必须 volatile 且只在锁内读写。
+    @Volatile
     private var publishedSessionId: String? = null
-    // 高速档 Live Update 与定位会话共用 7102 单通知 ID：高速档激活时
-    // 覆盖/抑制会话发布；回落时取消高速档并重放会话内容（若有进行中会话）。
+    @Volatile
     private var highSpeedPublished = false
     private var lastHighSpeedPublishTimeMs: Long = -1L
 
@@ -136,8 +138,6 @@ class LocationLiveUpdatePublisher(
     }
 
     private fun handleState(state: LocationAcquisitionState) {
-        if (highSpeedPublished) return
-
         val sessionId = state.sessionId
 
         if (state.phase != AcquisitionPhase.Acquiring &&
@@ -150,6 +150,9 @@ class LocationLiveUpdatePublisher(
         if (sessionId == null) return
 
         synchronized(lock) {
+            // 高速档检查必须在锁内：与 handleHighSpeed 的 7102 切换串行化，
+            // 避免高速档刚发布时被并发的会话发布覆盖（脏读竞态）。
+            if (highSpeedPublished) return
             if (sessionId == suppressedSessionId) return
 
             val now = clockMs()

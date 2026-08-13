@@ -15,7 +15,6 @@ class LocationPolicyEngine(
     private var movementRecoveryActive: Boolean = false
 
     fun reduce(input: LocationPolicyInput): PolicyDecision {
-        highSpeedTracker.observe(input.speedMetersPerSecond)
         if (!input.collectionEnabled) {
             resetScheduleState()
             return decision(
@@ -27,6 +26,8 @@ class LocationPolicyEngine(
                 nextExpectedLocationAtMillis = Long.MAX_VALUE
             )
         }
+
+        highSpeedTracker.observe(input.speedMetersPerSecond)
 
         // 优先级：高速档 > 常规策略档 > 日程降频
         if (highSpeedTracker.mode != HighSpeedMode.Inactive) {

@@ -44,10 +44,12 @@ class FusedLocationUpdateSource @Inject constructor(
 
     @SuppressLint("MissingPermission")
     override fun updates(request: LocationUpdateRequest): Flow<LocationUpdateEvent> = callbackFlow {
-        val locationRequest = LocationRequest.Builder(request.priority, request.intervalMillis)
+        val builder = LocationRequest.Builder(request.priority, request.intervalMillis)
             .setMinUpdateIntervalMillis(request.minUpdateIntervalMillis)
-            .setDurationMillis(request.durationMillis)
-            .build()
+        if (request.durationMillis > 0L) {
+            builder.setDurationMillis(request.durationMillis)
+        }
+        val locationRequest = builder.build()
 
         val callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {

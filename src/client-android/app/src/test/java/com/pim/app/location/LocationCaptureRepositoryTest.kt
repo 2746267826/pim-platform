@@ -2,9 +2,11 @@ package com.pim.app.location
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
+import com.pim.app.location.acquisition.AcquisitionPhase
 import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
 import com.pim.app.location.acquisition.LocationAcquisitionState
 import com.pim.app.location.acquisition.SessionStartResult
+import com.pim.app.location.acquisition.TriggerType
 import com.pim.app.location.service.ForegroundLocationController
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -219,16 +221,51 @@ class LocationCaptureRepositoryTest {
     }
 
     @Test
-    fun submitManualDelegatesToCoordinator() {
-        val context = ApplicationProvider.getApplicationContext<Application>()
-        val coordinator = realCoordinator()
-        val controller = ForegroundLocationController(context)
-        val repo = LocationCaptureRepository(coordinator, controller)
+    fun repositorySourceDoesNotReferenceRemovedManualSubmitApi() {
+        val relativePath = "app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt"
+        val source = sequenceOf(
+            java.io.File(relativePath),
+            java.io.File(relativePath.removePrefix("app/")),
+            java.io.File("..", relativePath)
+        ).firstOrNull { it.isFile }?.readText()
+            ?: error("source not found for $relativePath")
+        assertFalse(
+            "submitCurrentLocationManually must be removed from the repository",
+            source.contains("submitCurrentLocationManually")
+        )
+    }
 
-        repo.submitCurrentLocationManually()
+    @Test
+    fun `completed with low-quality flag maps to a visible warning`() {
+        val state = LocationAcquisitionState(
+            sessionId = "s1",
+            phase = com.pim.app.location.acquisition.AcquisitionPhase.Completed,
+            bestLocation = LocationSnapshot(
+                latitude = 31.23, longitude = 121.47,
+                horizontalAccuracyMeters = 45f,
+                provider = "gps", source = "manual",
+                altitudeMeters = null,
+                speedMetersPerSecond = null, bearingDegrees = null,
+                timeMillis = 100L
+            ),
+            lastQualityFlags = setOf("low-quality-accuracy")
+        ).toCaptureState()
 
-        // No assertions on results - just verifies no crash
-        // (full verification needs coordinator test infrastructure)
+        assertTrue(state.showLowQualityWarning)
+        assertTrue(state.statusMessage.contains("低质量"))
+        assertEquals("已加入上传队列", state.submitStatus)
+    }
+
+    @Test
+    fun `completed without flags has no low-quality warning`() {
+        val state = LocationAcquisitionState(
+            sessionId = "s1",
+            phase = com.pim.app.location.acquisition.AcquisitionPhase.Completed,
+            lastQualityFlags = emptySet()
+        ).toCaptureState()
+
+        assertFalse(state.showLowQualityWarning)
+        assertEquals("定位完成", state.statusMessage)
     }
 
     private fun realCoordinator(): LocationAcquisitionCoordinator {
@@ -247,6 +284,13 @@ class LocationCaptureRepositoryTest {
                         bestLocation = null,
                         completion = com.pim.app.location.acquisition.LocationEngineCompletion.TimedOut
                     )
+                }
+
+                override suspend fun stream(
+                    request: com.pim.app.location.acquisition.LocationUpdateRequest,
+                    onCandidate: suspend (com.pim.app.location.LocationSnapshot) -> Unit
+                ) {
+                    kotlinx.coroutines.awaitCancellation()
                 }
             },
             prerequisiteChecker = object : com.pim.app.location.acquisition.LocationPrerequisiteChecker {

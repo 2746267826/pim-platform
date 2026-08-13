@@ -50,6 +50,11 @@ class SelfMotionEvaluator(
             lastStepTotal = total
             return
         }
+        if (total < lastStepTotal) {
+            // 计数器重置（系统级）：重建基线，重置前的累计步数不再追溯。
+            lastStepTotal = total
+            return
+        }
         if (total > lastStepTotal) {
             episodeStepTotal += total - lastStepTotal
             lastStepTotal = total
@@ -65,6 +70,21 @@ class SelfMotionEvaluator(
             }
             recomputeSignal()
         }
+    }
+
+    /**
+     * 清空全部累计状态回到初始 Unknown。服务重启后调用，避免停机间隔被
+     * 计入防抖累计（否则短时拿起手机即可绕过 5s/20s 双防抖）。
+     */
+    fun reset() {
+        magnitudes.clear()
+        lastWindowAtMillis = null
+        movingStreakMillis = 0L
+        stillStreakMillis = 0L
+        debouncedMoving = false
+        episodeStepTotal = 0L
+        lastStepTotal = -1L
+        signal = MotionSignal.Unknown
     }
 
     fun currentSignal(): MotionSignal = signal

@@ -160,4 +160,58 @@ class SelfMotionEvaluatorTest {
             assertEquals(MotionSignal.Still, evaluator.currentSignal())
         }
     }
+
+    @Test
+    fun `reset clears all accumulated state back to Unknown`() {
+        moveToMoving()
+        evaluator.stepCount(1_000L)
+        evaluator.stepCount(1_003L)
+        assertEquals(MotionSignal.Walking, evaluator.currentSignal())
+
+        evaluator.reset()
+
+        assertEquals(MotionSignal.Unknown, evaluator.currentSignal())
+        // 重启后首个窗口不再计入停机前的 streak（直接按新 3s 窗口计算）
+        nowMillis = 0L
+        sampleRaw(1.5)
+        assertEquals(MotionSignal.Still, evaluator.currentSignal())
+    }
+
+    @Test
+    fun `walking stays sticky for the moving episode after steps`() {
+        // 设计取舍固化：episode 内累计过步数后，只要防抖态仍是 MOVING 就保持
+        // Walking（§3.4 映射规则），静止判定需要 20s 连续的 STILL 窗口。
+        moveToMoving()
+        evaluator.stepCount(1_000L)
+        evaluator.stepCount(1_002L)
+        assertEquals(MotionSignal.Walking, evaluator.currentSignal())
+
+        // 轻微的桌面振动（SHAKING）不清零 episode，也不会结束 MOVING 段
+        nowMillis = 9_000L
+        sampleRaw(0.5)
+        assertEquals(MotionSignal.Walking, evaluator.currentSignal())
+    }
+
+    @Test
+    fun `step counter reset rebases the baseline without counting lost steps`() {
+        moveToMoving()
+        evaluator.stepCount(1_000L)
+        evaluator.stepCount(1_004L)
+        assertEquals(MotionSignal.Walking, evaluator.currentSignal())
+
+        // 系统重置计数器到 100（模拟设备重启后计数归零）
+        evaluator.stepCount(100L)
+        assertEquals(MotionSignal.Walking, evaluator.currentSignal())
+        evaluator.stepCount(103L) // 新基线上增量 3 步
+        assertEquals(MotionSignal.Walking, evaluator.currentSignal())
+    }
+
+    @Test
+    fun `significant motion trigger is a no-op while already moving`() {
+        moveToMoving()
+
+        evaluator.significantMotionTriggered()
+
+        assertEquals(MotionSignal.Moving, evaluator.currentSignal())
+    }
 }

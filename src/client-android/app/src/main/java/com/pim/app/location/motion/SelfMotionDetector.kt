@@ -44,6 +44,7 @@ class SelfMotionDetector(
     }
 
     fun start() {
+        evaluator.reset()
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
         }
@@ -55,6 +56,11 @@ class SelfMotionDetector(
 
     fun stop() {
         sensorManager.unregisterListener(this)
+        runCatching {
+            sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION)?.let { sensor ->
+                sensorManager.cancelTriggerSensor(triggerListener, sensor)
+            }
+        }
     }
 
     override fun onSensorChanged(event: SensorEvent) {

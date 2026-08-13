@@ -13,11 +13,10 @@ data class LocationUiState(
     val errorMessage: String? = null,
     val showStart: Boolean = true,
     val showCancel: Boolean = false,
-    val showSubmit: Boolean = false,
     val showRestart: Boolean = false,
     val showOpenSettings: Boolean = false,
-    val isSubmitting: Boolean = false,
-    val manualStartEnabled: Boolean = true
+    val manualStartEnabled: Boolean = true,
+    val showLowQualityWarning: Boolean = false
 )
 
 internal fun mapToLocationUiState(
@@ -32,8 +31,6 @@ internal fun mapToLocationUiState(
         com.pim.app.location.acquisition.AcquisitionPhase.Acquiring,
         com.pim.app.location.acquisition.AcquisitionPhase.Evaluating
     )
-    val isAwaitingManual = phase == com.pim.app.location.acquisition.AcquisitionPhase.AwaitingManualSubmit
-    val isEnqueuing = phase == com.pim.app.location.acquisition.AcquisitionPhase.Enqueuing
     val isTerminal = phase in setOf(
         com.pim.app.location.acquisition.AcquisitionPhase.Completed,
         com.pim.app.location.acquisition.AcquisitionPhase.TimedOut,
@@ -52,8 +49,6 @@ internal fun mapToLocationUiState(
         com.pim.app.location.acquisition.AcquisitionPhase.Preparing -> "准备中"
         com.pim.app.location.acquisition.AcquisitionPhase.Acquiring -> "采集位置中"
         com.pim.app.location.acquisition.AcquisitionPhase.Evaluating -> "评估中"
-        com.pim.app.location.acquisition.AcquisitionPhase.AwaitingManualSubmit -> "等待提交"
-        com.pim.app.location.acquisition.AcquisitionPhase.Enqueuing -> "提交中"
         com.pim.app.location.acquisition.AcquisitionPhase.Completed -> "已完成"
         com.pim.app.location.acquisition.AcquisitionPhase.TimedOut -> "超时"
         com.pim.app.location.acquisition.AcquisitionPhase.Failed -> "失败"
@@ -80,13 +75,15 @@ internal fun mapToLocationUiState(
         pendingUploadTotal = queueSnapshot.pendingUploadTotal,
         pendingLocationPoints = queueSnapshot.pendingLocationPoints,
         errorMessage = errorMessage,
-        showStart = (isIdle && triggerType == null) ||
-            (triggerType == com.pim.app.location.acquisition.TriggerType.AUTOMATIC && isBusy),
+        // 自动常驻流不写 state（走 streamState），state.triggerType 只会是
+        // MANUAL/null；AUTOMATIC 分支不可达，仅保留手动起始按钮。
+        showStart = isIdle && triggerType == null,
         showCancel = isBusy,
-        showSubmit = isAwaitingManual,
-        showRestart = isAwaitingManual || isTerminal,
+        showRestart = isTerminal,
         showOpenSettings = isPrecheckError,
-        isSubmitting = isEnqueuing,
-        manualStartEnabled = manualStartEnabled
+        manualStartEnabled = manualStartEnabled,
+        showLowQualityWarning = acqState.lastQualityFlags.contains(
+            com.pim.app.location.quality.LocationQualityGate.LOW_QUALITY_ACCURACY_FLAG
+        )
     )
 }

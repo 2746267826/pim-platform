@@ -83,6 +83,7 @@ class LocationQualityGate(
 
     companion object {
         const val MAX_ACCURACY_METERS_EXCLUSIVE = 20f
+        const val LOW_QUALITY_ACCURACY_FLAG = "low-quality-accuracy"
 
         fun fromTrackingSettings(settings: TrackingSettings): LocationQualityGate =
             LocationQualityGate(

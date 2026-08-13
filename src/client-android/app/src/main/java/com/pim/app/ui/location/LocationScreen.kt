@@ -39,7 +39,6 @@ fun LocationScreen(
         state = state,
         onStart = { viewModel.startOrRestart() },
         onCancel = { viewModel.cancel() },
-        onSubmit = { viewModel.submit() },
         onRestart = { viewModel.startOrRestart() },
         onOpenSettings = onOpenSettings,
         modifier = modifier
@@ -51,7 +50,6 @@ internal fun LocationScreen(
     state: LocationUiState,
     onStart: () -> Unit,
     onCancel: () -> Unit,
-    onSubmit: () -> Unit,
     onRestart: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
@@ -68,7 +66,7 @@ internal fun LocationScreen(
 
         item { Divider() }
 
-        item { ActionsSection(state, onStart, onCancel, onSubmit, onRestart, onOpenSettings) }
+        item { ActionsSection(state, onStart, onCancel, onRestart, onOpenSettings) }
 
         item { Divider() }
 
@@ -149,7 +147,6 @@ private fun ActionsSection(
     state: LocationUiState,
     onStart: () -> Unit,
     onCancel: () -> Unit,
-    onSubmit: () -> Unit,
     onRestart: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
@@ -180,20 +177,6 @@ private fun ActionsSection(
             }
         }
 
-        if (state.showSubmit || state.isSubmitting) {
-            Button(
-                onClick = onSubmit,
-                modifier = Modifier.fillMaxWidth().testTag("location-submit"),
-                enabled = !state.isSubmitting
-            ) {
-                if (state.isSubmitting) {
-                    Text("提交中", modifier = Modifier.testTag("location-submit-progress"))
-                } else {
-                    Text("提交位置")
-                }
-            }
-        }
-
         if (state.showRestart) {
             OutlinedButton(
                 onClick = onRestart,
@@ -210,6 +193,17 @@ private fun ActionsSection(
             ) {
                 Text("打开设置")
             }
+        }
+
+        if (state.showLowQualityWarning) {
+            Text(
+                "精度不足，已标记低质量",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("location-low-quality-warning")
+            )
         }
 
         if (state.errorMessage != null) {

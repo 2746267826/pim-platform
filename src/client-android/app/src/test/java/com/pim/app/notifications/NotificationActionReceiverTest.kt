@@ -60,6 +60,13 @@ class NotificationActionReceiverTest {
         ): LocationEngineResult {
             return suspendCancellableCoroutine { }
         }
+
+        override suspend fun stream(
+            request: com.pim.app.location.acquisition.LocationUpdateRequest,
+            onCandidate: suspend (LocationSnapshot) -> Unit
+        ) {
+            return suspendCancellableCoroutine { }
+        }
     }
 
     private val readyChecker = object : LocationPrerequisiteChecker {

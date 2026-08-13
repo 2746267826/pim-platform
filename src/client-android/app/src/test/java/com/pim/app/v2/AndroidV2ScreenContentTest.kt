@@ -16,9 +16,9 @@ class AndroidV2ScreenContentTest {
         )
         assertContains("ui/location/LocationScreen.kt", listOf(
             "location-status-section", "location-best-section", "location-actions-section", "location-queue-section",
-            "location-start", "location-cancel", "location-submit", "location-restart", "location-open-settings",
+            "location-start", "location-cancel", "location-restart", "location-open-settings",
+            "location-low-quality-warning",
             "location-pending-total", "location-pending-points",
-            "location-submit-progress",
             "location-accuracy", "location-provider", "location-latitude", "location-longitude",
             "location-altitude", "location-speed", "location-bearing", "location-recorded-time"
         ))

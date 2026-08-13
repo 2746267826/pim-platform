@@ -160,12 +160,12 @@ class AndroidV2CollectionControlContractTest {
         ).readText(Charsets.UTF_8)
 
         val register = service.indexOf("motionSignalRepository.register()")
-        val startAutomaticSession = service.indexOf("locationAcquisitionCoordinator.startAutomaticSession(")
+        val startAutomaticStream = service.indexOf("locationAcquisitionCoordinator.startAutomaticStream(")
         val unregister = service.indexOf("motionSignalRepository.unregister()")
 
         assertTrue("self motion detection must be registered before automatic acquisition", register >= 0)
-        assertTrue(startAutomaticSession >= 0)
-        assertTrue(register < startAutomaticSession)
+        assertTrue(startAutomaticStream >= 0)
+        assertTrue(register < startAutomaticStream)
         assertTrue("self motion detection must be unregistered when collection stops", unregister >= 0)
     }
 

@@ -9,6 +9,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.pim.app.MainActivity
+import com.pim.app.location.highspeed.highSpeedElapsedText
 import com.pim.app.location.policy.LocationPolicyMode
 import com.pim.app.location.service.ForegroundLocationController
 
@@ -19,7 +20,9 @@ data class LocationNotificationState(
     val lastAccuracyText: String,
     val pendingUploadTotal: Int,
     val apiState: String,
-    val lastDroppedReason: String?
+    val lastDroppedReason: String?,
+    val highSpeedActive: Boolean = false,
+    val highSpeedElapsedSeconds: Long = 0L
 )
 
 data class CollectionControlAction(
@@ -39,6 +42,9 @@ object LocationNotificationRenderer {
     const val NOTIFICATION_ID = 7101
 
     fun collapsedText(state: LocationNotificationState): String {
+        if (state.highSpeedActive) {
+            return "高速轨迹记录中 · ${elapsedText(state.highSpeedElapsedSeconds)}"
+        }
         return listOf(
             modeLabel(state.mode),
             state.nextExpectedLocationText,
@@ -49,6 +55,15 @@ object LocationNotificationRenderer {
     }
 
     fun expandedText(state: LocationNotificationState): String {
+        if (state.highSpeedActive) {
+            return buildList {
+                add("策略：高速轨迹模式（2.5s 密集采样）")
+                add("已记录：${elapsedText(state.highSpeedElapsedSeconds)}")
+                add("最近位置：${state.lastAcceptedLocationText}，精度 ${state.lastAccuracyText}")
+                add("待上传 ${state.pendingUploadTotal}，${apiStateLabel(state.apiState)}")
+                state.lastDroppedReason?.let { add("最近丢弃：$it") }
+            }.joinToString("\n")
+        }
         return buildList {
             add("策略：${modeLabel(state.mode)}")
             add("下次定位：${state.nextExpectedLocationText}")
@@ -57,6 +72,8 @@ object LocationNotificationRenderer {
             state.lastDroppedReason?.let { add("最近丢弃：$it") }
         }.joinToString("\n")
     }
+
+    internal fun elapsedText(seconds: Long): String = highSpeedElapsedText(seconds)
 
     private fun apiStateLabel(apiState: String): String {
         return "API ${apiState.removePrefix("API ")}"
@@ -87,6 +104,7 @@ object LocationNotificationRenderer {
         LocationPolicyMode.MotionObservation -> "运动观察"
         LocationPolicyMode.MovementRecovery -> "移动恢复"
         LocationPolicyMode.SyncFallback -> "同步兜底"
+        LocationPolicyMode.HighSpeed -> "高速轨迹"
     }
 
     private fun ensureChannel(context: Context) {

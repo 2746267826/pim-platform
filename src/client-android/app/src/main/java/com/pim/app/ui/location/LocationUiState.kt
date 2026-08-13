@@ -1,6 +1,7 @@
 package com.pim.app.ui.location
 
 import com.pim.app.location.LocationSnapshot
+import com.pim.app.location.service.ForegroundLocationRuntimeState
 
 data class LocationUiState(
     val triggerLabel: String = "尚未开始",
@@ -16,12 +17,15 @@ data class LocationUiState(
     val showRestart: Boolean = false,
     val showOpenSettings: Boolean = false,
     val manualStartEnabled: Boolean = true,
-    val showLowQualityWarning: Boolean = false
+    val showLowQualityWarning: Boolean = false,
+    val highSpeedActive: Boolean = false,
+    val highSpeedElapsedSeconds: Long = 0L
 )
 
 internal fun mapToLocationUiState(
     acqState: com.pim.app.location.acquisition.LocationAcquisitionState,
-    queueSnapshot: com.pim.app.status.QueueStatusSnapshot
+    queueSnapshot: com.pim.app.status.QueueStatusSnapshot,
+    runtime: ForegroundLocationRuntimeState = ForegroundLocationRuntimeState()
 ): LocationUiState {
     val phase = acqState.phase
     val triggerType = acqState.triggerType
@@ -84,6 +88,8 @@ internal fun mapToLocationUiState(
         manualStartEnabled = manualStartEnabled,
         showLowQualityWarning = acqState.lastQualityFlags.contains(
             com.pim.app.location.quality.LocationQualityGate.LOW_QUALITY_ACCURACY_FLAG
-        )
+        ),
+        highSpeedActive = runtime.highSpeedActive,
+        highSpeedElapsedSeconds = runtime.highSpeedElapsedSeconds
     )
 }

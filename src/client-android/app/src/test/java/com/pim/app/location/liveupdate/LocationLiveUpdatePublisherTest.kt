@@ -4,6 +4,7 @@ import com.pim.app.location.LocationSnapshot
 import com.pim.app.location.acquisition.AcquisitionPhase
 import com.pim.app.location.acquisition.LocationAcquisitionState
 import com.pim.app.location.acquisition.TriggerType
+import com.pim.app.location.service.ForegroundLocationRuntimeState
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -49,17 +50,22 @@ class LocationLiveUpdatePublisherTest {
 
     private val publishCalls = mutableListOf<PublishCall>()
     private var cancelCalls = 0
+    private val publishHighSpeedElapsedCalls = mutableListOf<Long>()
+    private val highSpeedRuntimeFlow = MutableStateFlow(ForegroundLocationRuntimeState())
 
     @Before
     fun setUp() {
         fakeClockMs = 0L
         publishCalls.clear()
         cancelCalls = 0
+        publishHighSpeedElapsedCalls.clear()
+        highSpeedRuntimeFlow.value = ForegroundLocationRuntimeState()
         stateFlow = MutableStateFlow(LocationAcquisitionState())
         testScope = TestScope(StandardTestDispatcher())
         publisher = LocationLiveUpdatePublisher(
             stateFlow = stateFlow,
             clockMs = { fakeClockMs },
+            highSpeedFlow = highSpeedRuntimeFlow,
             publishFn = { content ->
                 publishCalls.add(PublishCall(
                     content.sessionId,
@@ -70,7 +76,11 @@ class LocationLiveUpdatePublisherTest {
                 ))
                 true
             },
-            cancelFn = { cancelCalls++ }
+            cancelFn = { cancelCalls++ },
+            publishHighSpeedFn = { content ->
+                publishHighSpeedElapsedCalls.add(content.elapsedSeconds)
+                true
+            }
         )
     }
 
@@ -835,4 +845,111 @@ class LocationLiveUpdatePublisherTest {
         bearingDegrees = null,
         timeMillis = 0L
     )
+
+    // ─── 高速档 Live Update ────────────────────────────────────
+
+    private fun highSpeedRuntime(active: Boolean = true, elapsedSeconds: Long = 0L) =
+        ForegroundLocationRuntimeState(
+            highSpeedActive = active,
+            highSpeedElapsedSeconds = elapsedSeconds
+        )
+
+    @Test
+    fun `high speed active publishes high speed content`() {
+        publisher.start(testScope)
+
+        highSpeedRuntimeFlow.value = highSpeedRuntime(active = true, elapsedSeconds = 95)
+
+        testScope.advanceUntilIdle()
+        assertEquals(listOf(95L), publishHighSpeedElapsedCalls)
+        assertTrue("session content must not be published", publishCalls.isEmpty())
+    }
+
+    @Test
+    fun `high speed inactive cancels the live update`() {
+        publisher.start(testScope)
+        highSpeedRuntimeFlow.value = highSpeedRuntime(active = true, elapsedSeconds = 10)
+        testScope.advanceUntilIdle()
+        assertEquals(1, publishHighSpeedElapsedCalls.size)
+        assertEquals(0, cancelCalls)
+
+        highSpeedRuntimeFlow.value = highSpeedRuntime(active = false)
+
+        testScope.advanceUntilIdle()
+        assertEquals("fallback must cancel the high-speed live update", 1, cancelCalls)
+    }
+
+    @Test
+    fun `high speed publishing is throttled to ten seconds`() {
+        publisher.start(testScope)
+        highSpeedRuntimeFlow.value = highSpeedRuntime(active = true, elapsedSeconds = 10)
+        testScope.advanceUntilIdle()
+        assertEquals(1, publishHighSpeedElapsedCalls.size)
+
+        fakeClockMs = 5_000L
+        highSpeedRuntimeFlow.value = highSpeedRuntime(active = true, elapsedSeconds = 20)
+        testScope.advanceUntilIdle()
+        assertEquals("within throttle window must not republish", 1, publishHighSpeedElapsedCalls.size)
+
+        fakeClockMs = 11_000L
+        highSpeedRuntimeFlow.value = highSpeedRuntime(active = true, elapsedSeconds = 30)
+        testScope.advanceUntilIdle()
+        assertEquals("after throttle window must republish with fresh elapsed", 2, publishHighSpeedElapsedCalls.size)
+        assertEquals(30L, publishHighSpeedElapsedCalls.last())
+    }
+
+    @Test
+    fun `high speed suppresses session publishing while active`() {
+        publisher.start(testScope)
+        highSpeedRuntimeFlow.value = highSpeedRuntime(active = true)
+        testScope.advanceUntilIdle()
+
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 1000
+        )
+        testScope.advanceUntilIdle()
+        assertTrue("session must not publish while high speed active", publishCalls.isEmpty())
+    }
+
+    @Test
+    fun `session publishing resumes after high speed falls back`() {
+        publisher.start(testScope)
+        stateFlow.value = LocationAcquisitionState(
+            sessionId = "s1",
+            triggerType = TriggerType.MANUAL,
+            phase = AcquisitionPhase.Acquiring,
+            elapsedMs = 1000
+        )
+        testScope.advanceUntilIdle()
+        assertTrue("session must publish while high speed inactive", publishCalls.isNotEmpty())
+        val beforeHighSpeed = publishCalls.size
+
+        highSpeedRuntimeFlow.value = highSpeedRuntime(active = true, elapsedSeconds = 10)
+        testScope.advanceUntilIdle()
+        assertEquals(1, publishHighSpeedElapsedCalls.size)
+
+        fakeClockMs = 30_000L
+        highSpeedRuntimeFlow.value = highSpeedRuntime(active = false)
+        testScope.advanceUntilIdle()
+        assertTrue(
+            "in-flight session content must be republished after fallback",
+            publishCalls.size > beforeHighSpeed
+        )
+        assertEquals(1, cancelCalls)
+    }
+
+    @Test
+    fun `cancelStaleNotification keeps published high speed live update`() {
+        publisher.start(testScope)
+        highSpeedRuntimeFlow.value = highSpeedRuntime(active = true, elapsedSeconds = 5)
+        testScope.advanceUntilIdle()
+        assertEquals(1, publishHighSpeedElapsedCalls.size)
+
+        publisher.cancelStaleNotification()
+
+        assertEquals("stale cleanup must not cancel the high-speed live update", 0, cancelCalls)
+    }
 }

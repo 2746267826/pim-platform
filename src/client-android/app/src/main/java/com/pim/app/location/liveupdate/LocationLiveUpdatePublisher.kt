@@ -5,6 +5,7 @@ import android.os.SystemClock
 import com.pim.app.location.acquisition.AcquisitionPhase
 import com.pim.app.location.acquisition.LocationAcquisitionState
 import com.pim.app.location.acquisition.TriggerType
+import com.pim.app.location.service.ForegroundLocationRuntimeState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -15,8 +16,10 @@ class LocationLiveUpdatePublisher(
     private val stateFlow: StateFlow<LocationAcquisitionState>,
     private val context: Context? = null,
     private val clockMs: () -> Long = { SystemClock.elapsedRealtime() },
+    private val highSpeedFlow: StateFlow<ForegroundLocationRuntimeState>? = null,
     publishFn: ((LocationLiveUpdateContent) -> Boolean)? = null,
-    cancelFn: (() -> Unit)? = null
+    cancelFn: (() -> Unit)? = null,
+    publishHighSpeedFn: ((HighSpeedLiveUpdateContent) -> Boolean)? = null
 ) {
     private val effectivePublish: (LocationLiveUpdateContent) -> Boolean = publishFn ?: { content ->
         LocationLiveUpdateNotificationRenderer.tryBuildAndNotify(
@@ -30,21 +33,39 @@ class LocationLiveUpdatePublisher(
         mgr.cancel(LocationLiveUpdateNotificationRenderer.LIVE_UPDATE_NOTIFICATION_ID)
     }
 
+    private val effectivePublishHighSpeed: (HighSpeedLiveUpdateContent) -> Boolean =
+        publishHighSpeedFn ?: { content ->
+            LocationLiveUpdateNotificationRenderer.tryBuildAndNotifyHighSpeed(
+                ctx = context!!,
+                content = content
+            )
+        }
+
     private val lock = Any()
     private var collectionJob: Job? = null
+    private var highSpeedJob: Job? = null
     private var lastPublishTimeMs: Long = -1L
     private var lastPublishedAccuracy: Float? = null
     private var suppressedSessionId: String? = null
     private var currentSessionId: String? = null
+    // 会话/高速档两条 collect 运行在同一个 scope（应用级 IO dispatcher），
+    // 可能并发；7102 单 ID 的切换状态必须 volatile 且只在锁内读写。
+    @Volatile
     private var publishedSessionId: String? = null
+    @Volatile
+    private var highSpeedPublished = false
+    private var lastHighSpeedPublishTimeMs: Long = -1L
 
     fun start(scope: CoroutineScope) {
         collectionJob?.cancel(CancellationException("restart"))
+        highSpeedJob?.cancel(CancellationException("restart"))
         synchronized(lock) {
             lastPublishTimeMs = -1L
             lastPublishedAccuracy = null
             currentSessionId = null
             publishedSessionId = null
+            highSpeedPublished = false
+            lastHighSpeedPublishTimeMs = -1L
         }
         collectionJob = scope.launch {
             try {
@@ -55,11 +76,20 @@ class LocationLiveUpdatePublisher(
             } catch (_: CancellationException) {
             }
         }
+        highSpeedJob = scope.launch {
+            try {
+                highSpeedFlow?.collect { runtime ->
+                    runCatching { handleHighSpeed(runtime) }
+                        .onFailure { if (it is CancellationException) throw it }
+                }
+            } catch (_: CancellationException) {
+            }
+        }
     }
 
     fun cancelStaleNotification() {
         synchronized(lock) {
-            if (publishedSessionId == null) {
+            if (publishedSessionId == null && !highSpeedPublished) {
                 runCatching { effectiveCancel() }
             }
         }
@@ -78,6 +108,35 @@ class LocationLiveUpdatePublisher(
         }
     }
 
+    private fun handleHighSpeed(runtime: ForegroundLocationRuntimeState) {
+        synchronized(lock) {
+            if (runtime.highSpeedActive) {
+                val now = clockMs()
+                if (!highSpeedPublished ||
+                    now - lastHighSpeedPublishTimeMs >= HIGH_SPEED_PUBLISH_THROTTLE_MILLIS
+                ) {
+                    runCatching {
+                        effectivePublishHighSpeed(
+                            HighSpeedLiveUpdateContent(elapsedSeconds = runtime.highSpeedElapsedSeconds)
+                        )
+                    }.onSuccess { published ->
+                        if (published) {
+                            highSpeedPublished = true
+                            lastHighSpeedPublishTimeMs = now
+                        }
+                    }
+                }
+            } else if (highSpeedPublished) {
+                runCatching { effectiveCancel() }
+                highSpeedPublished = false
+                lastHighSpeedPublishTimeMs = -1L
+                // 回落时若仍有进行中的定位会话，立即重放其 Live Update 内容，
+                // 避免 7102 通知出现空窗直到下一次会话状态变更。
+                runCatching { handleState(stateFlow.value) }
+            }
+        }
+    }
+
     private fun handleState(state: LocationAcquisitionState) {
         val sessionId = state.sessionId
 
@@ -91,6 +150,9 @@ class LocationLiveUpdatePublisher(
         if (sessionId == null) return
 
         synchronized(lock) {
+            // 高速档检查必须在锁内：与 handleHighSpeed 的 7102 切换串行化，
+            // 避免高速档刚发布时被并发的会话发布覆盖（脏读竞态）。
+            if (highSpeedPublished) return
             if (sessionId == suppressedSessionId) return
 
             val now = clockMs()
@@ -149,5 +211,10 @@ class LocationLiveUpdatePublisher(
             currentSessionId = null
             publishedSessionId = null
         }
+    }
+
+    private companion object {
+        /** 高速档 Live Update 最小发布间隔：运行时状态每 2.5s 更新一次，节流到 10s。 */
+        const val HIGH_SPEED_PUBLISH_THROTTLE_MILLIS = 10_000L
     }
 }

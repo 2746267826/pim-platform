@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import androidx.core.content.ContextCompat
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
@@ -18,6 +19,7 @@ import com.pim.app.location.acquisition.AcquisitionContext
 import com.pim.app.location.acquisition.AcquisitionPhase
 import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
 import com.pim.app.location.acquisition.SessionStartResult
+import com.pim.app.location.highspeed.HighSpeedMode
 import com.pim.app.location.motion.MotionSignalRepository
 import com.pim.app.location.policy.LocationPolicyEngine
 import com.pim.app.location.policy.LocationPolicyInput
@@ -50,7 +52,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
@@ -99,6 +103,16 @@ class ForegroundLocationService : Service() {
     private var ownedManualSessionId: String? = null
     private var policyTransitionWriteJob: Job? = null
     internal var policyTransitionWriter: (suspend (LocationPolicyMode?, PolicyDecision) -> Unit)? = null
+    // 最近一次流入库 fix 的 GPS 速度：高速轨迹状态机（policyEngine.highSpeedTracker）
+    // 以它为输入，自动循环每次重算时观察。null 表示尚未收到任何入库 fix。
+    private var lastSpeedMetersPerSecond: Float? = null
+    // fix 入库信号：自动循环等待它唤醒，从而在速度变化时立即重算策略并
+    // （按需）重注册常驻流，让 2.5s 密集采样与 10s/60s 防抖即时生效。
+    private val fixRecordedSignal = MutableStateFlow(0L)
+    // 上次策略重算时看到的 fix 信号值：本轮无新 fix（仅 30s 兜底或运动信号
+    // 唤醒）时 GPS 速度视为未知（null），让 GPS 失锁/停车无 fix 时高速档
+    // 也能按设计的 null 语义回落。
+    private var lastSeenFixSignal = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -322,6 +336,12 @@ class ForegroundLocationService : Service() {
         scheduleRefreshJob?.cancel()
         snapshotCollectJob?.cancel()
         runCatching { motionSignalRepository.unregister() }
+        // 停止采集后高速档状态立即复位，暂停/停止通知与运行时状态
+        // 不得残留「高速轨迹记录中」
+        policyEngine?.highSpeedTracker?.reset()
+        lastSpeedMetersPerSecond = null
+        lastSeenFixSignal = fixRecordedSignal.value
+        publishRuntimeState(isRunning = false)
         locationAcquisitionCoordinator.stopAutomaticStream()
         // 死实例的回调不得再发通知/写共享 runtime 状态
         locationAcquisitionCoordinator.onRecorded = null
@@ -424,17 +444,24 @@ class ForegroundLocationService : Service() {
                 recordedAtMillis = snapshot.timeMillis
             )
         )
+        lastSpeedMetersPerSecond = snapshot.speedMetersPerSecond
+        fixRecordedSignal.value = fixRecordedSignal.value + 1L
         lastAcceptedLocationText = timeFormatter.format(
             Instant.ofEpochMilli(snapshot.timeMillis)
                 .atZone(ZoneId.systemDefault())
         )
         lastAccuracyText = "${snapshot.horizontalAccuracyMeters?.toInt() ?: 0}m"
         lastDroppedReason = null
-        currentDecision = currentDecision.copy(
-            nextExpectedLocationAtMillis = System.currentTimeMillis() +
-                currentDecision.requestIntervalMillis
-        )
-        updateNotification()
+        // currentDecision 的所有写必须串行在 Main 线程（自动循环与各 ACTION
+        // 分支也在 Main 写）：fix 驱动的唤醒使并发读-改-写碰撞窗口从分钟级
+        // 缩到 2.5s 级，跨线程 copy 会丢失整对象赋值（applyDecision）。
+        withContext(Dispatchers.Main.immediate) {
+            currentDecision = currentDecision.copy(
+                nextExpectedLocationAtMillis = System.currentTimeMillis() +
+                    currentDecision.requestIntervalMillis
+            )
+            updateNotification()
+        }
     }
 
     private fun startAutomaticLoop() {
@@ -469,10 +496,15 @@ class ForegroundLocationService : Service() {
                 } else {
                     locationAcquisitionCoordinator.stopAutomaticStream()
                 }
-                // 运动信号变化即时唤醒；最迟 30s 重算一次（覆盖日程/设置变化）
+                // 运动信号变化或新 fix 入库即时唤醒（高速档依赖 fix 驱动重算）；
+                // 最迟 30s 重算一次（覆盖日程/设置变化）
                 withTimeoutOrNull(30_000L) {
                     val currentSignal = motionSignalRepository.status.value.signal
-                    motionSignalRepository.status.first { it.signal != currentSignal }
+                    val lastFixSignal = fixRecordedSignal.value
+                    merge(
+                        motionSignalRepository.status.filter { it.signal != currentSignal },
+                        fixRecordedSignal.filter { it != lastFixSignal }
+                    ).first()
                 }
             }
             // The loop exits because collection became disabled; this is an
@@ -490,6 +522,16 @@ class ForegroundLocationService : Service() {
     private fun recomputePolicyDecision(): PolicyDecision {
         val now = System.currentTimeMillis()
         val settings = trackingSettingsStore.read()
+        // 本轮循环没有新 fix 入库（仅 30s 兜底或运动信号唤醒）：GPS 速度未知，
+        // 按 null 观察状态机，让 GPS 失锁/停车无 fix 时高速档也能按设计回落；
+        // 有新 fix 时用其最新 GPS 速度。
+        val currentFixSignal = fixRecordedSignal.value
+        val speed = if (currentFixSignal > lastSeenFixSignal) {
+            lastSpeedMetersPerSecond
+        } else {
+            null
+        }
+        lastSeenFixSignal = currentFixSignal
         return policyEngine?.reduce(
             LocationPolicyInput(
                 nowMillis = now,
@@ -498,7 +540,8 @@ class ForegroundLocationService : Service() {
                     scheduleWindowRepository.snapshotForCurrentServer().windows,
                     now
                 ),
-                motionSignal = motionSignalRepository.status.value.signal
+                motionSignal = motionSignalRepository.status.value.signal,
+                speedMetersPerSecond = speed
             )
         ) ?: currentDecision
     }
@@ -681,9 +724,19 @@ class ForegroundLocationService : Service() {
             lastAccuracyText = lastAccuracyText,
             pendingUploadTotal = pendingUploadTotal,
             apiState = apiState,
-            lastDroppedReason = lastDroppedReason
+            lastDroppedReason = lastDroppedReason,
+            highSpeedActive = highSpeedTrackerMode() == HighSpeedMode.Active,
+            highSpeedElapsedSeconds = highSpeedElapsedSeconds()
         )
     )
+
+    private fun highSpeedTrackerMode(): HighSpeedMode? =
+        policyEngine?.highSpeedTracker?.mode
+
+    private fun highSpeedElapsedSeconds(): Long {
+        val since = policyEngine?.highSpeedTracker?.activeSinceElapsedRealtimeMillis ?: return 0L
+        return (SystemClock.elapsedRealtime() - since).coerceAtLeast(0L) / 1_000L
+    }
 
     private fun updateNotification() {
         publishRuntimeState()
@@ -692,6 +745,7 @@ class ForegroundLocationService : Service() {
     }
 
     private fun publishRuntimeState(isRunning: Boolean = isRunning()) {
+        val highSpeedSince = policyEngine?.highSpeedTracker?.activeSinceElapsedRealtimeMillis
         _runtimeState.value = ForegroundLocationRuntimeState(
             isRunning = isRunning,
             currentPolicyMode = currentDecision.mode.name,
@@ -707,7 +761,12 @@ class ForegroundLocationService : Service() {
             scheduleFreshness = scheduleFreshness,
             scheduleLastSuccessAtMillis = scheduleLastSuccessAtMillis,
             scheduleLastAttemptAtMillis = scheduleLastAttemptAtMillis,
-            scheduleLastError = scheduleLastError
+            scheduleLastError = scheduleLastError,
+            highSpeedActive = highSpeedSince != null,
+            highSpeedElapsedSeconds = highSpeedSince?.let {
+                (SystemClock.elapsedRealtime() - it).coerceAtLeast(0L) / 1_000L
+            } ?: 0L,
+            highSpeedSinceElapsedRealtimeMillis = highSpeedSince
         )
     }
 

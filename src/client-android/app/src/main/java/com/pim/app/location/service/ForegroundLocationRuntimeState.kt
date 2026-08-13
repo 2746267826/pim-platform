@@ -16,5 +16,8 @@ data class ForegroundLocationRuntimeState(
     val scheduleFreshness: ScheduleCacheFreshness = ScheduleCacheFreshness.Missing,
     val scheduleLastSuccessAtMillis: Long? = null,
     val scheduleLastAttemptAtMillis: Long? = null,
-    val scheduleLastError: String? = null
+    val scheduleLastError: String? = null,
+    val highSpeedActive: Boolean = false,
+    val highSpeedElapsedSeconds: Long = 0L,
+    val highSpeedSinceElapsedRealtimeMillis: Long? = null
 )

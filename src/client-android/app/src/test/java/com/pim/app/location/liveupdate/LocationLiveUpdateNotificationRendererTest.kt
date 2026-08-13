@@ -389,4 +389,73 @@ class LocationLiveUpdateNotificationRendererTest {
         val uri = Uri.parse("pim://location-live//cancel")
         assertNull(LocationLiveUpdateNotificationRenderer.parseSessionUri(uri))
     }
+
+    @Test
+    fun `high speed notification uses dedicated copy and shares id 7102`() {
+        var capturedId = -1
+        var captured: Notification? = null
+        val result = LocationLiveUpdateNotificationRenderer.tryBuildAndNotifyHighSpeed(
+            ctx = ctx,
+            content = HighSpeedLiveUpdateContent(elapsedSeconds = 95),
+            createChannel = { _, _ -> },
+            notifyFn = { id, notification ->
+                capturedId = id
+                captured = notification
+            }
+        )
+
+        assertTrue(result)
+        assertEquals(7102, capturedId)
+        assertNotNull(captured)
+        assertEquals(
+            "高速轨迹记录中",
+            captured!!.extras.getCharSequence(Notification.EXTRA_TITLE).toString()
+        )
+        assertEquals(
+            "已记录 1 分 35 秒 · 2.5s 密集采样",
+            captured!!.extras.getCharSequence(Notification.EXTRA_TEXT).toString()
+        )
+        assertEquals(
+            "high-speed live update must not carry a session cancel action",
+            true,
+            captured!!.actions == null || captured!!.actions.isEmpty()
+        )
+        assertTrue((captured!!.flags and Notification.FLAG_ONGOING_EVENT) != 0)
+    }
+
+    @Test
+    fun `high speed renderer fails gracefully when capability is false`() {
+        LocationLiveUpdateNotificationRenderer.capabilityOverride = { false }
+        val result = LocationLiveUpdateNotificationRenderer.tryBuildAndNotifyHighSpeed(
+            ctx = ctx,
+            content = HighSpeedLiveUpdateContent(elapsedSeconds = 5),
+            createChannel = { _, _ -> },
+            notifyFn = { _, _ -> }
+        )
+        assertFalse(result)
+    }
+
+    @Test
+    fun `high speed renderer fails when permission denied`() {
+        LocationLiveUpdateNotificationRenderer.canShowNotificationsOverride = { false }
+        val result = LocationLiveUpdateNotificationRenderer.tryBuildAndNotifyHighSpeed(
+            ctx = ctx,
+            content = HighSpeedLiveUpdateContent(elapsedSeconds = 5),
+            createChannel = { _, _ -> },
+            notifyFn = { _, _ -> }
+        )
+        assertFalse(result)
+    }
+
+    @Test
+    fun `high speed renderer fails when promoted not available`() {
+        LocationLiveUpdateNotificationRenderer.canPostPromotedOverride = { false }
+        val result = LocationLiveUpdateNotificationRenderer.tryBuildAndNotifyHighSpeed(
+            ctx = ctx,
+            content = HighSpeedLiveUpdateContent(elapsedSeconds = 5),
+            createChannel = { _, _ -> },
+            notifyFn = { _, _ -> }
+        )
+        assertFalse(result)
+    }
 }

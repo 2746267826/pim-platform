@@ -15,6 +15,7 @@ import com.pim.app.location.acquisition.FakePrerequisiteChecker
 import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
 import com.pim.app.location.acquisition.TestLocationAcquisitionOperations
 import com.pim.app.location.service.ForegroundLocationController
+import com.pim.app.location.service.ForegroundLocationRuntimeState
 import com.pim.app.settings.TrackingSettingsStore
 import com.pim.app.status.QueueStatusRepository
 import com.pim.app.status.QueueStatusSnapshot
@@ -593,5 +594,31 @@ class LocationViewModelTest {
         while (shadowOf(application).nextStartedService != null) {
             // Drain intents left by earlier actions in the shared Robolectric application.
         }
+    }
+
+    @Test
+    fun `high speed active maps to ui state with elapsed`() {
+        val state = mapToLocationUiState(
+            acqState = LocationAcquisitionState(),
+            queueSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0),
+            runtime = ForegroundLocationRuntimeState(
+                highSpeedActive = true,
+                highSpeedElapsedSeconds = 95L
+            )
+        )
+
+        assertTrue(state.highSpeedActive)
+        assertEquals(95L, state.highSpeedElapsedSeconds)
+    }
+
+    @Test
+    fun `high speed inactive maps to default ui state`() {
+        val state = mapToLocationUiState(
+            acqState = LocationAcquisitionState(),
+            queueSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0)
+        )
+
+        assertFalse(state.highSpeedActive)
+        assertEquals(0L, state.highSpeedElapsedSeconds)
     }
 }

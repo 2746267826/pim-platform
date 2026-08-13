@@ -332,6 +332,10 @@ class ForegroundLocationService : Service() {
         scheduleRefreshJob?.cancel()
         snapshotCollectJob?.cancel()
         runCatching { motionSignalRepository.unregister() }
+        // 停止采集后高速档状态立即复位，暂停/停止通知与运行时状态
+        // 不得残留「高速轨迹记录中」
+        policyEngine?.highSpeedTracker?.reset()
+        publishRuntimeState(isRunning = false)
         locationAcquisitionCoordinator.stopAutomaticStream()
         // 死实例的回调不得再发通知/写共享 runtime 状态
         locationAcquisitionCoordinator.onRecorded = null

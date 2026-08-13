@@ -2758,6 +2758,45 @@ class ForegroundLocationServiceTest {
         service.onDestroy()
     }
 
+    @Test
+    @LooperMode(LooperMode.Mode.PAUSED)
+    fun stoppingCollectionResetsHighSpeedRuntimeState() {
+        val harness = newHarness()
+        val store = trackingStore("fg_hs_stop_", enabled = true)
+        val service = buildService(harness = harness, trackingStore = store)
+        invokeInitializeAutomaticRuntime(service)
+        invokeStartAutomaticLoop(service)
+        idleUntil { harness.runner.acquireCount.get() == 1 }
+        harness.runner.completeCurrent(
+            LocationEngineResult(
+                sessionId = harness.runner.lastRequest!!.sessionId,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
+        harness.runner.waitForStreamStart()
+
+        val base = System.currentTimeMillis()
+        val fast = acceptedSnapshot(timeMillis = base).copy(speedMetersPerSecond = 9f)
+        harness.runner.emitStreamCandidate(fast)
+        idleUntil { harness.coordinator.streamState.value.requestIntervalMillis == 2_500L }
+        shadowOf(Looper.getMainLooper()).idleFor(4_000L, TimeUnit.MILLISECONDS)
+        harness.runner.emitStreamCandidate(fast.copy(timeMillis = base + 4_000L))
+        shadowOf(Looper.getMainLooper()).idleFor(4_000L, TimeUnit.MILLISECONDS)
+        harness.runner.emitStreamCandidate(fast.copy(timeMillis = base + 8_000L))
+        shadowOf(Looper.getMainLooper()).idleFor(4_000L, TimeUnit.MILLISECONDS)
+        harness.runner.emitStreamCandidate(fast.copy(timeMillis = base + 12_000L))
+        idleUntil { ForegroundLocationService.runtimeState.value.highSpeedActive }
+
+        invokeStopCollection(service)
+
+        assertFalse(
+            "paused collection must not keep high-speed state",
+            ForegroundLocationService.runtimeState.value.highSpeedActive
+        )
+        service.onDestroy()
+    }
+
     private fun invokeInitializeAutomaticRuntime(service: ForegroundLocationService) {
         ForegroundLocationService::class.java
             .getDeclaredMethod("initializeAutomaticRuntime", TrackingSettings::class.java)

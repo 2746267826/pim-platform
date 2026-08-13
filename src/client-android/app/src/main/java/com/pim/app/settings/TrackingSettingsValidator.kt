@@ -11,8 +11,6 @@ class ValidationException(val errors: List<ValidationError>) : IllegalArgumentEx
 object TrackingSettingsValidator {
     private const val RECOVERY_MIN = 25.0
     private const val RECOVERY_MAX = 500.0
-    private const val ACCURACY_MIN = 10f
-    private const val ACCURACY_MAX = 50f
     private const val ALTITUDE_MIN = 0L
     private const val ALTITUDE_MAX = 30_000L
     private val VALID_LOG_RETENTIONS = setOf(1, 7, 14, 30)
@@ -52,15 +50,6 @@ object TrackingSettingsValidator {
                 ValidationError(
                     "RECOVERY_THRESHOLD_OUT_OF_RANGE",
                     "scheduleRecoveryThresholdMeters must be between $RECOVERY_MIN and $RECOVERY_MAX, got ${settings.scheduleRecoveryThresholdMeters}"
-                )
-            )
-        }
-
-        if (!settings.maxUploadAccuracyMetersExclusive.isFinite() || settings.maxUploadAccuracyMetersExclusive < ACCURACY_MIN || settings.maxUploadAccuracyMetersExclusive > ACCURACY_MAX) {
-            errors.add(
-                ValidationError(
-                    "ACCURACY_OUT_OF_RANGE",
-                    "maxUploadAccuracyMetersExclusive must be between $ACCURACY_MIN and $ACCURACY_MAX, got ${settings.maxUploadAccuracyMetersExclusive}"
                 )
             )
         }

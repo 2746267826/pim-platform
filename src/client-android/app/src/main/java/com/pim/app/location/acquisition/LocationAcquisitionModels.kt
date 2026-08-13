@@ -35,7 +35,6 @@ data class LocationAcquisitionState(
     val startedAtElapsedRealtimeMs: Long? = null,
     val deadlineAtElapsedRealtimeMs: Long? = null,
     val elapsedMs: Long = 0L,
-    val maxUploadAccuracyMetersExclusive: Float = 50f,
     val errorReason: String? = null
 ) {
     val isBusy: Boolean

@@ -1,5 +1,7 @@
 package com.pim.app.location
 
+import com.pim.app.location.quality.LocationQualityGate
+
 data class LocationSubmissionDecision(
     val canSubmitManually: Boolean,
     val shouldAutoSubmit: Boolean,
@@ -11,7 +13,8 @@ object LocationSubmissionPolicy {
     fun decide(
         horizontalAccuracyMeters: Float?,
         autoAlreadySubmitted: Boolean,
-        maxUploadAccuracyMetersExclusive: Float = 50f
+        maxUploadAccuracyMetersExclusive: Float =
+            LocationQualityGate.MAX_ACCURACY_METERS_EXCLUSIVE
     ): LocationSubmissionDecision {
         if (horizontalAccuracyMeters == null) {
             return LocationSubmissionDecision(
@@ -59,6 +62,7 @@ internal fun formatAccuracyThresholdMeters(value: Float): String =
 fun decideLocationSubmission(
     horizontalAccuracyMeters: Float?,
     autoAlreadySubmitted: Boolean,
-    maxUploadAccuracyMetersExclusive: Float = 50f
+    maxUploadAccuracyMetersExclusive: Float =
+        LocationQualityGate.MAX_ACCURACY_METERS_EXCLUSIVE
 ): LocationSubmissionDecision =
     LocationSubmissionPolicy.decide(horizontalAccuracyMeters, autoAlreadySubmitted, maxUploadAccuracyMetersExclusive)

@@ -1,6 +1,7 @@
 package com.pim.app.location.acquisition
 
 import android.os.SystemClock
+import com.google.android.gms.location.Priority
 import com.pim.app.location.LocationSnapshot
 import com.pim.app.location.quality.AltitudeWaitCoordinator
 import com.pim.app.location.quality.LocationQualityGate
@@ -262,8 +263,7 @@ class LocationAcquisitionCoordinator @Inject constructor(
             triggerType = triggerType,
             phase = AcquisitionPhase.Preparing,
             startedAtElapsedRealtimeMs = nowElapsed,
-            deadlineAtElapsedRealtimeMs = nowElapsed + 30_000L,
-            maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
+            deadlineAtElapsedRealtimeMs = nowElapsed + 30_000L
         )
         lateinit var job: Job
         val newJob = scope.launch(start = CoroutineStart.LAZY) {
@@ -336,7 +336,7 @@ class LocationAcquisitionCoordinator @Inject constructor(
 
         val request = LocationEngineRequest(
             sessionId = sessionId,
-            priority = context?.priority ?: 100,
+            priority = context?.priority ?: Priority.PRIORITY_HIGH_ACCURACY,
             timeoutMillis = 30_000L,
             startedAtWallClockMillis = sessionStartedWallClockMillis
         )

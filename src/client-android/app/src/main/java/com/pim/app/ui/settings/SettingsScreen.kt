@@ -321,16 +321,6 @@ fun SettingsScreen(
                     supportingText = state.advancedErrors["recoveryThreshold"]?.let { { Text(it) } }
                 )
                 OutlinedTextField(
-                    value = state.accuracyMetersText,
-                    onValueChange = viewModel::updateAccuracyMetersText,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("精度阈值（米）") },
-                    singleLine = true,
-                    isError = state.advancedErrors.containsKey("accuracy"),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    supportingText = state.advancedErrors["accuracy"]?.let { { Text(it) } }
-                )
-                OutlinedTextField(
                     value = state.altitudeSecText,
                     onValueChange = viewModel::updateAltitudeSecText,
                     modifier = Modifier.fillMaxWidth(),

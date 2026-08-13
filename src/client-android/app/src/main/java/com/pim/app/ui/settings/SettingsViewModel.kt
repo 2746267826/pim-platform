@@ -53,7 +53,6 @@ data class SettingsUiState(
     val scheduleMinText: String = (TrackingSettings.defaults().scheduleLowFrequencyIntervalMillis / 60_000.0).toDisplayNumber(),
     val movementSecText: String = (TrackingSettings.defaults().movementIntervalMillis / 1_000.0).toDisplayNumber(),
     val recoveryMetersText: String = TrackingSettings.defaults().scheduleRecoveryThresholdMeters.toFloat().toDisplayNumber(),
-    val accuracyMetersText: String = TrackingSettings.defaults().maxUploadAccuracyMetersExclusive.toDisplayNumber(),
     val altitudeSecText: String = (TrackingSettings.defaults().altitudeWaitTimeoutMillis / 1_000.0).toDisplayNumber(),
     val advancedErrors: Map<String, String> = emptyMap(),
     val syncOnUnmeteredOnly: Boolean = false,
@@ -378,10 +377,6 @@ class SettingsViewModel @Inject constructor(
         _state.update { it.copy(recoveryMetersText = value) }
     }
 
-    fun updateAccuracyMetersText(value: String) {
-        _state.update { it.copy(accuracyMetersText = value) }
-    }
-
     fun updateAltitudeSecText(value: String) {
         _state.update { it.copy(altitudeSecText = value) }
     }
@@ -393,7 +388,6 @@ class SettingsViewModel @Inject constructor(
         val scheduleMin = state.value.scheduleMinText.toDoubleOrNull()
         val movementSec = state.value.movementSecText.toDoubleOrNull()
         val recoveryMeters = state.value.recoveryMetersText.toDoubleOrNull()
-        val accuracyMeters = state.value.accuracyMetersText.toDoubleOrNull()
         val altitudeSec = state.value.altitudeSecText.toDoubleOrNull()
 
         if (normalMin == null || !normalMin.isFinite() || normalMin < 1.0 || normalMin > 15.0) {
@@ -407,9 +401,6 @@ class SettingsViewModel @Inject constructor(
         }
         if (recoveryMeters == null || !recoveryMeters.isFinite() || recoveryMeters < 25.0 || recoveryMeters > 500.0) {
             errors["recoveryThreshold"] = "恢复阈值需在 25–500 米之间。"
-        }
-        if (accuracyMeters == null || !accuracyMeters.isFinite() || accuracyMeters < 10.0 || accuracyMeters > 50.0) {
-            errors["accuracy"] = "精度需在 10–50 米之间。"
         }
         if (altitudeSec == null || !altitudeSec.isFinite() || altitudeSec < 0.0 || altitudeSec > 30.0) {
             errors["altitudeWait"] = "海拔等待需在 0–30 秒之间。"
@@ -428,7 +419,6 @@ class SettingsViewModel @Inject constructor(
                 scheduleLowFrequencyIntervalMillis = (scheduleMin!! * 60_000).toLong(),
                 movementIntervalMillis = (movementSec!! * 1_000).toLong(),
                 scheduleRecoveryThresholdMeters = recoveryMeters!!,
-                maxUploadAccuracyMetersExclusive = accuracyMeters!!.toFloat(),
                 altitudeWaitTimeoutMillis = (altitudeSec!! * 1_000).toLong()
             )
         )
@@ -671,7 +661,6 @@ class SettingsViewModel @Inject constructor(
                 scheduleMinText = (settings.scheduleLowFrequencyIntervalMillis / 60_000.0).toDisplayNumber(),
                 movementSecText = (settings.movementIntervalMillis / 1_000.0).toDisplayNumber(),
                 recoveryMetersText = settings.scheduleRecoveryThresholdMeters.toFloat().toDisplayNumber(),
-                accuracyMetersText = settings.maxUploadAccuracyMetersExclusive.toDisplayNumber(),
                 altitudeSecText = (settings.altitudeWaitTimeoutMillis / 1_000.0).toDisplayNumber()
             )
         }

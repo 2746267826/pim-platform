@@ -7,7 +7,6 @@ data class TrackingPreset(
     val scheduleLowFrequencyIntervalMillis: Long,
     val movementIntervalMillis: Long,
     val scheduleRecoveryThresholdMeters: Double,
-    val maxUploadAccuracyMetersExclusive: Float,
     val altitudeWaitTimeoutMillis: Long
 ) {
     fun applyTo(current: TrackingSettings): TrackingSettings = current.copy(
@@ -16,8 +15,7 @@ data class TrackingPreset(
         scheduleLowFrequencyIntervalMillis = scheduleLowFrequencyIntervalMillis,
         movementIntervalMillis = movementIntervalMillis,
         scheduleRecoveryThresholdMeters = scheduleRecoveryThresholdMeters,
-        altitudeWaitTimeoutMillis = altitudeWaitTimeoutMillis,
-        maxUploadAccuracyMetersExclusive = maxUploadAccuracyMetersExclusive
+        altitudeWaitTimeoutMillis = altitudeWaitTimeoutMillis
     )
 }
 
@@ -30,7 +28,6 @@ object TrackingPresetCatalog {
             scheduleLowFrequencyIntervalMillis = 900_000L,
             movementIntervalMillis = 60_000L,
             scheduleRecoveryThresholdMeters = 100.0,
-            maxUploadAccuracyMetersExclusive = 50f,
             altitudeWaitTimeoutMillis = 15_000L
         ),
         TrackingPreset(
@@ -40,7 +37,6 @@ object TrackingPresetCatalog {
             scheduleLowFrequencyIntervalMillis = 600_000L,
             movementIntervalMillis = 45_000L,
             scheduleRecoveryThresholdMeters = 75.0,
-            maxUploadAccuracyMetersExclusive = 35f,
             altitudeWaitTimeoutMillis = 20_000L
         ),
         TrackingPreset(
@@ -50,7 +46,6 @@ object TrackingPresetCatalog {
             scheduleLowFrequencyIntervalMillis = 300_000L,
             movementIntervalMillis = 30_000L,
             scheduleRecoveryThresholdMeters = 50.0,
-            maxUploadAccuracyMetersExclusive = 20f,
             altitudeWaitTimeoutMillis = 30_000L
         )
     )

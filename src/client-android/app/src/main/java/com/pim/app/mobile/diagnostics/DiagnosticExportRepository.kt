@@ -456,7 +456,6 @@ class DiagnosticExportRepository internal constructor(
             .put("movementIntervalMillis", s.movementIntervalMillis)
             .put("scheduleRecoveryThresholdMeters", s.scheduleRecoveryThresholdMeters)
             .put("altitudeWaitTimeoutMillis", s.altitudeWaitTimeoutMillis)
-            .put("maxUploadAccuracyMetersExclusive", s.maxUploadAccuracyMetersExclusive.toDouble())
             .put("syncOnUnmeteredOnly", s.syncOnUnmeteredOnly)
             .put("logRetentionDays", s.logRetentionDays)
             .put("verboseLoggingEnabled", verboseEnabled)

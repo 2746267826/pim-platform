@@ -6,23 +6,23 @@ import org.junit.Test
 
 class LocationSubmissionPolicyTest {
     @Test
-    fun manualSubmissionRejectsFiftyMeterAccuracy() {
-        val decision = LocationSubmissionPolicy.decide(50f, autoAlreadySubmitted = false)
+    fun manualSubmissionRejectsTwentyMeterAccuracy() {
+        val decision = LocationSubmissionPolicy.decide(20f, autoAlreadySubmitted = false)
 
         assertFalse(decision.canSubmitManually)
         assertFalse(decision.shouldAutoSubmit)
     }
 
     @Test
-    fun manualSubmissionAcceptsAccuracyBelowFiftyMeters() {
-        val decision = LocationSubmissionPolicy.decide(49.9f, autoAlreadySubmitted = false)
+    fun manualSubmissionAcceptsAccuracyBelowTwentyMeters() {
+        val decision = LocationSubmissionPolicy.decide(19.9f, autoAlreadySubmitted = false)
 
         assertTrue(decision.canSubmitManually)
         assertFalse(decision.shouldAutoSubmit)
     }
 
     @Test
-    fun maxUploadAccuracyThresholdReplacesHardcodedFiftyMeters() {
+    fun customAccuracyThresholdReplacesDefault() {
         val decision = LocationSubmissionPolicy.decide(
             horizontalAccuracyMeters = 45f,
             maxUploadAccuracyMetersExclusive = 35.5f,

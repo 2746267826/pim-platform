@@ -23,8 +23,7 @@ data class LocationCaptureState(
     val statusMessage: String = "尚未开始定位",
     val inlineReason: String? = null,
     val isSubmitting: Boolean = false,
-    val autoSubmitted: Boolean = false,
-    val maxUploadAccuracyMetersExclusive: Float = 50f
+    val autoSubmitted: Boolean = false
 )
 
 @Singleton
@@ -138,7 +137,6 @@ internal fun LocationAcquisitionState.toCaptureState(): LocationCaptureState {
         },
         inlineReason = errorReason,
         isSubmitting = phase == AcquisitionPhase.Enqueuing,
-        autoSubmitted = false,
-        maxUploadAccuracyMetersExclusive = maxUploadAccuracyMetersExclusive
+        autoSubmitted = false
     )
 }

@@ -840,13 +840,7 @@ class ForegroundLocationService : Service() {
             return intervalMillis
         }
 
-        fun resolveLocationPriority(mode: LocationPolicyMode): Int = when (mode) {
-            LocationPolicyMode.PowerSavingNormal,
-            LocationPolicyMode.ScheduleLowFrequency,
-            LocationPolicyMode.Off,
-            LocationPolicyMode.SyncFallback -> Priority.PRIORITY_BALANCED_POWER_ACCURACY
-            LocationPolicyMode.MotionObservation,
-            LocationPolicyMode.MovementRecovery -> Priority.PRIORITY_HIGH_ACCURACY
-        }
+        fun resolveLocationPriority(mode: LocationPolicyMode): Int =
+            Priority.PRIORITY_HIGH_ACCURACY
     }
 }

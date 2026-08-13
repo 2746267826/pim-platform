@@ -85,6 +85,9 @@ class LocationAcquisitionCoordinator @Inject constructor(
 
     private var sessionJob: Job? = null
     private var streamJob: Job? = null
+    // 最近一次流入库 fix 的 recordedAt：用于跳过预热/重注册后 GMS 立即回调的
+    // 缓存 fix（与刚入库的点几乎同时间），避免重叠点。
+    private var lastRecordedStreamTimeMillis: Long? = null
 
     // ─── 手动一次性采集 ─────────────────────────────────────────
 
@@ -155,6 +158,10 @@ class LocationAcquisitionCoordinator @Inject constructor(
         val current = _streamState.value
         // 间隔或上下文标注（policyMode/scheduleLowFrequency/motionSignal）任一
         // 变化都重注册，避免流内 fix 携带过期元数据。
+        // 注意：重注册不做预热（warmUp=false）。这是对设计文档 S3-2"重新
+        // startAutomaticStream（预热 + 新 interval 常驻）"的刻意偏差——流已热
+        // （GPS 保持连接），且运动状态频繁变化时反复预热会中断采集节奏；
+        // 冷启动预热只发生在 startAutomaticStream（active=false → warmUp=true）。
         if (current.requestIntervalMillis != context.requestIntervalMillis ||
             current.policyMode != context.policyMode ||
             current.scheduleLowFrequency != context.scheduleLowFrequency ||
@@ -244,6 +251,7 @@ class LocationAcquisitionCoordinator @Inject constructor(
                         )
                     }
                     onRecorded?.invoke(snapshot)
+                    lastRecordedStreamTimeMillis = outcome.accepted.fix.recordedAtMillis
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -251,7 +259,7 @@ class LocationAcquisitionCoordinator @Inject constructor(
                 }
             }
             is OneShotOutcome.Failed -> {
-                _streamState.update { it.copy(lastError = it.lastError ?: outcome.reason) }
+                _streamState.update { it.copy(lastError = outcome.reason) }
             }
             is OneShotOutcome.NoFix -> {
                 // 预热未收敛不阻塞常驻流注册
@@ -260,6 +268,14 @@ class LocationAcquisitionCoordinator @Inject constructor(
     }
 
     private suspend fun handleStreamFix(snapshot: LocationSnapshot, context: AcquisitionContext) {
+        // 去重：GMS 对全新 requestLocationUpdates 通常立即回调最近缓存位置，
+        // 若与刚入库的预热/上一流 fix 几乎同时间（<2s），跳过入库与诊断，
+        // 避免地图重叠点。墙钟回拨（时间差为负）不在此窗口内，正常放行。
+        val last = lastRecordedStreamTimeMillis
+        if (last != null) {
+            val diff = snapshot.timeMillis - last
+            if (diff in 0L until STREAM_DEDUP_MIN_INTERVAL_MILLIS) return
+        }
         val fix = snapshot.toRawFix(TriggerType.AUTOMATIC, context)
         val gate = LocationQualityGate.fromTrackingSettings(trackingSettingsStore.read())
         when (val decision = gate.evaluate(fix, wallClockMillis())) {
@@ -298,6 +314,7 @@ class LocationAcquisitionCoordinator @Inject constructor(
                 it.copy(latestFix = snapshot, latestQualityFlags = flags, lastError = null)
             }
             onRecorded?.invoke(snapshot)
+            lastRecordedStreamTimeMillis = accepted.fix.recordedAtMillis
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -676,5 +693,6 @@ class LocationAcquisitionCoordinator @Inject constructor(
 
     private companion object {
         const val STREAM_ALTITUDE_MISSING_FLAG = "altitude-missing"
+        const val STREAM_DEDUP_MIN_INTERVAL_MILLIS = 2_000L
     }
 }

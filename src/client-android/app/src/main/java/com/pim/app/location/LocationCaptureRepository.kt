@@ -23,8 +23,6 @@ data class LocationCaptureState(
     val submitStatus: String = "尚未提交",
     val statusMessage: String = "尚未开始定位",
     val inlineReason: String? = null,
-    val isSubmitting: Boolean = false,
-    val autoSubmitted: Boolean = false,
     val lastQualityFlags: Set<String> = emptySet(),
     val showLowQualityWarning: Boolean = false
 )
@@ -62,10 +60,6 @@ internal fun formatSubmitStatus(enqueued: Boolean, error: String? = null): Strin
     } else {
         "加入上传队列失败：${error ?: "未知错误"}"
     }
-}
-
-internal fun resolveAutoSubmittedState(current: Boolean, isAutoSubmit: Boolean, success: Boolean): Boolean {
-    return if (isAutoSubmit && success) true else current
 }
 
 internal fun applyLocationRequestFailure(
@@ -135,8 +129,6 @@ internal fun LocationAcquisitionState.toCaptureState(): LocationCaptureState {
             else -> "准备中..."
         },
         inlineReason = errorReason,
-        isSubmitting = false,
-        autoSubmitted = false,
         lastQualityFlags = lastQualityFlags,
         showLowQualityWarning = lowQuality
     )

@@ -251,51 +251,6 @@ class LocationViewModelTest {
     }
 
     @Test
-    fun `auto session shows auto labels and disabled start`() {
-        val state = mapToLocationUiState(
-            acqState = LocationAcquisitionState(
-                sessionId = "s2",
-                triggerType = TriggerType.AUTOMATIC,
-                phase = AcquisitionPhase.Acquiring,
-                startedAtElapsedRealtimeMs = 1000L,
-                deadlineAtElapsedRealtimeMs = 31000L,
-                elapsedMs = 2000L
-            ),
-            queueSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0)
-        )
-
-        assertEquals("自动定位", state.triggerLabel)
-        assertFalse(state.manualStartEnabled)
-        assertTrue(state.showStart)
-        assertTrue(state.showCancel)
-    }
-
-    @Test
-    fun `auto session in every busy phase keeps start visible but disabled`() {
-        for (phase in listOf(
-            AcquisitionPhase.Preparing,
-            AcquisitionPhase.Acquiring,
-            AcquisitionPhase.Evaluating
-        )) {
-            val state = mapToLocationUiState(
-                acqState = LocationAcquisitionState(
-                    sessionId = "s2",
-                    triggerType = TriggerType.AUTOMATIC,
-                    phase = phase,
-                    startedAtElapsedRealtimeMs = 1000L,
-                    deadlineAtElapsedRealtimeMs = 31000L,
-                    elapsedMs = 2000L
-                ),
-                queueSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0)
-            )
-
-            assertTrue("auto $phase must keep start visible", state.showStart)
-            assertFalse("auto $phase must disable start", state.manualStartEnabled)
-            assertTrue("auto $phase must show cancel", state.showCancel)
-        }
-    }
-
-    @Test
     fun `auto session idle does not disable manual start`() {
         val state = mapToLocationUiState(
             acqState = LocationAcquisitionState(phase = AcquisitionPhase.Idle),

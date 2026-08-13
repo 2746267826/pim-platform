@@ -75,8 +75,9 @@ internal fun mapToLocationUiState(
         pendingUploadTotal = queueSnapshot.pendingUploadTotal,
         pendingLocationPoints = queueSnapshot.pendingLocationPoints,
         errorMessage = errorMessage,
-        showStart = (isIdle && triggerType == null) ||
-            (triggerType == com.pim.app.location.acquisition.TriggerType.AUTOMATIC && isBusy),
+        // 自动常驻流不写 state（走 streamState），state.triggerType 只会是
+        // MANUAL/null；AUTOMATIC 分支不可达，仅保留手动起始按钮。
+        showStart = isIdle && triggerType == null,
         showCancel = isBusy,
         showRestart = isTerminal,
         showOpenSettings = isPrecheckError,

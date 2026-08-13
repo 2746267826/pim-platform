@@ -68,7 +68,6 @@ import com.pim.app.data.AppDatabase
 import com.pim.app.location.LocationCaptureRepository
 import com.pim.app.location.LocationCaptureState
 import com.pim.app.location.LocationSnapshot
-import com.pim.app.location.LocationSubmissionPolicy
 import com.pim.app.mobile.logs.StructuredLogEntry
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.sync.MobileSyncCoordinator
@@ -294,15 +293,11 @@ private fun LocationTab(
     onStop: () -> Unit
 ) {
     val snapshot = state.latest
-    val decision = LocationSubmissionPolicy.decide(
-        horizontalAccuracyMeters = snapshot?.horizontalAccuracyMeters,
-        autoAlreadySubmitted = state.autoSubmitted
-    )
-    val inlineReason = state.inlineReason ?: if (snapshot != null) decision.reason else null
+    val inlineReason = state.inlineReason
 
     Section(title = "手动定位") {
         StatusRow("状态", state.statusMessage)
-        StatusRow("精度规则", if (snapshot == null) "等待位置" else decision.statusLabel)
+        StatusRow("精度规则", "精度门槛 < 20m")
         StatusRow("等待时长", formatDuration(state.waitDurationMs))
         Divider()
         LocationSnapshotRows(snapshot)

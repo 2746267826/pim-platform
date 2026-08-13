@@ -86,43 +86,6 @@ class LocationCaptureRepositoryTest {
         }
     }
 
-    // --- resolveAutoSubmittedState ---
-
-    @Test
-    fun `autoSubmitted manual success stays false`() {
-        assertFalse(resolveAutoSubmittedState(current = false, isAutoSubmit = false, success = true))
-    }
-
-    @Test
-    fun `autoSubmitted auto success becomes true`() {
-        assertTrue(resolveAutoSubmittedState(current = false, isAutoSubmit = true, success = true))
-    }
-
-    @Test
-    fun `autoSubmitted auto failure stays false`() {
-        assertFalse(resolveAutoSubmittedState(current = false, isAutoSubmit = true, success = false))
-    }
-
-    @Test
-    fun `autoSubmitted manual failure stays false`() {
-        assertFalse(resolveAutoSubmittedState(current = false, isAutoSubmit = false, success = false))
-    }
-
-    @Test
-    fun `autoSubmitted already true stays true on auto success`() {
-        assertTrue(resolveAutoSubmittedState(current = true, isAutoSubmit = true, success = true))
-    }
-
-    @Test
-    fun `autoSubmitted already true stays true on manual success`() {
-        assertTrue(resolveAutoSubmittedState(current = true, isAutoSubmit = false, success = true))
-    }
-
-    @Test
-    fun `autoSubmitted already true stays true on failure`() {
-        assertTrue(resolveAutoSubmittedState(current = true, isAutoSubmit = true, success = false))
-    }
-
     @Test
     fun `request failure state ends capturing`() {
         val state = applyLocationRequestFailure(

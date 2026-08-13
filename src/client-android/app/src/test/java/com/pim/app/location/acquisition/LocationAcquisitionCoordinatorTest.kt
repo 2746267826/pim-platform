@@ -968,6 +968,71 @@ class LocationAcquisitionCoordinatorTest {
     }
 
     @Test
+    fun `stream first fix duplicating the warm-up point is skipped`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        coordinator.startAutomaticStream(automaticContext)
+        runner.waitForAcquire(0)
+        runner.emitCandidate(aSnapshot) // 预热接受并入库（timeMillis=100）
+        runner.complete(LocationEngineResult(
+            sessionId = runner.acquiredRequest!!.sessionId,
+            bestLocation = aSnapshot,
+            completion = LocationEngineCompletion.TimedOut
+        ), index = 0)
+        runCurrent()
+        assertEquals(1, operations.enqueueCount)
+
+        runner.waitForStreamStart()
+        // GMS 对全新请求立即回调最近缓存位置：与预热点同 recordedAt → 跳过
+        runner.emitStreamCandidate(aSnapshot)
+        runCurrent()
+        assertEquals(1, operations.enqueueCount)
+        assertEquals(0, operations.recordDroppedCount)
+
+        // 真正的新 fix（时间差远超 2s）正常入库
+        runner.emitStreamCandidate(aSnapshot.copy(timeMillis = 100_000L))
+        runCurrent()
+        assertEquals(2, operations.enqueueCount)
+        coordinator.stopAutomaticStream()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `re-registration immediate cached fix near the last recorded fix is skipped`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        coordinator.startAutomaticStream(automaticContext)
+        runner.waitForAcquire(0)
+        runner.complete(LocationEngineResult(
+            sessionId = runner.acquiredRequest!!.sessionId,
+            bestLocation = null,
+            completion = LocationEngineCompletion.TimedOut
+        ), index = 0)
+        runCurrent()
+        runner.waitForStreamStart()
+
+        runner.emitStreamCandidate(aSnapshot.copy(timeMillis = 10_000L))
+        runCurrent()
+        assertEquals(1, operations.enqueueCount)
+
+        // 间隔变化触发重注册：新流的立即回调是 0.5s 前的缓存 fix → 跳过
+        coordinator.updateAutomaticStream(automaticContext.copy(requestIntervalMillis = 30_000L))
+        runCurrent()
+        runner.waitForStreamStart()
+        runner.emitStreamCandidate(aSnapshot.copy(timeMillis = 10_500L))
+        runCurrent()
+        assertEquals(1, operations.enqueueCount)
+
+        runner.emitStreamCandidate(aSnapshot.copy(timeMillis = 40_000L))
+        runCurrent()
+        assertEquals(2, operations.enqueueCount)
+        coordinator.stopAutomaticStream()
+        advanceUntilIdle()
+    }
+
+    @Test
     fun `manual one-shot can run while the automatic stream is active`() = runTest {
         createCoordinator(this)
         prerequisiteChecker.ready()

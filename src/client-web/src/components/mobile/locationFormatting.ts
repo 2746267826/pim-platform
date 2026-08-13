@@ -71,6 +71,7 @@ export function qualityFlagLabel(flag: string | null | undefined) {
   if (normalized === 'rejected-points') return '包含拒绝点';
   if (normalized === 'large-gap') return '存在时间缺口';
   if (normalized === 'single-point') return '单点片段';
+  if (normalized === 'jump-point') return '跳点';
   if (normalized === 'low-accuracy') return '低精度';
   if (normalized === 'no-usable-points') return '无可用点';
   return flag || '正常';

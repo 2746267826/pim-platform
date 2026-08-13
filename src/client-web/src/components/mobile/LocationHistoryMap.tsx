@@ -12,7 +12,7 @@ export interface LocationHistoryMapProps {
   tracks: MobileLocationTrack[];
   selectedSegmentId?: string | null;
   selectedPointId?: string | null;
-  onSelectSegment?: (segmentId: string) => void;
+  onSelectSegment?: (segmentId: string | null) => void;
   onSelectPoint?: (pointId: string) => void;
 }
 

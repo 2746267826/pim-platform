@@ -45,13 +45,17 @@ function SegmentStats({ segment }: { segment: MobileLocationSegment }) {
 }
 
 export default function LocationSegmentDetail({ tracks, selectedSegmentId }: LocationSegmentDetailProps) {
-  const segment = allSegments(tracks).find(item => item.id === selectedSegmentId) ?? fallbackSegment(tracks);
+  const segment = selectedSegmentId
+    ? allSegments(tracks).find(item => item.id === selectedSegmentId) ?? fallbackSegment(tracks)
+    : null;
 
   if (!segment) {
     return (
       <section className="rounded-md border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-slate-950">选中片段</h2>
-        <p className="mt-3 text-sm text-slate-500">当前范围没有可展示的轨迹片段。</p>
+        <p className="mt-3 text-sm text-slate-500">
+          {selectedSegmentId ? '当前范围没有可展示的轨迹片段。' : '在地图上点击轨迹或停留点以查看片段详情。'}
+        </p>
       </section>
     );
   }

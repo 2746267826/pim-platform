@@ -294,6 +294,21 @@ textarea {
   box-shadow: 0 0 0 6px rgba(225, 29, 72, 0.15), 0 4px 12px rgba(225, 29, 72, 0.35);
 }
 
+.pim-location-marker-stay span {
+  width: 24px;
+  height: 24px;
+  background: #0d9488;
+  box-shadow: 0 0 0 5px rgba(13, 148, 136, 0.18), 0 4px 12px rgba(13, 148, 136, 0.35);
+}
+
+.pim-location-marker-jump span {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #ffffff;
+  background: #94a3b8;
+  box-shadow: 0 2px 6px rgba(100, 116, 139, 0.35);
+}
+
 @media (max-width: 760px) {
   .pim-shell {
     height: auto;

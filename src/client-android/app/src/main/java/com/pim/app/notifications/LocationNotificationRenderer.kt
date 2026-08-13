@@ -19,7 +19,9 @@ data class LocationNotificationState(
     val lastAccuracyText: String,
     val pendingUploadTotal: Int,
     val apiState: String,
-    val lastDroppedReason: String?
+    val lastDroppedReason: String?,
+    val highSpeedActive: Boolean = false,
+    val highSpeedElapsedSeconds: Long = 0L
 )
 
 data class CollectionControlAction(
@@ -39,6 +41,9 @@ object LocationNotificationRenderer {
     const val NOTIFICATION_ID = 7101
 
     fun collapsedText(state: LocationNotificationState): String {
+        if (state.highSpeedActive) {
+            return "高速轨迹记录中 · ${elapsedText(state.highSpeedElapsedSeconds)}"
+        }
         return listOf(
             modeLabel(state.mode),
             state.nextExpectedLocationText,
@@ -49,6 +54,15 @@ object LocationNotificationRenderer {
     }
 
     fun expandedText(state: LocationNotificationState): String {
+        if (state.highSpeedActive) {
+            return buildList {
+                add("策略：高速轨迹模式（2.5s 密集采样）")
+                add("已记录：${elapsedText(state.highSpeedElapsedSeconds)}")
+                add("最近位置：${state.lastAcceptedLocationText}，精度 ${state.lastAccuracyText}")
+                add("待上传 ${state.pendingUploadTotal}，${apiStateLabel(state.apiState)}")
+                state.lastDroppedReason?.let { add("最近丢弃：$it") }
+            }.joinToString("\n")
+        }
         return buildList {
             add("策略：${modeLabel(state.mode)}")
             add("下次定位：${state.nextExpectedLocationText}")
@@ -56,6 +70,11 @@ object LocationNotificationRenderer {
             add("待上传 ${state.pendingUploadTotal}，${apiStateLabel(state.apiState)}")
             state.lastDroppedReason?.let { add("最近丢弃：$it") }
         }.joinToString("\n")
+    }
+
+    internal fun elapsedText(seconds: Long): String {
+        if (seconds < 60L) return "${seconds} 秒"
+        return "${seconds / 60} 分 ${seconds % 60} 秒"
     }
 
     private fun apiStateLabel(apiState: String): String {

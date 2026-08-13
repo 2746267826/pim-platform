@@ -14,7 +14,7 @@ import kotlin.math.sqrt
  * - 防抖态 STILL → Still
  * - Running/OnBicycle/InVehicle 保留枚举但不产生（二期细分）
  */
-class SelfMotionEvaluator(
+open class SelfMotionEvaluator(
     private val windowSizeSamples: Int = 60,
     private val windowDurationMillis: Long = 3_000L,
     private val movingDebounceMillis: Long = 5_000L,
@@ -76,7 +76,7 @@ class SelfMotionEvaluator(
      * 清空全部累计状态回到初始 Unknown。服务重启后调用，避免停机间隔被
      * 计入防抖累计（否则短时拿起手机即可绕过 5s/20s 双防抖）。
      */
-    fun reset() {
+    open fun reset() {
         magnitudes.clear()
         lastWindowAtMillis = null
         movingStreakMillis = 0L

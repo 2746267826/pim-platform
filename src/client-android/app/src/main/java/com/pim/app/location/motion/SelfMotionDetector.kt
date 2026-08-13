@@ -32,6 +32,7 @@ class SelfMotionDetector(
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
 
     private var lastSignal = MotionSignal.Unknown
+    private var started = false
 
     private val triggerListener = object : TriggerEventListener() {
         override fun onTrigger(event: TriggerEvent?) {
@@ -43,18 +44,31 @@ class SelfMotionDetector(
         }
     }
 
+    /**
+     * 幂等启动：重复调用不会重置检测状态（服务循环每分钟级调用一次）。
+     * 只有 stop() 之后的重新 start() 才会 [SelfMotionEvaluator.reset]。
+     */
     fun start() {
+        if (started) return
+        started = true
         evaluator.reset()
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
         }
-        sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        // Android 10+ 上步数传感器需要 ACTIVITY_RECOGNITION 权限，无权限时
+        // registerListener 直接抛 SecurityException：与重大运动传感器一致，
+        // 权限被拒时优雅降级（仅加速度计仍工作）。
+        runCatching {
+            sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)?.let {
+                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+            }
         }
         rearmSignificantMotion()
     }
 
     fun stop() {
+        if (!started) return
+        started = false
         sensorManager.unregisterListener(this)
         runCatching {
             sensorManager.getDefaultSensor(Sensor.TYPE_SIGNIFICANT_MOTION)?.let { sensor ->

@@ -321,7 +321,7 @@ class ForegroundLocationService : Service() {
         queueObservationJob = null
         scheduleRefreshJob?.cancel()
         snapshotCollectJob?.cancel()
-        runCatching { motionSignalRepository.unregisterActivityTransitions() }
+        runCatching { motionSignalRepository.unregister() }
         cancelActiveAutomaticSession()
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
@@ -496,7 +496,7 @@ class ForegroundLocationService : Service() {
             )
         )
         refreshScheduleWindows()
-        motionSignalRepository.registerActivityTransitions()
+        motionSignalRepository.register()
         observeQueueStatus()
     }
 
@@ -505,7 +505,7 @@ class ForegroundLocationService : Service() {
         automaticLoopJob = scope.launch {
             while (trackingSettingsStore.read().continuousCollectionEnabled) {
                 refreshScheduleWindows()
-                motionSignalRepository.registerActivityTransitions()
+                motionSignalRepository.register()
                 applyScheduleSnapshot(scheduleWindowRepository.snapshotForCurrentServer())
                 val decision = recomputePolicyDecision()
                 applyDecision(decision)

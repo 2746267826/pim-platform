@@ -55,10 +55,6 @@
             android:exported="false" />
 
         <receiver
-            android:name=".location.motion.MotionTransitionReceiver"
-            android:exported="false" />
-
-        <receiver
             android:name=".recovery.StartupRecoveryReceiver"
             android:exported="false">
             <intent-filter>

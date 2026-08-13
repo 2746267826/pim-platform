@@ -294,6 +294,7 @@ export interface MobileLocationPathPoint {
   recordedAtUtc?: string | null;
   horizontalAccuracyMeters?: number | null;
   quality?: MobileLocationQuality | string | null;
+  qualityFlags?: string[] | null;
 }
 
 export type MobileLocationSegmentKind = 'move' | 'stay' | 'gap' | 'low-confidence' | string;

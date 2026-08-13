@@ -39,6 +39,7 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
   const [includeRejected, setIncludeRejected] = useState(urlFilters.includeRejected);
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
+  const [selectionCleared, setSelectionCleared] = useState(false);
 
   const utcRange = useMemo(
     () => toMobileAnalyticsUtcRange({ startDate: rangeStartDate, endDate: rangeEndDate }),
@@ -80,9 +81,12 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
 
   const tracks = useMemo(() => tracksQuery.data ?? [], [tracksQuery.data]);
   const segments = useMemo(() => tracks.flatMap(track => track.segments), [tracks]);
-  const effectiveSelectedSegmentId = selectedSegmentId && segments.some(segment => segment.id === selectedSegmentId)
-    ? selectedSegmentId
-    : segments[0]?.id ?? null;
+  const effectiveSelectedSegmentId = useMemo(() => {
+    if (selectedSegmentId && segments.some(segment => segment.id === selectedSegmentId)) {
+      return selectedSegmentId;
+    }
+    return selectionCleared ? null : segments[0]?.id ?? null;
+  }, [selectedSegmentId, segments, selectionCleared]);
 
   const cursorStack = useRef<string[]>([]);
   const [pageIndex, setPageIndex] = useState(0);
@@ -151,6 +155,7 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
     setRangeStartDate(range.startDate);
     setRangeEndDate(range.endDate);
     setSelectedSegmentId(null);
+    setSelectionCleared(false);
     resetPagination();
     syncUrl(range.shortcut, range.startDate, range.endDate, selectedDeviceId, maxAccuracyMeters, includeRejected);
   }
@@ -160,6 +165,7 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
     setRangeStartDate(range.startDate);
     setRangeEndDate(range.endDate);
     setSelectedSegmentId(null);
+    setSelectionCleared(false);
     resetPagination();
     syncUrl('custom', range.startDate, range.endDate, selectedDeviceId, maxAccuracyMeters, includeRejected);
   }
@@ -177,6 +183,7 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
     const next = Math.max(1, Math.round(value));
     setMaxAccuracyMeters(next);
     setSelectedSegmentId(null);
+    setSelectionCleared(false);
     resetPagination();
     syncUrl(rangeShortcut, rangeStartDate, rangeEndDate, selectedDeviceId, next, includeRejected);
   }
@@ -184,6 +191,7 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
   function updateDevice(value: string) {
     setSelectedDeviceId(value);
     setSelectedSegmentId(null);
+    setSelectionCleared(false);
     resetPagination();
     syncUrl(rangeShortcut, rangeStartDate, rangeEndDate, value, maxAccuracyMeters, includeRejected);
   }
@@ -191,6 +199,7 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
   function updateIncludeRejected(value: boolean) {
     setIncludeRejected(value);
     setSelectedSegmentId(null);
+    setSelectionCleared(false);
     resetPagination();
     syncUrl(rangeShortcut, rangeStartDate, rangeEndDate, selectedDeviceId, maxAccuracyMeters, value);
   }
@@ -214,8 +223,9 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
     setSelectedPointId(null);
   }
 
-  function handleSegmentSelect(segmentId: string) {
+  function handleSegmentSelect(segmentId: string | null) {
     setSelectedSegmentId(segmentId);
+    setSelectionCleared(segmentId === null);
     resetPagination();
   }
 

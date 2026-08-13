@@ -38,7 +38,7 @@ export interface HistoricalLocationDashboardProps {
   onMaxAccuracyChange: (value: number) => void;
   onIncludeRejectedChange: (value: boolean) => void;
   onRefresh: () => void;
-  onSelectSegment: (segmentId: string) => void;
+  onSelectSegment: (segmentId: string | null) => void;
   onSelectPoint: (pointId: string) => void;
   onRawPointsPreviousPage: () => void;
   onRawPointsNextPage: () => void;

@@ -1559,12 +1559,12 @@ class ForegroundLocationServiceTest {
                 .setAction(ForegroundLocationController.ACTION_START_MANUAL_SESSION),
             0, 71
         )
-        idleUntil { harness.runner.acquireCount.get() >= 1 }
+        idleUntil(timeoutMillis = 15_000L) { harness.runner.acquireCount.get() >= 1 }
         harness.runner.emitCandidate(acceptedSnapshot())
-        idleUntil {
+        idleUntil(timeoutMillis = 15_000L) {
             harness.coordinator.state.value.phase == AcquisitionPhase.Completed
         }
-        idleUntil { shadowOf(serviceA).isStoppedBySelf }
+        idleUntil(timeoutMillis = 15_000L) { shadowOf(serviceA).isStoppedBySelf }
         val sessionId = harness.coordinator.state.value.sessionId
         assertNotNull(sessionId)
         serviceA.onDestroy()

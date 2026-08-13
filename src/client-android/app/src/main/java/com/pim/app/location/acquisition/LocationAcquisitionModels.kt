@@ -50,12 +50,15 @@ data class LocationAcquisitionState(
 }
 
 /**
- * 自动常驻流状态：流是否注册、当前间隔、最近一次 fix 与质量标记。
+ * 自动常驻流状态：流是否注册、当前间隔与上下文标注、最近一次 fix 与质量标记。
  * 手动一次性会话状态走 [LocationAcquisitionState]，两者互不干扰。
  */
 data class AutomaticStreamState(
     val active: Boolean = false,
     val requestIntervalMillis: Long = 0L,
+    val policyMode: String? = null,
+    val scheduleLowFrequency: Boolean? = null,
+    val motionSignal: String? = null,
     val latestFix: LocationSnapshot? = null,
     val latestQualityFlags: Set<String> = emptySet(),
     val lastError: String? = null

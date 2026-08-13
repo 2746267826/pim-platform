@@ -164,12 +164,11 @@ class ForegroundLocationService : Service() {
                 val cancelled = locationAcquisitionCoordinator.cancelCurrentSession(sessionId)
                 if (!cancelled) {
                     // Fail-closed: a missing/stale/wrong session id (or a
-                    // non-cancellable phase such as Enqueuing) must not stop a
-                    // valid current session, remove the 7101 foreground
-                    // notification, or induce onDestroy() to cancel the valid
-                    // session. Leave everything untouched; the owning terminal
-                    // waiter (if any) retires this instance's foreground when
-                    // its session ends.
+                    // non-cancellable terminal phase) must not stop a valid
+                    // current session, remove the 7101 foreground notification,
+                    // or induce onDestroy() to cancel the valid session. Leave
+                    // everything untouched; the owning terminal waiter (if any)
+                    // retires this instance's foreground when its session ends.
                     return START_STICKY
                 }
                 // manual-only 实例（无自动循环且连续采集未启用）可能没有终结
@@ -208,15 +207,14 @@ class ForegroundLocationService : Service() {
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
             nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
         }
+        locationAcquisitionCoordinator.onRecorded = null
         if (!explicitTeardown) {
             // Unexpected service destruction: cancel only the manual session this
             // instance actually started AND that is still in a cancellable
-            // capture phase. An owned AwaitingManualSubmit result must be
-            // preserved — the user may still submit or cancel it via the UI, and
-            // the terminal waiter clears ownership once it resumes. Sessions
-            // started by another service instance, the UI/controller or an
-            // unrelated ACTION_SYNC_NOW teardown are never this instance's to
-            // cancel.
+            // capture phase. An owned terminal result must be preserved — the
+            // waiter clears ownership once the session ends. Sessions started
+            // by another service instance, the UI/controller or an unrelated
+            // ACTION_SYNC_NOW teardown are never this instance's to cancel.
             val ownedId = ownedManualSessionId
             if (ownedId != null) {
                 val current = locationAcquisitionCoordinator.state.value
@@ -325,6 +323,8 @@ class ForegroundLocationService : Service() {
         snapshotCollectJob?.cancel()
         runCatching { motionSignalRepository.unregister() }
         locationAcquisitionCoordinator.stopAutomaticStream()
+        // 死实例的回调不得再发通知/写共享 runtime 状态
+        locationAcquisitionCoordinator.onRecorded = null
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 

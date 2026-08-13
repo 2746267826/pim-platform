@@ -897,6 +897,77 @@ class LocationAcquisitionCoordinatorTest {
     }
 
     @Test
+    fun `stream job ending in error resets active so the next registration recovers`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        coordinator.startAutomaticStream(automaticContext)
+        runner.waitForAcquire(0)
+        runner.complete(LocationEngineResult(
+            sessionId = runner.acquiredRequest!!.sessionId,
+            bestLocation = null,
+            completion = LocationEngineCompletion.TimedOut
+        ), index = 0)
+        advanceUntilIdle()
+        runner.waitForStreamStart()
+
+        // 流注册后立即失败（如 GMS 抖动）：job 结束必须复位 active，
+        // 否则 service 下轮看到 isAutomaticStreamActive()==true 永不重注册。
+        runner.failStreamWith = IllegalStateException("simulated stream failure")
+        runner.emitStreamCandidate(aSnapshot)
+        runCurrent()
+
+        assertFalse(coordinator.isAutomaticStreamActive())
+        assertNotNull(coordinator.streamState.value.lastError)
+        runner.waitForStreamCancelled()
+
+        // 下一轮注册（service 循环路径）重新走预热+常驻流，自愈成功
+        runner.failStreamWith = null
+        coordinator.startAutomaticStream(automaticContext)
+        runner.waitForAcquire(1)
+        runner.complete(LocationEngineResult(
+            sessionId = runner.acquiredRequest!!.sessionId,
+            bestLocation = null,
+            completion = LocationEngineCompletion.TimedOut
+        ), index = 1)
+        advanceUntilIdle()
+        runner.waitForStreamStart()
+        assertTrue(coordinator.isAutomaticStreamActive())
+        assertNull(coordinator.streamState.value.lastError)
+        coordinator.stopAutomaticStream()
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `updateAutomaticStream with the same interval but changed context re-registers`() = runTest {
+        createCoordinator(this)
+        prerequisiteChecker.ready()
+
+        coordinator.startAutomaticStream(automaticContext)
+        runner.waitForAcquire(0)
+        runner.complete(LocationEngineResult(
+            sessionId = runner.acquiredRequest!!.sessionId,
+            bestLocation = null,
+            completion = LocationEngineCompletion.TimedOut
+        ), index = 0)
+        advanceUntilIdle()
+        runner.waitForStreamStart()
+        assertEquals(1, runner.streamCount.get())
+
+        // 间隔不变但运动标注变化（如 Walking→Moving）：必须重注册，
+        // 否则流内 fix 的 rawJson 携带过期 motionSignal
+        coordinator.updateAutomaticStream(automaticContext.copy(motionSignal = "Walking"))
+        advanceUntilIdle()
+
+        runner.waitForStreamStart()
+        assertEquals(2, runner.streamCount.get())
+        assertEquals(60_000L, runner.streamRequest!!.intervalMillis)
+        assertEquals("Walking", coordinator.streamState.value.motionSignal)
+        coordinator.stopAutomaticStream()
+        advanceUntilIdle()
+    }
+
+    @Test
     fun `manual one-shot can run while the automatic stream is active`() = runTest {
         createCoordinator(this)
         prerequisiteChecker.ready()
@@ -974,6 +1045,8 @@ class FakeLocationAcquisitionRunner : LocationAcquisitionRunner {
 
     private val acquireCounter = java.util.concurrent.atomic.AtomicInteger(0)
     val acquireCount: java.util.concurrent.atomic.AtomicInteger get() = acquireCounter
+    private val streamCounter = java.util.concurrent.atomic.AtomicInteger(0)
+    val streamCount: java.util.concurrent.atomic.AtomicInteger get() = streamCounter
 
     class AcquireSession(
         val request: LocationEngineRequest,
@@ -1033,14 +1106,19 @@ class FakeLocationAcquisitionRunner : LocationAcquisitionRunner {
         }
     }
 
+    var failStreamWith: Exception? = null
+
     override suspend fun stream(
         request: LocationUpdateRequest,
         onCandidate: suspend (LocationSnapshot) -> Unit
     ) {
         streamRequestRef.set(request)
+        streamCounter.incrementAndGet()
         streamStarted.complete(Unit)
+        failStreamWith?.let { throw it }
         try {
             for (snapshot in streamCandidates) {
+                failStreamWith?.let { throw it }
                 lastStreamCandidateRef.set(snapshot)
                 onCandidate(snapshot)
             }

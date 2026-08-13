@@ -89,19 +89,23 @@ class LocationAcquisitionCoordinator @Inject constructor(
     // ─── 手动一次性采集 ─────────────────────────────────────────
 
     fun startManualSession(): SessionStartResult {
-        // Restart semantics: an in-flight manual one-shot is replaced by the new one.
-        cancelCurrentSession(_state.value.sessionId)
-
+        // Check prerequisites before replacing: a blocked restart must not
+        // destroy the in-flight manual one-shot.
         when (val precheck = prerequisiteChecker.check(TriggerType.MANUAL)) {
             is LocationPrerequisiteResult.Blocked -> {
-                _state.value = LocationAcquisitionState(
-                    phase = AcquisitionPhase.Idle,
-                    errorReason = precheck.reason
-                )
+                if (!_state.value.isBusy) {
+                    _state.value = LocationAcquisitionState(
+                        phase = AcquisitionPhase.Idle,
+                        errorReason = precheck.reason
+                    )
+                }
                 return SessionStartResult.Rejected(precheck.reason)
             }
             is LocationPrerequisiteResult.Ready -> {}
         }
+
+        // Restart semantics: an in-flight manual one-shot is replaced by the new one.
+        cancelCurrentSession(_state.value.sessionId)
 
         val sessionId = uuidGenerator()
         startSession(sessionId, TriggerType.MANUAL, null)
@@ -148,7 +152,14 @@ class LocationAcquisitionCoordinator @Inject constructor(
             startStreamJob(context, warmUp = true)
             return true
         }
-        if (_streamState.value.requestIntervalMillis != context.requestIntervalMillis) {
+        val current = _streamState.value
+        // 间隔或上下文标注（policyMode/scheduleLowFrequency/motionSignal）任一
+        // 变化都重注册，避免流内 fix 携带过期元数据。
+        if (current.requestIntervalMillis != context.requestIntervalMillis ||
+            current.policyMode != context.policyMode ||
+            current.scheduleLowFrequency != context.scheduleLowFrequency ||
+            current.motionSignal != context.motionSignal
+        ) {
             startStreamJob(context, warmUp = false)
         }
         return true
@@ -170,6 +181,9 @@ class LocationAcquisitionCoordinator @Inject constructor(
                 it.copy(
                     active = true,
                     requestIntervalMillis = context.requestIntervalMillis,
+                    policyMode = context.policyMode,
+                    scheduleLowFrequency = context.scheduleLowFrequency,
+                    motionSignal = context.motionSignal,
                     lastError = null
                 )
             }
@@ -189,6 +203,13 @@ class LocationAcquisitionCoordinator @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 _streamState.update { it.copy(lastError = e.message) }
+            } finally {
+                // 流 job 结束（异常/被替换外的正常终结）必须复位 active，
+                // 否则 service 下轮看到 isAutomaticStreamActive()==true 永不
+                // 重注册，自动采集静默死亡。被替换的旧 job 不得覆盖新 job。
+                if (streamJob === job) {
+                    _streamState.update { it.copy(active = false) }
+                }
             }
         }
         job = newJob

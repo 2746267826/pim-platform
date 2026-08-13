@@ -61,11 +61,12 @@ export default function HistoricalLocationLeafletMap({
 
   return (
     <MapContainer center={firstPosition(tracks)} zoom={segments.length > 0 ? 13 : 5} className="h-full min-h-[420px] w-full">
-      {/* 瓦片走同域 /tiles 中转（生产由服务器 nginx 反代 tile.openstreetmap.org），
-          避免直连 OSM 官方瓦片在国内不稳定；根相对路径不依赖部署域名。 */}
+      {/* 瓦片走同域 /tiles 中转（生产由服务器 nginx 反代 tile.openstreetmap.org，
+          本地开发由 Vite proxy 转发），避免直连 OSM 官方瓦片在国内不稳定；
+          BASE_URL 拼接保证子路径部署时路径仍正确。 */}
       <TileLayer
         attribution="&copy; OpenStreetMap contributors"
-        url="/tiles/{z}/{x}/{y}.png"
+        url={`${import.meta.env.BASE_URL}tiles/{z}/{x}/{y}.png`}
       />
       {segments.map(segment => {
         const selected = segment.id === selectedSegmentId;

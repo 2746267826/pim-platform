@@ -87,6 +87,7 @@ object LocationNotificationRenderer {
         LocationPolicyMode.MotionObservation -> "运动观察"
         LocationPolicyMode.MovementRecovery -> "移动恢复"
         LocationPolicyMode.SyncFallback -> "同步兜底"
+        LocationPolicyMode.HighSpeed -> "高速轨迹"
     }
 
     private fun ensureChannel(context: Context) {

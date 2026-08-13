@@ -1,13 +1,21 @@
 package com.pim.app.location.policy
 
+import android.os.SystemClock
+import com.pim.app.location.highspeed.HighSpeedMode
+import com.pim.app.location.highspeed.HighSpeedTracker
+
 class LocationPolicyEngine(
-    private val policy: TrackingPolicy
+    private val policy: TrackingPolicy,
+    val highSpeedTracker: HighSpeedTracker = HighSpeedTracker(
+        nowElapsedRealtimeMillis = { SystemClock.elapsedRealtime() }
+    )
 ) {
     private var activeScheduleKey: ScheduleKey? = null
     private var scheduleAnchorLocation: PolicyLocation? = null
     private var movementRecoveryActive: Boolean = false
 
     fun reduce(input: LocationPolicyInput): PolicyDecision {
+        highSpeedTracker.observe(input.speedMetersPerSecond)
         if (!input.collectionEnabled) {
             resetScheduleState()
             return decision(
@@ -18,6 +26,11 @@ class LocationPolicyEngine(
                 scheduleLowFrequency = false,
                 nextExpectedLocationAtMillis = Long.MAX_VALUE
             )
+        }
+
+        // 优先级：高速档 > 常规策略档 > 日程降频
+        if (highSpeedTracker.mode != HighSpeedMode.Inactive) {
+            return highSpeedDecision(input.nowMillis)
         }
 
         val activeSchedule = input.currentScheduleWindow?.takeIf {
@@ -102,6 +115,18 @@ class LocationPolicyEngine(
             reason = "检测到运动状态：${motionSignal.displayName}",
             scheduleLowFrequency = false
         )
+
+    private fun highSpeedDecision(nowMillis: Long): PolicyDecision = decision(
+        mode = LocationPolicyMode.HighSpeed,
+        intervalMillis = TrackingIntervalBounds.HIGH_SPEED_INTERVAL_MILLIS,
+        nowMillis = nowMillis,
+        reason = when (highSpeedTracker.mode) {
+            HighSpeedMode.Active -> "高速轨迹模式：持续高速运动（≥8km/h）"
+            HighSpeedMode.Accumulating -> "检测到高速运动，高速轨迹确认中"
+            HighSpeedMode.Inactive -> "高速轨迹模式"
+        },
+        scheduleLowFrequency = false
+    )
 
     private fun decision(
         mode: LocationPolicyMode,

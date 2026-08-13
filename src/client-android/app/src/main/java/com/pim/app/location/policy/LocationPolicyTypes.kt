@@ -6,7 +6,8 @@ enum class LocationPolicyMode {
     ScheduleLowFrequency,
     MotionObservation,
     MovementRecovery,
-    SyncFallback
+    SyncFallback,
+    HighSpeed
 }
 
 object TrackingIntervalBounds {
@@ -16,6 +17,7 @@ object TrackingIntervalBounds {
     const val SCHEDULE_MAX_MILLIS = 3_600_000L
     const val MOVEMENT_MIN_MILLIS = 30_000L
     const val MOVEMENT_MAX_MILLIS = 300_000L
+    const val HIGH_SPEED_INTERVAL_MILLIS = 2_500L
 }
 
 fun TrackingPolicy.movementIntervalFor(signal: MotionSignal): Long = when (signal) {
@@ -76,5 +78,6 @@ data class LocationPolicyInput(
     val nowMillis: Long,
     val collectionEnabled: Boolean,
     val currentScheduleWindow: ScheduleWindow? = null,
-    val motionSignal: MotionSignal = MotionSignal.Unknown
+    val motionSignal: MotionSignal = MotionSignal.Unknown,
+    val speedMetersPerSecond: Float? = null
 )

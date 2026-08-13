@@ -62,4 +62,35 @@ class MotionSignalRepositoryTest {
         )
         repository.unregister()
     }
+
+    @Test
+    fun `permission restore clears the issue immediately on the next register`() {
+        shadowOf(context).denyPermissions(Manifest.permission.ACTIVITY_RECOGNITION)
+        val repository = MotionSignalRepository(context)
+        repository.register()
+        assertEquals("activity-recognition-missing", repository.status.value.issueCode)
+
+        // 权限恢复：下一轮 register 立即清除残留 issue，不依赖信号变化
+        shadowOf(context).grantPermissions(Manifest.permission.ACTIVITY_RECOGNITION)
+        repository.register()
+
+        assertNull(repository.status.value.issueCode)
+        repository.unregister()
+    }
+
+    @Test
+    fun `permission denied writes the issue immediately regardless of the current signal`() {
+        shadowOf(context).grantPermissions(Manifest.permission.ACTIVITY_RECOGNITION)
+        val repository = MotionSignalRepository(context)
+        repository.register()
+        assertNull(repository.status.value.issueCode)
+
+        // 信号稳定（如长期静止 Still）时权限被拒：issue 必须立即写入，
+        // 否则 UI 看不到"健身运动权限未开启"提示
+        shadowOf(context).denyPermissions(Manifest.permission.ACTIVITY_RECOGNITION)
+        repository.register()
+
+        assertEquals("activity-recognition-missing", repository.status.value.issueCode)
+        repository.unregister()
+    }
 }

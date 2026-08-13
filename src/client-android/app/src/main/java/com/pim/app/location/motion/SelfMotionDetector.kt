@@ -25,11 +25,12 @@ class SelfMotionDetector(
     private val evaluator: SelfMotionEvaluator = SelfMotionEvaluator(
         nowElapsedRealtimeMillis = { SystemClock.elapsedRealtime() }
     ),
-    private val onSignal: (MotionSignal) -> Unit = {}
+    private val onSignal: (MotionSignal) -> Unit = {},
+    sensorManager: SensorManager =
+        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
 ) : SensorEventListener {
 
-    private val sensorManager =
-        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    private val sensorManager = sensorManager
 
     private var lastSignal = MotionSignal.Unknown
     private var started = false
@@ -47,17 +48,27 @@ class SelfMotionDetector(
     /**
      * 幂等启动：重复调用不会重置检测状态（服务循环每分钟级调用一次）。
      * 只有 stop() 之后的重新 start() 才会 [SelfMotionEvaluator.reset]。
+     *
+     * 传感器注册不做 started 短路：SensorManager 对同一 (listener, sensor)
+     * 重复注册是幂等的（内部去重，仅更新 delay），而步数/重大运动传感器在
+     * 权限缺失时注册会失败（SecurityException 被吞掉）；若注册被短路挡住，
+     * 权限恢复后下一轮 register 将永远不再尝试注册，步数检测直到服务重启
+     * 才能恢复。因此每次 start() 都重新尝试注册全部传感器。
      */
     fun start() {
-        if (started) return
+        val freshStart = !started
         started = true
-        evaluator.reset()
+        if (freshStart) {
+            evaluator.reset()
+            lastSignal = MotionSignal.Unknown
+        }
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
         }
         // Android 10+ 上步数传感器需要 ACTIVITY_RECOGNITION 权限，无权限时
         // registerListener 直接抛 SecurityException：与重大运动传感器一致，
-        // 权限被拒时优雅降级（仅加速度计仍工作）。
+        // 权限被拒时优雅降级（仅加速度计仍工作），权限恢复后由下一轮
+        // start() 重新尝试注册。
         runCatching {
             sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)?.let {
                 sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)

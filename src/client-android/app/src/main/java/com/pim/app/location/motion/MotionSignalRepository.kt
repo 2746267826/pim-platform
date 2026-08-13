@@ -53,16 +53,26 @@ class MotionSignalRepository @Inject constructor(
     )
 
     fun register() {
-        permissionIssue = if (hasActivityRecognitionPermission()) {
+        val newIssue = if (hasActivityRecognitionPermission()) {
             null
         } else {
             ACTIVITY_RECOGNITION_MISSING_MESSAGE
         }
-        if (permissionIssue != null && _status.value.signal == MotionSignal.Unknown) {
+        permissionIssue = newIssue
+        // 权限状态与状态流携带的 issue 不一致时立即同步，不依赖信号变化：
+        // 权限被拒但信号稳定（如长期静止）时 UI 也能看到提示；
+        // 权限恢复后残留 issue 立即清除。
+        val current = _status.value
+        val issueStale = if (newIssue == null) {
+            current.issueCode != null
+        } else {
+            current.issueCode != ACTIVITY_RECOGNITION_MISSING_CODE
+        }
+        if (issueStale) {
             _status.value = MotionSignalStatus(
-                signal = MotionSignal.Unknown,
-                issueCode = ACTIVITY_RECOGNITION_MISSING_CODE,
-                message = permissionIssue
+                signal = current.signal,
+                issueCode = if (newIssue != null) ACTIVITY_RECOGNITION_MISSING_CODE else null,
+                message = newIssue
             )
         }
         detector.start()

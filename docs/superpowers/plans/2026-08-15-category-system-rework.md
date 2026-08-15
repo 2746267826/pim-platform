@@ -96,7 +96,7 @@
 - 修改：`src/modules/Pim.Module.PcTracker/Services/PcTrackerSchemaInitializer.cs`（builtin 规则种子 SQL 按 0.3 重写；schema 初始化 SQL 保持幂等）
 - 测试：`tests/Pim.UnitTests/Services/CategoryLegacyMapperTests.cs`（新建）、`tests/Pim.UnitTests/Services/PcCategoryServiceTests.cs`（更新）
 
-- [ ] **步骤 1：写失败测试（CategoryLegacyMapper）**
+- [x] **步骤 1：写失败测试（CategoryLegacyMapper）**
 
 ```csharp
 // tests/Pim.UnitTests/Services/CategoryLegacyMapperTests.cs
@@ -147,12 +147,12 @@ public class CategoryLegacyMapperTests
 }
 ```
 
-- [ ] **步骤 2：运行确认失败**
+- [x] **步骤 2：运行确认失败**
 
 运行：`dotnet test Pim.sln --filter "FullyQualifiedName~CategoryLegacyMapperTests" --no-restore`
 预期：编译错误 `CS0103: The name 'CategoryLegacyMapper' does not exist in the current context`
 
-- [ ] **步骤 3：实现 CategoryLegacyMapper**
+- [x] **步骤 3：实现 CategoryLegacyMapper**
 
 ```csharp
 // src/modules/Pim.Module.PcTracker/Services/CategoryLegacyMapper.cs
@@ -232,12 +232,12 @@ public static class CategoryLegacyMapper
 }
 ```
 
-- [ ] **步骤 4：运行确认通过**
+- [x] **步骤 4：运行确认通过**
 
 运行：`dotnet test Pim.sln --filter "FullyQualifiedName~CategoryLegacyMapperTests" --no-restore`
 预期：PASS
 
-- [ ] **步骤 5：重写 SeedDefaultsAsync 为 7 大类**
+- [x] **步骤 5：重写 SeedDefaultsAsync 为 7 大类**
 
 将 `PcCategoryService.SeedDefaultsAsync`（`PcCategoryService.cs:126-208`）中的 27 条种子替换为：
 
@@ -262,12 +262,12 @@ public async Task SeedDefaultsAsync(CancellationToken ct)
 
 注意：`其他` 的 SortOrder=99，其余 10/20/30/40/50/60。
 
-- [ ] **步骤 6：更新 PcCategoryServiceTests 中依赖旧 27 类 seed 的断言**
+- [x] **步骤 6：更新 PcCategoryServiceTests 中依赖旧 27 类 seed 的断言**
 
 运行：`dotnet test Pim.sln --filter "FullyQualifiedName~PcCategory" --no-restore`
 按失败清单逐一修正断言（预期 seed 结果 = 7 大类）。若测试直接构造实体则不受影响。
 
-- [ ] **步骤 7：写 migration**
+- [x] **步骤 7：写 migration**
 
 在 `src/Pim.Infrastructure/Data/Migrations/` 创建 `20260815XXXXXX_UnifyCategoryDictionary.cs`（时间戳取执行时 UtcNow，格式 `yyyyMMddHHmmss`），`Up()` 内执行（必须每步用独立 `migrationBuilder.Sql`，Npgsql 语法）：
 
@@ -351,19 +351,19 @@ UPDATE pc_activity_category_rules r
 
 CASE 语句必须完整写出（禁止"同上"简写）。步骤 4 的 `split_part(...array_length...)` 表达式需在计划实现时验证；若复杂，改为简单 `CASE` 覆盖已知旧路径字面量（`'工作·编程'`、`'娱乐·游戏·单机'` 等 171 条种子中的全部 distinct 值，从 `PcTrackerSchemaInitializer.cs:273-464` 抄录）。
 
-- [ ] **步骤 8：同步 PcTrackerSchemaInitializer 的 SQL**
+- [x] **步骤 8：同步 PcTrackerSchemaInitializer 的 SQL**
 
 `PcTrackerSchemaInitializer.cs` 中：
 1. builtin 规则种子（L467-475）按 0.3 重写（VS Code/Rider→编程/折腾、Terminal→编程/折腾、Chat→聊天、Office→文档、File managers→文档、删除 Browser 行）
 2. `pc_categories` 建表 SQL 不动
 3. app_signatures 种子中的 `category_path` 旧值（`'工作·编程'` 等）同步改为新大类名（171 条，纯文本替换）
 
-- [ ] **步骤 9：全量测试**
+- [x] **步骤 9：全量测试**
 
 运行：`dotnet test Pim.sln --no-restore`
 预期：1092+ 通过（原有测试中依赖旧分类名的失败需逐一修正断言或输入数据，不许删除断言）
 
-- [ ] **步骤 10：Commit**
+- [x] **步骤 10：Commit**
 
 ```bash
 git add src/modules/Pim.Module.PcTracker/Services/CategoryLegacyMapper.cs \
@@ -427,7 +427,7 @@ public void Classify_NoSignal_ReturnsFallbackOther()
 
 注意：现有 14 个测试中 `Classify_UserRuleBeatsHeuristic` 等断言「学习」（旧常量）恰好与新字典同名，无需改；断言「编程」「沟通」「办公」等的用例改为「编程/折腾」「聊天」「文档」。`CreateContext` 辅助方法按现有文件模式复用。
 
-- [ ] **步骤 2：运行确认失败**
+- [x] **步骤 2：运行确认失败**
 
 运行：`dotnet test Pim.sln --filter "FullyQualifiedName~ActivityClassifierTests" --no-restore`
 预期：新测试 FAIL（启发式仍返回旧名「终端」「浏览」等）
@@ -598,7 +598,7 @@ public class ActivityLabelingServiceTests
 }
 ```
 
-- [ ] **步骤 2：运行确认失败**
+- [x] **步骤 2：运行确认失败**
 
 运行：`dotnet test Pim.sln --filter "FullyQualifiedName~ActivityLabelingServiceTests" --no-restore`
 预期：编译失败（类型不存在）
@@ -704,7 +704,7 @@ describe('LabelingQueue', () => {
 });
 ```
 
-- [ ] **步骤 2：运行确认失败**
+- [x] **步骤 2：运行确认失败**
 
 运行：`npm --prefix src/client-web run test -- --run LabelingQueue`
 预期：FAIL（模块不存在）

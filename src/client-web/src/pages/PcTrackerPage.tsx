@@ -17,6 +17,7 @@ import ActivityAnalysisHeatmap from '../components/pc-tracker/ActivityAnalysisHe
 import CategoryTimeline from '../components/pc-tracker/CategoryTimeline';
 import DailyActivityPanel from '../components/pc-tracker/DailyActivityPanel';
 import KeyboardHeatmap from '../components/pc-tracker/KeyboardHeatmap';
+import LabelingQueue from '../components/labeling/LabelingQueue';
 import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import PcReviewSummary from '../components/pc-tracker/PcReviewSummary';
 import ContextConfirmationPanel from '../components/pc-tracker/ContextConfirmationPanel';
@@ -303,6 +304,10 @@ export default function PcTrackerPage() {
           <KeyboardHeatmap keystats={data?.keystats || null} />
         </AnalysisCard>
       </div>
+
+      <AnalysisCard title="待打标队列" subtitle="为未分类的应用、域名和手机应用选择分类，让时间线更准确">
+        <LabelingQueue limit={20} />
+      </AnalysisCard>
 
       <ClassificationPreviewDialog
         suggestion={activeSuggestion}

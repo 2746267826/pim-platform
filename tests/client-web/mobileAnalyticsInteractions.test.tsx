@@ -3,9 +3,6 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import type {
-  MobileAppCatalogOverride,
-  MobileAppCategoryRule,
-  MobileAppCategoryRuleUpsertRequest,
   MobileDevice,
   MobileAnalyticsChart,
   MobileHeatmapBucket,
@@ -14,7 +11,6 @@ import MobileAnalyticsHeader from '../../src/client-web/src/components/mobile/Mo
 import MobileUsageHeatmap from '../../src/client-web/src/components/mobile/MobileUsageHeatmap';
 import MobileChartsGrid from '../../src/client-web/src/components/mobile/MobileChartsGrid';
 import MobileTimelineBlocks from '../../src/client-web/src/components/mobile/MobileTimelineBlocks';
-import MobileAppCatalogManager from '../../src/client-web/src/components/mobile/MobileAppCatalogManager';
 import { buildHeatmapMatrix } from '../../src/client-web/src/components/mobile/mobileHeatmapMatrix';
 import {
   buildMobileAnalyticsDateRange,
@@ -89,23 +85,6 @@ const bucket: MobileHeatmapBucket = {
   lifeCategory: '短视频/娱乐',
   foregroundSeconds: 1800,
   qualityFlags: [],
-};
-
-const override: MobileAppCatalogOverride = {
-  packageName: 'com.ss.android.ugc.aweme',
-  displayNameOverride: '抖音',
-  lifeCategory: '短视频/娱乐',
-  isSystemNoise: false,
-  hideShortEvents: true,
-};
-
-const rule: MobileAppCategoryRule = {
-  id: 'rule-1',
-  ruleType: 'package-prefix',
-  pattern: 'com.tencent.',
-  lifeCategory: '社交通讯',
-  priority: 80,
-  isEnabled: true,
 };
 
 test('default mobile analytics range is the last 7 Asia/Shanghai days', () => {
@@ -292,144 +271,6 @@ test('timeline blocks expose page and page size controls', () => {
   assert.equal(textContent(tree).includes('加载更多'), false);
 });
 
-test('app catalog manager exposes override and batch rule callbacks', () => {
-  const savedOverrides: MobileAppCatalogOverride[] = [];
-  const deletedOverrides: string[] = [];
-  const savedRules: Array<MobileAppCategoryRule | MobileAppCategoryRuleUpsertRequest> = [];
-  const deletedRules: string[] = [];
-
-  const tree = MobileAppCatalogManager({
-    overrides: [override],
-    rules: [rule],
-    isLoading: false,
-    isSaving: false,
-    onSaveOverride: value => savedOverrides.push(value),
-    onDeleteOverride: packageName => deletedOverrides.push(packageName),
-    onSaveRule: value => savedRules.push(value),
-    onDeleteRule: id => deletedRules.push(id),
-  });
-
-  const saveOverrideButton = findElement(
-    tree,
-    node => node.props?.['data-action'] === 'save-override' && node.props?.['data-package-name'] === override.packageName,
-  );
-  const deleteOverrideButton = findElement(
-    tree,
-    node => node.props?.['data-action'] === 'delete-override' && node.props?.['data-package-name'] === override.packageName,
-  );
-  const saveRuleButton = findElement(
-    tree,
-    node => node.props?.['data-action'] === 'save-rule' && node.props?.['data-rule-id'] === rule.id,
-  );
-  const deleteRuleButton = findElement(
-    tree,
-    node => node.props?.['data-action'] === 'delete-rule' && node.props?.['data-rule-id'] === rule.id,
-  );
-
-  (saveOverrideButton.props?.onClick as () => void)();
-  (deleteOverrideButton.props?.onClick as () => void)();
-  (saveRuleButton.props?.onClick as () => void)();
-  (deleteRuleButton.props?.onClick as () => void)();
-
-  assert.deepEqual(savedOverrides, [override]);
-  assert.deepEqual(deletedOverrides, [override.packageName]);
-  assert.deepEqual(savedRules, [rule]);
-  assert.deepEqual(deletedRules, [rule.id]);
-});
-
-test('app catalog manager creates new overrides and rules from forms', () => {
-  const savedOverrides: MobileAppCatalogOverride[] = [];
-  const savedRules: Array<MobileAppCategoryRule | MobileAppCategoryRuleUpsertRequest> = [];
-  let resetCount = 0;
-  const originalFormData = globalThis.FormData;
-  class FakeFormData {
-    private readonly values: Record<string, string>;
-
-    constructor(form: { __formData?: Record<string, string> }) {
-      this.values = form.__formData ?? {};
-    }
-
-    get(key: string) {
-      return this.values[key] ?? null;
-    }
-
-    has(key: string) {
-      return Object.prototype.hasOwnProperty.call(this.values, key);
-    }
-  }
-
-  (globalThis as typeof globalThis & { FormData: typeof FormData }).FormData = FakeFormData as unknown as typeof FormData;
-  try {
-    const tree = MobileAppCatalogManager({
-      overrides: [],
-      rules: [],
-      isLoading: false,
-      isSaving: false,
-      onSaveOverride: value => savedOverrides.push(value),
-      onDeleteOverride: () => undefined,
-      onSaveRule: value => savedRules.push(value),
-      onDeleteRule: () => undefined,
-    });
-
-    const createOverrideForm = findElement(tree, node => node.props?.['data-action'] === 'create-override');
-    (createOverrideForm.props?.onSubmit as (event: {
-      preventDefault: () => void;
-      currentTarget: { __formData: Record<string, string>; reset: () => void };
-    }) => void)({
-      preventDefault: () => undefined,
-      currentTarget: {
-        __formData: {
-          packageName: ' COM.EXAMPLE.APP ',
-          displayNameOverride: ' 示例应用 ',
-          lifeCategory: '学习',
-          isSystemNoise: 'on',
-          hideShortEvents: 'on',
-        },
-        reset: () => { resetCount += 1; },
-      },
-    });
-
-    const createRuleForm = findElement(tree, node => node.props?.['data-action'] === 'create-rule');
-    (createRuleForm.props?.onSubmit as (event: {
-      preventDefault: () => void;
-      currentTarget: { __formData: Record<string, string>; reset: () => void };
-    }) => void)({
-      preventDefault: () => undefined,
-      currentTarget: {
-        __formData: {
-          ruleType: 'package-prefix',
-          pattern: ' COM.TENCENT. ',
-          displayNameOverride: ' 腾讯系 ',
-          lifeCategory: '社交通讯',
-          priority: '800',
-          isEnabled: 'on',
-        },
-        reset: () => { resetCount += 1; },
-      },
-    });
-  } finally {
-    globalThis.FormData = originalFormData;
-  }
-
-  assert.deepEqual(savedOverrides, [{
-    packageName: 'com.example.app',
-    displayNameOverride: '示例应用',
-    lifeCategory: '学习',
-    isSystemNoise: true,
-    hideShortEvents: true,
-  }]);
-  assert.deepEqual(savedRules, [{
-    ruleType: 'package-prefix',
-    pattern: 'com.tencent.',
-    lifeCategory: '社交通讯',
-    priority: 800,
-    isEnabled: true,
-    displayNameOverride: '腾讯系',
-    isSystemNoise: false,
-  }]);
-  assert.equal(resetCount, 2);
-});
-
 test('mobile records page integrates analytics queries and bucket-driven shared state', () => {
   const source = readFileSync(
     path.join(process.cwd(), 'src/client-web/src/pages/MobileRecordsPage.tsx'),
@@ -443,10 +284,7 @@ test('mobile records page integrates analytics queries and bucket-driven shared 
     'getMobileAnalyticsTimelineBlocks',
     'getMobileTimelineBlockSessions',
     'getMobileSessionEvents',
-    'getMobileAppCatalogOverrides',
-    'getMobileAppCategoryRules',
-    'saveMobileAppCatalogOverride',
-    'createMobileAppCategoryRule',
+    '<LabelingQueue limit={20} />',
     "useState<MobileRangeShortcut>('7d')",
     'MOBILE_DEFAULT_TIMEZONE',
     'handleHeatmapBucketSelect',
@@ -459,11 +297,11 @@ test('mobile records page integrates analytics queries and bucket-driven shared 
     'onAppSelect={handleChartAppSelect}',
     "setPackageName('')",
     "setSelectedCategory('')",
-    'displayNameOverride: rule.displayNameOverride ?? null',
-    'isSystemNoise: rule.isSystemNoise ?? null',
   ]) {
     assert.equal(source.includes(text), true, `MobileRecordsPage should include: ${text}`);
   }
+
+  assert.equal(source.includes('MobileAppCatalogManager'), false, 'MobileRecordsPage should no longer import the removed catalog manager');
 
   assert.equal(source.includes('setSelectedBucketRange({ startUtc: bucket.bucketStartUtc, endUtc: bucket.bucketEndUtc })'), false);
   assert.equal(source.includes('setRangeStartDate(bucket.localDate)'), false);

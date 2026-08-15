@@ -667,7 +667,7 @@ git commit -m "feat: labeling queue and submit endpoints with custom categories 
 - 修改：`src/client-web/src/components/mobile/MobileAppCatalogManager.tsx`（替换为 LabelingQueue mobile 模式）
 - 测试：`src/client-web/src/components/labeling/LabelingQueue.test.tsx`（vitest）
 
-- [ ] **步骤 1：写失败测试（组件）**
+- [x] **步骤 1：写失败测试（组件）**
 
 ```tsx
 // src/client-web/src/components/labeling/LabelingQueue.test.tsx
@@ -709,7 +709,7 @@ describe('LabelingQueue', () => {
 运行：`npm --prefix src/client-web run test -- --run LabelingQueue`
 预期：FAIL（模块不存在）
 
-- [ ] **步骤 3：实现 API 客户端**
+- [x] **步骤 3：实现 API 客户端**
 
 ```ts
 // src/client-web/src/api/classificationLabeling.ts
@@ -728,7 +728,7 @@ export const submitLabel = (body: { target_type: string; target: string; categor
 
 注意：`/pc/categories/dictionary` 若现无此端点，用现有 `GET /pc/categories` 树接口展平（实现时二选一，优先加简单端点于 PcTrackerModule）。
 
-- [ ] **步骤 4：实现 LabelingQueue 组件**
+- [x] **步骤 4：实现 LabelingQueue 组件**
 
 视觉以原型 HTML 的 `q-item/q-head/q-body/chips/q-custom/q-scope` 交互为准（需求文档 §6 原型可交互打标队列），样式用现有 CSS 变量（`var(--pim-*)`）。逻辑要点：
 - 挂载时并行取 queue + dictionary
@@ -737,22 +737,22 @@ export const submitLabel = (body: { target_type: string; target: string; categor
 - 提交成功 → 该项标记完成并从列表移除；无更多项 → 空态文案「暂无待分类项 🎉」（无 emoji，改「暂无待分类项」）
 - 组件 props：`limit?: number`、`compact?: boolean`（今日页 compact）
 
-- [ ] **步骤 5：实现 FirstLabelingWizard**
+- [x] **步骤 5：实现 FirstLabelingWizard**
 
 Top 50 应用问卷：`fetchLabelingQueue({limit:50})` 过滤 `target_type==='app'`；UI = 单列滚动 + 进度（已打标/总数）+ 跳过按钮；完成 → 提示。与 LabelingQueue 共享卡片子组件（抽取 `LabelingCard`，导出供两处使用）。
 
-- [ ] **步骤 6：接入三处页面**
+- [x] **步骤 6：接入三处页面**
 
 1. `TodayClassificationSuggestionsSection.tsx`：保留区块头（接口/提供方不动），内容替换为 `<LabelingQueue limit={5} compact />`
 2. `PcTrackerPage.tsx`：新增「待打标队列」区块 `<LabelingQueue limit={20} />`（放在 KeyboardHeatmap 旁，与原型位置一致）
 3. `MobileAppCatalogManager.tsx`：整体替换为 `<LabelingQueue limit={20} />`（后端队列含 mobile_app 目标；文件删除，PcTracker 引用更新）
 
-- [ ] **步骤 7：运行组件测试 + 构建**
+- [x] **步骤 7：运行组件测试 + 构建**
 
 运行：`npm --prefix src/client-web run test -- --run` 与 `npm --prefix src/client-web run build`
 预期：PASS
 
-- [ ] **步骤 8：全量门禁**
+- [x] **步骤 8：全量门禁**
 
 运行：`dotnet test Pim.sln --no-restore`
 预期：PASS（后端无改动，回归确认）

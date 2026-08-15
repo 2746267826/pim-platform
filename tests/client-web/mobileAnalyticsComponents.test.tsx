@@ -4,8 +4,6 @@ import { createRequire } from 'node:module';
 import type {
   MobileAnalyticsChart,
   MobileAnalyticsOverview,
-  MobileAppCatalogOverride,
-  MobileAppCategoryRule,
   MobileDevice,
   MobileHeatmapBucket,
   MobileSessionEvent,
@@ -20,7 +18,6 @@ import { buildHeatmapMatrix } from '../../src/client-web/src/components/mobile/m
 import MobileChartsGrid from '../../src/client-web/src/components/mobile/MobileChartsGrid';
 import MobileTimelineBlocks from '../../src/client-web/src/components/mobile/MobileTimelineBlocks';
 import MobileAnomalyPanel from '../../src/client-web/src/components/mobile/MobileAnomalyPanel';
-import MobileAppCatalogManager from '../../src/client-web/src/components/mobile/MobileAppCatalogManager';
 
 const requireFromClient = createRequire(path.join(process.cwd(), 'src/client-web/package.json'));
 const React = requireFromClient('react') as typeof import('react');
@@ -232,27 +229,6 @@ const event: MobileSessionEvent = {
   rawJson: '{"eventType":"MOVE_TO_FOREGROUND"}',
 };
 
-const overrides: MobileAppCatalogOverride[] = [
-  {
-    packageName: 'com.ss.android.ugc.aweme',
-    displayNameOverride: '抖音',
-    lifeCategory: '短视频/娱乐',
-    isSystemNoise: false,
-    hideShortEvents: true,
-  },
-];
-
-const rules: MobileAppCategoryRule[] = [
-  {
-    id: 'rule-1',
-    ruleType: 'package-prefix',
-    pattern: 'com.tencent.',
-    lifeCategory: '社交通讯',
-    priority: 80,
-    isEnabled: true,
-  },
-];
-
 test('mobile analytics workbench renders real Chinese copy and all major panels', () => {
   const html = [
     renderToStaticMarkup(
@@ -318,18 +294,6 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
         isLoading: false,
       }),
     ),
-    renderToStaticMarkup(
-      React.createElement(MobileAppCatalogManager, {
-        overrides,
-        rules,
-        isLoading: false,
-        isSaving: false,
-        onSaveOverride: () => undefined,
-        onDeleteOverride: () => undefined,
-        onSaveRule: () => undefined,
-        onDeleteRule: () => undefined,
-      }),
-    ),
   ].join('\n');
 
   for (const text of [
@@ -361,9 +325,6 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
     '切换趋势',
     '异常与建议',
     '使用时间线',
-    '应用管理',
-    '批量规则',
-    '隐藏系统噪声',
   ]) {
     assert.equal(html.includes(text), true, `analytics UI should include: ${text}`);
   }

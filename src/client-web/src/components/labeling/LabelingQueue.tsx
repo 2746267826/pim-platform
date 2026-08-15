@@ -115,6 +115,7 @@ export function LabelingCard({
             <input
               type="text"
               placeholder="自定义分类，回车添加…"
+              maxLength={64}
               onKeyDown={handleCustomKeyDown}
               className="h-8 min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-900"
             />

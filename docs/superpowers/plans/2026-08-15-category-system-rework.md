@@ -517,7 +517,7 @@ POST /api/v1/pc/classification/label
 
 `pc_app_categories` 写入时若同 `app_pattern` 已存在 → UPDATE 覆盖；`pc_activity_category_rules` 生成规则名 `Label: {target} [{keyword|all}]`，同名单规则存在则 UPDATE 而非重复插入（幂等）。
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 ```csharp
 // tests/Pim.UnitTests/Services/ActivityLabelingServiceTests.cs
@@ -603,7 +603,7 @@ public class ActivityLabelingServiceTests
 运行：`dotnet test Pim.sln --filter "FullyQualifiedName~ActivityLabelingServiceTests" --no-restore`
 预期：编译失败（类型不存在）
 
-- [ ] **步骤 3：实现 DTOs**
+- [x] **步骤 3：实现 DTOs**
 
 `ActivityLabelingDtos.cs`（record 类型）：
 
@@ -616,7 +616,7 @@ public sealed record ActivityLabelingRequest(
 public sealed record ActivityLabelingResponse(bool Ok, Guid? CategoryId, string? CategoryName, string Created);
 ```
 
-- [ ] **步骤 4：实现 ActivityLabelingService**
+- [x] **步骤 4：实现 ActivityLabelingService**
 
 要点：
 - 队列查询（InMemory 测试难覆盖复杂 SQL，用服务层可测逻辑 + SQL 层分离：`BuildQueueAsync` 从 `pc_aw_events` 聚合——EF 组查询 `GroupBy(app_name_normalized)`，浏览器事件按 `data_json->>'domain'` 分组；把「已有映射排除」做成可注入的已映射集合查询）
@@ -624,7 +624,7 @@ public sealed record ActivityLabelingResponse(bool Ok, Guid? CategoryId, string?
 - 自定义分类：`category_id` 与 `category_name` 均为空 → 400；`category_id` 空且 `category_name` 不在现有字典 → 创建 `PcCategoryEntity { Name, Color="#64748b", IsBuiltin=false, Productivity="neutral", SortOrder=1000 }`
 - 幂等：规则名 `Label: {target} [{keyword|all}]` 存在则 UPDATE 分类与条件
 
-- [ ] **步骤 5：注册端点**
+- [x] **步骤 5：注册端点**
 
 `PcTrackerModule.cs` 加（路由与现有 `pc/classification/*` 一致）：
 
@@ -633,21 +633,21 @@ group.MapGet("/classification/queue", ...);
 group.MapPost("/classification/label", ...);
 ```
 
-- [ ] **步骤 6：MobileLifeCategories 对齐**
+- [x] **步骤 6：MobileLifeCategories 对齐**
 
 `src/modules/Pim.Module.Mobile/Services/MobileLifeCategories.cs`：常量改为 7 大类（与 `CategoryLegacyMapper.UnifiedCategoryNames` 一致；`Uncategorized` 保持 `"其他"` 语义——检查现有默认值，若为「未分类」改为「其他」；`ToolsSystem` 保留）。运行 mobile 相关测试修正。
 
-- [ ] **步骤 7：运行测试确认通过**
+- [x] **步骤 7：运行测试确认通过**
 
 运行：`dotnet test Pim.sln --filter "FullyQualifiedName~ActivityLabeling|MobileLife|MobileAppClassif" --no-restore`
 预期：PASS
 
-- [ ] **步骤 8：全量测试**
+- [x] **步骤 8：全量测试**
 
 运行：`dotnet test Pim.sln --no-restore`
 预期：PASS
 
-- [ ] **步骤 9：Commit**
+- [x] **步骤 9：Commit**
 
 ```bash
 git add src/modules/Pim.Module.PcTracker/ src/modules/Pim.Module.Mobile/ tests/Pim.UnitTests/
@@ -757,7 +757,7 @@ Top 50 应用问卷：`fetchLabelingQueue({limit:50})` 过滤 `target_type==='ap
 运行：`dotnet test Pim.sln --no-restore`
 预期：PASS（后端无改动，回归确认）
 
-- [ ] **步骤 9：Commit**
+- [x] **步骤 9：Commit**
 
 ```bash
 git add src/client-web/src/

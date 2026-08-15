@@ -13,7 +13,8 @@
     "test:schedule-workbench": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchApiPath.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchCompletionApiPath.test.ts && npm --prefix src/client-web exec tsc -- -p tests/client-web/tsconfig.schedule-workbench.json && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchTypes.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchLocalization.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchInteractions.test.tsx && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchScreenshots.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/calendarLayerVisibility.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/confirmationSecondLevel.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/outlookSyncInvalidation.test.ts",
     "test:android-embed": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/androidEmbedRoutes.test.tsx && npm --prefix src/client-web exec tsx -- tests/client-web/androidEmbedAuth.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/androidTodayEmbed.test.tsx && npm --prefix src/client-web exec tsx -- tests/client-web/androidTracksEmbed.test.tsx && npm --prefix src/client-web exec tsc -- -p tests/client-web/tsconfig.android-embed.json",
     "test:calendar-reliability": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/calendarReliabilityUtils.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/safeHtml.test.ts",
-    "test:schedule-workbench-complete": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/calendarReliabilityUtils.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/safeHtml.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchCompletionApiPath.test.ts && npm --prefix src/client-web exec tsc -- -p tests/client-web/tsconfig.schedule-workbench.json && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchCompletionTypes.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchLocalization.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchInteractions.test.tsx && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchGovernanceUi.test.tsx && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchChineseNavigation.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/endpointShellPage.test.tsx && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchE2e.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/microsoftCalendarSyncApi.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/outlookEventWritebackUi.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchVisualAudit.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/mobileMapDisplayModel.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/locationAnalyticsInteractions.test.tsx && npm --prefix src/client-web exec tsx -- tests/client-web/locationAnalyticsComponents.test.tsx"
+    "test:labeling": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/labelingQueue.test.tsx",
+    "test:schedule-workbench-complete": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/calendarReliabilityUtils.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/safeHtml.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchCompletionApiPath.test.ts && npm --prefix src/client-web exec tsc -- -p tests/client-web/tsconfig.schedule-workbench.json && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchCompletionTypes.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchLocalization.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchInteractions.test.tsx && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchGovernanceUi.test.tsx && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchChineseNavigation.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/endpointShellPage.test.tsx && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchE2e.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/microsoftCalendarSyncApi.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/outlookEventWritebackUi.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/scheduleWorkbenchVisualAudit.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/mobileMapDisplayModel.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/locationAnalyticsInteractions.test.tsx && npm --prefix src/client-web exec tsx -- tests/client-web/locationAnalyticsComponents.test.tsx && npm --prefix src/client-web exec tsx -- tests/client-web/labelingQueue.test.tsx"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.20",
@@ -39,8 +40,6 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.0",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/react": "^16.3.2",
     "@types/jsdom": "^28.0.3",
     "@types/leaflet": "^1.9.21",
     "@types/luxon": "^3.7.2",
@@ -52,7 +51,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
-    "jsdom": "^26.1.0",
+    "jsdom": "^29.1.1",
     "playwright": "^1.61.1",
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.2",
@@ -61,6 +60,6 @@
     "vitest": "^4.1.9"
   },
   "optionalDependencies": {
-    "@rolldown/binding-linux-x64-gnu": "^1.0.1"
+    "@rolldown/binding-linux-x64-gnu": "^1.2.3"
   }
 }

@@ -6,8 +6,22 @@ import {
   type LabelingQueueItem,
   type CategoryDictionaryItem,
 } from '../../api/classificationLabeling';
+import { buildLabelRequest, mergeCustomCategories } from './labelingUtils';
 
 const CUSTOM_CATS_STORAGE_KEY = 'pim_custom_cats';
+
+export interface LabelingQueueData {
+  items: LabelingQueueItem[];
+  dictionary: CategoryDictionaryItem[];
+}
+
+export type LabelingQueueDataFetcher = (limit: number) => Promise<LabelingQueueData>;
+
+const defaultFetchData: LabelingQueueDataFetcher = limit =>
+  Promise.all([fetchLabelingQueue(limit), fetchCategoryDictionary()]).then(([queue, dict]) => ({
+    items: queue.items ?? [],
+    dictionary: dict ?? [],
+  }));
 
 export function loadCustomCategories(): string[] {
   try {
@@ -47,7 +61,7 @@ export function LabelingCard({
   const [keyword, setKeyword] = useState('');
   const [keywordMode, setKeywordMode] = useState(false);
 
-  const chips = [...dictionary.map(c => c.name), ...customCats.filter(name => !dictionary.some(c => c.name === name))];
+  const chips = mergeCustomCategories(dictionary.map(c => c.name), customCats);
 
   const typeLabel = item.targetType === 'domain' ? '域名' : item.targetType === 'mobile_app' ? '手机应用' : '应用';
 
@@ -150,24 +164,32 @@ export function LabelingCard({
 export function LabelingQueue({
   limit = 20,
   compact = false,
+  fetchData = defaultFetchData,
+  initialItems = [],
+  initialDictionary = [],
+  initialLoading = true,
 }: {
   limit?: number;
   compact?: boolean;
+  fetchData?: LabelingQueueDataFetcher;
+  initialItems?: LabelingQueueItem[];
+  initialDictionary?: CategoryDictionaryItem[];
+  initialLoading?: boolean;
 }) {
-  const [items, setItems] = useState<LabelingQueueItem[]>([]);
-  const [dictionary, setDictionary] = useState<CategoryDictionaryItem[]>([]);
+  const [items, setItems] = useState<LabelingQueueItem[]>(initialItems);
+  const [dictionary, setDictionary] = useState<CategoryDictionaryItem[]>(initialDictionary);
   const [customCats, setCustomCats] = useState<string[]>(() => loadCustomCategories());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initialLoading);
   const [recentResult, setRecentResult] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([fetchLabelingQueue(limit), fetchCategoryDictionary()])
-      .then(([queue, dict]) => {
+    fetchData(limit)
+      .then(({ items: queueItems, dictionary: dict }) => {
         if (cancelled) return;
-        setItems(queue.items ?? []);
-        setDictionary(dict ?? []);
+        setItems(queueItems);
+        setDictionary(dict);
         setLoading(false);
       })
       .catch(() => {
@@ -175,7 +197,7 @@ export function LabelingQueue({
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [limit]);
+  }, [limit, fetchData]);
 
   const handleAddCustom = useCallback((name: string) => {
     setCustomCats(prev => {
@@ -186,12 +208,7 @@ export function LabelingQueue({
   }, []);
 
   const handleLabel = useCallback((item: LabelingQueueItem) => (categoryName: string) => {
-    void submitLabel({
-      targetType: item.targetType,
-      target: item.target,
-      categoryName,
-      scope: 'all',
-    })
+    void submitLabel(buildLabelRequest(item, categoryName, 'all'))
       .then(result => {
         setRecentResult(`已归入「${result.categoryName || categoryName}」`);
         setItems(prev => prev.filter(x => x.target !== item.target || x.targetType !== item.targetType));

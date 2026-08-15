@@ -36,6 +36,7 @@ import {
   toMobileAnalyticsUtcRange,
   type MobileRangeShortcut,
 } from '../components/mobile/mobileFormatting';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 function errorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
@@ -102,19 +103,19 @@ export default function MobileRecordsPage() {
   const overviewQuery = useQuery({
     queryKey: ['mobile-analytics-overview', analyticsQuery],
     queryFn: () => getMobileAnalyticsOverview(analyticsQuery),
-    refetchInterval: 30000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const heatmapQuery = useQuery({
     queryKey: ['mobile-analytics-heatmap', analyticsQuery, granularity],
     queryFn: () => getMobileAnalyticsHeatmap({ ...analyticsQuery, granularity }),
-    refetchInterval: 30000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const chartsQuery = useQuery({
     queryKey: ['mobile-analytics-charts', analyticsQuery],
     queryFn: () => getMobileAnalyticsCharts(analyticsQuery),
-    refetchInterval: 30000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const timelineBlocksQuery = useQuery({

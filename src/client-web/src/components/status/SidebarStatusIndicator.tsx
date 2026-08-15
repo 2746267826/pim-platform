@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getHealthStatusLabel, getStatusSummary } from '../../api/status';
+import { getDeferredAutoRefreshInterval } from '../../lib/autoRefresh';
 import type { PimHealthStatus } from '../../types';
 
 const statusClasses: Record<PimHealthStatus, { dot: string; text: string }> = {
@@ -13,7 +14,7 @@ export default function SidebarStatusIndicator() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['status-summary'],
     queryFn: getStatusSummary,
-    refetchInterval: 60_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const status = isError ? 'Unknown' : data?.status ?? 'Unknown';

@@ -8,6 +8,7 @@ import {
 } from '../api/endpoints';
 import type { EndpointPlatform, EndpointStatus, OperationRiskLevel } from '../types';
 import PageHeader from '../ui/PageHeader';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 function formatDateTime(value?: string | null) {
   if (!value) return '暂无';
@@ -37,7 +38,7 @@ export default function EndpointShellPage() {
   const { data: endpoints = [], isLoading } = useQuery({
     queryKey: ['endpoint-statuses'],
     queryFn: listEndpointStatuses,
-    refetchInterval: 30_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   useEffect(() => {
@@ -55,7 +56,7 @@ export default function EndpointShellPage() {
     queryKey: ['endpoint-collection-quality', qualityDeviceId],
     queryFn: () => getEndpointCollectionQuality(qualityDeviceId),
     enabled: Boolean(qualityDeviceId),
-    refetchInterval: 30_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const heartbeatMutation = useMutation({

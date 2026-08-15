@@ -71,6 +71,7 @@ export interface MobileLocationAnalyticsParams {
   includeRejected?: boolean | null;
   cursor?: string | null;
   pageSize?: number | null;
+  force?: boolean;
 }
 
 function withLocationAnalyticsQuery(path: string, query: MobileLocationAnalyticsParams = {}) {
@@ -83,6 +84,7 @@ function withLocationAnalyticsQuery(path: string, query: MobileLocationAnalytics
     ['includeRejected', query.includeRejected],
     ['cursor', query.cursor],
     ['pageSize', query.pageSize],
+    ...(query.force === true ? [['force', 'true'] as [string, string]] : []),
   ]);
 }
 

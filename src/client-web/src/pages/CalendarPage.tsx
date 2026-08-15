@@ -18,6 +18,7 @@ import PageHeader from '../ui/PageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
 import type { CalendarLayerId, CalendarLayerItem, CalendarResponse, EventResponse, TaskResponse } from '../types';
 import { looksLikeHtml, sanitizeDescriptionHtml } from '../utils/safeHtml';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 type CalendarMode = 'timeline' | 'month';
 type CalendarLayerToggleId = CalendarLayerId;
@@ -132,7 +133,7 @@ export default function CalendarPage() {
       layers: enabledLayerIds,
       outlookOnly,
     }),
-    refetchInterval: 60_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const { hiddenCalendarIds } = useCalendarVisibility();

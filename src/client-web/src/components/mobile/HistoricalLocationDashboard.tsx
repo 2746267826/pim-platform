@@ -23,6 +23,7 @@ export interface HistoricalLocationDashboardProps {
   tracks: MobileLocationTrack[];
   selectedSegmentId?: string | null;
   selectedPointId?: string | null;
+  repositionKey?: number;
   points: MobileLocationPoint[];
   isLoading: boolean;
   isFetching: boolean;
@@ -69,6 +70,7 @@ export default function HistoricalLocationDashboard({
   tracks,
   selectedSegmentId,
   selectedPointId,
+  repositionKey,
   points,
   isLoading,
   isFetching,
@@ -238,6 +240,7 @@ export default function HistoricalLocationDashboard({
               tracks={tracks}
               selectedSegmentId={selectedSegmentId}
               selectedPointId={selectedPointId}
+              repositionKey={repositionKey}
               onSelectSegment={onSelectSegment}
               onSelectPoint={onSelectPoint}
             />

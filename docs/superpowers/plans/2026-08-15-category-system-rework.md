@@ -387,7 +387,7 @@ git commit -m "feat: unify category dictionary to 7 top-level categories with le
 - 修改：`src/modules/Pim.Module.PcTracker/DTOs/ActivityClassificationDtos.cs`（DTO 加 CategoryId）
 - 测试：`tests/Pim.UnitTests/Services/ActivityClassifierTests.cs`、`ActivityClassificationRuleServiceTests.cs`（更新）
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 ```csharp
 // ActivityClassifierTests.cs 追加（现有测试断言旧分类名的同步更新）
@@ -432,7 +432,7 @@ public void Classify_NoSignal_ReturnsFallbackOther()
 运行：`dotnet test Pim.sln --filter "FullyQualifiedName~ActivityClassifierTests" --no-restore`
 预期：新测试 FAIL（启发式仍返回旧名「终端」「浏览」等）
 
-- [ ] **步骤 3：重写 ActivityClassifier**
+- [x] **步骤 3：重写 ActivityClassifier**
 
 1. 删除 L11-24 全部硬编码常量；引用改为 `CategoryLegacyMapper.ProgrammingTinkering` 等（7 大类名）+ `CategoryLegacyMapper.UnifiedColors` 颜色。
 2. 词表按 0.4 重写：
@@ -442,7 +442,7 @@ public void Classify_NoSignal_ReturnsFallbackOther()
    - `OfficeApps`/`FileApps` → 文档
 3. `ClassifyWithHeuristics` 返回分支相应改名，颜色取 `CategoryLegacyMapper.UnifiedColors[...]`。
 
-- [ ] **步骤 4：规则实体加 category_id + 服务解析**
+- [x] **步骤 4：规则实体加 category_id + 服务解析**
 
 `ActivityCategoryRuleEntity` 加：
 
@@ -454,17 +454,17 @@ public void Classify_NoSignal_ReturnsFallbackOther()
 
 分类器 `TryClassifyWithRules` 构造结果时：优先用 `rule.CategoryId` 查字典名（传入解析好的 lookup：`IReadOnlyDictionary<Guid,string>`），无则用 `rule.CategoryName`，再无则 fallback。为避免每规则查库，`Classify` 签名加可选参数 `IReadOnlyDictionary<Guid, string>? categoryNamesById = null`；`ActivityClassificationSnapshotService` 调用处预加载字典传入。
 
-- [ ] **步骤 5：运行测试确认通过**
+- [x] **步骤 5：运行测试确认通过**
 
 运行：`dotnet test Pim.sln --filter "FullyQualifiedName~ActivityClassifier|ActivityClassificationRule" --no-restore`
 预期：PASS
 
-- [ ] **步骤 6：全量测试 + 修正波及**
+- [x] **步骤 6：全量测试 + 修正波及**
 
 运行：`dotnet test Pim.sln --no-restore`
 预期：PASS（Snapshot/Recompute/Quality 等服务测试若断言旧分类名，按新字典修正）
 
-- [ ] **步骤 7：Commit**
+- [x] **步骤 7：Commit**
 
 ```bash
 git add src/modules/Pim.Module.PcTracker/ tests/Pim.UnitTests/Services/

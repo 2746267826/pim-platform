@@ -7,6 +7,8 @@ export interface LabelingQueueItem {
   displayName: string;
   minutes: number;
   sampleTitles: string[];
+  /** 向导模式（mode=wizard）下已有映射/规则判定的当前分类，无则 null/缺省。 */
+  currentCategory?: string | null;
 }
 
 export interface CategoryDictionaryItem {
@@ -36,8 +38,8 @@ export interface SubmitLabelRequest {
   keyword?: string;
 }
 
-export function fetchLabelingQueue(limit = 20) {
-  return apiGet<ApiResponse<LabelingQueueResponse>>(`/pc/classification/queue?limit=${limit}`)
+export function fetchLabelingQueue(limit = 20, mode: 'queue' | 'wizard' = 'queue') {
+  return apiGet<ApiResponse<LabelingQueueResponse>>(`/pc/classification/queue?limit=${limit}&mode=${mode}`)
     .then(r => r.data);
 }
 

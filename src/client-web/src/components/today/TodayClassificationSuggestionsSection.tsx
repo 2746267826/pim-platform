@@ -12,14 +12,18 @@ export default function TodayClassificationSuggestionsSection({
 }) {
   const { pendingCount } = section.data;
   const [queueEmpty, setQueueEmpty] = useState<boolean | null>(null);
+  const [showWizard, setShowWizard] = useState(false);
 
-  // 打标队列为空时引导新用户完成 Top 50 问卷（FirstLabelingWizard），否则展示常规打标队列。
+  // 常规打标队列为空时引导新用户完成 Top 50 问卷（FirstLabelingWizard，走 wizard 数据源）；
+  // 向导完成/跳过（onDone）后切回常规打标队列视图（即使仍为空也显示常规空态，避免死循环）。
   useEffect(() => {
     let cancelled = false;
     fetchLabelingQueue(1)
       .then(queue => {
         if (cancelled) return;
-        setQueueEmpty((queue.items ?? []).length === 0);
+        const empty = (queue.items ?? []).length === 0;
+        setQueueEmpty(empty);
+        if (empty) setShowWizard(true);
       })
       .catch(() => {
         if (cancelled) return;
@@ -29,6 +33,10 @@ export default function TodayClassificationSuggestionsSection({
       cancelled = true;
     };
   }, []);
+
+  const handleWizardDone = () => {
+    setShowWizard(false);
+  };
 
   return (
     <section className="pim-panel min-w-0 p-4">
@@ -40,8 +48,8 @@ export default function TodayClassificationSuggestionsSection({
       <div className="space-y-3">
         {queueEmpty === null ? (
           <p className="text-sm text-slate-500">正在加载待分类项…</p>
-        ) : queueEmpty ? (
-          <FirstLabelingWizard />
+        ) : showWizard ? (
+          <FirstLabelingWizard onDone={handleWizardDone} />
         ) : (
           <LabelingQueue limit={5} compact />
         )}

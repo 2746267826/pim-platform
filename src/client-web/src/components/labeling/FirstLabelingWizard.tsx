@@ -24,7 +24,7 @@ export function FirstLabelingWizard({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([fetchLabelingQueue(50), fetchCategoryDictionary()])
+    Promise.all([fetchLabelingQueue(50, 'wizard'), fetchCategoryDictionary()])
       .then(([queue, dict]) => {
         if (cancelled) return;
         const apps = (queue.items ?? []).filter(item => item.targetType === 'app');
@@ -110,6 +110,11 @@ export function FirstLabelingWizard({
       <div className="space-y-2">
         {items.map((item, index) => (
           <div key={`${item.targetType}-${item.target}`} className="space-y-1">
+            {item.currentCategory && (
+              <p className="text-xs text-slate-500">
+                当前分类：<span className="font-medium text-slate-700">{item.currentCategory}</span>
+              </p>
+            )}
             <LabelingCard
               item={item}
               dictionary={dictionary}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createMobileAppCategoryRule,
@@ -56,6 +56,8 @@ function catalogMutationKeys() {
 
 export default function MobileRecordsPage() {
   const queryClient = useQueryClient();
+  const forceRef = useRef(false);
+  const refreshSeq = useRef(0);
   const defaultRange = useMemo(() => buildMobileAnalyticsDateRange('7d'), []);
   const [rangeShortcut, setRangeShortcut] = useState<MobileRangeShortcut>('7d');
   const [rangeStartDate, setRangeStartDate] = useState(defaultRange.startDate);
@@ -102,19 +104,19 @@ export default function MobileRecordsPage() {
 
   const overviewQuery = useQuery({
     queryKey: ['mobile-analytics-overview', analyticsQuery],
-    queryFn: () => getMobileAnalyticsOverview(analyticsQuery),
+    queryFn: () => getMobileAnalyticsOverview({ ...analyticsQuery, force: forceRef.current }),
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const heatmapQuery = useQuery({
     queryKey: ['mobile-analytics-heatmap', analyticsQuery, granularity],
-    queryFn: () => getMobileAnalyticsHeatmap({ ...analyticsQuery, granularity }),
+    queryFn: () => getMobileAnalyticsHeatmap({ ...analyticsQuery, granularity, force: forceRef.current }),
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const chartsQuery = useQuery({
     queryKey: ['mobile-analytics-charts', analyticsQuery],
-    queryFn: () => getMobileAnalyticsCharts(analyticsQuery),
+    queryFn: () => getMobileAnalyticsCharts({ ...analyticsQuery, force: forceRef.current }),
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
@@ -124,6 +126,7 @@ export default function MobileRecordsPage() {
       ...analyticsQuery,
       page: timelinePage,
       pageSize: timelinePageSize,
+      force: forceRef.current,
     }),
   });
 
@@ -286,6 +289,8 @@ export default function MobileRecordsPage() {
   }
 
   function refresh() {
+    const seq = ++refreshSeq.current;
+    forceRef.current = true;
     void Promise.all([
       devicesQuery.refetch(),
       overviewQuery.refetch(),
@@ -294,7 +299,11 @@ export default function MobileRecordsPage() {
       timelineBlocksQuery.refetch(),
       overridesQuery.refetch(),
       rulesQuery.refetch(),
-    ]);
+    ]).finally(() => {
+      if (refreshSeq.current === seq) {
+        forceRef.current = false;
+      }
+    });
   }
 
   const loading = overviewQuery.isLoading

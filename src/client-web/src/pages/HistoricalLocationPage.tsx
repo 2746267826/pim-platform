@@ -7,7 +7,6 @@ import {
   getMobileLocationAnalyticsSegmentPoints,
   getMobileLocationAnalyticsTracks,
   type MobileLocationAnalyticsParams,
-  type MobileLocationTrack,
 } from '../api/mobile';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 import HistoricalLocationDashboard from '../components/mobile/HistoricalLocationDashboard';
@@ -155,23 +154,15 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
     setRepositionKey(prev => prev + 1);
   }
 
+  const repositionedForQuery = useRef<string | null>(null);
+  const locationQueryKey = useMemo(() => JSON.stringify(locationQuery), [locationQuery]);
+
   useEffect(() => {
+    if (!tracksQuery.data || tracksQuery.data.length === 0) return;
+    if (repositionedForQuery.current === locationQueryKey) return;
+    repositionedForQuery.current = locationQueryKey;
     requestReposition();
-  }, [locationQuery]);
-
-  const previousTracksData = useRef<MobileLocationTrack[] | undefined>(undefined);
-
-  useEffect(() => {
-    if (previousTracksData.current === undefined) {
-      previousTracksData.current = tracksQuery.data;
-      return;
-    }
-    const wasEmpty = !previousTracksData.current || previousTracksData.current.length === 0;
-    previousTracksData.current = tracksQuery.data;
-    if (wasEmpty && tracksQuery.data && tracksQuery.data.length > 0) {
-      requestReposition();
-    }
-  }, [tracksQuery.data]);
+  }, [tracksQuery.data, locationQueryKey]);
 
   function resetPagination() {
     cursorStack.current = [];
@@ -202,7 +193,10 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
     syncUrl('custom', range.startDate, range.endDate, selectedDeviceId, maxAccuracyMeters, includeRejected);
   }
 
+  const refreshSeq = useRef(0);
+
   function refresh() {
+    const seq = ++refreshSeq.current;
     forceRef.current = true;
     void Promise.all([
       devicesQuery.refetch(),
@@ -210,7 +204,9 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
       tracksQuery.refetch(),
       pointsQuery.refetch(),
     ]).finally(() => {
-      forceRef.current = false;
+      if (refreshSeq.current === seq) {
+        forceRef.current = false;
+      }
       requestReposition();
     });
   }

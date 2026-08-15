@@ -42,6 +42,7 @@ export interface MobileAnalyticsQuery {
   cursor?: string | null;
   page?: number | null;
   pageSize?: number | null;
+  force?: boolean;
 }
 
 function withAnalyticsQuery(path: string, query: MobileAnalyticsQuery = {}) {
@@ -59,6 +60,7 @@ function withAnalyticsQuery(path: string, query: MobileAnalyticsQuery = {}) {
     ['cursor', query.cursor],
     ['page', query.page],
     ['pageSize', query.pageSize],
+    ['force', query.force === true ? 'true' : undefined],
   ]);
 }
 

@@ -53,7 +53,7 @@ export function LabelingCard({
   item: LabelingQueueItem;
   dictionary: CategoryDictionaryItem[];
   customCats: string[];
-  onLabel: (categoryName: string) => void;
+  onLabel: (categoryName: string, scope?: 'all' | 'keyword', keyword?: string) => void;
   onAddCustom: (name: string) => void;
   defaultExpanded?: boolean;
 }) {
@@ -71,15 +71,11 @@ export function LabelingCard({
     const value = event.currentTarget.value.trim();
     if (!value) return;
     onAddCustom(value);
-    onLabel(value);
+    onLabel(value, keywordMode ? 'keyword' : 'all', keywordMode ? keyword : undefined);
   }
 
   function handleChip(categoryName: string) {
-    if (item.targetType === 'domain' && keywordMode) {
-      onLabel(categoryName);
-      return;
-    }
-    onLabel(categoryName);
+    onLabel(categoryName, keywordMode ? 'keyword' : 'all', keywordMode ? keyword : undefined);
   }
 
   return (
@@ -207,8 +203,12 @@ export function LabelingQueue({
     });
   }, []);
 
-  const handleLabel = useCallback((item: LabelingQueueItem) => (categoryName: string) => {
-    void submitLabel(buildLabelRequest(item, categoryName, 'all'))
+  const handleLabel = useCallback((item: LabelingQueueItem) => (
+    categoryName: string,
+    scope: 'all' | 'keyword' = 'all',
+    keyword?: string,
+  ) => {
+    void submitLabel(buildLabelRequest(item, categoryName, scope, keyword))
       .then(result => {
         setRecentResult(`已归入「${result.categoryName || categoryName}」`);
         setItems(prev => prev.filter(x => x.target !== item.target || x.targetType !== item.targetType));

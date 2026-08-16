@@ -187,7 +187,7 @@ git commit -m "feat: planned offline storage, endpoint and heartbeat clearing / 
 - 修改：`src/modules/Pim.Module.PcTracker/Services/PcTrackerQualityService.cs`
 - 测试：`tests/Pim.UnitTests/Operations/DaemonLifecycleClassifierTests.cs`（新建）、`tests/Pim.UnitTests/Operations/SystemStatusServiceTests.cs`（改造）、`tests/Pim.UnitTests/Services/PcTrackerQualityServiceTests.cs`（追加）
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 ```csharp
 // DaemonLifecycleClassifierTests.cs 骨架
@@ -238,9 +238,9 @@ public void Classify_NullHeartbeat_NeverConnected()
 
 SystemStatusServiceTests 追加：planned-offline 心跳 → GetDetail 的 windows-daemon 组件 status=Healthy、message「已关机/已休眠（正常）。」、details["daemonState"]=="planned-offline"、details["offlineReason"]=="shutdown"；在线新心跳 → daemonState=="online"。PcTrackerQualityServiceTests 追加：planned-offline 心跳不产生 stale-windows-daemon-heartbeat 与 old-daemon-heartbeat issue。
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**（§0.1/§0.3；`DaemonLifecycleClassifier` 签名：`Classify(DaemonHeartbeatEntity? heartbeat, DateTimeOffset checkedAt)` 返回 `DaemonLifecycleState(State, PimHealthStatus, Message, string? PlannedOfflineAt, string? OfflineReason)`——record；SystemStatusService/PcTrackerQualityService 注入 TimeProvider，现有测试全部改用 StubTimeProvider）
+- [x] **步骤 2：确认失败 → 步骤 3：实现**（§0.1/§0.3；`DaemonLifecycleClassifier` 签名：`Classify(DaemonHeartbeatEntity? heartbeat, DateTimeOffset checkedAt)` 返回 `DaemonLifecycleState(State, PimHealthStatus, Message, string? PlannedOfflineAt, string? OfflineReason)`——record；SystemStatusService/PcTrackerQualityService 注入 TimeProvider，现有测试全部改用 StubTimeProvider）
 
-- [ ] **步骤 4：测试通过 + 全量 + Commit**
+- [x] **步骤 4：测试通过 + 全量 + Commit**
 
 ```bash
 git commit -m "feat: four-state daemon lifecycle classification replaces age-only health / 四态生命周期判定替换心跳一刀切"

@@ -1,8 +1,9 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { useCallback, useMemo } from 'react';
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMapEvents } from 'react-leaflet';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import type { MobileLocationTrack } from '../../api/mobile';
+import { notifyUserInteraction } from '../../lib/autoRefresh';
 import { formatDateTime } from './mobileFormatting';
 import {
   formatAccuracyLabel,
@@ -17,6 +18,7 @@ export interface HistoricalLocationLeafletMapProps {
   tracks: MobileLocationTrack[];
   selectedSegmentId?: string | null;
   selectedPointId?: string | null;
+  repositionKey?: number;
   onSelectSegment?: (segmentId: string | null) => void;
   onSelectPoint?: (pointId: string) => void;
 }
@@ -72,10 +74,42 @@ function MapClickHandler({ onBlankClick }: { onBlankClick: (event: L.LeafletMous
   return null;
 }
 
+function MapInteractionNotifier() {
+  useMapEvents({
+    dragstart: notifyUserInteraction,
+    zoomstart: notifyUserInteraction,
+  });
+  return null;
+}
+
+function MapRepositioner({ tracks, repositionKey }: { tracks: MobileLocationTrack[]; repositionKey?: number }) {
+  const map = useMap();
+  const previousKey = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (previousKey.current === undefined) {
+      previousKey.current = repositionKey;
+      return;
+    }
+    previousKey.current = repositionKey;
+    const points = tracks
+      .flatMap(track => track.segments)
+      .flatMap(segment => segment.path)
+      .map(point => [point.latitude, point.longitude] as [number, number]);
+    if (points.length === 0) return;
+    const bounds = L.latLngBounds(points);
+    map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repositionKey]);
+
+  return null;
+}
+
 export default function HistoricalLocationLeafletMap({
   tracks,
   selectedSegmentId,
   selectedPointId,
+  repositionKey,
   onSelectSegment,
   onSelectPoint,
 }: HistoricalLocationLeafletMapProps) {
@@ -84,6 +118,7 @@ export default function HistoricalLocationLeafletMap({
     () => buildMapDisplayModel(tracks, selectedSegmentId ?? null),
     [tracks, selectedSegmentId],
   );
+  const [mapCenter] = useState(() => firstPosition(tracks));
 
   const stopPropagation = useCallback((event: L.LeafletMouseEvent) => {
     L.DomEvent.stopPropagation(event.originalEvent);
@@ -95,11 +130,13 @@ export default function HistoricalLocationLeafletMap({
 
   return (
     <MapContainer
-      center={firstPosition(tracks)}
+      center={mapCenter}
       zoom={segments.length > 0 ? 13 : 5}
       className="h-full min-h-[420px] w-full"
     >
       <MapClickHandler onBlankClick={handleMapClick} />
+      <MapInteractionNotifier />
+      <MapRepositioner tracks={tracks} repositionKey={repositionKey} />
       {/* 瓦片走同域 /tiles 中转（生产由服务器 nginx 反代 tile.openstreetmap.org，
           本地开发由 Vite proxy 转发），避免直连 OSM 官方瓦片在国内不稳定；
           BASE_URL 拼接保证子路径部署时路径仍正确。 */}

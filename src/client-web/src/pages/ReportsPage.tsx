@@ -8,6 +8,7 @@ import {
 import type { GenerateReportRequest, ReportArtifact, ReportSuggestion } from '../types';
 import PageHeader from '../ui/PageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 type ReportKind = 'Daily' | 'Weekly' | 'Monthly' | 'Project';
 
@@ -58,7 +59,7 @@ export default function ReportsPage() {
   const { data: reports = [], isLoading } = useQuery({
     queryKey: ['reports'],
     queryFn: getReports,
-    refetchInterval: 60_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const generateMutation = useMutation({

@@ -6,6 +6,7 @@ import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import MobileDiagnosticsPanel, { type MobileQualityDiagnosticsData } from '../components/status/MobileDiagnosticsPanel';
 import type { PimHealthStatus, StatusComponent } from '../types';
 import PageHeader from '../ui/PageHeader';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 const statusStyles: Record<PimHealthStatus, { text: string; bg: string; border: string; dot: string }> = {
   Healthy: {
@@ -86,7 +87,7 @@ export default function StatusPage() {
   const { data, isLoading, isError, refetch: refetchStatus, isFetching: statusFetching } = useQuery({
     queryKey: ['status-detail'],
     queryFn: getStatusDetail,
-    refetchInterval: 60_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const {
@@ -98,7 +99,7 @@ export default function StatusPage() {
   } = useQuery({
     queryKey: ['status-pc-quality'],
     queryFn: () => getPcQuality(),
-    refetchInterval: 60_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const {
@@ -110,7 +111,7 @@ export default function StatusPage() {
   } = useQuery({
     queryKey: ['status-mobile-quality'],
     queryFn: () => getMobileQuality(),
-    refetchInterval: 60_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const summary = data?.summary;

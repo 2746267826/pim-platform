@@ -15,6 +15,7 @@ import TodaySectionHost, {
 } from '../components/today/TodaySectionHost';
 import type { ScheduledItem } from '../components/today/TodayScheduleList';
 import type { EventResponse, TaskResponse, TodaySectionKind, TodaySectionRegistryItem } from '../types';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 type DensityMode = 'standard' | 'dense' | 'focus';
 
@@ -94,19 +95,19 @@ export default function TodayPage() {
   } = useQuery({
     queryKey: ['today-sections', dateStr],
     queryFn: () => getTodaySectionRegistry(dateStr),
-    refetchInterval: 30000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const { data: pendingConfirmations = [] } = useQuery({
     queryKey: ['today-pending-confirmations'],
     queryFn: getPendingConfirmations,
-    refetchInterval: 30000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const { data: outlookSyncBatches = [] } = useQuery({
     queryKey: ['today-outlook-sync-batches'],
     queryFn: getOutlookSyncBatches,
-    refetchInterval: 45000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const sections = useMemo(() => sortSections(registry?.sections ?? []), [registry?.sections]);

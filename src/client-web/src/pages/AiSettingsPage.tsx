@@ -11,6 +11,7 @@ import AiRequestLogTable from '../components/ai/AiRequestLogTable';
 import AiStatusPanel from '../components/ai/AiStatusPanel';
 import AiUsageOverview from '../components/ai/AiUsageOverview';
 import PageHeader from '../ui/PageHeader';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 const requestFilters = { page: 1, pageSize: 50 };
 
@@ -24,19 +25,19 @@ export default function AiSettingsPage() {
   const statusQuery = useQuery({
     queryKey: ['ai-status'],
     queryFn: getAiStatus,
-    refetchInterval: 60_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const usageQuery = useQuery({
     queryKey: ['ai-usage-summary'],
     queryFn: getAiUsageSummary,
-    refetchInterval: 60_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const requestsQuery = useQuery({
     queryKey: ['ai-requests', requestFilters],
     queryFn: () => getAiRequests(requestFilters),
-    refetchInterval: 30_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   useEffect(() => {

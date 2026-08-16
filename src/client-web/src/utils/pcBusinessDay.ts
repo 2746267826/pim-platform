@@ -45,9 +45,14 @@ export function addPcDays(date: Date, days: number) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
 }
 
-/** UTC 日历加减月数（跨 DST 稳定，日期超界自动归一），返回新 Date。 */
+/** UTC 日历加减月数（跨 DST 稳定，日期钳制到目标月末，与 date-fns subMonths 语义一致），返回新 Date。 */
 export function addPcMonths(date: Date, months: number) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, date.getUTCDate()));
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + months;
+  const targetYear = year + Math.floor(month / 12);
+  const targetMonth = ((month % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(targetYear, targetMonth, Math.min(date.getUTCDate(), lastDay)));
 }
 
 /** 上海时区业务日 04:00 起点的 Date（UTC 语义）。 */

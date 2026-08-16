@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { subDays, subMonths } from 'date-fns';
+import { addPcDays, addPcMonths, formatPcDate, getPcBusinessDate } from '../utils/pcBusinessDay';
 import {
   getActivityClassificationSuggestions,
   getCategoryTree,
@@ -34,7 +34,6 @@ import type {
   SuggestionClassificationApplyRequest,
   SuggestionClassificationPreviewRequest,
 } from '../types';
-import { formatPcDate, getPcBusinessDate } from '../utils/pcBusinessDay';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 export function nextPcRoute3RequestId(current: number) {
@@ -143,10 +142,10 @@ export default function PcTrackerPage() {
   const heatmapRange = dimension === 'hour'
     ? { start: dateStr, end: dateStr }
     : dimension === 'day'
-      ? { start: formatPcDate(subDays(selectedDate, 30)), end: dateStr }
+      ? { start: formatPcDate(addPcDays(selectedDate, -30)), end: dateStr }
       : dimension === 'month'
-        ? { start: formatPcDate(subMonths(selectedDate, 12)), end: dateStr }
-        : { start: formatPcDate(subMonths(selectedDate, 60)), end: dateStr };
+        ? { start: formatPcDate(addPcMonths(selectedDate, -12)), end: dateStr }
+        : { start: formatPcDate(addPcMonths(selectedDate, -60)), end: dateStr };
 
   const { data: heatmapData, isLoading: heatmapLoading } = useQuery({
     queryKey: ['pc-heatmap-grid', heatmapRange.start, heatmapRange.end, dimension],

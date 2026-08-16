@@ -1,6 +1,4 @@
-import { format } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
-import { getPcBusinessDate } from '../../utils/pcBusinessDay';
+import { addPcDays, formatPcDateCn, getPcBusinessDate } from '../../utils/pcBusinessDay';
 
 const DIMENSIONS = [
   { key: 'hour' as const, label: '时' },
@@ -30,7 +28,7 @@ export default function DateDimensionBar({ date, dimension, onDateChange, onDime
         <button
           type="button"
           className="shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 transition-colors hover:border-blue-200 hover:text-blue-700 sm:px-2.5"
-          onClick={() => onDateChange(new Date(date.getTime() - 86400000))}
+          onClick={() => onDateChange(addPcDays(date, -1))}
           aria-label="前一天"
         >
           前
@@ -38,13 +36,13 @@ export default function DateDimensionBar({ date, dimension, onDateChange, onDime
         <button
           type="button"
           className="shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-600 transition-colors hover:border-blue-200 hover:text-blue-700 sm:px-2.5"
-          onClick={() => onDateChange(new Date(date.getTime() + 86400000))}
+          onClick={() => onDateChange(addPcDays(date, 1))}
           aria-label="后一天"
         >
           后
         </button>
         <span className="min-w-0 max-w-[11rem] truncate px-1 text-sm font-semibold text-slate-900 sm:max-w-[15rem] sm:px-2">
-          {format(date, 'yyyy年M月d日 EEEE', { locale: zhCN })}
+          {formatPcDateCn(date)}
         </span>
       </div>
 

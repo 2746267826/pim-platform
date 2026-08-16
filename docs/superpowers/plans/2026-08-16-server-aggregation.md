@@ -65,7 +65,7 @@
   6. 完成后 `IAggregateResultCache.EvictByPrefix("/api/v1/pc/")`。
 - record_key 级幂等（`PcActivityRecordKeyService`）保证重入安全，无重复快照。
 
-### 0.6 端点契约（全部 GET、匿名 readGroup、cache + force）
+### 0.6 端点契约（PC 端点匿名 readGroup + cache + force；Mobile 端点沿用 Mobile 模块既有鉴权组——数据按用户隔离，与现有 location/analytics/* 一致）
 
 ```
 GET /api/v1/pc/aggregation/focus-blocks?date=YYYY-MM-DD | start&end=YYYY-MM-DD &timezone=

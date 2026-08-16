@@ -31,6 +31,7 @@ import type {
   SuggestionClassificationPreviewRequest,
 } from '../types';
 import { getPcBusinessDate } from '../utils/pcBusinessDay';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 export function nextPcRoute3RequestId(current: number) {
   return current + 1;
@@ -84,25 +85,25 @@ export default function PcTrackerPage() {
   const { data } = useQuery({
     queryKey: ['pc-summary', dateStr],
     queryFn: () => getPcSummary(dateStr),
-    refetchInterval: 30000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const { data: quality, isLoading: qualityLoading, error: qualityError } = useQuery({
     queryKey: ['pc-quality', dateStr],
     queryFn: () => getPcQuality({ date: dateStr }),
-    refetchInterval: 30000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const { data: suggestions = [], isLoading: suggestionsLoading } = useQuery({
     queryKey: ['pc-classification-suggestions', dateStr],
     queryFn: () => getActivityClassificationSuggestions(dateStr),
-    refetchInterval: 30000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const { data: activityAnalysis } = useQuery({
     queryKey: ['pc-activity-analysis', dateStr, 60],
     queryFn: () => getPcActivityAnalysis(dateStr, 60),
-    refetchInterval: 30000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const { data: categoryTree = [] } = useQuery({

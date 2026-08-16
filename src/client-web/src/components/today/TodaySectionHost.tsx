@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getTodaySection } from '../../api/today';
+import { getDeferredAutoRefreshInterval } from '../../lib/autoRefresh';
 import EmptyState from '../../ui/EmptyState';
 import type {
   CalendarScheduleTodayData,
@@ -88,7 +89,7 @@ export default function TodaySectionHost({
     queryKey: ['today-section', item.id, date],
     queryFn: () => getTodaySection(item.id, date),
     enabled: known,
-    refetchInterval: item.kind.startsWith('pc.') || item.kind.startsWith('operations.') ? 30000 : false,
+    refetchInterval: item.kind.startsWith('pc.') || item.kind.startsWith('operations.') ? getDeferredAutoRefreshInterval : false,
   });
 
   if (!known) {

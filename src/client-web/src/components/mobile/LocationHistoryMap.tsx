@@ -12,6 +12,7 @@ export interface LocationHistoryMapProps {
   tracks: MobileLocationTrack[];
   selectedSegmentId?: string | null;
   selectedPointId?: string | null;
+  repositionKey?: number;
   onSelectSegment?: (segmentId: string | null) => void;
   onSelectPoint?: (pointId: string) => void;
 }
@@ -24,6 +25,7 @@ export default function LocationHistoryMap({
   tracks,
   selectedSegmentId,
   selectedPointId,
+  repositionKey,
   onSelectSegment,
   onSelectPoint,
 }: LocationHistoryMapProps) {
@@ -71,6 +73,7 @@ export default function LocationHistoryMap({
             tracks={tracks}
             selectedSegmentId={selectedSegmentId}
             selectedPointId={selectedPointId}
+            repositionKey={repositionKey}
             onSelectSegment={onSelectSegment}
             onSelectPoint={onSelectPoint}
           />

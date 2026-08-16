@@ -10,6 +10,7 @@ import {
 import { getPendingConfirmations, operationsApiPaths } from '../api/operations';
 import PageHeader from '../ui/PageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 type DensityMode = 'standard' | 'dense' | 'focus';
 
@@ -92,25 +93,25 @@ export default function WorkbenchPage() {
   const { data: layerData, isLoading: layersLoading } = useQuery({
     queryKey: ['workbench-calendar-layers', range.start, range.end],
     queryFn: () => getCalendarLayers({ start: range.start, end: range.end, layers: dashboardLayers }),
-    refetchInterval: 60_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const { data: confirmations = [], isLoading: confirmationsLoading } = useQuery({
     queryKey: ['workbench-pending-confirmations'],
     queryFn: getPendingConfirmations,
-    refetchInterval: 30_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const { data: settings } = useQuery({
     queryKey: ['workbench-outlook-settings'],
     queryFn: getOutlookSettings,
-    refetchInterval: 60_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const { data: syncBatches = [] } = useQuery({
     queryKey: ['workbench-outlook-sync-batches'],
     queryFn: getOutlookSyncBatches,
-    refetchInterval: 45_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const layerCounts = useMemo(() => {

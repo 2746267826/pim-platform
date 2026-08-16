@@ -103,7 +103,7 @@ GET /api/v1/mobile/location/analytics/movement-stats?rangeStartUtc&rangeEndUtc&t
 - 修改：`src/modules/Pim.Module.PcTracker/PcTrackerModule.cs`（注册服务 + focus-blocks 端点）
 - 测试：`tests/Pim.UnitTests/Services/PcActivityAggregationServiceTests.cs`（新建）
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 ```csharp
 // tests/Pim.UnitTests/Services/PcActivityAggregationServiceTests.cs 骨架
@@ -154,12 +154,12 @@ public class PcActivityAggregationServiceTests
 
 （实际测试用例由实现者按最终口径补全，至少覆盖：①gap ≤5min 合并成一块且 durationMinutes 正确；②gap >5min 切两块；③<10min 块被过滤；④afk 事件不参与；⑤mainApp/topApps 按时长排序；⑥单事件 >3600s 封顶。时间戳全部用 UTC 字面量构造，换算用 `TimeZoneInfo.ConvertTime` 断言，不用 ToLocalTime。）
 
-- [ ] **步骤 2：运行确认失败**
+- [x] **步骤 2：运行确认失败**
 
 运行：`dotnet test Pim.sln --filter "FullyQualifiedName~PcActivityAggregationServiceTests" --no-restore`
 预期：编译错误（服务/DTO 不存在）
 
-- [ ] **步骤 3：实现 DTO + 服务 + 端点**
+- [x] **步骤 3：实现 DTO + 服务 + 端点**
 
 DTO（positional record，放 `PcAggregationDtos.cs`）：
 
@@ -197,16 +197,16 @@ readGroup.MapGet("/aggregation/focus-blocks", async (
 
 （异常处理：ArgumentException → 400，仿现有端点 try/catch。）
 
-- [ ] **步骤 4：运行测试确认通过**
+- [x] **步骤 4：运行测试确认通过**
 
 运行：`dotnet test Pim.sln --filter "FullyQualifiedName~PcActivityAggregationServiceTests" --no-restore`
 预期：PASS
 
-- [ ] **步骤 5：全量测试**
+- [x] **步骤 5：全量测试**
 
 运行：`dotnet test Pim.sln --no-restore`。预期全绿（若 ActivityLabelingService 改用共享 AppSignatureMatcher，其测试也须全绿）。
 
-- [ ] **步骤 6：Commit**
+- [x] **步骤 6：Commit**
 
 ```bash
 git add src/modules/Pim.Module.PcTracker/ tests/Pim.UnitTests/Services/PcActivityAggregationServiceTests.cs
@@ -223,7 +223,7 @@ git commit -m "feat: focus block aggregation endpoint with timezone-aware busine
 - 修改：`src/modules/Pim.Module.PcTracker/PcTrackerModule.cs`（两个端点）
 - 测试：`tests/Pim.UnitTests/Services/PcActivityAggregationServiceTests.cs`（追加）
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 用例至少：
 1. `GetAppUsageAsync_SumsCappedDurationAndRanks`：Code.exe 3 条（其中 1 条 7200s 封顶 3600）+ Edge 1 条 → 排序 Code > Edge；percentage 之和 ≈ 100（按未取整和校验 >=99）；AppName 用 `.exe` 原值时归一合并。
@@ -233,9 +233,9 @@ git commit -m "feat: focus block aggregation endpoint with timezone-aware busine
 5. `GetLateNightAsync_SumsMinutesInLateWindow`：业务日 D 的 23:00（不算）、23:45（算）、次日 02:00（算，归 D）、次日 05:00（不算，属 D+1）→ minutes 正确、hadActivity=true。
 6. `GetLateNightAsync_AllDaysWithNoEvents`：窗口内无事件 → minutes=0, hadActivity=false。
 
-- [ ] **步骤 2：运行确认失败**（同任务 1 模式）
+- [x] **步骤 2：运行确认失败**（同任务 1 模式）
 
-- [ ] **步骤 3：实现**
+- [x] **步骤 3：实现**
 
 ```csharp
 public sealed record PcAppUsageItem(string AppName, string? DisplayName, int TotalMinutes, double Percentage);
@@ -248,7 +248,7 @@ public sealed record PcLateNightResponse(IReadOnlyList<PcLateNightDayItem> Items
 - `GetLateNightAsync(query, ct)`：按业务日循环，深夜窗口 `[D 23:30, D+1 04:00)` 求和；hadActivity = 全窗口（04:00-次日04:00）有非 afk window 事件。
 - 端点 `/aggregation/app-usage`（limit 参数默认 8，加入 cache overrides）与 `/aggregation/late-night`（只支持 start&end，date 单日也允许——转成 start=end=date）。
 
-- [ ] **步骤 4：测试通过 + 全量 + Commit**
+- [x] **步骤 4：测试通过 + 全量 + Commit**
 
 ```bash
 git commit -m "feat: app usage ranking and late-night aggregation endpoints / 应用时长排行与深夜使用聚合接口"
@@ -262,7 +262,7 @@ git commit -m "feat: app usage ranking and late-night aggregation endpoints / �
 - 修改：`Services/PcActivityAggregationService.cs`、`DTOs/PcAggregationDtos.cs`、`PcTrackerModule.cs`
 - 测试：同文件追加
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 用例至少：
 1. `GetCategoryDistributionAsync_SumsSnapshotDurations`：3 条快照（编程/折腾 30min、学习 15min、编程/折腾 15min）→ 编程/折腾 45min 60%、学习 15min 40%。
@@ -271,7 +271,7 @@ git commit -m "feat: app usage ranking and late-night aggregation endpoints / �
 4. `GetCategoryDistributionAsync_EmptyReturnsEmptyItems`：无快照 → items 空、不抛。
 5. `GetCategoryDistributionAsync_FallsBackColor`：CategoryColor 为空/非法时按 UnifiedColors / #64748b 兜底。
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**
+- [x] **步骤 2：确认失败 → 步骤 3：实现**
 
 ```csharp
 public sealed record PcCategoryDistributionItem(string CategoryName, string Color, int Minutes, double Percentage);
@@ -280,7 +280,7 @@ public sealed record PcCategoryDistributionResponse(IReadOnlyList<PcCategoryDist
 
 数据源 `pc_activity_classifications`，时长 = clamp((EndedAt-StartedAt).TotalSeconds, 0, 3600)，按 §0.2 聚合。端点 `/aggregation/category-distribution`。
 
-- [ ] **步骤 4：测试通过 + 全量 + Commit**
+- [x] **步骤 4：测试通过 + 全量 + Commit**
 
 ```bash
 git commit -m "feat: category distribution aggregation from classification snapshots / 分类分布统计接口"
@@ -297,7 +297,7 @@ git commit -m "feat: category distribution aggregation from classification snaps
 - 修改：`src/modules/Pim.Module.Mobile/MobileModule.cs`（frequent-places 端点）
 - 测试：`tests/Pim.UnitTests/Mobile/MobileFrequentPlaceServiceTests.cs`（新建）
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 用例（用 MobileTestHelpers.CreateDb/CurrentUser + SeedPoint 模式）：
 1. `ThreeTightClustersAndNoise_ProducesThreePlaces`：A 组 12 点（半径 ~20m）、B 组 15 点（~30m）、C 组 10 点（~10m）、噪声 4 点（离群 >200m）→ places=3，各 pointCount 正确，噪声不输出；中心误差 <30m。
@@ -307,7 +307,7 @@ git commit -m "feat: category distribution aggregation from classification snaps
 5. `RejectedAndLowAccuracyPointsExcluded`：quality=rejected 与 accuracy=150 的点不参与。
 6. `CrossDevicePointsNotMerged`：deviceId 过滤时只聚该设备（传 deviceId 只返回该设备聚类）。
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**
+- [x] **步骤 2：确认失败 → 步骤 3：实现**
 
 `SimpleDbscan`：
 
@@ -336,7 +336,7 @@ public sealed record MobileFrequentPlacesResponse(
 
 端点仿 tracks（cache + force + [AsParameters] MobileLocationEndpointQuery）。
 
-- [ ] **步骤 4：测试通过 + 全量 + Commit**
+- [x] **步骤 4：测试通过 + 全量 + Commit**
 
 ```bash
 git commit -m "feat: DBSCAN frequent place clustering endpoint / 常去地点 DBSCAN 聚类接口"
@@ -351,7 +351,7 @@ git commit -m "feat: DBSCAN frequent place clustering endpoint / 常去地点 DB
 - 修改：`DTOs/MobileFrequentPlaceDtos.cs`、`MobileModule.cs`
 - 测试：`tests/Pim.UnitTests/Mobile/MobileFrequentPlaceServiceTests.cs`（追加）
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 用例：
 1. `MovementStats_CountsOutingWhenLeavingHomeBeyondRadius`：家簇（夜间点确定 home）→ 走到 300m 外 30min → 回家 → outingCount=1、outingSeconds≈1800、outings 起止正确。
@@ -362,11 +362,11 @@ git commit -m "feat: DBSCAN frequent place clustering endpoint / 常去地点 DB
 6. `NoHomeReturnsZeroOutings`：无有效聚类 → homeCenter null、outing 指标 0（distance/speed 仍返回）。
 7. `PerDaySplitsByLocalCalendarDay`：跨两天的数据 → perDay 按本地 00:00 分组正确。
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**
+- [x] **步骤 2：确认失败 → 步骤 3：实现**
 
 按 §0.4：家中心来自 DBSCAN；离家距离序列（对 usable 点按时间）→ 区间合并（>150m 开始，<=150m 结束，间隔 <=10min 桥接）→ >=10min 计次；距离复用 `MobileLocationAggregationService.BuildTracks` 的 move 段求和（该服务已 scoped 注册，直接注入复用，不要复制算法）；速度峰值逻辑如上。DTO 按 §0.6。端点 `/location/analytics/movement-stats`。
 
-- [ ] **步骤 4：测试通过 + 全量 + Commit**
+- [x] **步骤 4：测试通过 + 全量 + Commit**
 
 ```bash
 git commit -m "feat: movement stats endpoint with home detection and outings / 移动统计接口（家识别与出门统计）"

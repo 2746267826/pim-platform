@@ -4,25 +4,32 @@ import { createRequire } from 'node:module';
 import { chartColors } from '../../src/client-web/src/components/charts/chartColors';
 import {
   buildAppUsageBarOption,
+  buildFocusGaugeOption,
   buildReviewMetrics,
+  buildWeeklyTrendOption,
+  parseDurationToMinutes,
 } from '../../src/client-web/src/components/charts/pcPanelOptions';
-import type { PcSummaryResponse } from '../../src/client-web/src/types';
+import type { PcSummaryResponse, DerivedMetrics } from '../../src/client-web/src/types';
 import type {
   PcAppUsageResponse,
   PcCategoryDistributionResponse,
   PcFocusBlocksResponse,
   PcLateNightResponse,
+  DailyProductivity,
 } from '../../src/client-web/src/api/pcTracker';
 
 const requireFromClient = createRequire(path.join(process.cwd(), 'src/client-web/package.json'));
 const React = requireFromClient('react') as typeof import('react');
 const { renderToStaticMarkup } = requireFromClient('react-dom/server') as typeof import('react-dom/server');
+const { QueryClient, QueryClientProvider } = requireFromClient('@tanstack/react-query');
+const { format } = requireFromClient('date-fns') as typeof import('date-fns');
 const reactGlobal = globalThis as typeof globalThis & { React: typeof React };
 reactGlobal.React = React;
 
 const PcQualitySummary = require('../../src/client-web/src/components/pc-tracker/PcQualitySummary').default;
 const PcReviewSummary = require('../../src/client-web/src/components/pc-tracker/PcReviewSummary').default;
 const DailyActivityPanel = require('../../src/client-web/src/components/pc-tracker/DailyActivityPanel').default;
+const ProductivityDashboardPanel = require('../../src/client-web/src/components/pc-tracker/ProductivityDashboard').default;
 
 function test(name: string, run: () => void) { run(); }
 
@@ -216,6 +223,101 @@ test('DailyActivityPanel statically renders app usage bar title with appUsage pr
   assert.equal(html.includes('应用时长排行'), true);
   assert.equal(html.includes('分类排行'), true, 'category ranking list must stay');
   assert.ok((html.match(/role="img"/g) || []).length >= 1, `should render chart placeholder, got ${html}`);
+});
+
+test('parseDurationToMinutes parses backend duration strings', () => {
+  assert.equal(parseDurationToMinutes('8h 12m'), 492);
+  assert.equal(parseDurationToMinutes('45m'), 45);
+  assert.equal(parseDurationToMinutes('3h'), 180);
+  assert.equal(parseDurationToMinutes('0m'), 0);
+  assert.equal(parseDurationToMinutes(undefined), 0);
+  assert.equal(parseDurationToMinutes(''), 0);
+});
+
+test('buildFocusGaugeOption renders gauge with focus ratio and primary-to-activity gradient', () => {
+  const option = buildFocusGaugeOption(focusBlocks, summary.metrics as DerivedMetrics) as any;
+  assert.equal(option.series[0].type, 'gauge');
+  assert.equal(option.series[0].min, 0);
+  assert.equal(option.series[0].max, 100);
+  assert.equal(option.series[0].data[0].name, '专注占比');
+  assert.equal(option.series[0].detail.formatter, '{value}%');
+  const gradient = option.series[0].progress.itemStyle.color;
+  assert.equal(gradient.type, 'linear');
+  assert.equal(gradient.colorStops[0].color, chartColors.primary);
+  assert.equal(gradient.colorStops[1].color, chartColors.activity);
+  const expected = Math.round((112 / 492) * 100);
+  assert.equal(option.series[0].data[0].value, expected, 'focus 112min / recorded 492min');
+});
+
+test('buildFocusGaugeOption clamps value to 100 and returns 0 when recorded duration is 0', () => {
+  const overFocus: PcFocusBlocksResponse = {
+    items: [
+      { startUtc: '', endUtc: '', startLocal: '', endLocal: '', durationMinutes: 60, mainApp: 'A', topApps: [] },
+      { startUtc: '', endUtc: '', startLocal: '', endLocal: '', durationMinutes: 60, mainApp: 'B', topApps: [] },
+    ],
+  };
+  const clamped = buildFocusGaugeOption(overFocus, { totalRecordedDuration: '1h' } as DerivedMetrics) as any;
+  assert.equal(clamped.series[0].data[0].value, 100, '120/60*100 clamps to 100');
+
+  const zeroDenominator = buildFocusGaugeOption(focusBlocks, undefined) as any;
+  assert.equal(zeroDenominator.series[0].data[0].value, 0, 'no recorded duration means 0');
+
+  const zeroMinutes = buildFocusGaugeOption(focusBlocks, { totalRecordedDuration: '0m' } as DerivedMetrics) as any;
+  assert.equal(zeroMinutes.series[0].data[0].value, 0, '0m recorded duration means 0');
+});
+
+test('buildWeeklyTrendOption plots recorded minutes per day with date x axis', () => {
+  const daily: DailyProductivity[] = [
+    { date: '2026-08-10', productiveMinutes: 100, distractingMinutes: 20, neutralMinutes: 30, totalMinutes: 150, productiveRatio: 0.67 },
+    { date: '2026-08-11', productiveMinutes: 200, distractingMinutes: 10, neutralMinutes: 40, totalMinutes: 250, productiveRatio: 0.8 },
+  ];
+  const option = buildWeeklyTrendOption(daily) as any;
+  assert.deepEqual(option.xAxis[0].data, ['2026-08-10', '2026-08-11']);
+  assert.equal(option.series[0].type, 'bar');
+  assert.deepEqual(option.series[0].data, [150, 250]);
+  assert.ok(option.tooltip, 'tooltip should exist to note the recorded-duration scope');
+});
+
+test('buildWeeklyTrendOption handles empty daily input', () => {
+  const option = buildWeeklyTrendOption([]) as any;
+  assert.deepEqual(option.xAxis[0].data, []);
+  assert.deepEqual(option.series[0].data, []);
+});
+
+test('ProductivityDashboard renders descriptive focus dashboard without subjective score words', () => {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const today = format(new Date(), 'yyyy-MM-dd');
+  qc.setQueryData(['productivity-dashboard', today], {
+    todayScore: 80,
+    productiveHours: 4,
+    distractingHours: 1,
+    neutralHours: 2,
+    targetHours: 6,
+    goalMet: true,
+    weeklyTrend: [
+      { date: '2026-08-10', productiveMinutes: 100, distractingMinutes: 20, neutralMinutes: 30, totalMinutes: 150, productiveRatio: 0.67 },
+    ],
+  });
+  const html = renderToStaticMarkup(
+    React.createElement(
+      QueryClientProvider,
+      { client: qc },
+      React.createElement(ProductivityDashboardPanel, {
+        focusBlocks,
+        lateNight,
+        summaryMetrics: summary.metrics,
+      })
+    )
+  );
+  assert.equal(html.includes('专注概况'), true);
+  assert.equal(html.includes('最长专注'), true);
+  assert.equal(html.includes('碎片化'), true);
+  assert.equal(html.includes('深夜使用'), true);
+  assert.equal(html.includes('今日效率'), false, 'subjective title must be gone');
+  assert.equal(html.includes('生产性'), false, 'subjective productive row must be gone');
+  assert.equal(html.includes('分心'), false, 'subjective distracting row must be gone');
+  const imgCount = (html.match(/role="img"/g) || []).length;
+  assert.ok(imgCount >= 2, `gauge + weekly trend placeholders expected, got ${imgCount}`);
 });
 
 console.log('pcPanelCharts tests passed');

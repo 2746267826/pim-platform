@@ -310,7 +310,11 @@ export default function PcTrackerPage() {
         />
       </div>
 
-      <ProductivityDashboardPanel />
+      <ProductivityDashboardPanel
+        focusBlocks={focusBlocks}
+        lateNight={lateNight}
+        summaryMetrics={data?.metrics ?? null}
+      />
 
       <AnalysisCard title="活动分析" subtitle="按时间块查看活动强度、切换频率和待分类缺口">
         <ActivityAnalysisHeatmap

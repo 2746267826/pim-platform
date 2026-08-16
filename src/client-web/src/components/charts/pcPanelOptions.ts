@@ -1,12 +1,13 @@
 import { chartColors } from './chartColors';
 import { buildFocusSummary } from './pcTodayOptions';
 import type { EChartsOption } from '../../lib/echarts';
-import type { PcSummaryResponse } from '../../types';
+import type { PcSummaryResponse, DerivedMetrics } from '../../types';
 import type {
   PcAppUsageResponse,
   PcCategoryDistributionResponse,
   PcFocusBlocksResponse,
   PcLateNightResponse,
+  DailyProductivity,
 } from '../../api/pcTracker';
 
 /** 电脑记录页图表 option 纯函数：输入数据、输出 EChartsOption，不依赖组件/页面。 */
@@ -24,6 +25,131 @@ export interface ReviewMetric {
 
 function formatCount(value: number) {
   return value.toLocaleString('zh-CN');
+}
+
+/**
+ * 解析后端 DerivedMetrics 的时长字符串（'8h 12m' / '45m' / '3h' / '0m'）为分钟数。
+ * 空串/null/undefined/非法输入返回 0。
+ */
+export function parseDurationToMinutes(duration: string | null | undefined): number {
+  if (!duration) return 0;
+  let total = 0;
+  const hours = /(\d+(?:\.\d+)?)h/.exec(duration);
+  const minutes = /(\d+(?:\.\d+)?)m/.exec(duration);
+  if (hours) total += parseFloat(hours[1]) * 60;
+  if (minutes) total += parseFloat(minutes[1]);
+  return Math.round(total);
+}
+
+/**
+ * 专注占比环形仪表：focus-blocks 总分钟 / summary.metrics 记录总分钟（字符串解析为分钟），
+ * clamp 到 0..100；记录时长为 0 时 value 为 0。进度色 primary→activity 线性渐变，轴线浅灰。
+ */
+export function buildFocusGaugeOption(
+  focusBlocks: PcFocusBlocksResponse | undefined,
+  summaryMetrics: DerivedMetrics | undefined,
+): EChartsOption {
+  const focusMinutes = (focusBlocks?.items ?? []).reduce((sum, block) => sum + block.durationMinutes, 0);
+  const totalRecordedMinutes = parseDurationToMinutes(summaryMetrics?.totalRecordedDuration);
+  const raw = totalRecordedMinutes > 0 ? (focusMinutes / totalRecordedMinutes) * 100 : 0;
+  const value = Math.round(Math.min(100, Math.max(0, raw)));
+
+  return {
+    series: [
+      {
+        type: 'gauge',
+        min: 0,
+        max: 100,
+        startAngle: 210,
+        endAngle: -30,
+        axisLine: {
+          lineStyle: {
+            width: 14,
+            color: [[1, chartColors.borderSoft]],
+          },
+        },
+        progress: {
+          show: true,
+          width: 14,
+          itemStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 1,
+              y2: 0,
+              colorStops: [
+                { offset: 0, color: chartColors.primary },
+                { offset: 1, color: chartColors.activity },
+              ],
+            },
+          },
+        },
+        pointer: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: { show: false },
+        title: {
+          show: true,
+          offsetCenter: [0, '34%'],
+          fontSize: 12,
+          color: chartColors.textMuted,
+        },
+        detail: {
+          show: true,
+          valueAnimation: true,
+          offsetCenter: [0, 0],
+          fontSize: 26,
+          fontWeight: 'bold' as const,
+          color: chartColors.primary,
+          formatter: '{value}%',
+        },
+        data: [{ value, name: '专注占比' }],
+      },
+    ],
+  };
+}
+
+/** 本周趋势：每根柱为该日记录时长（totalMinutes），tooltip 注明「记录时长」口径，x=日期。 */
+export function buildWeeklyTrendOption(daily: DailyProductivity[]): EChartsOption {
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params: unknown) => {
+        const axisParams = Array.isArray(params) ? params : [params];
+        const p = axisParams[0] as { dataIndex?: number } | undefined;
+        const item = p?.dataIndex !== undefined ? daily[p.dataIndex] : undefined;
+        if (!item) return '';
+        return `${item.date} 记录时长 ${item.totalMinutes} 分钟`;
+      },
+    },
+    grid: { left: 8, right: 12, top: 20, bottom: 8, containLabel: true },
+    xAxis: [
+      {
+        type: 'category',
+        data: daily.map(day => day.date),
+        axisLabel: { fontSize: 10, color: chartColors.textMuted },
+        axisLine: { lineStyle: { color: chartColors.borderSoft } },
+        axisTick: { show: false },
+      },
+    ],
+    yAxis: [
+      {
+        type: 'value',
+        splitLine: { lineStyle: { color: chartColors.borderSoft } },
+        axisLabel: { fontSize: 10, color: chartColors.textMuted },
+      },
+    ],
+    series: [
+      {
+        type: 'bar',
+        barWidth: '55%',
+        itemStyle: { borderRadius: [3, 3, 0, 0], color: chartColors.primary },
+        data: daily.map(day => day.totalMinutes),
+      },
+    ],
+  };
 }
 
 /** 应用时长横向 bar：yAxis category inverse（首行最高），色取分类色或 primary，label 右侧 `X 分钟`。 */

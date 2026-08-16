@@ -1,36 +1,38 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { getProductivityDashboard } from '../../api/pcTracker';
+import type { PcFocusBlocksResponse, PcLateNightResponse } from '../../api/pcTracker';
+import type { DerivedMetrics } from '../../types';
+import EChartBox from '../charts/EChartBox';
+import {
+  buildFocusGaugeOption,
+  buildWeeklyTrendOption,
+  parseDurationToMinutes,
+} from '../charts/pcPanelOptions';
 
-function CircularScore({ score }: { score: number }) {
-  const r = 40;
-  const circumference = 2 * Math.PI * r;
-  const offset = circumference - (score / 100) * circumference;
-  const color = score >= 70 ? '#22C55E' : score >= 50 ? '#F59E0B' : '#EF4444';
+export interface ProductivityDashboardPanelProps {
+  /** 专注块聚合数据（PcTrackerPage 已查询，页面传入） */
+  focusBlocks?: PcFocusBlocksResponse;
+  /** 深夜使用聚合数据（页面传入） */
+  lateNight?: PcLateNightResponse;
+  /** summary.metrics：提供记录总时长（字符串）与上下文切换次数（页面传入） */
+  summaryMetrics?: DerivedMetrics | null;
+}
 
+function MetricLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="relative w-28 h-28 flex items-center justify-center">
-      <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r={r} fill="none" stroke="#E2E8F0" strokeWidth="8" />
-        <circle
-          cx="50" cy="50" r={r}
-          fill="none"
-          stroke={color}
-          strokeWidth="8"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold" style={{ color }}>{Math.round(score)}</span>
-        <span className="text-[10px] text-slate-400">分</span>
-      </div>
+    <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-lg font-semibold text-slate-800 mt-0.5">{value}</div>
     </div>
   );
 }
 
-export default function ProductivityDashboardPanel() {
+export default function ProductivityDashboardPanel({
+  focusBlocks,
+  lateNight,
+  summaryMetrics,
+}: ProductivityDashboardPanelProps) {
   const today = format(new Date(), 'yyyy-MM-dd');
 
   const { data, isLoading } = useQuery({
@@ -41,7 +43,7 @@ export default function ProductivityDashboardPanel() {
   if (isLoading) {
     return (
       <div className="pim-panel p-4">
-        <h3 className="text-sm font-semibold text-slate-800 mb-3">今日效率</h3>
+        <h3 className="text-sm font-semibold text-slate-800 mb-3">专注概况</h3>
         <div className="text-sm text-slate-400 text-center py-4">加载中...</div>
       </div>
     );
@@ -49,13 +51,26 @@ export default function ProductivityDashboardPanel() {
 
   if (!data) return null;
 
-  const maxWeekMinutes = Math.max(...data.weeklyTrend.map(d => d.totalMinutes), 1);
-  const dayNames = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  const focusItems = focusBlocks?.items ?? [];
+  const longestMinutes = focusItems.length > 0 ? Math.max(...focusItems.map(block => block.durationMinutes)) : null;
+  const totalRecordedMinutes = summaryMetrics ? parseDurationToMinutes(summaryMetrics.totalRecordedDuration) : 0;
+  const switchRatePerHour =
+    summaryMetrics && totalRecordedMinutes > 0
+      ? summaryMetrics.appSwitchCount / (totalRecordedMinutes / 60)
+      : null;
+
+  let lateMinutes: number | null = null;
+  const lateItems = lateNight?.items ?? [];
+  if (lateItems.length > 0) {
+    const lastActivity = [...lateItems].reverse().find(item => item.hadActivity);
+    const pick = lastActivity ?? lateItems[lateItems.length - 1];
+    lateMinutes = pick.minutes;
+  }
 
   return (
     <div className="pim-panel p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-slate-800">今日效率</h3>
+        <h3 className="text-sm font-semibold text-slate-800">专注概况</h3>
         {data.goalMet ? (
           <span className="text-xs bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded">✅ 达标</span>
         ) : (
@@ -63,42 +78,22 @@ export default function ProductivityDashboardPanel() {
         )}
       </div>
 
-      <div className="flex items-center gap-6">
-        <CircularScore score={data.todayScore} />
-        <div className="flex-1 space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-xs text-slate-500">生产性</span>
-            <span className="text-sm font-medium text-slate-800 ml-auto">{data.productiveHours.toFixed(1)}h</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-slate-400" />
-            <span className="text-xs text-slate-500">中性</span>
-            <span className="text-sm font-medium text-slate-800 ml-auto">{data.neutralHours.toFixed(1)}h</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-rose-400" />
-            <span className="text-xs text-slate-500">分心</span>
-            <span className="text-sm font-medium text-slate-800 ml-auto">{data.distractingHours.toFixed(1)}h</span>
-          </div>
-          <div className="border-t border-slate-100 pt-1.5 mt-1.5">
-            <span className="text-xs text-slate-400">目标: {data.targetHours.toFixed(1)}h/天</span>
-          </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)] items-center">
+        <EChartBox option={buildFocusGaugeOption(focusBlocks, summaryMetrics ?? undefined)} height={200} ariaLabel="专注占比仪表" />
+        <div className="grid grid-cols-2 gap-3">
+          <MetricLine label="最长专注" value={longestMinutes !== null ? `${longestMinutes} 分钟` : '—'} />
+          <MetricLine label="专注块数" value={focusItems.length > 0 ? `${focusItems.length} 段` : '—'} />
+          <MetricLine
+            label="碎片化"
+            value={switchRatePerHour !== null ? `${switchRatePerHour.toFixed(1)} 次/时` : '—'}
+          />
+          <MetricLine label="深夜使用" value={lateMinutes !== null ? `${lateMinutes} 分钟` : '—'} />
         </div>
       </div>
 
       <div className="mt-4">
         <h4 className="text-xs font-medium text-slate-500 mb-2">本周趋势</h4>
-        <div className="flex items-end gap-1.5 h-20">
-          {data.weeklyTrend.map((day, i) => (
-            <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
-              <div className="w-full flex flex-col-reverse rounded-t" style={{ height: `${Math.max((day.totalMinutes / maxWeekMinutes) * 100, 4)}%` }}>
-                <div style={{ height: `${(day.productiveMinutes / Math.max(day.totalMinutes, 1)) * 100}%` }} className="w-full bg-emerald-400 rounded-t" title={`生产性: ${day.productiveMinutes.toFixed(0)}分钟`} />
-              </div>
-              <span className="text-[10px] text-slate-400">{dayNames[i]}</span>
-            </div>
-          ))}
-        </div>
+        <EChartBox option={buildWeeklyTrendOption(data.weeklyTrend)} height={120} ariaLabel="本周记录时长趋势" />
       </div>
     </div>
   );

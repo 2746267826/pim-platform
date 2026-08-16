@@ -291,20 +291,20 @@ git commit -m "feat: echarts gantt timeline and heatmaps for pc tracker / 分类
 - 创建/并入：`src/client-web/src/components/charts/pcPanelOptions.ts`（加 `buildFocusGaugeOption` / `buildWeeklyTrendOption`）
 - 测试：`tests/client-web/pcPanelCharts.test.tsx`（追加）
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 1. `buildFocusGaugeOption(focusBlocks, summaryMetrics)`：gauge 类型、min 0 max 100、进度 = 专注分钟/记录时长*100（clamp）、色带 primary→activity 渐变、中心 detail 文本 `{value}%`、标题「专注占比」；记录时长 0 时 value 0
 2. `buildWeeklyTrendOption(daily)`：每日 bar/line（focusMinutes 或既有 productivity 数据），x=日期、tooltip 分钟
 3. 组件静态渲染：含「专注概况」「最长专注」「碎片化」「深夜使用」文案；不含「今日效率」「生产性」「分心」（主观评判词移除断言）
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**
+- [x] **步骤 2：确认失败 → 步骤 3：实现**
 
 - 标题「今日效率」→「专注概况」；删除 CircularScore SVG 与「生产性/中性/分心」三分统计（这是阶段 1 已拍板的去评判语义）。
 - 新结构：左 ECharts gauge（专注占比 = focus-blocks 总分钟 / summary.metrics.totalRecordedDuration 分钟）+ 右侧 4 行描述性指标（最长专注 / 专注块数 / 碎片化 = 上下文切换次数每小时（来自 summary.metrics 或 activity-analysis，取现有可得字段）/ 深夜使用分钟（late-night API））。
 - 「本周趋势」改 `buildWeeklyTrendOption`（数据源沿用 `getProductivityRange`，字段映射为每日专注/记录分钟——若该接口无专注分钟，则用 focus blocks 按日聚合不可得时降级为记录时长趋势，tooltip 注明口径）。
 - useQuery 已有 dashboard 查询保留，新增 focus-blocks/late-night 复用页面层 props 或组件内自取（与 PcReviewSummary 一致：props 传入）。
 
-- [ ] **步骤 4：测试通过 + build + Commit**
+- [x] **步骤 4：测试通过 + build + Commit**
 
 ```bash
 git commit -m "feat: descriptive focus dashboard replacing productivity score / 描述性专注概况替代效率评分"

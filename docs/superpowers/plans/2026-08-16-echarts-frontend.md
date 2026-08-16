@@ -359,7 +359,7 @@ git commit -m "feat: mobile echarts heatmap, typed charts and timeline strip / �
 - 修改：`src/client-web/src/pages/HistoricalLocationPage.tsx`（新增 2 个 useQuery）
 - 测试：`tests/client-web/mobileMapEnhancements.test.tsx`（新建）
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 至少断言：
 1. `simplifyPath(positions, toleranceMeters)`：3 点折线中点近直线（垂距 < tolerance）→ 输出 2 点；中点偏离大（> tolerance）→ 保留 3 点；首尾恒保留；空/单点/两点原样
@@ -368,7 +368,7 @@ git commit -m "feat: mobile echarts heatmap, typed charts and timeline strip / �
 4. LeafletMap 源码断言（保 locationAnalyticsComponents.test.tsx 的约束）：仍含 `Polyline`、`selectedSegmentId`、`#2563eb`、`#e11d48`、`#14b8a6`、`pim-location-marker-selected`，且新增含 `Circle`、`simplifyPath`
 5. `buildMapDisplayModel` 行为不变（跑既有 mobileMapDisplayModel.test.ts 确认零改动通过）
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**
+- [x] **步骤 2：确认失败 → 步骤 3：实现**
 
 - `pathSmoothing.ts`：`export function simplifyPath<T extends { lat: number; lng: number }>(points: T[], toleranceMeters = 15): T[]`——标准 Douglas-Peucker（haversine 点到线段垂距，首尾索引恒保留，递归分段，≤2 点原样）。渲染层对每条 `movePolylines` 的 positions 先过该函数（jump 点已在 model 层剔除，顺序：剔除→简化）。默认 tolerance 15m（GPS 精度中位 8m 量级）。
 - `HistoricalLocationLeafletMap.tsx`：
@@ -380,7 +380,7 @@ git commit -m "feat: mobile echarts heatmap, typed charts and timeline strip / �
 - `HistoricalLocationDashboard.tsx`：`LocationMetricStrip` 下方加一行移动统计四格（`buildMovementMetricStrip`，纯 HTML MetricCard 风格，无图表）；props 增加 `movementStats?`。
 - `mobileMapEnhancements.test.tsx` 覆盖以上 + `mobileMapDisplayModel.test.ts` 复跑零改动。
 
-- [ ] **步骤 4：测试通过 + build + locationAnalytics 套件复跑 + Commit**
+- [x] **步骤 4：测试通过 + build + locationAnalytics 套件复跑 + Commit**
 
 ```bash
 git commit -m "feat: path smoothing, stay radius circles and frequent place layer / 轨迹平滑、停留精度圈与常去地点热区"

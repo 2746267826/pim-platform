@@ -1,30 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
-  createMobileAppCategoryRule,
-  deleteMobileAppCatalogOverride,
-  deleteMobileAppCategoryRule,
   getMobileAnalyticsCharts,
   getMobileAnalyticsHeatmap,
   getMobileAnalyticsOverview,
   getMobileAnalyticsTimelineBlocks,
-  getMobileAppCatalogOverrides,
-  getMobileAppCategoryRules,
   getMobileDevices,
   getMobileSessionEvents,
   getMobileTimelineBlockSessions,
   MOBILE_DEFAULT_TIMEZONE,
-  saveMobileAppCatalogOverride,
-  updateMobileAppCategoryRule,
   type MobileAnalyticsQuery,
-  type MobileAppCatalogOverride,
-  type MobileAppCategoryRule,
-  type MobileAppCategoryRuleUpsertRequest,
   type MobileHeatmapBucket,
 } from '../api/mobile';
 import MobileAnalyticsHeader from '../components/mobile/MobileAnalyticsHeader';
 import MobileAnomalyPanel from '../components/mobile/MobileAnomalyPanel';
-import MobileAppCatalogManager from '../components/mobile/MobileAppCatalogManager';
+import LabelingQueue from '../components/labeling/LabelingQueue';
 import MobileChartsGrid from '../components/mobile/MobileChartsGrid';
 import MobileInsightStrip from '../components/mobile/MobileInsightStrip';
 import MobileTimelineBlocks from '../components/mobile/MobileTimelineBlocks';
@@ -43,19 +33,7 @@ function errorMessage(error: unknown) {
   return error ? '手机记录加载失败，请稍后刷新。' : null;
 }
 
-function catalogMutationKeys() {
-  return [
-    ['mobile-app-catalog-overrides'],
-    ['mobile-app-category-rules'],
-    ['mobile-analytics-overview'],
-    ['mobile-analytics-charts'],
-    ['mobile-analytics-heatmap'],
-    ['mobile-analytics-timeline-blocks'],
-  ];
-}
-
 export default function MobileRecordsPage() {
-  const queryClient = useQueryClient();
   const forceRef = useRef(false);
   const refreshSeq = useRef(0);
   const defaultRange = useMemo(() => buildMobileAnalyticsDateRange('7d'), []);
@@ -130,16 +108,6 @@ export default function MobileRecordsPage() {
     }),
   });
 
-  const overridesQuery = useQuery({
-    queryKey: ['mobile-app-catalog-overrides'],
-    queryFn: getMobileAppCatalogOverrides,
-  });
-
-  const rulesQuery = useQuery({
-    queryKey: ['mobile-app-category-rules'],
-    queryFn: getMobileAppCategoryRules,
-  });
-
   const sessionsQuery = useQuery({
     queryKey: ['mobile-timeline-block-sessions', expandedBlockId, analyticsQuery],
     queryFn: () => getMobileTimelineBlockSessions(expandedBlockId ?? '', analyticsQuery),
@@ -150,47 +118,6 @@ export default function MobileRecordsPage() {
     queryKey: ['mobile-session-events', expandedSessionId],
     queryFn: () => getMobileSessionEvents(expandedSessionId ?? ''),
     enabled: Boolean(expandedSessionId),
-  });
-
-  function invalidateCatalogData() {
-    for (const queryKey of catalogMutationKeys()) {
-      void queryClient.invalidateQueries({ queryKey });
-    }
-  }
-
-  const saveOverrideMutation = useMutation({
-    mutationFn: (override: MobileAppCatalogOverride) => saveMobileAppCatalogOverride(override),
-    onSuccess: invalidateCatalogData,
-  });
-
-  const deleteOverrideMutation = useMutation({
-    mutationFn: (overridePackageName: string) => deleteMobileAppCatalogOverride(overridePackageName),
-    onSuccess: invalidateCatalogData,
-  });
-
-  const saveRuleMutation = useMutation({
-    mutationFn: (rule: MobileAppCategoryRule | MobileAppCategoryRuleUpsertRequest) => {
-      const payload: MobileAppCategoryRuleUpsertRequest = {
-        id: 'id' in rule ? rule.id : undefined,
-        ruleType: rule.ruleType,
-        pattern: rule.pattern,
-        lifeCategory: rule.lifeCategory,
-        priority: rule.priority,
-        isEnabled: rule.isEnabled,
-        displayNameOverride: rule.displayNameOverride ?? null,
-        isSystemNoise: rule.isSystemNoise ?? null,
-      };
-
-      return payload.id
-        ? updateMobileAppCategoryRule(payload.id, payload)
-        : createMobileAppCategoryRule(payload);
-    },
-    onSuccess: invalidateCatalogData,
-  });
-
-  const deleteRuleMutation = useMutation({
-    mutationFn: (ruleId: string) => deleteMobileAppCategoryRule(ruleId),
-    onSuccess: invalidateCatalogData,
   });
 
   const timelineBlocks = timelineBlocksQuery.data?.items ?? [];
@@ -297,8 +224,6 @@ export default function MobileRecordsPage() {
       heatmapQuery.refetch(),
       chartsQuery.refetch(),
       timelineBlocksQuery.refetch(),
-      overridesQuery.refetch(),
-      rulesQuery.refetch(),
     ]).finally(() => {
       if (refreshSeq.current === seq) {
         forceRef.current = false;
@@ -314,16 +239,12 @@ export default function MobileRecordsPage() {
     || overviewQuery.isFetching
     || heatmapQuery.isFetching
     || chartsQuery.isFetching
-    || timelineBlocksQuery.isFetching
-    || overridesQuery.isFetching
-    || rulesQuery.isFetching;
+    || timelineBlocksQuery.isFetching;
   const pageError = errorMessage(devicesQuery.error)
     ?? errorMessage(overviewQuery.error)
     ?? errorMessage(heatmapQuery.error)
     ?? errorMessage(chartsQuery.error)
-    ?? errorMessage(timelineBlocksQuery.error)
-    ?? errorMessage(overridesQuery.error)
-    ?? errorMessage(rulesQuery.error);
+    ?? errorMessage(timelineBlocksQuery.error);
 
   return (
     <div className="min-h-full bg-slate-50 pb-8">
@@ -398,21 +319,7 @@ export default function MobileRecordsPage() {
               quality={overviewQuery.data?.quality}
               isLoading={overviewQuery.isLoading}
             />
-            <MobileAppCatalogManager
-              overrides={overridesQuery.data ?? []}
-              rules={rulesQuery.data ?? []}
-              isLoading={overridesQuery.isLoading || rulesQuery.isLoading}
-              isSaving={
-                saveOverrideMutation.isPending
-                || deleteOverrideMutation.isPending
-                || saveRuleMutation.isPending
-                || deleteRuleMutation.isPending
-              }
-              onSaveOverride={override => saveOverrideMutation.mutate(override)}
-              onDeleteOverride={overridePackageName => deleteOverrideMutation.mutate(overridePackageName)}
-              onSaveRule={rule => saveRuleMutation.mutate(rule)}
-              onDeleteRule={ruleId => deleteRuleMutation.mutate(ruleId)}
-            />
+            <LabelingQueue limit={20} />
         </div>
       </main>
     </div>

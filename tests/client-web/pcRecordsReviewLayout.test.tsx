@@ -61,13 +61,13 @@ const html = renderToStaticMarkup(
 assert.equal(html.includes('今日复盘'), true);
 assert.equal(html.includes('记录时长'), true);
 assert.equal(html.includes('主要分类'), true);
-assert.equal(html.includes('待确认上下文'), true);
+assert.equal(html.includes('专注块'), true);
+assert.equal(html.includes('分类覆盖率'), true);
 assert.equal(html.includes('工作 / 开发'), true);
 assert.equal(html.includes('8h 12m'), true);
 assert.equal(html.includes('5h 40m'), true);
 assert.equal(html.includes('78'), true);
-assert.equal(html.includes('1'), true);
-assert.equal(html.includes('1,690'), true);
+assert.equal(html.includes('等待同步'), true);
 assert.equal(html.includes('Code.exe'), true);
 
 const contextPanelHtml = renderToStaticMarkup(

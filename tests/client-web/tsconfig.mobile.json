@@ -13,6 +13,7 @@
     "mobileNavigation.test.tsx",
     "mobileAnalyticsComponents.test.tsx",
     "mobileAnalyticsInteractions.test.tsx",
+    "mobileChartOptions.test.tsx",
     "locationAnalyticsComponents.test.tsx",
     "locationAnalyticsInteractions.test.tsx",
     "../../src/client-web/node_modules/vite/client.d.ts",

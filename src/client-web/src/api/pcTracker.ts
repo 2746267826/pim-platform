@@ -376,3 +376,98 @@ export interface TimelineV2Item {
 export function getTimelineV2(date: string) {
   return apiGet<ApiResponse<TimelineV2Item[]>>(`/pc/timeline/v2?date=${date}`).then(r => r.data);
 }
+
+// === Phase 2: 聚合接口（专注块 / 应用时长 / 深夜使用 / 分类分布）===
+export interface PcFocusBlockItem {
+  startUtc: string;
+  endUtc: string;
+  startLocal: string;
+  endLocal: string;
+  durationMinutes: number;
+  mainApp: string;
+  topApps: { name: string; minutes: number }[];
+}
+
+export interface PcFocusBlocksResponse {
+  items: PcFocusBlockItem[];
+}
+
+export interface PcAppUsageItem {
+  appName: string;
+  displayName: string | null;
+  totalMinutes: number;
+  percentage: number;
+}
+
+export interface PcAppUsageResponse {
+  items: PcAppUsageItem[];
+  totalMinutes: number;
+}
+
+export interface PcLateNightDayItem {
+  date: string;
+  minutes: number;
+  hadActivity: boolean;
+}
+
+export interface PcLateNightResponse {
+  items: PcLateNightDayItem[];
+}
+
+export interface PcCategoryDistributionItem {
+  categoryName: string;
+  color: string;
+  minutes: number;
+  percentage: number;
+}
+
+export interface PcCategoryDistributionResponse {
+  items: PcCategoryDistributionItem[];
+}
+
+export interface PcAggregationQueryParams {
+  date?: string;
+  start?: string;
+  end?: string;
+  timezone?: string;
+}
+
+function buildAggregationQuery(params: PcAggregationQueryParams & { limit?: number }): string {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') searchParams.set(k, String(v));
+  });
+  const query = searchParams.toString();
+  return query ? `?${query}` : '';
+}
+
+export const pcAggregationApiPaths = {
+  focusBlocks(params: PcAggregationQueryParams = {}): string {
+    return `/pc/aggregation/focus-blocks${buildAggregationQuery(params)}`;
+  },
+  appUsage(params: PcAggregationQueryParams & { limit?: number } = {}): string {
+    return `/pc/aggregation/app-usage${buildAggregationQuery(params)}`;
+  },
+  lateNight(params: PcAggregationQueryParams = {}): string {
+    return `/pc/aggregation/late-night${buildAggregationQuery(params)}`;
+  },
+  categoryDistribution(params: PcAggregationQueryParams = {}): string {
+    return `/pc/aggregation/category-distribution${buildAggregationQuery(params)}`;
+  },
+};
+
+export function getPcFocusBlocks(params: PcAggregationQueryParams = {}) {
+  return apiGet<ApiResponse<PcFocusBlocksResponse>>(pcAggregationApiPaths.focusBlocks(params)).then(r => r.data);
+}
+
+export function getPcAppUsage(params: PcAggregationQueryParams & { limit?: number } = {}) {
+  return apiGet<ApiResponse<PcAppUsageResponse>>(pcAggregationApiPaths.appUsage(params)).then(r => r.data);
+}
+
+export function getPcLateNight(params: PcAggregationQueryParams = {}) {
+  return apiGet<ApiResponse<PcLateNightResponse>>(pcAggregationApiPaths.lateNight(params)).then(r => r.data);
+}
+
+export function getPcCategoryDistribution(params: PcAggregationQueryParams = {}) {
+  return apiGet<ApiResponse<PcCategoryDistributionResponse>>(pcAggregationApiPaths.categoryDistribution(params)).then(r => r.data);
+}

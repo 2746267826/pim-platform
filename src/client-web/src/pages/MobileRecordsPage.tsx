@@ -274,7 +274,6 @@ export default function MobileRecordsPage() {
           <MobileUsageHeatmap
             buckets={heatmapQuery.data ?? []}
             granularity={granularity}
-            selectedBucketStartUtc={selectedBucketStartUtc}
             isLoading={heatmapQuery.isLoading}
             onGranularityChange={setGranularity}
             onBucketSelect={handleHeatmapBucketSelect}

@@ -3,9 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
   getMobileDevices,
+  getMobileFrequentPlaces,
   getMobileLocationAnalyticsOverview,
   getMobileLocationAnalyticsSegmentPoints,
   getMobileLocationAnalyticsTracks,
+  getMobileMovementStats,
   type MobileLocationAnalyticsParams,
 } from '../api/mobile';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
@@ -129,6 +131,31 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
   const hasMore = pointsQuery.data?.hasMore ?? false;
   const currentNextCursor = pointsQuery.data?.nextCursor ?? null;
 
+  const frequentPlacesQuery = useQuery({
+    queryKey: ['mobile-frequent-places', locationQuery],
+    queryFn: () => getMobileFrequentPlaces({ ...locationQuery, force: forceRef.current }),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const movementStatsQuery = useQuery({
+    queryKey: ['mobile-movement-stats', locationQuery],
+    queryFn: () => getMobileMovementStats({ ...locationQuery, force: forceRef.current }),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const frequentPlaces = useMemo(() => {
+    const data = frequentPlacesQuery.data;
+    if (!data) return [];
+    const merged = data.home ? [data.home, ...data.places] : data.places;
+    const seen = new Set<string>();
+    return merged.filter(place => {
+      const key = `${place.centerLatitude.toFixed(5)}|${place.centerLongitude.toFixed(5)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [frequentPlacesQuery.data]);
+
   const effectiveSelectedPointId = selectedPointId && points.some(point => point.id === selectedPointId)
     ? selectedPointId
     : points[0]?.id ?? null;
@@ -203,6 +230,8 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
       overviewQuery.refetch(),
       tracksQuery.refetch(),
       pointsQuery.refetch(),
+      frequentPlacesQuery.refetch(),
+      movementStatsQuery.refetch(),
     ]).finally(() => {
       if (refreshSeq.current === seq) {
         forceRef.current = false;
@@ -281,6 +310,8 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
       selectedSegmentId={effectiveSelectedSegmentId}
       selectedPointId={effectiveSelectedPointId}
       repositionKey={repositionKey}
+      frequentPlaces={frequentPlaces}
+      movementStats={movementStatsQuery.data}
       points={points}
       isLoading={devicesQuery.isLoading || overviewQuery.isLoading || tracksQuery.isLoading}
       isFetching={devicesQuery.isFetching || overviewQuery.isFetching || tracksQuery.isFetching || pointsQuery.isFetching}

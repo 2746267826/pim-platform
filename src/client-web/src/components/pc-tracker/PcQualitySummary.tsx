@@ -1,5 +1,7 @@
 import type { PcQualityResponse, PimHealthStatus } from '../../types';
 import StatusBadge from '../../ui/StatusBadge';
+import EChartBox from '../charts/EChartBox';
+import { buildQualityRingOption } from '../charts/pcPanelOptions';
 
 type StatusTone = 'primary' | 'warning' | 'danger' | 'neutral';
 
@@ -82,6 +84,8 @@ export default function PcQualitySummary({
 
   const status = quality.overallStatus;
   const statusLabel = quality.label || fallbackLabel[status];
+  const healthyCount = quality.components.filter(component => component.status === 'Healthy').length;
+  const ringOption = buildQualityRingOption(healthyCount, quality.components.length);
 
   return (
     <section className={panelClass}>
@@ -93,6 +97,27 @@ export default function PcQualitySummary({
           </p>
         </div>
         <StatusBadge tone={toneByStatus[status]}>{statusLabel}</StatusBadge>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-3">
+        <EChartBox
+          option={ringOption}
+          height={96}
+          className="w-24 shrink-0"
+          ariaLabel="数据质量完成率"
+        />
+        <dl className="grid flex-1 min-w-0 grid-cols-2 gap-3 text-xs">
+          <div className="min-w-0">
+            <dt className="text-slate-400">健康组件</dt>
+            <dd className="mt-1 font-medium text-slate-700">
+              {healthyCount}/{quality.components.length}
+            </dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-slate-400">问题数</dt>
+            <dd className="mt-1 font-medium text-slate-700">{quality.issues.length}</dd>
+          </div>
+        </dl>
       </div>
 
       <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-slate-100 pt-3 text-xs">

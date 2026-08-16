@@ -1,8 +1,8 @@
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
-import type { MobileLocationTrack } from '../../api/mobile';
+import { Circle, MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import type { MobileFrequentPlace, MobileLocationTrack } from '../../api/mobile';
 import { notifyUserInteraction } from '../../lib/autoRefresh';
 import { formatDateTime } from './mobileFormatting';
 import {
@@ -13,12 +13,15 @@ import {
   segmentKindLabel,
 } from './locationFormatting';
 import { buildMapDisplayModel } from './mobileMapModel';
+import { simplifyPath } from './pathSmoothing';
+import { buildFrequentPlaceCircles } from './mobileMapExtras';
 
 export interface HistoricalLocationLeafletMapProps {
   tracks: MobileLocationTrack[];
   selectedSegmentId?: string | null;
   selectedPointId?: string | null;
   repositionKey?: number;
+  frequentPlaces?: MobileFrequentPlace[];
   onSelectSegment?: (segmentId: string | null) => void;
   onSelectPoint?: (pointId: string) => void;
 }
@@ -37,11 +40,22 @@ const selectedMarkerIcon = L.divIcon({
   iconAnchor: [12, 12],
 });
 
-const stayMarkerIcon = L.divIcon({
-  className: 'pim-location-marker pim-location-marker-stay',
-  html: '<span></span>',
-  iconSize: [30, 30],
-  iconAnchor: [15, 15],
+/** 停留 marker 按停留时长分两档尺寸：>= 30 分钟 36px，否则 30px。 */
+function stayMarkerIconFor(durationSeconds: number) {
+  const size = durationSeconds >= 30 * 60 ? 36 : 30;
+  return L.divIcon({
+    className: 'pim-location-marker pim-location-marker-stay',
+    html: '<span></span>',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+const homeLabelIcon = L.divIcon({
+  className: 'pim-frequent-home-label',
+  html: '<span>家</span>',
+  iconSize: [30, 22],
+  iconAnchor: [15, 22],
 });
 
 const jumpMarkerIcon = L.divIcon({
@@ -110,6 +124,7 @@ export default function HistoricalLocationLeafletMap({
   selectedSegmentId,
   selectedPointId,
   repositionKey,
+  frequentPlaces,
   onSelectSegment,
   onSelectPoint,
 }: HistoricalLocationLeafletMapProps) {
@@ -118,6 +133,17 @@ export default function HistoricalLocationLeafletMap({
     () => buildMapDisplayModel(tracks, selectedSegmentId ?? null),
     [tracks, selectedSegmentId],
   );
+  const frequentCircles = useMemo(
+    () => buildFrequentPlaceCircles(frequentPlaces ?? []),
+    [frequentPlaces],
+  );
+  const simplifiedPaths = useMemo(() => {
+    const bySegmentId = new Map<string, [number, number][]>();
+    for (const polyline of model.movePolylines) {
+      bySegmentId.set(polyline.segmentId, simplifyPath(polyline.positions, 15));
+    }
+    return bySegmentId;
+  }, [model.movePolylines]);
   const [mapCenter] = useState(() => firstPosition(tracks));
 
   const stopPropagation = useCallback((event: L.LeafletMouseEvent) => {
@@ -144,11 +170,40 @@ export default function HistoricalLocationLeafletMap({
         attribution="&copy; OpenStreetMap contributors"
         url={`${import.meta.env.BASE_URL}tiles/{z}/{x}/{y}.png`}
       />
+      {frequentCircles.map((circle, index) => (
+        <Circle
+          key={`frequent-${index}`}
+          center={circle.center}
+          radius={circle.radiusMeters}
+          pathOptions={{ color: circle.color, fillOpacity: 0.12 }}
+        >
+          <Popup>
+            <div>
+              <strong>{circle.isHome ? '家 · 常去地点' : '常去地点'}</strong>
+              <br />
+              定位点数 {circle.pointCount}
+              <br />
+              到访天数 {circle.visitDayCount}
+            </div>
+          </Popup>
+        </Circle>
+      ))}
+      {frequentCircles.filter(circle => circle.isHome).map(circle => (
+        <Marker key="frequent-home-label" position={circle.center} icon={homeLabelIcon} interactive={false} />
+      ))}
+      {model.stayMarkers.map(marker => (
+        <Circle
+          key={`stay-radius-${marker.segmentId}`}
+          center={marker.position}
+          radius={marker.scatterRadiusMeters}
+          pathOptions={{ color: '#14b8a6', weight: 1, fillOpacity: 0.08 }}
+        />
+      ))}
       {model.stayMarkers.map(marker => (
         <Marker
           key={`stay-${marker.segmentId}`}
           position={marker.position}
-          icon={stayMarkerIcon}
+          icon={stayMarkerIconFor(marker.durationSeconds)}
           eventHandlers={{
             click: (event) => {
               stopPropagation(event);
@@ -176,7 +231,7 @@ export default function HistoricalLocationLeafletMap({
         return (
           <Polyline
             key={polyline.segmentId}
-            positions={polyline.positions}
+            positions={simplifiedPaths.get(polyline.segmentId) ?? polyline.positions}
             pathOptions={{
               color: segmentColor('move', selected),
               weight: selected ? 5 : 3,

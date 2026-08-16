@@ -1,11 +1,15 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { format, subDays, subMonths } from 'date-fns';
+import { addPcDays, addPcMonths, formatPcDate, getPcBusinessDate } from '../utils/pcBusinessDay';
 import {
   getActivityClassificationSuggestions,
   getCategoryTree,
   getPcActivityAnalysis,
+  getPcAppUsage,
+  getPcCategoryDistribution,
+  getPcFocusBlocks,
   getPcHeatmapGrid,
+  getPcLateNight,
   getPcQuality,
   getPcSummary,
   rejectActivityClassificationSuggestion,
@@ -30,7 +34,6 @@ import type {
   SuggestionClassificationApplyRequest,
   SuggestionClassificationPreviewRequest,
 } from '../types';
-import { getPcBusinessDate } from '../utils/pcBusinessDay';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 export function nextPcRoute3RequestId(current: number) {
@@ -80,7 +83,7 @@ export default function PcTrackerPage() {
   const previewRequestIdRef = useRef(0);
   const applyRequestIdRef = useRef(0);
 
-  const dateStr = format(selectedDate, 'yyyy-MM-dd');
+  const dateStr = formatPcDate(selectedDate);
 
   const { data } = useQuery({
     queryKey: ['pc-summary', dateStr],
@@ -106,6 +109,30 @@ export default function PcTrackerPage() {
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
+  const { data: focusBlocks } = useQuery({
+    queryKey: ['pc-aggregation-focus-blocks', dateStr],
+    queryFn: () => getPcFocusBlocks({ date: dateStr }),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const { data: appUsage } = useQuery({
+    queryKey: ['pc-aggregation-app-usage', dateStr],
+    queryFn: () => getPcAppUsage({ date: dateStr, limit: 8 }),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const { data: lateNight } = useQuery({
+    queryKey: ['pc-aggregation-late-night', dateStr],
+    queryFn: () => getPcLateNight({ date: dateStr }),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const { data: categoryDistribution } = useQuery({
+    queryKey: ['pc-aggregation-category-distribution', dateStr],
+    queryFn: () => getPcCategoryDistribution({ date: dateStr }),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
   const { data: categoryTree = [] } = useQuery({
     queryKey: ['pc-category-tree'],
     queryFn: getCategoryTree,
@@ -115,10 +142,10 @@ export default function PcTrackerPage() {
   const heatmapRange = dimension === 'hour'
     ? { start: dateStr, end: dateStr }
     : dimension === 'day'
-      ? { start: format(subDays(selectedDate, 30), 'yyyy-MM-dd'), end: dateStr }
+      ? { start: formatPcDate(addPcDays(selectedDate, -30)), end: dateStr }
       : dimension === 'month'
-        ? { start: format(subMonths(selectedDate, 12), 'yyyy-MM-dd'), end: dateStr }
-        : { start: format(subMonths(selectedDate, 60), 'yyyy-MM-dd'), end: dateStr };
+        ? { start: formatPcDate(addPcMonths(selectedDate, -12)), end: dateStr }
+        : { start: formatPcDate(addPcMonths(selectedDate, -60)), end: dateStr };
 
   const { data: heatmapData, isLoading: heatmapLoading } = useQuery({
     queryKey: ['pc-heatmap-grid', heatmapRange.start, heatmapRange.end, dimension],
@@ -168,6 +195,10 @@ export default function PcTrackerPage() {
       queryClient.invalidateQueries({ queryKey: ['productivity-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['app-knowledge-apps'] });
       queryClient.invalidateQueries({ queryKey: ['app-knowledge-contexts'] });
+      queryClient.invalidateQueries({ queryKey: ['pc-aggregation-focus-blocks'] });
+      queryClient.invalidateQueries({ queryKey: ['pc-aggregation-app-usage'] });
+      queryClient.invalidateQueries({ queryKey: ['pc-aggregation-late-night'] });
+      queryClient.invalidateQueries({ queryKey: ['pc-aggregation-category-distribution'] });
       setActiveSuggestion(null);
       setPreview(null);
       setPreviewError(null);
@@ -243,7 +274,14 @@ export default function PcTrackerPage() {
 
       <PcQualitySummary quality={quality} isLoading={qualityLoading} error={qualityError} />
 
-      <PcReviewSummary summary={data} pendingSuggestions={suggestions} />
+      <PcReviewSummary
+        summary={data}
+        pendingSuggestions={suggestions}
+        focusBlocks={focusBlocks}
+        lateNight={lateNight}
+        categoryDistribution={categoryDistribution}
+        dateStr={dateStr}
+      />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,0.9fr)]">
         <AnalysisCard
@@ -272,7 +310,12 @@ export default function PcTrackerPage() {
         />
       </div>
 
-      <ProductivityDashboardPanel />
+      <ProductivityDashboardPanel
+        focusBlocks={focusBlocks}
+        lateNight={lateNight}
+        summaryMetrics={data?.metrics ?? null}
+        dateStr={dateStr}
+      />
 
       <AnalysisCard title="活动分析" subtitle="按时间块查看活动强度、切换频率和待分类缺口">
         <ActivityAnalysisHeatmap
@@ -292,6 +335,7 @@ export default function PcTrackerPage() {
             metrics={data?.metrics || null}
             categories={data?.categories || []}
             appRanking={data?.appRanking || []}
+            appUsage={appUsage}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
             selectedApp={selectedApp}

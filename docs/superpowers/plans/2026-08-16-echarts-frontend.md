@@ -322,7 +322,7 @@ git commit -m "feat: descriptive focus dashboard replacing productivity score / 
 - 创建：`src/client-web/src/components/charts/mobileChartOptions.ts`
 - 测试：`tests/client-web/mobileChartOptions.test.tsx`（新建）、修改 `tests/client-web/mobileAnalyticsInteractions.test.tsx`、`tests/client-web/mobileApiPath.test.ts`（追加）、修复 `tests/client-web/mobileComponents.test.tsx`
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 `mobileChartOptions.test.tsx` 至少断言：
 1. `buildUsageHeatmapOption(matrix)`（输入 buildHeatmapMatrix 产物）：xAxis=hours 0..23、yAxis=days 倒序、data 每项 `[hourIdx, dayIdx, seconds]`（0 值也入 data 以保格子）、visualMap teal 色阶 min 0 max matrix.maxSeconds、itemStyle borderColor '#fff' borderWidth 1、qualityFlags 非空格 itemStyle 标 amber 边框（经 data item itemStyle）
@@ -334,14 +334,14 @@ git commit -m "feat: descriptive focus dashboard replacing productivity score / 
 
 `mobileComponents.test.tsx`：把 :531 的 OSM 直连 URL 断言改为 `/tiles` 中转断言（修过期测试）。
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**
+- [x] **步骤 2：确认失败 → 步骤 3：实现**
 
 - `MobileUsageHeatmap.tsx`：保留卡片头/粒度按钮/加载空态；CSS grid 替换为 `<EChartBox option={buildUsageHeatmapOption(matrix)} height={days.length*34+60} onEvents={{ click: params => 反查 matrix cell 的 sourceBuckets[0] → onBucketSelect }} ariaLabel="手机使用热力图" />`；继续用 `buildHeatmapMatrix`（列仍 24 小时，粒度差异在服务端桶内折叠——现状语义，不改）。
 - `MobileChartsGrid.tsx`：每张卡标题保留 HTML `<h2>`；body 按 chartType 分派 `buildAnalyticsChartOption`；`chart.on('click')` 反查 point 携带的 lifeCategory/packageName 调 onCategorySelect/onAppSelect（无可点数据时忽略）；保留「暂无数据」空态。
 - `MobileTimelineBlocks.tsx`：头部与列表之间插入 `<EChartBox option={buildTimelineStripOption(blocks)} height={110} onEvents={{ click: 反查 block.id → onToggleBlock(id) }} ariaLabel="停留与移动时间线" />`（当前页 blocks 即可，不做全量）；列表/分页/展开行为全部不动。
 - `mobileAnalyticsInteractions.test.tsx`：两个旧 DOM 交互用例改为——①图表卡可点行为改为断言 `buildAnalyticsChartOption` 产出的 data 项携带 packageName（可点性数据层验证）+ MobileChartsGrid 静态 HTML 有按钮语义标题；②热力图点击改为断言 buildUsageHeatmapOption 的 data 反查表（`heatmapCellByParams` 辅助纯函数返回 bucket）+ 组件静态渲染保留粒度按钮。保留其余不破的用例。
 
-- [ ] **步骤 4：测试通过 + build + Commit**
+- [x] **步骤 4：测试通过 + build + Commit**
 
 ```bash
 git commit -m "feat: mobile echarts heatmap, typed charts and timeline strip / 手机使用热力图、分类图表与时间线条带"

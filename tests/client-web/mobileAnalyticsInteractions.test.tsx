@@ -13,12 +13,17 @@ import MobileChartsGrid from '../../src/client-web/src/components/mobile/MobileC
 import MobileTimelineBlocks from '../../src/client-web/src/components/mobile/MobileTimelineBlocks';
 import { buildHeatmapMatrix } from '../../src/client-web/src/components/mobile/mobileHeatmapMatrix';
 import {
+  buildAnalyticsChartOption,
+  findCellByParams,
+} from '../../src/client-web/src/components/charts/mobileChartOptions';
+import {
   buildMobileAnalyticsDateRange,
   toMobileAnalyticsUtcRange,
 } from '../../src/client-web/src/components/mobile/mobileFormatting';
 
 const requireFromClient = createRequire(path.join(process.cwd(), 'src/client-web/package.json'));
 const React = requireFromClient('react') as typeof import('react');
+const { renderToStaticMarkup } = requireFromClient('react-dom/server') as typeof import('react-dom/server');
 const reactGlobal = globalThis as typeof globalThis & { React: typeof React };
 reactGlobal.React = React;
 
@@ -149,60 +154,60 @@ test('header shortcut and custom controls call shared range callbacks', () => {
   assert.deepEqual(includeSystemNoiseChanges, [true]);
 });
 
-test('chart rows are only buttons when they can update filters', () => {
-  const categoryChanges: string[] = [];
-  const appChanges: string[] = [];
-  const chart: MobileAnalyticsChart = {
-    key: 'mixed',
-    title: '混合图表',
-    chartType: 'mixed',
+test('chart option data items carry packageName/lifeCategory and grid keeps titled cards', () => {
+  const topApps: MobileAnalyticsChart = {
+    key: 'top-apps',
+    title: 'Top App',
+    chartType: 'top-apps',
     unit: 'seconds',
-    points: [
-      { key: 'social', label: '社交通讯', value: 1800, lifeCategory: '社交通讯' },
-      { key: 'wechat', label: '微信', value: 1200, packageName: 'com.tencent.mm' },
-      { key: '09', label: '09:00', value: 600, localHour: 9 },
-    ],
+    points: [{ key: 'wechat', label: '微信', value: 1200, packageName: 'com.tencent.mm' }],
+  };
+  const categoryShare: MobileAnalyticsChart = {
+    key: 'category-share',
+    title: '分类占比',
+    chartType: 'category-share',
+    unit: 'seconds',
+    points: [{ key: 'social', label: '社交通讯', value: 1800, lifeCategory: '社交通讯' }],
   };
 
+  const topAppsOption = buildAnalyticsChartOption(topApps) as any;
+  assert.equal(topAppsOption.series[0].data[0].packageName, 'com.tencent.mm', 'clickable data layer carries packageName');
+  const shareOption = buildAnalyticsChartOption(categoryShare) as any;
+  assert.equal(shareOption.series[0].data[0].lifeCategory, '社交通讯', 'clickable data layer carries lifeCategory');
+
   const tree = MobileChartsGrid({
-    charts: [chart],
+    charts: [topApps, categoryShare],
     isLoading: false,
-    onCategorySelect: value => categoryChanges.push(value),
-    onAppSelect: value => appChanges.push(value),
+    onCategorySelect: () => undefined,
+    onAppSelect: () => undefined,
   });
-
-  const categoryButton = findElement(tree, node => textContent(node).includes('社交通讯') && typeof node.props?.onClick === 'function');
-  (categoryButton.props?.onClick as () => void)();
-  const appButton = findElement(tree, node => textContent(node).includes('微信') && typeof node.props?.onClick === 'function');
-  (appButton.props?.onClick as () => void)();
-  const inertRow = findElement(tree, node => textContent(node).includes('09:00'));
-
-  assert.deepEqual(categoryChanges, ['社交通讯']);
-  assert.deepEqual(appChanges, ['com.tencent.mm']);
-  assert.equal(typeof inertRow.props?.onClick, 'undefined');
+  const categoryTitle = findElement(tree, node => textContent(node).includes('分类占比'));
+  const appTitle = findElement(tree, node => textContent(node).includes('Top App'));
+  assert.ok(categoryTitle, 'category card keeps its title heading');
+  assert.ok(appTitle, 'top-apps card keeps its title heading');
+  const html = renderToStaticMarkup(tree);
+  assert.equal(html.includes('role="img"'), true, 'chart body renders EChartBox placeholder');
 });
 
-test('heatmap granularity controls and bucket click emit shared filter state', () => {
-  const granularities: string[] = [];
-  const selectedBuckets: MobileHeatmapBucket[] = [];
+test('heatmap option reverse lookup returns the bucket and granularity buttons stay', () => {
+  const matrix = buildHeatmapMatrix([bucket]);
+  const cell = findCellByParams(matrix, { dataIndex: 22 });
+  assert.equal(cell?.sourceBuckets[0]?.bucketStartUtc, bucket.bucketStartUtc, 'reverse lookup resolves the clicked cell bucket');
 
+  const granularities: string[] = [];
   const tree = MobileUsageHeatmap({
     buckets: [bucket],
     granularity: 'hour',
     selectedBucketStartUtc: null,
     isLoading: false,
     onGranularityChange: value => granularities.push(value),
-    onBucketSelect: selected => selectedBuckets.push(selected),
+    onBucketSelect: () => undefined,
   });
 
   const halfHourButton = findElement(tree, node => textContent(node) === '30m');
+  assert.ok(halfHourButton, 'granularity segmented button preserved');
   (halfHourButton.props?.onClick as () => void)();
-
-  const bucketButton = findElement(tree, node => node.props?.['data-bucket-start'] === bucket.bucketStartUtc);
-  (bucketButton.props?.onClick as () => void)();
-
   assert.deepEqual(granularities, ['30m']);
-  assert.deepEqual(selectedBuckets, [bucket]);
 });
 
 test('heatmap matrix merges duplicate category buckets into one date hour cell', () => {

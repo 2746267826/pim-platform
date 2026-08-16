@@ -18,6 +18,7 @@ import { buildHeatmapMatrix } from '../../src/client-web/src/components/mobile/m
 import MobileChartsGrid from '../../src/client-web/src/components/mobile/MobileChartsGrid';
 import MobileTimelineBlocks from '../../src/client-web/src/components/mobile/MobileTimelineBlocks';
 import MobileAnomalyPanel from '../../src/client-web/src/components/mobile/MobileAnomalyPanel';
+import { buildAnalyticsChartOption } from '../../src/client-web/src/components/charts/mobileChartOptions';
 
 const requireFromClient = createRequire(path.join(process.cwd(), 'src/client-web/package.json'));
 const React = requireFromClient('react') as typeof import('react');
@@ -329,7 +330,13 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
     assert.equal(html.includes(text), true, `analytics UI should include: ${text}`);
   }
 
-  assert.equal(html.includes('com.tencent.mm'), true, 'Top App 行应保留包名作为二级诊断信息');
+  assert.equal(html.includes('com.tencent.mm'), false, 'Top App 包名移到 ECharts 数据层，不再出现在静态 HTML');
+  const topAppsOption = buildAnalyticsChartOption(charts.find(chart => chart.chartType === 'top-apps')!) as any;
+  assert.equal(
+    topAppsOption.series[0].data[0].packageName,
+    'com.tencent.mm',
+    'Top App 数据项携带包名供点击反查',
+  );
   assert.equal(html.includes('深夜使用偏高'), true);
   assert.equal(html.includes('抖音'), true);
   assert.equal(html.includes('原始事件'), true);

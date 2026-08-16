@@ -128,3 +128,24 @@ assert.equal(
   '/mobile/apps/category-rules/rule%2F%E4%B8%80',
 );
 assert.equal(mobileApiPaths.usageGoals(), '/mobile/analytics/goals');
+assert.equal(
+  mobileApiPaths.locationAnalyticsFrequentPlaces({
+    rangeStartUtc,
+    rangeEndUtc,
+    timezone: MOBILE_DEFAULT_TIMEZONE,
+    deviceId,
+  }),
+  '/mobile/location/analytics/frequent-places?rangeStartUtc=2026-07-01T16%3A00%3A00Z&rangeEndUtc=2026-07-08T16%3A00%3A00Z&timezone=Asia%2FShanghai&deviceId=phone%2Fmain',
+);
+assert.equal(
+  mobileApiPaths.locationAnalyticsMovementStats({
+    rangeStartUtc,
+    timezone: MOBILE_DEFAULT_TIMEZONE,
+    deviceId,
+  }),
+  '/mobile/location/analytics/movement-stats?rangeStartUtc=2026-07-01T16%3A00%3A00Z&timezone=Asia%2FShanghai&deviceId=phone%2Fmain',
+);
+assert.equal(
+  mobileApiPaths.locationAnalyticsMovementStats({ timezone: MOBILE_DEFAULT_TIMEZONE }),
+  '/mobile/location/analytics/movement-stats?timezone=Asia%2FShanghai',
+);

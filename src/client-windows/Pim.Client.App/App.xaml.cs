@@ -18,6 +18,7 @@ public partial class App : Application
     private Task? _heartbeatTask;
     private int _plannedOfflineSent;
     private Task? _plannedOfflineTask;
+    private readonly object _plannedOfflineLock = new();
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -36,7 +37,11 @@ public partial class App : Application
 
             // Fire-once best-effort report of planned offline before shutdown/suspend/logoff.
             SystemEvents.SessionEnding += (_, e) =>
+            {
+                // 停心跳避免在途心跳在 planned 请求之后到达服务端把标记清掉；Cancel 幂等。
+                _shutdown.Cancel();
                 TryReportPlannedOffline(e.Reason == SessionEndReasons.SystemShutdown ? "shutdown" : "logoff", wait: true);
+            };
             SystemEvents.PowerModeChanged += (_, e) =>
             {
                 if (e.Mode == PowerModes.Suspend)
@@ -216,64 +221,70 @@ public partial class App : Application
 
     private void TryReportPlannedOffline(string reason, bool wait = false)
     {
-        if (Interlocked.Exchange(ref _plannedOfflineSent, 1) == 1)
+        // 置位、创建 task、保存 _plannedOfflineTask、等待逻辑全部在锁内，保证防重语义严格。
+        // 调用点都在 UI 线程串行，锁内等待 2s 可接受。
+        lock (_plannedOfflineLock)
         {
-            // 已在途：等待既有上报，不重发。
-            if (wait && _plannedOfflineTask is not null)
+            if (Interlocked.Exchange(ref _plannedOfflineSent, 1) == 1)
+            {
+                // 已在途：等待既有上报，不重发。
+                if (wait && _plannedOfflineTask is not null)
+                {
+                    try
+                    {
+                        _plannedOfflineTask.Wait(TimeSpan.FromSeconds(2));
+                    }
+                    catch (AggregateException)
+                    {
+                        // 任务内部已 catch，等待超时/异常不抛出。
+                    }
+                }
+
+                return;
+            }
+
+            var reporter = Services?.GetService<PlannedOfflineReporter>();
+            if (reporter is null)
+            {
+                return;
+            }
+
+            var request = PlannedOfflineReporter.BuildRequest(Environment.MachineName, reason, DateTimeOffset.UtcNow);
+            var task = Task.Run(async () =>
             {
                 try
                 {
-                    _plannedOfflineTask.Wait(TimeSpan.FromSeconds(2));
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                    await reporter.ReportAsync(request, cts.Token);
+                    Logger.Info($"Planned offline reported ({reason})");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Planned offline report failed ({reason}): {ex.Message}");
+                }
+            });
+
+            _plannedOfflineTask = task;
+
+            if (wait)
+            {
+                try
+                {
+                    task.Wait(TimeSpan.FromSeconds(2));
                 }
                 catch (AggregateException)
                 {
                     // 任务内部已 catch，等待超时/异常不抛出。
                 }
             }
-
-            return;
-        }
-
-        var reporter = Services?.GetService<PlannedOfflineReporter>();
-        if (reporter is null)
-        {
-            return;
-        }
-
-        var request = PlannedOfflineReporter.BuildRequest(Environment.MachineName, reason, DateTimeOffset.UtcNow);
-        var task = Task.Run(async () =>
-        {
-            try
-            {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                await reporter.ReportAsync(request, cts.Token);
-                Logger.Info($"Planned offline reported ({reason})");
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"Planned offline report failed ({reason}): {ex.Message}");
-            }
-        });
-
-        _plannedOfflineTask = task;
-
-        if (wait)
-        {
-            try
-            {
-                task.Wait(TimeSpan.FromSeconds(2));
-            }
-            catch (AggregateException)
-            {
-                // 任务内部已 catch，等待超时/异常不抛出。
-            }
         }
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
-        TryReportPlannedOffline("exit", wait: true);
+        // 先停心跳（避免在途心跳清掉 planned 标记），再上报；Cancel 幂等，多次调用安全。
         _shutdown.Cancel();
+        TryReportPlannedOffline("exit", wait: true);
         _heartbeatTimer.Dispose();
         _heartbeatTask?.ContinueWith(
             task => Logger.Warn($"Daemon heartbeat loop faulted: {task.Exception?.GetBaseException().Message ?? "unknown error"}"),

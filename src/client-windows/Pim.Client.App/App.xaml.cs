@@ -17,6 +17,7 @@ public partial class App : Application
     private readonly PeriodicTimer _heartbeatTimer = new(TimeSpan.FromMinutes(2));
     private Task? _heartbeatTask;
     private int _plannedOfflineSent;
+    private Task? _plannedOfflineTask;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -35,12 +36,18 @@ public partial class App : Application
 
             // Fire-once best-effort report of planned offline before shutdown/suspend/logoff.
             SystemEvents.SessionEnding += (_, e) =>
-                TryReportPlannedOffline(e.Reason == SessionEndReasons.SystemShutdown ? "shutdown" : "logoff");
+                TryReportPlannedOffline(e.Reason == SessionEndReasons.SystemShutdown ? "shutdown" : "logoff", wait: true);
             SystemEvents.PowerModeChanged += (_, e) =>
             {
                 if (e.Mode == PowerModes.Suspend)
                 {
                     TryReportPlannedOffline("suspend");
+                }
+                else if (e.Mode == PowerModes.Resume)
+                {
+                    // 唤醒后心跳会清服务端 planned 标记，下次关机需要重新上报；重置在途防重标记。
+                    Interlocked.Exchange(ref _plannedOfflineSent, 0);
+                    _plannedOfflineTask = null;
                 }
             };
 
@@ -211,6 +218,19 @@ public partial class App : Application
     {
         if (Interlocked.Exchange(ref _plannedOfflineSent, 1) == 1)
         {
+            // 已在途：等待既有上报，不重发。
+            if (wait && _plannedOfflineTask is not null)
+            {
+                try
+                {
+                    _plannedOfflineTask.Wait(TimeSpan.FromSeconds(2));
+                }
+                catch (AggregateException)
+                {
+                    // 任务内部已 catch，等待超时/异常不抛出。
+                }
+            }
+
             return;
         }
 
@@ -235,9 +255,18 @@ public partial class App : Application
             }
         });
 
+        _plannedOfflineTask = task;
+
         if (wait)
         {
-            task.Wait(TimeSpan.FromSeconds(3));
+            try
+            {
+                task.Wait(TimeSpan.FromSeconds(2));
+            }
+            catch (AggregateException)
+            {
+                // 任务内部已 catch，等待超时/异常不抛出。
+            }
         }
     }
 

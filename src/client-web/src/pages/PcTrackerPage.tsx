@@ -5,7 +5,11 @@ import {
   getActivityClassificationSuggestions,
   getCategoryTree,
   getPcActivityAnalysis,
+  getPcAppUsage,
+  getPcCategoryDistribution,
+  getPcFocusBlocks,
   getPcHeatmapGrid,
+  getPcLateNight,
   getPcQuality,
   getPcSummary,
   rejectActivityClassificationSuggestion,
@@ -106,6 +110,30 @@ export default function PcTrackerPage() {
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
+  const { data: focusBlocks } = useQuery({
+    queryKey: ['pc-aggregation-focus-blocks', dateStr],
+    queryFn: () => getPcFocusBlocks({ date: dateStr }),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const { data: appUsage } = useQuery({
+    queryKey: ['pc-aggregation-app-usage', dateStr],
+    queryFn: () => getPcAppUsage({ date: dateStr, limit: 8 }),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const { data: lateNight } = useQuery({
+    queryKey: ['pc-aggregation-late-night', dateStr],
+    queryFn: () => getPcLateNight({ date: dateStr }),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const { data: categoryDistribution } = useQuery({
+    queryKey: ['pc-aggregation-category-distribution', dateStr],
+    queryFn: () => getPcCategoryDistribution({ date: dateStr }),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
   const { data: categoryTree = [] } = useQuery({
     queryKey: ['pc-category-tree'],
     queryFn: getCategoryTree,
@@ -168,6 +196,10 @@ export default function PcTrackerPage() {
       queryClient.invalidateQueries({ queryKey: ['productivity-dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['app-knowledge-apps'] });
       queryClient.invalidateQueries({ queryKey: ['app-knowledge-contexts'] });
+      queryClient.invalidateQueries({ queryKey: ['pc-aggregation-focus-blocks'] });
+      queryClient.invalidateQueries({ queryKey: ['pc-aggregation-app-usage'] });
+      queryClient.invalidateQueries({ queryKey: ['pc-aggregation-late-night'] });
+      queryClient.invalidateQueries({ queryKey: ['pc-aggregation-category-distribution'] });
       setActiveSuggestion(null);
       setPreview(null);
       setPreviewError(null);
@@ -243,7 +275,13 @@ export default function PcTrackerPage() {
 
       <PcQualitySummary quality={quality} isLoading={qualityLoading} error={qualityError} />
 
-      <PcReviewSummary summary={data} pendingSuggestions={suggestions} />
+      <PcReviewSummary
+        summary={data}
+        pendingSuggestions={suggestions}
+        focusBlocks={focusBlocks}
+        lateNight={lateNight}
+        categoryDistribution={categoryDistribution}
+      />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,0.9fr)]">
         <AnalysisCard
@@ -292,6 +330,7 @@ export default function PcTrackerPage() {
             metrics={data?.metrics || null}
             categories={data?.categories || []}
             appRanking={data?.appRanking || []}
+            appUsage={appUsage}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
             selectedApp={selectedApp}

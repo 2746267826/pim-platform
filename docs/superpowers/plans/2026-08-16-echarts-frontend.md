@@ -225,7 +225,7 @@ git commit -m "feat: today page echarts charts on aggregation apis / 今日页�
 - 创建：`src/client-web/src/components/charts/pcPanelOptions.ts`
 - 测试：`tests/client-web/pcPanelCharts.test.tsx`（新建）
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 至少断言：
 1. `buildAppUsageBarOption(appUsage)`：横向 bar（yAxis category inverse）、data 前 8 项按 totalMinutes、每项 itemStyle 色取分类色或 primary、label position right 显示 `X 分钟`、xAxis value 轴隐藏
@@ -234,14 +234,14 @@ git commit -m "feat: today page echarts charts on aggregation apis / 今日页�
 4. `PcQualitySummary` 静态渲染含 role="img" 占位（compact 模式也有环）
 5. `DailyActivityPanel` 静态渲染含「应用时长排行」标题
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**
+- [x] **步骤 2：确认失败 → 步骤 3：实现**
 
 - `PcQualitySummary.tsx`：标题行下加质量环（复用 `buildQualityRingOption`，从 `pcPanelOptions.ts` re-export 或直接 import pcTodayOptions）+ 右侧两格「健康组件 n/总数」「问题数」；原有三格 dl、问题列表、nextSteps 全保留（compact 截断逻辑不动，StatusPage 共用不破）。
 - `PcReviewSummary.tsx`：props 增加 `focusBlocks?/lateNight?/categoryDistribution?`（页面传 query 数据；组件内部不再自行请求，保持纯展示）；指标卡从 6 张硬编码改为 `buildReviewMetrics(...)` 驱动的 grid（每张 MetricCard 形态不变）。PcTrackerPage 增加 useQuery（focus-blocks/late-night/category-distribution，key 前缀 `pc-aggregation-*`，与现有查询同 date）并传 props；写回 invalidate 列表追加三个 key。
 - `DailyActivityPanel.tsx`：props 增加 `appUsage?`；应用排行区（原 Top5 手写进度条）改为 `<EChartBox option={buildAppUsageBarOption(appUsage)} height={按条数 28*n+40} ariaLabel="应用时长排行" />`；分类 Top5 可点列表保留（继续用 summary.categories，onSelectCategory 不变）。空 appUsage 时回退现有 appRanking 渲染（兼容老数据）。
 - `pcPanelOptions.ts`：上述两个 builder + `buildReviewMetrics`。
 
-- [ ] **步骤 4：测试通过 + build + 修 `pcRecordsReviewLayout.test.tsx` 若文案断言受影响 + Commit**
+- [x] **步骤 4：测试通过 + build + 修 `pcRecordsReviewLayout.test.tsx` 若文案断言受影响 + Commit**
 
 ```bash
 git commit -m "feat: pc page quality ring, review metrics row and app usage bars / 电脑记录页质量环形卡、复盘指标行与应用时长排行"

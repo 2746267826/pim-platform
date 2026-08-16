@@ -1,36 +1,38 @@
+import { useQuery } from '@tanstack/react-query';
 import EmptyState from '../../ui/EmptyState';
 import MetricCard from '../../ui/MetricCard';
 import StatusBadge from '../../ui/StatusBadge';
 import type { PcActivityTodayData, TodaySection } from '../../types';
-import { PC_BUSINESS_HOURS, pcHourLabel } from '../../utils/pcBusinessDay';
+import { getPcCategoryDistribution, getPcFocusBlocks } from '../../api/pcTracker';
+import EChartBox from '../charts/EChartBox';
+import {
+  buildCategoryDonutOption,
+  buildFocusSummary,
+  buildTodayActivityAreaOption,
+} from '../charts/pcTodayOptions';
 
 function formatNumber(value: number | undefined) {
   return (value ?? 0).toLocaleString('zh-CN');
-}
-
-function intensityClass(score: number, max: number) {
-  if (max <= 0 || score <= 0) return 'bg-slate-100';
-  const ratio = score / max;
-  if (ratio > 0.75) return 'bg-teal-600';
-  if (ratio > 0.5) return 'bg-teal-500';
-  if (ratio > 0.25) return 'bg-teal-300';
-  return 'bg-teal-100';
 }
 
 export default function TodayPcOverview({ section }: { section: TodaySection<PcActivityTodayData> }) {
   const summary = section.data.summary;
   const metrics = summary.metrics;
   const keystats = summary.keystats;
-  const heatmap = PC_BUSINESS_HOURS.map(hour => {
-    const bucket = summary.heatmap.find(item => item.hour === hour);
-    return {
-      hour,
-      activeMinutes: bucket?.activeMinutes ?? 0,
-      totalEvents: bucket?.totalEvents ?? 0,
-      intensityScore: bucket?.intensityScore ?? 0,
-    };
+
+  const categoryQuery = useQuery({
+    queryKey: ['pc-category-distribution'],
+    queryFn: () => getPcCategoryDistribution({}),
+    enabled: section.status !== 'empty',
   });
-  const maxIntensity = Math.max(...heatmap.map(item => item.intensityScore), 0);
+  const focusQuery = useQuery({
+    queryKey: ['pc-focus-blocks'],
+    queryFn: () => getPcFocusBlocks({}),
+    enabled: section.status !== 'empty',
+  });
+
+  const categoryItems = categoryQuery.data?.items ?? [];
+  const focusSummary = focusQuery.data ? buildFocusSummary(focusQuery.data.items) : null;
 
   return (
     <section className="pim-panel min-w-0 p-4">
@@ -80,20 +82,42 @@ export default function TodayPcOverview({ section }: { section: TodaySection<PcA
               <p className="text-sm font-medium text-slate-800">24 小时热力图</p>
               <p className="text-xs text-slate-500">04:00 起算，越深表示活动越集中</p>
             </div>
-            <div className="grid grid-cols-12 gap-1.5" role="img" aria-label="今日 24 小时 PC 活跃热力图">
-              {heatmap.map(item => (
-                <div
-                  key={item.hour}
-                  className={`h-8 rounded-md ${intensityClass(item.intensityScore, maxIntensity)}`}
-                  title={`${pcHourLabel(item.hour)}，活跃 ${item.activeMinutes} 分钟，事件 ${item.totalEvents} 次`}
-                />
-              ))}
+            <EChartBox
+              option={buildTodayActivityAreaOption(summary.heatmap)}
+              height={160}
+              ariaLabel="今日 24 小时 PC 活跃面积图"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="mb-2 text-sm font-medium text-slate-800">分类分布</p>
+              {categoryQuery.isLoading && <p className="mb-1 text-xs text-slate-400">加载中</p>}
+              {categoryQuery.isError && <p className="mb-1 text-xs text-slate-400">暂无数据</p>}
+              {!categoryQuery.isLoading && !categoryQuery.isError && categoryItems.length === 0 && (
+                <p className="mb-1 text-xs text-slate-400">暂无数据</p>
+              )}
+              <EChartBox
+                option={buildCategoryDonutOption(categoryItems)}
+                height={200}
+                ariaLabel="今日 PC 分类分布环图"
+              />
             </div>
-            <div className="mt-2 grid grid-cols-4 text-xs text-slate-400">
-              <span>04:00</span>
-              <span className="text-center">10:00</span>
-              <span className="text-center">16:00</span>
-              <span className="text-right">22:00</span>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="mb-2 text-sm font-medium text-slate-800">专注段</p>
+              {focusQuery.isLoading && <p className="text-xs text-slate-400">加载中</p>}
+              {focusQuery.isError && <p className="text-xs text-slate-400">暂无数据</p>}
+              {!focusQuery.isLoading && !focusQuery.isError && (!focusSummary || focusSummary.count === 0) && (
+                <p className="text-xs text-slate-400">暂无数据</p>
+              )}
+              {!focusQuery.isLoading && !focusQuery.isError && focusSummary && focusSummary.count > 0 && (
+                <div className="grid grid-cols-3 gap-3">
+                  <MetricCard label="专注段" value={`${focusSummary.count} 段`} helper="今日专注块数" tone="primary" />
+                  <MetricCard label="最长" value={`${focusSummary.longestMinutes} 分钟`} helper="单段最长" tone="activity" />
+                  <MetricCard label="合计" value={`${focusSummary.totalMinutes} 分钟`} helper="专注总时长" tone="warning" />
+                </div>
+              )}
             </div>
           </div>
 

@@ -181,7 +181,7 @@ git commit -m "feat: modular echarts infrastructure with accessible chart contai
 - 修改：`src/client-web/src/components/today/TodayPcQualitySection.tsx`
 - 测试：`tests/client-web/pcAggregationApiPath.test.ts`、`tests/client-web/pcTodayCharts.test.tsx`（新建）
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 `pcAggregationApiPath.test.ts`（仿 pcRoute3ApiPath 模式）至少断言：
 1. `pcAggregationApiPaths.focusBlocks({ date: '2026-08-15' })` === `/pc/aggregation/focus-blocks?date=2026-08-15`
@@ -197,7 +197,7 @@ git commit -m "feat: modular echarts infrastructure with accessible chart contai
 4. `buildFocusSummary(focusBlocks)`：`{ count, longestMinutes, totalMinutes }`（3 块 [30,82,12] → count 3 / longest 82 / total 124）
 5. TodayPcOverview 静态渲染：包含「分类分布」「专注段」文案与两个占位容器 role="img"（数据由 props.summary 提供热力图；聚合数据走 useQuery，SSR 下为 loading 态——断言加载文案「加载中」存在）
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**
+- [x] **步骤 2：确认失败 → 步骤 3：实现**
 
 - `pcTracker.ts` 按 §0.2 补全（路径函数手写 query 拼接：null/undefined/空串跳过；getter 走现有 `apiGet`）。
 - `pcTodayOptions.ts`：
@@ -208,7 +208,7 @@ git commit -m "feat: modular echarts infrastructure with accessible chart contai
 - `TodayPcOverview.tsx`：保留 4 张 MetricCard 与「主要应用」；「24 小时热力图」区块改为 `<EChartBox option={buildTodayActivityAreaOption(summary.heatmap)} height={160} ariaLabel="今日 24 小时 PC 活跃面积图" />`；新增右侧/下方双卡：「分类分布」donut（useQuery `['pc-category-distribution', date]` → `getPcCategoryDistribution({ date })`）、「专注段」摘要（useQuery focus-blocks → `buildFocusSummary` 显示 N 段/最长 X 分钟/合计 Y 分钟）。数据不可用（查询失败/空）时显示「暂无数据」小字，不阻塞其余区块。
 - `TodayPcQualitySection.tsx`：在 message 文字上方加 `<EChartBox option={buildQualityRingOption(healthyComponents, totalComponents)} height={120} ariaLabel="PC 数据质量完成率" />`；healthy = `quality.components` 中 status==='healthy' 数（`normalizePcQuality` 后的字段名以现有类型为准），中心文本 `Math.round(healthy/total*100)%`。保留问题数/组件数/nextStep 与链接。
 
-- [ ] **步骤 4：测试通过 + build + Commit**
+- [x] **步骤 4：测试通过 + build + Commit**
 
 ```bash
 git commit -m "feat: today page echarts charts on aggregation apis / 今日页接入聚合接口的 ECharts 图表"

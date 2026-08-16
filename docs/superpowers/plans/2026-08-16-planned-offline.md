@@ -113,7 +113,7 @@
 - 修改：`src/Pim.Api/Endpoints/DaemonEndpoints.cs`
 - 测试：`tests/Pim.UnitTests/Operations/DaemonHeartbeatServiceTests.cs`（追加）、模型快照断言
 
-- [ ] **步骤 1：写失败测试**（DaemonHeartbeatServiceTests 追加）
+- [x] **步骤 1：写失败测试**（DaemonHeartbeatServiceTests 追加）
 
 ```csharp
 [Fact]
@@ -165,13 +165,13 @@ public async Task UpsertAsync_ClearsPlannedOfflineOnRegularHeartbeat()
 
 （`CreateDb`/`HeartbeatRequest`/Stub 时钟辅助按现有 DaemonHeartbeatServiceTests 模式；`FixedNow` 用固定 DateTimeOffset。既有测试若构造签名变化同步适配。）
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**（migration + entity + DTO + service + endpoint 按 §0.2；migration 时间戳取执行时刻）
+- [x] **步骤 2：确认失败 → 步骤 3：实现**（migration + entity + DTO + service + endpoint 按 §0.2；migration 时间戳取执行时刻）
 
-- [ ] **步骤 4：测试通过 + 全量**
+- [x] **步骤 4：测试通过 + 全量**
 
 运行：`dotnet test Pim.sln --filter "FullyQualifiedName~DaemonHeartbeat" --no-restore` → PASS；`dotnet test Pim.sln --no-restore` 全量绿。
 
-- [ ] **步骤 5：Commit**
+- [x] **步骤 5：Commit**
 
 ```bash
 git commit -m "feat: planned offline storage, endpoint and heartbeat clearing / 计划离线存储、上报端点与心跳清理"

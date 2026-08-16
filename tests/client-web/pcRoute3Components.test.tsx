@@ -136,8 +136,10 @@ assert.equal(activityAnalysisHtml.includes('活动分析'), true);
 assert.equal(activityAnalysisHtml.includes('Keyboard'), false);
 assert.equal(activityAnalysisHtml.includes('30 活跃分钟'), true);
 assert.equal(activityAnalysisHtml.includes('Programming'), true);
-assert.equal(activityAnalysisHtml.includes('aria-pressed="true"'), true);
+assert.equal(activityAnalysisHtml.includes('aria-pressed'), false, 'button grid replaced by EChartBox');
 assert.equal(activityAnalysisHtml.includes('待分类'), true);
+assert.equal(activityAnalysisHtml.includes('role="img"'), true, 'EChartBox placeholder renders');
+assert.equal(activityAnalysisHtml.includes('aria-label="活动分析热力图"'), true);
 
 const currentRequestId = nextPcRoute3RequestId(3);
 assert.equal(currentRequestId, 4);

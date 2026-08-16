@@ -258,7 +258,7 @@ git commit -m "feat: pc page quality ring, review metrics row and app usage bars
 - 创建：`src/client-web/src/components/charts/pcHeatmapOptions.ts`
 - 测试：`tests/client-web/pcHeatmapCharts.test.tsx`（新建）、修改 `tests/client-web/pcRoute3Components.test.tsx`
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 `pcHeatmapCharts.test.tsx` 至少断言：
 1. `buildCategoryGanttOption(timeline)`（输入 3 段 TimelineItem，跨 09:00-11:30）：`series[0].type==='custom'`、renderItem 返回 rect 形状、data 日期值来自 start/end、颜色取 categoryColor、xAxis type 'time'、yAxis data 为去重小时行（09/10/11 时）、tooltip formatter 含应用名
@@ -269,14 +269,14 @@ git commit -m "feat: pc page quality ring, review metrics row and app usage bars
 
 `pcRoute3Components.test.tsx` 同步修改：删除依赖旧网格 DOM 的 `aria-pressed`/「30 活跃分钟」断言，改为断言新组件渲染 `role="img"` 占位 + 详情区文案；`PcTrackerPage` 源码字符串断言保留（组件名不变）。
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**
+- [x] **步骤 2：确认失败 → 步骤 3：实现**
 
 - `CategoryTimeline.tsx`：保留顶部 stats bar、legend、分类统计；中段手写甘特 div 替换为 `<EChartBox option={buildCategoryGanttOption(timeline)} height={hours.length*rowHeight 等价高度} onEvents={{ click: 打开事件详情（沿用现有选中/弹窗行为，params 反查段） }} ariaLabel="分类时间线" />`。悬停 tooltip 用 ECharts tooltip（深色底、显示分类/应用/标题/时长），删除原 fixed tooltip div。
 - `ActivityHeatmap.tsx`：四种 dimension 全走 `buildActivityHeatmapOption`（hour→1×24；day→7 列周历 heatmap；month→按月分组多行 heatmap；year→全年小格 heatmap，dataZoom 可选不加）；移除死的生产性筛选 pill；保留「少→多」色标说明（用 visualMap show:true 的 orient horizontal 替代或保留 HTML 说明）；onDateClick 经 `chart.on('click')` 反查 bucket.start（day/month/year 维度）。Loading/空态沿用现有。
 - `ActivityAnalysisHeatmap.tsx`：网格替换为 `<EChartBox option={buildAnalysisBlocksOption(analysis.blocks)} height={按行数} onEvents={{ click: params => onSelectBlock(blocks[params.data[0]]) }} />`；选中块详情面板（时间范围/活跃分钟/切换/待分类/分类 Top4/应用 Top4）保留为 HTML（这保住 pcRoute3 静态断言改造后的文案）；选中态高亮经 option 的 `buildAnalysisBlocksOption(blocks, selectedStart)` 参数在对应格加边框（itemStyle borderColor primary）。
 - `pcHeatmapOptions.ts`：三个 builder，甘特 renderItem 参考原型（rect + 白描边 + 圆角 4）。
 
-- [ ] **步骤 4：测试通过 + build + Commit**
+- [x] **步骤 4：测试通过 + build + Commit**
 
 ```bash
 git commit -m "feat: echarts gantt timeline and heatmaps for pc tracker / 分类甘特与活动/时间块热力图"

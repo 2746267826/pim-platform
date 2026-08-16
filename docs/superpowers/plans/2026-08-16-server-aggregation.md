@@ -383,7 +383,7 @@ git commit -m "feat: movement stats endpoint with home detection and outings / �
 - 修改：`PcTrackerModule.cs`（DI + InitializeAsync 注册 recurring job）
 - 测试：`tests/Pim.UnitTests/Services/PcClassificationBackfillServiceTests.cs`（新建）
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 用例：
 1. `BackfillAsync_ProcessesPastDayWithEventsButNoSnapshots`：过去业务日有 aw 事件、0 快照 → 执行后快照生成（按 record_key 计数 >0）。
@@ -395,14 +395,14 @@ git commit -m "feat: movement stats endpoint with home detection and outings / �
 
 TimeProvider 用 fake（FixedTimeProvider 实现，仿 Calendar 测试的 StubTimeProvider），固定 UTC 时间使「今天」可预测。
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**
+- [x] **步骤 2：确认失败 → 步骤 3：实现**
 
 - 从 `RecomputeAsync` 抽 `EnsureSnapshotsForRangeAsync(DateTimeOffset startUtc, DateTimeOffset endUtc, Guid? auditId, CancellationToken ct)`（internal 或 public；原方法调用它并保留 audit 逻辑）。
 - `PcClassificationBackfillService.BackfillAsync(int lookbackDays, CancellationToken ct)`：§0.5 算法；注入 `TimeProvider` 与 `IAggregateResultCache`；返回处理统计（processedDays/writtenSnapshots）便于 job 日志。
 - `PcClassificationSnapshotJob.RunAsync()`：调 BackfillAsync(14)，logger 记统计与异常（不抛，避免 Hangfire 重试风暴）。
 - `PcTrackerModule.InitializeAsync`：`var recurring = serviceProvider.GetService<IRecurringJobManager>(); recurring?.AddOrUpdate<PcClassificationSnapshotJob>("pc-classification-snapshot", j => j.RunAsync(), "*/30 * * * *");`（DI 注册 scoped job + service；无 Hangfire 环境安全跳过）。
 
-- [ ] **步骤 4：测试通过 + 全量 + Commit**
+- [x] **步骤 4：测试通过 + 全量 + Commit**
 
 ```bash
 git commit -m "feat: scheduled classification snapshot backfill via Hangfire / 分类快照后台定时补齐"

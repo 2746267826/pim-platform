@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { format, subDays, subMonths } from 'date-fns';
+import { subDays, subMonths } from 'date-fns';
 import {
   getActivityClassificationSuggestions,
   getCategoryTree,
@@ -34,7 +34,7 @@ import type {
   SuggestionClassificationApplyRequest,
   SuggestionClassificationPreviewRequest,
 } from '../types';
-import { getPcBusinessDate } from '../utils/pcBusinessDay';
+import { formatPcDate, getPcBusinessDate } from '../utils/pcBusinessDay';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 export function nextPcRoute3RequestId(current: number) {
@@ -84,7 +84,7 @@ export default function PcTrackerPage() {
   const previewRequestIdRef = useRef(0);
   const applyRequestIdRef = useRef(0);
 
-  const dateStr = format(selectedDate, 'yyyy-MM-dd');
+  const dateStr = formatPcDate(selectedDate);
 
   const { data } = useQuery({
     queryKey: ['pc-summary', dateStr],
@@ -143,10 +143,10 @@ export default function PcTrackerPage() {
   const heatmapRange = dimension === 'hour'
     ? { start: dateStr, end: dateStr }
     : dimension === 'day'
-      ? { start: format(subDays(selectedDate, 30), 'yyyy-MM-dd'), end: dateStr }
+      ? { start: formatPcDate(subDays(selectedDate, 30)), end: dateStr }
       : dimension === 'month'
-        ? { start: format(subMonths(selectedDate, 12), 'yyyy-MM-dd'), end: dateStr }
-        : { start: format(subMonths(selectedDate, 60), 'yyyy-MM-dd'), end: dateStr };
+        ? { start: formatPcDate(subMonths(selectedDate, 12)), end: dateStr }
+        : { start: formatPcDate(subMonths(selectedDate, 60)), end: dateStr };
 
   const { data: heatmapData, isLoading: heatmapLoading } = useQuery({
     queryKey: ['pc-heatmap-grid', heatmapRange.start, heatmapRange.end, dimension],

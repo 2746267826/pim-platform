@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { formatPcDate, getPcBusinessDate } from '../../utils/pcBusinessDay';
 import { getProductivityDashboard } from '../../api/pcTracker';
 import type { PcFocusBlocksResponse, PcLateNightResponse } from '../../api/pcTracker';
 import type { DerivedMetrics } from '../../types';
@@ -36,7 +36,7 @@ export default function ProductivityDashboardPanel({
   summaryMetrics,
   dateStr,
 }: ProductivityDashboardPanelProps) {
-  const today = dateStr ?? format(new Date(), 'yyyy-MM-dd');
+  const today = dateStr ?? formatPcDate(getPcBusinessDate());
 
   const { data, isLoading } = useQuery({
     queryKey: ['productivity-dashboard', today],

@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { format } from 'date-fns';
+
 import EmptyState from '../../ui/EmptyState';
 import MetricCard from '../../ui/MetricCard';
 import StatusBadge from '../../ui/StatusBadge';
 import type { PcActivityTodayData, TodaySection } from '../../types';
 import { getPcCategoryDistribution, getPcFocusBlocks } from '../../api/pcTracker';
-import { getPcBusinessDate } from '../../utils/pcBusinessDay';
+import { formatPcDate, getPcBusinessDate } from '../../utils/pcBusinessDay';
 import EChartBox from '../charts/EChartBox';
 import {
   buildCategoryDonutOption,
@@ -22,7 +22,7 @@ export default function TodayPcOverview({ section }: { section: TodaySection<PcA
   const metrics = summary.metrics;
   const keystats = summary.keystats;
   // 今日业务日期字符串（yyyy-MM-dd，与后端 date 参数一致）：避免 query key 固定 + 无 date 参数导致的跨日缓存陈旧。
-  const dateStr = format(getPcBusinessDate(), 'yyyy-MM-dd');
+  const dateStr = formatPcDate(getPcBusinessDate());
 
   const categoryQuery = useQuery({
     queryKey: ['pc-category-distribution', dateStr],

@@ -390,7 +390,7 @@ git commit -m "feat: path smoothing, stay radius circles and frequent place laye
 
 ## 任务 8：收尾（全量门禁 + 视觉验证 + PR + 三视角 review）
 
-- [ ] **步骤 1：全量门禁**
+- [x] **步骤 1：全量门禁**
 
 ```bash
 dotnet test Pim.sln --no-restore
@@ -399,17 +399,17 @@ npm --prefix src/client-web run build
 git diff --check origin/master
 ```
 
-- [ ] **步骤 2：视觉验证（Playwright 截图，非提交物）**
+- [x] **步骤 2：视觉验证（Playwright 截图，非提交物）**
 
 按 scheduleWorkbenchVisualAudit 模式写临时脚本（/tmp/opencode 下）：Vite dev server + Playwright，`context.route` mock 全部 `/api/v1/pc/*`、`/api/v1/today/*`、`/api/v1/mobile/*` 返回构造数据（复用聚合 DTO 形状），访问 `/today`、`/pc-tracker`、`/mobile-records`、`/history-location`（路由名以 App 路由表为准），viewport 1440/390 各截图，人工核对：图表 canvas 非空（`canvas` 元素存在且宽高 > 0）、无 console error、无布局重叠。脚本不入库。
 
-- [ ] **步骤 3：push + PR**（四节双语）
+- [x] **步骤 3：push + PR**（四节双语）
 
-- [ ] **步骤 4：CI 门禁**（gh pr checks --watch，全绿）
+- [x] **步骤 4：CI 门禁**（gh pr checks --watch，全绿）
 
 - [ ] **步骤 5：三视角 review**（sol/terra/flash 并行，Important+ 清零循环）
 
-- [ ] **步骤 6：合并后清理**（worktree remove + branch -d + master fast-forward）
+- [x] **步骤 6：合并后清理**（worktree remove + branch -d + master fast-forward）
 
 ---
 

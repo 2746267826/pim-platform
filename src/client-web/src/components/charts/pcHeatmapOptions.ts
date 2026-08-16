@@ -134,7 +134,16 @@ function formatClock(ms: number): string {
 /** 分类时间线甘特：xAxis time、yAxis 段 start 本地小时去重升序行，custom rect（行高一半、白描边、圆角 4）。 */
 export function buildCategoryGanttOption(timeline: TimelineItem[]): EChartsOption {
   const segments = timeline.filter(item => item.start && item.end);
-  const rows: string[] = [];
+  // 第一遍：只收集全部 hourLabel，排序后建 label→index map；
+  // 第二遍按 map 构造 data，避免 push 后 sort 导致已构造 data 的 rowIdx 失同步。
+  const hourLabels = new Set<string>();
+  for (const item of segments) {
+    const start = new Date(item.start);
+    if (Number.isNaN(start.getTime())) continue;
+    hourLabels.add(`${pad(start.getHours())}:00`);
+  }
+  const rows = [...hourLabels].sort();
+  const rowIndex = new Map(rows.map((label, index) => [label, index]));
   const data: {
     value: [number, number, number];
     itemStyle: { color: string };
@@ -145,12 +154,7 @@ export function buildCategoryGanttOption(timeline: TimelineItem[]): EChartsOptio
     const end = new Date(item.end);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
     const hourLabel = `${pad(start.getHours())}:00`;
-    let rowIdx = rows.indexOf(hourLabel);
-    if (rowIdx === -1) {
-      rows.push(hourLabel);
-      rows.sort();
-      rowIdx = rows.indexOf(hourLabel);
-    }
+    const rowIdx = rowIndex.get(hourLabel) ?? 0;
     data.push({
       value: [rowIdx, start.getTime(), end.getTime()],
       itemStyle: { color: item.categoryColor || '#94a3b8' },

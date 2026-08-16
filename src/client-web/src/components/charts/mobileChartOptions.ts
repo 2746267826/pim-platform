@@ -18,6 +18,14 @@ function formatDuration(seconds: number) {
   return `${safeSeconds}秒`;
 }
 
+/**
+ * 按图表单位格式化 tooltip 数值：count → 「X 次」；seconds/缺省 → 分钟/秒时长（与 formatDuration 语义一致）。
+ */
+export function formatChartValue(value: number, unit?: string): string {
+  if (unit === 'count') return `${Math.round(Number(value) || 0)} 次`;
+  return formatDuration(Number(value) || 0);
+}
+
 export interface UsageHeatmapDatum {
   value: [number, number, number];
   cell: HeatmapMatrixCell;
@@ -113,6 +121,16 @@ interface AnalyticsDatum {
 const axisLabel = { fontSize: 10, color: chartColors.textMuted };
 const axisLine = { lineStyle: { color: chartColors.borderSoft } };
 
+/** category-trend 未知分类轮转调色板（7 色板外按出现顺序循环取色，避免同色混淆） */
+const CATEGORY_TREND_FALLBACK_COLORS = [
+  chartColors.primary,
+  chartColors.activity,
+  chartColors.warning,
+  chartColors.danger,
+  '#8b5cf6',
+  '#06b6d4',
+];
+
 /** 手机分析图表按 chartType 分派：category-share→donut pie、top-apps→横向 bar、daily-total→line、
  * hour-distribution→bar、category-trend→line 多 series（按 lifeCategory 分组）、switch-trend→bar。
  * 可点数据项携带 lifeCategory/packageName 原始值供点击反查。 */
@@ -127,7 +145,7 @@ export function buildAnalyticsChartOption(chart: MobileAnalyticsChart): EChartsO
           trigger: 'item',
           formatter: (params: unknown) => {
             const p = (Array.isArray(params) ? params[0] : params) as { name?: string; value?: number } | undefined;
-            return p ? `${p.name} · ${formatDuration(Number(p.value) || 0)}` : '';
+            return p ? `${p.name} · ${formatChartValue(Number(p.value) || 0, chart.unit)}` : '';
           },
           backgroundColor: 'rgba(15, 23, 42, 0.92)',
           textStyle: { color: '#fff', fontSize: 11 },
@@ -166,7 +184,7 @@ export function buildAnalyticsChartOption(chart: MobileAnalyticsChart): EChartsO
           trigger: 'item',
           formatter: (params: unknown) => {
             const p = (Array.isArray(params) ? params[0] : params) as { name?: string; value?: number } | undefined;
-            return p ? `${p.name} · ${formatDuration(Number(p.value) || 0)}` : '';
+            return p ? `${p.name} · ${formatChartValue(Number(p.value) || 0, chart.unit)}` : '';
           },
           backgroundColor: 'rgba(15, 23, 42, 0.92)',
           textStyle: { color: '#fff', fontSize: 11 },
@@ -214,7 +232,7 @@ export function buildAnalyticsChartOption(chart: MobileAnalyticsChart): EChartsO
           formatter: (params: unknown) => {
             const list = Array.isArray(params) ? params : [params];
             const p = list[0] as { name?: string; value?: number } | undefined;
-            return p ? `${p.name} · ${formatDuration(Number(p.value) || 0)}` : '';
+            return p ? `${p.name} · ${formatChartValue(Number(p.value) || 0, chart.unit)}` : '';
           },
           backgroundColor: 'rgba(15, 23, 42, 0.92)',
           textStyle: { color: '#fff', fontSize: 11 },
@@ -258,23 +276,28 @@ export function buildAnalyticsChartOption(chart: MobileAnalyticsChart): EChartsO
         groups.set(category, list);
       }
       const xLabels = [...new Set(points.map(point => point.label))];
-      const series = [...groups.entries()].map(([category, groupPoints]) => ({
-        type: 'line' as const,
-        name: category,
-        data: xLabels.map(label => {
-          const point = groupPoints.find(item => item.label === label);
-          if (!point) return null;
-          return {
-            value: point.value,
-            lifeCategory: point.lifeCategory ?? null,
-            packageName: point.packageName ?? null,
-          };
-        }),
-        smooth: true,
-        symbolSize: 5,
-        itemStyle: { color: chartColors.category[category] ?? chartColors.activity },
-        lineStyle: { width: 2, color: chartColors.category[category] ?? chartColors.activity },
-      }));
+      let fallbackColorIndex = 0;
+      const series = [...groups.entries()].map(([category, groupPoints]) => {
+        const color = chartColors.category[category]
+          ?? CATEGORY_TREND_FALLBACK_COLORS[fallbackColorIndex++ % CATEGORY_TREND_FALLBACK_COLORS.length];
+        return {
+          type: 'line' as const,
+          name: category,
+          data: xLabels.map(label => {
+            const point = groupPoints.find(item => item.label === label);
+            if (!point) return null;
+            return {
+              value: point.value,
+              lifeCategory: point.lifeCategory ?? null,
+              packageName: point.packageName ?? null,
+            };
+          }),
+          smooth: true,
+          symbolSize: 5,
+          itemStyle: { color },
+          lineStyle: { width: 2, color },
+        };
+      });
       return {
         tooltip: { trigger: 'axis', backgroundColor: 'rgba(15, 23, 42, 0.92)', textStyle: { color: '#fff', fontSize: 11 } },
         legend: {

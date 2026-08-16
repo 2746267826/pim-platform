@@ -35,8 +35,9 @@ export interface MovementMetricItem {
 }
 
 function formatOutingDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.round((seconds % 3600) / 60);
+  const totalMinutes = Math.round(seconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
   return `${hours} 小时 ${minutes} 分`;
 }
 

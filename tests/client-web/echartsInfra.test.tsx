@@ -17,7 +17,8 @@ test('echarts core registers required charts without full bundle import', () => 
   assert.ok(echarts.init);
   const source = readFileSync('src/client-web/src/lib/echarts.ts', 'utf8');
   assert.ok(source.includes("from 'echarts/core'"));
-  assert.ok(!source.includes("from 'echarts'\""));
+  assert.ok(!source.includes("from 'echarts'"), 'should not import full echarts bundle with single quotes');
+  assert.ok(!source.includes('from "echarts"'), 'should not import full echarts bundle with double quotes');
 });
 
 test('EChartBox renders accessible placeholder in static markup', () => {

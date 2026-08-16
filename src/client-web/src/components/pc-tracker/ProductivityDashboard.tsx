@@ -17,6 +17,8 @@ export interface ProductivityDashboardPanelProps {
   lateNight?: PcLateNightResponse;
   /** summary.metrics：提供记录总时长（字符串）与上下文切换次数（页面传入） */
   summaryMetrics?: DerivedMetrics | null;
+  /** 业务日期字符串（yyyy-MM-dd，缺省取今天）；dashboard/周趋势请求与 query key 都随它走 */
+  dateStr?: string;
 }
 
 function MetricLine({ label, value }: { label: string; value: string }) {
@@ -32,8 +34,9 @@ export default function ProductivityDashboardPanel({
   focusBlocks,
   lateNight,
   summaryMetrics,
+  dateStr,
 }: ProductivityDashboardPanelProps) {
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const today = dateStr ?? format(new Date(), 'yyyy-MM-dd');
 
   const { data, isLoading } = useQuery({
     queryKey: ['productivity-dashboard', today],
@@ -71,11 +74,6 @@ export default function ProductivityDashboardPanel({
     <div className="pim-panel p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-slate-800">专注概况</h3>
-        {data.goalMet ? (
-          <span className="text-xs bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded">✅ 达标</span>
-        ) : (
-          <span className="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded">⏳ 未达标</span>
-        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)] items-center">

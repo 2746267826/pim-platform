@@ -281,6 +281,7 @@ export default function PcTrackerPage() {
         focusBlocks={focusBlocks}
         lateNight={lateNight}
         categoryDistribution={categoryDistribution}
+        dateStr={dateStr}
       />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,0.9fr)]">
@@ -314,6 +315,7 @@ export default function PcTrackerPage() {
         focusBlocks={focusBlocks}
         lateNight={lateNight}
         summaryMetrics={data?.metrics ?? null}
+        dateStr={dateStr}
       />
 
       <AnalysisCard title="活动分析" subtitle="按时间块查看活动强度、切换频率和待分类缺口">

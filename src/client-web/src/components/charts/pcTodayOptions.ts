@@ -14,9 +14,10 @@ import type {
 
 /** 24 小时活跃面积图：x = 业务小时标签（04:00 起），y = activeMinutes，primary 渐变面积。 */
 export function buildTodayActivityAreaOption(heatmap: HeatmapBucket[]): EChartsOption {
-  const buckets = new Map(heatmap.map(item => [item.hour, item]));
+  const buckets = heatmap ?? [];
+  const bucketByHour = new Map(buckets.map(item => [item.hour, item]));
   const data = PC_BUSINESS_HOURS.map(hour => {
-    const bucket = buckets.get(hour);
+    const bucket = bucketByHour.get(hour);
     return {
       value: bucket?.activeMinutes ?? 0,
       totalEvents: bucket?.totalEvents ?? 0,

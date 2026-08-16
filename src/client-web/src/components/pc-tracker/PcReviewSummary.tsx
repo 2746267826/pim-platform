@@ -13,6 +13,8 @@ interface Props {
   focusBlocks?: PcFocusBlocksResponse;
   lateNight?: PcLateNightResponse;
   categoryDistribution?: PcCategoryDistributionResponse;
+  /** 页面业务日期字符串（yyyy-MM-dd），深夜使用取当日条目 */
+  dateStr?: string;
 }
 
 export default function PcReviewSummary({
@@ -20,9 +22,10 @@ export default function PcReviewSummary({
   focusBlocks,
   lateNight,
   categoryDistribution,
+  dateStr,
 }: Props) {
   const metrics = summary?.metrics;
-  const cards = buildReviewMetrics(summary, focusBlocks, lateNight, categoryDistribution);
+  const cards = buildReviewMetrics(summary, focusBlocks, lateNight, categoryDistribution, dateStr);
 
   return (
     <section className="pim-panel p-4">

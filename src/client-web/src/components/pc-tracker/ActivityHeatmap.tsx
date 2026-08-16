@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import EChartBox from '../charts/EChartBox';
 import { buildActivityHeatmapOption, mapActivityGrid } from '../charts/pcHeatmapOptions';
 import { chartColors } from '../charts/chartColors';
@@ -10,6 +11,8 @@ interface Props {
 }
 
 export default function ActivityHeatmap({ data, isLoading, onDateClick }: Props) {
+  const option = useMemo(() => buildActivityHeatmapOption(data), [data]);
+
   if (isLoading) {
     return <div className="rounded-2xl border border-slate-200 bg-slate-50 py-10 text-center text-sm text-slate-400">加载中...</div>;
   }
@@ -58,7 +61,7 @@ export default function ActivityHeatmap({ data, isLoading, onDateClick }: Props)
       </div>
 
       <EChartBox
-        option={buildActivityHeatmapOption(data)}
+        option={option}
         height={height}
         ariaLabel={`${dimension === 'hour' ? '小时' : dimension === 'month' ? '月度' : dimension === 'year' ? '年度' : '每日'}活动热力图`}
         onEvents={onDateClick ? { click: handleClick } : undefined}

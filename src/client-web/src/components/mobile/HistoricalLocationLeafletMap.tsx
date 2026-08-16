@@ -137,6 +137,13 @@ export default function HistoricalLocationLeafletMap({
     () => buildFrequentPlaceCircles(frequentPlaces ?? []),
     [frequentPlaces],
   );
+  const simplifiedPaths = useMemo(() => {
+    const bySegmentId = new Map<string, [number, number][]>();
+    for (const polyline of model.movePolylines) {
+      bySegmentId.set(polyline.segmentId, simplifyPath(polyline.positions, 15));
+    }
+    return bySegmentId;
+  }, [model.movePolylines]);
   const [mapCenter] = useState(() => firstPosition(tracks));
 
   const stopPropagation = useCallback((event: L.LeafletMouseEvent) => {
@@ -163,9 +170,9 @@ export default function HistoricalLocationLeafletMap({
         attribution="&copy; OpenStreetMap contributors"
         url={`${import.meta.env.BASE_URL}tiles/{z}/{x}/{y}.png`}
       />
-      {frequentCircles.map(circle => (
+      {frequentCircles.map((circle, index) => (
         <Circle
-          key={`frequent-${circle.center[0]},${circle.center[1]}`}
+          key={`frequent-${index}`}
           center={circle.center}
           radius={circle.radiusMeters}
           pathOptions={{ color: circle.color, fillOpacity: 0.12 }}
@@ -224,7 +231,7 @@ export default function HistoricalLocationLeafletMap({
         return (
           <Polyline
             key={polyline.segmentId}
-            positions={simplifyPath(polyline.positions, 15)}
+            positions={simplifiedPaths.get(polyline.segmentId) ?? polyline.positions}
             pathOptions={{
               color: segmentColor('move', selected),
               weight: selected ? 5 : 3,

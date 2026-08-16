@@ -257,7 +257,6 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
       React.createElement(MobileUsageHeatmap, {
         buckets,
         granularity: 'hour',
-        selectedBucketStartUtc: buckets[0].bucketStartUtc,
         isLoading: false,
         onGranularityChange: () => undefined,
         onBucketSelect: () => undefined,

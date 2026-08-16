@@ -206,6 +206,7 @@ export function buildReviewMetrics(
   focusBlocks: PcFocusBlocksResponse | undefined,
   lateNight: PcLateNightResponse | undefined,
   distribution: PcCategoryDistributionResponse | undefined,
+  dateStr?: string,
 ): ReviewMetric[] {
   const metrics = summary?.metrics;
   const focus = focusBlocks ? buildFocusSummary(focusBlocks.items) : null;
@@ -213,8 +214,8 @@ export function buildReviewMetrics(
   let lateMinutes: number | null = null;
   const lateItems = lateNight?.items ?? [];
   if (lateItems.length > 0) {
-    const lastActivity = [...lateItems].reverse().find(item => item.hadActivity);
-    const pick = lastActivity ?? lateItems[lateItems.length - 1];
+    // 优先取页面业务日期当天的条目；items 顺序/末位不可靠，缺失时再退回末位。
+    const pick = lateNight?.items?.find(item => item.date === dateStr) ?? lateItems[lateItems.length - 1];
     lateMinutes = pick.minutes;
   }
 

@@ -8,6 +8,8 @@ interface Props {
 }
 
 export default function CategoryTimeline({ timeline }: Props) {
+  const ganttOption = useMemo(() => buildCategoryGanttOption(timeline), [timeline]);
+
   const { hourRange, stats, legend } = useMemo(() => {
     if (!timeline.length) {
       return { hourRange: { min: 6, max: 23 }, stats: null, legend: [] };
@@ -101,7 +103,7 @@ export default function CategoryTimeline({ timeline }: Props) {
           <div className="py-10 text-center text-sm text-slate-400">暂无时间线数据</div>
         ) : (
           <EChartBox
-            option={buildCategoryGanttOption(timeline)}
+            option={ganttOption}
             height={Math.max(hours.length * rowHeight + 24, 140)}
             ariaLabel="分类时间线"
           />

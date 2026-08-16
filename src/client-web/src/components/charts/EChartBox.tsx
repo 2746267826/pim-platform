@@ -26,24 +26,43 @@ export default function EChartBox({ option, height = 240, className, ariaLabel, 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const chart = echarts.init(el);
-    chartRef.current = chart;
-    let resizeObserver: ResizeObserver | null = null;
-    if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => chart.resize());
-      resizeObserver.observe(el);
+    try {
+      const chart = echarts.init(el);
+      chartRef.current = chart;
+      let resizeObserver: ResizeObserver | null = null;
+      if (typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => {
+          try {
+            chart.resize();
+          } catch (error) {
+            console.warn('[EChartBox] resize failed', error);
+          }
+        });
+        resizeObserver.observe(el);
+      }
+      return () => {
+        resizeObserver?.disconnect();
+        try {
+          chart.dispose();
+        } catch (error) {
+          console.warn('[EChartBox] dispose failed', error);
+        }
+        chartRef.current = null;
+      };
+    } catch (error) {
+      console.warn('[EChartBox] init failed', error);
+      return undefined;
     }
-    return () => {
-      resizeObserver?.disconnect();
-      chart.dispose();
-      chartRef.current = null;
-    };
   }, []);
 
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
-    chart.setOption(option, { notMerge: true });
+    try {
+      chart.setOption(option, { notMerge: true });
+    } catch (error) {
+      console.warn('[EChartBox] setOption failed', error);
+    }
   }, [option]);
 
   useEffect(() => {

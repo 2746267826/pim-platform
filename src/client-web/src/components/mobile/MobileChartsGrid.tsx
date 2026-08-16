@@ -45,8 +45,12 @@ export default function MobileChartsGrid({
                     click: params => {
                       const data = parseClickData(params);
                       if (!data) return;
-                      if (data.lifeCategory && onCategorySelect) onCategorySelect(data.lifeCategory);
-                      else if (data.packageName && onAppSelect) onAppSelect(data.packageName);
+                      if (chart.chartType === 'top-apps' && data.packageName && onAppSelect) {
+                        onAppSelect(data.packageName);
+                      } else if (chart.chartType === 'category-share' && data.lifeCategory && onCategorySelect) {
+                        onCategorySelect(data.lifeCategory);
+                      }
+                      // 其余类型不触发回调
                     },
                   }}
                 />

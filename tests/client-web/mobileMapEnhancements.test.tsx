@@ -42,7 +42,7 @@ test('simplifyPath always keeps first and last points', () => {
     [31.231416, 121.473701],
   ];
   const result = simplifyPath(points, 15);
-  assert.equal(result.length >= 2, true);
+  assert.equal(result.length, 2, 'near-line intermediate points collapse within tolerance');
   assert.deepEqual(result[0], points[0]);
   assert.deepEqual(result[result.length - 1], points[points.length - 1]);
 });
@@ -124,6 +124,20 @@ test('buildMovementMetricStrip renders dashes for null stats and null peak speed
   } as MobileMovementStatsResponse;
   const items = buildMovementMetricStrip(stats);
   assert.equal(items[3].value, '—');
+});
+
+test('buildMovementMetricStrip carries minute overflow into hours', () => {
+  const stats = {
+    homeCenter: null,
+    outingCount: 1,
+    outingSeconds: 3599,
+    outings: [],
+    distanceMeters: 1000,
+    maxSpeedMetersPerSecond: 1,
+    perDay: [],
+  } as MobileMovementStatsResponse;
+  const items = buildMovementMetricStrip(stats);
+  assert.equal(items[1].value, '1 小时 0 分', '3599s rounds to 60 minutes which carries to 1 hour');
 });
 
 test('leaflet map source keeps CI identifiers and adds smoothing, circle layers', () => {

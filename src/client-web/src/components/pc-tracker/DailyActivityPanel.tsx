@@ -85,14 +85,14 @@ export default function DailyActivityPanel({
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
         <div className="mb-3 flex items-center justify-between">
-          <div className="text-xs font-semibold text-slate-700">{appUsage ? '应用时长排行' : '应用排行'}</div>
-          {!appUsage && selectedApp && (
+          <div className="text-xs font-semibold text-slate-700">{appUsage && appUsage.items.length > 0 ? '应用时长排行' : '应用排行'}</div>
+          {(!appUsage || appUsage.items.length === 0) && selectedApp && (
             <button type="button" className="text-xs text-blue-600 hover:text-blue-700" onClick={() => onSelectApp(null)}>
               清除
             </button>
           )}
         </div>
-        {appUsage ? (
+        {appUsage && appUsage.items.length > 0 ? (
           <EChartBox
             option={buildAppUsageBarOption(appUsage)}
             height={Math.min(appUsage.items.length, 8) * 28 + 40}

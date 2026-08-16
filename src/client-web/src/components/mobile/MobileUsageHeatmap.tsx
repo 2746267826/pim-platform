@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { MobileAnalyticsGranularity, MobileHeatmapBucket } from '../../api/mobile';
 import { buildHeatmapMatrix } from './mobileHeatmapMatrix';
 import {
@@ -11,7 +12,6 @@ export type MobileHeatmapGranularity = Extract<MobileAnalyticsGranularity, 'hour
 export interface MobileUsageHeatmapProps {
   buckets: MobileHeatmapBucket[];
   granularity: MobileHeatmapGranularity;
-  selectedBucketStartUtc?: string | null;
   isLoading?: boolean;
   onGranularityChange: (granularity: MobileHeatmapGranularity) => void;
   onBucketSelect: (bucket: MobileHeatmapBucket) => void;
@@ -30,8 +30,8 @@ export default function MobileUsageHeatmap({
   onGranularityChange,
   onBucketSelect,
 }: MobileUsageHeatmapProps) {
-  const matrix = buildHeatmapMatrix(buckets);
-  const option = buildUsageHeatmapOption(matrix);
+  const matrix = useMemo(() => buildHeatmapMatrix(buckets), [buckets]);
+  const option = useMemo(() => buildUsageHeatmapOption(matrix), [matrix]);
 
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">

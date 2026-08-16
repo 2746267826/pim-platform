@@ -24,6 +24,8 @@ import {
 const requireFromClient = createRequire(path.join(process.cwd(), 'src/client-web/package.json'));
 const React = requireFromClient('react') as typeof import('react');
 const { renderToStaticMarkup } = requireFromClient('react-dom/server') as typeof import('react-dom/server');
+const { createRoot } = requireFromClient('react-dom/client') as typeof import('react-dom/client');
+const { JSDOM } = requireFromClient('jsdom') as typeof import('jsdom');
 const reactGlobal = globalThis as typeof globalThis & { React: typeof React };
 reactGlobal.React = React;
 
@@ -189,25 +191,48 @@ test('chart option data items carry packageName/lifeCategory and grid keeps titl
   assert.equal(html.includes('role="img"'), true, 'chart body renders EChartBox placeholder');
 });
 
-test('heatmap option reverse lookup returns the bucket and granularity buttons stay', () => {
+test('heatmap option reverse lookup returns the bucket and granularity buttons stay', async () => {
   const matrix = buildHeatmapMatrix([bucket]);
   const cell = findCellByParams(matrix, { dataIndex: 22 });
   assert.equal(cell?.sourceBuckets[0]?.bucketStartUtc, bucket.bucketStartUtc, 'reverse lookup resolves the clicked cell bucket');
 
-  const granularities: string[] = [];
-  const tree = MobileUsageHeatmap({
-    buckets: [bucket],
-    granularity: 'hour',
-    selectedBucketStartUtc: null,
-    isLoading: false,
-    onGranularityChange: value => granularities.push(value),
-    onBucketSelect: () => undefined,
+  // MobileUsageHeatmap 现在内部使用 useMemo（hook 组件），不能再直接当纯函数调用：
+  // 用 jsdom + createRoot + act 渲染后走真实 DOM 点击。
+  // 注意：jsdom 全局对象装上后在本测试文件内保留，避免 React 调度器延迟任务取 window 时崩溃。
+  const dom = new JSDOM('<!DOCTYPE html><html><body><div id="root"></div></body></html>');
+  Object.assign(globalThis, {
+    window: dom.window,
+    document: dom.window.document,
+    navigator: dom.window.navigator,
+    HTMLElement: dom.window.HTMLElement,
+    IS_REACT_ACT_ENVIRONMENT: true,
   });
 
-  const halfHourButton = findElement(tree, node => textContent(node) === '30m');
+  const granularities: string[] = [];
+  const root = createRoot(dom.window.document.getElementById('root')!);
+  await React.act(async () => {
+    root.render(
+      React.createElement(MobileUsageHeatmap, {
+        buckets: [bucket],
+        granularity: 'hour',
+        isLoading: false,
+        onGranularityChange: value => granularities.push(value),
+        onBucketSelect: () => undefined,
+      })
+    );
+  });
+
+  const buttons = Array.from(dom.window.document.querySelectorAll('button'));
+  const halfHourButton = buttons.find(button => button.textContent === '30m');
   assert.ok(halfHourButton, 'granularity segmented button preserved');
-  (halfHourButton.props?.onClick as () => void)();
+  await React.act(async () => {
+    halfHourButton!.click();
+  });
   assert.deepEqual(granularities, ['30m']);
+
+  await React.act(async () => {
+    root.unmount();
+  });
 });
 
 test('heatmap matrix merges duplicate category buckets into one date hour cell', () => {

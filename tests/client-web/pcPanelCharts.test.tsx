@@ -126,7 +126,7 @@ const distribution: PcCategoryDistributionResponse = {
 };
 
 test('buildReviewMetrics returns 6+ cards with focus, late night and coverage', () => {
-  const metrics = buildReviewMetrics(summary, focusBlocks, lateNight, distribution);
+  const metrics = buildReviewMetrics(summary, focusBlocks, lateNight, distribution, '2026-08-15');
   assert.ok(metrics.length >= 6, `expected at least 6 cards, got ${metrics.length}`);
   const byLabel = Object.fromEntries(metrics.map(m => [m.label, m]));
   assert.equal(byLabel['记录时长'].value, '8h 12m');
@@ -138,6 +138,14 @@ test('buildReviewMetrics returns 6+ cards with focus, late night and coverage', 
   assert.equal(byLabel['深夜使用'].value, '25 分钟');
   assert.equal(byLabel['深夜使用'].helper, '23:30 后');
   assert.equal(byLabel['分类覆盖率'].value, '90%', 'coverage should be 100 - 其他 percentage');
+});
+
+test('buildReviewMetrics picks the late-night item matching the page business date', () => {
+  const metrics = buildReviewMetrics(summary, focusBlocks, lateNight, distribution, '2026-08-16');
+  const lateCard = metrics.find(m => m.label === '深夜使用');
+  assert.equal(lateCard?.value, '10 分钟', 'dateStr match wins over items order');
+  const unmatched = buildReviewMetrics(summary, focusBlocks, lateNight, distribution, '2026-08-17');
+  assert.equal(unmatched.find(m => m.label === '深夜使用')?.value, '10 分钟', 'no date match falls back to last item');
 });
 
 test('buildReviewMetrics falls back to last item for late night when nothing had activity', () => {
@@ -179,6 +187,7 @@ test('PcReviewSummary statically renders focus, late night and coverage card lab
       focusBlocks,
       lateNight,
       categoryDistribution: distribution,
+      dateStr: '2026-08-15',
     })
   );
   assert.equal(html.includes('专注块'), true);

@@ -8,6 +8,7 @@ import {
   buildAnalyticsChartOption,
   buildTimelineStripOption,
   findCellByParams,
+  formatChartValue,
 } from '../../src/client-web/src/components/charts/mobileChartOptions';
 import type {
   MobileAnalyticsChart,
@@ -154,6 +155,59 @@ test('buildAnalyticsChartOption dispatches by chartType', () => {
   assert.equal((buildAnalyticsChartOption(switchTrend) as any).series[0].type, 'bar');
 });
 
+test('formatChartValue dispatches tooltip units by chart unit', () => {
+  assert.equal(formatChartValue(42, 'count'), '42 次', 'count unit formats as count');
+  assert.equal(formatChartValue(1800, 'seconds'), '30分钟', 'seconds unit formats as duration');
+  assert.equal(formatChartValue(3599, 'seconds'), '59分钟', 'seconds stays consistent with existing formatDuration');
+  assert.equal(formatChartValue(42, undefined), '42秒', 'missing unit falls back to duration seconds');
+  assert.equal(formatChartValue(0, 'count'), '0 次');
+});
+
+test('analytics tooltip formatter uses chart unit (switch-trend count shows 次, not 秒)', () => {
+  const switchTrend: MobileAnalyticsChart = {
+    key: 'switch-trend',
+    title: '切换趋势',
+    chartType: 'switch-trend',
+    unit: 'count',
+    points: [{ key: 'd', label: '7月6日', value: 42, localDate: '2026-07-06' }],
+  };
+  const option = buildAnalyticsChartOption(switchTrend) as any;
+  const text = option.tooltip.formatter({ name: '7月6日', value: 42 });
+  assert.equal(text, '7月6日 · 42 次', 'switch-trend tooltip must not show 42秒');
+
+  const dailyTotal: MobileAnalyticsChart = {
+    key: 'daily-total',
+    title: '每日趋势',
+    chartType: 'daily-total',
+    unit: 'seconds',
+    points: [{ key: 'd', label: '7月6日', value: 7200, localDate: '2026-07-06' }],
+  };
+  const secondsText = (buildAnalyticsChartOption(dailyTotal) as any).tooltip.formatter({ name: '7月6日', value: 7200 });
+  assert.equal(secondsText, '7月6日 · 2小时', 'seconds unit keeps duration formatting');
+});
+
+test('category-trend unknown categories rotate through fallback palette by appearance order', () => {
+  const trend: MobileAnalyticsChart = {
+    key: 'category-trend',
+    title: '分类趋势',
+    chartType: 'category-trend',
+    unit: 'seconds',
+    points: [
+      { key: 'u1', label: 'L1', value: 1800, lifeCategory: '未知A' },
+      { key: 'u2', label: 'L1', value: 2400, lifeCategory: '未知B' },
+      { key: 'u3', label: 'L1', value: 900, lifeCategory: '未知C' },
+    ],
+  };
+  const option = buildAnalyticsChartOption(trend) as any;
+  assert.equal(option.series.length, 3);
+  const colors = option.series.map((s: any) => s.itemStyle.color);
+  assert.equal(new Set(colors).size, 3, 'unknown categories must not share one fallback color');
+  assert.equal(colors[0], chartColors.primary);
+  assert.equal(colors[1], chartColors.activity);
+  assert.equal(colors[2], chartColors.warning);
+  assert.ok(option.series.every((s: any) => s.itemStyle.color === s.lineStyle.color), 'line and item style stay consistent');
+});
+
 test('buildTimelineStripOption renders custom rect strip over time axis with block ids', () => {
   const blocks: MobileTimelineBlock[] = [
     {
@@ -215,7 +269,6 @@ test('MobileUsageHeatmap statically renders title, granularity buttons and chart
     React.createElement(MobileUsageHeatmap, {
       buckets: [bucket],
       granularity: 'hour',
-      selectedBucketStartUtc: null,
       isLoading: false,
       onGranularityChange: () => undefined,
       onBucketSelect: () => undefined,

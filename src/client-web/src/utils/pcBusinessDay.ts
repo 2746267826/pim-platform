@@ -54,14 +54,3 @@ export function addPcMonths(date: Date, months: number) {
   const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
   return new Date(Date.UTC(targetYear, targetMonth, Math.min(date.getUTCDate(), lastDay)));
 }
-
-/** 上海时区业务日 04:00 起点的 Date（UTC 语义）。 */
-export function getPcBusinessDayStart(date: Date) {
-  const businessDate = getPcBusinessDate(date);
-  return new Date(Date.UTC(
-    businessDate.getUTCFullYear(),
-    businessDate.getUTCMonth(),
-    businessDate.getUTCDate(),
-    PC_BUSINESS_DAY_START_HOUR - 8,
-  ));
-}

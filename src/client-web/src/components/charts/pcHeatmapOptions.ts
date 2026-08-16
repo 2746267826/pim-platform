@@ -10,16 +10,16 @@ import type { HeatmapBucket, HeatmapGridResponse, PcActivityAnalysisBlock, Timel
  */
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
-const MONDAY_EPOCH_MS = new Date('1970-01-05T00:00:00').getTime();
+const MONDAY_EPOCH_MS = Date.UTC(1970, 0, 5);
 
 /** 周一起算的周内序号（周一=0 … 周日=6） */
 function mondayWeekday(date: Date): number {
-  return (date.getDay() + 6) % 7;
+  return (date.getUTCDay() + 6) % 7;
 }
 
 function localDateStr(ms: number): string {
   const d = new Date(ms);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 }
 
 /** 桶 start 的本地日期部分（后端写入的日期字面量，取前 10 位即 YYYY-MM-DD） */
@@ -95,8 +95,8 @@ export function mapActivityGrid(data: HeatmapGridResponse | undefined): Activity
     const entries = buckets.map(bucket => {
       const d = parseBucketDate(bucket.start);
       if (!d) return null;
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      return { bucket, key, dayIndex: d.getDate() - 1 };
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      return { bucket, key, dayIndex: d.getUTCDate() - 1 };
     }).filter((e): e is NonNullable<typeof e> => e !== null);
     const monthKeys = [...new Set(entries.map(e => e.key))].sort();
     for (const e of entries) {
@@ -109,9 +109,9 @@ export function mapActivityGrid(data: HeatmapGridResponse | undefined): Activity
   for (const bucket of buckets) {
     const d = parseBucketDate(bucket.start);
     if (!d) continue;
-    const yearStart = new Date(d.getFullYear(), 0, 1);
-    const dayOfYear = Math.floor((d.getTime() - yearStart.getTime()) / MS_PER_DAY);
-    const offset = mondayWeekday(yearStart);
+    const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
+    const dayOfYear = Math.floor((d.getTime() - yearStart) / MS_PER_DAY);
+    const offset = mondayWeekday(new Date(yearStart));
     const weekOfYear = Math.floor((dayOfYear + offset) / 7);
     cells.push({ x: Math.min(weekOfYear, 52), y: mondayWeekday(d), bucket, value: bucket.intensityScore ?? 0 });
   }

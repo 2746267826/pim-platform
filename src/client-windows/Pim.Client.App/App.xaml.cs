@@ -38,8 +38,8 @@ public partial class App : Application
             // Fire-once best-effort report of planned offline before shutdown/suspend/logoff.
             SystemEvents.SessionEnding += (_, e) =>
             {
-                // 停心跳避免在途心跳在 planned 请求之后到达服务端把标记清掉；Cancel 幂等。
-                _shutdown.Cancel();
+                // 停心跳并等待在途心跳结束，避免在途心跳在 planned 请求之后到达服务端把标记清掉；Cancel 幂等。
+                StopHeartbeatLoopAndWait();
                 TryReportPlannedOffline(e.Reason == SessionEndReasons.SystemShutdown ? "shutdown" : "logoff", wait: true);
             };
             SystemEvents.PowerModeChanged += (_, e) =>
@@ -50,9 +50,35 @@ public partial class App : Application
                 }
                 else if (e.Mode == PowerModes.Resume)
                 {
-                    // 唤醒后心跳会清服务端 planned 标记，下次关机需要重新上报；重置在途防重标记。
-                    Interlocked.Exchange(ref _plannedOfflineSent, 0);
-                    _plannedOfflineTask = null;
+                    // 等待在途 suspend 上报 ≤2s 结束或超时，再重置防重并立即心跳清服务端 planned 标记。
+                    lock (_plannedOfflineLock)
+                    {
+                        if (_plannedOfflineTask is { } t)
+                        {
+                            try
+                            {
+                                t.Wait(TimeSpan.FromSeconds(2));
+                            }
+                            catch (AggregateException)
+                            {
+                            }
+                        }
+
+                        Interlocked.Exchange(ref _plannedOfflineSent, 0);
+                        _plannedOfflineTask = null;
+                    }
+
+                    Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await ReportHeartbeatOnceAsync(CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"Resume heartbeat failed: {ex.Message}");
+                        }
+                    });
                 }
             };
 
@@ -282,8 +308,8 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        // 先停心跳（避免在途心跳清掉 planned 标记），再上报；Cancel 幂等，多次调用安全。
-        _shutdown.Cancel();
+        // 先停心跳并等待在途心跳结束（避免在途心跳清掉 planned 标记），再上报；Cancel 幂等，多次调用安全。
+        StopHeartbeatLoopAndWait();
         TryReportPlannedOffline("exit", wait: true);
         _heartbeatTimer.Dispose();
         _heartbeatTask?.ContinueWith(
@@ -293,6 +319,22 @@ public partial class App : Application
         _trayIcon?.Dispose();
         Logger.Info("Daemon exiting");
         base.OnExit(e);
+    }
+
+    private void StopHeartbeatLoopAndWait()
+    {
+        _shutdown.Cancel();
+        if (_heartbeatTask is { } hb)
+        {
+            try
+            {
+                hb.Wait(TimeSpan.FromSeconds(2));
+            }
+            catch (AggregateException)
+            {
+                // 心跳循环内部已处理。
+            }
+        }
     }
 
     /// <summary>

@@ -257,7 +257,7 @@ git commit -m "feat: four-state daemon lifecycle classification replaces age-onl
 - 修改：`src/client-windows/Pim.Client.App/App.xaml.cs`（三路监听 + 防重 + 2s 超时 + OnExit 有界等待）
 - 测试：`tests/Pim.UnitTests/ClientWindows/PlannedOfflineReporterTests.cs`（新建）、`tests/Pim.UnitTests/ClientWindows/WindowsPlannedOfflineWiringTests.cs`（新建）
 
-- [ ] **步骤 1：写失败测试**
+- [x] **步骤 1：写失败测试**
 
 ```csharp
 // PlannedOfflineReporterTests.cs
@@ -305,9 +305,9 @@ public void AppWiresPlannedOfflineListeners()
 }
 ```
 
-- [ ] **步骤 2：确认失败 → 步骤 3：实现**（§0.4 全流程；App 侧接线时确认 `OnStartup` 的位置在 `Services = ConfigureServices()` 之后挂事件、OnExit 在 base.OnExit 前调用；Startup.cs 加 `services.AddSingleton<PlannedOfflineReporter>()`）
+- [x] **步骤 2：确认失败 → 步骤 3：实现**（§0.4 全流程；App 侧接线时确认 `OnStartup` 的位置在 `Services = ConfigureServices()` 之后挂事件、OnExit 在 base.OnExit 前调用；Startup.cs 加 `services.AddSingleton<PlannedOfflineReporter>()`）
 
-- [ ] **步骤 4：测试通过 + 全量 + Commit**
+- [x] **步骤 4：测试通过 + 全量 + Commit**
 
 ```bash
 git commit -m "feat: windows daemon planned offline reporting on shutdown/suspend/logoff / Windows 守护程序关机休眠注销前上报计划离线"

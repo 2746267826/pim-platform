@@ -58,7 +58,7 @@ public partial class App : Application
                         {
                             try
                             {
-                                t.Wait(TimeSpan.FromSeconds(2));
+                                t.Wait(TimeSpan.FromSeconds(3));
                             }
                             catch (AggregateException)
                             {

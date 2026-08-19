@@ -19,6 +19,7 @@ public partial class App : Application
     private int _plannedOfflineSent;
     private Task? _plannedOfflineTask;
     private readonly object _plannedOfflineLock = new();
+    private readonly SemaphoreSlim _reportSemaphore = new(1, 1);
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -188,6 +189,8 @@ public partial class App : Application
 
     private static async Task ReportHeartbeatOnceAsync(CancellationToken ct)
     {
+        var app = (App)Current;
+        await app._reportSemaphore.WaitAsync(ct);
         try
         {
             var reporter = Services.GetRequiredService<DaemonHeartbeatReporter>();
@@ -236,6 +239,10 @@ public partial class App : Application
         {
             Logger.Warn($"Daemon heartbeat failed: {ex.Message}");
         }
+        finally
+        {
+            app._reportSemaphore.Release();
+        }
     }
 
     private static DateTime? MaxTime(DateTime? a, DateTime? b)
@@ -248,7 +255,7 @@ public partial class App : Application
     private void TryReportPlannedOffline(string reason, bool wait = false)
     {
         // 置位、创建 task、保存 _plannedOfflineTask、等待逻辑全部在锁内，保证防重语义严格。
-        // 调用点都在 UI 线程串行，锁内等待 2s 可接受。
+        // 调用点都在 UI 线程串行，锁内等待可接受；CTS 在 Task.Run 之前创建，生命周期从创建起 2 秒有界。
         lock (_plannedOfflineLock)
         {
             if (Interlocked.Exchange(ref _plannedOfflineSent, 1) == 1)
@@ -258,7 +265,7 @@ public partial class App : Application
                 {
                     try
                     {
-                        _plannedOfflineTask.Wait(TimeSpan.FromSeconds(2));
+                        _plannedOfflineTask.Wait(TimeSpan.FromSeconds(3));
                     }
                     catch (AggregateException)
                     {
@@ -276,17 +283,29 @@ public partial class App : Application
             }
 
             var request = PlannedOfflineReporter.BuildRequest(Environment.MachineName, reason, DateTimeOffset.UtcNow);
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             var task = Task.Run(async () =>
             {
                 try
                 {
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                    await reporter.ReportAsync(request, cts.Token);
-                    Logger.Info($"Planned offline reported ({reason})");
+                    await _reportSemaphore.WaitAsync(cts.Token);
+                    try
+                    {
+                        await reporter.ReportAsync(request, cts.Token);
+                        Logger.Info($"Planned offline reported ({reason})");
+                    }
+                    finally
+                    {
+                        _reportSemaphore.Release();
+                    }
                 }
                 catch (Exception ex)
                 {
                     Logger.Warn($"Planned offline report failed ({reason}): {ex.Message}");
+                }
+                finally
+                {
+                    cts.Dispose();
                 }
             });
 
@@ -296,7 +315,7 @@ public partial class App : Application
             {
                 try
                 {
-                    task.Wait(TimeSpan.FromSeconds(2));
+                    task.Wait(TimeSpan.FromSeconds(3));
                 }
                 catch (AggregateException)
                 {

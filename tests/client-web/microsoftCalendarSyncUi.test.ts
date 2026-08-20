@@ -154,15 +154,25 @@ assert.match(syncPageSource, /reauth-required/);
 assert.doesNotMatch(syncPageSource, /tokenHealth/);
 assert.doesNotMatch(syncPageSource, /\.scopes/);
 
-// --- CalendarPage luxon3 and Asia/Shanghai contract ---
+// --- CalendarPage luxon3 and local-timezone contract ---
 assert.match(calendarPageSource, /luxon3/);
 assert.match(calendarPageSource, /@fullcalendar\/luxon3/);
-assert.match(calendarPageSource, /Asia\/Shanghai/);
 assert.match(calendarPageSource, /luxon3Plugin/);
+assert.match(calendarPageSource, /timeZone="local"/);
+// Production must not hardcode a fixed timezone into the calendar board
+assert.doesNotMatch(calendarPageSource, /timeZone="Asia\/Shanghai"/);
 const pluginsLine = calendarPageSource.match(/plugins.*\[.*\]/s);
 if (pluginsLine) {
   assert.match(pluginsLine[0], /luxon3Plugin/);
 }
+
+// --- Task 8: full-resources action must be described as a PR2 backfill ---
+assert.match(syncPageSource, /刷新所有 Microsoft 日程并回填新支持字段/);
+assert.match(syncPageSource, /深度同步：刷新所有 Microsoft 日程并回填新支持字段/);
+assert.match(syncPageSource, /handleForceFetchAll/);
+// The backfill must reuse the existing full-resources sync mode and endpoint
+assert.match(syncPageSource, /mode: 'full-resources'/);
+assert.doesNotMatch(syncPageSource, /backfill/);
 
 // --- Type contract checks ---
 // UpdateOutlookSettingsRequest must only have clientId

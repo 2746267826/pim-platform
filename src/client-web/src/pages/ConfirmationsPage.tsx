@@ -10,6 +10,7 @@ import {
 } from '../api/operations';
 import BeforeAfterDiff from '../components/schedule/BeforeAfterDiff';
 import StrictConfirmationPanel from '../components/schedule/StrictConfirmationPanel';
+import { safeChangedFields, safeExternalEffectText } from '../utils/eventFieldDiff';
 import PageHeader from '../ui/PageHeader';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
@@ -88,6 +89,7 @@ export default function ConfirmationsPage() {
   });
 
   const active = detail ?? confirmations.find(item => item.id === selectedId);
+  const changedFieldItems = active ? safeChangedFields(active.changedFields) : [];
   const busy = confirmMutation.isPending || rejectMutation.isPending;
   const confirmActionState = getConfirmActionState(
     Boolean(active?.requiresSecondLevelConfirmation),
@@ -216,7 +218,7 @@ export default function ConfirmationsPage() {
                 ['关联编号', active.correlationId ?? '暂无'],
                 ['审计批次', active.auditBatchId ?? '暂无'],
                 ['智能建议', active.aiRecommendation ?? '暂无'],
-                ['外部回写影响', active.externalEffect ?? '暂无'],
+                ['外部回写影响', active.externalEffect ? safeExternalEffectText(active.externalEffect) : '暂无'],
                 ['恢复路径', active.recoveryPath ?? '暂无'],
                 ['二级确认标记', active.requiresSecondLevelConfirmation ? '需要' : '不需要'],
               ].map(([label, value]) => (
@@ -228,10 +230,10 @@ export default function ConfirmationsPage() {
               <div className="rounded-lg border border-slate-200 bg-white p-3">
                 <p className="text-xs font-semibold text-slate-400">变更字段</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {(active.changedFields ?? []).length > 0 ? (
-                    active.changedFields?.map(field => (
-                      <span key={field} className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
-                        {field}
+                  {changedFieldItems.length > 0 ? (
+                    changedFieldItems.map(item => (
+                      <span key={item.key} className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                        {item.label}
                       </span>
                     ))
                   ) : (
@@ -254,16 +256,19 @@ export default function ConfirmationsPage() {
                 </div>
               </div>
               <div className="rounded-lg border border-slate-200 bg-white p-3 lg:col-span-2">
-                <p className="text-xs font-semibold text-slate-400">预览 JSON</p>
-                <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
-                  {active.previewJson || '{}'}
-                </pre>
+                <p className="text-xs font-semibold text-slate-400">操作预览</p>
+                {active.previewJson ? (
+                  <p className="mt-2 text-sm leading-6 text-slate-700">
+                    此操作包含预览数据（原始内容已隐藏），请在变更字段与前后对比中复核后再确认。
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-500">此操作暂无预览数据。</p>
+                )}
               </div>
               <div className="lg:col-span-2">
                 <BeforeAfterDiff
                   beforeJson={active.beforeJson}
                   afterJson={active.afterJson}
-                  changedFields={active.changedFields}
                 />
               </div>
             </div>

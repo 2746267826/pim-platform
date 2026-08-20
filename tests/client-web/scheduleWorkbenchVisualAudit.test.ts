@@ -67,6 +67,9 @@ async function main() {
     await runScenarioI(browser, baseUrl);
     await runScenarioJ(browser, baseUrl);
     await runScenarioK(browser, baseUrl);
+    await runScenarioL(browser, baseUrl);
+    await runScenarioM(browser, baseUrl);
+    await runScenarioN(browser, baseUrl);
   } finally {
     await browser?.close();
     stopServer(server);
@@ -381,19 +384,7 @@ async function runScenarioH(browser: Browser, baseUrl: string) {
         if (conflictSeq === 1) {
           return route.fulfill({
             status: 409, contentType: 'application/json',
-            body: JSON.stringify({
-              code: 0, message: 'Conflict',
-              data: {
-                status: 'conflict',
-                latestOutlookJson: JSON.stringify({
-                  id: 'graph-evt-001', subject: 'Outlook Updated Title',
-                  start: { dateTime: '2026-07-14T09:30:00', timeZone: 'Asia/Shanghai' },
-                  end: { dateTime: '2026-07-14T10:30:00', timeZone: 'Asia/Shanghai' },
-                }),
-                latestEtag: 'etag-new-001',
-              },
-              timestamp: new Date().toISOString(),
-            }),
+            body: JSON.stringify(conflictResponse('Outlook Updated Title', 'etag-new-001')),
           });
         }
         return route.fulfill({
@@ -425,6 +416,16 @@ async function runScenarioH(browser: Browser, baseUrl: string) {
         .boundingBox();
       assert.ok(conflictCancelBox && conflictCancelBox.height <= 48,
         'Conflict cancel command must remain on one line');
+
+      // H4: Conflict shows the typed latest event, not raw JSON
+      assert.equal(
+        await page.locator('div[role="dialog"][aria-modal="true"] pre').count(),
+        0,
+        'Conflict must not render raw JSON at any viewport',
+      );
+      await latestOutlookBlock(page)
+        .getByText('Outlook Updated Title')
+        .waitFor({ state: 'visible', timeout: 3_000 });
 
       if (CAPTURE_SCREENSHOTS) {
         const tag = width === 390 ? '390' : width === 768 ? '768' : '1440';
@@ -1219,6 +1220,485 @@ async function setScenarioKClock(page: Page) {
   await page.clock.setFixedTime(new Date('2026-07-20T12:00:00.000Z'));
 }
 
+// ─── Scenario L: Task 8 editor UX at 1440x1000 and 390x844 ───────────
+
+async function runScenarioL(browser: Browser, baseUrl: string) {
+  for (const [width, height] of [[1440, 1000], [390, 844]] as const) {
+    const context = await browser.newContext({
+      viewport: { width, height },
+      timezoneId: DEFAULT_TIMEZONE_ID,
+    });
+    try {
+      const captured: CapturedRequest[] = [];
+      let conflictSeq = 0;
+      const consoleErrors: string[] = [];
+      await context.addInitScript(() => {
+        localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+      });
+      await context.route('**/api/v1/**', route => {
+        const url = new URL(route.request().url());
+        const fullPath = url.pathname + url.search;
+        const method = route.request().method();
+        if (method !== 'GET') {
+          const postBody = route.request().postDataJSON();
+          captured.push({ url: fullPath, method, body: postBody });
+        }
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify(mockApiResponse(fullPath, method)),
+        });
+      });
+      await context.route('**/api/v1/calendar/outlook/events/writeback', async route => {
+        const body = route.request().postDataJSON();
+        captured.push({ url: 'writeback', method: 'POST', body });
+        conflictSeq++;
+        if (conflictSeq === 1) {
+          return route.fulfill({
+            status: 409, contentType: 'application/json',
+            body: JSON.stringify(conflictResponse('Outlook Updated Title', 'etag-new-001')),
+          });
+        }
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify({ code: 0, message: 'OK',
+            data: { status: 'updated' }, timestamp: new Date().toISOString() }),
+        });
+      });
+
+      const page = await context.newPage();
+      let last409Url: string | null = null;
+      page.on('response', response => {
+        if (response.status() === 409) last409Url = response.url();
+      });
+      page.on('console', message => {
+        if (message.type() !== 'error') return;
+        // L7 deliberately triggers a 409 conflict on the writeback endpoint, so
+        // the browser logs the failed resource load; that network message is
+        // expected. The ignore is narrowly URL-scoped: any other 409 must fail.
+        if (
+          message.text().includes('409 (Conflict)')
+          && last409Url?.includes('/calendar/outlook/events/writeback')
+        ) {
+          return;
+        }
+        consoleErrors.push(message.text());
+      });
+      await openCalendarMonth(page, baseUrl);
+      await openEventByText(page, 'Outlook 可编辑事件', true);
+      const aside = page.locator('aside[role="dialog"]');
+
+      // L1: manual and Outlook editors share every section
+      for (const section of ['基本信息', '高级', '协作', '会议', '附件', '重复']) {
+        await aside.getByRole('button', { name: section, exact: true }).waitFor({ state: 'visible', timeout: 3_000 });
+      }
+
+      // L2: Tiptap toolbar and content visible and non-overlapping
+      const toolbar = aside.locator('[role="toolbar"][aria-label="描述格式工具栏"]').first();
+      await toolbar.waitFor({ state: 'visible', timeout: 3_000 });
+      const tiptap = aside.locator('[data-description-html-preview]').first();
+      await tiptap.waitFor({ state: 'visible', timeout: 5_000 });
+      const toolbarBox = await toolbar.boundingBox();
+      const tiptapBox = await tiptap.boundingBox();
+      assert.ok(toolbarBox && tiptapBox, 'Toolbar and Tiptap content must both be visible');
+      assert.ok(tiptapBox!.y >= toolbarBox!.y + toolbarBox!.height - 1,
+        'Tiptap content must not overlap its toolbar');
+
+      // L3: Outlook additional info collapsed by default, hidden count visible, no secret leak
+      const outlookSection = aside.locator('section[data-event-editor-section]', { hasText: 'Outlook 附加信息' });
+      await outlookSection.waitFor({ state: 'visible', timeout: 3_000 });
+      assert.ok((await outlookSection.textContent())?.includes('3 项敏感字段已隐藏'),
+        'Hidden-field count must be visible while the section is collapsed');
+      const collapsedText = await aside.textContent();
+      assert.ok(!collapsedText?.includes('PRIVATE-BODY-SECRET-MARKER'),
+        'Raw body/secret must not leak while additional info is collapsed');
+      await aside.getByRole('button', { name: /Outlook 附加信息/ }).click();
+      const expandedText = await aside.textContent();
+      assert.ok(expandedText?.includes('会议详情'), 'Expanded additional info must show the allowlisted group');
+      assert.ok(expandedText?.includes('PRIVATE-BODY-SECRET-MARKER'),
+        'Expanded allowlisted items may show their label/value summary');
+
+      // L4: long attendee/category values wrap within the drawer
+      await aside.getByRole('button', { name: '高级', exact: true }).click();
+      const longCategory = '输入的超长分类名称用于验证窄屏下的换行行为与抽屉边界展示效果';
+      const categoryInput = aside.locator('input[placeholder="输入分类后回车添加"]');
+      await categoryInput.fill(longCategory);
+      await categoryInput.press('Enter');
+      await aside.locator('.event-category-chip').filter({ hasText: longCategory })
+        .waitFor({ state: 'visible', timeout: 3_000 });
+
+      await aside.getByRole('button', { name: '协作', exact: true }).click();
+      await aside.getByRole('button', { name: '添加参会者', exact: true }).click();
+      const longName = '一个非常长的参会者姓名用于验证换行与抽屉边界不溢出';
+      const longEmail = 'this-is-a-very-long-email-address-that-must-wrap-inside-the-drawer@example.com';
+      await aside.getByRole('textbox', { name: '参会者 1 姓名' }).fill(longName);
+      await aside.getByRole('textbox', { name: '参会者 1 邮箱' }).fill(longEmail);
+      await assertDrawerNoHorizontalOverflow(page);
+
+      // L5: meeting and attachment controls fit
+      await aside.getByRole('button', { name: '会议', exact: true }).click();
+      await aside.getByText('在线会议', { exact: true }).waitFor({ state: 'visible', timeout: 3_000 });
+      await aside.getByText('会议提供方', { exact: true }).waitFor({ state: 'visible', timeout: 3_000 });
+      await aside.getByRole('button', { name: '附件', exact: true }).click();
+      await aside.locator('[data-attachment-row]').first().waitFor({ state: 'visible', timeout: 3_000 });
+      assert.ok((await aside.textContent())?.includes('Outlook 附件（只读）'),
+        'Outlook attachments must be visible but read-only');
+      await assertDrawerNoHorizontalOverflow(page);
+
+      // L6: typed field-level preview diff is readable
+      await aside.locator('input[type="text"]').first().fill('编辑后标题');
+      await aside.locator('button[type="submit"]').click();
+      await waitForWritebackPreview(page);
+      const baSection = page.locator('section[aria-label="变更前后对比"]');
+      await baSection.waitFor({ state: 'visible', timeout: 3_000 });
+      assert.equal(await page.locator('div[role="dialog"][aria-modal="true"] pre').count(), 0,
+        'Preview must not render raw JSON');
+      const diffTitleRow = baSection.locator('li[aria-label^="标题：修改"]');
+      await diffTitleRow.waitFor({ state: 'visible', timeout: 3_000 });
+      assert.ok((await diffTitleRow.getAttribute('aria-label'))?.includes('→'),
+        'Field-level diff rows must be readable');
+
+      // L7: 412 conflict recompare keeps the draft; canceling returns to the editor
+      await writebackConfirmBtn(page).click();
+      await waitForConflict(page);
+      await page.locator('button', { hasText: '重新比较' }).click();
+      await waitForWritebackPreview(page);
+      await page.locator('div[role="dialog"][aria-modal="true"] button', { hasText: '取消' }).click();
+      const editorStillOpen = await aside.isVisible({ timeout: 3_000 }).catch(() => false);
+      assert.ok(editorStillOpen, 'Editor must remain open after canceling the recompare preview');
+      const titleAfterRecompare = await aside.locator('input[type="text"]').first().inputValue();
+      assert.ok(titleAfterRecompare.includes('编辑后标题'),
+        'Draft must survive the 412 recompare flow');
+
+      // L8: screenshots are nonblank and stable
+      const shot1 = await page.screenshot();
+      const shot2 = await page.screenshot();
+      assert.ok(shot1.length > 15_000,
+        `Screenshot must be nonblank at ${width}x${height} (${shot1.length} bytes)`);
+      assert.ok(shot1.length === shot2.length && Buffer.compare(shot1, shot2) === 0,
+        'Screenshots must be stable across captures');
+
+      assert.deepEqual(consoleErrors, [], `Scenario L at ${width}x${height} must not log console errors`);
+      await page.close();
+    } finally {
+      await context.close();
+    }
+  }
+}
+
+async function assertDrawerNoHorizontalOverflow(page: Page) {
+  const overflow = await page.evaluate(() => {
+    const drawer = document.querySelector('aside[role="dialog"]');
+    if (!drawer) return -1;
+    return drawer.scrollWidth - drawer.clientWidth;
+  });
+  assert.ok(overflow >= 0 && overflow <= 2,
+    `Drawer must not overflow horizontally (got ${overflow}px)`);
+}
+
+// ─── Scenario M: Task 8 calendar visual semantics ────────────────────
+
+async function runScenarioM(browser: Browser, baseUrl: string) {
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 1000 },
+    timezoneId: DEFAULT_TIMEZONE_ID,
+  });
+  try {
+    const consoleErrors: string[] = [];
+    await context.addInitScript(() => {
+      localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+    });
+    await context.route('**/api/v1/**', route => {
+      const url = new URL(route.request().url());
+      const fullPath = url.pathname + url.search;
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify(mockApiResponse(fullPath, undefined, true)),
+      });
+    });
+
+    const page = await context.newPage();
+    await setScenarioKClock(page);
+    page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
+    await page.goto(`${baseUrl}/calendar?view=timeline`, { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+    await page.waitForSelector('.fc-event, .calendar-event-card', { timeout: 8_000 }).catch(() => undefined);
+
+    // M1: importance=high adds emphasis without replacing the calendar color
+    const importantCard = page
+      .locator('.fc-timegrid-event:has-text("重要空闲事件") .calendar-event-card')
+      .first();
+    await importantCard.waitFor({ state: 'visible', timeout: 5_000 });
+    assert.equal(await importantCard.getAttribute('data-content-level'), '5',
+      'Long semantic card must reach the highest content level');
+    assert.ok((await importantCard.getAttribute('class'))?.includes('calendar-event--important'),
+      'importance=high must add an important modifier class');
+    const importantBg = await importantCard.evaluate(el => getComputedStyle(el).backgroundColor);
+    const importantAlpha = extractAlpha(importantBg);
+    assert.ok(Math.abs(importantAlpha - 0.15) < 0.03,
+      'importance=high must keep the calendar-tinted translucent background');
+    const importantBorder = await importantCard.evaluate(el => getComputedStyle(el).borderLeftColor);
+    assert.equal(importantBorder, 'rgb(0, 68, 204)',
+      'importance=high must keep the calendar accent border color');
+    const importanceBadge = importantCard.locator('.calendar-event-importance');
+    await importanceBadge.waitFor({ state: 'visible', timeout: 3_000 });
+    assert.ok((await importanceBadge.textContent())?.includes('重要'), 'Important badge must read 重要');
+    const reminderBadge = importantCard.locator('.calendar-event-reminder');
+    await reminderBadge.waitFor({ state: 'visible', timeout: 3_000 });
+    assert.equal(await reminderBadge.getAttribute('aria-label'), '提醒',
+      'Reminder icon must carry the 提醒 accessible label');
+
+    // M2: showAs=free renders a non-blocking 空闲 status
+    const freeBadge = importantCard.locator('.calendar-event-showas--free');
+    await freeBadge.waitFor({ state: 'visible', timeout: 3_000 });
+    assert.equal((await freeBadge.textContent())?.trim(), '空闲', 'free event must show 空闲');
+    const freeBorderStyle = await freeBadge.evaluate(el => getComputedStyle(el).borderTopStyle);
+    assert.equal(freeBorderStyle, 'dashed', 'free status must use a non-blocking dashed visual');
+
+    // M3: showAs=tentative renders 暂定
+    const tentativeCard = page
+      .locator('.fc-timegrid-event:has-text("暂定事件") .calendar-event-card')
+      .first();
+    await tentativeCard.waitFor({ state: 'visible', timeout: 5_000 });
+    const tentativeBadge = tentativeCard.locator('.calendar-event-showas--tentative');
+    await tentativeBadge.waitFor({ state: 'visible', timeout: 3_000 });
+    assert.equal((await tentativeBadge.textContent())?.trim(), '暂定', 'tentative event must show 暂定');
+
+    // M4: reminder/importance icons appear only at the highest content level
+    const compactCard = page.locator('.fc-timegrid-event:has-text("密度紧凑事件") .calendar-event-card').first();
+    await compactCard.waitFor({ state: 'visible', timeout: 5_000 });
+    assert.equal(await compactCard.getAttribute('data-content-level'), '1',
+      'Compact card must stay at level 1');
+    assert.ok(!await compactCard.locator('.calendar-event-importance').isVisible().catch(() => false),
+      'Importance icon must not appear at lower content levels');
+    assert.ok(!await compactCard.locator('.calendar-event-reminder').isVisible().catch(() => false),
+      'Reminder icon must not appear at lower content levels');
+
+    assert.deepEqual(consoleErrors, [], 'Scenario M must not log console errors');
+    await page.close();
+  } finally {
+    await context.close();
+  }
+}
+
+// ─── Scenario N: Task 8 card title priority and summary styles ────────
+
+const LONG_TITLE_EVENT = '超长标题事件';
+
+async function runScenarioN(browser: Browser, baseUrl: string) {
+  // ── N1/N2: Month daygrid title priority and secondary visibility ──
+  for (const [width, height] of [[390, 844], [1440, 1000]] as const) {
+    const context = await browser.newContext({
+      viewport: { width, height },
+      timezoneId: DEFAULT_TIMEZONE_ID,
+    });
+    try {
+      const consoleErrors: string[] = [];
+      await context.addInitScript(() => {
+        localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+      });
+      await context.route('**/api/v1/**', route => {
+        const url = new URL(route.request().url());
+        const fullPath = url.pathname + url.search;
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify(mockApiResponse(fullPath)),
+        });
+      });
+
+      const page = await context.newPage();
+      page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+      await setScenarioKClock(page);
+      await page.goto(`${baseUrl}/calendar?view=month`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      await page.waitForSelector('.fc-event, .calendar-event-card', { timeout: 8_000 }).catch(() => undefined);
+
+      const dayCell = page.locator('.fc-daygrid-day[data-date="2026-07-16"]');
+      const card = dayCell.locator('.calendar-event-card', { hasText: LONG_TITLE_EVENT }).first();
+      await card.waitFor({ state: 'visible', timeout: 5_000 });
+
+      const title = card.locator('.calendar-event-title');
+      const titleMetrics = await title.evaluate(el => {
+        const s = getComputedStyle(el);
+        return {
+          width: el.clientWidth,
+          scrollWidth: el.scrollWidth,
+          overflow: s.overflow,
+          textOverflow: s.textOverflow,
+          whiteSpace: s.whiteSpace,
+        };
+      });
+      assert.ok(titleMetrics.width > 0,
+        `N1: daygrid title must keep nonzero width at ${width}px (got ${titleMetrics.width})`);
+      assert.equal(titleMetrics.overflow, 'hidden',
+        `N1: daygrid title must clip at ${width}px`);
+      assert.equal(titleMetrics.textOverflow, 'ellipsis',
+        `N1: daygrid title must ellipsize at ${width}px`);
+      assert.equal(titleMetrics.whiteSpace, 'nowrap',
+        `N1: daygrid title must stay on one line at ${width}px`);
+      assert.ok(titleMetrics.scrollWidth >= titleMetrics.width,
+        `N1: long daygrid title must remain ellipsizable at ${width}px`);
+
+      const timeVisible = await card.locator('.calendar-event-time').isVisible({ timeout: 500 }).catch(() => false);
+      const dotVisible = await card.locator('.calendar-event-dot').isVisible({ timeout: 500 }).catch(() => false);
+      if (width === 390) {
+        assert.ok(!timeVisible, 'N2: time must be hidden in narrow daygrid cards');
+        assert.ok(!dotVisible, 'N2: dot must be hidden in the narrowest daygrid cards');
+      } else {
+        assert.ok(timeVisible, 'N2: time must stay visible in wide daygrid cards');
+        assert.ok(dotVisible, 'N2: dot must stay visible in wide daygrid cards');
+      }
+
+      // N2b: as a daygrid card narrows, the time must hide before the dot,
+      // with a band in between where the dot alone survives.
+      const cascade = await card.evaluate(el => {
+        const time = el.querySelector('.calendar-event-time');
+        const dot = el.querySelector('.calendar-event-dot');
+        const samples = [];
+        for (let width = 140; width >= 24; width -= 4) {
+          el.style.width = `${width}px`;
+          el.style.flex = '0 0 auto';
+          samples.push({
+            width,
+            time: !!time && getComputedStyle(time).display !== 'none',
+            dot: !!dot && getComputedStyle(dot).display !== 'none',
+          });
+        }
+        el.style.width = '';
+        el.style.flex = '';
+        return samples;
+      });
+      const firstTimeHidden = cascade.find(s => !s.time);
+      const firstDotHidden = cascade.find(s => !s.dot);
+      assert.ok(firstTimeHidden && firstDotHidden,
+        'N2b: time and dot must each hide at some narrow card width');
+      assert.ok(firstTimeHidden!.width > firstDotHidden!.width,
+        `N2b: time must hide before the dot as the card narrows (time at ${firstTimeHidden!.width}px, dot at ${firstDotHidden!.width}px)`);
+      assert.ok(cascade.some(s => !s.time && s.dot),
+        'N2b: a narrow width must hide the time while keeping the dot visible');
+
+      // N3: summary computed style through the event editor
+      await page.locator('.fc-more-popover .fc-popover-close').click().catch(() => undefined);
+      await openEventByText(page, 'Outlook 可编辑事件', true);
+      const summary = page.locator('aside[role="dialog"] .event-editor-section-summary').first();
+      await summary.waitFor({ state: 'visible', timeout: 5_000 });
+      const summaryStyle = await summary.evaluate(el => {
+        const s = getComputedStyle(el);
+        return {
+          fontSize: s.fontSize,
+          fontWeight: s.fontWeight,
+          color: s.color,
+          whiteSpace: s.whiteSpace,
+          overflow: s.overflow,
+          textOverflow: s.textOverflow,
+        };
+      });
+      assert.equal(summaryStyle.fontSize, '12px',
+        `N3: summary font-size must be 0.75rem at ${width}px (got ${summaryStyle.fontSize})`);
+      assert.equal(summaryStyle.fontWeight, '400',
+        `N3: summary must be normal-weight at ${width}px (got ${summaryStyle.fontWeight})`);
+      assert.equal(summaryStyle.color, 'rgb(100, 116, 139)',
+        `N3: summary must be muted at ${width}px (got ${summaryStyle.color})`);
+      assert.equal(summaryStyle.whiteSpace, 'nowrap',
+        `N3: summary must be single-line at ${width}px`);
+      assert.equal(summaryStyle.overflow, 'hidden',
+        `N3: summary must clip at ${width}px`);
+      assert.equal(summaryStyle.textOverflow, 'ellipsis',
+        `N3: summary must ellipsize at ${width}px`);
+      const sectionTitleStyle = await page
+        .locator('aside[role="dialog"] .event-editor-section-title')
+        .first()
+        .evaluate(el => {
+          const s = getComputedStyle(el);
+          return { overflow: s.overflow, textOverflow: s.textOverflow, whiteSpace: s.whiteSpace };
+        });
+      assert.equal(sectionTitleStyle.overflow, 'hidden',
+        `N3: section title must clip at ${width}px`);
+      assert.equal(sectionTitleStyle.textOverflow, 'ellipsis',
+        `N3: section title must ellipsize at ${width}px`);
+      assert.equal(sectionTitleStyle.whiteSpace, 'nowrap',
+        `N3: section title must stay on one line at ${width}px`);
+
+      assert.deepEqual(consoleErrors, [], `Scenario N month at ${width}px must not log console errors`);
+      await page.close();
+    } finally {
+      await context.close();
+    }
+  }
+
+  // ── N4: Timegrid title ellipsis and no horizontal overflow ───────
+  {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      timezoneId: DEFAULT_TIMEZONE_ID,
+    });
+    try {
+      const consoleErrors: string[] = [];
+      await context.addInitScript(() => {
+        localStorage.setItem('accessToken', 'schedule-workbench-visual-audit-token');
+      });
+      await context.route('**/api/v1/**', route => {
+        const url = new URL(route.request().url());
+        const fullPath = url.pathname + url.search;
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify(mockApiResponse(fullPath)),
+        });
+      });
+
+      const page = await context.newPage();
+      page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+      // Pin the calendar to 2026-07-16 so the long-title fixture is in the day view.
+      await page.clock.setFixedTime(new Date('2026-07-16T04:00:00.000Z'));
+      await page.goto(`${baseUrl}/calendar?view=timeline`, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      await page.waitForSelector('.fc-event, .calendar-event-card', { timeout: 8_000 }).catch(() => undefined);
+
+      const card = page
+        .locator(`.fc-timegrid-event:has-text("${LONG_TITLE_EVENT}") .calendar-event-card`)
+        .first();
+      await card.waitFor({ state: 'visible', timeout: 5_000 });
+
+      const metrics = await card.evaluate(el => {
+        const title = el.querySelector<HTMLElement>('.calendar-event-title');
+        const time = el.querySelector<HTMLElement>('.calendar-event-time');
+        if (!title) return null;
+        const titleStyle = getComputedStyle(title);
+        return {
+          cardScrollWidth: el.scrollWidth,
+          cardClientWidth: el.clientWidth,
+          titleClientWidth: title.clientWidth,
+          titleScrollWidth: title.scrollWidth,
+          titleOverflow: titleStyle.overflow,
+          titleTextOverflow: titleStyle.textOverflow,
+          titleWhiteSpace: titleStyle.whiteSpace,
+          titleTop: title.offsetTop,
+          timeTop: time ? time.offsetTop : -1,
+        };
+      });
+      assert.ok(metrics !== null, 'N4: timegrid title must exist');
+      assert.ok((metrics!.cardScrollWidth - metrics!.cardClientWidth) <= 2,
+        `N4: timegrid card must not overflow horizontally (got ${metrics!.cardScrollWidth - metrics!.cardClientWidth}px)`);
+      assert.ok(metrics!.titleClientWidth > 0,
+        `N4: timegrid title must keep nonzero width (got ${metrics!.titleClientWidth})`);
+      assert.ok(metrics!.titleClientWidth <= metrics!.cardClientWidth,
+        'N4: timegrid title must stay inside its card');
+      assert.ok(metrics!.titleScrollWidth >= metrics!.titleClientWidth,
+        'N4: long timegrid title must remain ellipsizable');
+      assert.equal(metrics!.titleOverflow, 'hidden');
+      assert.equal(metrics!.titleTextOverflow, 'ellipsis');
+      assert.equal(metrics!.titleWhiteSpace, 'nowrap');
+      assert.ok(metrics!.titleTop <= metrics!.timeTop,
+        'N4: timegrid title must stay above the time (vertical order preserved)');
+
+      assert.deepEqual(consoleErrors, [], 'Scenario N timeline must not log console errors');
+      await page.close();
+    } finally {
+      await context.close();
+    }
+  }
+}
+
 function extractAlpha(bg: string): number {
   const rgba = bg.match(/^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)$/);
   if (rgba) {
@@ -1442,6 +1922,20 @@ const allEvents = [
     outlookEventId: 'graph-evt-001', outlookEtag: 'etag-old-001',
     outlookEventType: 'occurrence', recurrenceId: '2026-07-14T09:00:00',
     originalEventId: 'series-master-1', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+    categories: ['非常长的分类名称用于验证窄屏下的换行行为与抽屉边界展示效果'],
+    attendees: [
+      { name: '一个非常长的参会者姓名用于验证换行与抽屉边界不溢出', email: 'this-is-a-very-long-email-address-that-must-wrap-inside-the-drawer@example.com', type: 'required' },
+      { name: '张小明', email: 'zhang@example.com', type: 'optional' },
+    ],
+    attachmentReferences: [
+      { kind: 'outlook', id: 'att-outlook-1', name: '长附件名称用于验证附件行在窄屏下的适配效果.docx', contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 2048, canDownload: true },
+    ],
+    outlookAdditionalInfo: {
+      groups: [
+        { key: 'meeting', label: '会议详情', items: [{ key: 'body-preview', label: '正文', value: 'PRIVATE-BODY-SECRET-MARKER' }] },
+      ],
+      hiddenFieldCount: 3,
+    },
   },
   {
     id: 'evt-outlook-readonly-1', calendarId: 'cal-outlook-readonly', uid: 'uid-readonly-1',
@@ -1559,6 +2053,29 @@ const allEvents = [
     dtStart: '2026-07-20T14:00:00Z', dtEnd: '2026-07-20T15:00:00Z',
     status: 'confirmed', source: 'manual', isAllDay: false,
   },
+  {
+    id: 'evt-title-priority', calendarId: 'cal-manual-1', uid: 'uid-title-priority',
+    title: '超长标题事件用于验证日历卡片标题优先级与省略号显示行为必须完整测试',
+    dtStart: '2026-07-16T11:00:00+08:00', dtEnd: '2026-07-16T12:00:00+08:00',
+    status: 'confirmed', source: 'manual', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+  },
+  // ── Task 8 calendar-semantics fixtures ─────────────────────────────
+  {
+    id: 'evt-semantic-free', calendarId: 'cal-outlook-1', uid: 'uid-semantic-free',
+    title: '重要空闲事件', location: '线上会议室',
+    description: '这个事件用于验证 importance=high 与 showAs=free 的视觉语义。描述内容足够长以撑起时间轴卡片的最高内容层级，从而显示重要与提醒图标。',
+    dtStart: '2026-07-20T09:00:00+08:00', dtEnd: '2026-07-20T12:00:00+08:00',
+    status: 'confirmed', source: 'outlook', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+    importance: 'high', showAs: 'free', isReminderOn: true, reminderMinutesBeforeStart: 15,
+  },
+  {
+    id: 'evt-semantic-tentative', calendarId: 'cal-outlook-1', uid: 'uid-semantic-tentative',
+    title: '暂定事件', location: '待定会议室',
+    description: '这个事件用于验证 showAs=tentative 的暂定视觉语义。描述内容足够长以撑起时间轴卡片的最高内容层级。',
+    dtStart: '2026-07-20T13:00:00+08:00', dtEnd: '2026-07-20T16:00:00+08:00',
+    status: 'confirmed', source: 'outlook', isAllDay: false, timeZoneId: 'Asia/Shanghai',
+    showAs: 'tentative',
+  },
 ];
 
 const calendars = [
@@ -1627,7 +2144,8 @@ function mockApiResponse(
   const eventsForScenario = allEvents.filter(event => {
     const isScenarioKFixture = event.id.startsWith('evt-density-')
       || event.id.startsWith('evt-capacity-')
-      || event.id === 'evt-local-tz';
+      || event.id === 'evt-local-tz'
+      || event.id.startsWith('evt-semantic-');
     return includeScenarioKFixtures ? isScenarioKFixture : !isScenarioKFixture;
   });
   let data: unknown = [];
@@ -1636,7 +2154,7 @@ function mockApiResponse(
   } else if (fullPath.includes('/calendar/data-center/query')) {
     data = { items: [], page: 1, pageSize: 50, totalCount: 0 };
   } else if (fullPath.includes('/calendar/outlook/settings')) {
-    data = { provider: 'outlook', tenantId: 'common', clientId: '11111111-1111-1111-1111-111111111111', scopes: 'Calendars.ReadWrite offline_access', status: 'connected', tokenHealth: 'Healthy', lastSyncedAt: '2026-07-13T08:00:00Z', lastError: null, uiStatus: 'connected', activeAuthorization: null };
+    data = { provider: 'outlook', tenantId: 'common', clientId: '11111111-1111-1111-1111-111111111111', scopes: 'Calendars.ReadWrite offline_access', status: 'connected', tokenHealth: 'Healthy', lastSyncedAt: '2026-07-13T08:00:00Z', lastError: null, uiStatus: 'connected', activeAuthorization: { id: 'auth-1', status: 'connected', verificationUri: 'https://microsoft.com/devicelogin', userCode: 'ABC123XYZ', expiresAt: '2026-07-13T12:00:00Z', accountDisplayName: 'Test User', accountLoginHint: 'user@example.com', errorCode: null, errorMessage: null, recoveryAction: null } };
   } else if (fullPath.includes('/calendar/outlook/device-code')) {
     if (fullPath.endsWith('/poll')) {
       data = { id: 'd4e5f6a7-b8c9-0123-defa-234567890123', status: 'connected', verificationUri: 'https://microsoft.com/devicelogin', userCode: 'ABC123XYZ', expiresAt: '2026-07-13T12:00:00Z', accountDisplayName: 'Test User', accountLoginHint: 'user@example.com', errorCode: null, errorMessage: null, recoveryAction: null };
@@ -1730,6 +2248,9 @@ main().catch((error: unknown) => {
 // ─── Helpers ──────────────────────────────────────────────────────────
 
 async function openCalendarMonth(page: Page, baseUrl: string) {
+  // Fixtures are intentionally fixed in July 2026; stabilize the calendar's
+  // production-default "today" without changing the real initial date.
+  await setScenarioKClock(page);
   await page.goto(`${baseUrl}/calendar?view=month`, { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
   await page.waitForSelector('.fc-event, .calendar-event-card', { timeout: 8_000 }).catch(() => undefined);
@@ -1771,7 +2292,60 @@ async function waitForConflict(page: Page) {
 }
 
 function writebackConfirmBtn(page: Page) {
-  return page.locator('div[role="dialog"][aria-modal="true"]').locator('button', { hasText: '确认' });
+  return page.locator('div[role="dialog"][aria-modal="true"] footer button', { hasText: /确认|提交中/ });
+}
+
+function latestOutlookBlock(page: Page) {
+  return page
+    .locator('div[role="dialog"][aria-modal="true"]')
+    .getByText('最新 Outlook 内容')
+    .locator('..');
+}
+
+function latestConflictEvent(title: string): unknown {
+  return {
+    id: 'evt-outlook-1',
+    calendarId: 'cal-outlook-1',
+    uid: 'uid-outlook-1',
+    title,
+    description: 'Outlook 事件描述',
+    location: '会议室 A',
+    dtStart: '2026-07-14T09:30:00',
+    dtEnd: '2026-07-14T10:30:00',
+    status: 'confirmed',
+    source: 'outlook',
+    outlookCalendarBindingId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    outlookEventId: 'graph-evt-001',
+    outlookEtag: 'latest-etag',
+    outlookEventType: 'occurrence',
+    isAllDay: false,
+    timeZoneId: 'Asia/Shanghai',
+    categories: ['非常长的分类名称用于验证窄屏下的换行行为与抽屉边界展示效果'],
+    attendees: [
+      { name: '一个非常长的参会者姓名用于验证换行与抽屉边界不溢出', email: 'this-is-a-very-long-email-address-that-must-wrap-inside-the-drawer@example.com', type: 'required' },
+    ],
+    attachmentReferences: [
+      { kind: 'outlook', id: 'att-outlook-1', name: '长附件名称用于验证附件行在窄屏下的适配效果.docx', contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 2048, canDownload: true },
+    ],
+  };
+}
+
+function conflictResponse(title: string, etag: string): { code: number; message: string; data: unknown; timestamp: string } {
+  return {
+    code: 0,
+    message: 'Conflict',
+    data: {
+      status: 'conflict',
+      latestOutlookJson: JSON.stringify({
+        id: 'graph-evt-001', subject: title,
+        start: { dateTime: '2026-07-14T09:30:00', timeZone: 'Asia/Shanghai' },
+        end: { dateTime: '2026-07-14T10:30:00', timeZone: 'Asia/Shanghai' },
+      }),
+      latestEvent: latestConflictEvent(title),
+      latestEtag: etag,
+    },
+    timestamp: new Date().toISOString(),
+  };
 }
 
 async function waitForNoWritebackDialog(page: Page) {
@@ -1900,37 +2474,13 @@ async function runScenarioB(browser: Browser, baseUrl: string) {
       if (conflictSeq === 1) {
         return route.fulfill({
           status: 409, contentType: 'application/json',
-          body: JSON.stringify({
-            code: 0, message: 'Conflict',
-            data: {
-              status: 'conflict',
-              latestOutlookJson: JSON.stringify({
-                id: 'graph-evt-001', subject: 'Outlook Updated Title',
-                start: { dateTime: '2026-07-14T09:30:00', timeZone: 'Asia/Shanghai' },
-                end: { dateTime: '2026-07-14T10:30:00', timeZone: 'Asia/Shanghai' },
-              }),
-              latestEtag: 'etag-new-001',
-            },
-            timestamp: new Date().toISOString(),
-          }),
+          body: JSON.stringify(conflictResponse('Outlook Updated Title', 'etag-new-001')),
         });
       }
       if (conflictSeq === 2) {
         return route.fulfill({
           status: 409, contentType: 'application/json',
-          body: JSON.stringify({
-            code: 0, message: 'Conflict',
-            data: {
-              status: 'conflict',
-              latestOutlookJson: JSON.stringify({
-                id: 'graph-evt-001', subject: 'Another Outlook Update',
-                start: { dateTime: '2026-07-14T09:45:00', timeZone: 'Asia/Shanghai' },
-                end: { dateTime: '2026-07-14T10:45:00', timeZone: 'Asia/Shanghai' },
-              }),
-              latestEtag: 'etag-new-002',
-            },
-            timestamp: new Date().toISOString(),
-          }),
+          body: JSON.stringify(conflictResponse('Another Outlook Update', 'etag-new-002')),
         });
       }
       return route.fulfill({
@@ -1953,17 +2503,28 @@ async function runScenarioB(browser: Browser, baseUrl: string) {
 
     await waitForWritebackPreview(conflictPage);
 
-    // Verify before/after JSON have identical business-keys
+    // Task 8: the preview must be a typed field-level diff, never raw JSON
     const baSection = conflictPage.locator('section[aria-label="变更前后对比"]');
     await baSection.waitFor({ state: 'visible', timeout: 3_000 });
-    const baPres = baSection.locator('pre');
-    const beforeRaw = await baPres.nth(0).textContent();
-    const afterRaw = await baPres.nth(1).textContent();
-    const beforeKeys = Object.keys(JSON.parse(beforeRaw || '{}')).sort();
-    const afterKeys = Object.keys(JSON.parse(afterRaw || '{}')).sort();
-    assert.deepEqual(beforeKeys, afterKeys, 'Before/after JSON must have identical key sets');
-    const expectedFields = ['calendarId', 'description', 'dtEnd', 'dtStart', 'isAllDay', 'location', 'timeZoneId', 'title'];
-    assert.deepEqual(beforeKeys, expectedFields, 'Before JSON must contain only expected business fields');
+    assert.equal(
+      await conflictPage.locator('div[role="dialog"][aria-modal="true"] pre').count(),
+      0,
+      'Writeback dialog must not render raw JSON <pre>',
+    );
+    const titleRow = baSection.locator('li[aria-label^="标题：修改"]');
+    await titleRow.waitFor({ state: 'visible', timeout: 3_000 });
+    assert.ok(
+      (await titleRow.getAttribute('aria-label'))?.includes('Outlook 可编辑事件 → 编辑后标题'),
+      'Typed title row must read 旧标题 → 新标题',
+    );
+    assert.equal(await baSection.locator('li').count(), 1,
+      'Unchanged fields must be omitted from the typed diff');
+    const metaText = await baSection.locator('dl').textContent();
+    assert.ok(metaText?.includes('操作'), 'Diff meta must show 操作');
+    assert.ok(metaText?.includes('更新'), 'Diff meta must show the operation label');
+    assert.ok(metaText?.includes('账户') && metaText.includes('Test User'), 'Diff meta must show the account name');
+    assert.ok(metaText?.includes('日历') && metaText.includes('Outlook 工作日历'), 'Diff meta must show the calendar name');
+    assert.ok(metaText?.includes('范围') && metaText.includes('仅此实例'), 'Diff meta must show the scope');
 
     // Verify scope radio visible in writeback dialog for occurrence type
     const instanceRadio = conflictPage.locator('input[name="outlook-scope"][value="instance"]');
@@ -1994,9 +2555,16 @@ async function runScenarioB(browser: Browser, baseUrl: string) {
     assert.ok(firstOpId.length > 0);
     if (p1.draft) assert.equal((p1.draft as Record<string, unknown>).title, '编辑后标题');
 
-    // Latest Outlook content visible in conflict
+    // Latest Outlook content visible as a typed summary, not raw JSON
     assert.ok(await conflictPage.locator('text=最新 Outlook 内容').isVisible().catch(() => false),
       'Latest Outlook content should be shown');
+    const latestBlock = latestOutlookBlock(conflictPage);
+    await latestBlock.getByText('Outlook Updated Title').waitFor({ state: 'visible', timeout: 3_000 });
+    assert.equal(
+      await conflictPage.locator('div[role="dialog"][aria-modal="true"] pre').count(),
+      0,
+      'Conflict must not render raw Outlook JSON',
+    );
     const draftVal = await titleInput.inputValue().catch(() => '');
     assert.ok(draftVal.includes('编辑后标题'), 'Edited draft preserved');
 
@@ -2008,6 +2576,15 @@ async function runScenarioB(browser: Browser, baseUrl: string) {
     await waitForWritebackPreview(conflictPage);
     assert.equal(captured.filter(c => c.url === 'writeback').length, seqBefore,
       'No request after retry click');
+
+    // After recompare the diff compares the draft against the typed latest
+    const recompareTitleRow = conflictPage.locator('section[aria-label="变更前后对比"] li[aria-label^="标题："]');
+    await recompareTitleRow.waitFor({ state: 'visible', timeout: 3_000 });
+    const recompareLabel = await recompareTitleRow.getAttribute('aria-label');
+    assert.ok(
+      recompareLabel?.includes('Outlook Updated Title → 编辑后标题'),
+      `Recompare row must diff latest title against draft, got ${recompareLabel}`,
+    );
 
     // Second confirmation -> second 409
     await writebackConfirmBtn(conflictPage).click();
@@ -2021,13 +2598,18 @@ async function runScenarioB(browser: Browser, baseUrl: string) {
     assert.equal(p2.scope, 'series');
     assert.equal(p2.clientOperationId, firstOpId, 'clientOperationId persists');
 
-    const secondLatestOutlook = conflictPage
-      .locator('div[role="dialog"][aria-modal="true"] pre')
-      .filter({ hasText: 'Another Outlook Update' })
-      .first();
-    await secondLatestOutlook.waitFor({ state: 'visible', timeout: 5_000 });
+    await latestOutlookBlock(conflictPage)
+      .getByText('Another Outlook Update')
+      .waitFor({ state: 'visible', timeout: 5_000 });
     assert.equal(captured.filter(c => c.url === 'writeback').length, 2,
       'Repeated conflict must not trigger an automatic third request');
+
+    // Cancel the conflict back to the editor: edits must not be lost
+    await conflictPage.locator('div[role="dialog"][aria-modal="true"] button', { hasText: '取消' }).click();
+    const editorAfterCancel = await conflictPage.locator('aside[role="dialog"]').isVisible({ timeout: 3_000 }).catch(() => false);
+    assert.ok(editorAfterCancel, 'Editor must stay open after canceling the conflict dialog');
+    const draftAfterCancel = await titleInput.inputValue().catch(() => '');
+    assert.ok(draftAfterCancel.includes('编辑后标题'), 'Draft must survive canceling the conflict dialog');
 
     await conflictPage.close();
     conflictPage = undefined;
@@ -2288,9 +2870,16 @@ async function runScenarioE(browser: Browser, baseUrl: string) {
       null, { timeout: 3_000 },
     ).catch(() => undefined);
 
-    // No recurrence controls in editor
-    const hasRrule = await page.locator('text=重复').first().isVisible({ timeout: 1_000 }).catch(() => false);
-    assert.ok(!hasRrule, 'No recurrence pattern control rendered');
+    // No recurrence pattern editing controls in the editor (read-only summary only)
+    const recurrenceSection = page.locator(
+      'aside[role="dialog"] section[data-event-editor-section]',
+      { hasText: '重复' },
+    );
+    const hasRruleControl = await recurrenceSection
+      .locator('input, textarea, select')
+      .count()
+      .catch(() => 0);
+    assert.equal(hasRruleControl, 0, 'No recurrence pattern control rendered');
 
     // Close editor before new-event scenario
     await page.locator('aside[role="dialog"] button', { hasText: '取消' }).click();

@@ -82,6 +82,10 @@ namespace Pim.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(80)")
                         .HasColumnName("source");
 
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ConfirmationId");
@@ -1230,9 +1234,30 @@ namespace Pim.Infrastructure.Data.Migrations
                         .HasColumnType("date")
                         .HasColumnName("all_day_start_date");
 
+                    b.Property<string>("AttachmentReferencesJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("[]")
+                        .HasColumnName("attachment_references");
+
+                    b.Property<string>("AttendeesJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("[]")
+                        .HasColumnName("attendees");
+
                     b.Property<Guid>("CalendarId")
                         .HasColumnType("uuid")
                         .HasColumnName("calendar_id");
+
+                    b.Property<string>("CategoriesJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("jsonb")
+                        .HasDefaultValue("[]")
+                        .HasColumnName("categories");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1255,6 +1280,11 @@ namespace Pim.Infrastructure.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<string>("DescriptionFormat")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("description_format");
+
                     b.Property<DateTimeOffset>("DtEnd")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("dtend");
@@ -1274,6 +1304,10 @@ namespace Pim.Infrastructure.Data.Migrations
                         .HasDefaultValue("[]")
                         .HasColumnName("exdates_json");
 
+                    b.Property<string>("ExternalLink")
+                        .HasColumnType("text")
+                        .HasColumnName("external_link");
+
                     b.Property<string>("ExternalMetadataJson")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1288,9 +1322,26 @@ namespace Pim.Infrastructure.Data.Migrations
                         .HasDefaultValue("{}")
                         .HasColumnName("graph_recurrence_json");
 
+                    b.Property<string>("Importance")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("importance");
+
                     b.Property<bool>("IsAllDay")
                         .HasColumnType("boolean")
                         .HasColumnName("is_all_day");
+
+                    b.Property<bool>("IsOnlineMeeting")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_online_meeting");
+
+                    b.Property<bool>("IsReminderOn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_reminder_on");
 
                     b.Property<Guid?>("LastSeenSyncGeneration")
                         .HasColumnType("uuid")
@@ -1301,10 +1352,23 @@ namespace Pim.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("location");
 
+                    b.Property<string>("OnlineMeetingProvider")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("online_meeting_provider");
+
+                    b.Property<string>("OnlineMeetingUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("online_meeting_url");
+
                     b.Property<string>("Organizer")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("organizer");
+
+                    b.Property<string>("OrganizerJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("organizer_json");
 
                     b.Property<string>("OriginalEndTimeZone")
                         .HasMaxLength(128)
@@ -1370,9 +1434,23 @@ namespace Pim.Infrastructure.Data.Migrations
                         .HasDefaultValue("{}")
                         .HasColumnName("recurrence_metadata_json");
 
+                    b.Property<int?>("ReminderMinutesBeforeStart")
+                        .HasColumnType("integer")
+                        .HasColumnName("reminder_minutes_before_start");
+
                     b.Property<Guid?>("SchedulePlanId")
                         .HasColumnType("uuid")
                         .HasColumnName("schedule_plan_id");
+
+                    b.Property<string>("Sensitivity")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("sensitivity");
+
+                    b.Property<string>("ShowAs")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("show_as");
 
                     b.Property<string>("Source")
                         .IsRequired()

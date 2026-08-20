@@ -25,6 +25,7 @@ import type {
 } from '../types';
 import PageHeader from '../ui/PageHeader';
 import { Copy, ExternalLink, RefreshCw, Wifi, X } from 'lucide-react';
+import { outlookSyncInvalidationKeys } from '../utils/outlookSyncInvalidation';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 function mapUiStatus(uiStatus?: string | null): string {
@@ -70,22 +71,6 @@ function calcCountdownSeconds(expiresAt: string): number {
   const expiresMs = new Date(expiresAt).getTime() - Date.now();
   return expiresMs > 0 ? Math.floor(expiresMs / 1000) : 0;
 }
-
-export const outlookSyncInvalidationKeys = [
-  ['outlook-settings'],
-  ['workbench-outlook-settings'],
-  ['outlook-sync-batches'],
-  ['workbench-outlook-sync-batches'],
-  ['today-outlook-sync-batches'],
-  ['pending-confirmations'],
-  ['workbench-pending-confirmations'],
-  ['today-pending-confirmations'],
-  ['workbench-calendar-layers'],
-  ['calendar-layers'],
-  ['data-center-query'],
-  ['today-sections'],
-  ['today-section'],
-] as const;
 
 type SyncMode = 'normal' | 'full-resources' | 'range-instances';
 
@@ -780,7 +765,7 @@ export default function SyncPage() {
             onClick={() => runSync('full-resources')}
             disabled={syncMutation.isPending}
             className="pim-button-secondary px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-            title="深度同步（获取所有资源）"
+            title="深度同步：刷新所有 Microsoft 日程并回填新支持字段"
             aria-label="深度同步"
           >
             深度同步
@@ -797,6 +782,10 @@ export default function SyncPage() {
             强制获取全部日程
           </button>
         </div>
+
+        <p className="mt-2 text-xs leading-5 text-slate-500">
+          深度同步会刷新所有 Microsoft 日程并回填新支持字段；立即同步只拉取变更。
+        </p>
 
         {/* Range sync */}
         <div className="mt-3">

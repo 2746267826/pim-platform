@@ -45,6 +45,7 @@ import type {
   TaskChecklistItem,
   TaskExecutionSegmentResponse,
   TaskResponse,
+  UnifiedEventDraft,
   UpdateOutlookSettingsRequest,
 } from '../types';
 
@@ -276,12 +277,12 @@ export async function getEvents(start: string, end: string) {
   return r.data;
 }
 
-export async function createEvent(data: Partial<EventResponse>) {
+export async function createEvent(data: Partial<UnifiedEventDraft>) {
   const r = await apiPost<ApiResponse<EventResponse>>('/calendar/events', data);
   return r.data;
 }
 
-export async function updateEvent(id: string, data: Partial<EventResponse>) {
+export async function updateEvent(id: string, data: Partial<UnifiedEventDraft>) {
   const r = await apiPut<ApiResponse<EventResponse>>(`/calendar/events/${id}`, data);
   return r.data;
 }
@@ -677,7 +678,7 @@ export async function writeOutlookEvent(request: OutlookWriteRequest) {
   const r = await authedFetch<ApiResponse<OutlookWriteResult>>(
     calendarApiPaths.outlookWriteback(),
     { method: 'POST', body: JSON.stringify(request) },
-    [409],
+    [409, 412],
   );
   return r.data;
 }

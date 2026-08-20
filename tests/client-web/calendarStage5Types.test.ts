@@ -83,7 +83,6 @@ const event: EventResponse = {
   timeZoneId: 'Asia/Shanghai',
   sourceTimeZoneId: 'UTC',
   sourceUid: 'source-uid-1',
-  externalMetadataJson: '{}',
   recurrenceId: 'recurrence-1',
   exDatesJson: '[]',
   recurrenceMetadataJson: '{}',

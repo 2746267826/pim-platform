@@ -1,15 +1,25 @@
-import { useState, useRef, useId, useEffect, type FormEvent, type KeyboardEvent } from 'react';
+import { useMemo, useRef, useState, useId, useEffect, type FormEvent, type KeyboardEvent } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { createEvent, updateEvent, deleteEvent, getCalendars, writeOutlookEvent } from '../api/calendar';
+import { createEvent, updateEvent, deleteEvent, getCalendars, getOutlookSettings, writeOutlookEvent } from '../api/calendar';
 import EditorDrawer from '../ui/EditorDrawer';
 import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
 import BeforeAfterDiff from '../components/schedule/BeforeAfterDiff';
 import { Field } from './common';
 import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import { resolveCalendarId, hasWritableCalendar, noWritableCalendarMessage } from '../utils/calendarSelection';
-import { isoToDatetimeLocal, datetimeLocalToUtcIso, isEndAfterStart, minimumEndValue } from '../utils/dateTimeInput';
+import { isoToDatetimeLocal, isEndAfterStart, minimumEndValue } from '../utils/dateTimeInput';
 import { looksLikeHtml, sanitizeDescriptionHtml } from '../utils/safeHtml';
-import type { EventResponse, OutlookWriteRequest, OutlookEventDraft } from '../types';
+import { buildUnifiedEventDraft, type EventFormValue } from '../utils/eventDraft';
+import { formatFieldValue, summarizeEventFields, toDiffRecord, type EventFieldDiffInput } from '../utils/eventFieldDiff';
+import EventSection from '../components/calendar/EventSection';
+import RichDescriptionEditor from '../components/calendar/RichDescriptionEditor';
+import EventAdvancedFields from '../components/calendar/EventAdvancedFields';
+import EventCollaborationFields from '../components/calendar/EventCollaborationFields';
+import EventMeetingFields from '../components/calendar/EventMeetingFields';
+import EventAttachmentFields from '../components/calendar/EventAttachmentFields';
+import EventRecurrenceSummary from '../components/calendar/EventRecurrenceSummary';
+import OutlookAdditionalInfo from '../components/calendar/OutlookAdditionalInfo';
+import type { EventResponse, OutlookWriteRequest, OutlookEventDraft, UnifiedEventDraft } from '../types';
 
 interface Props {
   open: boolean;
@@ -34,72 +44,86 @@ type WritebackPhase =
   | { type: 'idle' }
   | { type: 'preview' }
   | { type: 'submitting' }
-  | { type: 'conflict'; latestOutlookJson: string; latestEtag?: string | null; errorMessage?: string | null }
+  | { type: 'conflict'; latestEvent: EventResponse | null; latestEtag?: string | null; errorMessage?: string | null }
   | { type: 'error'; message: string };
 
-function buildEventJson(event: EventResponse): string {
-  return JSON.stringify({
-    calendarId: event.calendarId,
-    title: event.title,
-    description: event.description,
-    location: event.location,
-    dtStart: event.dtStart,
-    dtEnd: event.dtEnd,
-    isAllDay: Boolean(event.isAllDay),
-    timeZoneId: event.timeZoneId,
-  }, null, 2);
+function escapePlainTextToParagraphHtml(text: string): string {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/\r\n/g, '\n')
+    .replace(/\n/g, '<br>');
+  return escaped === '' ? '' : `<p>${escaped}</p>`;
 }
 
-function buildDraftJson(draft: OutlookEventDraft): string {
-  return JSON.stringify({
-    calendarId: draft.calendarId,
-    title: draft.title,
-    description: draft.description,
-    location: draft.location,
-    dtStart: draft.dtStart,
-    dtEnd: draft.dtEnd,
-    isAllDay: draft.isAllDay,
-    timeZoneId: draft.timeZoneId,
-  }, null, 2);
-}
-
-function buildDeleteAfterJson(): string {
-  return JSON.stringify({ '操作': '删除此 Outlook 日程' }, null, 2);
-}
+const formInputClass = 'w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500';
 
 function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Props) {
-  const [title, setTitle] = useState(event?.title || '');
-  const [description, setDescription] = useState(event?.description || '');
-  const [location, setLocation] = useState(event?.location || '');
-  const [dtStart, setDtStart] = useState(event ? isoToDatetimeLocal(event.dtStart, event.timeZoneId) : (defaultStart || ''));
-  const [dtEnd, setDtEnd] = useState(event ? isoToDatetimeLocal(event.dtEnd, event.timeZoneId) : (defaultEnd || ''));
-  const [isAllDay, setIsAllDay] = useState(Boolean(event?.isAllDay));
-  const [calendarId, setCalendarId] = useState(event?.calendarId || '');
+  const [form, setForm] = useState<EventFormValue>(() => ({
+    calendarId: event?.calendarId || '',
+    title: event?.title || '',
+    description: event?.description || null,
+    descriptionFormat: event?.descriptionFormat || null,
+    location: event?.location || '',
+    dtStart: event ? isoToDatetimeLocal(event.dtStart, event.timeZoneId) : (defaultStart || ''),
+    dtEnd: event ? isoToDatetimeLocal(event.dtEnd, event.timeZoneId) : (defaultEnd || ''),
+    isAllDay: Boolean(event?.isAllDay),
+    timeZoneId: event?.timeZoneId || null,
+    showAs: event?.showAs || null,
+    importance: event?.importance || null,
+    sensitivity: event?.sensitivity || null,
+    categories: event?.categories ?? [],
+    isReminderOn: event?.isReminderOn ?? false,
+    reminderMinutesBeforeStart: event?.reminderMinutesBeforeStart ?? null,
+    organizer: event?.organizer ?? null,
+    attendees: event?.attendees ?? [],
+    isOnlineMeeting: event?.isOnlineMeeting ?? false,
+    onlineMeetingProvider: event?.onlineMeetingProvider || null,
+    onlineMeetingUrl: event?.onlineMeetingUrl || null,
+    externalLink: event?.externalLink || null,
+    attachmentReferences: event?.attachmentReferences ?? [],
+  }));
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
   const queryClient = useQueryClient();
   const { hiddenCalendarIds } = useCalendarVisibility();
 
-  const { data: calendars, isLoading } = useQuery({
+  function patchForm(patch: Partial<EventFormValue>) {
+    setForm(prev => ({ ...prev, ...patch }));
+  }
+
+  const descriptionDisplayHtml = useMemo(() => {
+    const raw = form.description || '';
+    if (form.descriptionFormat === 'html' || looksLikeHtml(raw)) {
+      return sanitizeDescriptionHtml(raw);
+    }
+    return escapePlainTextToParagraphHtml(raw);
+  }, [form.description, form.descriptionFormat]);
+
+  function handleDescriptionHtmlChange(html: string) {
+    patchForm({ description: html, descriptionFormat: 'html' });
+  }
+
+  const { data: calendars, isLoading, isError: calendarsError } = useQuery({
     queryKey: ['calendars', 'calendar'],
     queryFn: () => getCalendars('calendar'),
     enabled: open
   });
-
-  const showHtmlPreview = event && looksLikeHtml(event.description || '');
-  const sanitizedPreviewHtml = showHtmlPreview ? sanitizeDescriptionHtml(event.description || '') : '';
 
   const [writebackPhase, setWritebackPhase] = useState<WritebackPhase>({ type: 'idle' });
   const [pendingRequest, setPendingRequest] = useState<OutlookWriteRequest | null>(null);
   const [outlookScope, setOutlookScope] = useState<'instance' | 'series'>(() =>
     event?.outlookEventType === 'seriesMaster' ? 'series' : 'instance',
   );
-  const [diffBefore, setDiffBefore] = useState('{}');
-  const [diffAfter, setDiffAfter] = useState('{}');
+  const [diffBefore, setDiffBefore] = useState<EventFieldDiffInput>({});
+  const [diffAfter, setDiffAfter] = useState<EventFieldDiffInput>({});
   const [writebackValidationError, setWritebackValidationError] = useState('');
 
   const selectedCalendarId = resolveCalendarId(
     calendars || [],
-    calendarId || (event ? event.calendarId : undefined),
+    form.calendarId || (event ? event.calendarId : undefined),
     hiddenCalendarIds,
   );
 
@@ -114,20 +138,22 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
 
   const showScopeRadio = !!event && (event.outlookEventType === 'occurrence' || event.outlookEventType === 'exception' || event.outlookEventType === 'seriesMaster');
 
+  const { data: outlookSettings } = useQuery({
+    queryKey: ['outlook-settings', 'writeback'],
+    queryFn: () => getOutlookSettings(),
+    enabled: open && isOutlook,
+  });
+
   function getCalendarBindingId(): string {
     return selectedCalendar?.outlookCalendarBindingId || event?.outlookCalendarBindingId || '';
   }
 
   function buildDraft(): OutlookEventDraft {
     return {
-      calendarId: selectedCalendarId || event?.calendarId || '',
-      title,
-      description: description || undefined,
-      location: location || undefined,
-      dtStart: datetimeLocalToUtcIso(dtStart, event?.timeZoneId),
-      dtEnd: datetimeLocalToUtcIso(dtEnd, event?.timeZoneId),
-      isAllDay,
-      timeZoneId: event?.timeZoneId || undefined,
+      ...buildUnifiedEventDraft({
+        ...form,
+        calendarId: selectedCalendarId || form.calendarId,
+      }),
       uid: event?.uid || undefined,
     };
   }
@@ -153,19 +179,18 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
 
   function openWritebackPreview(operation: 'create' | 'update' | 'delete') {
     const req = buildWritebackRequest(operation);
-    let before = '{}';
-    let after: string;
-    if (operation === 'create') {
-      after = req.draft ? buildDraftJson(req.draft) : '{}';
-    } else if (operation === 'delete') {
-      before = event ? buildEventJson(event) : '{}';
-      after = buildDeleteAfterJson();
-    } else {
-      before = event ? buildEventJson(event) : '{}';
-      after = req.draft ? buildDraftJson(req.draft) : '{}';
-    }
-    setDiffBefore(before);
-    setDiffAfter(after);
+    const beforeRecord = operation === 'create'
+      ? {}
+      : event
+        ? toDiffRecord(event as unknown as Record<string, unknown>)
+        : {};
+    const afterRecord = operation === 'delete'
+      ? {}
+      : req.draft
+        ? toDiffRecord(req.draft as unknown as Record<string, unknown>)
+        : {};
+    setDiffBefore(beforeRecord);
+    setDiffAfter(afterRecord);
     setPendingRequest(req);
     setWritebackPhase({ type: 'preview' });
   }
@@ -200,10 +225,10 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         return;
       }
       if (status === 'conflict') {
-        setDiffBefore(result.latestOutlookJson || '{}');
+        setDiffBefore(toDiffRecord((result.latestEvent ?? {}) as Record<string, unknown>));
         setWritebackPhase({
           type: 'conflict',
-          latestOutlookJson: result.latestOutlookJson || '{}',
+          latestEvent: result.latestEvent ?? null,
           latestEtag: result.latestEtag,
           errorMessage: result.errorMessage,
         });
@@ -219,7 +244,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
     if (writebackPhase.type !== 'conflict' || !writebackPhase.latestEtag) return;
     if (!pendingRequest) return;
     setPendingRequest({ ...pendingRequest, expectedEtag: writebackPhase.latestEtag });
-    setDiffBefore(writebackPhase.latestOutlookJson);
+    setDiffBefore(toDiffRecord((writebackPhase.latestEvent ?? {}) as Record<string, unknown>));
     setWritebackPhase({ type: 'preview' });
   }
 
@@ -228,7 +253,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   }
 
   const createMut = useMutation({
-    mutationFn: (data: Partial<EventResponse>) => createEvent(data),
+    mutationFn: (data: Partial<UnifiedEventDraft>) => createEvent(data),
     onSuccess: () => {
       invalidateEventQueries();
       onClose();
@@ -241,7 +266,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   }
 
   const updateMut = useMutation({
-    mutationFn: (data: Partial<EventResponse>) => updateEvent(event!.id, data),
+    mutationFn: (data: Partial<UnifiedEventDraft>) => updateEvent(event!.id, data),
     onSuccess: () => {
       invalidateEventQueries();
       onClose();
@@ -260,6 +285,10 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
 
   const mutationError = createMut.error || updateMut.error || deleteMut.error;
   const mutationErrorMessage = mutationError instanceof Error ? mutationError.message : null;
+
+  const isWritebackActive = writebackPhase.type !== 'idle';
+  const isSubmitting = writebackPhase.type === 'submitting';
+  const isProcessing = createMut.isPending || updateMut.isPending || deleteMut.isPending || isSubmitting;
 
   function handleDelete() {
     if (!event) return;
@@ -300,12 +329,17 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (isReadOnly) return;
+    if (isProcessing) return;
 
-    if (!title.trim()) {
+    if (calendarsError) {
+      setWritebackValidationError('日历加载失败，请稍后重试。');
+      return;
+    }
+    if (!form.title.trim()) {
       setWritebackValidationError('请输入标题');
       return;
     }
-    if (!dtStart || !dtEnd) {
+    if (!form.dtStart || !form.dtEnd) {
       setWritebackValidationError('请选择开始和结束时间');
       return;
     }
@@ -313,15 +347,12 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
       setWritebackValidationError(noWritableCalendarMessage());
       return;
     }
-    if (!isEndAfterStart(dtStart, dtEnd)) {
+    if (!isEndAfterStart(form.dtStart, form.dtEnd)) {
       setWritebackValidationError('结束时间必须晚于开始时间');
       return;
     }
 
     setWritebackValidationError('');
-
-    const startUtc = datetimeLocalToUtcIso(dtStart, event?.timeZoneId);
-    const endUtc = datetimeLocalToUtcIso(dtEnd, event?.timeZoneId);
 
     if (isOutlook) {
       if (writebackPhase.type !== 'idle') return;
@@ -331,15 +362,14 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
       }
       openWritebackPreview(event ? 'update' : 'create');
     } else {
-      const data = { title, description, location, dtStart: startUtc, dtEnd: endUtc, isAllDay, calendarId: selectedCalendarId || undefined };
+      const data = buildUnifiedEventDraft({
+        ...form,
+        calendarId: selectedCalendarId || form.calendarId,
+      });
       if (event) updateMut.mutate(data);
       else createMut.mutate(data);
     }
   }
-
-  const isWritebackActive = writebackPhase.type !== 'idle';
-  const isSubmitting = writebackPhase.type === 'submitting';
-  const isProcessing = createMut.isPending || updateMut.isPending || deleteMut.isPending || isSubmitting;
 
   const footer = (
     <>
@@ -392,62 +422,82 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
             这是从 Outlook ICS 导入的事件，会议上下文已保留，PIM 暂不处理会议接受/拒绝/参会状态。
           </div>
         )}
-        <Field label="日历本">
-          <select value={selectedCalendarId} onChange={e => setCalendarId(e.target.value)}
-            disabled={isLoading || (!!event && (isFormDisabled || isOutlookExisting))}
-            className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500">
-            {isLoading ? (
-              <option value="" disabled>正在加载日历...</option>
-            ) : calendars?.map(cal => (
-              <option key={cal.id} value={cal.id}>{cal.name}{cal.outlookCalendarBindingId ? ' (Outlook)' : ''}</option>
-            ))}
-          </select>
-          {!isLoading && !isReadOnly && !hasWritableCalendar(calendars || [], hiddenCalendarIds) && (
-            <p className="mt-1 text-xs text-red-600">{noWritableCalendarMessage()}</p>
-          )}
-        </Field>
-        <Field label="标题">
-          <input type="text" value={title} onChange={e => setTitle(e.target.value)}
-            disabled={isFormDisabled}
-            className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500" required />
-        </Field>
-        <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-          <input
-            type="checkbox"
-            checked={isAllDay}
-            onChange={e => setIsAllDay(e.target.checked)}
-            disabled={isFormDisabled}
-            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-200"
-          />
-          全天事件
-        </label>
-        <Field label="开始时间">
-          <input type="datetime-local" value={dtStart} onChange={e => setDtStart(e.target.value)}
-            disabled={isFormDisabled}
-            className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500" required />
-        </Field>
-        <Field label="结束时间">
-          <input type="datetime-local" value={dtEnd} onChange={e => setDtEnd(e.target.value)}
-            min={minimumEndValue(dtStart)}
-            disabled={isFormDisabled}
-            className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500" required />
-        </Field>
-        <Field label="地点">
-          <input type="text" value={location} onChange={e => setLocation(e.target.value)}
-            disabled={isFormDisabled}
-            className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500" />
-        </Field>
-        <Field label="描述">
-          {showHtmlPreview ? (
-            <div data-description-html-preview
-              dangerouslySetInnerHTML={{ __html: sanitizedPreviewHtml }}
-              className="w-full border rounded px-3 py-2 text-sm bg-slate-50 min-h-[4rem]" />
-          ) : (
-            <textarea value={description} onChange={e => setDescription(e.target.value)}
+        <EventSection title="基本信息" defaultOpen>
+          <Field label="日历本">
+            <select value={selectedCalendarId} onChange={e => patchForm({ calendarId: e.target.value })}
+              disabled={isLoading || (!!event && (isFormDisabled || isOutlookExisting))}
+              className={formInputClass}>
+              {isLoading ? (
+                <option value="" disabled>正在加载日历...</option>
+              ) : calendarsError ? (
+                <option value="" disabled>日历加载失败</option>
+              ) : calendars?.map(cal => (
+                <option key={cal.id} value={cal.id}>{cal.name}{cal.outlookCalendarBindingId ? ' (Outlook)' : ''}</option>
+              ))}
+            </select>
+            {calendarsError && (
+              <p className="mt-1 text-xs text-red-600">日历加载失败，请稍后重试。</p>
+            )}
+            {!isLoading && !calendarsError && !isReadOnly && !hasWritableCalendar(calendars || [], hiddenCalendarIds) && (
+              <p className="mt-1 text-xs text-red-600">{noWritableCalendarMessage()}</p>
+            )}
+          </Field>
+          <Field label="标题">
+            <input type="text" value={form.title} onChange={e => patchForm({ title: e.target.value })}
               disabled={isFormDisabled}
-              className="w-full border rounded px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500" rows={3} />
-          )}
-        </Field>
+              className={formInputClass} required />
+          </Field>
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={Boolean(form.isAllDay)}
+              onChange={e => patchForm({ isAllDay: e.target.checked })}
+              disabled={isFormDisabled}
+              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-200"
+            />
+            全天事件
+          </label>
+          <Field label="开始时间">
+            <input type="datetime-local" value={form.dtStart} onChange={e => patchForm({ dtStart: e.target.value })}
+              disabled={isFormDisabled}
+              className={formInputClass} required />
+          </Field>
+          <Field label="结束时间">
+            <input type="datetime-local" value={form.dtEnd} onChange={e => patchForm({ dtEnd: e.target.value })}
+              min={minimumEndValue(form.dtStart)}
+              disabled={isFormDisabled}
+              className={formInputClass} required />
+          </Field>
+          <Field label="地点">
+            <input type="text" value={form.location ?? ''} onChange={e => patchForm({ location: e.target.value })}
+              disabled={isFormDisabled}
+              className={formInputClass} />
+          </Field>
+          <div className="mb-3">
+            <span className="text-sm font-medium text-gray-600 block mb-1">描述</span>
+            <RichDescriptionEditor
+              value={descriptionDisplayHtml}
+              onChange={handleDescriptionHtmlChange}
+              disabled={isFormDisabled}
+            />
+          </div>
+        </EventSection>
+        <EventSection title="高级">
+          <EventAdvancedFields form={form} onChange={patchForm} disabled={isFormDisabled} />
+        </EventSection>
+        <EventSection title="协作">
+          <EventCollaborationFields form={form} onChange={patchForm} disabled={isFormDisabled} providerReadOnly={isOutlook} />
+        </EventSection>
+        <EventSection title="会议">
+          <EventMeetingFields form={form} onChange={patchForm} disabled={isFormDisabled} providerReadOnly={isOutlook} />
+        </EventSection>
+        <EventSection title="附件">
+          <EventAttachmentFields form={form} onChange={patchForm} disabled={isFormDisabled} providerReadOnly={isOutlook} />
+        </EventSection>
+        <EventSection title="重复">
+          <EventRecurrenceSummary rrule={event?.rrule} />
+        </EventSection>
+        {(isOutlook || event?.source === 'outlook-ics') && <OutlookAdditionalInfo info={event?.outlookAdditionalInfo} />}
       </form>
     </EditorDrawer>
     {!isOutlookExisting && (
@@ -464,10 +514,12 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         open={isWritebackActive}
         phase={writebackPhase}
         operation={pendingRequest?.operation || 'update'}
-        beforeJson={diffBefore}
-        afterJson={diffAfter}
+        before={diffBefore}
+        after={diffAfter}
         scope={outlookScope}
         showScope={showScopeRadio}
+        accountName={outlookSettings?.activeAuthorization?.accountDisplayName || null}
+        calendarName={selectedCalendar?.name ?? eventCalendar?.name ?? null}
         onScopeChange={setOutlookScope}
         onConfirm={confirmWriteback}
         onCancel={cancelWriteback}
@@ -482,10 +534,12 @@ function OutlookWritebackConfirmDialog({
   open,
   phase,
   operation,
-  beforeJson,
-  afterJson,
+  before,
+  after,
   scope,
   showScope,
+  accountName,
+  calendarName,
   onScopeChange,
   onConfirm,
   onCancel,
@@ -494,10 +548,12 @@ function OutlookWritebackConfirmDialog({
   open: boolean;
   phase: WritebackPhase;
   operation: string;
-  beforeJson: string;
-  afterJson: string;
+  before: EventFieldDiffInput;
+  after: EventFieldDiffInput;
   scope: 'instance' | 'series';
   showScope: boolean;
+  accountName: string | null;
+  calendarName: string | null;
   onScopeChange: (value: 'instance' | 'series') => void;
   onConfirm: () => void;
   onCancel: () => void;
@@ -506,6 +562,13 @@ function OutlookWritebackConfirmDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
+
+  const latestSummary = useMemo(() => {
+    if (phase.type !== 'conflict' || !phase.latestEvent) return [];
+    return summarizeEventFields(
+      toDiffRecord(phase.latestEvent as unknown as Record<string, unknown>),
+    );
+  }, [phase]);
 
   useEffect(() => {
     if (!open) return;
@@ -636,16 +699,30 @@ function OutlookWritebackConfirmDialog({
           {isConflict && (
             <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
               <p className="text-sm font-medium text-slate-700 mb-2">最新 Outlook 内容</p>
-              <pre className="max-h-40 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
-                {beforeJson || '{}'}
-              </pre>
+              {latestSummary.length === 0 ? (
+                <p className="text-xs text-slate-500">无法获取最新内容，请关闭后重试。</p>
+              ) : (
+                <ul className="space-y-1">
+                  {latestSummary.map(item => (
+                    <li key={item.key} className="flex min-w-0 gap-2 text-sm leading-6 text-slate-600">
+                      <span className="w-24 shrink-0 truncate text-xs font-semibold text-slate-500">{item.label}</span>
+                      <span className="min-w-0 flex-1 break-words">{formatFieldValue(item.after, item.key)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 
           <BeforeAfterDiff
-            beforeJson={beforeJson}
-            afterJson={afterJson}
-            changedFields={null}
+            before={before}
+            after={after}
+            meta={{
+              operation,
+              accountName,
+              calendarName,
+              scope: showScope ? scope : undefined,
+            }}
           />
         </section>
 

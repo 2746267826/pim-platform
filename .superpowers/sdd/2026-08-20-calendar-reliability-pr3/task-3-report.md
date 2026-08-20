@@ -47,3 +47,16 @@
 
 ### Commits
 - fix(calendar): address review findings for series/exception scope, cascade, DTO nullable, clock and endpoint binding / 修复日历系列/例外的作用域、级联、DTO 可空、时钟与端点绑定评审问题
+
+## Fix — Review finding 2026-08-20 (scope=series from exception) / 修复 - scope=series 来自例外时更新主事件
+
+### Finding addressed / 已处理问题
+- [Important] CalendarService.cs:536 — `scope=series` from exception event now resolves `SeriesMasterId` to master, verifies it belongs to user, updates masterEntity (not exception), saves RRule and other master fields; exception remains unchanged.
+
+### Test Commands & Results (fix2)
+- `dotnet build Pim.sln --no-restore` — Build succeeded, 0 Error(s)
+- `dotnet test --filter CalendarRecurrence --no-restore` — Passed 20/20 (incl. 2 new: UpdateSeries_FromException_ScopeSeries_UpdatesMasterNotException, EndpointScope_Series_FromException_DelegatesToMaster)
+- `dotnet test --filter CalendarRecurrenceServiceTests --no-restore` — Passed 20/20
+
+### Commits
+- fix(calendar): resolve scope=series from exception to update master not exception / 修复 scope=series 来自例外时错误更新例外改为更新主事件

@@ -73,3 +73,27 @@
 
 ### Residual Risks
 - Cap window 1825 days may still truncate legitimate >5y windows; acceptable per spec and occurrence limit ensures bounded series with COUNT not affected (yearly 3y test passes). If business needs >5y unbounded view, increase cap or make configurable.
+
+---
+
+## Fix Report — Precise guard for finite vs infinite (2026-08-20)
+
+### Commits
+- 5f63dcf6 fix: guard unbounded recurrence window with cap and occurrence limit (previous coarse guard)
+- (current) fix: precise guard — infinite-only occurrence cap and unbounded-only window cap with overflow-safe AddDays
+
+### Review Findings Addressed
+- [Important] MaxOccurrences=500 unconditionally truncates finite rules with COUNT>500. Fixed: ExpandRecurring now detects infinite via RRule not containing COUNT/UNTIL (case-insensitive); only infinite breaks after 500. Finite rules respect their COUNT even if >500; if future finite cap needed, must log warning (documented in code comment).
+- [Important] 1825-day window cap applied to all queries including normal events and finite recurrences with explicit >5yr window. Fixed: GetEffectiveRangeEnd now only caps when window is unbounded (rangeEnd==MaxValue || rangeStart==MinValue). Explicit windows >5yr are no longer capped; infinite explicit windows are bounded by MaxOccurrences, not window. Normal/finite explicit queries pass through unchanged.
+- [Warning] rangeStart near MaxValue +1825 days may throw. Fixed: added SafeAddDays with try/catch ArgumentOutOfRangeException clamped to MaxValue/MinValue, removing direct AddDays overflow risk.
+
+### Test Commands & Results
+- `dotnet build Pim.sln --no-restore` — Build succeeded, 0 Error(s), 4 Warning(s) (pre-existing)
+- `dotnet test --filter Recurrence --no-restore` — Passed 30/30 (RecurrenceGeneratorTests 19, RecurrenceExceptionOverlayTests 6, CalendarServiceRecurrencePathTests 3, plus 2 Ics tests)
+
+### Implementation Summary (Fix)
+- RecurrenceService: GetEffectiveRangeEnd simplified to isUnbounded check, SafeAddDays helper; ExpandRecurring isInfinite detection via IndexOf COUNT/UNTIL and conditional break.
+- Behavior: infinite + unbounded => window capped 1825d + 500 occ; infinite + explicit large window => only 500 occ cap; finite => no caps; normal events => no cap unless unbounded.
+
+### Residual Risks
+- Finite COUNT extremely large (e.g., 10000) will generate all occurrences without cap; acceptable per review, but if abused could cause perf/memory pressure — future may add higher soft cap with warning log.

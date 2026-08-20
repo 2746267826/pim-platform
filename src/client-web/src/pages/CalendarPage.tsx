@@ -455,23 +455,26 @@ function renderCalendarEvent(arg: EventContentArg) {
       ? truncateText(htmlToPlainText(raw.description), 80)
       : undefined;
     const isImportant = raw.importance === 'high';
+    const isCancelled = (raw as { isCancelled?: boolean | null }).isCancelled ?? raw.status === 'CANCELLED';
+    const isRecurring = !!raw.rrule || !!raw.isSeriesMaster || !!raw.seriesMasterId;
     const showAsLabel = raw.showAs === 'free' || raw.showAs === 'tentative'
       ? (raw.showAs === 'free' ? '空闲' : '暂定')
       : undefined;
-    const cardClass = `calendar-event-card${isImportant ? ' calendar-event--important' : ''}`;
+    const cardClass = `calendar-event-card${isImportant ? ' calendar-event--important' : ''}${isCancelled ? ' calendar-event--cancelled' : ''}`;
 
     return (
-      <div className={cardClass} data-calendar-event-card style={style}>
+      <div className={cardClass} data-calendar-event-card style={{ ...style, opacity: isCancelled ? 0.5 : undefined } as CSSProperties}>
         <span className="calendar-event-dot" />
         <span className="calendar-event-title">{arg.event.title}</span>
         {arg.timeText && <span className="calendar-event-time">{arg.timeText}</span>}
+        {isCancelled && <span className="calendar-event-cancelled" aria-label="已取消">已取消</span>}
         {showAsLabel && (
           <span className={`calendar-event-showas calendar-event-showas--${raw.showAs}`}>{showAsLabel}</span>
         )}
         {raw.location && <span className="calendar-event-location">{raw.location}</span>}
         {calendarLabel && <span className="calendar-event-source">{calendarLabel}</span>}
         {description && <span className="calendar-event-description">{description}</span>}
-        {raw.rrule && (
+        {isRecurring && (
           <span className="calendar-event-rrule">
             <Repeat2 size={10} aria-label="重复" />
           </span>

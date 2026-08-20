@@ -40,7 +40,7 @@ function parseRrule(rrule?: string | null): {
     return { freq: freq === 'none' ? 'DAILY' : freq, interval, byDay, endMode: 'count', count: Number(countMatch[1]) };
   }
   if (untilMatch) {
-    // UNTIL is like 20261231T000000Z or 20261231
+    // UNTIL is like 20261231T235959Z or 20261231
     const raw = untilMatch[1];
     // try to format as yyyy-MM-dd
     let until = raw;
@@ -65,13 +65,13 @@ function buildRrule(state: { freq: Frequency; interval: number; byDay: string[];
   if (state.endMode === 'count' && state.count && state.count > 0) {
     rrule += `;COUNT=${state.count}`;
   } else if (state.endMode === 'until' && state.until) {
-    // Convert yyyy-MM-dd to 20261231T000000Z
+    // Convert yyyy-MM-dd to 20261231T235959Z (23:59:59Z so same-day 09:00 occurrence is included)
     const d = new Date(state.until);
     if (!isNaN(d.getTime())) {
       const y = d.getUTCFullYear().toString().padStart(4, '0');
       const m = (d.getUTCMonth() + 1).toString().padStart(2, '0');
       const day = d.getUTCDate().toString().padStart(2, '0');
-      rrule += `;UNTIL=${y}${m}${day}T000000Z`;
+      rrule += `;UNTIL=${y}${m}${day}T235959Z`;
     }
   }
   return rrule;

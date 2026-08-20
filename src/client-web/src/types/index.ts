@@ -103,6 +103,7 @@ export interface EventResponse {
   isSeriesMaster?: boolean | null;
   isException?: boolean | null;
   seriesMasterId?: string | null;
+  isCancelled?: boolean | null;
 }
 
 export interface TaskResponse {

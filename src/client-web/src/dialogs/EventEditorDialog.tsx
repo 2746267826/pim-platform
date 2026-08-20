@@ -143,6 +143,26 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   const isFormDisabled = isReadOnly;
 
   const showScopeRadio = !!event && (event.outlookEventType === 'occurrence' || event.outlookEventType === 'exception' || event.outlookEventType === 'seriesMaster');
+  const isNativeSeries = !!event && (!!event.isSeriesMaster || !!event.seriesMasterId) && !isOutlookExisting;
+  const [nativeScope, setNativeScope] = useState<'this' | 'series'>(() =>
+    event?.isSeriesMaster && !event?.isException ? 'series' : 'this'
+  );
+
+  function resolveEffectiveId(scope: string): string {
+    if (!event) return '';
+    // For series scope, always target master
+    if (scope === 'series' && event.seriesMasterId) return event.seriesMasterId;
+    if (scope === 'series' && event.isSeriesMaster) return event.id;
+    // For this scope on occurrence/exception, target master with recurrenceId
+    if (scope === 'this' && event.seriesMasterId) return event.seriesMasterId;
+    // Synthetic occurrence: id is derived, originalEventId is master
+    if (event.originalEventId && event.id !== event.originalEventId && !event.isException) return event.originalEventId;
+    return event.id;
+  }
+  function resolveRecurrenceId(): string | undefined {
+    if (!event) return undefined;
+    return event.recurrenceId || undefined;
+  }
 
   const { data: outlookSettings } = useQuery({
     queryKey: ['outlook-settings', 'writeback'],
@@ -272,7 +292,14 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   }
 
   const updateMut = useMutation({
-    mutationFn: (data: Partial<UnifiedEventDraft>) => updateEvent(event!.id, data),
+    mutationFn: (data: Partial<UnifiedEventDraft>) => {
+      const scope = isNativeSeries ? nativeScope : undefined;
+      const recId = scope === 'this' ? resolveRecurrenceId() : undefined;
+      const effectiveId = scope ? resolveEffectiveId(scope) : event!.id;
+      // Ensure recurrenceId passed via draft as well for backend merge
+      const payload = recId && !data.recurrenceId ? { ...data, recurrenceId: recId } : data;
+      return updateEvent(effectiveId, payload, scope ? { scope, recurrenceId: recId } : undefined);
+    },
     onSuccess: () => {
       invalidateEventQueries();
       onClose();
@@ -280,7 +307,14 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   });
 
   const deleteMut = useMutation({
-    mutationFn: () => deleteEvent(event!.id),
+    mutationFn: () => {
+      if (isNativeSeries) {
+        const effectiveId = resolveEffectiveId(nativeScope);
+        const recId = nativeScope === 'this' ? resolveRecurrenceId() : undefined;
+        return deleteEvent(effectiveId, { scope: nativeScope, recurrenceId: recId });
+      }
+      return deleteEvent(event!.id);
+    },
     onSuccess: () => {
       invalidateEventDeleteQueries();
       setDeleteInput(null);
@@ -372,6 +406,11 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         ...form,
         calendarId: selectedCalendarId || form.calendarId,
       });
+      // For native series, ensure recurrenceId included when editing single occurrence
+      if (isNativeSeries && nativeScope === 'this' && !data.recurrenceId) {
+        const recId = resolveRecurrenceId();
+        if (recId) (data as unknown as Record<string, unknown>).recurrenceId = recId;
+      }
       if (event) updateMut.mutate(data);
       else createMut.mutate(data);
     }
@@ -500,6 +539,21 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         <EventSection title="附件">
           <EventAttachmentFields form={form} onChange={patchForm} disabled={isFormDisabled} providerReadOnly={isOutlook} />
         </EventSection>
+        {isNativeSeries && !isFormDisabled && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+            <p className="text-sm font-medium text-slate-700 mb-2">编辑范围</p>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="radio" name="native-scope" value="this" checked={nativeScope === 'this'} onChange={() => setNativeScope('this')} className="text-blue-600 focus:ring-blue-200" />
+                此实例
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="radio" name="native-scope" value="series" checked={nativeScope === 'series'} onChange={() => setNativeScope('series')} className="text-blue-600 focus:ring-blue-200" />
+                整个系列
+              </label>
+            </div>
+          </div>
+        )}
         <EventSection title="重复">
           {isFormDisabled ? (
             <EventRecurrenceSummary rrule={form.rrule} />

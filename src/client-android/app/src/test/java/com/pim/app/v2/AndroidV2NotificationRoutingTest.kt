@@ -34,8 +34,9 @@ class AndroidV2NotificationRoutingTest {
 
         assertTrue(service.contains("if (!settings.continuousCollectionEnabled)"))
         assertTrue(service.contains("stopSelf()"))
-        assertTrue(service.contains("locationAcquisitionCoordinator.startAutomaticSession("))
-        assertTrue(service.contains("delay(decision.requestIntervalMillis.coerceAtLeast(1_000L))"))
+        assertTrue(service.contains("locationAcquisitionCoordinator.startAutomaticStream("))
+        assertTrue(service.contains("locationAcquisitionCoordinator.updateAutomaticStream("))
+        assertTrue(service.contains("withTimeoutOrNull(30_000L)"))
         assertTrue(service.contains("motionSignalRepository.status.value.signal"))
         assertTrue(service.contains("ScheduleWindowSelector.current"))
     }

@@ -1,10 +1,12 @@
 package com.pim.app.location.acquisition
 
 import android.os.SystemClock
+import com.google.android.gms.location.Priority
 import com.pim.app.location.LocationSnapshot
 import com.pim.app.location.quality.AltitudeWaitCoordinator
 import com.pim.app.location.quality.LocationQualityGate
 import com.pim.app.location.quality.QualityAcceptedLocation
+import com.pim.app.location.quality.QualityDecision
 import com.pim.app.location.quality.RawLocationFix
 import com.pim.app.settings.TrackingSettings
 import com.pim.app.settings.TrackingSettingsStore
@@ -40,6 +42,15 @@ interface LocationAcquisitionOperations {
     fun scheduleSync()
 }
 
+/**
+ * 统一采集引擎（设计文档 §3.1/§3.3）：
+ * - 手动触发 = 立即执行一次同一引擎（一次性采集，30s 截止，达标入库；超时用
+ *   最好 fix 并标记 low-quality，绝不静默）。
+ * - 自动采集 = 同一引擎的常驻流：注册时先预热等 GPS 收敛（冷启动），随后系统按
+ *   interval 回调 fix，逐点过 20m 质量门入库；≥20m 的 fix 走 drop 诊断，不回退。
+ * - priority 恒为 HIGH_ACCURACY（§3.2）；省电只靠采样间隔。
+ * 手动会话状态走 [state]，自动流状态走 [streamState]，两者互不干扰。
+ */
 @Singleton
 class LocationAcquisitionCoordinator @Inject constructor(
     private val runner: LocationAcquisitionRunner,
@@ -52,17 +63,16 @@ class LocationAcquisitionCoordinator @Inject constructor(
     internal var uuidGenerator: () -> String = { UUID.randomUUID().toString() }
     internal var wallClockMillis: () -> Long = { System.currentTimeMillis() }
     internal var elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() }
-    // Test seam: invoked in the automatic-acceptance path immediately before the
-    // Enqueuing claim, so a cancellation TOCTOU can be reproduced deterministically.
-    internal var beforeAutomaticEnqueueClaim: (() -> Unit)? = null
     // Test seam: invoked in cancelCurrentSession after a cancellable state snapshot
-    // is read but before the CAS to Cancelled, so a stale-read interleaving with the
-    // automatic Enqueuing claim can be reproduced deterministically.
+    // is read but before the CAS to Cancelled, so a stale-read interleaving with an
+    // in-flight acceptance can be reproduced deterministically.
     internal var beforeCancellingSessionJob: (() -> Unit)? = null
     // Test seam: invoked in cancelCurrentSession immediately after the Cancelled
-    // state claim wins and before the session job is cancelled/cleared, so a new
-    // session starting in that window can be reproduced deterministically.
+    // state claim wins and before the session job is cancelled/cleared.
     internal var afterSessionCancelledClaim: (() -> Unit)? = null
+    // Invoked after every recorded point (manual or stream), so the service can
+    // update the policy anchor, notification texts and the next-fix countdown.
+    internal var onRecorded: (suspend (LocationSnapshot) -> Unit)? = null
 
     private val internalScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val scope: CoroutineScope get() = testScope ?: internalScope
@@ -70,26 +80,25 @@ class LocationAcquisitionCoordinator @Inject constructor(
     private val _state = MutableStateFlow(LocationAcquisitionState())
     val state: StateFlow<LocationAcquisitionState> = _state.asStateFlow()
 
+    private val _streamState = MutableStateFlow(AutomaticStreamState())
+    val streamState: StateFlow<AutomaticStreamState> = _streamState.asStateFlow()
+
     private var sessionJob: Job? = null
-    private var pendingAccepted: QualityAcceptedLocation? = null
+    private var streamJob: Job? = null
+    // 最近一次流入库 fix 的 recordedAt：用于跳过预热/重注册后 GMS 立即回调的
+    // 缓存 fix（与刚入库的点几乎同时间），避免重叠点。
+    private var lastRecordedStreamTimeMillis: Long? = null
 
-    fun startManualSession(replaceAwaitingManual: Boolean = false): SessionStartResult {
-        val current = _state.value
-        val replacing = current.isBusy &&
-            current.phase == AcquisitionPhase.AwaitingManualSubmit &&
-            replaceAwaitingManual
+    // ─── 手动一次性采集 ─────────────────────────────────────────
 
-        if (current.isBusy && !replacing) return SessionStartResult.Busy
-
+    fun startManualSession(): SessionStartResult {
         // Check prerequisites before replacing: a blocked restart must not
-        // destroy the accepted-but-unsubmitted manual result.
+        // destroy the in-flight manual one-shot.
         when (val precheck = prerequisiteChecker.check(TriggerType.MANUAL)) {
             is LocationPrerequisiteResult.Blocked -> {
-                if (!replacing) {
-                    _state.value = current.copy(
+                if (!_state.value.isBusy) {
+                    _state.value = LocationAcquisitionState(
                         phase = AcquisitionPhase.Idle,
-                        sessionId = null,
-                        triggerType = null,
                         errorReason = precheck.reason
                     )
                 }
@@ -98,36 +107,11 @@ class LocationAcquisitionCoordinator @Inject constructor(
             is LocationPrerequisiteResult.Ready -> {}
         }
 
-        if (replacing) {
-            val oldJob = sessionJob
-            oldJob?.cancel()
-            clearSessionJobIfOwned(oldJob)
-            pendingAccepted = null
-        }
+        // Restart semantics: an in-flight manual one-shot is replaced by the new one.
+        cancelCurrentSession(_state.value.sessionId)
 
         val sessionId = uuidGenerator()
         startSession(sessionId, TriggerType.MANUAL, null)
-        return SessionStartResult.Started(sessionId)
-    }
-
-    fun startAutomaticSession(context: AutomaticSessionContext): SessionStartResult {
-        if (_state.value.isBusy) return SessionStartResult.Busy
-
-        when (val precheck = prerequisiteChecker.check(TriggerType.AUTOMATIC)) {
-            is LocationPrerequisiteResult.Blocked -> {
-                _state.value = _state.value.copy(
-                    phase = AcquisitionPhase.Idle,
-                    sessionId = null,
-                    triggerType = null,
-                    errorReason = precheck.reason
-                )
-                return SessionStartResult.Rejected(precheck.reason)
-            }
-            is LocationPrerequisiteResult.Ready -> {}
-        }
-
-        val sessionId = uuidGenerator()
-        startSession(sessionId, TriggerType.AUTOMATIC, context)
         return SessionStartResult.Started(sessionId)
     }
 
@@ -135,21 +119,13 @@ class LocationAcquisitionCoordinator @Inject constructor(
         val cancellablePhases = setOf(
             AcquisitionPhase.Preparing,
             AcquisitionPhase.Acquiring,
-            AcquisitionPhase.Evaluating,
-            AcquisitionPhase.AwaitingManualSubmit
+            AcquisitionPhase.Evaluating
         )
         while (true) {
             val current = _state.value
             if (expectedSessionId != null && current.sessionId != expectedSessionId) return false
-            // Only genuinely cancellable phases may be cancelled. Idle and Enqueuing
-            // are excluded (an in-flight confirmed submission must not be represented
-            // as cancelled), and terminal phases keep their result: a late cancel
-            // intent must not relabel a completed/timed-out/failed/cancelled session.
             if (current.phase !in cancellablePhases) return false
 
-            // Capture the job that owns this snapshot's session while the snapshot
-            // is still current: only this job may be cancelled once the Cancelled
-            // claim wins. A session started after the claim owns a different job.
             val ownerJob = sessionJob
             beforeCancellingSessionJob?.invoke()
 
@@ -158,102 +134,210 @@ class LocationAcquisitionCoordinator @Inject constructor(
                     current.copy(phase = AcquisitionPhase.Cancelled, errorReason = null)
                 )
             ) {
-                // The Cancelled claim won; only now may the captured job be cancelled
-                // and its ownership cleared. A lost CAS (e.g. the automatic Evaluating
-                // -> Enqueuing claim) is retried and observed as not cancellable.
-                // Test seam: invoked immediately after the successful Cancelled claim
-                // and before the captured job is cancelled/cleared, so a new session
-                // starting in that window can be reproduced deterministically.
                 afterSessionCancelledClaim?.invoke()
                 ownerJob?.cancel()
                 clearSessionJobIfOwned(ownerJob)
-                // Stale pendingAccepted (e.g. an accepted-but-unsubmitted manual
-                // result) is intentionally retained: claimManualSubmission is gated
-                // on the AwaitingManualSubmit phase and the next startSession resets
-                // it, so this cleanup can never discard a newer session's result.
                 return true
             }
         }
     }
 
-    fun submitManualResult() {
-        val claim = claimManualSubmission() ?: return
+    // ─── 自动常驻流 ─────────────────────────────────────────────
 
-        scope.launch {
-            if (!isCurrentSession(claim.sessionId) ||
-                _state.value.phase != AcquisitionPhase.Enqueuing
-            ) {
-                return@launch
+    fun startAutomaticStream(context: AcquisitionContext): Boolean {
+        if (_streamState.value.active) return updateAutomaticStream(context)
+        startStreamJob(context, warmUp = true)
+        return true
+    }
+
+    fun updateAutomaticStream(context: AcquisitionContext): Boolean {
+        if (!_streamState.value.active) {
+            startStreamJob(context, warmUp = true)
+            return true
+        }
+        val current = _streamState.value
+        // 间隔或上下文标注（policyMode/scheduleLowFrequency/motionSignal）任一
+        // 变化都重注册，避免流内 fix 携带过期元数据。
+        // 注意：重注册不做预热（warmUp=false）。这是对设计文档 S3-2"重新
+        // startAutomaticStream（预热 + 新 interval 常驻）"的刻意偏差——流已热
+        // （GPS 保持连接），且运动状态频繁变化时反复预热会中断采集节奏；
+        // 冷启动预热只发生在 startAutomaticStream（active=false → warmUp=true）。
+        if (current.requestIntervalMillis != context.requestIntervalMillis ||
+            current.policyMode != context.policyMode ||
+            current.scheduleLowFrequency != context.scheduleLowFrequency ||
+            current.motionSignal != context.motionSignal
+        ) {
+            startStreamJob(context, warmUp = false)
+        }
+        return true
+    }
+
+    fun stopAutomaticStream() {
+        streamJob?.cancel()
+        streamJob = null
+        _streamState.value = AutomaticStreamState()
+    }
+
+    fun isAutomaticStreamActive(): Boolean = _streamState.value.active
+
+    private fun startStreamJob(context: AcquisitionContext, warmUp: Boolean) {
+        streamJob?.cancel()
+        lateinit var job: Job
+        val newJob = scope.launch(start = CoroutineStart.LAZY) {
+            _streamState.update {
+                it.copy(
+                    active = true,
+                    requestIntervalMillis = context.requestIntervalMillis,
+                    policyMode = context.policyMode,
+                    scheduleLowFrequency = context.scheduleLowFrequency,
+                    motionSignal = context.motionSignal,
+                    lastError = null
+                )
             }
             try {
-                val rawJson = rawJson(claim.accepted, TriggerType.MANUAL.storageSource)
-                operations.enqueueAccepted(
-                    claim.accepted,
-                    rawJson,
-                    TriggerType.MANUAL.storageSource
+                if (warmUp) {
+                    warmUpOnce(context)
+                }
+                val request = LocationUpdateRequest(
+                    priority = Priority.PRIORITY_HIGH_ACCURACY,
+                    intervalMillis = context.requestIntervalMillis,
+                    durationMillis = 0L
                 )
-                // Record is already enqueued; schedule sync at most once even if session changed.
-                operations.scheduleSync()
-                updateStateIfCurrent(claim.sessionId, claim.ownerJob) {
-                    it.copy(phase = AcquisitionPhase.Completed, errorReason = null)
+                runner.stream(request) { snapshot ->
+                    handleStreamFix(snapshot, context)
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                updateStateIfCurrent(claim.sessionId, claim.ownerJob) {
-                    it.copy(
-                        phase = AcquisitionPhase.AwaitingManualSubmit,
-                        errorReason = e.message
-                    )
+                _streamState.update { it.copy(lastError = e.message) }
+            } finally {
+                // 流 job 结束（异常/被替换外的正常终结）必须复位 active，
+                // 否则 service 下轮看到 isAutomaticStreamActive()==true 永不
+                // 重注册，自动采集静默死亡。被替换的旧 job 不得覆盖新 job。
+                if (streamJob === job) {
+                    _streamState.update { it.copy(active = false) }
                 }
             }
         }
+        job = newJob
+        streamJob = newJob
+        newJob.start()
     }
 
-    private fun claimManualSubmission(): ManualSubmissionClaim? {
-        while (true) {
-            val current = _state.value
-            if (current.phase != AcquisitionPhase.AwaitingManualSubmit) return null
+    /** 冷启动预热：等 GPS 收敛（≤30s），接受首个 <20m fix 并入库；不回退。 */
+    private suspend fun warmUpOnce(context: AcquisitionContext) {
+        val settings = trackingSettingsStore.read()
+        val sessionId = "warmup-${uuidGenerator()}"
+        when (val outcome = acquireOneShot(
+            sessionId = sessionId,
+            triggerType = TriggerType.AUTOMATIC,
+            context = context,
+            ownerJob = null,
+            settings = settings,
+            sink = StateSink.STREAM,
+            allowLowQualityFallback = false
+        )) {
+            is OneShotOutcome.Accepted -> {
+                try {
+                    val raw = rawJson(outcome.accepted, TriggerType.AUTOMATIC.storageSource)
+                    operations.enqueueAccepted(outcome.accepted, raw, TriggerType.AUTOMATIC.storageSource)
+                    operations.scheduleSync()
+                    val snapshot = outcome.accepted.fix.toSnapshot()
+                    _streamState.update {
+                        it.copy(
+                            latestFix = snapshot,
+                            latestQualityFlags = outcome.accepted.qualityFlags,
+                            lastError = null
+                        )
+                    }
+                    onRecorded?.invoke(snapshot)
+                    lastRecordedStreamTimeMillis = outcome.accepted.fix.recordedAtMillis
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    _streamState.update { it.copy(lastError = e.message) }
+                }
+            }
+            is OneShotOutcome.Failed -> {
+                _streamState.update { it.copy(lastError = outcome.reason) }
+            }
+            is OneShotOutcome.NoFix -> {
+                // 预热未收敛不阻塞常驻流注册
+            }
+        }
+    }
 
-            val accepted = pendingAccepted ?: return null
-            val sessionId = current.sessionId ?: return null
-            val claimed = current.copy(
-                phase = AcquisitionPhase.Enqueuing,
-                errorReason = null
-            )
-            if (_state.compareAndSet(current, claimed)) {
-                return ManualSubmissionClaim(
-                    accepted = accepted,
-                    sessionId = sessionId,
-                    ownerJob = sessionJob
+    private suspend fun handleStreamFix(snapshot: LocationSnapshot, context: AcquisitionContext) {
+        // 去重：GMS 对全新 requestLocationUpdates 通常立即回调最近缓存位置，
+        // 若与刚入库的预热/上一流 fix 几乎同时间（<2s），跳过入库与诊断，
+        // 避免地图重叠点。墙钟回拨（时间差为负）不在此窗口内，正常放行。
+        val last = lastRecordedStreamTimeMillis
+        if (last != null) {
+            val diff = snapshot.timeMillis - last
+            if (diff in 0L until STREAM_DEDUP_MIN_INTERVAL_MILLIS) return
+        }
+        val fix = snapshot.toRawFix(TriggerType.AUTOMATIC, context)
+        val gate = LocationQualityGate.fromTrackingSettings(trackingSettingsStore.read())
+        when (val decision = gate.evaluate(fix, wallClockMillis())) {
+            is QualityDecision.AcceptNow -> {
+                enqueueStreamFix(decision.accepted, snapshot, decision.accepted.qualityFlags)
+            }
+            is QualityDecision.WaitForAltitude -> {
+                // 流模式不做 15s 等待：缺海拔直接带标记接受（GPS 热态下海拔基本都有）
+                enqueueStreamFix(
+                    QualityAcceptedLocation(
+                        fix = fix,
+                        altitudeMeters = null,
+                        acceptedAtMillis = wallClockMillis(),
+                        qualityFlags = setOf(STREAM_ALTITUDE_MISSING_FLAG)
+                    ),
+                    snapshot,
+                    setOf(STREAM_ALTITUDE_MISSING_FLAG)
                 )
             }
+            is QualityDecision.Drop -> {
+                recordDrop(decision.fix, decision.reason)
+            }
         }
     }
 
-    // Atomic claim of the automatic Enqueuing transition. Returns true only when
-    // the transition actually happened; a session already terminal (e.g. Cancelled
-    // after a quality accept) must never be enqueued, and once claimed, the
-    // in-flight enqueue is the user-approved completion that later cancels ignore.
-    private fun claimAutomaticEnqueuing(sessionId: String?): Boolean {
-        if (sessionId == null) return false
-        while (true) {
-            val current = _state.value
-            if (current.sessionId != sessionId) return false
-            if (current.phase != AcquisitionPhase.Evaluating) return false
-            if (_state.compareAndSet(current, current.copy(phase = AcquisitionPhase.Enqueuing))) {
-                return true
+    private suspend fun enqueueStreamFix(
+        accepted: QualityAcceptedLocation,
+        snapshot: LocationSnapshot,
+        flags: Set<String>
+    ) {
+        try {
+            val raw = rawJson(accepted, TriggerType.AUTOMATIC.storageSource)
+            operations.enqueueAccepted(accepted, raw, TriggerType.AUTOMATIC.storageSource)
+            operations.scheduleSync()
+            _streamState.update {
+                it.copy(latestFix = snapshot, latestQualityFlags = flags, lastError = null)
             }
+            onRecorded?.invoke(snapshot)
+            lastRecordedStreamTimeMillis = accepted.fix.recordedAtMillis
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            _streamState.update { it.copy(lastError = e.message) }
         }
+    }
+
+    // ─── 会话内部（一次性采集，手动/自动预热共用） ───────────────
+
+    private enum class StateSink { SESSION, STREAM }
+
+    private sealed interface OneShotOutcome {
+        data class Accepted(val accepted: QualityAcceptedLocation) : OneShotOutcome
+        data object NoFix : OneShotOutcome
+        data class Failed(val reason: String) : OneShotOutcome
     }
 
     private fun startSession(
         sessionId: String,
         triggerType: TriggerType,
-        context: AutomaticSessionContext?
+        context: AcquisitionContext?
     ) {
         val nowElapsed = elapsedRealtimeMillis()
-        pendingAccepted = null
         // Snapshot tracking settings once per session; later changes only affect
         // the next session, never the active one.
         val settings = trackingSettingsStore.read()
@@ -262,8 +346,7 @@ class LocationAcquisitionCoordinator @Inject constructor(
             triggerType = triggerType,
             phase = AcquisitionPhase.Preparing,
             startedAtElapsedRealtimeMs = nowElapsed,
-            deadlineAtElapsedRealtimeMs = nowElapsed + 30_000L,
-            maxUploadAccuracyMetersExclusive = settings.maxUploadAccuracyMetersExclusive
+            deadlineAtElapsedRealtimeMs = nowElapsed + 30_000L
         )
         lateinit var job: Job
         val newJob = scope.launch(start = CoroutineStart.LAZY) {
@@ -277,7 +360,7 @@ class LocationAcquisitionCoordinator @Inject constructor(
     private suspend fun runSession(
         sessionId: String,
         triggerType: TriggerType,
-        context: AutomaticSessionContext?,
+        context: AcquisitionContext?,
         ownerJob: Job,
         settings: TrackingSettings
     ) = coroutineScope {
@@ -295,7 +378,29 @@ class LocationAcquisitionCoordinator @Inject constructor(
             }
         }
         try {
-            acquireAndEvaluate(sessionId, triggerType, context, ownerJob, settings)
+            when (val outcome = acquireOneShot(
+                sessionId = sessionId,
+                triggerType = triggerType,
+                context = context,
+                ownerJob = ownerJob,
+                settings = settings,
+                sink = StateSink.SESSION,
+                allowLowQualityFallback = true
+            )) {
+                is OneShotOutcome.Accepted ->
+                    handleAccepted(outcome.accepted, sessionId, triggerType, ownerJob)
+                is OneShotOutcome.NoFix ->
+                    updateStateIfCurrent(sessionId, ownerJob) {
+                        it.copy(
+                            phase = AcquisitionPhase.TimedOut,
+                            errorReason = "获取位置超时，未获得任何定位结果"
+                        )
+                    }
+                is OneShotOutcome.Failed ->
+                    updateStateIfCurrent(sessionId, ownerJob) {
+                        it.copy(phase = AcquisitionPhase.Failed, errorReason = outcome.reason)
+                    }
+            }
         } catch (e: CancellationException) {
             updateStateIfCurrent(sessionId, ownerJob) {
                 it.copy(phase = AcquisitionPhase.Cancelled)
@@ -311,29 +416,31 @@ class LocationAcquisitionCoordinator @Inject constructor(
         }
     }
 
-    private suspend fun acquireAndEvaluate(
+    private suspend fun acquireOneShot(
         sessionId: String,
         triggerType: TriggerType,
-        context: AutomaticSessionContext?,
-        ownerJob: Job,
-        settings: TrackingSettings
-    ) = coroutineScope {
-        updateStateIfCurrent(sessionId, ownerJob) {
-            it.copy(phase = AcquisitionPhase.Acquiring)
-        }
+        context: AcquisitionContext?,
+        ownerJob: Job?,
+        settings: TrackingSettings,
+        sink: StateSink,
+        allowLowQualityFallback: Boolean
+    ): OneShotOutcome = coroutineScope {
+        updateSinkPhase(sink, sessionId, ownerJob, AcquisitionPhase.Acquiring)
 
-        val sessionScope = this
         val sessionStartedWallClockMillis = wallClockMillis()
+        val sessionStartedElapsedRealtimeMillis = elapsedRealtimeMillis()
         val deadlineCapMillis = sessionStartedWallClockMillis + 30_000L
+        val deadlineCapElapsedRealtimeMillis = sessionStartedElapsedRealtimeMillis + 30_000L
         val altitudeWaitCoordinator = AltitudeWaitCoordinator(
             gate = LocationQualityGate.fromTrackingSettings(settings),
             nowMillis = wallClockMillis,
+            nowElapsedRealtimeMillis = elapsedRealtimeMillis,
             delayMillis = { delay(it) }
         )
 
         val request = LocationEngineRequest(
             sessionId = sessionId,
-            priority = context?.priority ?: 100,
+            priority = Priority.PRIORITY_HIGH_ACCURACY,
             timeoutMillis = 30_000L,
             startedAtWallClockMillis = sessionStartedWallClockMillis
         )
@@ -359,25 +466,18 @@ class LocationAcquisitionCoordinator @Inject constructor(
                     runner.acquire(
                         request = request,
                         onCandidate = { snapshot ->
-                            if (!isCurrentSession(sessionId) || qualityAccepted.get()) return@acquire
+                            if (qualityAccepted.get()) return@acquire
                             bestSnapshot.set(snapshot)
-                            updateStateIfCurrent(sessionId, ownerJob) {
-                                it.copy(bestLocation = snapshot, phase = AcquisitionPhase.Evaluating)
-                            }
+                            updateSinkBest(sink, sessionId, ownerJob, snapshot, AcquisitionPhase.Evaluating)
 
                             val fix = snapshot.toRawFix(triggerType, context)
-                            // Concurrent quality work: later candidates can satisfy altitude while an
-                            // earlier missing-altitude wait is still suspended inside the coordinator.
-                            val qualityJob = sessionScope.launch {
+                            val qualityJob = launch {
                                 altitudeWaitCoordinator.handleFix(
                                     fix = fix,
                                     deadlineCapMillis = deadlineCapMillis,
+                                    deadlineCapElapsedRealtimeMillis = deadlineCapElapsedRealtimeMillis,
                                     onAccepted = { accepted -> onQualityAccepted(accepted) },
-                                    onDropped = { droppedFix, reason ->
-                                        if (triggerType == TriggerType.AUTOMATIC) {
-                                            recordDrop(droppedFix, reason)
-                                        }
-                                    }
+                                    onDropped = { droppedFix, reason -> recordDrop(droppedFix, reason) }
                                 )
                             }
                             qualityJobs += qualityJob
@@ -397,33 +497,60 @@ class LocationAcquisitionCoordinator @Inject constructor(
             }
         }
 
-        if (!isCurrentSession(sessionId)) return@coroutineScope
-        // A cancelled terminal state retains its sessionId; leftover session work
-        // must not turn it into Failed/TimedOut or start an enqueue.
-        if (_state.value.phase == AcquisitionPhase.Cancelled) return@coroutineScope
-
-        val accepted = acceptedLocation.get()
-        if (accepted != null) {
-            handleAccepted(accepted, sessionId, triggerType, ownerJob)
-            return@coroutineScope
+        if (sink == StateSink.SESSION) {
+            if (!isCurrentSession(sessionId)) return@coroutineScope OneShotOutcome.NoFix
+            // A cancelled terminal state retains its sessionId; leftover session work
+            // must not turn it into TimedOut/Failed or start an enqueue.
+            if (_state.value.phase == AcquisitionPhase.Cancelled) return@coroutineScope OneShotOutcome.NoFix
         }
 
+        val accepted = acceptedLocation.get()
+        if (accepted != null) return@coroutineScope OneShotOutcome.Accepted(accepted)
+
         val best = bestSnapshot.get()
-        if (best != null) {
-            updateStateIfCurrent(sessionId, ownerJob) {
-                it.copy(phase = AcquisitionPhase.Failed, bestLocation = best)
-            }
+        if (best != null && allowLowQualityFallback) {
+            return@coroutineScope OneShotOutcome.Accepted(
+                QualityAcceptedLocation(
+                    fix = best.toRawFix(triggerType, context),
+                    altitudeMeters = best.altitudeMeters,
+                    acceptedAtMillis = wallClockMillis(),
+                    qualityFlags = setOf(LocationQualityGate.LOW_QUALITY_ACCURACY_FLAG)
+                )
+            )
+        }
+
+        val completion = engineResult.get()?.completion
+        return@coroutineScope if (completion is LocationEngineCompletion.Failed) {
+            OneShotOutcome.Failed(completion.reason)
         } else {
-            val completion = engineResult.get()?.completion
-            if (completion is LocationEngineCompletion.Failed) {
-                updateStateIfCurrent(sessionId, ownerJob) {
-                    it.copy(phase = AcquisitionPhase.Failed, errorReason = completion.reason)
-                }
-            } else {
-                updateStateIfCurrent(sessionId, ownerJob) {
-                    it.copy(phase = AcquisitionPhase.TimedOut)
-                }
+            OneShotOutcome.NoFix
+        }
+    }
+
+    private fun updateSinkPhase(
+        sink: StateSink,
+        sessionId: String?,
+        ownerJob: Job?,
+        phase: AcquisitionPhase
+    ) {
+        when (sink) {
+            StateSink.SESSION -> updateStateIfCurrent(sessionId, ownerJob) { it.copy(phase = phase) }
+            StateSink.STREAM -> {} // 流预热保持 StreamState.active，无需 phase
+        }
+    }
+
+    private fun updateSinkBest(
+        sink: StateSink,
+        sessionId: String?,
+        ownerJob: Job?,
+        snapshot: LocationSnapshot,
+        phase: AcquisitionPhase
+    ) {
+        when (sink) {
+            StateSink.SESSION -> updateStateIfCurrent(sessionId, ownerJob) {
+                it.copy(bestLocation = snapshot, phase = phase)
             }
+            StateSink.STREAM -> _streamState.update { it.copy(latestFix = snapshot) }
         }
     }
 
@@ -434,29 +561,24 @@ class LocationAcquisitionCoordinator @Inject constructor(
         ownerJob: Job
     ) {
         if (!isCurrentSession(sessionId)) return
-
-        if (triggerType == TriggerType.MANUAL) {
-            pendingAccepted = accepted
+        try {
+            val json = rawJson(accepted, triggerType.storageSource)
+            operations.enqueueAccepted(accepted, json, triggerType.storageSource)
+            // Record is already enqueued; schedule sync at most once even if session changed.
+            operations.scheduleSync()
             updateStateIfCurrent(sessionId, ownerJob) {
-                it.copy(phase = AcquisitionPhase.AwaitingManualSubmit)
+                it.copy(
+                    phase = AcquisitionPhase.Completed,
+                    lastQualityFlags = accepted.qualityFlags,
+                    errorReason = null
+                )
             }
-        } else {
-            beforeAutomaticEnqueueClaim?.invoke()
-            if (!claimAutomaticEnqueuing(sessionId)) return
-            try {
-                val json = rawJson(accepted, triggerType.storageSource)
-                operations.enqueueAccepted(accepted, json, triggerType.storageSource)
-                // Record is already enqueued; schedule sync at most once even if session changed.
-                operations.scheduleSync()
-                updateStateIfCurrent(sessionId, ownerJob) {
-                    it.copy(phase = AcquisitionPhase.Completed)
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                updateStateIfCurrent(sessionId, ownerJob) {
-                    it.copy(phase = AcquisitionPhase.Failed, errorReason = e.message)
-                }
+            onRecorded?.invoke(accepted.fix.toSnapshot())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            updateStateIfCurrent(sessionId, ownerJob) {
+                it.copy(phase = AcquisitionPhase.Failed, errorReason = e.message)
             }
         }
     }
@@ -542,7 +664,7 @@ class LocationAcquisitionCoordinator @Inject constructor(
 
     private fun LocationSnapshot.toRawFix(
         triggerType: TriggerType,
-        context: AutomaticSessionContext?
+        context: AcquisitionContext?
     ): RawLocationFix = RawLocationFix(
         latitude = latitude,
         longitude = longitude,
@@ -557,9 +679,20 @@ class LocationAcquisitionCoordinator @Inject constructor(
         bearingDegrees = bearingDegrees
     )
 
-    private data class ManualSubmissionClaim(
-        val accepted: QualityAcceptedLocation,
-        val sessionId: String,
-        val ownerJob: Job?
+    private fun RawLocationFix.toSnapshot(): LocationSnapshot = LocationSnapshot(
+        latitude = latitude,
+        longitude = longitude,
+        horizontalAccuracyMeters = horizontalAccuracyMeters,
+        provider = provider,
+        source = "acquisition",
+        altitudeMeters = altitudeMeters,
+        speedMetersPerSecond = speedMetersPerSecond,
+        bearingDegrees = bearingDegrees,
+        timeMillis = recordedAtMillis
     )
+
+    private companion object {
+        const val STREAM_ALTITUDE_MISSING_FLAG = "altitude-missing"
+        const val STREAM_DEDUP_MIN_INTERVAL_MILLIS = 2_000L
+    }
 }

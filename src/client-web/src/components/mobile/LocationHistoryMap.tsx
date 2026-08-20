@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
-import type { MobileLocationTrack } from '../../api/mobile';
+import type { MobileFrequentPlace, MobileLocationTrack } from '../../api/mobile';
 import {
   formatAccuracyLabel,
   formatDistanceMeters,
@@ -12,7 +12,9 @@ export interface LocationHistoryMapProps {
   tracks: MobileLocationTrack[];
   selectedSegmentId?: string | null;
   selectedPointId?: string | null;
-  onSelectSegment?: (segmentId: string) => void;
+  repositionKey?: number;
+  frequentPlaces?: MobileFrequentPlace[];
+  onSelectSegment?: (segmentId: string | null) => void;
   onSelectPoint?: (pointId: string) => void;
 }
 
@@ -24,6 +26,8 @@ export default function LocationHistoryMap({
   tracks,
   selectedSegmentId,
   selectedPointId,
+  repositionKey,
+  frequentPlaces,
   onSelectSegment,
   onSelectPoint,
 }: LocationHistoryMapProps) {
@@ -71,6 +75,8 @@ export default function LocationHistoryMap({
             tracks={tracks}
             selectedSegmentId={selectedSegmentId}
             selectedPointId={selectedPointId}
+            repositionKey={repositionKey}
+            frequentPlaces={frequentPlaces}
             onSelectSegment={onSelectSegment}
             onSelectPoint={onSelectPoint}
           />

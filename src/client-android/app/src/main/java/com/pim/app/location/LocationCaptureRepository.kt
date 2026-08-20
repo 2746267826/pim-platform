@@ -3,6 +3,7 @@ package com.pim.app.location
 import com.pim.app.location.acquisition.AcquisitionPhase
 import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
 import com.pim.app.location.acquisition.LocationAcquisitionState
+import com.pim.app.location.quality.LocationQualityGate
 import com.pim.app.location.service.ForegroundLocationController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,9 +23,8 @@ data class LocationCaptureState(
     val submitStatus: String = "尚未提交",
     val statusMessage: String = "尚未开始定位",
     val inlineReason: String? = null,
-    val isSubmitting: Boolean = false,
-    val autoSubmitted: Boolean = false,
-    val maxUploadAccuracyMetersExclusive: Float = 50f
+    val lastQualityFlags: Set<String> = emptySet(),
+    val showLowQualityWarning: Boolean = false
 )
 
 @Singleton
@@ -52,10 +52,6 @@ class LocationCaptureRepository @Inject constructor(
     fun stopCapture() {
         controller.cancelLocationSession(coordinator.state.value.sessionId)
     }
-
-    fun submitCurrentLocationManually() {
-        coordinator.submitManualResult()
-    }
 }
 
 internal fun formatSubmitStatus(enqueued: Boolean, error: String? = null): String {
@@ -64,10 +60,6 @@ internal fun formatSubmitStatus(enqueued: Boolean, error: String? = null): Strin
     } else {
         "加入上传队列失败：${error ?: "未知错误"}"
     }
-}
-
-internal fun resolveAutoSubmittedState(current: Boolean, isAutoSubmit: Boolean, success: Boolean): Boolean {
-    return if (isAutoSubmit && success) true else current
 }
 
 internal fun applyLocationRequestFailure(
@@ -105,13 +97,12 @@ internal suspend fun enqueueThenSchedule(
 }
 
 internal fun LocationAcquisitionState.toCaptureState(): LocationCaptureState {
+    val lowQuality = lastQualityFlags.contains(LocationQualityGate.LOW_QUALITY_ACCURACY_FLAG)
     return LocationCaptureState(
         isCapturing = phase in setOf(
             AcquisitionPhase.Preparing,
             AcquisitionPhase.Acquiring,
-            AcquisitionPhase.Evaluating,
-            AcquisitionPhase.AwaitingManualSubmit,
-            AcquisitionPhase.Enqueuing
+            AcquisitionPhase.Evaluating
         ),
         latest = bestLocation,
         waitDurationMs = elapsedMs,
@@ -119,8 +110,6 @@ internal fun LocationAcquisitionState.toCaptureState(): LocationCaptureState {
             AcquisitionPhase.Completed -> "已加入上传队列"
             AcquisitionPhase.Failed -> "失败：${errorReason ?: "未知错误"}"
             AcquisitionPhase.Cancelled -> "已取消"
-            AcquisitionPhase.AwaitingManualSubmit -> "等待手动提交"
-            AcquisitionPhase.Enqueuing -> "提交中..."
             AcquisitionPhase.TimedOut -> "获取超时"
             else -> "尚未提交"
         },
@@ -128,17 +117,19 @@ internal fun LocationAcquisitionState.toCaptureState(): LocationCaptureState {
             AcquisitionPhase.Idle -> "尚未开始定位"
             AcquisitionPhase.Acquiring -> "正在获取位置..."
             AcquisitionPhase.Evaluating -> "正在评估位置质量..."
-            AcquisitionPhase.AwaitingManualSubmit -> "已获取满足质量要求的位置"
-            AcquisitionPhase.Enqueuing -> "正在提交位置..."
-            AcquisitionPhase.Completed -> "定位完成"
-            AcquisitionPhase.TimedOut -> "获取位置超时"
+            AcquisitionPhase.Completed ->
+                if (lowQuality) {
+                    "定位完成（精度不足，已标记低质量）"
+                } else {
+                    "定位完成"
+                }
+            AcquisitionPhase.TimedOut -> "获取位置超时，未获得任何定位结果"
             AcquisitionPhase.Failed -> "获取位置失败"
             AcquisitionPhase.Cancelled -> "定位已取消"
             else -> "准备中..."
         },
         inlineReason = errorReason,
-        isSubmitting = phase == AcquisitionPhase.Enqueuing,
-        autoSubmitted = false,
-        maxUploadAccuracyMetersExclusive = maxUploadAccuracyMetersExclusive
+        lastQualityFlags = lastQualityFlags,
+        showLowQualityWarning = lowQuality
     )
 }

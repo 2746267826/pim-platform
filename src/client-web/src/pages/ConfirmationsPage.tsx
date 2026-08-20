@@ -12,6 +12,7 @@ import BeforeAfterDiff from '../components/schedule/BeforeAfterDiff';
 import StrictConfirmationPanel from '../components/schedule/StrictConfirmationPanel';
 import { safeChangedFields, safeExternalEffectText } from '../utils/eventFieldDiff';
 import PageHeader from '../ui/PageHeader';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 function formatDateTime(value?: string | null) {
   if (!value) return '暂无';
@@ -39,7 +40,7 @@ export default function ConfirmationsPage() {
   const { data: confirmations = [], isLoading } = useQuery({
     queryKey: ['pending-confirmations'],
     queryFn: getPendingConfirmations,
-    refetchInterval: 30_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   useEffect(() => {

@@ -1,9 +1,13 @@
 import type { DerivedMetrics, CategorySummary, AppRankingItem } from '../../types';
+import type { PcAppUsageResponse } from '../../api/pcTracker';
+import EChartBox from '../charts/EChartBox';
+import { buildAppUsageBarOption } from '../charts/pcPanelOptions';
 
 interface Props {
   metrics: DerivedMetrics | null;
   categories: CategorySummary[];
   appRanking: AppRankingItem[];
+  appUsage?: PcAppUsageResponse;
   selectedCategory: string | null;
   onSelectCategory: (cat: string | null) => void;
   selectedApp: string | null;
@@ -23,6 +27,7 @@ export default function DailyActivityPanel({
   metrics,
   categories,
   appRanking,
+  appUsage,
   selectedCategory,
   onSelectCategory,
   selectedApp,
@@ -80,41 +85,49 @@ export default function DailyActivityPanel({
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
         <div className="mb-3 flex items-center justify-between">
-          <div className="text-xs font-semibold text-slate-700">应用排行</div>
-          {selectedApp && (
+          <div className="text-xs font-semibold text-slate-700">{appUsage && appUsage.items.length > 0 ? '应用时长排行' : '应用排行'}</div>
+          {(!appUsage || appUsage.items.length === 0) && selectedApp && (
             <button type="button" className="text-xs text-blue-600 hover:text-blue-700" onClick={() => onSelectApp(null)}>
               清除
             </button>
           )}
         </div>
-        <div className="space-y-2">
-          {top5Apps.length === 0 ? (
-            <p className="py-3 text-center text-xs text-slate-400">暂无应用数据</p>
-          ) : top5Apps.map(app => {
-            const inputCount = app.keyPresses + app.totalClicks;
-            const share = Math.round((inputCount / totalInput) * 100);
-            return (
-              <button
-                key={app.appName}
-                type="button"
-                className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
-                  selectedApp === app.appName
-                    ? 'border-teal-300 bg-teal-50'
-                    : 'border-slate-200 bg-white hover:border-teal-200'
-                }`}
-                onClick={() => onSelectApp(selectedApp === app.appName ? null : app.appName)}
-              >
-                <div className="mb-1 flex items-center justify-between gap-3 text-xs">
-                  <span className="min-w-0 truncate font-medium text-slate-800">{app.displayName || app.appName}</span>
-                  <span className="shrink-0 text-slate-500">{share}%</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
-                  <div className="h-full rounded-full bg-teal-500" style={{ width: `${share}%` }} />
-                </div>
-              </button>
-            );
-          })}
-        </div>
+        {appUsage && appUsage.items.length > 0 ? (
+          <EChartBox
+            option={buildAppUsageBarOption(appUsage)}
+            height={Math.min(appUsage.items.length, 8) * 28 + 40}
+            ariaLabel="应用时长排行"
+          />
+        ) : (
+          <div className="space-y-2">
+            {top5Apps.length === 0 ? (
+              <p className="py-3 text-center text-xs text-slate-400">暂无应用数据</p>
+            ) : top5Apps.map(app => {
+              const inputCount = app.keyPresses + app.totalClicks;
+              const share = Math.round((inputCount / totalInput) * 100);
+              return (
+                <button
+                  key={app.appName}
+                  type="button"
+                  className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                    selectedApp === app.appName
+                      ? 'border-teal-300 bg-teal-50'
+                      : 'border-slate-200 bg-white hover:border-teal-200'
+                  }`}
+                  onClick={() => onSelectApp(selectedApp === app.appName ? null : app.appName)}
+                >
+                  <div className="mb-1 flex items-center justify-between gap-3 text-xs">
+                    <span className="min-w-0 truncate font-medium text-slate-800">{app.displayName || app.appName}</span>
+                    <span className="shrink-0 text-slate-500">{share}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
+                    <div className="h-full rounded-full bg-teal-500" style={{ width: `${share}%` }} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

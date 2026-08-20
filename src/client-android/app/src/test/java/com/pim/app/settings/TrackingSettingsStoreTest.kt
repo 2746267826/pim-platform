@@ -28,7 +28,6 @@ class TrackingSettingsStoreTest {
         assertEquals(60 * 1000L, defaults.movementIntervalMillis)
         assertEquals(100.0, defaults.scheduleRecoveryThresholdMeters, 0.001)
         assertEquals(15 * 1000L, defaults.altitudeWaitTimeoutMillis)
-        assertEquals(50f, defaults.maxUploadAccuracyMetersExclusive)
         assertEquals(false, defaults.syncOnUnmeteredOnly)
 
         assertEquals(7, defaults.logRetentionDays)
@@ -46,8 +45,7 @@ class TrackingSettingsStoreTest {
                 scheduleLowFrequencyIntervalMillis = 600_000L,
                 movementIntervalMillis = 30_000L,
                 scheduleRecoveryThresholdMeters = 150.0,
-                altitudeWaitTimeoutMillis = 10_000L,
-                maxUploadAccuracyMetersExclusive = 40f
+                altitudeWaitTimeoutMillis = 10_000L
             )
         )
 
@@ -58,7 +56,6 @@ class TrackingSettingsStoreTest {
         assertEquals(30_000L, stored.movementIntervalMillis)
         assertEquals(150.0, stored.scheduleRecoveryThresholdMeters, 0.001)
         assertEquals(10_000L, stored.altitudeWaitTimeoutMillis)
-        assertEquals(40f, stored.maxUploadAccuracyMetersExclusive)
     }
 
     @Test
@@ -99,7 +96,6 @@ class TrackingSettingsStoreTest {
         assertEquals(900_000L, preset.scheduleLowFrequencyIntervalMillis)
         assertEquals(60_000L, preset.movementIntervalMillis)
         assertEquals(100.0, preset.scheduleRecoveryThresholdMeters, 0.001)
-        assertEquals(50f, preset.maxUploadAccuracyMetersExclusive)
         assertEquals(15_000L, preset.altitudeWaitTimeoutMillis)
     }
 
@@ -113,7 +109,6 @@ class TrackingSettingsStoreTest {
         assertEquals(600_000L, preset.scheduleLowFrequencyIntervalMillis)
         assertEquals(45_000L, preset.movementIntervalMillis)
         assertEquals(75.0, preset.scheduleRecoveryThresholdMeters, 0.001)
-        assertEquals(35f, preset.maxUploadAccuracyMetersExclusive)
         assertEquals(20_000L, preset.altitudeWaitTimeoutMillis)
     }
 
@@ -127,7 +122,6 @@ class TrackingSettingsStoreTest {
         assertEquals(300_000L, preset.scheduleLowFrequencyIntervalMillis)
         assertEquals(30_000L, preset.movementIntervalMillis)
         assertEquals(50.0, preset.scheduleRecoveryThresholdMeters, 0.001)
-        assertEquals(20f, preset.maxUploadAccuracyMetersExclusive)
         assertEquals(30_000L, preset.altitudeWaitTimeoutMillis)
     }
 
@@ -137,7 +131,7 @@ class TrackingSettingsStoreTest {
     }
 
     @Test
-    fun applyPresetOnlyReplacesProfileAndSixCollectionParams() {
+    fun applyPresetOnlyReplacesProfileAndCollectionParams() {
         val current = TrackingSettings(
             profile = "custom",
             continuousCollectionEnabled = true,
@@ -146,7 +140,6 @@ class TrackingSettingsStoreTest {
             movementIntervalMillis = 99_999L,
             scheduleRecoveryThresholdMeters = 999.0,
             altitudeWaitTimeoutMillis = 99_999L,
-            maxUploadAccuracyMetersExclusive = 99f,
             syncOnUnmeteredOnly = true,
             logRetentionDays = 14,
             verboseLoggingUntilUtcMillis = 12_345L
@@ -159,7 +152,6 @@ class TrackingSettingsStoreTest {
         assertEquals(600_000L, result.scheduleLowFrequencyIntervalMillis)
         assertEquals(45_000L, result.movementIntervalMillis)
         assertEquals(75.0, result.scheduleRecoveryThresholdMeters, 0.001)
-        assertEquals(35f, result.maxUploadAccuracyMetersExclusive)
         assertEquals(20_000L, result.altitudeWaitTimeoutMillis)
 
         assertEquals(true, result.continuousCollectionEnabled)
@@ -289,40 +281,6 @@ class TrackingSettingsStoreTest {
     }
 
     @Test
-    fun nanAccuracyProducesOutOfRange() {
-        val errors = TrackingSettingsValidator.validate(
-            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = Float.NaN)
-        )
-        assertTrue(errors.any { it.code == "ACCURACY_OUT_OF_RANGE" })
-    }
-
-    @Test
-    fun accuracyBelowMinimumFails() {
-        val errors = TrackingSettingsValidator.validate(
-            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = 9f)
-        )
-        assertTrue(errors.any { it.code == "ACCURACY_OUT_OF_RANGE" })
-    }
-
-    @Test
-    fun accuracyBoundaryValuesAreValid() {
-        assertTrue(TrackingSettingsValidator.validate(
-            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = 10f)
-        ).none { it.code == "ACCURACY_OUT_OF_RANGE" })
-        assertTrue(TrackingSettingsValidator.validate(
-            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = 50f)
-        ).none { it.code == "ACCURACY_OUT_OF_RANGE" })
-    }
-
-    @Test
-    fun accuracyAboveMaximumFails() {
-        val errors = TrackingSettingsValidator.validate(
-            TrackingSettings.defaults().copy(maxUploadAccuracyMetersExclusive = 51f)
-        )
-        assertTrue(errors.any { it.code == "ACCURACY_OUT_OF_RANGE" })
-    }
-
-    @Test
     fun altitudeWaitBelowMinimumFails() {
         val errors = TrackingSettingsValidator.validate(
             TrackingSettings.defaults().copy(altitudeWaitTimeoutMillis = -1L)
@@ -369,7 +327,6 @@ class TrackingSettingsStoreTest {
             scheduleLowFrequencyIntervalMillis = 299_999L,
             movementIntervalMillis = 29_999L,
             scheduleRecoveryThresholdMeters = 24.0,
-            maxUploadAccuracyMetersExclusive = 9f,
             altitudeWaitTimeoutMillis = -1L,
             logRetentionDays = 3
         )
@@ -379,7 +336,6 @@ class TrackingSettingsStoreTest {
         assertTrue(codes.contains("SCHEDULE_INTERVAL_OUT_OF_RANGE"))
         assertTrue(codes.contains("MOVEMENT_INTERVAL_OUT_OF_RANGE"))
         assertTrue(codes.contains("RECOVERY_THRESHOLD_OUT_OF_RANGE"))
-        assertTrue(codes.contains("ACCURACY_OUT_OF_RANGE"))
         assertTrue(codes.contains("ALTITUDE_WAIT_OUT_OF_RANGE"))
         assertTrue(codes.contains("LOG_RETENTION_INVALID"))
     }
@@ -423,7 +379,6 @@ class TrackingSettingsStoreTest {
         assertEquals(600_000L, stored.scheduleLowFrequencyIntervalMillis)
         assertEquals(45_000L, stored.movementIntervalMillis)
         assertEquals(75.0, stored.scheduleRecoveryThresholdMeters, 0.001)
-        assertEquals(35f, stored.maxUploadAccuracyMetersExclusive)
         assertEquals(20_000L, stored.altitudeWaitTimeoutMillis)
 
         assertEquals(true, stored.continuousCollectionEnabled)
@@ -521,7 +476,6 @@ class TrackingSettingsStoreTest {
             movementIntervalMillis = 45_000L,
             scheduleRecoveryThresholdMeters = 75.0,
             altitudeWaitTimeoutMillis = 20_000L,
-            maxUploadAccuracyMetersExclusive = 35f,
             syncOnUnmeteredOnly = true,
             logRetentionDays = 30,
             verboseLoggingUntilUtcMillis = 1000L
@@ -537,7 +491,6 @@ class TrackingSettingsStoreTest {
         assertEquals(60_000L, stored.movementIntervalMillis)
         assertEquals(100.0, stored.scheduleRecoveryThresholdMeters, 0.001)
         assertEquals(15_000L, stored.altitudeWaitTimeoutMillis)
-        assertEquals(50f, stored.maxUploadAccuracyMetersExclusive)
         assertEquals(false, stored.syncOnUnmeteredOnly)
         assertEquals(7, stored.logRetentionDays)
         assertNull(stored.verboseLoggingUntilUtcMillis)

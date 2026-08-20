@@ -1,17 +1,11 @@
+import EChartBox from '../charts/EChartBox';
+import { buildAnalysisBlocksOption } from '../charts/pcHeatmapOptions';
 import type { PcActivityAnalysisBlock, PcActivityAnalysisResponse } from '../../types';
 
 interface Props {
   analysis: PcActivityAnalysisResponse | undefined;
   selectedStart: string | null;
   onSelectBlock: (block: PcActivityAnalysisBlock) => void;
-}
-
-function colorForIntensity(score: number) {
-  if (score <= 0) return '#f8fafc';
-  if (score === 1) return '#d9f2ec';
-  if (score === 2) return '#9fdacf';
-  if (score === 3) return '#43afa3';
-  return '#0f8f88';
 }
 
 function formatMinutes(seconds: number) {
@@ -38,29 +32,23 @@ export default function ActivityAnalysisHeatmap({ analysis, selectedStart, onSel
     );
   }
 
+  const handleClick = (params: unknown) => {
+    const p = params as { data?: { blockIndex?: number } | number[] } | undefined;
+    const d = p?.data;
+    const idx = Array.isArray(d) ? d[0] : d?.blockIndex;
+    if (typeof idx === 'number' && blocks[idx]) {
+      onSelectBlock(blocks[idx]);
+    }
+  };
+
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-6 gap-1 md:grid-cols-12">
-        {blocks.map(block => {
-          const selectedCell = block.start === selected?.start;
-          return (
-            <button
-              key={block.start}
-              type="button"
-              title={`${formatTime(block.start)} | ${formatMinutes(block.activeDurationSeconds)} 活跃分钟`}
-              aria-pressed={selectedCell}
-              aria-label={`${formatTime(block.start)}，${formatMinutes(block.activeDurationSeconds)} 活跃分钟，${block.pendingClassificationCount} 条待分类，${block.contextSwitchCount} 次上下文切换`}
-              onClick={() => onSelectBlock(block)}
-              className={`h-9 rounded-md border text-[10px] font-semibold text-slate-800 transition-transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-cyan-300 ${
-                selectedCell ? 'border-slate-900' : block.pendingClassificationCount > 0 ? 'border-amber-500' : 'border-white'
-              }`}
-              style={{ backgroundColor: colorForIntensity(block.intensityScore) }}
-            >
-              {block.pendingClassificationCount > 0 ? block.pendingClassificationCount : ''}
-            </button>
-          );
-        })}
-      </div>
+      <EChartBox
+        option={buildAnalysisBlocksOption(blocks, selectedStart)}
+        height={116}
+        ariaLabel="活动分析热力图"
+        onEvents={{ click: handleClick }}
+      />
 
       <div className="flex flex-wrap gap-3 text-xs text-slate-500">
         <span>活动分析</span>

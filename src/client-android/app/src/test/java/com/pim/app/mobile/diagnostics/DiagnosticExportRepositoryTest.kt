@@ -427,7 +427,6 @@ class DiagnosticExportRepositoryTest {
             assertTrue(settings.has("scheduleLowFrequencyIntervalMillis"))
             assertTrue(settings.has("scheduleRecoveryThresholdMeters"))
             assertTrue(settings.has("altitudeWaitTimeoutMillis"))
-            assertTrue(settings.has("maxUploadAccuracyMetersExclusive"))
             assertFalse(settings.has("serverUrl"))
             assertFalse(settings.has("token"))
             assertFalse(settings.has("deviceId"))

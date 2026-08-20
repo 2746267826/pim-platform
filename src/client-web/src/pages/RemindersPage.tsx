@@ -11,6 +11,7 @@ import {
 import type { ReminderDelivery, ReminderSummary } from '../types';
 import PageHeader from '../ui/PageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 type ReminderTab = 'due' | 'rules' | 'delivery';
 
@@ -64,13 +65,13 @@ export default function RemindersPage() {
   const { data: reminders = [], isLoading } = useQuery({
     queryKey: ['reminders'],
     queryFn: getReminders,
-    refetchInterval: 30_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const { data: deliveryLog = [] } = useQuery({
     queryKey: ['reminder-delivery-log'],
     queryFn: getReminderDeliveryLog,
-    refetchInterval: 30_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const actionMutation = useMutation({

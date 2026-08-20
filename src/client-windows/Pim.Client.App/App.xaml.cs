@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Win32;
 using Pim.Client.App.Services;
 using Pim.Client.Core.Services;
 
@@ -15,6 +16,10 @@ public partial class App : Application
     private readonly CancellationTokenSource _shutdown = new();
     private readonly PeriodicTimer _heartbeatTimer = new(TimeSpan.FromMinutes(2));
     private Task? _heartbeatTask;
+    private int _plannedOfflineSent;
+    private Task? _plannedOfflineTask;
+    private readonly object _plannedOfflineLock = new();
+    private readonly SemaphoreSlim _reportSemaphore = new(1, 1);
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -30,6 +35,53 @@ public partial class App : Application
             Logger.Info("Daemon starting");
             Services = Pim.Client.App.Startup.ConfigureServices();
             Logger.Info("DI configured");
+
+            // Fire-once best-effort report of planned offline before shutdown/suspend/logoff.
+            SystemEvents.SessionEnding += (_, e) =>
+            {
+                // 停心跳并等待在途心跳结束，避免在途心跳在 planned 请求之后到达服务端把标记清掉；Cancel 幂等。
+                StopHeartbeatLoopAndWait();
+                TryReportPlannedOffline(e.Reason == SessionEndReasons.SystemShutdown ? "shutdown" : "logoff", wait: true);
+            };
+            SystemEvents.PowerModeChanged += (_, e) =>
+            {
+                if (e.Mode == PowerModes.Suspend)
+                {
+                    TryReportPlannedOffline("suspend");
+                }
+                else if (e.Mode == PowerModes.Resume)
+                {
+                    // 等待在途 suspend 上报 ≤2s 结束或超时，再重置防重并立即心跳清服务端 planned 标记。
+                    lock (_plannedOfflineLock)
+                    {
+                        if (_plannedOfflineTask is { } t)
+                        {
+                            try
+                            {
+                                t.Wait(TimeSpan.FromSeconds(3));
+                            }
+                            catch (AggregateException)
+                            {
+                            }
+                        }
+
+                        Interlocked.Exchange(ref _plannedOfflineSent, 0);
+                        _plannedOfflineTask = null;
+                    }
+
+                    Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await ReportHeartbeatOnceAsync(CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"Resume heartbeat failed: {ex.Message}");
+                        }
+                    });
+                }
+            };
 
             var config = DaemonConfig.Load();
             // Apply auto-start setting (synchronizes registry with config at every boot)
@@ -137,6 +189,8 @@ public partial class App : Application
 
     private static async Task ReportHeartbeatOnceAsync(CancellationToken ct)
     {
+        var app = (App)Current;
+        await app._reportSemaphore.WaitAsync(ct);
         try
         {
             var reporter = Services.GetRequiredService<DaemonHeartbeatReporter>();
@@ -185,6 +239,10 @@ public partial class App : Application
         {
             Logger.Warn($"Daemon heartbeat failed: {ex.Message}");
         }
+        finally
+        {
+            app._reportSemaphore.Release();
+        }
     }
 
     private static DateTime? MaxTime(DateTime? a, DateTime? b)
@@ -194,9 +252,84 @@ public partial class App : Application
         return a > b ? a : b;
     }
 
+    private void TryReportPlannedOffline(string reason, bool wait = false)
+    {
+        // 置位、创建 task、保存 _plannedOfflineTask、等待逻辑全部在锁内，保证防重语义严格。
+        // 调用点都在 UI 线程串行，锁内等待可接受；CTS 在 Task.Run 之前创建，生命周期从创建起 2 秒有界。
+        lock (_plannedOfflineLock)
+        {
+            if (Interlocked.Exchange(ref _plannedOfflineSent, 1) == 1)
+            {
+                // 已在途：等待既有上报，不重发。
+                if (wait && _plannedOfflineTask is not null)
+                {
+                    try
+                    {
+                        _plannedOfflineTask.Wait(TimeSpan.FromSeconds(3));
+                    }
+                    catch (AggregateException)
+                    {
+                        // 任务内部已 catch，等待超时/异常不抛出。
+                    }
+                }
+
+                return;
+            }
+
+            var reporter = Services?.GetService<PlannedOfflineReporter>();
+            if (reporter is null)
+            {
+                return;
+            }
+
+            var request = PlannedOfflineReporter.BuildRequest(Environment.MachineName, reason, DateTimeOffset.UtcNow);
+            var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            var task = Task.Run(async () =>
+            {
+                try
+                {
+                    await _reportSemaphore.WaitAsync(cts.Token);
+                    try
+                    {
+                        await reporter.ReportAsync(request, cts.Token);
+                        Logger.Info($"Planned offline reported ({reason})");
+                    }
+                    finally
+                    {
+                        _reportSemaphore.Release();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Planned offline report failed ({reason}): {ex.Message}");
+                }
+                finally
+                {
+                    cts.Dispose();
+                }
+            });
+
+            _plannedOfflineTask = task;
+
+            if (wait)
+            {
+                try
+                {
+                    task.Wait(TimeSpan.FromSeconds(3));
+                }
+                catch (AggregateException)
+                {
+                    // 任务内部已 catch，等待超时/异常不抛出。
+                }
+            }
+        }
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
-        _shutdown.Cancel();
+        // 先停心跳并等待在途心跳结束（避免在途心跳清掉 planned 标记），再上报；Cancel 幂等，多次调用安全。
+        StopHeartbeatLoopAndWait();
+        TryReportPlannedOffline("exit", wait: true);
         _heartbeatTimer.Dispose();
         _heartbeatTask?.ContinueWith(
             task => Logger.Warn($"Daemon heartbeat loop faulted: {task.Exception?.GetBaseException().Message ?? "unknown error"}"),
@@ -205,6 +338,22 @@ public partial class App : Application
         _trayIcon?.Dispose();
         Logger.Info("Daemon exiting");
         base.OnExit(e);
+    }
+
+    private void StopHeartbeatLoopAndWait()
+    {
+        _shutdown.Cancel();
+        if (_heartbeatTask is { } hb)
+        {
+            try
+            {
+                hb.Wait(TimeSpan.FromSeconds(2));
+            }
+            catch (AggregateException)
+            {
+                // 心跳循环内部已处理。
+            }
+        }
     }
 
     /// <summary>

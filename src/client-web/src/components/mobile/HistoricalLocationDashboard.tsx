@@ -1,8 +1,10 @@
 import type {
   MobileDevice,
+  MobileFrequentPlace,
   MobileLocationAnalyticsOverview,
   MobileLocationPoint,
   MobileLocationTrack,
+  MobileMovementStatsResponse,
 } from '../../api/mobile';
 import type { MobileRangeShortcut } from './mobileFormatting';
 import LocationHistoryMap from './LocationHistoryMap';
@@ -10,6 +12,24 @@ import LocationMetricStrip from './LocationMetricStrip';
 import LocationRawPointTable from './LocationRawPointTable';
 import LocationSegmentDetail from './LocationSegmentDetail';
 import LocationStayMoveTimeline from './LocationStayMoveTimeline';
+import { buildMovementMetricStrip, type MovementMetricItem } from './mobileMapExtras';
+
+/** 移动统计四格（纯 HTML MetricCard 风格，无图表）。 */
+function MovementMetricStrip({ items }: { items: MovementMetricItem[] }) {
+  return (
+    <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {items.map(item => (
+        <div
+          key={item.label}
+          className="min-h-[86px] min-w-0 rounded-md border border-slate-200 bg-white p-3"
+        >
+          <dt className="truncate text-xs font-semibold text-slate-500">{item.label}</dt>
+          <dd className="mt-2 truncate text-2xl font-bold tracking-normal text-slate-950">{item.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
 
 export interface HistoricalLocationDashboardProps {
   rangeShortcut: MobileRangeShortcut;
@@ -23,6 +43,9 @@ export interface HistoricalLocationDashboardProps {
   tracks: MobileLocationTrack[];
   selectedSegmentId?: string | null;
   selectedPointId?: string | null;
+  repositionKey?: number;
+  frequentPlaces?: MobileFrequentPlace[];
+  movementStats?: MobileMovementStatsResponse | null;
   points: MobileLocationPoint[];
   isLoading: boolean;
   isFetching: boolean;
@@ -38,7 +61,7 @@ export interface HistoricalLocationDashboardProps {
   onMaxAccuracyChange: (value: number) => void;
   onIncludeRejectedChange: (value: boolean) => void;
   onRefresh: () => void;
-  onSelectSegment: (segmentId: string) => void;
+  onSelectSegment: (segmentId: string | null) => void;
   onSelectPoint: (pointId: string) => void;
   onRawPointsPreviousPage: () => void;
   onRawPointsNextPage: () => void;
@@ -69,6 +92,9 @@ export default function HistoricalLocationDashboard({
   tracks,
   selectedSegmentId,
   selectedPointId,
+  repositionKey,
+  frequentPlaces,
+  movementStats,
   points,
   isLoading,
   isFetching,
@@ -227,6 +253,10 @@ export default function HistoricalLocationDashboard({
 
       <LocationMetricStrip overview={overview} />
 
+      {movementStats !== undefined && (
+        <MovementMetricStrip items={buildMovementMetricStrip(movementStats)} />
+      )}
+
       {isLoading ? (
         <section className="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-500">
           正在加载历史位置...
@@ -238,6 +268,8 @@ export default function HistoricalLocationDashboard({
               tracks={tracks}
               selectedSegmentId={selectedSegmentId}
               selectedPointId={selectedPointId}
+              repositionKey={repositionKey}
+              frequentPlaces={frequentPlaces}
               onSelectSegment={onSelectSegment}
               onSelectPoint={onSelectPoint}
             />

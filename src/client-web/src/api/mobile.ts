@@ -42,6 +42,7 @@ export interface MobileAnalyticsQuery {
   cursor?: string | null;
   page?: number | null;
   pageSize?: number | null;
+  force?: boolean;
 }
 
 function withAnalyticsQuery(path: string, query: MobileAnalyticsQuery = {}) {
@@ -59,6 +60,7 @@ function withAnalyticsQuery(path: string, query: MobileAnalyticsQuery = {}) {
     ['cursor', query.cursor],
     ['page', query.page],
     ['pageSize', query.pageSize],
+    ['force', query.force === true ? 'true' : undefined],
   ]);
 }
 
@@ -71,6 +73,7 @@ export interface MobileLocationAnalyticsParams {
   includeRejected?: boolean | null;
   cursor?: string | null;
   pageSize?: number | null;
+  force?: boolean;
 }
 
 function withLocationAnalyticsQuery(path: string, query: MobileLocationAnalyticsParams = {}) {
@@ -83,6 +86,7 @@ function withLocationAnalyticsQuery(path: string, query: MobileLocationAnalytics
     ['includeRejected', query.includeRejected],
     ['cursor', query.cursor],
     ['pageSize', query.pageSize],
+    ...(query.force === true ? [['force', 'true'] as [string, string]] : []),
   ]);
 }
 
@@ -127,6 +131,10 @@ export const mobileApiPaths = {
     `/mobile/location/analytics/segments/${pathSegment(segmentId)}`,
   locationAnalyticsSegmentPoints: (segmentId: string, query: MobileLocationAnalyticsParams = {}) =>
     withLocationAnalyticsQuery(`/mobile/location/analytics/segments/${pathSegment(segmentId)}/points`, query),
+  locationAnalyticsFrequentPlaces: (query: MobileLocationAnalyticsParams = {}) =>
+    withLocationAnalyticsQuery('/mobile/location/analytics/frequent-places', query),
+  locationAnalyticsMovementStats: (query: MobileLocationAnalyticsParams = {}) =>
+    withLocationAnalyticsQuery('/mobile/location/analytics/movement-stats', query),
   quality: (date?: string, deviceId?: string) =>
     withQuery('/mobile/quality', [
       ['date', date],
@@ -294,6 +302,7 @@ export interface MobileLocationPathPoint {
   recordedAtUtc?: string | null;
   horizontalAccuracyMeters?: number | null;
   quality?: MobileLocationQuality | string | null;
+  qualityFlags?: string[] | null;
 }
 
 export type MobileLocationSegmentKind = 'move' | 'stay' | 'gap' | 'low-confidence' | string;
@@ -352,6 +361,43 @@ export interface MobileLocationSegmentPointPage {
   items: MobileLocationPoint[];
   nextCursor: string | null;
   hasMore: boolean;
+}
+
+export interface MobileFrequentPlace {
+  centerLatitude: number;
+  centerLongitude: number;
+  radiusMeters: number;
+  pointCount: number;
+  visitDayCount: number;
+  isHome: boolean;
+}
+
+export interface MobileFrequentPlacesResponse {
+  home: MobileFrequentPlace | null;
+  places: MobileFrequentPlace[];
+}
+
+export interface MobileMovementOuting {
+  startUtc: string;
+  endUtc: string;
+  seconds: number;
+}
+
+export interface MobileMovementStatsDay {
+  date: string;
+  outingCount: number;
+  outingSeconds: number;
+  distanceMeters: number;
+}
+
+export interface MobileMovementStatsResponse {
+  homeCenter: { latitude: number; longitude: number } | null;
+  outingCount: number;
+  outingSeconds: number;
+  outings: MobileMovementOuting[];
+  distanceMeters: number;
+  maxSpeedMetersPerSecond: number | null;
+  perDay: MobileMovementStatsDay[];
 }
 
 export interface MobileQualityComponent {
@@ -633,6 +679,22 @@ export function getMobileLocationAnalyticsSegmentPoints(
 ): Promise<MobileLocationSegmentPointPage> {
   return apiGet<ApiResponse<MobileLocationSegmentPointPage>>(
     mobileApiPaths.locationAnalyticsSegmentPoints(segmentId, query),
+  ).then(r => r.data);
+}
+
+export function getMobileFrequentPlaces(
+  query: MobileLocationAnalyticsParams = {},
+): Promise<MobileFrequentPlacesResponse> {
+  return apiGet<ApiResponse<MobileFrequentPlacesResponse>>(
+    mobileApiPaths.locationAnalyticsFrequentPlaces(query),
+  ).then(r => r.data);
+}
+
+export function getMobileMovementStats(
+  query: MobileLocationAnalyticsParams = {},
+): Promise<MobileMovementStatsResponse> {
+  return apiGet<ApiResponse<MobileMovementStatsResponse>>(
+    mobileApiPaths.locationAnalyticsMovementStats(query),
   ).then(r => r.data);
 }
 

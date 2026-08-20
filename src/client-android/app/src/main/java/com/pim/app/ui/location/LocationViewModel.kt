@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
 import com.pim.app.location.service.ForegroundLocationController
+import com.pim.app.location.service.ForegroundLocationService
 import com.pim.app.status.QueueStatusRepository
 import com.pim.app.status.QueueStatusSnapshot
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,9 +23,10 @@ class LocationViewModel @Inject constructor(
 
     val state: StateFlow<LocationUiState> = combine(
         coordinator.state,
-        queueStatusRepository.observe()
-    ) { acqState, queueSnapshot ->
-        mapToLocationUiState(acqState, queueSnapshot)
+        queueStatusRepository.observe(),
+        ForegroundLocationService.runtimeState
+    ) { acqState, queueSnapshot, runtime ->
+        mapToLocationUiState(acqState, queueSnapshot, runtime)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -41,9 +43,5 @@ class LocationViewModel @Inject constructor(
     fun cancel() {
         val sessionId = coordinator.state.value.sessionId
         controller.cancelLocationSession(sessionId)
-    }
-
-    fun submit() {
-        coordinator.submitManualResult()
     }
 }

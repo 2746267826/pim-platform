@@ -5,6 +5,7 @@ import com.pim.app.location.LocationQueueRepository
 import com.pim.app.location.liveupdate.LocationLiveUpdatePublisher
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
+import com.pim.app.location.service.ForegroundLocationService
 import com.pim.app.mobile.sync.MobileSyncScheduler
 import dagger.Binds
 import dagger.Module
@@ -71,7 +72,8 @@ object LocationAcquisitionOperationsProvider {
     ): LocationLiveUpdatePublisher {
         return LocationLiveUpdatePublisher(
             stateFlow = coordinator.state,
-            context = context
+            context = context,
+            highSpeedFlow = ForegroundLocationService.runtimeState
         )
     }
 }

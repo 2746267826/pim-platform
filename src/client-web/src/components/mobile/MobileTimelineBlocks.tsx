@@ -4,6 +4,8 @@ import type {
   MobileTimelineBlockSession,
 } from '../../api/mobile';
 import { formatDuration, formatShortTime, sourceLabel } from './mobileFormatting';
+import EChartBox from '../charts/EChartBox';
+import { buildTimelineStripOption } from '../charts/mobileChartOptions';
 
 export interface MobileTimelineBlocksProps {
   blocks: MobileTimelineBlock[];
@@ -75,6 +77,19 @@ export default function MobileTimelineBlocks({
             </select>
           </label>
         </div>
+      </div>
+      <div className="mt-4">
+        <EChartBox
+          option={buildTimelineStripOption(blocks)}
+          height={110}
+          ariaLabel="停留与移动时间线"
+          onEvents={{
+            click: params => {
+              const p = (Array.isArray(params) ? params[0] : params) as { data?: { blockId?: string } } | undefined;
+              if (p?.data?.blockId) onToggleBlock(p.data.blockId);
+            },
+          }}
+        />
       </div>
       <div className="mt-4 space-y-3">
         {blocks.map(block => {

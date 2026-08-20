@@ -16,7 +16,7 @@ class AltitudeWaitCoordinatorTest {
         var now = 1_000L
         var delayedMillis = 0L
         val coordinator = AltitudeWaitCoordinator(
-            gate = LocationQualityGate(maxAccuracyMetersExclusive = 50f, altitudeWaitTimeoutMillis = 15_000L),
+            gate = LocationQualityGate(altitudeWaitTimeoutMillis = 15_000L),
             nowMillis = { now },
             delayMillis = { millis ->
                 delayedMillis += millis
@@ -43,7 +43,7 @@ class AltitudeWaitCoordinatorTest {
     fun droppedFixDoesNotDelayOrAccept() = runBlocking {
         var delayedMillis = 0L
         val coordinator = AltitudeWaitCoordinator(
-            gate = LocationQualityGate(maxAccuracyMetersExclusive = 50f, altitudeWaitTimeoutMillis = 15_000L),
+            gate = LocationQualityGate(altitudeWaitTimeoutMillis = 15_000L),
             nowMillis = { 1_000L },
             delayMillis = { millis -> delayedMillis += millis }
         )
@@ -68,7 +68,7 @@ class AltitudeWaitCoordinatorTest {
         val dropped = mutableListOf<String>()
         lateinit var coordinator: AltitudeWaitCoordinator
         coordinator = AltitudeWaitCoordinator(
-            gate = LocationQualityGate(maxAccuracyMetersExclusive = 50f, altitudeWaitTimeoutMillis = 15_000L),
+            gate = LocationQualityGate(altitudeWaitTimeoutMillis = 15_000L),
             nowMillis = { now },
             delayMillis = { millis ->
                 now += millis / 2
@@ -99,7 +99,7 @@ class AltitudeWaitCoordinatorTest {
         val accepted = mutableListOf<QualityAcceptedLocation>()
         lateinit var coordinator: AltitudeWaitCoordinator
         coordinator = AltitudeWaitCoordinator(
-            gate = LocationQualityGate(maxAccuracyMetersExclusive = 50f, altitudeWaitTimeoutMillis = 15_000L),
+            gate = LocationQualityGate(altitudeWaitTimeoutMillis = 15_000L),
             nowMillis = { now },
             delayMillis = { millis ->
                 coordinator.cancelPending()
@@ -120,7 +120,7 @@ class AltitudeWaitCoordinatorTest {
     fun `altitudeWaitNeverRunsPastSessionDeadline`() = runTest {
         var accepted: QualityAcceptedLocation? = null
         val coordinator = AltitudeWaitCoordinator(
-            gate = LocationQualityGate(50f, 15_000L),
+            gate = LocationQualityGate(altitudeWaitTimeoutMillis = 15_000L),
             nowMillis = { testScheduler.currentTime },
             delayMillis = { delay(it) }
         )
@@ -139,7 +139,7 @@ class AltitudeWaitCoordinatorTest {
         var now = 1_000L
         var delayCount = 0
         val coordinator = AltitudeWaitCoordinator(
-            gate = LocationQualityGate(50f, 15_000L),
+            gate = LocationQualityGate(altitudeWaitTimeoutMillis = 15_000L),
             nowMillis = { now },
             delayMillis = { millis ->
                 if (++delayCount == 1) {
@@ -166,6 +166,34 @@ class AltitudeWaitCoordinatorTest {
         assertEquals(1, accepted.size)
         assertNull(accepted.single().altitudeMeters)
         assertTrue(accepted.single().qualityFlags.contains("altitude-missing-timeout"))
+    }
+
+    @Test
+    fun `wall clock rollback wait is capped by monotonic session deadline`() = runTest {
+        var accepted: QualityAcceptedLocation? = null
+        var delayedMillis = 0L
+        val coordinator = AltitudeWaitCoordinator(
+            gate = LocationQualityGate(altitudeWaitTimeoutMillis = 15_000L),
+            nowMillis = { testScheduler.currentTime - 600_000L },
+            nowElapsedRealtimeMillis = { testScheduler.currentTime },
+            delayMillis = { millis ->
+                delayedMillis += millis
+                delay(millis)
+            }
+        )
+        // Wall clock rolled back 600s while the GPS timestamp (recordedAtMillis)
+        // stays on satellite time; the monotonic cap must bound the wait to the
+        // session deadline instead of sleeping for ~620s.
+        coordinator.handleFix(
+            fix(horizontalAccuracyMeters = 18f, altitudeMeters = null, recordedAtMillis = 1_000L),
+            deadlineCapMillis = 5_000L,
+            deadlineCapElapsedRealtimeMillis = 5_000L,
+            onAccepted = { accepted = it },
+            onDropped = { _, _ -> error("unexpected drop") }
+        )
+        assertEquals(5_000L, delayedMillis)
+        assertEquals(5_000L, testScheduler.currentTime)
+        assertEquals(setOf("altitude-missing-timeout"), accepted?.qualityFlags)
     }
 
     private fun fix(

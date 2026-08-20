@@ -15,6 +15,7 @@ import com.pim.app.location.acquisition.FakePrerequisiteChecker
 import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
 import com.pim.app.location.acquisition.TestLocationAcquisitionOperations
 import com.pim.app.location.service.ForegroundLocationController
+import com.pim.app.location.service.ForegroundLocationRuntimeState
 import com.pim.app.settings.TrackingSettingsStore
 import com.pim.app.status.QueueStatusRepository
 import com.pim.app.status.QueueStatusSnapshot
@@ -75,10 +76,9 @@ class LocationViewModelTest {
         assertNull(state.errorMessage)
         assertTrue(state.showStart)
         assertFalse(state.showCancel)
-        assertFalse(state.showSubmit)
         assertFalse(state.showRestart)
         assertFalse(state.showOpenSettings)
-        assertFalse(state.isSubmitting)
+        assertFalse(state.showLowQualityWarning)
         assertTrue(state.manualStartEnabled)
     }
 
@@ -100,9 +100,7 @@ class LocationViewModelTest {
         assertEquals("准备中", state.phaseLabel)
         assertFalse(state.showStart)
         assertTrue(state.showCancel)
-        assertFalse(state.showSubmit)
         assertFalse(state.showRestart)
-        assertFalse(state.isSubmitting)
     }
 
     @Test
@@ -123,7 +121,6 @@ class LocationViewModelTest {
         assertEquals("采集位置中", state.phaseLabel)
         assertTrue(state.showCancel)
         assertFalse(state.showStart)
-        assertFalse(state.showSubmit)
         assertFalse(state.showRestart)
     }
 
@@ -146,19 +143,20 @@ class LocationViewModelTest {
     }
 
     @Test
-    fun `manual session awaiting submit shows submit and restart buttons`() {
+    fun `completed with low-quality flag shows the low-quality warning`() {
         val state = mapToLocationUiState(
             acqState = LocationAcquisitionState(
                 sessionId = "s1",
                 triggerType = TriggerType.MANUAL,
-                phase = AcquisitionPhase.AwaitingManualSubmit,
+                phase = AcquisitionPhase.Completed,
                 startedAtElapsedRealtimeMs = 1000L,
                 deadlineAtElapsedRealtimeMs = 31000L,
                 elapsedMs = 5000L,
+                lastQualityFlags = setOf("low-quality-accuracy"),
                 bestLocation = LocationSnapshot(
                     latitude = 39.9042,
                     longitude = 116.4074,
-                    horizontalAccuracyMeters = 10f,
+                    horizontalAccuracyMeters = 45f,
                     provider = "fused",
                     source = "manual",
                     altitudeMeters = 50.0,
@@ -170,31 +168,10 @@ class LocationViewModelTest {
             queueSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0)
         )
 
-        assertEquals("等待提交", state.phaseLabel)
-        assertFalse(state.showStart)
-        assertFalse(state.showCancel)
-        assertTrue(state.showSubmit)
+        assertEquals("已完成", state.phaseLabel)
         assertTrue(state.showRestart)
-        assertFalse(state.isSubmitting)
-    }
-
-    @Test
-    fun `enqueuing phase shows submitting disabled state`() {
-        val state = mapToLocationUiState(
-            acqState = LocationAcquisitionState(
-                sessionId = "s1",
-                triggerType = TriggerType.MANUAL,
-                phase = AcquisitionPhase.Enqueuing,
-                startedAtElapsedRealtimeMs = 1000L,
-                deadlineAtElapsedRealtimeMs = 31000L,
-                elapsedMs = 6000L
-            ),
-            queueSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0)
-        )
-
-        assertEquals("提交中", state.phaseLabel)
-        assertTrue(state.isSubmitting)
-        assertFalse(state.showSubmit)
+        assertFalse(state.showCancel)
+        assertTrue(state.showLowQualityWarning)
     }
 
     @Test
@@ -214,8 +191,7 @@ class LocationViewModelTest {
         assertEquals("已完成", state.phaseLabel)
         assertTrue(state.showRestart)
         assertFalse(state.showCancel)
-        assertFalse(state.showSubmit)
-        assertFalse(state.isSubmitting)
+        assertFalse(state.showLowQualityWarning)
     }
 
     @Test
@@ -235,7 +211,6 @@ class LocationViewModelTest {
         assertEquals("已取消", state.phaseLabel)
         assertTrue(state.showRestart)
         assertFalse(state.showCancel)
-        assertFalse(state.showSubmit)
     }
 
     @Test
@@ -277,51 +252,6 @@ class LocationViewModelTest {
     }
 
     @Test
-    fun `auto session shows auto labels and disabled start`() {
-        val state = mapToLocationUiState(
-            acqState = LocationAcquisitionState(
-                sessionId = "s2",
-                triggerType = TriggerType.AUTOMATIC,
-                phase = AcquisitionPhase.Acquiring,
-                startedAtElapsedRealtimeMs = 1000L,
-                deadlineAtElapsedRealtimeMs = 31000L,
-                elapsedMs = 2000L
-            ),
-            queueSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0)
-        )
-
-        assertEquals("自动定位", state.triggerLabel)
-        assertFalse(state.manualStartEnabled)
-        assertTrue(state.showStart)
-        assertTrue(state.showCancel)
-    }
-
-    @Test
-    fun `auto session in every busy phase keeps start visible but disabled`() {
-        for (phase in listOf(
-            AcquisitionPhase.Preparing,
-            AcquisitionPhase.Acquiring,
-            AcquisitionPhase.Evaluating
-        )) {
-            val state = mapToLocationUiState(
-                acqState = LocationAcquisitionState(
-                    sessionId = "s2",
-                    triggerType = TriggerType.AUTOMATIC,
-                    phase = phase,
-                    startedAtElapsedRealtimeMs = 1000L,
-                    deadlineAtElapsedRealtimeMs = 31000L,
-                    elapsedMs = 2000L
-                ),
-                queueSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0)
-            )
-
-            assertTrue("auto $phase must keep start visible", state.showStart)
-            assertFalse("auto $phase must disable start", state.manualStartEnabled)
-            assertTrue("auto $phase must show cancel", state.showCancel)
-        }
-    }
-
-    @Test
     fun `auto session idle does not disable manual start`() {
         val state = mapToLocationUiState(
             acqState = LocationAcquisitionState(phase = AcquisitionPhase.Idle),
@@ -355,7 +285,7 @@ class LocationViewModelTest {
             acqState = LocationAcquisitionState(
                 sessionId = "s1",
                 triggerType = TriggerType.MANUAL,
-                phase = AcquisitionPhase.AwaitingManualSubmit,
+                phase = AcquisitionPhase.Completed,
                 bestLocation = LocationSnapshot(
                     latitude = 39.9042,
                     longitude = 116.4074,
@@ -391,7 +321,7 @@ class LocationViewModelTest {
             acqState = LocationAcquisitionState(
                 sessionId = "s1",
                 triggerType = TriggerType.MANUAL,
-                phase = AcquisitionPhase.AwaitingManualSubmit,
+                phase = AcquisitionPhase.Completed,
                 bestLocation = LocationSnapshot(
                     latitude = 39.9042,
                     longitude = 116.4074,
@@ -647,19 +577,16 @@ class LocationViewModelTest {
         ))
         advanceUntilIdle()
 
-        assertTrue(
-            "coordinator must reach AwaitingManualSubmit before submit",
-            coordinator.state.value.phase == AcquisitionPhase.AwaitingManualSubmit
+        assertEquals(
+            "manual result must enqueue directly through the shared engine",
+            1,
+            ops.enqueueCount
         )
-
-        viewModel.submit()
-        advanceUntilIdle()
-
-        assertEquals("submit must enqueue exactly once", 1, ops.enqueueCount)
         assertEquals("manual", ops.lastSource)
-        assertTrue(
-            "coordinator must reach Completed after successful submit",
-            coordinator.state.value.phase == AcquisitionPhase.Completed
+        assertEquals(
+            "coordinator must reach Completed after direct enqueue",
+            AcquisitionPhase.Completed,
+            coordinator.state.value.phase
         )
     }
 
@@ -667,5 +594,31 @@ class LocationViewModelTest {
         while (shadowOf(application).nextStartedService != null) {
             // Drain intents left by earlier actions in the shared Robolectric application.
         }
+    }
+
+    @Test
+    fun `high speed active maps to ui state with elapsed`() {
+        val state = mapToLocationUiState(
+            acqState = LocationAcquisitionState(),
+            queueSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0),
+            runtime = ForegroundLocationRuntimeState(
+                highSpeedActive = true,
+                highSpeedElapsedSeconds = 95L
+            )
+        )
+
+        assertTrue(state.highSpeedActive)
+        assertEquals(95L, state.highSpeedElapsedSeconds)
+    }
+
+    @Test
+    fun `high speed inactive maps to default ui state`() {
+        val state = mapToLocationUiState(
+            acqState = LocationAcquisitionState(),
+            queueSnapshot = QueueStatusSnapshot(0, 0, 0, 0, 0, 0)
+        )
+
+        assertFalse(state.highSpeedActive)
+        assertEquals(0L, state.highSpeedElapsedSeconds)
     }
 }

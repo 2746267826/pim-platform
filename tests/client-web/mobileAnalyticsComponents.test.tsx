@@ -4,8 +4,6 @@ import { createRequire } from 'node:module';
 import type {
   MobileAnalyticsChart,
   MobileAnalyticsOverview,
-  MobileAppCatalogOverride,
-  MobileAppCategoryRule,
   MobileDevice,
   MobileHeatmapBucket,
   MobileSessionEvent,
@@ -20,7 +18,7 @@ import { buildHeatmapMatrix } from '../../src/client-web/src/components/mobile/m
 import MobileChartsGrid from '../../src/client-web/src/components/mobile/MobileChartsGrid';
 import MobileTimelineBlocks from '../../src/client-web/src/components/mobile/MobileTimelineBlocks';
 import MobileAnomalyPanel from '../../src/client-web/src/components/mobile/MobileAnomalyPanel';
-import MobileAppCatalogManager from '../../src/client-web/src/components/mobile/MobileAppCatalogManager';
+import { buildAnalyticsChartOption } from '../../src/client-web/src/components/charts/mobileChartOptions';
 
 const requireFromClient = createRequire(path.join(process.cwd(), 'src/client-web/package.json'));
 const React = requireFromClient('react') as typeof import('react');
@@ -232,27 +230,6 @@ const event: MobileSessionEvent = {
   rawJson: '{"eventType":"MOVE_TO_FOREGROUND"}',
 };
 
-const overrides: MobileAppCatalogOverride[] = [
-  {
-    packageName: 'com.ss.android.ugc.aweme',
-    displayNameOverride: '抖音',
-    lifeCategory: '短视频/娱乐',
-    isSystemNoise: false,
-    hideShortEvents: true,
-  },
-];
-
-const rules: MobileAppCategoryRule[] = [
-  {
-    id: 'rule-1',
-    ruleType: 'package-prefix',
-    pattern: 'com.tencent.',
-    lifeCategory: '社交通讯',
-    priority: 80,
-    isEnabled: true,
-  },
-];
-
 test('mobile analytics workbench renders real Chinese copy and all major panels', () => {
   const html = [
     renderToStaticMarkup(
@@ -280,7 +257,6 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
       React.createElement(MobileUsageHeatmap, {
         buckets,
         granularity: 'hour',
-        selectedBucketStartUtc: buckets[0].bucketStartUtc,
         isLoading: false,
         onGranularityChange: () => undefined,
         onBucketSelect: () => undefined,
@@ -318,18 +294,6 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
         isLoading: false,
       }),
     ),
-    renderToStaticMarkup(
-      React.createElement(MobileAppCatalogManager, {
-        overrides,
-        rules,
-        isLoading: false,
-        isSaving: false,
-        onSaveOverride: () => undefined,
-        onDeleteOverride: () => undefined,
-        onSaveRule: () => undefined,
-        onDeleteRule: () => undefined,
-      }),
-    ),
   ].join('\n');
 
   for (const text of [
@@ -361,14 +325,17 @@ test('mobile analytics workbench renders real Chinese copy and all major panels'
     '切换趋势',
     '异常与建议',
     '使用时间线',
-    '应用管理',
-    '批量规则',
-    '隐藏系统噪声',
   ]) {
     assert.equal(html.includes(text), true, `analytics UI should include: ${text}`);
   }
 
-  assert.equal(html.includes('com.tencent.mm'), true, 'Top App 行应保留包名作为二级诊断信息');
+  assert.equal(html.includes('com.tencent.mm'), false, 'Top App 包名移到 ECharts 数据层，不再出现在静态 HTML');
+  const topAppsOption = buildAnalyticsChartOption(charts.find(chart => chart.chartType === 'top-apps')!) as any;
+  assert.equal(
+    topAppsOption.series[0].data[0].packageName,
+    'com.tencent.mm',
+    'Top App 数据项携带包名供点击反查',
+  );
   assert.equal(html.includes('深夜使用偏高'), true);
   assert.equal(html.includes('抖音'), true);
   assert.equal(html.includes('原始事件'), true);

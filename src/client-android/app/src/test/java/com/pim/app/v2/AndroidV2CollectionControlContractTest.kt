@@ -159,14 +159,14 @@ class AndroidV2CollectionControlContractTest {
             "ForegroundLocationService.kt"
         ).readText(Charsets.UTF_8)
 
-        val register = service.indexOf("motionSignalRepository.registerActivityTransitions()")
-        val startAutomaticSession = service.indexOf("locationAcquisitionCoordinator.startAutomaticSession(")
-        val unregister = service.indexOf("motionSignalRepository.unregisterActivityTransitions()")
+        val register = service.indexOf("motionSignalRepository.register()")
+        val startAutomaticStream = service.indexOf("locationAcquisitionCoordinator.startAutomaticStream(")
+        val unregister = service.indexOf("motionSignalRepository.unregister()")
 
-        assertTrue("motion transitions must be registered before automatic acquisition", register >= 0)
-        assertTrue(startAutomaticSession >= 0)
-        assertTrue(register < startAutomaticSession)
-        assertTrue("motion transitions must be unregistered when collection stops", unregister >= 0)
+        assertTrue("self motion detection must be registered before automatic acquisition", register >= 0)
+        assertTrue(startAutomaticStream >= 0)
+        assertTrue(register < startAutomaticStream)
+        assertTrue("self motion detection must be unregistered when collection stops", unregister >= 0)
     }
 
     private fun repoFile(vararg parts: String): File {

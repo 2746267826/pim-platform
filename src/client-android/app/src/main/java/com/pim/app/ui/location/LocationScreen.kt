@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pim.app.location.highspeed.highSpeedElapsedText
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -39,7 +40,6 @@ fun LocationScreen(
         state = state,
         onStart = { viewModel.startOrRestart() },
         onCancel = { viewModel.cancel() },
-        onSubmit = { viewModel.submit() },
         onRestart = { viewModel.startOrRestart() },
         onOpenSettings = onOpenSettings,
         modifier = modifier
@@ -51,7 +51,6 @@ internal fun LocationScreen(
     state: LocationUiState,
     onStart: () -> Unit,
     onCancel: () -> Unit,
-    onSubmit: () -> Unit,
     onRestart: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
@@ -68,7 +67,7 @@ internal fun LocationScreen(
 
         item { Divider() }
 
-        item { ActionsSection(state, onStart, onCancel, onSubmit, onRestart, onOpenSettings) }
+        item { ActionsSection(state, onStart, onCancel, onRestart, onOpenSettings) }
 
         item { Divider() }
 
@@ -110,6 +109,22 @@ private fun StatusSection(state: LocationUiState) {
             Spacer(Modifier.width(8.dp))
             Text(state.deadlineText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
         }
+
+        if (state.highSpeedActive) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("location-highspeed-status")
+            ) {
+                Text("高速轨迹", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "记录中 · ${highSpeedElapsedText(state.highSpeedElapsedSeconds)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
     }
 }
 
@@ -149,7 +164,6 @@ private fun ActionsSection(
     state: LocationUiState,
     onStart: () -> Unit,
     onCancel: () -> Unit,
-    onSubmit: () -> Unit,
     onRestart: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
@@ -180,20 +194,6 @@ private fun ActionsSection(
             }
         }
 
-        if (state.showSubmit || state.isSubmitting) {
-            Button(
-                onClick = onSubmit,
-                modifier = Modifier.fillMaxWidth().testTag("location-submit"),
-                enabled = !state.isSubmitting
-            ) {
-                if (state.isSubmitting) {
-                    Text("提交中", modifier = Modifier.testTag("location-submit-progress"))
-                } else {
-                    Text("提交位置")
-                }
-            }
-        }
-
         if (state.showRestart) {
             OutlinedButton(
                 onClick = onRestart,
@@ -210,6 +210,17 @@ private fun ActionsSection(
             ) {
                 Text("打开设置")
             }
+        }
+
+        if (state.showLowQualityWarning) {
+            Text(
+                "精度不足，已标记低质量",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("location-low-quality-warning")
+            )
         }
 
         if (state.errorMessage != null) {

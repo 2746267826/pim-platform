@@ -1,18 +1,42 @@
-import { Link } from 'react-router-dom';
-import EmptyState from '../../ui/EmptyState';
+import { useEffect, useState } from 'react';
 import StatusBadge from '../../ui/StatusBadge';
+import { fetchLabelingQueue } from '../../api/classificationLabeling';
+import FirstLabelingWizard from '../labeling/FirstLabelingWizard';
+import LabelingQueue from '../labeling/LabelingQueue';
 import type { ClassificationSuggestionsTodayData, TodaySection } from '../../types';
-
-function formatMinutes(totalDurationSeconds: number) {
-  return `${Math.round(totalDurationSeconds / 60)} 分钟`;
-}
 
 export default function TodayClassificationSuggestionsSection({
   section,
 }: {
   section: TodaySection<ClassificationSuggestionsTodayData>;
 }) {
-  const { pendingCount, suggestions } = section.data;
+  const { pendingCount } = section.data;
+  const [queueEmpty, setQueueEmpty] = useState<boolean | null>(null);
+  const [showWizard, setShowWizard] = useState(false);
+
+  // 常规打标队列为空时引导新用户完成 Top 50 问卷（FirstLabelingWizard，走 wizard 数据源）；
+  // 向导完成/跳过（onDone）后切回常规打标队列视图（即使仍为空也显示常规空态，避免死循环）。
+  useEffect(() => {
+    let cancelled = false;
+    fetchLabelingQueue(1)
+      .then(queue => {
+        if (cancelled) return;
+        const empty = (queue.items ?? []).length === 0;
+        setQueueEmpty(empty);
+        if (empty) setShowWizard(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setQueueEmpty(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleWizardDone = () => {
+    setShowWizard(false);
+  };
 
   return (
     <section className="pim-panel min-w-0 p-4">
@@ -22,25 +46,13 @@ export default function TodayClassificationSuggestionsSection({
       </div>
 
       <div className="space-y-3">
-        {pendingCount === 0 ? (
-          <EmptyState title="暂无分类建议" description="新的 PC 活动建议会显示在这里。" />
+        {queueEmpty === null ? (
+          <p className="text-sm text-slate-500">正在加载待分类项…</p>
+        ) : showWizard ? (
+          <FirstLabelingWizard onDone={handleWizardDone} />
         ) : (
-          <div className="space-y-2">
-            {suggestions.slice(0, 3).map(suggestion => (
-              <div key={suggestion.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="truncate text-sm font-medium text-slate-900">
-                  {suggestion.suggestedCategory || suggestion.currentCategory || suggestion.clusterKey}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {suggestion.sampleCount} 条样本 · {formatMinutes(suggestion.totalDurationSeconds)}
-                </p>
-              </div>
-            ))}
-          </div>
+          <LabelingQueue limit={5} compact />
         )}
-        <Link className="text-sm font-medium text-blue-600 hover:text-blue-700" to="/pc-tracker">
-          查看分类建议
-        </Link>
       </div>
     </section>
   );

@@ -6,7 +6,8 @@ enum class LocationPolicyMode {
     ScheduleLowFrequency,
     MotionObservation,
     MovementRecovery,
-    SyncFallback
+    SyncFallback,
+    HighSpeed
 }
 
 object TrackingIntervalBounds {
@@ -16,11 +17,14 @@ object TrackingIntervalBounds {
     const val SCHEDULE_MAX_MILLIS = 3_600_000L
     const val MOVEMENT_MIN_MILLIS = 30_000L
     const val MOVEMENT_MAX_MILLIS = 300_000L
+    const val HIGH_SPEED_INTERVAL_MILLIS = 2_500L
 }
 
 fun TrackingPolicy.movementIntervalFor(signal: MotionSignal): Long = when (signal) {
-    MotionSignal.OnBicycle, MotionSignal.InVehicle ->
-        (movementIntervalMillis / 2L).coerceAtLeast(TrackingIntervalBounds.MOVEMENT_MIN_MILLIS)
+    MotionSignal.Running,
+    MotionSignal.OnBicycle,
+    MotionSignal.InVehicle,
+    MotionSignal.Moving -> TrackingIntervalBounds.MOVEMENT_MIN_MILLIS
     else -> movementIntervalMillis
 }.coerceIn(
     TrackingIntervalBounds.MOVEMENT_MIN_MILLIS,
@@ -32,8 +36,7 @@ data class TrackingPolicy(
     val scheduleLowFrequencyIntervalMillis: Long = 15 * 60 * 1000L,
     val movementIntervalMillis: Long = 60 * 1000L,
     val scheduleRecoveryThresholdMeters: Double = 100.0,
-    val altitudeWaitTimeoutMillis: Long = 15 * 1000L,
-    val maxUploadAccuracyMetersExclusive: Float = 50f
+    val altitudeWaitTimeoutMillis: Long = 15 * 1000L
 )
 
 data class PolicyDecision(
@@ -61,7 +64,8 @@ enum class MotionSignal(val displayName: String) {
     Walking("步行"),
     Running("跑步"),
     OnBicycle("骑行"),
-    InVehicle("车载")
+    InVehicle("车载"),
+    Moving("移动中")
 }
 
 data class PolicyLocation(
@@ -74,5 +78,6 @@ data class LocationPolicyInput(
     val nowMillis: Long,
     val collectionEnabled: Boolean,
     val currentScheduleWindow: ScheduleWindow? = null,
-    val motionSignal: MotionSignal = MotionSignal.Unknown
+    val motionSignal: MotionSignal = MotionSignal.Unknown,
+    val speedMetersPerSecond: Float? = null
 )

@@ -34,6 +34,7 @@ object StatusDisplayText {
         "MotionObservation" -> "运动观察"
         "MovementRecovery" -> "移动恢复"
         "SyncFallback" -> "同步兜底"
+        "HighSpeed" -> "高速轨迹"
         null, "" -> "暂无"
         else -> "未知状态"
     }

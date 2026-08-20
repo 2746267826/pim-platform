@@ -26,6 +26,7 @@ import type {
 import PageHeader from '../ui/PageHeader';
 import { Copy, ExternalLink, RefreshCw, Wifi, X } from 'lucide-react';
 import { outlookSyncInvalidationKeys } from '../utils/outlookSyncInvalidation';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 function mapUiStatus(uiStatus?: string | null): string {
   switch (uiStatus) {
@@ -101,7 +102,7 @@ export default function SyncPage() {
   const { data: batchesData, isLoading: batchesLoading } = useQuery({
     queryKey: ['outlook-sync-batches', batchesPage],
     queryFn: () => getOutlookSyncBatchesPaged({ page: batchesPage, pageSize: 20 }),
-    refetchInterval: 30_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const settingsMutation = useMutation({

@@ -37,7 +37,6 @@ class LocationScreenTest {
                     state = uiState.value,
                     onStart = {},
                     onCancel = {},
-                    onSubmit = {},
                     onRestart = {},
                     onOpenSettings = {}
                 )
@@ -66,7 +65,7 @@ class LocationScreenTest {
         )
         composeTestRule.setContent {
             PimTheme {
-                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onRestart = {}, onOpenSettings = {})
             }
         }
         composeTestRule.onNodeWithTag("location-start").assertIsDisplayed()
@@ -85,62 +84,10 @@ class LocationScreenTest {
         )
         composeTestRule.setContent {
             PimTheme {
-                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onRestart = {}, onOpenSettings = {})
             }
         }
         composeTestRule.onNodeWithTag("location-cancel").performScrollTo().assertIsDisplayed()
-    }
-
-    @Test
-    fun awaitingSubmitShowsSubmitAndRestart() {
-        val uiState = mutableStateOf(
-            LocationUiState(
-                triggerLabel = "手动定位",
-                phaseLabel = "等待提交",
-                showSubmit = true,
-                showRestart = true,
-                bestLocation = LocationSnapshot(
-                    latitude = 39.9042,
-                    longitude = 116.4074,
-                    horizontalAccuracyMeters = 10f,
-                    provider = "fused",
-                    source = "manual",
-                    altitudeMeters = 50.0,
-                    speedMetersPerSecond = 1.2f,
-                    bearingDegrees = 180f,
-                    timeMillis = 1000000L
-                )
-            )
-        )
-        composeTestRule.setContent {
-            PimTheme {
-                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
-            }
-        }
-        composeTestRule.onNodeWithTag("location-submit").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithTag("location-restart").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("提交位置").assertIsDisplayed()
-        composeTestRule.onNodeWithText("重新定位").assertIsDisplayed()
-    }
-
-    @Test
-    fun enqueuingShowsDisabledSubmitTag() {
-        val uiState = mutableStateOf(
-            LocationUiState(
-                triggerLabel = "手动定位",
-                phaseLabel = "提交中",
-                isSubmitting = true
-            )
-        )
-        composeTestRule.setContent {
-            PimTheme {
-                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
-            }
-        }
-        composeTestRule.onNodeWithTag("location-submit").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithTag("location-submit-progress", useUnmergedTree = true)
-            .assertTextEquals("提交中")
-            .assertIsDisplayed()
     }
 
     @Test
@@ -154,7 +101,7 @@ class LocationScreenTest {
         )
         composeTestRule.setContent {
             PimTheme {
-                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onRestart = {}, onOpenSettings = {})
             }
         }
         composeTestRule.onNodeWithTag("location-restart").performScrollTo().assertIsDisplayed()
@@ -173,7 +120,7 @@ class LocationScreenTest {
         )
         composeTestRule.setContent {
             PimTheme {
-                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onRestart = {}, onOpenSettings = {})
             }
         }
         composeTestRule.onNodeWithTag("location-open-settings").assertIsDisplayed()
@@ -197,7 +144,6 @@ class LocationScreenTest {
                     state = uiState.value,
                     onStart = {},
                     onCancel = {},
-                    onSubmit = {},
                     onRestart = {},
                     onOpenSettings = { settingsOpened = true }
                 )
@@ -214,8 +160,7 @@ class LocationScreenTest {
         val uiState = mutableStateOf(
             LocationUiState(
                 triggerLabel = "手动定位",
-                phaseLabel = "等待提交",
-                showSubmit = true,
+                phaseLabel = "已完成",
                 showRestart = true,
                 bestLocation = LocationSnapshot(
                     latitude = 39.9042,
@@ -232,7 +177,7 @@ class LocationScreenTest {
         )
         composeTestRule.setContent {
             PimTheme {
-                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onRestart = {}, onOpenSettings = {})
             }
         }
         composeTestRule.onNodeWithTag("location-accuracy").performScrollTo().assertIsDisplayed()
@@ -250,8 +195,7 @@ class LocationScreenTest {
         val uiState = mutableStateOf(
             LocationUiState(
                 triggerLabel = "手动定位",
-                phaseLabel = "等待提交",
-                showSubmit = true,
+                phaseLabel = "已完成",
                 showRestart = true,
                 bestLocation = LocationSnapshot(
                     latitude = 39.9042,
@@ -268,7 +212,7 @@ class LocationScreenTest {
         )
         composeTestRule.setContent {
             PimTheme {
-                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onRestart = {}, onOpenSettings = {})
             }
         }
         composeTestRule.onNodeWithTag("location-accuracy").performScrollTo().assertIsDisplayed()
@@ -288,7 +232,7 @@ class LocationScreenTest {
         )
         composeTestRule.setContent {
             PimTheme {
-                LocationScreen(state = manualState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+                LocationScreen(state = manualState.value, onStart = {}, onCancel = {}, onRestart = {}, onOpenSettings = {})
             }
         }
         composeTestRule.onNodeWithText("手动定位").assertIsDisplayed()
@@ -302,7 +246,7 @@ class LocationScreenTest {
         )
         composeTestRule.setContent {
             PimTheme {
-                LocationScreen(state = uiState.value, onStart = { started = true }, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+                LocationScreen(state = uiState.value, onStart = { started = true }, onCancel = {}, onRestart = {}, onOpenSettings = {})
             }
         }
         composeTestRule.onNodeWithTag("location-start").performClick()
@@ -317,7 +261,7 @@ class LocationScreenTest {
         )
         composeTestRule.setContent {
             PimTheme {
-                LocationScreen(state = uiState.value, onStart = {}, onCancel = { cancelled = true }, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+                LocationScreen(state = uiState.value, onStart = {}, onCancel = { cancelled = true }, onRestart = {}, onOpenSettings = {})
             }
         }
         composeTestRule.onNodeWithTag("location-cancel").performClick()
@@ -337,7 +281,7 @@ class LocationScreenTest {
         )
         composeTestRule.setContent {
             PimTheme {
-                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onRestart = {}, onOpenSettings = {})
             }
         }
         composeTestRule.onNodeWithTag("location-start")
@@ -361,7 +305,7 @@ class LocationScreenTest {
         )
         composeTestRule.setContent {
             PimTheme {
-                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onRestart = {}, onOpenSettings = {})
             }
         }
         composeTestRule.onNodeWithTag("location-start").assertDoesNotExist()
@@ -381,7 +325,7 @@ class LocationScreenTest {
         )
         composeTestRule.setContent {
             PimTheme {
-                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onSubmit = {}, onRestart = {}, onOpenSettings = {})
+                LocationScreen(state = uiState.value, onStart = {}, onCancel = {}, onRestart = {}, onOpenSettings = {})
             }
         }
         composeTestRule.onNodeWithTag("location-pending-total").performScrollTo().assertIsDisplayed()

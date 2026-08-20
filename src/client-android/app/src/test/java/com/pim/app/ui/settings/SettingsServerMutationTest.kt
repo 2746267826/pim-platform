@@ -369,7 +369,6 @@ class SettingsServerMutationTest {
         fixture.viewModel.updateScheduleMinText("61")
         fixture.viewModel.updateMovementSecText("29")
         fixture.viewModel.updateRecoveryMetersText("NaN")
-        fixture.viewModel.updateAccuracyMetersText("51")
         fixture.viewModel.updateAltitudeSecText("31")
 
         assertFalse(fixture.viewModel.saveAdvancedSettings())
@@ -379,7 +378,6 @@ class SettingsServerMutationTest {
         assertTrue(state.advancedErrors.containsKey("scheduleInterval"))
         assertTrue(state.advancedErrors.containsKey("movementInterval"))
         assertTrue(state.advancedErrors.containsKey("recoveryThreshold"))
-        assertTrue(state.advancedErrors.containsKey("accuracy"))
         assertTrue(state.advancedErrors.containsKey("altitudeWait"))
         assertEquals(Long.MAX_VALUE.toString(), state.normalMinText)
         assertEquals("61", state.scheduleMinText)
@@ -394,7 +392,6 @@ class SettingsServerMutationTest {
         fixture.viewModel.updateScheduleMinText("30")
         fixture.viewModel.updateMovementSecText("45")
         fixture.viewModel.updateRecoveryMetersText("75.5")
-        fixture.viewModel.updateAccuracyMetersText("35.5")
         fixture.viewModel.updateAltitudeSecText("20")
 
         assertTrue(fixture.viewModel.saveAdvancedSettings())
@@ -405,7 +402,6 @@ class SettingsServerMutationTest {
         assertEquals(1_800_000L, stored.scheduleLowFrequencyIntervalMillis)
         assertEquals(45_000L, stored.movementIntervalMillis)
         assertEquals(75.5, stored.scheduleRecoveryThresholdMeters, 0.001)
-        assertEquals(35.5f, stored.maxUploadAccuracyMetersExclusive)
         assertEquals(20_000L, stored.altitudeWaitTimeoutMillis)
         val state = fixture.viewModel.state.value
         assertEquals("custom", state.trackingProfile)
@@ -614,7 +610,6 @@ class SettingsServerMutationTest {
         assertEquals("15", state.scheduleMinText)
         assertEquals("60", state.movementSecText)
         assertEquals("100", state.recoveryMetersText)
-        assertEquals("50", state.accuracyMetersText)
         assertEquals("15", state.altitudeSecText)
     }
 
@@ -626,7 +621,6 @@ class SettingsServerMutationTest {
         assertEquals("15", state.scheduleMinText)
         assertEquals("60", state.movementSecText)
         assertEquals("100", state.recoveryMetersText)
-        assertEquals("50", state.accuracyMetersText)
         assertEquals("15", state.altitudeSecText)
     }
 
@@ -637,7 +631,6 @@ class SettingsServerMutationTest {
         fixture.viewModel.updateScheduleMinText("30.5")
         fixture.viewModel.updateMovementSecText("45.5")
         fixture.viewModel.updateRecoveryMetersText("75.3")
-        fixture.viewModel.updateAccuracyMetersText("35.3")
         fixture.viewModel.updateAltitudeSecText("20.5")
 
         assertTrue(fixture.viewModel.saveAdvancedSettings())
@@ -647,7 +640,6 @@ class SettingsServerMutationTest {
         assertEquals(1_830_000L, stored.scheduleLowFrequencyIntervalMillis)
         assertEquals(45_500L, stored.movementIntervalMillis)
         assertEquals(75.3, stored.scheduleRecoveryThresholdMeters, 0.001)
-        assertEquals(35.3f, stored.maxUploadAccuracyMetersExclusive)
         assertEquals(20_500L, stored.altitudeWaitTimeoutMillis)
 
         val state = fixture.viewModel.state.value
@@ -655,7 +647,6 @@ class SettingsServerMutationTest {
         assertEquals("30.5", state.scheduleMinText)
         assertEquals("45.5", state.movementSecText)
         assertEquals("75.3", state.recoveryMetersText)
-        assertEquals("35.3", state.accuracyMetersText)
         assertEquals("20.5", state.altitudeSecText)
     }
 
@@ -669,7 +660,6 @@ class SettingsServerMutationTest {
         assertEquals("10", state.scheduleMinText)
         assertEquals("45", state.movementSecText)
         assertEquals("75", state.recoveryMetersText)
-        assertEquals("35", state.accuracyMetersText)
         assertEquals("20", state.altitudeSecText)
     }
 
@@ -681,7 +671,6 @@ class SettingsServerMutationTest {
         fixture.viewModel.updateScheduleMinText("NaN")
         fixture.viewModel.updateMovementSecText("NaN")
         fixture.viewModel.updateRecoveryMetersText("100")
-        fixture.viewModel.updateAccuracyMetersText("30")
         fixture.viewModel.updateAltitudeSecText("NaN")
 
         assertFalse(fixture.viewModel.saveAdvancedSettings())
@@ -691,13 +680,11 @@ class SettingsServerMutationTest {
         assertTrue(state.advancedErrors.containsKey("scheduleInterval"))
         assertTrue(state.advancedErrors.containsKey("movementInterval"))
         assertFalse(state.advancedErrors.containsKey("recoveryThreshold"))
-        assertFalse(state.advancedErrors.containsKey("accuracy"))
         assertTrue(state.advancedErrors.containsKey("altitudeWait"))
         assertEquals("NaN", state.normalMinText)
         assertEquals("NaN", state.scheduleMinText)
         assertEquals("NaN", state.movementSecText)
         assertEquals("100", state.recoveryMetersText)
-        assertEquals("30", state.accuracyMetersText)
         assertEquals("NaN", state.altitudeSecText)
         assertEquals(before, fixture.trackingSettings.read())
     }
@@ -718,7 +705,6 @@ class SettingsServerMutationTest {
 
         fixture.viewModel.updateNormalMinText("2")
         fixture.viewModel.updateMovementSecText("45")
-        fixture.viewModel.updateAccuracyMetersText("35")
         fixture.viewModel.updateAltitudeSecText("20")
         fixture.viewModel.saveAdvancedSettings()
 

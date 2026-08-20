@@ -20,6 +20,7 @@ import type { CalendarLayerId, EventResponse, TaskResponse } from '../types';
 import { looksLikeHtml, sanitizeDescriptionHtml } from '../utils/safeHtml';
 import { buildCalendarEvents, type CalendarEventInput, type CalendarEventProps } from '../utils/calendarEvents';
 import { getPlannedEndForDrop, toLocalDateTimeInputValue } from '../utils/dropDuration';
+import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 type CalendarMode = 'timeline' | 'month';
 type CalendarLayerToggleId = CalendarLayerId;
@@ -111,7 +112,7 @@ export default function CalendarPage() {
       layers: enabledLayerIds,
       outlookOnly,
     }),
-    refetchInterval: 60_000,
+    refetchInterval: getDeferredAutoRefreshInterval,
   });
 
   const { hiddenCalendarIds } = useCalendarVisibility();

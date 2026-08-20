@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import EmptyState from '../../ui/EmptyState';
 import StatusBadge from '../../ui/StatusBadge';
 import type { PcQualityTodayData, TodaySection, TodaySectionStatus } from '../../types';
+import EChartBox from '../charts/EChartBox';
+import { buildQualityRingOption } from '../charts/pcTodayOptions';
 
 function statusTone(status?: TodaySectionStatus | string) {
   if (status === 'critical' || status === 'Critical') return 'danger';
@@ -13,6 +15,8 @@ function statusTone(status?: TodaySectionStatus | string) {
 export default function TodayPcQualitySection({ section }: { section: TodaySection<PcQualityTodayData> }) {
   const { quality, issueCount } = section.data;
   const firstNextStep = quality.nextSteps[0] || quality.issues.find(issue => issue.nextStep)?.nextStep;
+  const healthyComponents = quality.components.filter(component => component.status === 'Healthy').length;
+  const totalComponents = quality.components.length;
 
   return (
     <section className="pim-panel min-w-0 p-4">
@@ -24,6 +28,11 @@ export default function TodayPcQualitySection({ section }: { section: TodaySecti
       </div>
 
       <div className="space-y-3">
+        <EChartBox
+          option={buildQualityRingOption(healthyComponents, totalComponents)}
+          height={120}
+          ariaLabel="PC 数据质量完成率"
+        />
         <p className="text-sm leading-6 text-slate-600">{quality.message}</p>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-slate-50 p-3">

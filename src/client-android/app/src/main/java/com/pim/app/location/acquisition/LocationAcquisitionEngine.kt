@@ -31,12 +31,35 @@ interface LocationAcquisitionRunner {
         onCandidate: suspend (LocationSnapshot) -> Unit,
         onAvailabilityChanged: suspend (Boolean) -> Unit = {}
     ): LocationEngineResult
+
+    /**
+     * 常驻流：按 [LocationUpdateRequest] 的 interval 持续回调候选 fix，
+     * 直到协程被取消（durationMillis <= 0 时 LocationRequest 无时限）。
+     */
+    suspend fun stream(
+        request: LocationUpdateRequest,
+        onCandidate: suspend (LocationSnapshot) -> Unit
+    )
 }
 
 @Singleton
 class LocationAcquisitionEngine @Inject constructor(
     private val source: LocationUpdateSource
 ) : LocationAcquisitionRunner {
+
+    override suspend fun stream(
+        request: LocationUpdateRequest,
+        onCandidate: suspend (LocationSnapshot) -> Unit
+    ) {
+        source.updates(request).collect { event ->
+            when (event) {
+                is LocationUpdateEvent.Candidate -> onCandidate(event.location)
+                is LocationUpdateEvent.Availability -> {
+                    // 常驻流忽略可用性事件
+                }
+            }
+        }
+    }
 
     override suspend fun acquire(
         request: LocationEngineRequest,

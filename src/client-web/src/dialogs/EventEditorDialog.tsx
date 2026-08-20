@@ -163,7 +163,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
     if (!event) return undefined;
     return event.recurrenceId || undefined;
   }
-  function resolveOriginalEventIdForScope(scope: string): string | undefined {
+  function resolveOriginalEventIdForScope(_scope: string): string | undefined {
     if (!event) return undefined;
     const isOccurrence = !!event.seriesMasterId || !!event.isException || (!!event.originalEventId && event.id !== event.originalEventId);
     if (!isOccurrence) return undefined;

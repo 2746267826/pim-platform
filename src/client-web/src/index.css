@@ -507,6 +507,26 @@ textarea {
   color: #a16207;
 }
 
+.calendar-event--cancelled {
+  opacity: 0.55;
+  text-decoration: line-through;
+  filter: grayscale(0.35);
+}
+
+.calendar-event-cancelled {
+  display: none;
+  color: #64748b;
+  font-size: 0.62rem;
+  font-weight: 600;
+}
+
+.calendar-event-card[data-content-level="3"] > .calendar-event-cancelled,
+.calendar-event-card[data-content-level="4"] > .calendar-event-cancelled,
+.calendar-event-card[data-content-level="5"] > .calendar-event-cancelled,
+.calendar-event-card.calendar-event--cancelled > .calendar-event-cancelled {
+  display: inline-flex;
+}
+
 /* ── Unified event editor sections ─────────────────────────────────────── */
 
 .event-editor-section {

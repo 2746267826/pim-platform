@@ -51,6 +51,7 @@ export function buildCalendarEvents(
       const cal = calMap.get(event.calendarId);
       const accentColor = cal?.color ?? '#2563eb';
       const calendarLabel = calendarDisplayName(cal) ?? eventSourceDisplayName(event.source);
+      const isCancelled = event.isCancelled ?? event.status === 'CANCELLED';
 
       return {
         id: event.id,
@@ -58,6 +59,7 @@ export function buildCalendarEvents(
         start: event.dtStart,
         end: event.dtEnd,
         allDay: event.isAllDay,
+        classNames: isCancelled ? ['calendar-event--cancelled'] : undefined,
         extendedProps: {
           type: 'event' as const,
           raw: event,

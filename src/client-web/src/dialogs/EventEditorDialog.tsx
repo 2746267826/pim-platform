@@ -18,6 +18,7 @@ import EventCollaborationFields from '../components/calendar/EventCollaborationF
 import EventMeetingFields from '../components/calendar/EventMeetingFields';
 import EventAttachmentFields from '../components/calendar/EventAttachmentFields';
 import EventRecurrenceSummary from '../components/calendar/EventRecurrenceSummary';
+import RecurrenceRuleEditor from '../components/calendar/RecurrenceRuleEditor';
 import OutlookAdditionalInfo from '../components/calendar/OutlookAdditionalInfo';
 import type { EventResponse, OutlookWriteRequest, OutlookEventDraft, UnifiedEventDraft } from '../types';
 
@@ -70,6 +71,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
     location: event?.location || '',
     dtStart: event ? isoToDatetimeLocal(event.dtStart, event.timeZoneId) : (defaultStart || ''),
     dtEnd: event ? isoToDatetimeLocal(event.dtEnd, event.timeZoneId) : (defaultEnd || ''),
+    rrule: event?.rrule || null,
     isAllDay: Boolean(event?.isAllDay),
     timeZoneId: event?.timeZoneId || null,
     showAs: event?.showAs || null,
@@ -85,6 +87,10 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
     onlineMeetingUrl: event?.onlineMeetingUrl || null,
     externalLink: event?.externalLink || null,
     attachmentReferences: event?.attachmentReferences ?? [],
+    isSeriesMaster: event?.isSeriesMaster ?? false,
+    isException: event?.isException ?? false,
+    seriesMasterId: event?.seriesMasterId || null,
+    recurrenceId: event?.recurrenceId || null,
   }));
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
   const queryClient = useQueryClient();
@@ -137,6 +143,36 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   const isFormDisabled = isReadOnly;
 
   const showScopeRadio = !!event && (event.outlookEventType === 'occurrence' || event.outlookEventType === 'exception' || event.outlookEventType === 'seriesMaster');
+  const isNativeSeries = !!event && (!!event.isSeriesMaster || !!event.seriesMasterId) && !isOutlookExisting;
+  const [nativeScope, setNativeScope] = useState<'this' | 'series'>(() =>
+    event?.isSeriesMaster && !event?.isException ? 'series' : 'this'
+  );
+
+  function resolveEffectiveId(scope: string): string {
+    if (!event) return '';
+    // For series scope, always target master
+    if (scope === 'series' && event.seriesMasterId) return event.seriesMasterId;
+    if (scope === 'series' && event.isSeriesMaster) return event.id;
+    // For this scope on occurrence/exception, target master with recurrenceId
+    if (scope === 'this' && event.seriesMasterId) return event.seriesMasterId;
+    // Synthetic occurrence: id is derived, originalEventId is master
+    if (event.originalEventId && event.id !== event.originalEventId && !event.isException) return event.originalEventId;
+    return event.id;
+  }
+  function resolveRecurrenceId(): string | undefined {
+    if (!event) return undefined;
+    return event.recurrenceId || undefined;
+  }
+  function resolveOriginalEventIdForScope(_scope: string): string | undefined {
+    if (!event) return undefined;
+    const isOccurrence = !!event.seriesMasterId || !!event.isException || (!!event.originalEventId && event.id !== event.originalEventId);
+    if (!isOccurrence) return undefined;
+    // For both this/series, send master id as originalEventId when editing an occurrence/exception/synthetic
+    if (event.originalEventId && event.id !== event.originalEventId) return event.originalEventId;
+    if (event.seriesMasterId) return event.seriesMasterId;
+    if (event.isException && event.seriesMasterId) return event.seriesMasterId;
+    return undefined;
+  }
 
   const { data: outlookSettings } = useQuery({
     queryKey: ['outlook-settings', 'writeback'],
@@ -159,14 +195,20 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   }
 
   function buildWritebackRequest(operation: 'create' | 'update' | 'delete'): OutlookWriteRequest {
+    const effScope = operation === 'create' ? 'instance' : outlookScope;
     const req: OutlookWriteRequest = {
       operation,
       calendarBindingId: getCalendarBindingId(),
-      scope: operation === 'create' ? 'instance' : outlookScope,
+      scope: effScope,
       clientOperationId: crypto.randomUUID(),
     };
     if (event) {
+      // For Outlook, keep original occurrence id (persisted) and let backend handle scope
+      // Native synthetic handling is separate (see resolveEffectiveId)
       req.eventId = event.id;
+      if (event.originalEventId && event.id !== event.originalEventId) req.originalEventId = event.originalEventId;
+      else if (event.seriesMasterId) req.originalEventId = event.seriesMasterId;
+      if (effScope === 'instance' && event.recurrenceId) req.recurrenceId = event.recurrenceId;
     }
     if (operation !== 'delete') {
       req.draft = buildDraft();
@@ -266,7 +308,15 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   }
 
   const updateMut = useMutation({
-    mutationFn: (data: Partial<UnifiedEventDraft>) => updateEvent(event!.id, data),
+    mutationFn: (data: Partial<UnifiedEventDraft>) => {
+      const scope = isNativeSeries ? nativeScope : undefined;
+      const recId = scope === 'this' ? resolveRecurrenceId() : undefined;
+      const effectiveId = scope ? resolveEffectiveId(scope) : event!.id;
+      const originalEventId = scope ? resolveOriginalEventIdForScope(scope) : undefined;
+      // Ensure recurrenceId passed via draft as well for backend merge
+      const payload = recId && !data.recurrenceId ? { ...data, recurrenceId: recId } : data;
+      return updateEvent(effectiveId, payload, scope ? { scope, recurrenceId: recId, originalEventId } : undefined);
+    },
     onSuccess: () => {
       invalidateEventQueries();
       onClose();
@@ -274,7 +324,15 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   });
 
   const deleteMut = useMutation({
-    mutationFn: () => deleteEvent(event!.id),
+    mutationFn: () => {
+      if (isNativeSeries) {
+        const effectiveId = resolveEffectiveId(nativeScope);
+        const recId = nativeScope === 'this' ? resolveRecurrenceId() : undefined;
+        const originalEventId = resolveOriginalEventIdForScope(nativeScope);
+        return deleteEvent(effectiveId, { scope: nativeScope, recurrenceId: recId, originalEventId });
+      }
+      return deleteEvent(event!.id);
+    },
     onSuccess: () => {
       invalidateEventDeleteQueries();
       setDeleteInput(null);
@@ -366,6 +424,11 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         ...form,
         calendarId: selectedCalendarId || form.calendarId,
       });
+      // For native series, ensure recurrenceId included when editing single occurrence
+      if (isNativeSeries && nativeScope === 'this' && !data.recurrenceId) {
+        const recId = resolveRecurrenceId();
+        if (recId) (data as unknown as Record<string, unknown>).recurrenceId = recId;
+      }
       if (event) updateMut.mutate(data);
       else createMut.mutate(data);
     }
@@ -494,8 +557,36 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         <EventSection title="附件">
           <EventAttachmentFields form={form} onChange={patchForm} disabled={isFormDisabled} providerReadOnly={isOutlook} />
         </EventSection>
+        {isNativeSeries && !isFormDisabled && (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+            <p className="text-sm font-medium text-slate-700 mb-2">编辑范围</p>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="radio" name="native-scope" value="this" checked={nativeScope === 'this'} onChange={() => setNativeScope('this')} className="text-blue-600 focus:ring-blue-200" />
+                此实例
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-600">
+                <input type="radio" name="native-scope" value="series" checked={nativeScope === 'series'} onChange={() => setNativeScope('series')} className="text-blue-600 focus:ring-blue-200" />
+                整个系列
+              </label>
+            </div>
+          </div>
+        )}
         <EventSection title="重复">
-          <EventRecurrenceSummary rrule={event?.rrule} />
+          {isFormDisabled ? (
+            <EventRecurrenceSummary rrule={form.rrule} />
+          ) : event?.isException ? (
+            <div className="space-y-2">
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">此为重复日程的例外实例，修改后将仅影响此实例。如需修改整个系列，请编辑主事件。</p>
+              <EventRecurrenceSummary rrule={form.rrule} />
+            </div>
+          ) : (
+            <RecurrenceRuleEditor
+              value={form.rrule}
+              onChange={rrule => patchForm({ rrule, isSeriesMaster: !!rrule })}
+              disabled={isFormDisabled}
+            />
+          )}
         </EventSection>
         {(isOutlook || event?.source === 'outlook-ics') && <OutlookAdditionalInfo info={event?.outlookAdditionalInfo} />}
       </form>

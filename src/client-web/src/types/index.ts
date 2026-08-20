@@ -100,6 +100,10 @@ export interface EventResponse {
   onlineMeetingUrl?: string | null;
   externalLink?: string | null;
   attachmentReferences?: EventAttachmentReference[] | null;
+  isSeriesMaster?: boolean | null;
+  isException?: boolean | null;
+  seriesMasterId?: string | null;
+  isCancelled?: boolean | null;
 }
 
 export interface TaskResponse {
@@ -588,6 +592,7 @@ export interface UnifiedEventDraft {
   location?: string | null;
   dtStart: string;
   dtEnd: string;
+  rrule?: string | null;
   isAllDay?: boolean;
   timeZoneId?: string | null;
   showAs?: string | null;
@@ -603,6 +608,10 @@ export interface UnifiedEventDraft {
   onlineMeetingUrl?: string | null;
   externalLink?: string | null;
   attachmentReferences?: EventAttachmentReference[] | null;
+  isSeriesMaster?: boolean | null;
+  isException?: boolean | null;
+  seriesMasterId?: string | null;
+  recurrenceId?: string | null;
 }
 
 export interface OutlookEventDraft extends UnifiedEventDraft {
@@ -618,6 +627,8 @@ export interface OutlookWriteRequest {
   scope: 'instance' | 'series';
   clientOperationId: string;
   expectedEtag?: string;
+  originalEventId?: string;
+  recurrenceId?: string;
 }
 
 export interface OutlookWriteResult {

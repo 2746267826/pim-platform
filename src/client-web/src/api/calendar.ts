@@ -282,13 +282,25 @@ export async function createEvent(data: Partial<UnifiedEventDraft>) {
   return r.data;
 }
 
-export async function updateEvent(id: string, data: Partial<UnifiedEventDraft>) {
-  const r = await apiPut<ApiResponse<EventResponse>>(`/calendar/events/${id}`, data);
+export async function updateEvent(id: string, data: Partial<UnifiedEventDraft>, opts?: { scope?: string; recurrenceId?: string; originalEventId?: string }) {
+  const params: Record<string, string | undefined> = {};
+  if (opts?.scope) params.scope = opts.scope;
+  if (opts?.recurrenceId) params.recurrenceId = opts.recurrenceId;
+  if (opts?.originalEventId) params.originalEventId = opts.originalEventId;
+  const qs = new URLSearchParams(params as Record<string, string>).toString();
+  const path = qs ? `/calendar/events/${id}?${qs}` : `/calendar/events/${id}`;
+  const r = await apiPut<ApiResponse<EventResponse>>(path, data);
   return r.data;
 }
 
-export async function deleteEvent(id: string) {
-  await apiDelete(`/calendar/events/${id}`);
+export async function deleteEvent(id: string, opts?: { scope?: string; recurrenceId?: string; originalEventId?: string }) {
+  const params: Record<string, string | undefined> = {};
+  if (opts?.scope) params.scope = opts.scope;
+  if (opts?.recurrenceId) params.recurrenceId = opts.recurrenceId;
+  if (opts?.originalEventId) params.originalEventId = opts.originalEventId;
+  const qs = new URLSearchParams(params as Record<string, string>).toString();
+  const path = qs ? `/calendar/events/${id}?${qs}` : `/calendar/events/${id}`;
+  await apiDelete(path);
 }
 
 export async function batchDeleteEvents(ids: string[]): Promise<CalendarOperationResult> {

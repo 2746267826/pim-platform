@@ -51,3 +51,25 @@
 
 ### Residual Risks
 - Far-window evaluation from DTSTART iterates from DTSTART to rangeEnd; for very large infinite series (e.g., daily 10 years ~3650 iterations) performance linear but acceptable. If window extremely far (decades) may iterate many times; alternative jump optimization could be added if profiling shows issue.
+
+---
+
+## Fix Report — Infinite recurrence guard (2026-08-20)
+
+### Commits
+- 223daac1 fix: address review findings for Task 2 recurrence reliability (previous)
+- (current) fix: guard unbounded window for infinite recurrence (RecurrenceService MaxValue/very-far cap, 500 limit)
+
+### Review Finding Addressed
+- [Important] RecurrenceService.cs:195 — GetEventsAsync with no end (rangeEnd=MaxValue) caused ExpandEventsV2 to enumerate from DTSTART unbounded for FREQ=DAILY without COUNT/UNTIL. Fixed by adding GetEffectiveRangeEnd capping (MaxValue or span >1825 days capped to rangeStart+1825 or UtcNow+1825 when start is MinValue, with warning log) and hard cap MaxOccurrences=500 inside ExpandRecurring (break after 500). Ensures GetEventsPagedAsync with null end and infinite rule does not hang.
+
+### Test Commands & Results
+- `dotnet build Pim.sln --no-restore` — Build succeeded, 0 Error(s), 4 Warning(s) (pre-existing)
+- `dotnet test --filter Recurrence --no-restore` — Passed 30/30 (RecurrenceGeneratorTests 19 including 3 new unbounded/very-far tests, RecurrenceExceptionOverlayTests 6, CalendarServiceRecurrencePathTests 3, plus 2 Ics tests)
+
+### Implementation Summary (Fix)
+- RecurrenceService: added MaxOccurrences=500, MaxWindowDays=1825, GetEffectiveRangeEnd helper with overflow-safe span check, MinValue fallback to UtcNow, warning log; effectiveRangeEnd used for simple/exception/expand paths; ExpandRecurring breaks after 500 results.
+- Tests: added UnboundedWindow_InfiniteDaily_CappedToMaxOccurrences (MaxValue, 500, <5s), UnboundedWindow_InfiniteDaily_MaxValue_WithMinStart_Capped (MinValue->MaxValue), VeryFarWindow_CappedTo730Days (2000-day span capped).
+
+### Residual Risks
+- Cap window 1825 days may still truncate legitimate >5y windows; acceptable per spec and occurrence limit ensures bounded series with COUNT not affected (yearly 3y test passes). If business needs >5y unbounded view, increase cap or make configurable.

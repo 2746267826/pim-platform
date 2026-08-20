@@ -163,6 +163,16 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
     if (!event) return undefined;
     return event.recurrenceId || undefined;
   }
+  function resolveOriginalEventIdForScope(scope: string): string | undefined {
+    if (!event) return undefined;
+    const isOccurrence = !!event.seriesMasterId || !!event.isException || (!!event.originalEventId && event.id !== event.originalEventId);
+    if (!isOccurrence) return undefined;
+    // For both this/series, send master id as originalEventId when editing an occurrence/exception/synthetic
+    if (event.originalEventId && event.id !== event.originalEventId) return event.originalEventId;
+    if (event.seriesMasterId) return event.seriesMasterId;
+    if (event.isException && event.seriesMasterId) return event.seriesMasterId;
+    return undefined;
+  }
 
   const { data: outlookSettings } = useQuery({
     queryKey: ['outlook-settings', 'writeback'],
@@ -185,14 +195,26 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   }
 
   function buildWritebackRequest(operation: 'create' | 'update' | 'delete'): OutlookWriteRequest {
+    const effScope = operation === 'create' ? 'instance' : outlookScope;
     const req: OutlookWriteRequest = {
       operation,
       calendarBindingId: getCalendarBindingId(),
-      scope: operation === 'create' ? 'instance' : outlookScope,
+      scope: effScope,
       clientOperationId: crypto.randomUUID(),
     };
     if (event) {
-      req.eventId = event.id;
+      // For occurrence/exception/synthetic, use master id as eventId and send originalEventId for backend synthetic resolution
+      const isOccurrence = !!event.seriesMasterId || !!event.isException || (!!event.originalEventId && event.id !== event.originalEventId);
+      if (isOccurrence && (effScope === 'instance' || effScope === 'series')) {
+        const masterId = event.seriesMasterId || event.originalEventId || event.id;
+        req.eventId = masterId;
+        if (event.originalEventId && event.id !== event.originalEventId) req.originalEventId = event.originalEventId;
+        else if (event.seriesMasterId) req.originalEventId = event.seriesMasterId;
+        if (effScope === 'instance' && event.recurrenceId) req.recurrenceId = event.recurrenceId;
+      } else {
+        req.eventId = event.id;
+        if (event.originalEventId && event.id !== event.originalEventId) req.originalEventId = event.originalEventId;
+      }
     }
     if (operation !== 'delete') {
       req.draft = buildDraft();
@@ -296,9 +318,10 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
       const scope = isNativeSeries ? nativeScope : undefined;
       const recId = scope === 'this' ? resolveRecurrenceId() : undefined;
       const effectiveId = scope ? resolveEffectiveId(scope) : event!.id;
+      const originalEventId = scope ? resolveOriginalEventIdForScope(scope) : undefined;
       // Ensure recurrenceId passed via draft as well for backend merge
       const payload = recId && !data.recurrenceId ? { ...data, recurrenceId: recId } : data;
-      return updateEvent(effectiveId, payload, scope ? { scope, recurrenceId: recId } : undefined);
+      return updateEvent(effectiveId, payload, scope ? { scope, recurrenceId: recId, originalEventId } : undefined);
     },
     onSuccess: () => {
       invalidateEventQueries();
@@ -311,7 +334,8 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
       if (isNativeSeries) {
         const effectiveId = resolveEffectiveId(nativeScope);
         const recId = nativeScope === 'this' ? resolveRecurrenceId() : undefined;
-        return deleteEvent(effectiveId, { scope: nativeScope, recurrenceId: recId });
+        const originalEventId = resolveOriginalEventIdForScope(nativeScope);
+        return deleteEvent(effectiveId, { scope: nativeScope, recurrenceId: recId, originalEventId });
       }
       return deleteEvent(event!.id);
     },

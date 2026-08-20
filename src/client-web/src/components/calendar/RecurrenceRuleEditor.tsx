@@ -66,12 +66,17 @@ function buildRrule(state: { freq: Frequency; interval: number; byDay: string[];
     rrule += `;COUNT=${state.count}`;
   } else if (state.endMode === 'until' && state.until) {
     // Convert yyyy-MM-dd to 20261231T235959Z (23:59:59Z so same-day 09:00 occurrence is included)
-    const d = new Date(state.until);
-    if (!isNaN(d.getTime())) {
-      const y = d.getUTCFullYear().toString().padStart(4, '0');
-      const m = (d.getUTCMonth() + 1).toString().padStart(2, '0');
-      const day = d.getUTCDate().toString().padStart(2, '0');
-      rrule += `;UNTIL=${y}${m}${day}T235959Z`;
+    // Use Date.UTC from parts to avoid local-timezone shift when parsing yyyy-MM-dd
+    const parts = state.until.split('-').map(Number);
+    if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+      const [y, m, d] = parts;
+      const utc = new Date(Date.UTC(y, m - 1, d, 23, 59, 59));
+      if (!isNaN(utc.getTime())) {
+        const ys = utc.getUTCFullYear().toString().padStart(4, '0');
+        const ms = (utc.getUTCMonth() + 1).toString().padStart(2, '0');
+        const day = utc.getUTCDate().toString().padStart(2, '0');
+        rrule += `;UNTIL=${ys}${ms}${day}T235959Z`;
+      }
     }
   }
   return rrule;

@@ -627,6 +627,8 @@ export interface OutlookWriteRequest {
   scope: 'instance' | 'series';
   clientOperationId: string;
   expectedEtag?: string;
+  originalEventId?: string;
+  recurrenceId?: string;
 }
 
 export interface OutlookWriteResult {

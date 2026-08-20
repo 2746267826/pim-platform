@@ -29,3 +29,21 @@
 
 ## Residual Risks
 - RecurrenceId parsing for CANCELLED sentinel fallback uses master duration and parsed offset; if recurrenceId format diverges, fallback to master DtStart ensures not throwing.
+
+## Fix — Review findings (2026-08-20) / 修复 - 评审问题
+
+### Findings addressed / 已处理问题
+- [Important] CalendarModule.cs endpoint scope binding — PUT now accepts `?scope&recurrenceId` and calls `CalendarService.UpdateEventAsync(id, req, scope)`; DELETE now routes to `CalendarService.DeleteEventAsync(id, scope, recurrenceId)` instead of `CalendarDeleteService` (with query merging for RecurrenceId).
+- [Important] CalendarService delete cascade — `scope=series` when target is exception now resolves `SeriesMasterId` to master and soft-deletes master + all its exceptions (with UpdatedAt/DeletedAt via TimeProvider); fallback if master missing.
+- [Important] CalendarService update validation & status — `scope=this` path validates `SeriesMasterId/RecurrenceId` belongs to same series (mismatch throws 02009), and preserves CANCELLED status (do not auto-revert to CONFIRMED) for both direct exception edit and master->existing exception edit.
+- [Warning] CalendarDtos.cs `IsSeriesMaster/IsException` changed to `bool?` (null defaults to false server-side) for roundtrip distinction; server handles `== true` checks.
+- [Warning] Tests & clock — added 6 new tests (mismatched SeriesMasterId throws, CANCELLED preservation, delete-from-exception cascade, nullable DTO roundtrip, injected FakeTimeProvider, endpoint scope wiring); CalendarService now injects `TimeProvider` (default System) and all `UtcNow` replaced; endpoint integration note documented in test comment (service-level coverage sufficient, WebApplicationFactory out of scope).
+
+### Test Commands & Results (fix)
+- `dotnet build Pim.sln --no-restore` — Build succeeded, 0 Error(s)
+- `dotnet test --filter CalendarRecurrenceServiceTests --no-restore` — Passed 18/18
+- `dotnet test --filter "Recurrence|CalendarRecurrence|CalendarServiceRecurrence" --no-restore` — Passed 48/48
+- `dotnet test --filter Calendar --no-restore` — Passed 745/745
+
+### Commits
+- fix(calendar): address review findings for series/exception scope, cascade, DTO nullable, clock and endpoint binding / 修复日历系列/例外的作用域、级联、DTO 可空、时钟与端点绑定评审问题

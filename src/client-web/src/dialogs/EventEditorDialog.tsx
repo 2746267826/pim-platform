@@ -203,18 +203,12 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
       clientOperationId: crypto.randomUUID(),
     };
     if (event) {
-      // For occurrence/exception/synthetic, use master id as eventId and send originalEventId for backend synthetic resolution
-      const isOccurrence = !!event.seriesMasterId || !!event.isException || (!!event.originalEventId && event.id !== event.originalEventId);
-      if (isOccurrence && (effScope === 'instance' || effScope === 'series')) {
-        const masterId = event.seriesMasterId || event.originalEventId || event.id;
-        req.eventId = masterId;
-        if (event.originalEventId && event.id !== event.originalEventId) req.originalEventId = event.originalEventId;
-        else if (event.seriesMasterId) req.originalEventId = event.seriesMasterId;
-        if (effScope === 'instance' && event.recurrenceId) req.recurrenceId = event.recurrenceId;
-      } else {
-        req.eventId = event.id;
-        if (event.originalEventId && event.id !== event.originalEventId) req.originalEventId = event.originalEventId;
-      }
+      // For Outlook, keep original occurrence id (persisted) and let backend handle scope
+      // Native synthetic handling is separate (see resolveEffectiveId)
+      req.eventId = event.id;
+      if (event.originalEventId && event.id !== event.originalEventId) req.originalEventId = event.originalEventId;
+      else if (event.seriesMasterId) req.originalEventId = event.seriesMasterId;
+      if (effScope === 'instance' && event.recurrenceId) req.recurrenceId = event.recurrenceId;
     }
     if (operation !== 'delete') {
       req.draft = buildDraft();

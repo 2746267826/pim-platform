@@ -18,6 +18,7 @@ import EventCollaborationFields from '../components/calendar/EventCollaborationF
 import EventMeetingFields from '../components/calendar/EventMeetingFields';
 import EventAttachmentFields from '../components/calendar/EventAttachmentFields';
 import EventRecurrenceSummary from '../components/calendar/EventRecurrenceSummary';
+import RecurrenceRuleEditor from '../components/calendar/RecurrenceRuleEditor';
 import OutlookAdditionalInfo from '../components/calendar/OutlookAdditionalInfo';
 import type { EventResponse, OutlookWriteRequest, OutlookEventDraft, UnifiedEventDraft } from '../types';
 
@@ -70,6 +71,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
     location: event?.location || '',
     dtStart: event ? isoToDatetimeLocal(event.dtStart, event.timeZoneId) : (defaultStart || ''),
     dtEnd: event ? isoToDatetimeLocal(event.dtEnd, event.timeZoneId) : (defaultEnd || ''),
+    rrule: event?.rrule || null,
     isAllDay: Boolean(event?.isAllDay),
     timeZoneId: event?.timeZoneId || null,
     showAs: event?.showAs || null,
@@ -85,6 +87,10 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
     onlineMeetingUrl: event?.onlineMeetingUrl || null,
     externalLink: event?.externalLink || null,
     attachmentReferences: event?.attachmentReferences ?? [],
+    isSeriesMaster: event?.isSeriesMaster ?? false,
+    isException: event?.isException ?? false,
+    seriesMasterId: event?.seriesMasterId || null,
+    recurrenceId: event?.recurrenceId || null,
   }));
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
   const queryClient = useQueryClient();
@@ -495,7 +501,20 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
           <EventAttachmentFields form={form} onChange={patchForm} disabled={isFormDisabled} providerReadOnly={isOutlook} />
         </EventSection>
         <EventSection title="重复">
-          <EventRecurrenceSummary rrule={event?.rrule} />
+          {isFormDisabled ? (
+            <EventRecurrenceSummary rrule={form.rrule} />
+          ) : event?.isException ? (
+            <div className="space-y-2">
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">此为重复日程的例外实例，修改后将仅影响此实例。如需修改整个系列，请编辑主事件。</p>
+              <EventRecurrenceSummary rrule={form.rrule} />
+            </div>
+          ) : (
+            <RecurrenceRuleEditor
+              value={form.rrule}
+              onChange={rrule => patchForm({ rrule, isSeriesMaster: !!rrule })}
+              disabled={isFormDisabled}
+            />
+          )}
         </EventSection>
         {(isOutlook || event?.source === 'outlook-ics') && <OutlookAdditionalInfo info={event?.outlookAdditionalInfo} />}
       </form>

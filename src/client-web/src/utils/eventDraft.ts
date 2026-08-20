@@ -14,6 +14,7 @@ export interface EventFormValue {
   location?: string | null;
   dtStart: string;
   dtEnd: string;
+  rrule?: string | null;
   isAllDay?: boolean;
   timeZoneId?: string | null;
   showAs?: string | null;
@@ -29,6 +30,10 @@ export interface EventFormValue {
   onlineMeetingUrl?: string | null;
   externalLink?: string | null;
   attachmentReferences?: EventAttachmentReference[] | null;
+  isSeriesMaster?: boolean | null;
+  isException?: boolean | null;
+  seriesMasterId?: string | null;
+  recurrenceId?: string | null;
 }
 
 function normalizeString(value: string | null | undefined): string | null {
@@ -84,6 +89,7 @@ export function buildUnifiedEventDraft(form: EventFormValue): UnifiedEventDraft 
     location: normalizeString(form.location),
     dtStart: datetimeLocalToUtcIso(form.dtStart, timeZoneId ?? undefined),
     dtEnd: datetimeLocalToUtcIso(form.dtEnd, timeZoneId ?? undefined),
+    rrule: normalizeString(form.rrule),
     isAllDay: Boolean(form.isAllDay),
     timeZoneId,
     showAs: normalizeString(form.showAs),
@@ -99,5 +105,9 @@ export function buildUnifiedEventDraft(form: EventFormValue): UnifiedEventDraft 
     onlineMeetingUrl: normalizeString(form.onlineMeetingUrl),
     externalLink: normalizeString(form.externalLink),
     attachmentReferences: form.attachmentReferences?.filter((a): a is EventAttachmentReference => !!a) ?? [],
+    isSeriesMaster: form.isSeriesMaster ?? null,
+    isException: form.isException ?? null,
+    seriesMasterId: normalizeString(form.seriesMasterId),
+    recurrenceId: normalizeString(form.recurrenceId),
   };
 }

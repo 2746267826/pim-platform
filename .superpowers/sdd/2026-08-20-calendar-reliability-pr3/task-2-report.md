@@ -24,3 +24,30 @@
 ## Concerns / Follow-ups
 - UNTIL inclusive semantics verified (Ical.Net inclusive); if spec requires exclusive, adjust test expectation.
 - ExDates stored as JSON array of O strings; codec optional not created — if frontend needs shared codec, add in Task 5.
+
+---
+
+## Fix Report — Review Findings (2026-08-20)
+
+### Commits
+- 119032cb test: add recurrence generator and exception overlay tests (Task 2 initial)
+- 16dd8ee8 fix: address review findings for Task 2 recurrence reliability (CalendarService V2, far-window, IsCancelled, duplicate handling)
+
+### Review Findings Addressed
+- [Important] CalendarService.cs:109,138 still calls ExpandEvents -> changed both GetEventsAsync and GetEventsPagedAsync to call ExpandEventsV2 directly; made RecurrenceService methods virtual to enable path-locking tests.
+- [Important] RecurrenceService.cs:177-180 evaluation from rangeStart with MaxUnmatchedIncrementsLimit 500 may return empty for far window -> fixed ExpandRecurring to evaluate from DTSTART then filter by [rangeStart, rangeEnd) (skip if < rangeStart, break if >= rangeEnd). Added far-window tests: FarWindow_DailyCount_FilteredCorrectlyFromDtStart, FarWindow_WeeklyFarWindow_NoEmptyDueToIncrementsLimit, FarWindow_BeyondCount_ReturnsEmpty.
+- [Important] RecurrenceService.cs:223-243 missing IsCancelled/isCancelled marker -> added IsCancelled property to ExpandedEvent (derived from Status == CANCELLED) and to EventResponse (IsCancelled bool, default false). Updated EventResponseMapper (Map and MapExpanded) to populate it. Added tests: IsCancelled_Field_ReflectsStatusCancelled, updated Master_With_TwoExceptions to assert IsCancelled false/true and mapped EventResponse IsCancelled; added MapExpanded_IsCancelled_MappedToEventResponse in CalendarServiceRecurrencePathTests.
+- [Minor] RecurrenceService.cs:38 duplicate (SeriesMasterId, RecurrenceId) ToDictionary throw -> handled gracefully by grouping by RecurrenceId then picking latest UpdatedAt (then CreatedAt), logging warning with duplicate count. Added test DuplicateRecurrenceId_DoesNotThrow_PicksLatestUpdatedAt.
+
+### Test Commands & Results
+- `dotnet build Pim.sln --no-restore` — Build succeeded, 0 Error(s), 4 Warning(s) (pre-existing, unrelated)
+- `dotnet test --filter Recurrence --no-restore` — Passed 27/27 (includes 25 targeted: RecurrenceGeneratorTests 16, RecurrenceExceptionOverlayTests 6, CalendarServiceRecurrencePathTests 3; plus 2 unrelated Recurrence-filtered tests: IcsServiceTests 1, OutlookIcsServiceTests 1). Previously reported 19 but actual diff had 17; now accurate count verified via --verbosity normal.
+- Focused verification: far-window 3 tests green, duplicate handling green, IsCancelled assertions green, CalendarService path locking 2 tests green.
+
+### Implementation Summary (Fix)
+- RecurrenceService: deduplication with GroupBy+OrderByDescending, DTSTART-anchored GetOccurrences, IsCancelled field.
+- CalendarService: direct ExpandEventsV2 calls.
+- DTO/Mapper: EventResponse IsCancelled added with default false for backward compat, populated from ExpandedEvent/entity status.
+
+### Residual Risks
+- Far-window evaluation from DTSTART iterates from DTSTART to rangeEnd; for very large infinite series (e.g., daily 10 years ~3650 iterations) performance linear but acceptable. If window extremely far (decades) may iterate many times; alternative jump optimization could be added if profiling shows issue.

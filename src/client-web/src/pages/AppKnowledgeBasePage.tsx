@@ -111,7 +111,7 @@ export default function AppKnowledgeBasePage() {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       <PageHeader
         title="App 知识库"
         subtitle="管理应用、域名、标题模式和分类归属知识"
@@ -211,7 +211,7 @@ export default function AppKnowledgeBasePage() {
       )}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-        <section className="min-w-0">
+        <section className="min-w-0 pb-20">
           {isLoading ? (
             <div className="py-8 text-center text-sm text-slate-500">加载中...</div>
           ) : apps.length === 0 ? (
@@ -311,7 +311,7 @@ export default function AppKnowledgeBasePage() {
           )}
         </section>
 
-        <aside className="min-w-0 space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+        <aside className="min-w-0 space-y-3 rounded-lg border border-slate-200 bg-white p-4 max-xl:fixed max-xl:inset-0 max-xl:z-40 max-xl:overflow-auto xl:static fixed inset-0 xl:inset-auto">
           <div className="space-y-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">上下文模式</p>

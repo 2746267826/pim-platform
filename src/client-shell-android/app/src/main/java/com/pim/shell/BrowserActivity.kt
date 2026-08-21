@@ -69,6 +69,24 @@ class BrowserActivity : AppCompatActivity() {
 
         if (savedInstanceState == null) webView.loadUrl(serverUrl)
         else webView.restoreState(savedInstanceState)
+
+        Thread {
+            try {
+                val u = java.net.URL("${serverUrl.trimEnd('/')}/api/client/shell/latest")
+                val conn = u.openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 3000
+                conn.readTimeout = 3000
+                val text = conn.inputStream.bufferedReader().readText()
+                val json = org.json.JSONObject(text)
+                val remote = json.optString("androidVersion").takeIf { it.isNotBlank() }
+                val dl = json.optString("androidUrl").takeIf { it.isNotBlank() }
+                if (remote != null && dl != null && UpdateChecker.isNewer(BuildConfig.VERSION_NAME, remote)) {
+                    runOnUiThread {
+                        android.widget.Toast.makeText(this, "发现新版 $remote", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (_: Exception) { }
+        }.start()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

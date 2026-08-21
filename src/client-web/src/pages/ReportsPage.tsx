@@ -94,7 +94,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1300px] space-y-4 pb-8">
+    <div className="mx-auto w-full max-w-[1300px] space-y-4 pb-20 md:pb-4">
       <PageHeader
         title="报告中心"
         subtitle="生成日报、周报、月报和项目报告，查看指标、正文、建议与后续确认结果。"
@@ -134,7 +134,7 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 overflow-auto lg:grid-cols-3">
         {[
           ['报告数量', visibleReports.length],
           ['后续建议', suggestions.length],

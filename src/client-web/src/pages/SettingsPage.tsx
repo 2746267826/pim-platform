@@ -36,14 +36,14 @@ const settingsLinks = [
 
 export default function SettingsPage() {
   return (
-    <div className="mx-auto max-w-2xl space-y-4 pb-8">
+    <div className="mx-auto max-w-2xl space-y-6 pb-20">
       <PageHeader title="设置" subtitle="管理数据入口与本地记录" />
 
       {settingsLinks.map(link => (
         <Link
           key={link.to}
           to={link.to}
-          className="pim-card flex w-full cursor-pointer items-center justify-between gap-4 p-5 text-left transition-colors hover:border-blue-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          className="pim-card flex min-h-[44px] w-full cursor-pointer items-center justify-between gap-4 rounded-lg border p-5 text-left transition-colors hover:border-blue-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
         >
           <div className="flex min-w-0 items-center gap-4">
             <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-sm font-semibold text-blue-700">

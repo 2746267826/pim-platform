@@ -22,10 +22,10 @@ public partial class SetupWindow : Window
         }
         if (ServerAddress.IsInsecure(result.NormalizedUrl))
         {
-            var confirm = MessageBox.Show(this,
+            var confirm = System.Windows.MessageBox.Show(this,
                 "该地址使用明文 HTTP，数据在传输中可能被窃听。仍要继续吗？",
                 "安全提示", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (confirm != MessageBoxResult.Yes) return;
+            if (confirm != System.Windows.MessageBoxResult.Yes) return;
         }
         new ShellConfig { ServerUrl = result.NormalizedUrl }.Save();
         new ShellWindow(result.NormalizedUrl).Show();

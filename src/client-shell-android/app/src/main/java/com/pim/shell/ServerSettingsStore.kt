@@ -24,8 +24,8 @@ class ServerSettingsStore(context: Context) {
         fun normalize(input: String?): String? {
             if (input.isNullOrBlank()) return null
             var candidate = input.trim()
-            val hasScheme = candidate.contains("://")
-            if (!hasScheme) {
+            val schemeRegex = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*://.*")
+            if (!candidate.matches(schemeRegex)) {
                 candidate = "https://$candidate"
             } else if (!candidate.startsWith("http://", ignoreCase = true) &&
                 !candidate.startsWith("https://", ignoreCase = true)) {
@@ -35,7 +35,8 @@ class ServerSettingsStore(context: Context) {
             return try {
                 val uri = java.net.URI(candidate)
                 val scheme = uri.scheme?.lowercase()
-                if (scheme == "http" || scheme == "https") candidate else null
+                if ((scheme != "http" && scheme != "https") || uri.host.isNullOrEmpty()) return null
+                candidate
             } catch (_: Exception) { null }
         }
 

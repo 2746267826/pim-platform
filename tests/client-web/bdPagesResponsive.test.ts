@@ -6,4 +6,8 @@ assertContains('src/client-web/src/pages/ReportsPage.tsx', ['pb-20', 'overflow-a
 assertContains('src/client-web/src/pages/HistoricalLocationPage.tsx', ['pb-20']);
 assertContains('src/client-web/src/pages/MobileRecordsPage.tsx', ['pb-20']);
 assertContains('src/client-web/src/pages/StatusPage.tsx', ['pb-20']);
-console.error('PASS: bdPagesResponsive B');
+assertContains('src/client-web/src/pages/SettingsPage.tsx', ['pb-20']);
+assertContains('src/client-web/src/pages/SyncPage.tsx', ['pb-20']);
+assertContains('src/client-web/src/pages/AiSettingsPage.tsx', ['pb-20']);
+assertContains('src/client-web/src/pages/AppKnowledgeBasePage.tsx', ['pb-20']);
+console.error('PASS: bdPagesResponsive D');

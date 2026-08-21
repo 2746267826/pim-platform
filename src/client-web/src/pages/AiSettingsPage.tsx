@@ -53,10 +53,10 @@ export default function AiSettingsPage() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-4 pb-8">
+    <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-20">
       <PageHeader title="AI 设置" subtitle="LiteLLM 状态、用量、请求日志与详情" />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <div className="grid grid-cols-1 gap-4 rounded-lg border p-2 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <AiStatusPanel
           status={statusQuery.data}
           isLoading={statusQuery.isLoading}
@@ -69,7 +69,9 @@ export default function AiSettingsPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
+      <details open className="rounded-lg border p-2">
+        <summary className="min-h-[44px] cursor-pointer list-none text-sm font-semibold text-slate-700">请求日志与详情</summary>
+        <div className="mt-2 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
         <AiRequestLogTable
           data={requestsQuery.data}
           selectedId={selectedId}
@@ -82,7 +84,8 @@ export default function AiSettingsPage() {
           isLoading={detailQuery.isLoading}
           error={asError(detailQuery.error)}
         />
-      </div>
+        </div>
+      </details>
     </div>
   );
 }

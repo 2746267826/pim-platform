@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">PIM</string>
+    <string name="server_address">服务器地址</string>
+    <string name="server_hint">https://pim.example.com</string>
+    <string name="default_scheme">https://</string>
+    <string name="setup_description">例如 https://pim.example.com，局域网可用 http:// 地址。</string>
+    <string name="connect">连接</string>
+    <string name="connecting">正在连接…</string>
+    <string name="unreachable">无法连接到服务器，请检查地址与网络。</string>
+    <string name="unreachable_title">无法连接到服务器</string>
+    <string name="unreachable_body">请检查网络或服务器状态后重试。</string>
+    <string name="retry">重试</string>
+    <string name="change_server">更换服务器</string>
+    <string name="insecure_title">安全提示</string>
+    <string name="insecure_warning">该地址使用明文 HTTP，数据在传输中可能被窃听。仍要继续吗？</string>
+</resources>

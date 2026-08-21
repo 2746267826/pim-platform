@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Pim.Shell.App/Pim.Shell.App.csproj" />
+  <Project Path="Pim.Shell.Tests/Pim.Shell.Tests.csproj" />
+</Solution>

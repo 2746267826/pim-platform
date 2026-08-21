@@ -247,7 +247,8 @@ export default function MobileRecordsPage() {
     ?? errorMessage(timelineBlocksQuery.error);
 
   return (
-    <div className="min-h-full bg-slate-50 pb-8">
+    <div className="min-h-full bg-slate-50 pb-20">
+      <div className="min-h-[44px] sr-only" aria-hidden="true" />
       <MobileAnalyticsHeader
         rangeShortcut={rangeShortcut}
         rangeStartDate={rangeStartDate}

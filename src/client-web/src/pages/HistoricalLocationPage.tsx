@@ -297,6 +297,9 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
   }
 
   return (
+    <div className="pb-20">
+      <div className="h-[60vh] md:h-[70vh] overflow-auto" />
+      <div className="fixed bottom-0 left-0 right-0 md:static" aria-hidden="true" />
     <HistoricalLocationDashboard
       rangeShortcut={rangeShortcut}
       rangeStartDate={rangeStartDate}
@@ -339,5 +342,6 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
       onRawPointsRetry={() => pointsQuery.refetch()}
       embedded={embedded}
     />
+    </div>
   );
 }

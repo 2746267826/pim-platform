@@ -286,7 +286,7 @@ export default function CalendarPage() {
   }, [mutatePlanTask, tasks]);
 
   return (
-    <div ref={pageRef} className="flex h-full min-h-0 flex-col gap-4">
+    <div ref={pageRef} className="flex h-full min-h-0 flex-col gap-4 pb-20 md:pb-4">
       <PageHeader
         title="日历"
         subtitle={mode === 'timeline' ? '按时间轴安排今天的任务和日程' : '按月查看任务和日程分布'}
@@ -336,6 +336,7 @@ export default function CalendarPage() {
         onToggleOutlookOnly={setOutlookOnly}
       />
 
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr]">
       <section className="calendar-board pim-panel min-h-0 flex-1 overflow-hidden p-3">
         {planTaskError && (
           <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
@@ -374,6 +375,7 @@ export default function CalendarPage() {
           eventWillUnmount={handleEventUnmount}
         />
       </section>
+      </div>
 
       <TaskEditorDialog
         open={taskEditorOpen}

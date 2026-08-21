@@ -94,7 +94,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1300px] space-y-4 pb-8">
+    <div className="mx-auto flex w-full max-w-[1300px] flex-col gap-4 pb-20">
       <PageHeader
         title="报告中心"
         subtitle="生成日报、周报、月报和项目报告，查看指标、正文、建议与后续确认结果。"
@@ -149,7 +149,7 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
-        <section className="pim-panel p-4">
+        <section className="pim-panel overflow-auto p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-slate-950">
               {reportTabs.find(item => item.value === tab)?.label}内容

@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
@@ -16,6 +17,13 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <ProjectReference Include="..\Pim.Shell.App\Pim.Shell.App.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Pim.Shell.App\UpdateChecker.cs" Link="UpdateChecker.cs" />
+    <Compile Include="..\Pim.Shell.App\ServerAddress.cs" Link="ServerAddress.cs" />
+    <Compile Include="..\Pim.Shell.App\ShellBridge.cs" Link="ShellBridge.cs" />
+    <Compile Include="..\Pim.Shell.App\ShellConfig.cs" Link="ShellConfig.cs" />
+    <Compile Include="..\Pim.Shell.App\ServerHealthClient.cs" Link="ServerHealthClient.cs" />
+    <Compile Include="..\Pim.Shell.App\HotKeyManager.cs" Link="HotKeyManager.cs" />
   </ItemGroup>
 </Project>

@@ -4,8 +4,18 @@
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="PIM" Width="1280" Height="800" WindowStartupLocation="CenterScreen">
     <Grid>
-        <wv2:WebView2 x:Name="Web" />
-        <Border x:Name="ErrorOverlay" Background="#F5F5F5" Visibility="Collapsed">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Border x:Name="UpdateBar" Background="#DBEAFE" Visibility="Collapsed" Padding="8" Grid.Row="0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock x:Name="UpdateText" VerticalAlignment="Center" />
+                <Button x:Name="UpdateButton" Content="前往下载" Margin="12,0,0,0" Padding="12,4" Click="OnUpdateClick" />
+            </StackPanel>
+        </Border>
+        <wv2:WebView2 x:Name="Web" Grid.Row="1" />
+        <Border x:Name="ErrorOverlay" Background="#F5F5F5" Visibility="Collapsed" Grid.Row="1">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                 <TextBlock Text="无法连接到服务器" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
                 <TextBlock Text="请检查网络或服务器状态后重试。" Margin="0,8,0,0" HorizontalAlignment="Center" />

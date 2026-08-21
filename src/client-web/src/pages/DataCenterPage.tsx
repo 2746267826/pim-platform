@@ -40,6 +40,7 @@ export default function DataCenterPage() {
   const [pendingOnly, setPendingOnly] = useState(false);
   const [outlookOnly, setOutlookOnly] = useState(false);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const request = useMemo(() => ({
     search: search.trim() || null,
@@ -72,7 +73,7 @@ export default function DataCenterPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-4 pb-8">
+    <div className="mx-auto w-full max-w-[1500px] space-y-4 pb-20">
       <PageHeader
         title="数据中心"
         subtitle="跨日程、任务、习惯、提醒、报告和同步来源进行全局治理、审计导出与版本恢复。"
@@ -88,7 +89,17 @@ export default function DataCenterPage() {
         }
       />
 
-      <section className="pim-panel p-4">
+      <div className="flex justify-end lg:hidden">
+        <button
+          type="button"
+          onClick={() => setFilterOpen(true)}
+          className="pim-button-secondary px-3 py-2 text-sm"
+        >
+          筛选
+        </button>
+      </div>
+
+      <section className="pim-panel p-4 hidden lg:block">
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(220px,1fr)_180px_180px_auto_auto]">
           <label className="min-w-0">
             <span className="text-xs font-semibold text-slate-500">全局搜索</span>
@@ -175,8 +186,9 @@ export default function DataCenterPage() {
           ) : items.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-slate-500">当前筛选下没有对象。</p>
           ) : (
-            <div className="overflow-auto">
-              <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+            <>
+              <div className="overflow-auto overflow-x-auto hidden md:block">
+                <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
                 <thead className="bg-slate-50 text-xs text-slate-500">
                   <tr>
                     <th className="px-4 py-3 font-semibold">标题</th>
@@ -211,7 +223,31 @@ export default function DataCenterPage() {
                   })}
                 </tbody>
               </table>
-            </div>
+              </div>
+              {/* Mobile card fallback */}
+              <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-2 md:hidden">
+                {items.map(item => {
+                  const rowKey = `${item.objectType}-${item.objectId}`;
+                  return (
+                    <button
+                      key={rowKey}
+                      type="button"
+                      onClick={() => selectRow(item)}
+                      className={`rounded-lg border p-3 text-left transition-colors ${selectedKey === rowKey ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}
+                    >
+                      <p className="truncate text-sm font-semibold text-slate-800">{item.title}</p>
+                      <p className="mt-1 truncate text-xs text-slate-500">{item.summary}</p>
+                      <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-slate-500">
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5">{readableObjectType(item.objectType)}</span>
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5">{item.source}</span>
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5">{item.status}</span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-slate-400">{formatDateTime(item.startsAt)}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
         </section>
 
@@ -285,6 +321,66 @@ export default function DataCenterPage() {
           <DataCenterBatchPreview selected={selected} />
         </div>
       </div>
+
+      {filterOpen && (
+        <div className="fixed inset-0 z-40 flex justify-end lg:hidden">
+          <div className="absolute inset-0 bg-slate-950/30" onClick={() => setFilterOpen(false)} />
+          <div className="relative flex h-full w-full max-w-[420px] flex-col overflow-auto bg-white p-4 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-800">筛选</h3>
+              <button type="button" className="text-xs text-slate-500 hover:text-slate-700" onClick={() => setFilterOpen(false)}>
+                关闭
+              </button>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3">
+              <label className="min-w-0">
+                <span className="text-xs font-semibold text-slate-500">全局搜索</span>
+                <input
+                  value={search}
+                  onChange={event => setSearch(event.target.value)}
+                  placeholder="标题、摘要、来源对象"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
+                />
+              </label>
+              <label>
+                <span className="text-xs font-semibold text-slate-500">对象过滤</span>
+                <select
+                  value={objectType}
+                  onChange={event => setObjectType(event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
+                >
+                  <option value="">全部对象</option>
+                  <option value="event">日程</option>
+                  <option value="task">任务</option>
+                  <option value="habit">习惯</option>
+                  <option value="reminder">提醒</option>
+                </select>
+              </label>
+              <label>
+                <span className="text-xs font-semibold text-slate-500">来源过滤</span>
+                <select
+                  value={source}
+                  onChange={event => setSource(event.target.value)}
+                  disabled={outlookOnly}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 disabled:bg-slate-50"
+                >
+                  <option value="">全部来源</option>
+                  <option value="pim">PIM</option>
+                  <option value="outlook">Outlook</option>
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <input type="checkbox" checked={pendingOnly} onChange={event => setPendingOnly(event.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+                待处理视图
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <input type="checkbox" checked={outlookOnly} onChange={event => setOutlookOnly(event.target.checked)} className="h-4 w-4 rounded border-slate-300" />
+                Outlook-only
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

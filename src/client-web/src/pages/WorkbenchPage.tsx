@@ -13,11 +13,18 @@ import SegmentedControl from '../ui/SegmentedControl';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 type DensityMode = 'standard' | 'dense' | 'focus';
+type WorkbenchView = 'schedule' | 'execute' | 'feedback';
 
 const densityOptions: Array<{ value: DensityMode; label: string }> = [
   { value: 'standard', label: '标准' },
   { value: 'dense', label: '紧凑' },
   { value: 'focus', label: '专注' },
+];
+
+const workbenchViewOptions: Array<{ value: WorkbenchView; label: string }> = [
+  { value: 'schedule', label: '排程' },
+  { value: 'execute', label: '执行' },
+  { value: 'feedback', label: '反馈' },
 ];
 
 const dashboardLayers = ['events', 'task-segments', 'habits', 'availability', 'ai-placeholders'];
@@ -88,6 +95,7 @@ function DashboardMetric({ label, value, detail }: { label: string; value: strin
 
 export default function WorkbenchPage() {
   const [densityMode, setDensityMode] = useState<DensityMode>('standard');
+  const [workbenchView, setWorkbenchView] = useState<WorkbenchView>('schedule');
   const range = useMemo(todayRange, []);
 
   const { data: layerData, isLoading: layersLoading } = useQuery({
@@ -128,7 +136,7 @@ export default function WorkbenchPage() {
   const pageSpacingClassName = compact ? 'space-y-3' : 'space-y-4';
 
   return (
-    <div className={`mx-auto w-full max-w-[1500px] ${pageSpacingClassName} pb-8`}>
+    <div className={`mx-auto w-full max-w-[1500px] ${pageSpacingClassName} pb-20`}>
       <PageHeader
         title="日程工作台"
         subtitle="集中查看日程图层、确认队列、微软日历同步、提醒和报告运行状态。"
@@ -142,15 +150,24 @@ export default function WorkbenchPage() {
         }
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Link to="/status" className="pim-button-secondary px-3 py-2 text-sm">
+            <Link to="/status" className="pim-button-secondary inline-flex min-h-[44px] items-center px-3 py-2 text-sm">
               状态
             </Link>
-            <Link to="/data-center" className="pim-button-primary px-3 py-2 text-sm">
+            <Link to="/data-center" className="pim-button-primary inline-flex min-h-[44px] items-center px-3 py-2 text-sm">
               数据中心
             </Link>
           </div>
         }
       />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <SegmentedControl
+          value={workbenchView}
+          options={workbenchViewOptions}
+          onChange={setWorkbenchView}
+          ariaLabel="工作台视图"
+        />
+      </div>
 
       <section className={`grid grid-cols-1 gap-3 ${focus ? 'lg:grid-cols-3' : 'md:grid-cols-2 xl:grid-cols-4'}`}>
         <DashboardMetric
@@ -177,14 +194,14 @@ export default function WorkbenchPage() {
         )}
       </section>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <section className="pim-panel min-w-0 p-4 xl:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold text-slate-950">日程图层</h2>
               <p className="mt-1 text-xs text-slate-500">今日范围：{formatDateTime(range.start)} 至 {formatDateTime(range.end)}</p>
             </div>
-            <Link to="/calendar" className="pim-button-secondary px-3 py-1.5 text-sm">
+            <Link to="/calendar" className="pim-button-secondary inline-flex min-h-[44px] items-center px-3 py-1.5 text-sm">
               打开日历
             </Link>
           </div>
@@ -230,7 +247,7 @@ export default function WorkbenchPage() {
         </section>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <section className="pim-panel min-w-0 p-4">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-slate-950">微软日历同步</h2>
@@ -287,11 +304,12 @@ export default function WorkbenchPage() {
             <h2 className="text-sm font-semibold text-slate-950">端点与状态链接</h2>
             <p className="mt-1 text-xs text-slate-500">当前界面使用的接口契约与状态入口。</p>
           </div>
-          <Link to="/status" className="pim-button-secondary px-3 py-1.5 text-sm">
+          <Link to="/status" className="pim-button-secondary inline-flex min-h-[44px] items-center px-3 py-1.5 text-sm">
             系统状态
           </Link>
         </div>
-        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-3 overflow-x-auto">
+          <div className="grid min-w-[640px] grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
           {[
             ['日程图层', calendarApiPaths.calendarLayers({ start: range.start, end: range.end, layers: dashboardLayers })],
             ['微软日历设置', calendarApiPaths.outlookSettings()],
@@ -303,6 +321,7 @@ export default function WorkbenchPage() {
               <code className="mt-1 block truncate text-[11px] text-slate-500">{endpoint}</code>
             </div>
           ))}
+          </div>
         </div>
       </section>
     </div>

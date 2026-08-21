@@ -54,7 +54,7 @@ export default function PcClassificationPage() {
   const isDirty = selectedMinutes !== savedMinutes;
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-4 pb-8">
+    <div className="mx-auto w-full max-w-[1500px] space-y-4 pb-20">
       <PageHeader
         title="分类管理"
         subtitle="管理 PC 活动分类规则和显示粒度"
@@ -75,18 +75,36 @@ export default function PcClassificationPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
-        <ClassificationRuleTable
-          rules={rules}
-          selectedRuleId={selectedRuleId}
-          isLoading={rulesLoading}
-          onEdit={rule => setSelectedRuleId(rule.id)}
-        />
-        <ClassificationRuleEditor
-          rule={selectedRule}
-          onClose={() => setSelectedRuleId(null)}
-        />
+      <div className="grid grid-cols-1 gap-4">
+        <div className="min-w-0 overflow-auto pb-20">
+          <ClassificationRuleTable
+            rules={rules}
+            selectedRuleId={selectedRuleId}
+            isLoading={rulesLoading}
+            onEdit={rule => setSelectedRuleId(rule.id)}
+          />
+        </div>
+        {/* Desktop inline editor */}
+        <div className="hidden xl:block">
+          <ClassificationRuleEditor
+            rule={selectedRule}
+            onClose={() => setSelectedRuleId(null)}
+          />
+        </div>
       </div>
+
+      {/* Mobile drawer for rule editor: fixed inset-0 on small screens */}
+      {selectedRule && (
+        <div className="fixed inset-0 z-40 flex justify-end xl:hidden">
+          <div className="absolute inset-0 bg-slate-950/30" onClick={() => setSelectedRuleId(null)} />
+          <div className="relative flex h-full w-full max-w-[420px] flex-col overflow-auto bg-white shadow-xl">
+            <ClassificationRuleEditor
+              rule={selectedRule}
+              onClose={() => setSelectedRuleId(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { CalendarVisibilityProvider } from '../context/CalendarVisibilityContext';
 import QuickNoteFloatingButton from '../components/quick-notes/QuickNoteFloatingButton';
 import Sidebar from './Sidebar';
+import MobileNav from './MobileNav';
 import InboxPanel from '../panels/InboxPanel';
 import TodayPage from '../pages/TodayPage';
 import CalendarPage from '../pages/CalendarPage';
@@ -52,7 +53,7 @@ export default function AppLayout() {
     <CalendarVisibilityProvider>
       <div className="pim-shell h-screen flex overflow-hidden">
         <Sidebar />
-        <main className="pim-route-surface flex-1 overflow-auto p-4">
+        <main className="pim-route-surface flex-1 overflow-auto p-4 pb-20 md:pb-4">
           <Suspense fallback={<SuspenseFallback />}>
             <Routes>
               <Route path="/today" element={<TodayPage />} />
@@ -97,6 +98,7 @@ export default function AppLayout() {
             <QuickNoteFloatingPanel onClose={() => setQuickNoteOpen(false)} />
           </Suspense>
         )}
+        <MobileNav />
       </div>
     </CalendarVisibilityProvider>
   );

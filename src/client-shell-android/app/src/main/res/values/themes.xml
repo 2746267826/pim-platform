@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.PimShell" parent="Theme.AppCompat.DayNight.NoActionBar" />
+</resources>

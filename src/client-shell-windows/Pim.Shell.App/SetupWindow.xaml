@@ -1,0 +1,14 @@
+<Window x:Class="Pim.Shell.App.SetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="连接到 PIM 服务器" Width="480" Height="220"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <StackPanel Margin="24">
+        <TextBlock Text="服务器地址" FontWeight="SemiBold" />
+        <TextBox x:Name="ServerInput" Margin="0,8,0,4" Padding="6" Text="https://" />
+        <TextBlock x:Name="HintText" Foreground="Gray" TextWrapping="Wrap"
+                   Text="例如 https://pim.example.com，局域网可用 http:// 地址。" />
+        <Button x:Name="ConnectButton" Content="连接" Margin="0,16,0,0"
+                Padding="24,6" HorizontalAlignment="Right" Click="OnConnectClick" />
+    </StackPanel>
+</Window>

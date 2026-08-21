@@ -38,7 +38,7 @@ PIM_OPS_ALLOWED_CIDRS=10.0.0.0/8,127.0.0.1/32,192.168.1.10
 
 - 未配置：不限 IP。
 - 已配置：不在范围 `403 { code: 40301, message: "IpNotAllowed" }`。
-- 取数优先级：`PIM_OPS_ALLOWED_CIDRS` > `Ops:AllowedCidrs`，IP 来源为 `RemoteIpAddress`（或 `X-Forwarded-For` 首段用于限流/审计）。
+- 取数优先级：`PIM_OPS_ALLOWED_CIDRS` > `Ops:AllowedCidrs`，IP 统一策略：信任反代时优先取 `X-Forwarded-For` 首段，缺失则回退 `RemoteIpAddress`（`OpsIpHelper` + `ForwardedHeaders`）；限流/审计/CIDR 共用同一口径，避免反代后 `127.0.0.1` 误判。
 
 ---
 
@@ -167,7 +167,7 @@ curl -s -H "X-PIM-Ops-Key: $PIM_OPS_KEY" "http://127.0.0.1:5858/api/v1/ops/logs/
 
 ## 4. 数据库接口
 
-数据源 `PIM_OPS_RO_CONNECTION`（角色 `pim_ro`），只读事务 `SET TRANSACTION READ ONLY; SET statement_timeout=10000`，`Npgsql CommandTimeout=10s`。
+数据源 `PIM_OPS_RO_CONNECTION`（角色 `pim_ro`），只读事务分两条执行 `SET TRANSACTION READ ONLY` 与 `SET statement_timeout=10000`（避免单 `NpgsqlCommand` 多语句第二条被忽略），`Npgsql CommandTimeout=10s`。
 
 ### 4.1 显式列名示例（成功）
 
@@ -248,6 +248,7 @@ curl -s -H "X-PIM-Ops-Key: $PIM_OPS_KEY" "http://127.0.0.1:5858/api/v1/ops/db/de
 |------|------|------|
 | 401 | 40101 | `OpsKeyMissingOrInvalid`：未带或错带 `X-PIM-Ops-Key` |
 | 403 | 40301 | `IpNotAllowed`：CIDR 不在白名单 |
+| 403 | 40302 | `RestrictedColumn`：`pim_ro` 列级 `REVOKE` 后 `42501` 映射（`password_hash` 等） |
 | 503 | 50301 | `OpsDisabled` / `OpsRoConnectionNotConfigured`：未配置 `PIM_OPS_KEY` 或 `PIM_OPS_RO_CONNECTION` |
 | 400 | 40002 | `InvalidFileName` / `InvalidTableName` / `SqlNotAllowed` / `SelectStarNotAllowed` / `ColumnRestricted:xxx` / `SystemTableNotAllowed` / `InvalidFrom/To/Cursor` / `SqlEmpty` |
 | 400 | 40003 | `Limit must be 1-500`：`lines/limit` 越界 |
@@ -255,15 +256,15 @@ curl -s -H "X-PIM-Ops-Key: $PIM_OPS_KEY" "http://127.0.0.1:5858/api/v1/ops/db/de
 | 429 | 42901 | `RateLimited` |
 | 206 | - | 截断（`X-Truncated: true`） |
 
-敏感列示例：`SELECT password_hash FROM users` → `400 {code:40002, message:"ColumnRestricted:password_hash"}`；`pg_catalog` → `SystemTableNotAllowed`；多语句 `;` → `SqlNotAllowed`。
+敏感列示例：`SELECT password_hash FROM users` → `400 {code:40002, message:"ColumnRestricted:password_hash"}`（`pim_ro` 已 `REVOKE` 时底层 `42501` 映射 `40302`）；`pg_catalog`/`information_schema`/`pg_*` → `SystemTableNotAllowed`；`SELECT/**/ *` 等注释绕过由 `libpg_query`+正则兜底；多语句 `;` → `SqlNotAllowed`。
 
 ---
 
 ## 7. 敏感列清单
 
-- 应用层 AST 黑名单（`SqlAstValidator`）：`password_hash`、`token_hash`，命中即 `400 ColumnRestricted:xxx`，不触库。
-- 库层列级 REVOKE（`pim_ro`，见下一节）：`users.password_hash`、`refresh_tokens.token_hash` 等，按需追加。被 REVOK E 后库层报 `42501 permission denied`，前端不做 `***` 替换。
-- `information_schema` 与 `pg_catalog` 系统表禁止通过校验。
+- 应用层 AST（`Npgquery` + `libpg_query`，回退正则）：仅允 `SelectStmt`/`WITH`，`A_Star` 即拒、`ColumnRef` 黑名单命中拒、`RangeVar` 命中 `pg_catalog`/`information_schema`/`pg_%` 拒；命中即 `400 ColumnRestricted:xxx` / `SystemTableNotAllowed`，不触库。正则已增强 `information_schema` 与 `pg_\w+`、点星注释容忍 `\.\\s*(/\\*.*?\\*/\\s*)*\\*`。
+- 库层列级 REVOKE（`pim_ro`，见下一节）：`users.password_hash`、`refresh_tokens.token_hash` 等，按需追加。被 `REVOKE` 后库层报 `42501 permission denied` 映射 `40302 RestrictedColumn`，前端不做 `***` 替换。
+- `information_schema` 与 `pg_catalog` 系统表及 `pg_*` 前缀表禁止通过校验。
 
 ---
 

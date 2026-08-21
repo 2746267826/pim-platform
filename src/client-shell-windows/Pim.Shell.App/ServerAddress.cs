@@ -22,6 +22,6 @@ public static class ServerAddress
         return trimmed;
     }
 
-    public static bool IsInsecure(string normalizedServerUrl)
-        => normalizedServerUrl.StartsWith("http:", StringComparison.OrdinalIgnoreCase);
+    public static bool IsInsecure(string? normalizedServerUrl)
+        => normalizedServerUrl is not null && normalizedServerUrl.StartsWith("http:", StringComparison.OrdinalIgnoreCase);
 }

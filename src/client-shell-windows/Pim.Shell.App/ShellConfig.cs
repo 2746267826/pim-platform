@@ -26,8 +26,9 @@ public class ShellConfig
 
     public void Save(string path)
     {
-        var dir = Path.GetDirectoryName(path)!;
-        Directory.CreateDirectory(dir);
+        var dir = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
         File.WriteAllText(path, JsonSerializer.Serialize(this));
     }
 }

@@ -27,18 +27,7 @@ PIM_OPS_KEY=keyA,keyB
 - 轮换步骤：发布新密钥到逗号列表（`keyA,keyB`）→ 客户端全量切换到 `keyB` → 移除旧值 `keyA`，无停机。
 - 比对使用 `CryptographicOperations.FixedTimeEquals(UTF8)` 常时比较，逗号前后空白自动忽略。
 
-### 1.3 CIDR 白名单
-
-可选 `PIM_OPS_ALLOWED_CIDRS`，逗号分隔，支持 IPv4/IPv6：
-
-```bash
-PIM_OPS_ALLOWED_CIDRS=10.0.0.0/8,127.0.0.1/32,192.168.1.10
-# 单 IP 视为 /32（IPv4）或 /128（IPv6）
-```
-
-- 未配置：不限 IP。
-- 已配置：不在范围 `403 { code: 40301, message: "IpNotAllowed" }`。
-- 取数优先级：`PIM_OPS_ALLOWED_CIDRS` > `Ops:AllowedCidrs`，IP 统一策略：信任反代时优先取 `X-Forwarded-For` 首段，缺失则回退 `RemoteIpAddress`（`OpsIpHelper` + `ForwardedHeaders`）；限流/审计/CIDR 共用同一口径，避免反代后 `127.0.0.1` 误判。
+IP 统一策略：`OpsIpHelper` 仅取 `HttpContext.Connection.RemoteIpAddress`（依赖 `UseForwardedHeaders(XForwardedFor|XForwardedProto)` 已回写真实 IP，`KnownProxies=127.0.0.1/32,::1/128`）；不再手读 `X-Forwarded-For`，避免反代后 `127.0.0.1` 误判与伪造。
 
 ---
 
@@ -48,13 +37,14 @@ PIM_OPS_ALLOWED_CIDRS=10.0.0.0/8,127.0.0.1/32,192.168.1.10
 
 ### 2.1 Docker（推荐）
 
-`docker-compose.prod.yml` 已移除 SSH 相关，新增 ops 变量：
+`docker-compose.prod.yml` 已移除 SSH 相关，新增 ops 变量（监听 `0.0.0.0:${PIM_HTTP_PORT:-5858}:5000` 对外，反代 `https://域名:port` 均可达）：
 
 ```yaml
+ports:
+  - "0.0.0.0:${PIM_HTTP_PORT:-5858}:5000"
 environment:
   - PIM_OPS_KEY=${PIM_OPS_KEY}
   - PIM_OPS_RO_CONNECTION=${PIM_OPS_RO_CONNECTION}
-  - PIM_OPS_ALLOWED_CIDRS=${PIM_OPS_ALLOWED_CIDRS:-}
 ```
 
 `.env.prod` 示例（`cp .env.prod.example .env.prod`）：
@@ -62,7 +52,6 @@ environment:
 ```env
 PIM_OPS_KEY=CHANGE_ME_32_CHARS
 PIM_OPS_RO_CONNECTION=Host=db;Database=pim;Username=pim_ro;Password=CHANGE_ME;CommandTimeout=10
-PIM_OPS_ALLOWED_CIDRS= # 可选，如 10.0.0.0/8,127.0.0.1/32
 ```
 
 启动：
@@ -81,7 +70,6 @@ sudo mkdir -p /etc/pim
 sudo tee /etc/pim/ops.env >/dev/null <<'ENV'
 PIM_OPS_KEY=CHANGE_ME_32_CHARS
 PIM_OPS_RO_CONNECTION=Host=127.0.0.1;Database=pim;Username=pim_ro;Password=CHANGE_ME;CommandTimeout=10
-PIM_OPS_ALLOWED_CIDRS=10.0.0.0/8
 ENV
 sudo chmod 600 /etc/pim/ops.env
 sudo chown pim:pim /etc/pim/ops.env
@@ -233,12 +221,11 @@ curl -s -H "X-PIM-Ops-Key: $PIM_OPS_KEY" "http://127.0.0.1:5858/api/v1/ops/db/de
 
 | 维度 | 阈值 | 超限表现 |
 |------|------|----------|
-| 请求数 | 30 req / min / IP | `429 {code:42901, message:"RateLimited"} + Retry-After: 60` |
-| 字节 | 5 MB / min / IP | 同 `429`（按响应字节累计，含日志与 DB 总和） |
+| 并发 | 单 IP 并发 2 | `429 {code:42901, message:"RateLimited"} + Retry-After: 5` |
 | 单次 | 日志：`limit 500 / 5MB / 10s`；DB：`maxRows 500（默认 200）/ 5MB / 10s` | 截断 `206 Partial + X-Truncated: true + { truncated:true }` |
 
-- 限流仅对 `/api/v1/ops/*` 生效，内存 `FixedWindow` 按 IP，双维度，`Retry-After` 为窗口剩余秒数。
-- 截断不报错，调用方根据 `truncated` 与 `nextCursor` 决定是否续读。
+- 限流仅对 `/api/v1/ops/*` 生效，内存并发计数按 IP，`Retry-After: 5`，不做每分钟累计（`30次/min+5MB/min` 已移除）。
+- 截断不报错，调用方根据 `truncated` 与 `nextCursor` 决定是否续读；单次 `500行/5MB/10s` 截断保持在 `OpsLogsService`/`OpsDbService`（`206 Partial`）。
 
 ---
 
@@ -247,13 +234,12 @@ curl -s -H "X-PIM-Ops-Key: $PIM_OPS_KEY" "http://127.0.0.1:5858/api/v1/ops/db/de
 | HTTP | code | 场景 |
 |------|------|------|
 | 401 | 40101 | `OpsKeyMissingOrInvalid`：未带或错带 `X-PIM-Ops-Key` |
-| 403 | 40301 | `IpNotAllowed`：CIDR 不在白名单 |
 | 403 | 40302 | `RestrictedColumn`：`pim_ro` 列级 `REVOKE` 后 `42501` 映射（`password_hash` 等） |
 | 503 | 50301 | `OpsDisabled` / `OpsRoConnectionNotConfigured`：未配置 `PIM_OPS_KEY` 或 `PIM_OPS_RO_CONNECTION` |
 | 400 | 40002 | `InvalidFileName` / `InvalidTableName` / `SqlNotAllowed` / `SelectStarNotAllowed` / `ColumnRestricted:xxx` / `SystemTableNotAllowed` / `InvalidFrom/To/Cursor` / `SqlEmpty` |
 | 400 | 40003 | `Limit must be 1-500`：`lines/limit` 越界 |
 | 404 | 40401 | `LogFileNotFound` / `TableNotFound` |
-| 429 | 42901 | `RateLimited` |
+| 429 | 42901 | `RateLimited`（并发超限） |
 | 206 | - | 截断（`X-Truncated: true`） |
 
 敏感列示例：`SELECT password_hash FROM users` → `400 {code:40002, message:"ColumnRestricted:password_hash"}`（`pim_ro` 已 `REVOKE` 时底层 `42501` 映射 `40302`）；`pg_catalog`/`information_schema`/`pg_*` → `SystemTableNotAllowed`；`SELECT/**/ *` 等注释绕过由 `libpg_query`+正则兜底；多语句 `;` → `SqlNotAllowed`。
@@ -308,7 +294,7 @@ psql "Host=db;Database=pim;Username=pim_ro_login;Password=STRONG" -c "SELECT pas
 ## 9. 审计与可观测
 
 - 每次 `ops` 调用写入 `audit_logs`：`action=ops.logs.query | ops.db.query`，`metadata` 含 `file/sqlHash(前8)/rowCount/bytes/truncated/ip`，不记 `X-PIM-Ops-Key` 明文与完整 `params`，仅记 `sql` 的 `SHA256` 前 8。
-- 内存 `OpsRateLimiter` 与 `/api/v1/ops/health`（需密钥）：
+- 内存 `OpsRateLimiter`（单 IP 并发 2，`Retry-After:5`）与 `/api/v1/ops/health`（需密钥）：
 
 ```bash
 curl -s -H "X-PIM-Ops-Key: $PIM_OPS_KEY" http://127.0.0.1:5858/api/v1/ops/health | jq
@@ -329,8 +315,8 @@ curl -s -H "X-PIM-Ops-Key: $PIM_OPS_KEY" http://127.0.0.1:5858/api/v1/ops/health
 | `scripts/docker/entrypoint.sh` | 移除 `PIM_SSH_AUTHORIZED_KEYS` base64 解码、`~/.ssh`、`ssh-keygen host key`、`/run/sshd` |
 | `scripts/docker/supervisord.conf` | 移除 `[program:sshd]`，仅留 `[program:pim-api]` |
 | `scripts/docker/sshd-pim.conf`、`pim-log-cat.sh` | 删除 |
-| `docker-compose.prod.yml` | 移除 `127.0.0.1:${PIM_SSH_PORT:-2222}:22`、`PIM_SSH_AUTHORIZED_KEYS`、`pim_ssh_keys` 卷 |
-| `.env.prod.example` | 移除 SSH 示例，新增 `PIM_OPS_*` 三变量 |
+| `docker-compose.prod.yml` | 移除 `127.0.0.1:${PIM_SSH_PORT:-2222}:22`、`PIM_SSH_AUTHORIZED_KEYS`、`pim_ssh_keys` 卷，监听改为 `0.0.0.0:${PIM_HTTP_PORT:-5858}:5000` 对外 |
+| `.env.prod.example` | 移除 SSH 示例，新增 `PIM_OPS_*` 变量（`PIM_OPS_ALLOWED_CIDRS` 已移除，仅保留 `PIM_OPS_KEY`/`PIM_OPS_RO_CONNECTION`） |
 
 验证：
 
@@ -339,6 +325,8 @@ docker run --rm pim:test bash -c "which sshd && exit 1 || echo ok"
 # => ok
 docker compose -f docker-compose.prod.yml config | grep -q 2222 && echo fail || echo ok
 # => ok
+grep "0.0.0.0" docker-compose.prod.yml && echo ok
+# => 0.0.0.0:${PIM_HTTP_PORT:-5858}:5000
 ```
 
 原 `ssh -p 2222 pimlog@host pim-log-cat` 改为本文档的 `curl -H "X-PIM-Ops-Key" /api/v1/ops/logs/*`。
@@ -347,7 +335,7 @@ docker compose -f docker-compose.prod.yml config | grep -q 2222 && echo fail || 
 
 ## 11. 端到端验收（curl 可复现）
 
-前置：API 已启动 `http://127.0.0.1:5858`，`PIM_OPS_KEY` 已配置。
+前置：API 已启动 `http://127.0.0.1:5858`（生产 `0.0.0.0` 监听，反代 `https://域名:port` 均可达），`PIM_OPS_KEY` 已配置。
 
 ```bash
 export PIM_OPS_KEY=secret
@@ -366,9 +354,9 @@ curl -s -H "X-PIM-Ops-Key: $PIM_OPS_KEY" -H "Content-Type: application/json" \
 curl -s -H "X-PIM-Ops-Key: $PIM_OPS_KEY" -H "Content-Type: application/json" \
   -d '{"sql":"SELECT id, username FROM users LIMIT 5"}' http://127.0.0.1:5858/api/v1/ops/db/query | jq .code
 
-# 5) CIDR 场景（示例，服务端配 PIM_OPS_ALLOWED_CIDRS=10.0.0.0/8 时本机回环 403）
+# 5) 并发限流（单 IP 并发 2，超限 429 Retry-After:5）
 curl -s -H "X-PIM-Ops-Key: $PIM_OPS_KEY" http://127.0.0.1:5858/api/v1/ops/health | jq
-# 若配白名单且 IP 不匹配 => { code:40301 }
+# 并发压测见 OpsRateLimiter 并发用例
 
 # 6) 镜像无 sshd
 docker run --rm pim:test bash -c "which sshd && exit 1 || echo ok"

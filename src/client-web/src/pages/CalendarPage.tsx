@@ -375,7 +375,6 @@ export default function CalendarPage() {
           eventWillUnmount={handleEventUnmount}
         />
         </section>
-        <div className="hidden lg:block" aria-hidden="true" />
       </div>
 
       <TaskEditorDialog

@@ -17,11 +17,19 @@ import androidx.appcompat.app.AppCompatActivity
 class BrowserActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var errorOverlay: View
+    private var pendingShare: SharePayload? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_browser)
+
+        pendingShare = if (savedInstanceState?.containsKey(KEY_PENDING_SHARE_TEXT) == true) {
+            val text = savedInstanceState.getString(KEY_PENDING_SHARE_TEXT)
+            if (text != null) SharePayload(text, savedInstanceState.getString(KEY_PENDING_SHARE_URL)) else ShareIntentParser.parse(intent)
+        } else {
+            ShareIntentParser.parse(intent)
+        }
 
         val serverUrl = intent.getStringExtra(EXTRA_SERVER_URL)
         if (serverUrl == null) { finish(); return }
@@ -35,6 +43,9 @@ class BrowserActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 injectBridge()
+            }
+            override fun onPageFinished(view: WebView, url: String) {
+                pendingShare?.let { dispatchShare(it) }
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 if (request.isForMainFrame) errorOverlay.visibility = View.VISIBLE
@@ -63,6 +74,27 @@ class BrowserActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         webView.saveState(outState)
+        pendingShare?.let {
+            outState.putString(KEY_PENDING_SHARE_TEXT, it.text)
+            it.url?.let { url -> outState.putString(KEY_PENDING_SHARE_URL, url) }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        ShareIntentParser.parse(intent)?.let { payload ->
+            if (::webView.isInitialized) dispatchShare(payload) else pendingShare = payload
+        }
+    }
+
+    private fun dispatchShare(payload: SharePayload) {
+        val json = ShareIntentParser.toJson(payload)
+        webView.evaluateJavascript(
+            "(function(p){ window.dispatchEvent(new CustomEvent('pim-shell:share',{detail:p})); })( $json );",
+            null
+        )
+        pendingShare = null
     }
 
     private fun injectBridge() {
@@ -73,6 +105,8 @@ class BrowserActivity : AppCompatActivity() {
 
     companion object {
         private const val EXTRA_SERVER_URL = "server_url"
+        private const val KEY_PENDING_SHARE_TEXT = "pending_share_text"
+        private const val KEY_PENDING_SHARE_URL = "pending_share_url"
         fun intent(context: Context, serverUrl: String): Intent =
             Intent(context, BrowserActivity::class.java).putExtra(EXTRA_SERVER_URL, serverUrl)
     }

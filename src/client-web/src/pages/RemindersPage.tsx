@@ -10,6 +10,7 @@ import {
 } from '../api/calendar';
 import type { ReminderDelivery, ReminderSummary } from '../types';
 import PageHeader from '../ui/PageHeader';
+import MobilePageHeader from '../ui/MobilePageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
@@ -111,7 +112,8 @@ export default function RemindersPage() {
   const responseLog = deliveryLog.filter(item => item.respondedAt);
 
   return (
-    <div className="mx-auto w-full max-w-[1300px] space-y-4 pb-8">
+    <div className="mx-auto w-full max-w-[1300px] space-y-4 overflow-auto pb-20 md:pb-4">
+      <MobilePageHeader title="提醒中心" />
       <PageHeader
         title="提醒中心"
         subtitle="统一处理日程、任务、确认和报告的提醒触发原因、通知渠道、DND 与发送历史。"
@@ -282,7 +284,7 @@ export default function RemindersPage() {
                         type="button"
                         onClick={() => actionMutation.mutate({ id: reminder.id, action: 'open' })}
                         disabled={actionMutation.isPending}
-                        className="pim-button-secondary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                        className="pim-button-secondary min-h-[44px] px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         打开详情
                       </button>
@@ -290,7 +292,7 @@ export default function RemindersPage() {
                         type="button"
                         onClick={() => snoozeMutation.mutate(reminder.id)}
                         disabled={snoozeMutation.isPending}
-                        className="pim-button-secondary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                        className="pim-button-secondary min-h-[44px] px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         稍后提醒
                       </button>
@@ -298,7 +300,7 @@ export default function RemindersPage() {
                         type="button"
                         onClick={() => dismissMutation.mutate(reminder.id)}
                         disabled={dismissMutation.isPending}
-                        className="pim-button-secondary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                        className="pim-button-secondary min-h-[44px] px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         忽略
                       </button>

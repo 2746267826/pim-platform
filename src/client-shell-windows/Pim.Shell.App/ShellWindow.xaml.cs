@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
 
@@ -12,6 +13,7 @@ public partial class ShellWindow : Window
         InitializeComponent();
         _serverUrl = serverUrl;
         Loaded += async (_, _) => await InitializeAsync();
+        StateChanged += OnStateChanged;
     }
 
     private async Task InitializeAsync()
@@ -39,5 +41,10 @@ public partial class ShellWindow : Window
     {
         new SetupWindow().Show();
         Close();
+    }
+
+    private void OnStateChanged(object? sender, EventArgs e)
+    {
+        if (WindowState == WindowState.Minimized) Hide();
     }
 }

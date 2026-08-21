@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
+import { useShellShare } from '../hooks/useShellShare';
 
 import {
   archiveQuickNote,
@@ -16,6 +18,7 @@ import QuickNoteEditor from '../components/quick-notes/QuickNoteEditor';
 import QuickNoteMarkdownPreview from '../components/quick-notes/QuickNoteMarkdownPreview';
 import type { QuickNoteDetail, QuickNoteListItem, QuickNoteStatus } from '../types';
 import EmptyState from '../ui/EmptyState';
+import MobilePageHeader from '../ui/MobilePageHeader';
 import PageHeader from '../ui/PageHeader';
 
 const statusFilters: Array<{ key: QuickNoteStatus; label: string }> = [
@@ -68,11 +71,28 @@ export default function QuickNotesPage() {
   const [status, setStatus] = useState<QuickNoteStatus>('inbox');
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState('');
+  const [searchParams] = useSearchParams();
+  const prefill = searchParams.get('prefill') ?? searchParams.get('text') ?? '';
+  const isEmbed = searchParams.get('embed') === '1';
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editMarkdown, setEditMarkdown] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
   const selectedIdRef = useRef<string | null>(null);
+
+  const hasPrefilled = useRef(false);
+
+  useEffect(() => {
+    if (prefill && !hasPrefilled.current) {
+      hasPrefilled.current = true;
+      setDraft(prefill);
+    }
+  }, [prefill]);
+
+  useShellShare(useCallback((detail) => {
+    const text = detail.text ?? detail.url ?? '';
+    if (text) setDraft((prev) => (prev ? `${prev}\n\n${text}` : text));
+  }, []));
 
   const listParams = useMemo(() => ({
     status,
@@ -303,21 +323,24 @@ export default function QuickNotesPage() {
   }
 
   return (
-    <div className="mx-auto flex h-full max-w-[1440px] flex-col gap-4 pb-4">
-      <PageHeader
-        title="快速记录"
-        subtitle="收集、整理、处理和归档临时想法。"
-        actions={
-          <button
-            type="button"
-            onClick={() => void listQuery.refetch()}
-            disabled={listQuery.isFetching}
-            className="pim-button-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            刷新
-          </button>
-        }
-      />
+    <div className="mx-auto flex h-full max-w-[1440px] flex-col gap-4 overflow-auto pb-20 md:pb-4">
+      {!isEmbed && <MobilePageHeader title="快速记录" action={<span className="md:hidden text-xs text-slate-500">收集</span>} />}
+      {!isEmbed && (
+        <PageHeader
+          title="快速记录"
+          subtitle="收集、整理、处理和归档临时想法。"
+          actions={
+            <button
+              type="button"
+              onClick={() => void listQuery.refetch()}
+              disabled={listQuery.isFetching}
+              className="pim-button-secondary min-h-[44px] px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              刷新
+            </button>
+          }
+        />
+      )}
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -341,7 +364,7 @@ export default function QuickNotesPage() {
                 type="button"
                 onClick={handleCreate}
                 disabled={!draft.trim() || createMutation.isPending}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="min-h-[44px] rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 {createMutation.isPending ? '保存中...' : '保存记录'}
               </button>
@@ -360,7 +383,7 @@ export default function QuickNotesPage() {
                     setStatus(item.key);
                     setSelection(null);
                   }}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  className={`min-h-[44px] rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
                     status === item.key
                       ? 'border-blue-600 bg-blue-600 text-white'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-slate-50'

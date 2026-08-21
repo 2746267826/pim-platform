@@ -10,6 +10,7 @@ import {
 import TaskHierarchyPanel from '../components/schedule/TaskHierarchyPanel';
 import TaskSegmentEditor from '../components/schedule/TaskSegmentEditor';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
+import MobilePageHeader from '../ui/MobilePageHeader';
 import EmptyState from '../ui/EmptyState';
 import StatusBadge from '../ui/StatusBadge';
 import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
@@ -326,7 +327,8 @@ export default function TaskListPage() {
   if (isLoading) return <div className="p-4 text-sm text-slate-500">加载中...</div>;
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-4 pb-8">
+    <div className="mx-auto max-w-[1400px] space-y-4 overflow-auto pb-20 md:pb-4">
+      <MobilePageHeader title="任务清单" />
       <div data-contract="Checklist" className="sr-only">Checklist</div>
       <section className="pim-panel p-4">
         <div className="flex flex-wrap gap-2">
@@ -335,7 +337,7 @@ export default function TaskListPage() {
               key={f.key}
               type="button"
               onClick={() => handleFilterChange(f.key)}
-              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`min-h-[44px] rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
                 filter === f.key
                   ? 'border-blue-600 bg-blue-600 text-white'
                   : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-slate-50'

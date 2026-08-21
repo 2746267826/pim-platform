@@ -29,6 +29,8 @@ export default function AuditTimelinePage() {
   const objectType = params.objectType ?? 'task';
   const objectId = params.objectId ?? '';
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState('');
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['audit-timeline', objectType, objectId],
@@ -57,7 +59,7 @@ export default function AuditTimelinePage() {
   }, [selectedVersionId, versions]);
 
   return (
-    <div className="mx-auto w-full max-w-[1300px] space-y-4 pb-8">
+    <div className="mx-auto w-full max-w-[1300px] space-y-4 pb-20">
       <PageHeader
         title="审计时间线"
         subtitle={`${objectType} / ${objectId || '未指定对象'} 的版本历史、字段差异、恢复预览与导出审计。`}
@@ -72,6 +74,12 @@ export default function AuditTimelinePage() {
           </button>
         }
       />
+
+      <div className="flex justify-end xl:hidden">
+        <button type="button" onClick={() => setFilterOpen(true)} className="pim-button-secondary px-3 py-2 text-sm">
+          筛选
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.5fr)]">
         <section className="pim-panel min-w-0 overflow-hidden">
@@ -176,6 +184,32 @@ export default function AuditTimelinePage() {
           )}
         </section>
       </div>
+
+      {filterOpen && (
+        <div className="fixed inset-0 z-40 flex justify-end xl:hidden">
+          <div className="absolute inset-0 bg-slate-950/30" onClick={() => setFilterOpen(false)} />
+          <div className="relative flex h-full w-full max-w-[420px] flex-col overflow-auto bg-white p-4 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-800">筛选</h3>
+              <button type="button" className="text-xs text-slate-500 hover:text-slate-700" onClick={() => setFilterOpen(false)}>
+                关闭
+              </button>
+            </div>
+            <div className="mt-4 space-y-3">
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-500">来源过滤</span>
+                <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                  <option value="">全部来源</option>
+                  <option value="pim">PIM</option>
+                  <option value="outlook">Outlook</option>
+                  <option value="manual">手动</option>
+                </select>
+              </label>
+              <p className="text-xs text-slate-400">时间线为单列布局，小屏下自动单列展示，筛选项在抽屉内完成。</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

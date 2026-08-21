@@ -5,4 +5,8 @@ assertContains('src/client-web/src/pages/WorkbenchPage.tsx', ['pb-20', 'Segmente
 assertContains('src/client-web/src/pages/PcClassificationPage.tsx', ['pb-20', 'overflow-auto']);
 assertContains('src/client-web/src/pages/CategoryTreePage.tsx', ['pb-20']);
 assertContains('src/client-web/src/pages/FilesPage.tsx', ['pb-20', 'overflow-auto']);
+assertContains('src/client-web/src/pages/DataCenterPage.tsx', ['pb-20', 'overflow-auto']);
+assertContains('src/client-web/src/pages/AuditTimelinePage.tsx', ['pb-20']);
+assertContains('src/client-web/src/pages/PcDetailQueryPage.tsx', ['pb-20']);
 console.error('PASS: cPagesResponsive classification/files');
+console.error('PASS: cPagesResponsive datacenter/audit');

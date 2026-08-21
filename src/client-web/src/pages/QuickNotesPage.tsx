@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
+import { useShellShare } from '../hooks/useShellShare';
 
 import {
   archiveQuickNote,
@@ -68,11 +70,25 @@ export default function QuickNotesPage() {
   const [status, setStatus] = useState<QuickNoteStatus>('inbox');
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState('');
+  const [searchParams] = useSearchParams();
+  const prefill = searchParams.get('prefill') ?? searchParams.get('text') ?? '';
+  const isEmbed = searchParams.get('embed') === '1';
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editMarkdown, setEditMarkdown] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
   const selectedIdRef = useRef<string | null>(null);
+
+  void URLSearchParams;
+
+  useEffect(() => {
+    if (prefill && !draft) setDraft(prefill);
+  }, [prefill]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useShellShare(useCallback((detail) => {
+    const text = detail.text ?? detail.url ?? '';
+    if (text) setDraft((prev) => (prev ? `${prev}\n\n${text}` : text));
+  }, []));
 
   const listParams = useMemo(() => ({
     status,
@@ -304,20 +320,22 @@ export default function QuickNotesPage() {
 
   return (
     <div className="mx-auto flex h-full max-w-[1440px] flex-col gap-4 pb-4">
-      <PageHeader
-        title="快速记录"
-        subtitle="收集、整理、处理和归档临时想法。"
-        actions={
-          <button
-            type="button"
-            onClick={() => void listQuery.refetch()}
-            disabled={listQuery.isFetching}
-            className="pim-button-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            刷新
-          </button>
-        }
-      />
+      {!isEmbed && (
+        <PageHeader
+          title="快速记录"
+          subtitle="收集、整理、处理和归档临时想法。"
+          actions={
+            <button
+              type="button"
+              onClick={() => void listQuery.refetch()}
+              disabled={listQuery.isFetching}
+              className="pim-button-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              刷新
+            </button>
+          }
+        />
+      )}
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

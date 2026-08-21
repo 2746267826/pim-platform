@@ -79,11 +79,14 @@ export default function QuickNotesPage() {
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
   const selectedIdRef = useRef<string | null>(null);
 
-  void URLSearchParams;
+  const hasPrefilled = useRef(false);
 
   useEffect(() => {
-    if (prefill && !draft) setDraft(prefill);
-  }, [prefill]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (prefill && !hasPrefilled.current) {
+      hasPrefilled.current = true;
+      setDraft(prefill);
+    }
+  }, [prefill]);
 
   useShellShare(useCallback((detail) => {
     const text = detail.text ?? detail.url ?? '';

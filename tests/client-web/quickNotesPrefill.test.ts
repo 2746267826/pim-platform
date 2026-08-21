@@ -15,7 +15,7 @@ assertContains('src/client-web/src/hooks/useShellShare.ts', [
 assertContains('src/client-web/src/pages/QuickNotesPage.tsx', [
   "useShellShare",
   "prefill",
-  "URLSearchParams",
+  "useSearchParams",
 ]);
 
 console.error('PASS: quickNotesPrefill');

@@ -17,11 +17,14 @@ import androidx.appcompat.app.AppCompatActivity
 class BrowserActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var errorOverlay: View
+    private var pendingShare: SharePayload? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_browser)
+
+        pendingShare = ShareIntentParser.parse(intent)
 
         val serverUrl = intent.getStringExtra(EXTRA_SERVER_URL)
         if (serverUrl == null) { finish(); return }
@@ -35,6 +38,9 @@ class BrowserActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 injectBridge()
+            }
+            override fun onPageFinished(view: WebView, url: String) {
+                pendingShare?.let { dispatchShare(it) }
             }
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 if (request.isForMainFrame) errorOverlay.visibility = View.VISIBLE
@@ -63,6 +69,23 @@ class BrowserActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         webView.saveState(outState)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        ShareIntentParser.parse(intent)?.let { payload ->
+            if (::webView.isInitialized) dispatchShare(payload) else pendingShare = payload
+        }
+    }
+
+    private fun dispatchShare(payload: SharePayload) {
+        val json = ShareIntentParser.toJson(payload)
+        webView.evaluateJavascript(
+            "(function(p){ window.dispatchEvent(new CustomEvent('pim-shell:share',{detail:p})); })( $json );",
+            null
+        )
+        pendingShare = null
     }
 
     private fun injectBridge() {

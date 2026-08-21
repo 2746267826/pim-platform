@@ -618,7 +618,7 @@ export default function FilesPage() {
     || restoreTrashMutation.isPending;
 
   return (
-    <div className="mx-auto flex h-full max-w-[1600px] flex-col gap-4 pb-4">
+    <div className="mx-auto flex h-full max-w-[1600px] flex-col gap-4 pb-20">
       <PageHeader
         title="文件"
         subtitle="Nextcloud 文件、版本、索引和 AI 建议"
@@ -641,7 +641,7 @@ export default function FilesPage() {
       )}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[320px_minmax(520px,1fr)_400px]">
-        <div className="flex min-h-0 flex-col gap-4 overflow-auto">
+         <div className="flex min-h-0 flex-col gap-4 overflow-auto pb-20">
           <Section title="文件来源">
             <div className="space-y-3 p-3">
               {providersQuery.isLoading ? (
@@ -876,14 +876,14 @@ export default function FilesPage() {
               </form>
             </div>
 
-            <div className="grid grid-cols-[minmax(220px,1fr)_110px_150px_110px] border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase text-slate-500">
+            <div className="grid min-w-[640px] grid-cols-[minmax(220px,1fr)_110px_150px_110px] border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase text-slate-500">
               <button type="button" onClick={() => toggleSort('name')} className="text-left">名称 {sortKey === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button>
               <button type="button" onClick={() => toggleSort('size')} className="text-right">大小 {sortKey === 'size' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button>
               <button type="button" onClick={() => toggleSort('modifiedAt')} className="text-right">修改时间 {sortKey === 'modifiedAt' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}</button>
               <span className="text-right">索引</span>
             </div>
 
-            <div className="min-h-[420px] overflow-auto">
+            <div className="min-h-[420px] overflow-auto overflow-x-auto">
               {(itemsQuery.isLoading || searchQuery.isLoading) ? (
                 <p className="p-4 text-sm text-slate-500">正在加载文件...</p>
               ) : sortedItems.length === 0 ? (
@@ -1168,6 +1168,24 @@ export default function FilesPage() {
           )}
         </Section>
       </div>
+
+      {/* Mobile preview drawer: fixed inset-0 full screen on small screens */}
+      {selected && selectedId && (
+        <div className="fixed inset-0 z-40 flex justify-end xl:hidden">
+          <div className="absolute inset-0 bg-slate-950/30" onClick={() => setSelectedId(null)} />
+          <div className="relative flex h-full w-full max-w-[420px] flex-col overflow-auto bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <h2 className="truncate text-sm font-semibold text-slate-900">{selected.name}</h2>
+              <button type="button" onClick={() => setSelectedId(null)} className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600">关闭</button>
+            </div>
+            <div className="flex-1 overflow-auto p-3 text-sm text-slate-600">
+              <p className="break-all text-xs text-slate-500">{selected.path}</p>
+              <p className="mt-2">大小：{formatBytes(selected.size)}</p>
+              <p>修改：{formatDateTime(selected.modifiedAt)}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

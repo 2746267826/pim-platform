@@ -185,13 +185,13 @@ export default function CategoryTreePage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       <PageHeader title="分类树" subtitle="作为 App 知识库的目标分类结构" />
       <AppKnowledgeTabs active="categories" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left: Tree */}
-        <div className="lg:col-span-2 pim-panel p-4">
+      <div className="grid grid-cols-1 gap-4">
+        {/* Left: Tree - single column, list area pb-20 */}
+        <div className="pim-panel p-4 pb-20 overflow-auto">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-slate-800">分类树</h2>
             <div className="flex gap-2">
@@ -236,8 +236,8 @@ export default function CategoryTreePage() {
           )}
         </div>
 
-        {/* Right: Edit Panel */}
-        <div className="pim-panel p-4">
+        {/* Right: Edit Panel - desktop inline */}
+        <div className="hidden lg:block pim-panel p-4">
           {showForm ? (
             <>
               <div className="flex items-center justify-between mb-4">
@@ -344,6 +344,91 @@ export default function CategoryTreePage() {
           )}
         </div>
       </div>
+
+      {/* Mobile drawer: fixed inset-0 on small screens */}
+      {showForm && (
+        <div className="fixed inset-0 z-40 flex justify-end lg:hidden">
+          <div className="absolute inset-0 bg-slate-950/30" onClick={() => setShowForm(false)} />
+          <div className="relative flex h-full w-full max-w-[420px] flex-col overflow-auto bg-white p-4 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-slate-800">
+                {form.id ? '编辑分类' : '新建分类'}
+              </h2>
+              <button
+                className="text-xs text-slate-400 hover:text-slate-600"
+                onClick={() => setShowForm(false)}
+              >
+                关闭
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">名称</label>
+                <input
+                  className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  value={form.name}
+                  onChange={e => setForm({ ...form, name: e.target.value })}
+                  placeholder="分类名称"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">图标 (emoji)</label>
+                <input
+                  className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  value={form.icon || ''}
+                  onChange={e => setForm({ ...form, icon: e.target.value })}
+                  placeholder="🎮"
+                  maxLength={4}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">颜色</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {defaultColors.map(color => (
+                    <button
+                      key={color}
+                      className={`w-6 h-6 rounded-full border-2 ${form.color === color ? 'border-slate-800 scale-110' : 'border-transparent'}`}
+                      style={{ backgroundColor: color }}
+                      onClick={() => setForm({ ...form, color })}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">生产力属性</label>
+                <div className="flex gap-2">
+                  {productivityOptions.map(opt => (
+                    <button
+                      key={opt.value}
+                      className={`px-3 py-1.5 text-xs font-medium rounded border ${form.productivity === opt.value ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200'}`}
+                      onClick={() => setForm({ ...form, productivity: opt.value })}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  className="flex-1 px-3 py-1.5 text-sm font-medium bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+                  onClick={handleSubmit}
+                  disabled={saveMutation.isPending || !form.name.trim()}
+                >
+                  {saveMutation.isPending ? '保存中...' : '保存'}
+                </button>
+                {form.id && (
+                  <button
+                    className="px-3 py-1.5 text-xs font-medium text-red-500 hover:text-red-600"
+                    onClick={() => form.id && handleDelete(form.id)}
+                  >
+                    删除
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

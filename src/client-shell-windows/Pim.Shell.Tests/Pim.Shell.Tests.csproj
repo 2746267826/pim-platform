@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net8.0-windows</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
@@ -18,7 +18,10 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <ProjectReference Include="..\Pim.Shell.App\Pim.Shell.App.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
     <Compile Include="..\Pim.Shell.App\UpdateChecker.cs" Link="UpdateChecker.cs" />
     <Compile Include="..\Pim.Shell.App\ServerAddress.cs" Link="ServerAddress.cs" />
     <Compile Include="..\Pim.Shell.App\ShellBridge.cs" Link="ShellBridge.cs" />

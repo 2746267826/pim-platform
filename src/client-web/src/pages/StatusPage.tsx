@@ -118,7 +118,7 @@ export default function StatusPage() {
   const summaryStatus = summary?.status ?? 'Unknown';
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] space-y-4 pb-20">
+    <div className="mx-auto w-full max-w-[1200px] space-y-4 pb-20 md:pb-4">
       <PageHeader
         title="状态信息"
         subtitle="查看 API、数据库、daemon、采集源和后台任务状态。"

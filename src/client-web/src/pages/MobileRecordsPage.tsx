@@ -247,8 +247,7 @@ export default function MobileRecordsPage() {
     ?? errorMessage(timelineBlocksQuery.error);
 
   return (
-    <div className="min-h-full bg-slate-50 pb-20">
-      <div className="min-h-[44px] sr-only" aria-hidden="true" />
+    <div className="min-h-full bg-slate-50 pb-20 md:pb-4">
       <MobileAnalyticsHeader
         rangeShortcut={rangeShortcut}
         rangeStartDate={rangeStartDate}
@@ -269,7 +268,7 @@ export default function MobileRecordsPage() {
         onRefresh={refresh}
       />
 
-      <main className="space-y-4 pt-4">
+      <main className="space-y-4 pt-4 min-h-[44px]">
         <MobileInsightStrip overview={overviewQuery.data} isLoading={loading} />
         <section className="mx-auto grid max-w-[1500px] grid-cols-1 gap-4 px-4 sm:px-6 xl:grid-cols-[minmax(0,1fr)_360px]">
           <MobileUsageHeatmap

@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace Pim.Shell.App;
 
 public enum HealthCheckStatus { Healthy, Unreachable }

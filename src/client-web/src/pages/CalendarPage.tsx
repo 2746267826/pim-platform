@@ -336,7 +336,6 @@ export default function CalendarPage() {
         onToggleOutlookOnly={setOutlookOnly}
       />
 
-      <div className="grid grid-cols-1 gap-4 pb-20 md:pb-4 lg:grid-cols-[1.5fr_1fr]">
         <section className="calendar-board pim-panel min-h-0 flex-1 overflow-hidden p-3">
         {planTaskError && (
           <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
@@ -375,7 +374,8 @@ export default function CalendarPage() {
           eventWillUnmount={handleEventUnmount}
         />
         </section>
-      </div>
+      {/* grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr] — reserved */}
+      <div className="pb-20 md:pb-4" aria-hidden="true" />
 
       <TaskEditorDialog
         open={taskEditorOpen}

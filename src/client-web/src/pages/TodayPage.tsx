@@ -7,6 +7,7 @@ import { getTodaySectionRegistry } from '../api/today';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
 import PageHeader from '../ui/PageHeader';
+import MobilePageHeader from '../ui/MobilePageHeader';
 import EmptyState from '../ui/EmptyState';
 import SegmentedControl from '../ui/SegmentedControl';
 import TodaySectionHost, {
@@ -141,7 +142,8 @@ export default function TodayPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4 pb-8">
+    <div className="mx-auto max-w-[1500px] space-y-4 overflow-x-auto pb-20 md:pb-4">
+      <MobilePageHeader title="今日" action={<span className="md:hidden text-xs text-slate-500">{dateStr}</span>} />
       <PageHeader
         title="日程任务工作台"
         subtitle={`${dateStr} · 日程承诺、任务执行、提醒队列与报告`}

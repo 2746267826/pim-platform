@@ -11,6 +11,7 @@ import {
 import BeforeAfterDiff from '../components/schedule/BeforeAfterDiff';
 import StrictConfirmationPanel from '../components/schedule/StrictConfirmationPanel';
 import { safeChangedFields, safeExternalEffectText } from '../utils/eventFieldDiff';
+import MobilePageHeader from '../ui/MobilePageHeader';
 import PageHeader from '../ui/PageHeader';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
@@ -118,7 +119,8 @@ export default function ConfirmationsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] space-y-4 pb-8">
+    <div className="mx-auto w-full max-w-[1400px] space-y-4 overflow-auto pb-20 md:pb-4">
+      <MobilePageHeader title="确认中心" />
       <PageHeader
         title="确认中心"
         subtitle="在日程、同步、数据中心变更执行前复核影响对象、来源、回写影响和恢复路径。"
@@ -173,7 +175,7 @@ export default function ConfirmationsPage() {
                   type="button"
                   onClick={handleConfirmActive}
                   disabled={busy}
-                  className="pim-button-primary px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                  className="pim-button-primary min-h-[44px] px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {confirmActionState.label}
                 </button>
@@ -181,7 +183,7 @@ export default function ConfirmationsPage() {
                   type="button"
                   onClick={handleRejectActive}
                   disabled={busy}
-                  className="pim-button-secondary px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                  className="pim-button-secondary min-h-[44px] px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   拒绝
                 </button>

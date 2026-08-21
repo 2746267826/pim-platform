@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getRecycleBin, previewRecycleRestore, restoreRecycleItem } from '../api/calendar';
+import MobilePageHeader from '../ui/MobilePageHeader';
 import EmptyState from '../ui/EmptyState';
 import OperationResultBanner from '../ui/OperationResultBanner';
 import PageHeader from '../ui/PageHeader';
@@ -428,7 +429,8 @@ export default function RecycleBinPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 pb-8">
+    <div className="mx-auto max-w-6xl space-y-4 overflow-auto pb-20 md:pb-4">
+      <MobilePageHeader title="回收站" />
       <PageHeader
         title="回收站"
         subtitle="恢复已删除的日程、任务、日历本和任务本"
@@ -525,7 +527,7 @@ export default function RecycleBinPage() {
                         type="button"
                         onClick={() => openRestorePreview(item)}
                         disabled={previewMutation.isPending || restoreMutation.isPending}
-                        className="pim-button-secondary px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                        className="pim-button-secondary min-h-[44px] px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         恢复
                       </button>

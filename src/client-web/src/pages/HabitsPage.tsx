@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getHabits } from '../api/calendar';
 import HabitRoutineEditor from '../components/schedule/HabitRoutineEditor';
 import PageHeader from '../ui/PageHeader';
+import MobilePageHeader from '../ui/MobilePageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
 
 type HabitTab = 'active' | 'planning' | 'archive';
@@ -34,7 +35,8 @@ export default function HabitsPage() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] space-y-4 pb-8">
+    <div className="mx-auto w-full max-w-[1200px] space-y-4 overflow-auto pb-20 md:pb-4">
+      <MobilePageHeader title="习惯中心" />
       <PageHeader
         title="习惯中心"
         subtitle="管理习惯规则、完成历史、复盘指标与投射到日历的时间块。"

@@ -18,6 +18,7 @@ import QuickNoteEditor from '../components/quick-notes/QuickNoteEditor';
 import QuickNoteMarkdownPreview from '../components/quick-notes/QuickNoteMarkdownPreview';
 import type { QuickNoteDetail, QuickNoteListItem, QuickNoteStatus } from '../types';
 import EmptyState from '../ui/EmptyState';
+import MobilePageHeader from '../ui/MobilePageHeader';
 import PageHeader from '../ui/PageHeader';
 
 const statusFilters: Array<{ key: QuickNoteStatus; label: string }> = [
@@ -322,7 +323,8 @@ export default function QuickNotesPage() {
   }
 
   return (
-    <div className="mx-auto flex h-full max-w-[1440px] flex-col gap-4 pb-4">
+    <div className="mx-auto flex h-full max-w-[1440px] flex-col gap-4 overflow-auto pb-20 md:pb-4">
+      {!isEmbed && <MobilePageHeader title="快速记录" action={<span className="md:hidden text-xs text-slate-500">收集</span>} />}
       {!isEmbed && (
         <PageHeader
           title="快速记录"
@@ -332,7 +334,7 @@ export default function QuickNotesPage() {
               type="button"
               onClick={() => void listQuery.refetch()}
               disabled={listQuery.isFetching}
-              className="pim-button-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              className="pim-button-secondary min-h-[44px] px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
               刷新
             </button>
@@ -362,7 +364,7 @@ export default function QuickNotesPage() {
                 type="button"
                 onClick={handleCreate}
                 disabled={!draft.trim() || createMutation.isPending}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="min-h-[44px] rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 {createMutation.isPending ? '保存中...' : '保存记录'}
               </button>
@@ -381,7 +383,7 @@ export default function QuickNotesPage() {
                     setStatus(item.key);
                     setSelection(null);
                   }}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  className={`min-h-[44px] rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
                     status === item.key
                       ? 'border-blue-600 bg-blue-600 text-white'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-slate-50'

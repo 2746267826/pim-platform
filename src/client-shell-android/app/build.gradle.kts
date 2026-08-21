@@ -22,6 +22,7 @@ android {
         release { isMinifyEnabled = false }
         debug { isMinifyEnabled = false }
     }
+    buildFeatures { buildConfig = true }
     testOptions { unitTests.isIncludeAndroidResources = true }
 }
 

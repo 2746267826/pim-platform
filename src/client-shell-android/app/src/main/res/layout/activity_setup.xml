@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="24dp">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="@string/server_address" android:textStyle="bold" />
+    <EditText android:id="@+id/serverInput" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:hint="@string/server_hint"
+        android:inputType="textUri" android:text="@string/default_scheme" />
+    <TextView android:id="@+id/hintText" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" android:textColor="#808080" android:text="@string/setup_description" />
+    <Button android:id="@+id/connectButton" android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:layout_gravity="end" android:layout_marginTop="16dp" android:text="@string/connect" />
+</LinearLayout>

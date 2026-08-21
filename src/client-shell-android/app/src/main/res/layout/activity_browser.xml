@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+    <WebView android:id="@+id/webView" android:layout_width="match_parent" android:layout_height="match_parent" />
+    <LinearLayout android:id="@+id/errorOverlay" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:background="#F5F5F5" android:gravity="center" android:orientation="vertical" android:visibility="gone">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/unreachable_title" android:textSize="20sp" android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" android:text="@string/unreachable_body" />
+        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" android:orientation="horizontal">
+            <Button android:id="@+id/retryButton" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="@string/retry" />
+            <Button android:id="@+id/changeServerButton" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginStart="12dp" android:text="@string/change_server" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

@@ -168,4 +168,7 @@ interface ApiService {
         @Path("deviceId") deviceId: String,
         @Body request: EndpointNotificationActionRequestDto
     ): ApiResponse<EndpointNotificationActionResponseDto>
+
+    @GET("client/shell/latest")
+    suspend fun getClientLatest(): ClientShellLatestResponse
 }

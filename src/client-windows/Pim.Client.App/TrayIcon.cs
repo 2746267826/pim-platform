@@ -1,13 +1,16 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Net.Http;
+using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Pim.Client.App.Services;
 using Pim.Client.Core;
 using Pim.Client.Core.Services;
 
 namespace Pim.Client.App;
 
-public class TrayIcon : IDisposable
+public partial class TrayIcon : IDisposable
 {
     private System.Windows.Forms.NotifyIcon? _notifyIcon;
 
@@ -32,6 +35,12 @@ public class TrayIcon : IDisposable
         _notifyIcon.ContextMenuStrip.Items.Add("立即同步", null, async (_, _) => await TriggerSyncAsync());
         _notifyIcon.ContextMenuStrip.Items.Add("回填最近 14 天 ActivityWatch", null, async (_, _) => await TriggerAwBackfillAsync());
         _notifyIcon.ContextMenuStrip.Items.Add("在浏览器打开 Web 工作台", null, (_, _) => OpenWebWorkbench());
+        _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+        var version = GetVersion();
+        var serverUrl = ResolveServerUrl(null);
+        var trayMenu = BuildMenu(version, serverUrl);
+        _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripMenuItem(trayMenu.Items[0].Text, null, (_, _) => ShowAboutBox(version, serverUrl)));
+        _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripMenuItem(trayMenu.Items[1].Text, null, async (_, _) => await CheckUpdateAsync(version, serverUrl)));
         _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         _notifyIcon.ContextMenuStrip.Items.Add("登录...", null, (_, _) => ShowLogin());
         _notifyIcon.ContextMenuStrip.Items.Add("退出", null, (_, _) => ConfirmAndExit());
@@ -190,6 +199,49 @@ public class TrayIcon : IDisposable
             System.Windows.Application.Current.Shutdown();
         }
     }
+
+    private static string ResolveServerUrl(string? serverUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(serverUrl)) return serverUrl!.Trim();
+        try { return DaemonConfig.Load().ServerUrl?.Trim() ?? ClientDefaults.DefaultServerUrl; }
+        catch { return ClientDefaults.DefaultServerUrl; }
+    }
+
+    private static void ShowAboutBox(string version, string serverUrl)
+    {
+        var url = ResolveServerUrl(serverUrl);
+        System.Windows.Forms.MessageBox.Show($"PIM Daemon v{version}\nAPI: {url}", "关于");
+    }
+
+    private static async Task CheckUpdateAsync(string version, string serverUrl)
+    {
+        var url = ResolveServerUrl(serverUrl);
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            var latest = await http.GetFromJsonAsync<LatestDto>($"{url.TrimEnd('/')}/api/client/shell/latest");
+            if (latest?.error != null)
+            {
+                Logger.Warn($"Daemon update check failed: {latest.error} checkedAt={latest.checkedAt}");
+                System.Windows.Forms.MessageBox.Show($"检查失败：{latest.error}", "PIM");
+            }
+            else if (latest?.windowsVersion != null && UpdateChecker.IsNewer(version, latest.windowsVersion))
+            {
+                System.Windows.Forms.MessageBox.Show($"发现新版 {latest.windowsVersion}\n{latest.windowsUrl}", "PIM");
+            }
+            else
+            {
+                System.Windows.Forms.MessageBox.Show("已是最新版本", "PIM");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"Daemon update check failed: {ex.Message}");
+            System.Windows.Forms.MessageBox.Show($"检查失败：{ex.Message}", "PIM");
+        }
+    }
+
+    private record LatestDto(string? windowsVersion, string? windowsUrl, string? error, string? checkedAt);
 
     public void Dispose()
     {

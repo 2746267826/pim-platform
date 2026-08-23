@@ -1,5 +1,9 @@
 package com.pim.app.ui.settings
 
+import android.content.Context
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pim.app.location.service.ForegroundLocationController
@@ -18,13 +22,16 @@ import com.pim.app.recovery.CollectionState
 import com.pim.app.recovery.RunningStateRestorer
 import com.pim.app.schedule.ScheduleCacheStore
 import com.pim.app.status.PermissionStatusSnapshot
+import com.pim.core.models.ClientShellLatestResponse
+import com.pim.core.network.ApiService
 import com.pim.core.settings.PimServerEndpoints
+import com.pim.core.settings.ServerUrlValidator
 import com.pim.core.auth.ServerBoundLoginCoordinator
 import com.pim.core.auth.ServerBoundLoginResult
 import com.pim.core.auth.TokenManager
 import com.pim.core.settings.ServerSettingsStore
-import com.pim.core.settings.ServerUrlValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +39,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 enum class DiagnosticClearFeedback {
     Cleared,
@@ -63,7 +71,15 @@ data class SettingsUiState(
     val permissions: PermissionStatusSnapshot = PermissionStatusSnapshot(false, false, false, false, false, false),
     val showClearDiagnosticsConfirmation: Boolean = false,
     val isClearingDiagnostics: Boolean = false,
-    val diagnosticClearFeedback: DiagnosticClearFeedback? = null
+    val diagnosticClearFeedback: DiagnosticClearFeedback? = null,
+    val appVersion: String = "unknown",
+    val versionCode: Long = 0,
+    val gitSha: String = "unknown",
+    val hasUpdate: Boolean = false,
+    val latestVersion: String? = null,
+    val updateUrl: String? = null,
+    val updateError: String? = null,
+    val updateCheckedAt: String? = null
 )
 
 private enum class SaveServerUrlResult {
@@ -86,13 +102,16 @@ class SettingsViewModel @Inject constructor(
     private val diagnosticOperations: DiagnosticOperations,
     private val runningStateRestorer: RunningStateRestorer,
     private val webViewSiteDataCleaner: WebViewSiteDataCleaner,
-    private val scheduleCacheStore: ScheduleCacheStore
+    private val scheduleCacheStore: ScheduleCacheStore,
+    private val api: ApiService,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
     private val _state = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
 
     init {
         refresh(runProbe = false)
+        viewModelScope.launch { checkUpdate() }
     }
 
     fun refresh() {
@@ -460,15 +479,130 @@ class SettingsViewModel @Inject constructor(
         _state.update { it.copy(collectionStatus = "持续采集已关闭。") }
     }
 
+    fun isNewer(current: String?, remote: String?): Boolean {
+        if (remote.isNullOrBlank()) return false
+        if (current.isNullOrBlank()) return true
+        fun parseN(v: String): Int? {
+            val core = v.trim().split("+", "-").firstOrNull() ?: return null
+            return core.split(".").lastOrNull()?.toIntOrNull()
+        }
+        val rn = parseN(remote)
+        val cn = parseN(current)
+        if (rn != null && cn != null) return rn > cn
+        return remote.trim() > current.trim()
+    }
+
+    suspend fun checkUpdate() {
+        try {
+            val latest = api.getClientLatest()
+            if (latest.error != null) {
+                Timber.w("update check failed ${latest.error}")
+                _state.update { it.copy(updateError = latest.error, updateCheckedAt = latest.checkedAt) }
+                return
+            }
+            val current = appVersionName()
+            val checkedAt = latest.checkedAt
+            if (isNewer(current, latest.androidVersion)) {
+                _state.update {
+                    it.copy(
+                        hasUpdate = true,
+                        latestVersion = latest.androidVersion,
+                        updateUrl = latest.androidUrl,
+                        updateCheckedAt = checkedAt,
+                        updateError = null
+                    )
+                }
+            } else {
+                _state.update {
+                    it.copy(
+                        hasUpdate = false,
+                        latestVersion = latest.androidVersion,
+                        updateUrl = latest.androidUrl,
+                        updateCheckedAt = checkedAt,
+                        updateError = null
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Timber.w(e, "update check exception")
+            _state.update { it.copy(updateError = e.message) }
+        }
+    }
+
+    fun checkUpdateAsync() {
+        viewModelScope.launch { checkUpdate() }
+    }
+
+    suspend fun refreshUpdateForVisibleScreen(): Long {
+        checkUpdate()
+        return 6 * 60 * 60 * 1000L
+    }
+
+    private fun appVersionName(): String {
+        return try {
+            val pm = appContext.packageManager
+            val pkg = appContext.packageName
+            val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION") pm.getPackageInfo(pkg, 0)
+            }
+            info.versionName ?: "unknown"
+        } catch (_: Exception) {
+            "unknown"
+        }
+    }
+
+    private fun appVersionInfo(): Pair<String, Long> {
+        return try {
+            val pm = appContext.packageManager
+            val pkg = appContext.packageName
+            val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION") pm.getPackageInfo(pkg, 0)
+            }
+            val vc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
+            (info.versionName ?: "unknown") to vc
+        } catch (_: Exception) {
+            "unknown" to 0L
+        }
+    }
+
+    private fun resolveGitSha(): String {
+        try {
+            val clazz = Class.forName("com.pim.app.BuildConfig")
+            val field = clazz.getField("GIT_SHA")
+            val v = field.get(null) as? String
+            if (!v.isNullOrBlank() && v != "unknown") return v
+        } catch (_: Exception) {}
+        try {
+            val env = System.getenv("CI_GIT_SHA")
+            if (!env.isNullOrBlank()) return env
+        } catch (_: Exception) {}
+        try {
+            val env2 = System.getenv("GIT_SHA")
+            if (!env2.isNullOrBlank()) return env2
+        } catch (_: Exception) {}
+        return "unknown"
+    }
+
     fun onResume() {
         val snapshot = permissionStatusRepository.snapshot()
         val collectionIntent = persistedCollectionEnabled()
+        val (vn, vc) = appVersionInfo()
+        val sha = resolveGitSha()
         _state.update {
             it.copy(
                 permissions = snapshot,
-                continuousCollectionEnabled = collectionIntent
+                continuousCollectionEnabled = collectionIntent,
+                appVersion = vn,
+                versionCode = vc,
+                gitSha = sha
             )
         }
+        viewModelScope.launch { checkUpdate() }
 
         viewModelScope.launch {
             runCatching {
@@ -649,6 +783,8 @@ class SettingsViewModel @Inject constructor(
         val now = System.currentTimeMillis()
         val verboseEnabled = trackingSettingsStore.isVerboseLoggingEnabled(now)
         val settings = trackingSettingsStore.read()
+        val (vn, vc) = appVersionInfo()
+        val sha = resolveGitSha()
         _state.update {
             it.copy(
                 trackingProfile = settings.profile,
@@ -661,7 +797,10 @@ class SettingsViewModel @Inject constructor(
                 scheduleMinText = (settings.scheduleLowFrequencyIntervalMillis / 60_000.0).toDisplayNumber(),
                 movementSecText = (settings.movementIntervalMillis / 1_000.0).toDisplayNumber(),
                 recoveryMetersText = settings.scheduleRecoveryThresholdMeters.toFloat().toDisplayNumber(),
-                altitudeSecText = (settings.altitudeWaitTimeoutMillis / 1_000.0).toDisplayNumber()
+                altitudeSecText = (settings.altitudeWaitTimeoutMillis / 1_000.0).toDisplayNumber(),
+                appVersion = vn,
+                versionCode = vc,
+                gitSha = sha
             )
         }
     }

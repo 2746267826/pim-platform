@@ -363,3 +363,13 @@ data class MobileLocationSegmentPointPageDto(
     val nextCursor: String? = null,
     val hasMore: Boolean
 )
+
+@Serializable
+data class ClientShellLatestResponse(
+    val androidVersion: String? = null,
+    val androidUrl: String? = null,
+    val windowsVersion: String? = null,
+    val windowsUrl: String? = null,
+    val checkedAt: String? = null,
+    val error: String? = null
+)

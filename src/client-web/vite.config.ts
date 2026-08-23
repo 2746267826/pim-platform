@@ -25,6 +25,7 @@ export default defineConfig({
     emptyOutDir: true
   },
   define: {
-    __APP_VERSION__: JSON.stringify(process.env.VITE_APP_VERSION || '0.0.0-local')
+    __APP_VERSION__: JSON.stringify(process.env.VITE_APP_VERSION || '0.0.0-local'),
+    __GIT_SHA__: JSON.stringify(process.env.VITE_GIT_SHA || process.env.GITHUB_SHA?.slice(0,7) || 'local')
   }
 })

@@ -1,4 +1,4 @@
-namespace Pim.Shell.App;
+namespace Pim.Client.App;
 
 public static class UpdateChecker
 {
@@ -9,15 +9,27 @@ public static class UpdateChecker
         var rn = ParseN(remote!);
         var cn = ParseN(current!);
         if (rn != null && cn != null) return rn > cn;
-        System.Diagnostics.Trace.WriteLine($"[Warn] UpdateChecker: illegal version format, fallback to Ordinal compare. current='{current.Trim()}' remote='{remote.Trim()}'");
+        var warnMsg = $"UpdateChecker: illegal version format, fallback to Ordinal compare. current='{current.Trim()}' remote='{remote.Trim()}'";
+        TryLogWarn(warnMsg);
+        System.Diagnostics.Trace.WriteLine($"[Warn] {warnMsg}");
         return string.Compare(remote.Trim(), current.Trim(), StringComparison.Ordinal) > 0;
     }
+
+    private static void TryLogWarn(string message)
+    {
+        try
+        {
+            var t = Type.GetType("Pim.Client.App.Services.Logger, Pim.Client.App");
+            t?.GetMethod("Warn", new[] { typeof(string) })?.Invoke(null, new object[] { message });
+        }
+        catch { }
+    }
+
     private static int? ParseN(string v)
     {
         var trimmed = v.Trim();
         if (trimmed.Length == 0) return null;
-        // 先去后缀 (+/- 之后均为构建元数据/预发布)，再取最后一段作为 N
-        var coreVersion = trimmed.Split(new[]{'+','-'}).FirstOrDefault();
+        var coreVersion = trimmed.Split(new[] { '+', '-' }).FirstOrDefault();
         if (coreVersion == null) return null;
         var last = coreVersion.Split('.').LastOrDefault();
         return int.TryParse(last, out var n) ? n : (int?)null;

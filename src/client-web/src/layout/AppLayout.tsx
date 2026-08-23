@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useVersionInfo } from '../hooks/useVersionInfo';
 import { useAuth } from '../auth/AuthContext';
 import { CalendarVisibilityProvider } from '../context/CalendarVisibilityContext';
 import QuickNoteFloatingButton from '../components/quick-notes/QuickNoteFloatingButton';
@@ -48,56 +49,62 @@ export default function AppLayout() {
   }
 
   const showCalendarInbox = location.pathname === '/calendar' || location.pathname.startsWith('/calendar/');
+  const { localVersion, serverVersion, latestVersion, hasUpdate } = useVersionInfo();
 
   return (
     <CalendarVisibilityProvider>
-      <div className="pim-shell h-screen flex overflow-hidden">
-        <Sidebar />
-        <main className="pim-route-surface flex-1 overflow-auto p-4 pb-20 md:pb-4">
-          <Suspense fallback={<SuspenseFallback />}>
-            <Routes>
-              <Route path="/today" element={<TodayPage />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/workbench" element={<WorkbenchPage />} />
-              <Route path="/sync" element={<Navigate to="/settings/sync" replace />} />
-              <Route path="/data-center" element={<DataCenterPage />} />
-              <Route path="/confirmations" element={<ConfirmationsPage />} />
-              <Route path="/reminders" element={<RemindersPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/habits" element={<HabitsPage />} />
-              <Route path="/audit/:objectType/:objectId" element={<AuditTimelinePage />} />
-              <Route path="/endpoint-shell" element={<EndpointShellPage />} />
-              <Route path="/quick-notes" element={<QuickNotesPage />} />
-              <Route path="/files" element={<FilesPage />} />
-              <Route path="/timeline" element={<Navigate to="/calendar?view=timeline" replace />} />
-              <Route path="/week" element={<Navigate to="/calendar?view=timeline" replace />} />
-              <Route path="/month" element={<Navigate to="/calendar?view=month" replace />} />
-              <Route path="/tasks" element={<TaskListPage />} />
-              <Route path="/pc-tracker" element={<PcTrackerPage />} />
-              <Route path="/mobile-records" element={<MobileRecordsPage />} />
-              <Route path="/location-history" element={<HistoricalLocationPage />} />
-              <Route path="/status" element={<StatusPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/settings/sync" element={<SyncPage />} />
-              <Route path="/settings/ai" element={<AiSettingsPage />} />
-              <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
-              <Route path="/settings/recycle-bin" element={<RecycleBinPage />} />
-              <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />
-              <Route path="/app-knowledge-base" element={<AppKnowledgeBasePage />} />
-              <Route path="/app-knowledge-base/categories" element={<CategoryTreePage />} />
-              <Route path="/pc-categories" element={<Navigate to="/app-knowledge-base/categories" replace />} />
-              <Route path="/pc-classification" element={<Navigate to="/app-knowledge-base" replace />} />
-              <Route path="*" element={<Navigate to="/today" replace />} />
-            </Routes>
-          </Suspense>
-        </main>
-        {showCalendarInbox && <InboxPanel draggable />}
-        <QuickNoteFloatingButton onClick={() => setQuickNoteOpen(true)} />
-        {quickNoteOpen && (
-          <Suspense fallback={null}>
-            <QuickNoteFloatingPanel onClose={() => setQuickNoteOpen(false)} />
-          </Suspense>
-        )}
+      <div className="h-screen flex flex-col overflow-hidden">
+        <div className="pim-shell flex flex-1 overflow-hidden">
+          <Sidebar />
+          <main className="pim-route-surface flex-1 overflow-auto p-4 pb-20 md:pb-4">
+            <Suspense fallback={<SuspenseFallback />}>
+              <Routes>
+                <Route path="/today" element={<TodayPage />} />
+                <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/workbench" element={<WorkbenchPage />} />
+                <Route path="/sync" element={<Navigate to="/settings/sync" replace />} />
+                <Route path="/data-center" element={<DataCenterPage />} />
+                <Route path="/confirmations" element={<ConfirmationsPage />} />
+                <Route path="/reminders" element={<RemindersPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/habits" element={<HabitsPage />} />
+                <Route path="/audit/:objectType/:objectId" element={<AuditTimelinePage />} />
+                <Route path="/endpoint-shell" element={<EndpointShellPage />} />
+                <Route path="/quick-notes" element={<QuickNotesPage />} />
+                <Route path="/files" element={<FilesPage />} />
+                <Route path="/timeline" element={<Navigate to="/calendar?view=timeline" replace />} />
+                <Route path="/week" element={<Navigate to="/calendar?view=timeline" replace />} />
+                <Route path="/month" element={<Navigate to="/calendar?view=month" replace />} />
+                <Route path="/tasks" element={<TaskListPage />} />
+                <Route path="/pc-tracker" element={<PcTrackerPage />} />
+                <Route path="/mobile-records" element={<MobileRecordsPage />} />
+                <Route path="/location-history" element={<HistoricalLocationPage />} />
+                <Route path="/status" element={<StatusPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/settings/sync" element={<SyncPage />} />
+                <Route path="/settings/ai" element={<AiSettingsPage />} />
+                <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
+                <Route path="/settings/recycle-bin" element={<RecycleBinPage />} />
+                <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />
+                <Route path="/app-knowledge-base" element={<AppKnowledgeBasePage />} />
+                <Route path="/app-knowledge-base/categories" element={<CategoryTreePage />} />
+                <Route path="/pc-categories" element={<Navigate to="/app-knowledge-base/categories" replace />} />
+                <Route path="/pc-classification" element={<Navigate to="/app-knowledge-base" replace />} />
+                <Route path="*" element={<Navigate to="/today" replace />} />
+              </Routes>
+            </Suspense>
+          </main>
+          {showCalendarInbox && <InboxPanel draggable />}
+          <QuickNoteFloatingButton onClick={() => setQuickNoteOpen(true)} />
+          {quickNoteOpen && (
+            <Suspense fallback={null}>
+              <QuickNoteFloatingPanel onClose={() => setQuickNoteOpen(false)} />
+            </Suspense>
+          )}
+        </div>
+        <footer className="text-xs text-slate-400 flex gap-3 px-4 py-2 border-t">
+          <span>v{localVersion}</span><span>API v{serverVersion ?? '...'}</span>{hasUpdate && <span className="text-amber-600">有新版 v{latestVersion}</span>}
+        </footer>
         <MobileNav />
       </div>
     </CalendarVisibilityProvider>

@@ -96,6 +96,14 @@ async function runRouteAudit(browser: Browser, baseUrl: string) {
           body: JSON.stringify(mockApiResponse(fullPath)),
         });
       });
+      await context.route('**/api/version', route => route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ version: '2026.08.100', capabilities: [], latestVersion: null, checkedAt: null, error: null }),
+      }));
+      await context.route('**/api/client/shell/latest', route => route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ windowsVersion: null, windowsUrl: null, androidVersion: null, androidUrl: null, checkedAt: null, error: null }),
+      }));
       for (const route of routes) {
         const page = await context.newPage();
         const consoleErrors: string[] = [];

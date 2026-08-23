@@ -1137,6 +1137,40 @@ class SettingsServerMutationTest {
         )
         val siteDataCleaner = FakeWebViewSiteDataCleaner(throwOnClear = cleanerThrows)
         val scheduleCacheStore = ScheduleCacheStore(cacheDir, Json { ignoreUnknownKeys = true })
+        val fakeApi = object : com.pim.core.network.ApiService {
+            override suspend fun login(request: com.pim.core.models.LoginRequest) = error("not used")
+            override suspend fun register(request: com.pim.core.models.RegisterRequest) = error("not used")
+            override suspend fun refresh(request: com.pim.core.models.RefreshRequest) = error("not used")
+            override suspend fun getCalendars() = error("not used")
+            override suspend fun createCalendar(request: com.pim.core.models.CreateCalendarRequest) = error("not used")
+            override suspend fun getEvents(start: String, end: String) = error("not used")
+            override suspend fun createEvent(request: com.pim.core.models.CreateEventRequest) = error("not used")
+            override suspend fun updateEvent(id: String, request: com.pim.core.models.CreateEventRequest) = error("not used")
+            override suspend fun deleteEvent(id: String) = error("not used")
+            override suspend fun getTasks(inbox: Boolean?) = error("not used")
+            override suspend fun createTask(request: com.pim.core.models.CreateTaskRequest) = error("not used")
+            override suspend fun updateTask(id: String, request: com.pim.core.models.CreateTaskRequest) = error("not used")
+            override suspend fun deleteTask(id: String) = error("not used")
+            override suspend fun search(query: String, type: String?) = error("not used")
+            override suspend fun importIcs(body: okhttp3.RequestBody) = error("not used")
+            override suspend fun exportIcs(start: String, end: String) = error("not used")
+            override suspend fun syncOutlook() = error("not used")
+            override suspend fun uploadStats(batch: com.pim.core.models.UploadBatch) = error("not used")
+            override suspend fun registerMobileDevice(request: com.pim.core.models.MobileDeviceRegisterRequest) = error("not used")
+            override suspend fun getMobileGaps(request: com.pim.core.models.MobileGapRequest) = error("not used")
+            override suspend fun uploadMobileUsage(request: com.pim.core.models.MobileUsageEventsUploadRequest) = error("not used")
+            override suspend fun uploadMobileLocation(request: com.pim.core.models.MobileLocationPointRequest) = error("not used")
+            override suspend fun getMobileSummary(date: String?, deviceId: String?) = error("not used")
+            override suspend fun getMobileTimeline(date: String?, deviceId: String?) = error("not used")
+            override suspend fun getMobileQuality(date: String?, deviceId: String?, rangeStartUtc: String?, rangeEndUtc: String?) = error("not used")
+            override suspend fun getMobileLocationHistory(rangeStartUtc: String?, rangeEndUtc: String?, deviceId: String?, maxAccuracyMeters: Double, includeRejected: Boolean, cursor: String?, pageSize: Int?) = error("not used")
+            override suspend fun getMobileLocationOverview(rangeStartUtc: String, rangeEndUtc: String, deviceId: String?, maxAccuracyMeters: Double) = error("not used")
+            override suspend fun getMobileLocationTracks(rangeStartUtc: String, rangeEndUtc: String, deviceId: String?, maxAccuracyMeters: Double) = error("not used")
+            override suspend fun getMobileLocationSegmentPoints(segmentId: String, rangeStartUtc: String?, rangeEndUtc: String?, timezone: String?, deviceId: String?, maxAccuracyMeters: Double, includeRejected: Boolean, cursor: String?, pageSize: Int?) = error("not used")
+            override suspend fun sendHeartbeat(request: com.pim.core.models.DaemonHeartbeatRequest) = error("not used")
+            override suspend fun sendEndpointNotificationAction(deviceId: String, request: com.pim.core.models.EndpointNotificationActionRequestDto) = error("not used")
+            override suspend fun getClientLatest() = com.pim.core.models.ClientShellLatestResponse()
+        }
         val viewModel = SettingsViewModel(
             serverSettingsStore = serverSettings,
             tokenManager = tokenManager,
@@ -1150,7 +1184,9 @@ class SettingsServerMutationTest {
             diagnosticOperations = diagnosticOperations,
             runningStateRestorer = runningStateRestorer,
             webViewSiteDataCleaner = siteDataCleaner,
-            scheduleCacheStore = scheduleCacheStore
+            scheduleCacheStore = scheduleCacheStore,
+            api = fakeApi,
+            appContext = context
         )
         return Fixture(
             viewModel = viewModel,

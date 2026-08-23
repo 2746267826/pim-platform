@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Net.Http;
 using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Pim.Client.App.Services;

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import PageHeader from '../ui/PageHeader';
+import AboutPimCard from '../components/AboutPimCard';
 
 const settingsLinks = [
   {
@@ -59,6 +60,7 @@ export default function SettingsPage() {
           </span>
         </Link>
       ))}
+      <AboutPimCard />
     </div>
   );
 }

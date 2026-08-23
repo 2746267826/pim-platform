@@ -1,4 +1,4 @@
-using Pim.Shell.App;
+using Pim.Client.Core.Services;
 using Xunit;
 
 public class UpdateCheckerTests

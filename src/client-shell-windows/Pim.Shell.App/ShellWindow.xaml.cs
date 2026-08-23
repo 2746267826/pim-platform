@@ -38,7 +38,7 @@ public partial class ShellWindow : Window
         {
             try { await Task.Delay(TimeSpan.FromSeconds(3), _updateCts.Token); } catch (OperationCanceledException) { return; }
             await CheckUpdateAsync();
-            try { while (await _updateTimer.WaitForNextTickAsync(_updateCts.Token)) await CheckUpdateAsync(); } catch (OperationCanceledException) { }
+            try { while (await _updateTimer.WaitForNextTickAsync(_updateCts.Token)) await CheckUpdateAsync(); } catch (OperationCanceledException) { } catch (ObjectDisposedException) { }
         });
     }
 
@@ -48,18 +48,18 @@ public partial class ShellWindow : Window
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
             var latest = await http.GetFromJsonAsync<LatestDto>($"{_serverUrl.TrimEnd('/')}/api/client/shell/latest");
-            if (latest?.error != null) { Logger.Warn($"Update check failed: {latest.error} checkedAt={latest.checkedAt}"); Dispatcher.Invoke(() => { UpdateText.Text = $"检查失败: {latest.error} checkedAt={latest.checkedAt}"; UpdateBar.Visibility = Visibility.Visible; }); return; }
+            if (latest?.error != null) { Logger.Warn($"Update check failed: {latest.error} checkedAt={latest.checkedAt}"); Dispatcher.Invoke(() => { UpdateText.Text = $"检查失败: {latest.error} checkedAt={latest.checkedAt}"; UpdateBar.Visibility = Visibility.Visible; UpdateButton.Visibility = Visibility.Collapsed; _updateUrl = null; }); return; }
             if (latest?.windowsVersion != null && UpdateChecker.IsNewer(_currentVersion, latest.windowsVersion) && !string.IsNullOrWhiteSpace(latest.windowsUrl))
             {
                 Logger.Info($"Update available current={_currentVersion} latest={latest.windowsVersion}");
-                Dispatcher.Invoke(() => { UpdateText.Text = $"发现新版 {latest.windowsVersion}"; UpdateBar.Visibility = Visibility.Visible; _updateUrl = latest.windowsUrl; });
+                Dispatcher.Invoke(() => { UpdateText.Text = $"发现新版 {latest.windowsVersion}"; UpdateBar.Visibility = Visibility.Visible; UpdateButton.Visibility = Visibility.Visible; _updateUrl = latest.windowsUrl; });
             }
             else
             {
                 Logger.Info($"Update check no update current={_currentVersion} latest={latest?.windowsVersion} checkedAt={latest?.checkedAt}");
             }
         }
-        catch (Exception ex) { Logger.Warn($"Update check exception: {ex.Message}", ex); Logger.Error($"Update check failed: {ex.Message}", ex); Dispatcher.Invoke(() => { UpdateText.Text = $"检查异常: {ex.Message}"; UpdateBar.Visibility = Visibility.Visible; }); }
+        catch (Exception ex) { Logger.Warn($"Update check exception: {ex.Message}", ex); Logger.Error($"Update check failed: {ex.Message}", ex); Dispatcher.Invoke(() => { UpdateText.Text = $"检查异常: {ex.Message}"; UpdateBar.Visibility = Visibility.Visible; UpdateButton.Visibility = Visibility.Collapsed; _updateUrl = null; }); }
     }
 
     private void OnUpdateClick(object s, RoutedEventArgs e)

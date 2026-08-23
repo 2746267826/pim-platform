@@ -28,4 +28,14 @@ public class UpdateCheckerTests
         Assert.False(UpdateChecker.IsNewer("2026.08.212", null));
         Assert.False(UpdateChecker.IsNewer("2026.08.212", ""));
     }
+
+    [Theory]
+    [InlineData("not-a-version", "2026.08.10", false)] // 非法 current vs 合法 remote，回退 Ordinal：'2'(50) < 'n'(110) => false
+    [InlineData("bad", "also-bad", false)] // 双非法回退 Ordinal：'a'(97) < 'b'(98) => false
+    public void IsNewer_FallsBackToOrdinal_WhenIllegalFormat(string current, string remote, bool expected)
+    {
+        var ex = Record.Exception(() => UpdateChecker.IsNewer(current, remote));
+        Assert.Null(ex);
+        Assert.Equal(expected, UpdateChecker.IsNewer(current, remote));
+    }
 }

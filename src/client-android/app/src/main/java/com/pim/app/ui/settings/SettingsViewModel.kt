@@ -78,7 +78,8 @@ data class SettingsUiState(
     val hasUpdate: Boolean = false,
     val latestVersion: String? = null,
     val updateUrl: String? = null,
-    val updateError: String? = null
+    val updateError: String? = null,
+    val updateCheckedAt: String? = null
 )
 
 private enum class SaveServerUrlResult {
@@ -496,12 +497,31 @@ class SettingsViewModel @Inject constructor(
             val latest = api.getClientLatest()
             if (latest.error != null) {
                 Timber.w("update check failed ${latest.error}")
-                _state.update { it.copy(updateError = latest.error) }
+                _state.update { it.copy(updateError = latest.error, updateCheckedAt = latest.checkedAt) }
                 return
             }
             val current = appVersionName()
+            val checkedAt = latest.checkedAt
             if (isNewer(current, latest.androidVersion)) {
-                _state.update { it.copy(hasUpdate = true, latestVersion = latest.androidVersion, updateUrl = latest.androidUrl) }
+                _state.update {
+                    it.copy(
+                        hasUpdate = true,
+                        latestVersion = latest.androidVersion,
+                        updateUrl = latest.androidUrl,
+                        updateCheckedAt = checkedAt,
+                        updateError = null
+                    )
+                }
+            } else {
+                _state.update {
+                    it.copy(
+                        hasUpdate = false,
+                        latestVersion = latest.androidVersion,
+                        updateUrl = latest.androidUrl,
+                        updateCheckedAt = checkedAt,
+                        updateError = null
+                    )
+                }
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -550,16 +570,36 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    private fun resolveGitSha(): String {
+        try {
+            val clazz = Class.forName("com.pim.app.BuildConfig")
+            val field = clazz.getField("GIT_SHA")
+            val v = field.get(null) as? String
+            if (!v.isNullOrBlank() && v != "unknown") return v
+        } catch (_: Exception) {}
+        try {
+            val env = System.getenv("CI_GIT_SHA")
+            if (!env.isNullOrBlank()) return env
+        } catch (_: Exception) {}
+        try {
+            val env2 = System.getenv("GIT_SHA")
+            if (!env2.isNullOrBlank()) return env2
+        } catch (_: Exception) {}
+        return "unknown"
+    }
+
     fun onResume() {
         val snapshot = permissionStatusRepository.snapshot()
         val collectionIntent = persistedCollectionEnabled()
         val (vn, vc) = appVersionInfo()
+        val sha = resolveGitSha()
         _state.update {
             it.copy(
                 permissions = snapshot,
                 continuousCollectionEnabled = collectionIntent,
                 appVersion = vn,
-                versionCode = vc
+                versionCode = vc,
+                gitSha = sha
             )
         }
         viewModelScope.launch { checkUpdate() }
@@ -744,6 +784,7 @@ class SettingsViewModel @Inject constructor(
         val verboseEnabled = trackingSettingsStore.isVerboseLoggingEnabled(now)
         val settings = trackingSettingsStore.read()
         val (vn, vc) = appVersionInfo()
+        val sha = resolveGitSha()
         _state.update {
             it.copy(
                 trackingProfile = settings.profile,
@@ -758,7 +799,8 @@ class SettingsViewModel @Inject constructor(
                 recoveryMetersText = settings.scheduleRecoveryThresholdMeters.toFloat().toDisplayNumber(),
                 altitudeSecText = (settings.altitudeWaitTimeoutMillis / 1_000.0).toDisplayNumber(),
                 appVersion = vn,
-                versionCode = vc
+                versionCode = vc,
+                gitSha = sha
             )
         }
     }

@@ -70,6 +70,8 @@ import com.pim.app.status.StatusPermissionNavigator
 import com.pim.app.ui.components.PimSection
 import com.pim.app.ui.permissions.permissionSettingRows
 import com.pim.app.ui.status.repeatConnectionProbePolling
+import kotlinx.coroutines.CancellationException
+import timber.log.Timber
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -95,7 +97,13 @@ fun SettingsScreen(
     }
     LaunchedEffect(lifecycleOwner, viewModel) {
         while (true) {
-            val delayMs = try { viewModel.refreshUpdateForVisibleScreen() } catch (_: Exception) { 6 * 60 * 60 * 1000L }
+            val delayMs = try {
+                viewModel.refreshUpdateForVisibleScreen()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Timber.w(e, "update poll failed")
+                6 * 60 * 60 * 1000L
+            }
             kotlinx.coroutines.delay(delayMs)
         }
     }
@@ -494,6 +502,40 @@ fun SettingsScreen(
                         Icon(Icons.Filled.ContentCopy, contentDescription = "复制版本信息")
                     }
                 }
+            }
+            OutlinedButton(
+                onClick = { viewModel.checkUpdateAsync() },
+                modifier = Modifier.fillMaxWidth().testTag("settings-check-update")
+            ) {
+                Text("检查更新")
+            }
+            state.latestVersion?.let {
+                Text(
+                    text = "最新版本：$it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            state.updateCheckedAt?.let {
+                Text(
+                    text = "检查时间：$it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            state.updateError?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+            if (!state.hasUpdate && state.latestVersion != null && state.updateError == null) {
+                Text(
+                    text = "已是最新版本",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
 

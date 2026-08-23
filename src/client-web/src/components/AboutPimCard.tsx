@@ -4,6 +4,7 @@ export default function AboutPimCard(){
   const rows = [
     { label:'Web', value:`${localVersion} (${localSha})` },
     { label:'API', value: serverVersion ? `${serverVersion}` : '加载中' },
+    { label:'GitHub 最新', value: latestVersion ?? '检查中' },
     { label:'Windows Daemon', value:'由托盘上报' },
     { label:'Windows Shell', value:'由 Shell 上报' },
     { label:'Android', value:'由 App 上报' },

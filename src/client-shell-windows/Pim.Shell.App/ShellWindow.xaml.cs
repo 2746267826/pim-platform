@@ -1,8 +1,10 @@
 using System;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Threading;
 using System.Windows;
 using Microsoft.Web.WebView2.Core;
+using Pim.Client.Core.Services;
 using Pim.Shell.App.Services;
 
 namespace Pim.Shell.App;
@@ -14,6 +16,7 @@ public partial class ShellWindow : Window
     private string _currentVersion = typeof(ShellWindow).Assembly.GetCustomAttributes(false).OfType<AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "0.0.0-local";
     private readonly PeriodicTimer _updateTimer = new(TimeSpan.FromHours(6));
     private readonly CancellationTokenSource _updateCts = new();
+    private int _checking;
 
     public ShellWindow(string serverUrl)
     {
@@ -44,6 +47,7 @@ public partial class ShellWindow : Window
 
     private async Task CheckUpdateAsync()
     {
+        if (Interlocked.Exchange(ref _checking, 1) == 1) return;
         try
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
@@ -59,7 +63,8 @@ public partial class ShellWindow : Window
                 Logger.Info($"Update check no update current={_currentVersion} latest={latest?.windowsVersion} checkedAt={latest?.checkedAt}");
             }
         }
-        catch (Exception ex) { Logger.Warn($"Update check exception: {ex.Message}", ex); Logger.Error($"Update check failed: {ex.Message}", ex); Dispatcher.Invoke(() => { UpdateText.Text = $"检查异常: {ex.Message}"; UpdateBar.Visibility = Visibility.Visible; UpdateButton.Visibility = Visibility.Collapsed; _updateUrl = null; }); }
+        catch (Exception ex) { Logger.Warn($"Update check exception: {ex.Message}", ex); Dispatcher.Invoke(() => { UpdateText.Text = $"检查异常: {ex.Message}"; UpdateBar.Visibility = Visibility.Visible; UpdateButton.Visibility = Visibility.Collapsed; _updateUrl = null; }); }
+        finally { Interlocked.Exchange(ref _checking, 0); }
     }
 
     private void OnUpdateClick(object s, RoutedEventArgs e)

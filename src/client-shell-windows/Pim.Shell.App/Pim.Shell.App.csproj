@@ -11,4 +11,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3124.44" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\client-windows\Pim.Client.Core\Pim.Client.Core.csproj" />
+  </ItemGroup>
 </Project>

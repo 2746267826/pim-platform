@@ -35,8 +35,12 @@ public partial class TrayIcon
                 if (appAttr != null && !string.IsNullOrWhiteSpace(appAttr.InformationalVersion))
                     return appAttr.InformationalVersion;
             }
+            System.Diagnostics.Trace.WriteLine("[Warn] TrayIcon.GetVersion: fallback to 0.0.0-local, App type not found or version missing");
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[Warn] TrayIcon.GetVersion failed: {ex.Message}");
+        }
         return "0.0.0-local";
     }
 

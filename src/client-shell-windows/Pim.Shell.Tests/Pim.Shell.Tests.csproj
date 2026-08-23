@@ -22,7 +22,7 @@
     <ProjectReference Include="..\Pim.Shell.App\Pim.Shell.App.csproj" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-    <Compile Include="..\Pim.Shell.App\UpdateChecker.cs" Link="UpdateChecker.cs" />
+    <Compile Include="..\..\client-windows\Pim.Client.Core\Services\UpdateChecker.cs" Link="UpdateChecker.cs" />
     <Compile Include="..\Pim.Shell.App\ServerAddress.cs" Link="ServerAddress.cs" />
     <Compile Include="..\Pim.Shell.App\ShellBridge.cs" Link="ShellBridge.cs" />
     <Compile Include="..\Pim.Shell.App\ShellConfig.cs" Link="ShellConfig.cs" />

@@ -9,8 +9,20 @@ public static class UpdateChecker
         var rn = ParseN(remote!);
         var cn = ParseN(current!);
         if (rn != null && cn != null) return rn > cn;
-        System.Diagnostics.Trace.WriteLine($"[Warn] UpdateChecker: illegal version format, fallback to Ordinal compare. current='{current.Trim()}' remote='{remote.Trim()}'");
+        var warnMsg = $"UpdateChecker: illegal version format, fallback to Ordinal compare. current='{current.Trim()}' remote='{remote.Trim()}'";
+        TryLogWarn(warnMsg);
+        System.Diagnostics.Trace.WriteLine($"[Warn] {warnMsg}");
         return string.Compare(remote.Trim(), current.Trim(), StringComparison.Ordinal) > 0;
+    }
+
+    private static void TryLogWarn(string message)
+    {
+        try
+        {
+            var t = Type.GetType("Pim.Client.App.Services.Logger, Pim.Client.App");
+            t?.GetMethod("Warn", new[] { typeof(string) })?.Invoke(null, new object[] { message });
+        }
+        catch { }
     }
 
     private static int? ParseN(string v)

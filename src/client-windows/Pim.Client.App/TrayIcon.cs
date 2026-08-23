@@ -37,8 +37,9 @@ public partial class TrayIcon : IDisposable
         _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         var version = GetVersion();
         var serverUrl = ResolveServerUrl(null);
-        _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripMenuItem($"关于 PIM v{version}", null, (_, _) => ShowAboutBox(version, serverUrl)));
-        _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripMenuItem("检查更新", null, async (_, _) => await CheckUpdateAsync(version, serverUrl)));
+        var trayMenu = BuildMenu(version, serverUrl);
+        _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripMenuItem(trayMenu.Items[0].Text, null, (_, _) => ShowAboutBox(version, serverUrl)));
+        _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripMenuItem(trayMenu.Items[1].Text, null, async (_, _) => await CheckUpdateAsync(version, serverUrl)));
         _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         _notifyIcon.ContextMenuStrip.Items.Add("登录...", null, (_, _) => ShowLogin());
         _notifyIcon.ContextMenuStrip.Items.Add("退出", null, (_, _) => ConfirmAndExit());
@@ -220,6 +221,7 @@ public partial class TrayIcon : IDisposable
             var latest = await http.GetFromJsonAsync<LatestDto>($"{url.TrimEnd('/')}/api/client/shell/latest");
             if (latest?.error != null)
             {
+                Logger.Warn($"Daemon update check failed: {latest.error} checkedAt={latest.checkedAt}");
                 System.Windows.Forms.MessageBox.Show($"检查失败：{latest.error}", "PIM");
             }
             else if (latest?.windowsVersion != null && UpdateChecker.IsNewer(version, latest.windowsVersion))

@@ -14,7 +14,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.KeyboardArrowRight
@@ -30,9 +36,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -83,6 +91,12 @@ fun SettingsScreen(
     LaunchedEffect(lifecycleOwner, viewModel) {
         lifecycleOwner.lifecycle.repeatConnectionProbePolling {
             viewModel.refreshConnectionForVisibleScreen()
+        }
+    }
+    LaunchedEffect(lifecycleOwner, viewModel) {
+        while (true) {
+            val delayMs = try { viewModel.refreshUpdateForVisibleScreen() } catch (_: Exception) { 6 * 60 * 60 * 1000L }
+            kotlinx.coroutines.delay(delayMs)
         }
     }
 
@@ -462,6 +476,40 @@ fun SettingsScreen(
                 Spacer(Modifier.width(4.dp))
                 Text("恢复默认设置")
             }
+        }
+
+        PimSection("关于 PIM") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("关于 PIM")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("${state.appVersion} (${state.versionCode})")
+                    IconButton(onClick = {
+                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        cm.setPrimaryClip(ClipData.newPlainText("PIM version", "PIM ${state.appVersion} sha=${state.gitSha}"))
+                    }) {
+                        Icon(Icons.Filled.ContentCopy, contentDescription = "复制版本信息")
+                    }
+                }
+            }
+        }
+
+        if (state.hasUpdate) {
+            Snackbar(
+                action = {
+                    Button(onClick = {
+                        val url = state.updateUrl
+                        if (!url.isNullOrBlank()) {
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            } catch (_: Exception) {}
+                        }
+                    }) { Text("去下载") }
+                }
+            ) { Text("发现新版 v${state.latestVersion}") }
         }
     }
 }

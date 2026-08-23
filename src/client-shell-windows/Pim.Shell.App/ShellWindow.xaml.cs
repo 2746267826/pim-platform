@@ -13,6 +13,7 @@ public partial class ShellWindow : Window
     private string? _updateUrl;
     private string _currentVersion = typeof(ShellWindow).Assembly.GetCustomAttributes(false).OfType<AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "0.0.0-local";
     private readonly PeriodicTimer _updateTimer = new(TimeSpan.FromHours(6));
+    private readonly CancellationTokenSource _updateCts = new();
 
     public ShellWindow(string serverUrl)
     {
@@ -33,7 +34,12 @@ public partial class ShellWindow : Window
         Web.CoreWebView2.NavigationCompleted += OnNavigationCompleted;
         Web.CoreWebView2.Navigate(_serverUrl);
 
-        _ = Task.Run(async () => { await CheckUpdateAsync(); while (await _updateTimer.WaitForNextTickAsync()) await CheckUpdateAsync(); });
+        _ = Task.Run(async () =>
+        {
+            try { await Task.Delay(TimeSpan.FromSeconds(3), _updateCts.Token); } catch (OperationCanceledException) { return; }
+            await CheckUpdateAsync();
+            try { while (await _updateTimer.WaitForNextTickAsync(_updateCts.Token)) await CheckUpdateAsync(); } catch (OperationCanceledException) { }
+        });
     }
 
     private async Task CheckUpdateAsync()
@@ -42,7 +48,7 @@ public partial class ShellWindow : Window
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
             var latest = await http.GetFromJsonAsync<LatestDto>($"{_serverUrl.TrimEnd('/')}/api/client/shell/latest");
-            if (latest?.error != null) { Logger.Warn($"Update check failed: {latest.error} checkedAt={latest.checkedAt}"); return; }
+            if (latest?.error != null) { Logger.Warn($"Update check failed: {latest.error} checkedAt={latest.checkedAt}"); Dispatcher.Invoke(() => { UpdateText.Text = $"检查失败: {latest.error} checkedAt={latest.checkedAt}"; UpdateBar.Visibility = Visibility.Visible; }); return; }
             if (latest?.windowsVersion != null && UpdateChecker.IsNewer(_currentVersion, latest.windowsVersion) && !string.IsNullOrWhiteSpace(latest.windowsUrl))
             {
                 Logger.Info($"Update available current={_currentVersion} latest={latest.windowsVersion}");
@@ -53,10 +59,30 @@ public partial class ShellWindow : Window
                 Logger.Info($"Update check no update current={_currentVersion} latest={latest?.windowsVersion} checkedAt={latest?.checkedAt}");
             }
         }
-        catch (Exception ex) { Logger.Warn($"Update check exception: {ex.Message}"); }
+        catch (Exception ex) { Logger.Warn($"Update check exception: {ex.Message}", ex); Logger.Error($"Update check failed: {ex.Message}", ex); Dispatcher.Invoke(() => { UpdateText.Text = $"检查异常: {ex.Message}"; UpdateBar.Visibility = Visibility.Visible; }); }
     }
 
-    private void OnUpdateClick(object s, RoutedEventArgs e) { if (_updateUrl != null) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_updateUrl) { UseShellExecute = true }); }
+    private void OnUpdateClick(object s, RoutedEventArgs e)
+    {
+        if (_updateUrl != null && Uri.TryCreate(_updateUrl, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+        else
+            Logger.Warn($"Invalid update URL: {_updateUrl}");
+    }
+
+    private async void OnCheckUpdateClick(object sender, RoutedEventArgs e)
+    {
+        CheckButton.IsEnabled = false;
+        try { await CheckUpdateAsync(); } finally { CheckButton.IsEnabled = true; }
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        try { _updateCts.Cancel(); } catch { }
+        _updateCts.Dispose();
+        _updateTimer.Dispose();
+        base.OnClosed(e);
+    }
     private record LatestDto(string? windowsVersion, string? windowsUrl, string? androidVersion, string? androidUrl, string? error, string? checkedAt);
 
     private void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)

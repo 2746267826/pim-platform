@@ -1,0 +1,2 @@
+3 overlapping sessions each 3600s in same hour -> heatmap bucket ForegroundSeconds=10800 (expected capped 3600 or flagged >3780)
+code: MobileUsageAggregationService.cs:313-383 no cap check

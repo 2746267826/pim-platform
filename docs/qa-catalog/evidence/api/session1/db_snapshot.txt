@@ -1,0 +1,9 @@
+         check         | count 
+-----------------------+-------
+ total_location_points |     3
+ sessions_total        |    64
+ null_end              |     5
+ bad_start_ge_end      |     5
+ zero_duration         |     5
+(5 rows)
+

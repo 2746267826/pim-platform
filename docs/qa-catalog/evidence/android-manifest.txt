@@ -1,0 +1,3 @@
+src/client-android/app/src/main/AndroidManifest.xml:23  android:allowBackup="true"
+src/client-android/app/src/main/AndroidManifest.xml:27  android:usesCleartextTraffic="true"
+src/client-android/app/src/main/java/com/pim/app/location/PimServerUrls.kt:3 const val DEFAULT = "http://127.0.0.1:5858"

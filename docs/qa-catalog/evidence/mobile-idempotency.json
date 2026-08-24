@@ -1,0 +1,5 @@
+{
+  "batch1": {"package":"com.example","type":"MOVE_TO_FOREGROUND","timestamp":1724000000000,"class":"MainActivity","batchId":"b1","result":"accepted"},
+  "batch2_same_key_different_CollectedAt": {"same_key":"package+type+ts+class","batchId":"b2","result":"skipped (duplicate ItemResults)"},
+  "code": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs:53 batch dedup only user+device+BatchId, line 241 EventKey without CollectedAt"
+}

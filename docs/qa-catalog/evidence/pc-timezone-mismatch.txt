@@ -1,0 +1,4 @@
+PcActivityAggregationService.cs:242 ToUtc+Asia/Shanghai 04:00
+PcTrackerService.cs:686 GetBusinessDayStartForQuery uses Local->ToUniversalTime()
+PcProductivityService.cs:17 same Local
+Mismatch: same event split to different business day when TZ != Asia/Shanghai

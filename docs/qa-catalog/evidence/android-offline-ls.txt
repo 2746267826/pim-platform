@@ -1,0 +1,4 @@
+src/client-android/app/src/main/java/com/pim/app/offline:
+OnlineOperationGuard.kt (19 lines, only canQueueOffline strings)
+No WorkManager, no persistent queue
+Real offline in mobile/sync/MobileSyncCoordinator.kt:894

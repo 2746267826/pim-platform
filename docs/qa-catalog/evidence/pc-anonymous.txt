@@ -1,0 +1,6 @@
+src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:580  var appKnowledgeRead = endpoints.MapGroup("/api/v1/pc/app-knowledge").AllowAnonymous();
+src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:724  var kbRead = endpoints.MapGroup("/api/v1/pc/app-signatures").AllowAnonymous();
+src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:927  var catRead = endpoints.MapGroup("/api/v1/pc/categories").AllowAnonymous();
+src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1007 var prodRead = endpoints.MapGroup("/api/v1/pc/productivity").AllowAnonymous();
+curl http://127.0.0.1:5239/api/v1/pc/categories -> 200 (no auth)
+curl http://127.0.0.1:5239/api/v1/pc/app-knowledge/apps -> 200

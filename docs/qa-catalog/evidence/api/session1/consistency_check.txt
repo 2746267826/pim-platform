@@ -1,0 +1,9 @@
+overview total=149400
+heatmap sum=149400
+charts daily-total sum=149400
+charts category-share sum=149400
+heatmap buckets=46
+diff overview-heatmap=0
+diff overview-charts=0
+桶数=46 误差允许<=桶数
+location dup check after cleanup: 0 (expected 0 after cleanup)

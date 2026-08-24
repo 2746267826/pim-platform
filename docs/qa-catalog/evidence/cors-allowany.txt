@@ -1,0 +1,2 @@
+src/Pim.Api/Program.cs:66
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());

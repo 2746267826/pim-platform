@@ -1,0 +1,5 @@
+src/client-windows/Pim.Client.Core/ClientDefaults.cs:5 http://127.0.0.1:5858
+src/client-windows/Pim.Client.Core/Services/ApiClient.cs:27,65 127.0.0.1
+src/client-windows/Pim.Client.App/DaemonConfig.cs:9 127.0.0.1
+src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs:20 http://127.0.0.1:5600
+src/client-shell-windows/Pim.Shell.App/ServerAddress.cs:17 https prefix mismatch

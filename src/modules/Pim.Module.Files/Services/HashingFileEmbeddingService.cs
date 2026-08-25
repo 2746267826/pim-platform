@@ -80,9 +80,6 @@ public sealed class HashingFileEmbeddingService : IFileEmbeddingService
         return (dim, sign);
     }
 
-    private int HashToDimension(string token)
-        => HashToDimensionAndSign(token, 0).dim;
-
     private static void Normalize(float[] vector)
     {
         var magnitudeSquared = 0f;

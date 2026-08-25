@@ -67,7 +67,8 @@ public sealed class DataCenterQueryService
                     || e.Description != null && e.Description.ToLower().Contains(loweredSearch!)
                     || e.Location != null && e.Location.ToLower().Contains(loweredSearch!)
                     || e.Source.ToLower().Contains(loweredSearch!)
-                    || e.Status.ToLower().Contains(loweredSearch!));
+                    || e.Status.ToLower().Contains(loweredSearch!)
+                    || e.Calendar.Name.ToLower().Contains(loweredSearch!));
             var events = await q.ToListAsync(ct);
             items.AddRange(events.Select(e => new DataCenterItem(
                 "event",
@@ -89,7 +90,8 @@ public sealed class DataCenterQueryService
             if (hasSearch)
                 q = q.Where(t => t.Title.ToLower().Contains(loweredSearch!)
                     || t.Description != null && t.Description.ToLower().Contains(loweredSearch!)
-                    || t.Status.ToLower().Contains(loweredSearch!));
+                    || t.Status.ToLower().Contains(loweredSearch!)
+                    || t.Calendar != null && t.Calendar.Name.ToLower().Contains(loweredSearch!));
             var tasks = await q.ToListAsync(ct);
             items.AddRange(tasks.Select(t => new DataCenterItem(
                 "task",
@@ -273,7 +275,9 @@ public sealed class DataCenterQueryService
                 .Where(r => r.UserId == userId);
             if (hasSearch)
                 q = q.Where(r => r.Kind.ToLower().Contains(loweredSearch!)
-                    || r.Status.ToLower().Contains(loweredSearch!));
+                    || r.Status.ToLower().Contains(loweredSearch!)
+                    || r.ContentMarkdown != null && r.ContentMarkdown.ToLower().Contains(loweredSearch!)
+                    || r.MetricsJson != null && r.MetricsJson.ToLower().Contains(loweredSearch!));
             var reports = await q.ToListAsync(ct);
             items.AddRange(reports.Select(r => new DataCenterItem(
                 "report",
@@ -294,7 +298,9 @@ public sealed class DataCenterQueryService
                 .Where(s => s.UserId == userId);
             if (hasSearch)
                 q = q.Where(s => s.Action.ToLower().Contains(loweredSearch!)
-                    || s.Status.ToLower().Contains(loweredSearch!));
+                    || s.Status.ToLower().Contains(loweredSearch!)
+                    || s.Summary != null && s.Summary.ToLower().Contains(loweredSearch!)
+                    || s.PayloadJson != null && s.PayloadJson.ToLower().Contains(loweredSearch!));
             var reportSuggestions = await q.ToListAsync(ct);
             items.AddRange(reportSuggestions.Select(s => new DataCenterItem(
                 "report-suggestion",
@@ -383,6 +389,12 @@ public sealed class DataCenterQueryService
                 .Where(v => v.UserId == userId);
             if (hasSource)
                 q = q.Where(v => v.Source == sourceFilter);
+            if (hasSearch)
+                q = q.Where(v => v.ObjectType.ToLower().Contains(loweredSearch!)
+                    || v.Source.ToLower().Contains(loweredSearch!)
+                    || v.ChangedFieldsJson != null && v.ChangedFieldsJson.ToLower().Contains(loweredSearch!)
+                    || v.AfterJson != null && v.AfterJson.ToLower().Contains(loweredSearch!)
+                    || v.BeforeJson != null && v.BeforeJson.ToLower().Contains(loweredSearch!));
             var auditVersions = await q.ToListAsync(ct);
             items.AddRange(auditVersions.Select(v => new DataCenterItem(
                 "audit-version",
@@ -406,16 +418,25 @@ public sealed class DataCenterQueryService
             if (pendingOnly)
             {
                 var now = DateTimeOffset.UtcNow;
-                q = q.Where(c => PendingStatuses.Contains(c.Status) && (c.ExpiresAt == null || c.ExpiresAt > now));
+                q = q.Where(c => PendingStatuses.Contains(c.Status) && c.ExpiresAt > now);
+                if (hasSearch)
+                    q = q.Where(c => c.OperationType.ToLower().Contains(loweredSearch!)
+                        || c.Source.ToLower().Contains(loweredSearch!)
+                        || c.Status.ToLower().Contains(loweredSearch!)
+                        || c.Summary.ToLower().Contains(loweredSearch!));
+                if (hasSource)
+                    q = q.Where(c => c.Source == sourceFilter);
             }
-            else if (hasSearch)
+            else
             {
-                q = q.Where(c => c.OperationType.ToLower().Contains(loweredSearch!)
-                    || c.Source.ToLower().Contains(loweredSearch!)
-                    || c.Status.ToLower().Contains(loweredSearch!));
+                if (hasSearch)
+                    q = q.Where(c => c.OperationType.ToLower().Contains(loweredSearch!)
+                        || c.Source.ToLower().Contains(loweredSearch!)
+                        || c.Status.ToLower().Contains(loweredSearch!)
+                        || c.Summary != null && c.Summary.ToLower().Contains(loweredSearch!));
+                if (hasSource)
+                    q = q.Where(c => c.Source == sourceFilter);
             }
-            if (hasSource && !pendingOnly)
-                q = q.Where(c => c.Source == sourceFilter);
             var confirmations = await q.ToListAsync(ct);
             items.AddRange(confirmations.Select(c => new DataCenterItem(
                 "confirmation",
@@ -430,11 +451,13 @@ public sealed class DataCenterQueryService
 
         if (ShouldLoad("recycle-bin"))
         {
-            var deletedCalendars = await _db.Set<CalendarEntity>()
+            var calQuery = _db.Set<CalendarEntity>()
                 .IgnoreQueryFilters()
                 .AsNoTracking()
-                .Where(c => c.UserId == userId && c.DeletedAt != null)
-                .ToListAsync(ct);
+                .Where(c => c.UserId == userId && c.DeletedAt != null);
+            if (hasSearch)
+                calQuery = calQuery.Where(c => c.Name.ToLower().Contains(loweredSearch!) || c.Kind.ToLower().Contains(loweredSearch!));
+            var deletedCalendars = await calQuery.ToListAsync(ct);
             items.AddRange(deletedCalendars.Select(c => new DataCenterItem(
                 "recycle-bin",
                 c.Id,
@@ -445,12 +468,16 @@ public sealed class DataCenterQueryService
                 null,
                 c.Kind == "task" ? "Deleted task book" : "Deleted calendar")));
 
-            var deletedEvents = await _db.Set<EventEntity>()
+            var evQuery = _db.Set<EventEntity>()
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .Include(e => e.Calendar)
-                .Where(e => e.DeletedAt != null && e.Calendar.UserId == userId)
-                .ToListAsync(ct);
+                .Where(e => e.DeletedAt != null && e.Calendar.UserId == userId);
+            if (hasSearch)
+                evQuery = evQuery.Where(e => e.Title.ToLower().Contains(loweredSearch!)
+                    || e.Source.ToLower().Contains(loweredSearch!)
+                    || e.Description != null && e.Description.ToLower().Contains(loweredSearch!));
+            var deletedEvents = await evQuery.ToListAsync(ct);
             items.AddRange(deletedEvents.Select(e => new DataCenterItem(
                 "recycle-bin",
                 e.Id,
@@ -461,12 +488,15 @@ public sealed class DataCenterQueryService
                 e.DtEnd,
                 FirstText(BuildEventSummary(e), $"Deleted at {e.DeletedAt:O}"))));
 
-            var deletedTasks = await _db.Set<TaskEntity>()
+            var taskQuery = _db.Set<TaskEntity>()
                 .IgnoreQueryFilters()
                 .AsNoTracking()
                 .Include(t => t.Calendar)
-                .Where(t => t.DeletedAt != null && t.UserId == userId)
-                .ToListAsync(ct);
+                .Where(t => t.DeletedAt != null && t.UserId == userId);
+            if (hasSearch)
+                taskQuery = taskQuery.Where(t => t.Title.ToLower().Contains(loweredSearch!)
+                    || t.Description != null && t.Description.ToLower().Contains(loweredSearch!));
+            var deletedTasks = await taskQuery.ToListAsync(ct);
             items.AddRange(deletedTasks.Select(t => new DataCenterItem(
                 "recycle-bin",
                 t.Id,

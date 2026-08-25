@@ -312,27 +312,40 @@ public sealed class MobileAppCatalogOverrideService
         try
         {
             using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.ValueKind != JsonValueKind.Array)
-                return false;
-
-            foreach (var element in doc.RootElement.EnumerateArray())
+            if (doc.RootElement.ValueKind == JsonValueKind.Array)
             {
-                if (element.ValueKind == JsonValueKind.String)
+                foreach (var element in doc.RootElement.EnumerateArray())
                 {
-                    if (string.Equals(element.GetString(), packageName, StringComparison.OrdinalIgnoreCase))
-                        return true;
-                }
-                else if (element.ValueKind == JsonValueKind.Object)
-                {
-                    if (element.TryGetProperty("packageName", out var prop) && prop.ValueKind == JsonValueKind.String)
+                    if (element.ValueKind == JsonValueKind.String)
                     {
-                        if (string.Equals(prop.GetString(), packageName, StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(element.GetString(), packageName, StringComparison.OrdinalIgnoreCase))
                             return true;
                     }
-
-                    if (element.TryGetProperty("PackageName", out var prop2) && prop2.ValueKind == JsonValueKind.String)
+                    else if (element.ValueKind == JsonValueKind.Object)
                     {
-                        if (string.Equals(prop2.GetString(), packageName, StringComparison.OrdinalIgnoreCase))
+                        foreach (var prop in element.EnumerateObject())
+                        {
+                            if (prop.NameEquals("packageName"u8) || prop.NameEquals("PackageName"u8) || string.Equals(prop.Name, "package_name", StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (prop.Value.ValueKind == JsonValueKind.String
+                                    && string.Equals(prop.Value.GetString(), packageName, StringComparison.OrdinalIgnoreCase))
+                                    return true;
+                            }
+                        }
+                    }
+                }
+
+                return false;
+            }
+
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    if (prop.NameEquals("packageName"u8) || prop.NameEquals("PackageName"u8) || string.Equals(prop.Name, "package_name", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (prop.Value.ValueKind == JsonValueKind.String
+                            && string.Equals(prop.Value.GetString(), packageName, StringComparison.OrdinalIgnoreCase))
                             return true;
                     }
                 }
@@ -340,8 +353,10 @@ public sealed class MobileAppCatalogOverrideService
 
             return false;
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            // Keep not stale on malformed JSON but retain observability for diagnostics
+            System.Diagnostics.Debug.WriteLine($"TopAppsJson parse failed for package '{packageName}': {ex.Message}");
             return false;
         }
     }

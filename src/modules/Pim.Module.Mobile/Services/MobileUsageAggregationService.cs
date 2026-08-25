@@ -408,8 +408,18 @@ public sealed class MobileUsageAggregationService
     private static DateTimeOffset LocalBucketUtc(DateTime localBucket, TimeZoneInfo timeZoneInfo)
     {
         var unspecified = DateTime.SpecifyKind(localBucket, DateTimeKind.Unspecified);
-        if (timeZoneInfo.IsInvalidTime(unspecified))
-            unspecified = unspecified.AddHours(1);
+        // Spring-forward gap may be 30min in some zones, loop until valid
+        while (timeZoneInfo.IsInvalidTime(unspecified))
+            unspecified = unspecified.AddMinutes(30);
+        // Fall-back ambiguous hour: ConvertTimeToUtc assumes standard time; keep deterministic by normalizing to standard offset
+        if (timeZoneInfo.IsAmbiguousTime(unspecified))
+        {
+            var offsets = timeZoneInfo.GetAmbiguousTimeOffsets(unspecified);
+            // Prefer standard (larger offset is daylight? Actually DST offset is smaller negative? Use max offset for standard)
+            var chosenOffset = offsets.Max();
+            var dto = new DateTimeOffset(unspecified, chosenOffset);
+            return dto.ToUniversalTime();
+        }
         var utc = TimeZoneInfo.ConvertTimeToUtc(unspecified, timeZoneInfo);
         return new DateTimeOffset(utc, TimeSpan.Zero);
     }

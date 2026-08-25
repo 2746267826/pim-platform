@@ -97,12 +97,12 @@ public class PcTrackerService
             if (transaction is not null)
                 await transaction.CommitAsync(ct);
         }
-        catch (DbUpdateException ex) when (attempt == 0 && IsUniqueViolation(ex))
+        catch (DbUpdateException ex) when (attempt < 2 && IsUniqueViolation(ex))
         {
             if (transaction is not null)
                 await transaction.RollbackAsync(ct);
             _db.ChangeTracker.Clear();
-            await UpsertKeystatsCoreAsync(req, ct, attempt: 1);
+            await UpsertKeystatsCoreAsync(req, ct, attempt + 1);
         }
         catch
         {
@@ -1330,7 +1330,12 @@ public class PcTrackerService
     {
         return EnumerateExceptions(ex).Any(e =>
             string.Equals(GetStringProperty(e, "SqlState"), PostgreSqlUniqueViolationSqlState, StringComparison.Ordinal)
-            || string.Equals(GetStringProperty(e, "SQLState"), PostgreSqlUniqueViolationSqlState, StringComparison.Ordinal));
+            || string.Equals(GetStringProperty(e, "SQLState"), PostgreSqlUniqueViolationSqlState, StringComparison.Ordinal)
+            || string.Equals(GetStringProperty(e, "SqliteErrorCode"), "19", StringComparison.Ordinal)
+            || string.Equals(GetStringProperty(e, "SqliteExtendedErrorCode"), "2067", StringComparison.Ordinal)
+            || (e.Message?.Contains("UNIQUE constraint", StringComparison.OrdinalIgnoreCase) ?? false)
+            || (e.Message?.Contains("unique constraint", StringComparison.OrdinalIgnoreCase) ?? false)
+            || (e.Message?.Contains("23505", StringComparison.Ordinal) ?? false));
     }
 
     private static IEnumerable<Exception> EnumerateExceptions(Exception ex)

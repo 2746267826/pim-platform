@@ -54,9 +54,7 @@ public class GreedyScheduler : ISchedulingAlgorithm
             .ThenBy(t => t.Deadline ?? DateTimeOffset.MaxValue)
             .ToList();
 
-        var mutableFreeSlots = SchedulingHelpers.ComputeFreeSlots(busySlots, searchStart, searchEnd)
-            .Select(s => new TimeSlot(s.Start, s.End))
-            .ToList();
+        var mutableFreeSlots = SchedulingHelpers.ComputeFreeSlots(busySlots, searchStart, searchEnd).ToList();
         var result = new List<ScheduledSlot>();
 
         foreach (var task in sorted)
@@ -87,8 +85,9 @@ public class GreedyScheduler : ISchedulingAlgorithm
         return Task.FromResult<ScheduleSolution?>(
             new ScheduleSolution(Name, result, new Dictionary<string, double>
             {
-                ["tasks_scheduled"] = result.Count,
-                ["total_tasks"] = tasks.Count
+                ["tasks_scheduled"] = result.Select(s => s.TaskId).Distinct().Count(),
+                ["total_tasks"] = tasks.Count,
+                ["slots_allocated"] = result.Count
             }));
     }
 }
@@ -139,10 +138,12 @@ public class CspScheduler : ISchedulingAlgorithm
         foreach (var task in unscheduled)
         {
             var relaxedDuration = task.MinSegment ?? TimeSpan.FromMinutes(15);
-            foreach (var slot in assignedFreeSlots.Where(s => s.Remaining >= relaxedDuration))
+            foreach (var slot in assignedFreeSlots.Where(s => s.Remaining >= relaxedDuration).ToList())
             {
                 solution.Add(new ScheduledSlot(task.TaskId, task.Title,
                     slot.Start, slot.Start + relaxedDuration));
+                var idx = assignedFreeSlots.IndexOf(slot);
+                assignedFreeSlots[idx] = new { slot.Slot, Remaining = slot.Remaining - relaxedDuration, Start = slot.Start + relaxedDuration };
                 break;
             }
         }

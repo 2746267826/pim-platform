@@ -211,7 +211,7 @@ public sealed class FileIndexingService(
                     || item.Path.ToLower().Contains(lowered)
                     || (item.MimeType != null && item.MimeType.ToLower().Contains(lowered))))
             .OrderBy(item => item.ItemType == "folder" ? 0 : 1)
-            .ThenBy(item => item.Name)
+            .ThenBy(item => item.Name.ToLower())
             .ThenBy(item => item.Id)
             .Take(20)
             .ToListAsync(ct);

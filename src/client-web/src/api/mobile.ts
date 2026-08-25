@@ -786,3 +786,29 @@ export function saveMobileUsageGoal(goal: MobileUsageGoalUpsertRequest): Promise
 export function deleteMobileUsageGoal(id: string): Promise<string> {
   return apiDelete<ApiResponse<string>>(mobileApiPaths.usageGoal(id)).then(r => r.data);
 }
+
+export interface DeviceListItem {
+  deviceId: string; displayName: string; brand: string; model: string; osVersion: string; appVersion: string;
+  registeredAtUtc: string; lastSeenAtUtc: string; isOnline: boolean;
+  sessionCount: number; eventCount: number; locationCount: number; summaryCount: number;
+  earliest: string | null; latest: string | null; storageEstimateKb: number;
+  syncStatus: string; dataQuality: string; storagePressure: string;
+}
+export function getManagedDevices(sortBy?: string): Promise<DeviceListItem[]> {
+  return apiGet<ApiResponse<DeviceListItem[]>>(withQuery('/api/v1/mobile/devices/manage', [['sortBy', sortBy]])).then(r => r.data);
+}
+export function renameDevice(deviceId: string, displayName: string): Promise<void> {
+  return apiPost(`/api/v1/mobile/devices/${pathSegment(deviceId)}/rename`, { displayName }).then(() => {});
+}
+export function previewMerge(sourceDeviceIds: string[], targetDeviceId: string): Promise<any> {
+  return apiPost('/api/v1/mobile/devices/merge/preview', { sourceDeviceIds, targetDeviceId }).then((r: any) => r.data ?? r);
+}
+export function mergeDevices(sourceDeviceIds: string[], targetDeviceId: string): Promise<void> {
+  return apiPost('/api/v1/mobile/devices/merge', { sourceDeviceIds, targetDeviceId }).then(() => {});
+}
+export function previewDeleteDevice(deviceId: string): Promise<any> {
+  return apiGet(`/api/v1/mobile/devices/${pathSegment(deviceId)}/delete-preview`).then((r: any) => r.data ?? r);
+}
+export function deleteDevice(deviceId: string): Promise<void> { return apiDelete(`/api/v1/mobile/devices/${pathSegment(deviceId)}`).then(()=>{}); }
+export function getDeviceDetail(deviceId: string): Promise<any> { return apiGet(`/api/v1/mobile/devices/${pathSegment(deviceId)}/detail`).then((r:any)=>r.data ?? r); }
+export function exportDevice(deviceId: string): Promise<Blob> { return fetch(`/api/v1/mobile/devices/${pathSegment(deviceId)}/export`, { headers: { Authorization: `Bearer ${localStorage.getItem('pim_token')||''}` } }).then(r=>r.blob()); }

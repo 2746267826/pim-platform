@@ -27,6 +27,8 @@ const HistoricalLocationPage = lazy(() => import('../pages/HistoricalLocationPag
 const QuickNoteFloatingPanel = lazy(() => import('../components/quick-notes/QuickNoteFloatingPanel'));
 const WorkbenchPage = lazy(() => import('../pages/WorkbenchPage'));
 const SyncPage = lazy(() => import('../pages/SyncPage'));
+const DeviceManagementPage = lazy(() => import('../pages/DeviceManagementPage'));
+const DeviceDetailPage = lazy(() => import('../pages/DeviceDetailPage'));
 const DataCenterPage = lazy(() => import('../pages/DataCenterPage'));
 const ConfirmationsPage = lazy(() => import('../pages/ConfirmationsPage'));
 const RemindersPage = lazy(() => import('../pages/RemindersPage'));
@@ -78,6 +80,8 @@ export default function AppLayout() {
               <Route path="/pc-tracker" element={<PcTrackerPage />} />
               <Route path="/mobile-records" element={<MobileRecordsPage />} />
               <Route path="/location-history" element={<HistoricalLocationPage />} />
+              <Route path="/devices" element={<DeviceManagementPage />} />
+              <Route path="/devices/:deviceId" element={<DeviceDetailPage />} />
               <Route path="/status" element={<StatusPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/sync" element={<SyncPage />} />

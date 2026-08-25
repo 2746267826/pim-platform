@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Pim.Infrastructure.Auth;
 using Pim.Infrastructure.Data;
@@ -219,7 +220,7 @@ public sealed class MobileAppCatalogOverrideService
 
         var timelineCount = 0;
         foreach (var block in candidateBlocks.Where(block => !block.IsStale
-            && block.TopAppsJson.Contains(normalizedPackageName, StringComparison.OrdinalIgnoreCase)))
+            && TopAppsJsonContainsPackage(block.TopAppsJson, normalizedPackageName)))
         {
             block.IsStale = true;
             block.UpdatedAt = now;
@@ -301,6 +302,48 @@ public sealed class MobileAppCatalogOverrideService
     {
         var normalized = value?.Trim();
         return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static bool TopAppsJsonContainsPackage(string json, string packageName)
+    {
+        if (string.IsNullOrWhiteSpace(json) || string.IsNullOrWhiteSpace(packageName))
+            return false;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                return false;
+
+            foreach (var element in doc.RootElement.EnumerateArray())
+            {
+                if (element.ValueKind == JsonValueKind.String)
+                {
+                    if (string.Equals(element.GetString(), packageName, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+                else if (element.ValueKind == JsonValueKind.Object)
+                {
+                    if (element.TryGetProperty("packageName", out var prop) && prop.ValueKind == JsonValueKind.String)
+                    {
+                        if (string.Equals(prop.GetString(), packageName, StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+
+                    if (element.TryGetProperty("PackageName", out var prop2) && prop2.ValueKind == JsonValueKind.String)
+                    {
+                        if (string.Equals(prop2.GetString(), packageName, StringComparison.OrdinalIgnoreCase))
+                            return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 }
 

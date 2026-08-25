@@ -38,55 +38,78 @@ public class PcTrackerService
     }
 
     public async Task UpsertKeystatsAsync(KeystatsUploadRequest req, CancellationToken ct)
+        => await UpsertKeystatsCoreAsync(req, ct, attempt: 0);
+
+    private async Task UpsertKeystatsCoreAsync(KeystatsUploadRequest req, CancellationToken ct, int attempt)
     {
         var snapshotDate = DateTimeOffset.Parse(req.Date).Date;
-
-        var existing = await _db.Set<KeystatsDailyEntity>()
-            .Include(x => x.KeyCounts)
-            .Include(x => x.AppBreakdowns)
-            .FirstOrDefaultAsync(x => x.DeviceId == req.DeviceId && x.SnapshotDate == snapshotDate, ct);
-
-        if (existing is not null)
+        await using var transaction = _db.Database.IsRelational()
+            ? await _db.Database.BeginTransactionAsync(ct)
+            : null;
+        try
         {
-            _db.Set<KeystatsKeyCountEntity>().RemoveRange(existing.KeyCounts);
-            _db.Set<KeystatsAppBreakdownEntity>().RemoveRange(existing.AppBreakdowns);
-            _db.Set<KeystatsDailyEntity>().Remove(existing);
+            var existing = await _db.Set<KeystatsDailyEntity>()
+                .Include(x => x.KeyCounts)
+                .Include(x => x.AppBreakdowns)
+                .FirstOrDefaultAsync(x => x.DeviceId == req.DeviceId && x.SnapshotDate == snapshotDate, ct);
+
+            if (existing is not null)
+            {
+                _db.Set<KeystatsKeyCountEntity>().RemoveRange(existing.KeyCounts);
+                _db.Set<KeystatsAppBreakdownEntity>().RemoveRange(existing.AppBreakdowns);
+                _db.Set<KeystatsDailyEntity>().Remove(existing);
+            }
+
+            _db.Set<KeystatsDailyEntity>().Add(new KeystatsDailyEntity
+            {
+                DeviceId = req.DeviceId,
+                SnapshotDate = snapshotDate,
+                KeyPresses = req.KeyPresses,
+                LeftClicks = req.LeftClicks,
+                RightClicks = req.RightClicks,
+                MiddleClicks = req.MiddleClicks,
+                SideBackClicks = req.SideBackClicks,
+                SideForwardClicks = req.SideForwardClicks,
+                MouseDistance = req.MouseDistance,
+                ScrollDistance = req.ScrollDistance,
+                PeakKps = req.PeakKps,
+                PeakCps = req.PeakCps,
+                KeyCounts = req.KeyPressCounts?.Select(kv => new KeystatsKeyCountEntity
+                {
+                    KeyName = kv.Key,
+                    Count = kv.Value
+                }).ToList() ?? new(),
+                AppBreakdowns = req.AppStats?.Select(kv => new KeystatsAppBreakdownEntity
+                {
+                    AppName = kv.Value.AppName,
+                    DisplayName = kv.Value.DisplayName,
+                    KeyPresses = kv.Value.KeyPresses,
+                    LeftClicks = kv.Value.LeftClicks,
+                    RightClicks = kv.Value.RightClicks,
+                    MiddleClicks = kv.Value.MiddleClicks,
+                    SideBackClicks = kv.Value.SideBackClicks,
+                    SideForwardClicks = kv.Value.SideForwardClicks,
+                    ScrollDistance = kv.Value.ScrollDistance
+                }).ToList() ?? new()
+            });
+
+            await _db.SaveChangesAsync(ct);
+            if (transaction is not null)
+                await transaction.CommitAsync(ct);
         }
-
-        _db.Set<KeystatsDailyEntity>().Add(new KeystatsDailyEntity
+        catch (DbUpdateException ex) when (attempt == 0 && IsUniqueViolation(ex))
         {
-            DeviceId = req.DeviceId,
-            SnapshotDate = snapshotDate,
-            KeyPresses = req.KeyPresses,
-            LeftClicks = req.LeftClicks,
-            RightClicks = req.RightClicks,
-            MiddleClicks = req.MiddleClicks,
-            SideBackClicks = req.SideBackClicks,
-            SideForwardClicks = req.SideForwardClicks,
-            MouseDistance = req.MouseDistance,
-            ScrollDistance = req.ScrollDistance,
-            PeakKps = req.PeakKps,
-            PeakCps = req.PeakCps,
-            KeyCounts = req.KeyPressCounts?.Select(kv => new KeystatsKeyCountEntity
-            {
-                KeyName = kv.Key,
-                Count = kv.Value
-            }).ToList() ?? new(),
-            AppBreakdowns = req.AppStats?.Select(kv => new KeystatsAppBreakdownEntity
-            {
-                AppName = kv.Value.AppName,
-                DisplayName = kv.Value.DisplayName,
-                KeyPresses = kv.Value.KeyPresses,
-                LeftClicks = kv.Value.LeftClicks,
-                RightClicks = kv.Value.RightClicks,
-                MiddleClicks = kv.Value.MiddleClicks,
-                SideBackClicks = kv.Value.SideBackClicks,
-                SideForwardClicks = kv.Value.SideForwardClicks,
-                ScrollDistance = kv.Value.ScrollDistance
-            }).ToList() ?? new()
-        });
-
-        await _db.SaveChangesAsync(ct);
+            if (transaction is not null)
+                await transaction.RollbackAsync(ct);
+            _db.ChangeTracker.Clear();
+            await UpsertKeystatsCoreAsync(req, ct, attempt: 1);
+        }
+        catch
+        {
+            if (transaction is not null)
+                await transaction.RollbackAsync(ct);
+            throw;
+        }
     }
 
     public async Task<int> UploadAwEventsAsync(AwEventsUploadRequest req, CancellationToken ct)

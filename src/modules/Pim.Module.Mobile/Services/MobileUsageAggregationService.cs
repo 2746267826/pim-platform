@@ -355,14 +355,23 @@ public sealed class MobileUsageAggregationService
         if (totalOverlapMs <= 0)
             yield break;
 
-        long allocated = 0;
+        // Use largest-remainder method to avoid 0-sec bucket losing and duplicate counting.
+        var exact = segments.Select(s => row.ForegroundSeconds * (s.OverlapMs / totalOverlapMs)).ToArray();
+        var floors = exact.Select(v => (long)Math.Floor(v)).ToArray();
+        var allocatedFloors = floors.Sum();
+        var remainder = row.ForegroundSeconds - allocatedFloors;
+        // Distribute remainder to buckets with largest fractional part
+        var fractions = exact.Select((v, idx) => new { idx, frac = v - Math.Floor(v) })
+            .OrderByDescending(x => x.frac)
+            .ThenBy(x => x.idx)
+            .ToList();
+        for (var k = 0; k < remainder && k < fractions.Count; k++)
+            floors[fractions[k].idx] += 1;
+
         for (var i = 0; i < segments.Count; i++)
         {
             var segment = segments[i];
-            var seconds = i == segments.Count - 1
-                ? row.ForegroundSeconds - allocated
-                : Math.Max(0, Convert.ToInt64(Math.Floor(row.ForegroundSeconds * (segment.OverlapMs / totalOverlapMs))));
-            allocated += seconds;
+            var seconds = floors[i];
             if (seconds <= 0)
                 continue;
 
@@ -398,7 +407,10 @@ public sealed class MobileUsageAggregationService
 
     private static DateTimeOffset LocalBucketUtc(DateTime localBucket, TimeZoneInfo timeZoneInfo)
     {
-        var utc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(localBucket, DateTimeKind.Unspecified), timeZoneInfo);
+        var unspecified = DateTime.SpecifyKind(localBucket, DateTimeKind.Unspecified);
+        if (timeZoneInfo.IsInvalidTime(unspecified))
+            unspecified = unspecified.AddHours(1);
+        var utc = TimeZoneInfo.ConvertTimeToUtc(unspecified, timeZoneInfo);
         return new DateTimeOffset(utc, TimeSpan.Zero);
     }
 

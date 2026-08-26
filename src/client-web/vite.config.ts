@@ -22,7 +22,17 @@ export default defineConfig({
   },
   build: {
     outDir: '../Pim.Api/wwwroot',
-    emptyOutDir: true
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          echarts: ['echarts'],
+          react: ['react', 'react-dom', 'react-router-dom'],
+          vendor: ['@tanstack/react-query', 'date-fns', 'luxon', 'leaflet', 'react-leaflet'],
+        },
+      },
+    },
   },
   define: {
     __APP_VERSION__: JSON.stringify(process.env.VITE_APP_VERSION || '0.0.0-local'),

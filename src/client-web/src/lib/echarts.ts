@@ -1,7 +1,69 @@
 import * as echarts from 'echarts/core';
-import { BarChart, CustomChart, GaugeChart, HeatmapChart, LineChart, PieChart } from 'echarts/charts';
-import { DataZoomComponent, GraphicComponent, GridComponent, LegendComponent, MarkAreaComponent, TooltipComponent, VisualMapComponent } from 'echarts/components';
+import {
+  BarChart,
+  BoxplotChart,
+  CustomChart,
+  FunnelChart,
+  GaugeChart,
+  GraphChart,
+  HeatmapChart,
+  LineChart,
+  ParallelChart,
+  PieChart,
+  RadarChart,
+  SankeyChart,
+  ScatterChart,
+  SunburstChart,
+  ThemeRiverChart,
+  TreemapChart,
+} from 'echarts/charts';
+import {
+  CalendarComponent,
+  DataZoomComponent,
+  GraphicComponent,
+  GridComponent,
+  LegendComponent,
+  MarkAreaComponent,
+  MarkLineComponent,
+  MarkPointComponent,
+  ParallelComponent,
+  SingleAxisComponent,
+  TitleComponent,
+  TooltipComponent,
+  VisualMapComponent,
+} from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-echarts.use([BarChart, CustomChart, GaugeChart, HeatmapChart, LineChart, PieChart, DataZoomComponent, GraphicComponent, GridComponent, LegendComponent, MarkAreaComponent, TooltipComponent, VisualMapComponent, CanvasRenderer]);
+echarts.use([
+  BarChart,
+  BoxplotChart,
+  CustomChart,
+  FunnelChart,
+  GaugeChart,
+  GraphChart,
+  HeatmapChart,
+  LineChart,
+  ParallelChart,
+  PieChart,
+  RadarChart,
+  SankeyChart,
+  ScatterChart,
+  SunburstChart,
+  ThemeRiverChart,
+  TreemapChart,
+  CalendarComponent,
+  DataZoomComponent,
+  GraphicComponent,
+  GridComponent,
+  LegendComponent,
+  MarkAreaComponent,
+  MarkLineComponent,
+  MarkPointComponent,
+  ParallelComponent,
+  SingleAxisComponent,
+  TitleComponent,
+  TooltipComponent,
+  VisualMapComponent,
+  CanvasRenderer,
+]);
 export { echarts };
 export type EChartsOption = echarts.EChartsCoreOption;

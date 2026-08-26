@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getTasksPaged } from '../../api/calendar';
 import EChartBox from './EChartBox';
 import { buildTaskAreaOption } from './exhibitionOptions';
+function h(seed: number){ const x=Math.sin(seed*12.9898+78.233)*43758.5453; return x-Math.floor(x); }
 
 /**
  * 落地组件：任务完成率 × 堆叠面积图
@@ -23,8 +24,8 @@ export default function TaskCompletionArea() {
         const d=new Date(Date.now() - (13-i)*86400000);
         return `${d.getMonth()+1}/${d.getDate()}`;
       });
-      const completed = dates.map(()=> 2+Math.round(Math.random()*3));
-      const total = completed.map(c=> c+Math.round(Math.random()*2));
+      const completed = dates.map(()=> 2+Math.round(h(30)*3));
+      const total = completed.map(c=> c+Math.round(h(47)*2));
       return buildTaskAreaOption(dates, completed, total);
     }
     // bucket by date string (due or dtStart)
@@ -47,7 +48,7 @@ export default function TaskCompletionArea() {
     const total=[...buckets.values()].map(v=> Math.max(v.total, v.completed));
     // ensure avoid all zero
     if (total.every(v=> v===0)) {
-      return buildTaskAreaOption(labels, labels.map(()=> 2+Math.round(Math.random()*2)), labels.map(()=> 4+Math.round(Math.random()*2)));
+      return buildTaskAreaOption(labels, labels.map(()=> 2+Math.round(h(64)*2)), labels.map(()=> 4+Math.round(h(81)*2)));
     }
     return buildTaskAreaOption(labels, completed, total);
   }, [data]);

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getMobileAnalyticsHeatmap } from '../../api/mobile';
 import EChartBox from './EChartBox';
 import { buildHeatmapMatrixOption } from './exhibitionOptions';
+function h(seed: number){ const x=Math.sin(seed*12.9898+78.233)*43758.5453; return x-Math.floor(x); }
 
 /**
  * 落地组件：24小时热力图 × 热力图（矩阵）
@@ -21,9 +22,9 @@ export default function HourHeatmapChart() {
       const yCats = ['聊天','视频','工具','社交','游戏'];
       const fake: [number,number,number][] = [];
       for(let y=0;y<yCats.length;y++) for(let x=0;x<24;x++){
-        let v= 12+Math.round(Math.random()*36);
+        let v= 12+Math.round(h(30)*36);
         if(x>=19 && x<=23) v+=18;
-        if(x>=0 && x<=5) v=Math.round(Math.random()*8);
+        if(x>=0 && x<=5) v=Math.round(h(47)*8);
         fake.push([x,y,v]);
       }
       return buildHeatmapMatrixOption(xCats, yCats, fake);
@@ -49,7 +50,7 @@ export default function HourHeatmapChart() {
     });
     // ensure at least some grid cells
     if (data.length===0) {
-      for(let y=0;y<yCats.length;y++) for(let x=0;x<24;x++) data.push([x,y, Math.round(6+Math.random()*28)]);
+      for(let y=0;y<yCats.length;y++) for(let x=0;x<24;x++) data.push([x,y, Math.round(6+h(64)*28)]);
     }
     return buildHeatmapMatrixOption(xCats, yCats, data);
   }, [buckets]);

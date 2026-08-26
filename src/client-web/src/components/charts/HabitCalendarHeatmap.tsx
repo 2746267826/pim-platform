@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getHabits } from '../../api/calendar';
 import EChartBox from './EChartBox';
 import { buildCalendarHeatmapOption } from './exhibitionOptions';
+function h(seed: number){ const x=Math.sin(seed*12.9898+78.233)*43758.5453; return x-Math.floor(x); }
 
 /**
  * 落地组件：习惯打卡热力 × 日历热力图
@@ -25,7 +26,7 @@ export default function HabitCalendarHeatmap() {
       const ds=d.toISOString().slice(0,10);
       dates.push(ds);
       // if we have habits, simulate done count as habits.length * random factor, else random
-      const base = habits.length ? Math.round(Math.random()*(habits.length)) : Math.round(Math.random()*4);
+      const base = habits.length ? Math.round(h(36)*(habits.length)) : Math.round(h(30)*4);
       values.push(base);
     }
     return buildCalendarHeatmapOption(dates, values);

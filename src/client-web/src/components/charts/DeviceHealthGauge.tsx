@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getManagedDevices } from '../../api/mobile';
 import EChartBox from './EChartBox';
 import { buildGaugeOption, buildProgressRingOption } from './exhibitionOptions';
+function h(seed: number){ const x=Math.sin(seed*12.9898+78.233)*43758.5453; return x-Math.floor(x); }
 
 /**
  * 落地组件：设备健康状态 × 仪表盘 / 进度环
@@ -26,7 +27,7 @@ export default function DeviceHealthGauge() {
     const total=devices.length;
     const online=devices.filter(d=> d.isOnline).length;
     // health derived from quality/online + random; use storagePressure as proxy if needed
-    const avg=Math.round(62+ (online/total)*24 + Math.random()*6);
+    const avg=Math.round(62+ (online/total)*24 + h(30)*6);
     return {
       gaugeOption: buildGaugeOption(avg),
       ringOption: buildProgressRingOption(Math.round((online/total)*100)),

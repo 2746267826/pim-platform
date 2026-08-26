@@ -1,5 +1,6 @@
 import { chartColors } from './chartColors';
 import type { EChartsOption } from '../../lib/echarts';
+function h(seed: number){ const x=Math.sin(seed*12.9898+78.233)*43758.5453; return x-Math.floor(x); }
 
 
 
@@ -25,9 +26,9 @@ export function buildHorizontalBarOption(labels: string[], values: number[]): EC
 }
 
 export function buildStackedBarOption(labels: string[]): EChartsOption {
-  const s1=labels.map(()=> 8+Math.round(Math.random()*22));
-  const s2=labels.map(()=> 6+Math.round(Math.random()*18));
-  const s3=labels.map(()=> 4+Math.round(Math.random()*14));
+  const s1=labels.map((_,i)=> 8+Math.round(h(i*13+1)*22));
+  const s2=labels.map((_,i)=> 6+Math.round(h(i*13+2)*18));
+  const s3=labels.map((_,i)=> 4+Math.round(h(i*13+3)*14));
   return {
     tooltip:{trigger:'axis'},
     legend:{bottom:0, textStyle:{fontSize:9,color:chartColors.textMuted}, data:['A类','B类','C类']},
@@ -63,7 +64,7 @@ export function buildAreaOption(labels: string[], values: number[]): EChartsOpti
 }
 
 export function buildPieOption(labels: string[], values: number[]): EChartsOption {
-  const data=labels.map((l,i)=>({name:l, value:values[i]|| 6+Math.round(Math.random()*24)}));
+  const data=labels.map((l,i)=>({name:l, value:values[i]|| 6+Math.round(h(i*13+4)*24)}));
   return {
     tooltip:{trigger:'item', formatter:'{b}: {c} ({d}%)'},
     legend:{bottom:0, textStyle:{fontSize:9,color:chartColors.textMuted}, type:'scroll'},
@@ -72,7 +73,7 @@ export function buildPieOption(labels: string[], values: number[]): EChartsOptio
 }
 
 export function buildDonutOption(labels: string[], values: number[]): EChartsOption {
-  const data=labels.map((l,i)=>({name:l, value:values[i]|| 8+Math.round(Math.random()*22)}));
+  const data=labels.map((l,i)=>({name:l, value:values[i]|| 8+Math.round(h(i*13+5)*22)}));
   const total=data.reduce((s,d)=>s+d.value,0);
   return {
     tooltip:{trigger:'item'},
@@ -83,7 +84,7 @@ export function buildDonutOption(labels: string[], values: number[]): EChartsOpt
 }
 
 export function buildRoseOption(labels: string[], values: number[]): EChartsOption {
-  const data=labels.map((l,i)=>({name:l, value:(values[i]||10)+Math.round(Math.random()*18)}));
+  const data=labels.map((l,i)=>({name:l, value:(values[i]||10)+Math.round(h(i*13+6)*18)}));
   return {
     tooltip:{trigger:'item'},
     legend:{bottom:0, textStyle:{fontSize:9,color:chartColors.textMuted}},
@@ -104,7 +105,7 @@ export function buildScatterOption(points: number[][]): EChartsOption {
 export function buildRadarOption(labels: string[], values: number[]): EChartsOption {
   const indicators=labels.slice(0,6).map((l)=>({name:l, max: Math.max(30, Math.max(...values)*1.25)}));
   while(indicators.length<5) indicators.push({name:`维度${indicators.length+1}`, max:40});
-  const vals=indicators.map((_, idx)=> values[idx]!==undefined? values[idx]: 10+Math.round(Math.random()*20));
+  const vals=indicators.map((_, idx)=> values[idx]!==undefined? values[idx]: 10+Math.round(h(idx*13+7)*20));
   return {
     tooltip:{trigger:'item'},
     radar:{indicator:indicators, center:['50%','52%'], radius:'66%', axisName:{fontSize:9,color:chartColors.textMuted}, splitLine:{lineStyle:{color:chartColors.borderSoft}}, axisLine:{lineStyle:{color:chartColors.borderSoft}}, splitArea:{areaStyle:{color:['#f8fafc','#ffffff']}}},
@@ -124,7 +125,7 @@ export function buildHeatmapMatrixOption(xCats: string[], yCats: string[], data:
 }
 
 export function buildTreemapOption(labels: string[], values: number[]): EChartsOption {
-  const data=labels.map((l,i)=>({name:l, value:values[i]|| 10+Math.round(Math.random()*30)}));
+  const data=labels.map((l,i)=>({name:l, value:values[i]|| 10+Math.round(h(i*13+8)*30)}));
   return {
     tooltip:{formatter:(p: unknown)=> { const d=p as {name?:string; value?:number}; return `${d.name}: ${d.value}`; }},
     series:[{type:'treemap', data, roam:false, nodeClick:false, breadcrumb:{show:false}, label:{show:true, fontSize:9, color:'#fff'}, itemStyle:{borderColor:'#fff', borderWidth:1, gapWidth:1}}],
@@ -132,7 +133,7 @@ export function buildTreemapOption(labels: string[], values: number[]): EChartsO
 }
 
 export function buildFunnelOption(labels: string[], values: number[]): EChartsOption {
-  const data=labels.slice(0,5).map((l,i)=>({name:l, value: values[i]|| 60 - i*8 + Math.round(Math.random()*8)}));
+  const data=labels.slice(0,5).map((l,i)=>({name:l, value: values[i]|| 60 - i*8 + Math.round(h(i*13+9)*8)}));
   data.sort((a,b)=> b.value-a.value);
   return {
     tooltip:{trigger:'item'},
@@ -190,8 +191,8 @@ export function buildGradientBarOption(labels: string[], values: number[]): ECha
 }
 
 export function buildWordcloudFakeOption(labels: string[], values: number[]): EChartsOption {
-  const data=labels.map((l,i)=>({name:l, value:(values[i]||10)*(0.9+Math.random()*0.4)}));
-  const pts=data.map(d=>({value:[Math.random()*100, Math.random()*100, d.value], name:d.name}));
+  const data=labels.map((l,i)=>({name:l, value:(values[i]||10)*(0.9+h(i*13+10)*0.4)}));
+  const pts=data.map((d,i)=>({value:[h(i*13+11)*100, h(i*13+12)*100, d.value], name:d.name}));
   return {
     tooltip:{formatter:(p: unknown)=> { const d=p as {name?:string; value?:number[]}; return `${d.name}: ${d.value?.[2] ? Math.round(d.value[2]): ''}`; }},
     grid:{left:6,right:6,top:6,bottom:6},

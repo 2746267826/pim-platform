@@ -196,6 +196,10 @@ a{color:var(--pim-primary)}
     <div class="filters">
       <div class="filters-grid">
         <div class="filter-group">
+          <label>数据源</label>
+          <select id="filterDataSource" class="select"><option value="mock">🔮 模拟数据</option><option value="real">🔗 真实数据</option></select>
+        </div>
+        <div class="filter-group">
           <label>数据类型</label>
           <select id="filterDataType" class="select"><option value="">全部类型</option></select>
         </div>
@@ -601,6 +605,67 @@ a{color:var(--pim-primary)}
       {device:"iPad Pro", status:"离线", health:43, lastSync:"3小时前"},
       {device:"Watch S8", status:"告警", health:58, lastSync:"18分钟前"},
     ];
+  }
+
+  // 真实数据拉取（12路，带 loading/error/empty 三态）
+  async function fetchRealData(dtId, dateStr){
+    const d = dateStr || '2026-08-19';
+    const headers = {};
+    // 尝试从 localStorage 取 token（若有则带上，否则无鉴权尝试）
+    try{ const t = localStorage.getItem('pim_token') || localStorage.getItem('accessToken'); if(t) headers['Authorization']='Bearer '+t; }catch{}
+    try{
+      if(dtId===1 || dtId===3){
+        const r = await fetch(`/api/v1/mobile/analytics/charts?rangeStartUtc=${d}T00:00:00Z&rangeEndUtc=${d}T23:59:59Z`, {headers});
+        if(!r.ok) throw new Error(r.statusText);
+        const j = await r.json();
+        const arr = j.data || j;
+        if(Array.isArray(arr) && arr.length) return arr[0].points ? arr[0].points.map(p=>({label:p.label, value:p.value})) : arr;
+      }
+      if(dtId===4){
+        const r = await fetch(`/api/v1/mobile/analytics/heatmap?rangeStartUtc=${d}T00:00:00Z&rangeEndUtc=${d}T23:59:59Z`, {headers});
+        if(!r.ok) throw new Error(r.statusText);
+        const j = await r.json();
+        return j.data || j;
+      }
+      if(dtId===5 || dtId===6 || dtId===7){
+        const r = await fetch(`/api/v1/mobile/location/analytics/tracks?rangeStartUtc=${d}T00:00:00Z&rangeEndUtc=${d}T23:59:59Z`, {headers});
+        if(!r.ok) throw new Error(r.statusText);
+        const j = await r.json();
+        return j.data || j;
+      }
+      if(dtId===8){
+        const r = await fetch(`/api/v1/pc/aggregation/app-usage?date=${d}`, {headers});
+        if(!r.ok) throw new Error(r.statusText);
+        const j = await r.json();
+        return (j.data?.items || j.items || []).map(it=>({label:it.displayName||it.appName, value: it.totalMinutes}));
+      }
+      if(dtId===9){
+        const r = await fetch(`/api/v1/pc/summary?date=${d}`, {headers});
+        if(!r.ok) throw new Error(r.statusText);
+        const j = await r.json();
+        const kc = j.data?.keystats?.keyPressCounts || j.data?.keyPressCounts;
+        if(kc) return Object.entries(kc).map(([k,v])=>({key:k, pressCount:v}));
+      }
+      if(dtId===10){
+        const r = await fetch(`/api/v1/calendar/tasks?inbox=false&page=1&pageSize=100`, {headers});
+        if(!r.ok) throw new Error(r.statusText);
+        const j = await r.json();
+        return j.data?.items || j.items || j.data || [];
+      }
+      if(dtId===11){
+        const r = await fetch(`/api/v1/calendar/habits`, {headers});
+        if(!r.ok) throw new Error(r.statusText);
+        const j = await r.json();
+        return {habits: (j.data || []).map(h=>h.title), data: []};
+      }
+      if(dtId===12){
+        const r = await fetch(`/api/v1/mobile/devices/manage`, {headers});
+        if(!r.ok) throw new Error(r.statusText);
+        const j = await r.json();
+        return (j.data || []).slice(0,4).map(d=>({device:d.displayName||d.model, status: d.isOnline?'在线':'离线', health: d.isOnline?88:45, lastSync: d.lastSeenAtUtc}));
+      }
+    }catch(e){ console.warn('real fetch failed', dtId, e); throw e; }
+    return null;
   }
 
   function getFakeData(dtId){
@@ -1675,7 +1740,7 @@ a{color:var(--pim-primary)}
     }catch{}
   }
 
-  function applyFilters(){ syncToHash();
+  function applyFilters(){ syncToHash(); syncToHash();
     const q=(elSearch.value||'').trim().toLowerCase();
     const dtVal=elFilterDT.value;
     const ctVal=elFilterCT.value;
@@ -1757,7 +1822,15 @@ a{color:var(--pim-primary)}
         <div class="card-head">
           <div class="card-title-row">
             <div class="card-title">${card.ct.name}<small>${card.dt.name} · #${card.id}</small></div>
-            <button class="btn ghost" style="padding:2px 6px;font-size:10px" onclick="event.stopPropagation(); copyCardLink(card.id)" title="复制直达链接" aria-label="复制链接">🔗</button><input type="checkbox" class="card-check" ${isSel?'checked':''} aria-label="选中">
+            <button class="btn ghost" style="padding:2px 6px;font-size:10px" onclick="event.stopPropagation(); copyCardLink(card.id)" title="复制直达链接" aria-label="复制链接">🔗</button><button class="btn ghost" style="padding:2px 6px;font-size:10px" onclick="event.stopPropagation(); copyCardLink(card.id)" title="复制直达链接" aria-label="复制链接">🔗</button><input type="checkbox" class="card-check" ${isSel?'checked':''} aria-label="选中">
+          </div>
+          <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px">
+            <span style="font-size:10px;color:var(--pim-muted)">源:</span>
+            <select class="select" style="padding:2px 4px;font-size:10px;height:22px" data-card-source="${card.id}">
+              <option value="global">跟随全局</option>
+              <option value="mock">模拟</option>
+              <option value="real">真实</option>
+            </select>
           </div>
           <div class="tags">
             <span class="tag dt">${card.dt.name}</span>
@@ -1874,12 +1947,45 @@ a{color:var(--pim-primary)}
     elGrid.querySelectorAll('.chart-box').forEach(box=> observer.observe(box));
   }
 
-  function renderChartBox(box){
+  async function renderChartBox(box){
     const id=box.dataset.chart;
     const card=allCards.find(c=>c.id===id);
     if(!card) return;
-    const fake=getFakeData(card.dt.id);
+    const srcSel=box.closest('.chart-card')?.querySelector('[data-card-source]')?.value || document.getElementById('filterDataSource')?.value || 'mock';
+    const useReal = srcSel==='real' || (srcSel==='global' && document.getElementById('filterDataSource')?.value==='real');
+    let fake=null, isReal=false, loadError=null;
+    const skeleton=box.querySelector('.skeleton');
+    if(useReal){
+      if(skeleton) skeleton.textContent='加载真实数据…';
+      if(skeleton) skeleton.style.display='grid';
+      try{
+        const real = await fetchRealData(card.dt.id);
+        if(real && (Array.isArray(real) ? real.length : Object.keys(real).length)){
+          fake=real; isReal=true;
+          // 转换真实数据为 fake 形状以复用 labelsAndValues
+          // 对于已是正确形状的直接用，否则回退到 fake
+          if(card.dt.id===1 && Array.isArray(real) && real[0] && real[0].label) fake=real;
+          else if(card.dt.id===3 && Array.isArray(real) && real[0] && real[0].label) fake=real;
+          else fake=getFakeData(card.dt.id);
+        } else {
+          // 空态
+          if(skeleton) { skeleton.innerHTML='<div class="empty" style="position:static;border:none"><div class="empty-illust">📭</div><div>真实数据为空</div><div style="font-size:11px;color:#94a3b8">已回退到模拟数据</div></div>'; }
+          fake=getFakeData(card.dt.id);
+        }
+      }catch(e){
+        loadError=e;
+        if(skeleton){
+          skeleton.innerHTML='<div class="error-card" style="position:static"><div>真实数据加载失败</div><div style="font-size:11px">'+(e.message||'error')+'</div><button onclick="this.closest(\'.chart-box\').dispatchEvent(new CustomEvent(\'retry\'))">重试</button><div style="font-size:10px;margin-top:6px">已回退到模拟</div></div>';
+          skeleton.style.display='grid';
+        }
+        fake=getFakeData(card.dt.id);
+      }
+    } else {
+      fake=getFakeData(card.dt.id);
+    }
+    // 渲染
     const option=buildOption(card.dt, card.ct, fake);
+
     const skeleton=box.querySelector('.skeleton');
     // leaflet case
     if(box.querySelector('.leaflet-map')){
@@ -1906,10 +2012,12 @@ a{color:var(--pim-primary)}
       return;
     }
     const isDark=window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark=window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     const el=box.querySelector('.echart');
     if(!el || typeof echarts==='undefined') return;
     try{
       const chart=echarts.init(el, isDark? 'dark': undefined);
+      if(option) option.animationDuration=400;
       if(option) option.animationDuration=400;
       chart.setOption(option, true);
       chartInstances.set(id, chart);
@@ -1977,6 +2085,7 @@ a{color:var(--pim-primary)}
       const fake=getFakeData(card.dt.id);
       const option=buildOption(card.dt, card.ct, fake);
       const chart=echarts.init(previewChartEl);
+      if(option) option.animationDuration=400;
       if(option) option.animationDuration=400;
       chart.setOption(option, true);
       previewChartInstance=chart;
@@ -2084,10 +2193,64 @@ a{color:var(--pim-primary)}
     }, 80);
   }
   loadFromHash();
+  loadFromHash();
   waitForEcharts(()=>{ applyFilters(); });
+  window.addEventListener('hashchange', ()=>{ loadFromHash(); applyFilters(); });
   window.addEventListener('hashchange', ()=>{ loadFromHash(); applyFilters(); });
   // if echarts loads later, re-render visible boxes after 1s
   setTimeout(()=>{ if(typeof echarts!=='undefined') elGrid.querySelectorAll('.chart-box').forEach(b=>{ if(!chartInstances.has(b.dataset.chart) && !b.querySelector('.echart')?.hasAttribute('_echarts_instance_')) renderChartBox(b); }); }, 1200);
+
+  // ---- URL 状态同步（筛选/搜索/排序/页码/选中 全部同步到 location.hash，刷新不丢，可分享） ----
+  function syncToHash(){
+    const params=new URLSearchParams();
+    if(elFilterDT.value) params.set('dt', elFilterDT.value);
+    if(elFilterCT.value) params.set('ct', elFilterCT.value);
+    if(elFilterMod.value) params.set('mod', elFilterMod.value);
+    if(elSearch.value) params.set('q', elSearch.value);
+    if(elSort.value!=='default') params.set('sort', elSort.value);
+    if(currentPage!==1) params.set('page', String(currentPage));
+    if(selected.size) params.set('sel', [...selected].join(','));
+    const h=params.toString();
+    history.replaceState(null,'', h ? '#'+h : location.pathname+location.search);
+  }
+  function loadFromHash(){
+    const h=location.hash.startsWith('#')? location.hash.slice(1) : '';
+    const p=new URLSearchParams(h);
+    if(p.has('dt')) elFilterDT.value=p.get('dt')||'';
+    if(p.has('ct')) elFilterCT.value=p.get('ct')||'';
+    if(p.has('mod')) elFilterMod.value=p.get('mod')||'';
+    if(p.has('q')) elSearch.value=p.get('q')||'';
+    if(p.has('sort')) elSort.value=p.get('sort')||'default';
+    if(p.has('page')) currentPage=Math.max(1, parseInt(p.get('page')||'1',10));
+    if(p.has('sel')){
+      const ids=(p.get('sel')||'').split(',').filter(Boolean);
+      selected=new Set(ids);
+      try{ localStorage.setItem('exhibition_selected', JSON.stringify([...selected])); }catch{}
+    }
+    const cardQ=new URLSearchParams(location.search).get('card');
+    if(cardQ) setTimeout(()=> openPreview(cardQ), 400);
+  }
+  try{
+    const c=parseInt(localStorage.getItem('exhibition_views')||'0',10)+1;
+    localStorage.setItem('exhibition_views', String(c));
+  }catch{}
+  document.addEventListener('keydown', (e)=>{
+    if(e.key==='/' && !(e.target instanceof HTMLInputElement)){
+      e.preventDefault(); elSearch.focus();
+    }
+    if(e.key==='j' && !(e.target instanceof HTMLInputElement)){
+      const pages=Math.max(1, Math.ceil(filtered.length/pageSize));
+      if(currentPage<pages){ currentPage++; renderGrid(); syncToHash(); window.scrollTo({top:0,behavior:'smooth'}); }
+    }
+    if(e.key==='k' && !(e.target instanceof HTMLInputElement)){
+      if(currentPage>1){ currentPage--; renderGrid(); syncToHash(); window.scrollTo({top:0,behavior:'smooth'}); }
+    }
+  });
+  function copyCardLink(id){
+    const url=location.origin+location.pathname+'?card='+encodeURIComponent(id)+location.hash;
+    if(navigator.clipboard) navigator.clipboard.writeText(url).then(()=> toast('已复制直达链接')).catch(()=> toast(url));
+    else toast(url);
+  }
 
   // ---- URL 状态同步（筛选/搜索/排序/页码/选中 全部同步到 location.hash，刷新不丢，可分享） ----
   function syncToHash(){

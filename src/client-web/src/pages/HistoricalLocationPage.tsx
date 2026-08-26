@@ -12,6 +12,9 @@ import {
 } from '../api/mobile';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 import HistoricalLocationDashboard from '../components/mobile/HistoricalLocationDashboard';
+import GpsTrackMap from '../components/charts/GpsTrackMap';
+import LocationBubbleChart from '../components/charts/LocationBubbleChart';
+import { useExhibitionData } from '../components/charts/hooks/useExhibitionData';
 import {
   buildMobileAnalyticsDateRange,
   toMobileAnalyticsUtcRange,
@@ -297,7 +300,7 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
   }
 
   return (
-    <div className="pb-20 md:pb-4">
+    <div className="pb-20 md:pb-4 space-y-4">
       <div className="h-[60vh] md:h-[70vh]">
         <HistoricalLocationDashboard
       rangeShortcut={rangeShortcut}
@@ -342,6 +345,26 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
       embedded={embedded}
         />
       </div>
+      <LocationExhibitionEmbed />
+    </div>
+  );
+}
+
+function LocationExhibitionEmbed() {
+  const q5 = useExhibitionData(5, { real: true });
+  const q6 = useExhibitionData(6, { real: true });
+  return (
+    <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-2">
+      <section className="pim-card p-4">
+        <h3 className="text-sm font-semibold text-slate-900">GPS轨迹 · 散点/线图（真实）</h3>
+        <p className="mt-1 text-xs text-slate-500">家→地铁→公司3段连续 · {q5.isReal ? '🔗真实' : '🔮模拟'} {q5.isEmpty ? '· 暂无数据' : ''}</p>
+        <div className="mt-3">{q5.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q5.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <GpsTrackMap />}</div>
+      </section>
+      <section className="pim-card p-4">
+        <h3 className="text-sm font-semibold text-slate-900">常去地点 · 气泡图（真实）</h3>
+        <p className="mt-1 text-xs text-slate-500">家128 公司96 · {q6.isReal ? '🔗真实' : '🔮模拟'}</p>
+        <div className="mt-3">{q6.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q6.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <LocationBubbleChart />}</div>
+      </section>
     </div>
   );
 }

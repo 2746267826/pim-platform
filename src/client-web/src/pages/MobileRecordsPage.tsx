@@ -21,6 +21,9 @@ import MobileTimelineBlocks from '../components/mobile/MobileTimelineBlocks';
 import MobileUsageBucketDetail from '../components/mobile/MobileUsageBucketDetail';
 import MobileUsageHeatmap, { type MobileHeatmapGranularity } from '../components/mobile/MobileUsageHeatmap';
 import { buildHeatmapMatrix } from '../components/mobile/mobileHeatmapMatrix';
+import MobileCategoryDonut from '../components/charts/MobileCategoryDonut';
+import DayHeatmapMatrix from '../components/charts/DayHeatmapMatrix';
+import { useExhibitionData } from '../components/charts/hooks/useExhibitionData';
 import {
   buildMobileAnalyticsDateRange,
   toMobileAnalyticsUtcRange,
@@ -320,7 +323,28 @@ export default function MobileRecordsPage() {
             />
             <LabelingQueue limit={20} />
         </div>
+        {/* 展览馆嵌入：日使用环形 + 24h热力（真实 via useExhibitionData） */}
+        <MobileExhibitionEmbed />
       </main>
     </div>
+  );
+}
+
+function MobileExhibitionEmbed() {
+  const q1 = useExhibitionData(1, { real: true });
+  const q4 = useExhibitionData(4, { real: true });
+  return (
+    <section className="mx-auto grid max-w-[1500px] grid-cols-1 gap-4 px-4 sm:px-6 lg:grid-cols-2">
+      <div className="pim-card p-4">
+        <h3 className="text-sm font-semibold text-slate-900">日使用时长 · 环形图（真实）</h3>
+        <p className="mt-1 text-xs text-slate-500">TopApp 长尾 · {q1.isReal ? '🔗真实' : '🔮模拟'} {q1.isEmpty ? '· 暂无数据' : ''}</p>
+        <div className="mt-3">{q1.loading ? <div className="h-[180px] animate-pulse rounded-md bg-slate-100" /> : q1.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <MobileCategoryDonut />}</div>
+      </div>
+      <div className="pim-card p-4">
+        <h3 className="text-sm font-semibold text-slate-900">24小时热力 · 矩阵（真实）</h3>
+        <p className="mt-1 text-xs text-slate-500">8-12/19-23双峰 · {q4.isReal ? '🔗真实' : '🔮模拟'}</p>
+        <div className="mt-3">{q4.loading ? <div className="h-[180px] animate-pulse rounded-md bg-slate-100" /> : q4.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <DayHeatmapMatrix />}</div>
+      </div>
+    </section>
   );
 }

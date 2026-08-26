@@ -20,22 +20,28 @@ function ErrorCard({ message, height }: { message: string; height: number }) {
  * 数据源：/mobile/analytics/charts?chartType=category-share
  * 选中来源：展览馆 #3×10（App分类占比 × 环形图）
  */
-export default function MobileCategoryDonut({ rangeStartUtc, rangeEndUtc }: { rangeStartUtc?: string; rangeEndUtc?: string }) {
-  const { data, isLoading } = useQuery({
+export default function MobileCategoryDonut({ data: propData, rangeStartUtc, rangeEndUtc }: { data?: { label: string; value: number }[]; rangeStartUtc?: string; rangeEndUtc?: string }) {
+  const { data: queryData, isLoading } = useQuery({
     queryKey: ['exhibition-mobile-category-donut', rangeStartUtc, rangeEndUtc],
     queryFn: () => getMobileAnalyticsCharts({ rangeStartUtc, rangeEndUtc }),
   });
 
+  const data = propData ?? queryData;
   const option = useMemo(() => {
-    const chart = data?.find(c => c.chartType === 'category-share') ?? data?.[0];
-    const points = chart?.points ?? [];
+    // 支持直接传入 {label,value}[] 或原始 charts
+    const isDirect = Array.isArray(data) && data.length > 0 && typeof (data as unknown as { label?: unknown }[])[0]?.label === 'string';
+    if (isDirect) {
+      const pts = data as unknown as { label: string; value: number }[];
+      return buildDonutOption(pts.map((p) => p.label), pts.map((p) => p.value));
+    }
+    const chart = (data as unknown as { chartType?: string; points?: { label: string; value: number }[] }[] | undefined)?.find((c) => c.chartType === 'category-share') ?? (data as unknown as { label: string; value: number }[] | undefined)?.[0] as unknown as { points: { label: string; value: number }[] } | undefined;
+    const points = (chart as { points?: { label: string; value: number }[] })?.points ?? [];
     if (points.length === 0) {
-      // fake fallback to keep visual
       const labels = ['聊天','视频','社交','工具','游戏','学习','购物','其他'];
       const values = [22,18,15,13,11,9,7,5];
       return buildDonutOption(labels, values);
     }
-    return buildDonutOption(points.map(p=>p.label), points.map(p=>p.value));
+    return buildDonutOption(points.map((p: { label: string; value: number }) => p.label), points.map((p: { label: string; value: number }) => p.value));
   }, [data]);
 
   if (isLoading) return <Skeleton height={180} />

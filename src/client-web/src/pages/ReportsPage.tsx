@@ -9,6 +9,9 @@ import type { GenerateReportRequest, ReportArtifact, ReportSuggestion } from '..
 import PageHeader from '../ui/PageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
+import TaskFunnel from '../components/charts/TaskFunnel';
+import DeviceHealthGauge from '../components/charts/DeviceHealthGauge';
+import { useExhibitionData } from '../components/charts/hooks/useExhibitionData';
 
 type ReportKind = 'Daily' | 'Weekly' | 'Monthly' | 'Project';
 
@@ -237,8 +240,29 @@ export default function ReportsPage() {
               )}
             </div>
           </section>
+          </div>
         </div>
+        {/* 展览馆嵌入：任务完成率漏斗 + 设备健康仪表盘（真实） */}
+        <ReportsExhibitionEmbed />
       </div>
-    </div>
-  );
-}
+    );
+  }
+
+  function ReportsExhibitionEmbed() {
+    const q10 = useExhibitionData(10, { real: true });
+    const q12 = useExhibitionData(12, { real: true });
+    return (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section className="pim-card p-4">
+          <h3 className="text-sm font-semibold text-slate-900">任务完成率 · 漏斗图（真实）</h3>
+          <p className="mt-1 text-xs text-slate-500">创建→进行→完成 · {q10.isReal ? '🔗真实' : '🔮模拟'} {q10.isEmpty ? '· 暂无数据' : ''}</p>
+          <div className="mt-3">{q10.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q10.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <TaskFunnel data={[]} />}</div>
+        </section>
+        <section className="pim-card p-4">
+          <h3 className="text-sm font-semibold text-slate-900">设备健康 · 仪表盘（真实）</h3>
+          <p className="mt-1 text-xs text-slate-500">2在线1离线1告警 · {q12.isReal ? '🔗真实' : '🔮模拟'}</p>
+          <div className="mt-3">{q12.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q12.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <DeviceHealthGauge />}</div>
+        </section>
+      </div>
+    );
+  }

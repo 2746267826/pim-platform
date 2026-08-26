@@ -20,6 +20,8 @@ import HabitStreakRing from '../components/charts/HabitStreakRing';
 import DeviceStatusTimeline from '../components/charts/DeviceStatusTimeline';
 import TaskFunnel from '../components/charts/TaskFunnel';
 import DataQualityGauge from '../components/charts/DataQualityGauge';
+import { useExhibitionData } from '../components/charts/hooks/useExhibitionData';
+import { getFakeData } from '../components/charts/fakeData';
 
 /**
  * 展览馆 React 画廊页 — 20+ 生产组件网格，与静态展览馆数据同源（fakeData.ts）
@@ -67,6 +69,19 @@ function loadRatings(): Map<string, number> {
   try { const raw = localStorage.getItem('exhibition_ratings'); if (raw) return new Map(JSON.parse(raw)); } catch {}
   return new Map();
 }
+function GalleryCardContent({ dtId, useReal, Comp }: { dtId: number; useReal: boolean; Comp: React.ComponentType<Record<string, never>> }) {
+  const { data, loading, error, isEmpty } = useExhibitionData(dtId, { real: useReal });
+  if (loading) return <div className="grid h-[168px] place-items-center rounded-md bg-slate-100 text-xs text-slate-500" aria-busy="true">加载真实数据…</div>;
+  if (error) return <div className="grid h-[168px] place-items-center rounded-md border border-red-200 bg-red-50 p-4 text-center"><div className="text-xs font-semibold text-red-600">真实数据加载失败</div><div className="mt-1 text-xs text-red-500">{String((error as Error).message || error)}</div><div className="mt-2 text-xs text-slate-500">已回退到模拟数据</div><div className="mt-2"><Comp /></div></div>;
+  if (isEmpty) return <div className="grid h-[168px] place-items-center rounded-md border border-dashed border-slate-200 bg-white p-4 text-center"><div className="text-xs text-slate-500">真实数据为空</div><div className="mt-1 text-xs text-amber-600">已回退到模拟</div><div className="mt-2 w-full"><Comp /></div></div>;
+  try {
+    // @ts-ignore — 部分组件的 data 形状与真实 API 一致，尝试传递
+    return <Comp data={data as never} />;
+  } catch {
+    return <Comp />;
+  }
+}
+
 function loadSelected(): Set<string> {
   try { const raw = localStorage.getItem('exhibition_selected'); if (raw) return new Set(JSON.parse(raw)); } catch {}
   return new Set();
@@ -82,6 +97,12 @@ export default function ExhibitionPage() {
   const [ratings, setRatings] = useState<Map<string, number>>(() => loadRatings());
   const [selected, setSelected] = useState<Set<string>>(() => loadSelected());
   const [compareOpen, setCompareOpen] = useState(false);
+  const [globalReal, setGlobalReal] = useState<boolean>(() => {
+    try { return localStorage.getItem('exhibition_real') === 'true'; } catch { return false; }
+  });
+  const [cardReal, setCardReal] = useState<Map<string, boolean>>(() => {
+    try { const raw = localStorage.getItem('exhibition_card_real'); return raw ? new Map(JSON.parse(raw)) : new Map(); } catch { return new Map(); }
+  });
 
   // URL 状态同步
   useEffect(() => {
@@ -106,6 +127,16 @@ export default function ExhibitionPage() {
     history.replaceState(null, '', h ? '#' + h : location.pathname + location.search);
   }, [moduleFilter, search, sortBy, page, selected]);
 
+  // DEV check ?check=1
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('check') === '1') {
+      console.assert(GALLERY.length === 21, '展览馆应有21个精选');
+      const mock = getFakeData(3) as { value: number }[];
+      const sum = mock.reduce((s, c) => s + c.value, 0);
+      console.assert(Math.abs(sum - 100) < 1, `分类占比和应为100，实际${sum}`);
+      console.log('✅ Exhibition data invariants check passed');
+    }
+  }, []);
   // 埋点 views
   useEffect(() => { try { const c = parseInt(localStorage.getItem('exhibition_views') || '0', 10) + 1; localStorage.setItem('exhibition_views', String(c)); } catch {} }, []);
   // 键盘 / j/k
@@ -122,6 +153,8 @@ export default function ExhibitionPage() {
 
   useEffect(() => { try { localStorage.setItem('exhibition_ratings', JSON.stringify([...ratings.entries()])); } catch {} }, [ratings]);
   useEffect(() => { try { localStorage.setItem('exhibition_selected', JSON.stringify([...selected])); } catch {} }, [selected]);
+  useEffect(() => { try { localStorage.setItem('exhibition_real', String(globalReal)); } catch {} }, [globalReal]);
+  useEffect(() => { try { localStorage.setItem('exhibition_card_real', JSON.stringify([...cardReal.entries()])); } catch {} }, [cardReal]);
   useEffect(() => { setPage(1); }, [moduleFilter, search, sortBy]);
 
   const filtered = useMemo(() => {
@@ -186,7 +219,14 @@ export default function ExhibitionPage() {
       />
 
       <section className="pim-panel p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
+          <label className="text-xs">
+            <span className="font-semibold text-slate-500">数据源</span>
+            <select value={globalReal ? 'real' : 'mock'} onChange={(e) => setGlobalReal(e.target.value === 'real')} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+              <option value="mock">🔮 模拟数据</option>
+              <option value="real">🔗 真实数据</option>
+            </select>
+          </label>
           <label className="text-xs">
             <span className="font-semibold text-slate-500">模块</span>
             <select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
@@ -230,7 +270,6 @@ export default function ExhibitionPage() {
         {pageItems.map((item) => {
           const rating = ratings.get(item.id) || 0;
           const isSel = selected.has(item.id);
-          const Comp = item.Component;
           return (
             <section key={item.id} id={`card-${item.id}`} className={`pim-card flex flex-col overflow-hidden transition-all duration-150 ease-out hover:-translate-y-0.5 hover:shadow-lg ${isSel ? 'ring-2 ring-blue-200 border-blue-300' : ''}`}>
               <div className="flex items-start justify-between gap-2 border-b border-slate-100 px-3 py-2">
@@ -240,6 +279,11 @@ export default function ExhibitionPage() {
                   <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-500">{item.desc}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
+                  <select value={cardReal.has(item.id) ? (cardReal.get(item.id)! ? 'real' : 'mock') : 'global'} onChange={(e)=>{ const v=e.target.value; setCardReal(prev=>{ const n=new Map(prev); if(v==='global') n.delete(item.id); else n.set(item.id, v==='real'); return n; }); }} className="rounded-md border border-slate-200 bg-white px-1 py-0.5 text-[10px]" title="数据源">
+                    <option value="global">跟随全局</option>
+                    <option value="mock">🔮模拟</option>
+                    <option value="real">🔗真实</option>
+                  </select>
                   <button type="button" onClick={() => copyLink(item.id)} className="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] text-slate-500 hover:bg-slate-50" title="复制直达链接" aria-label="复制链接">🔗</button>
                   <input type="checkbox" checked={isSel} onChange={() => toggleSelect(item.id)} className="h-4 w-4 accent-blue-600" aria-label="选中" />
                 </div>
@@ -248,9 +292,10 @@ export default function ExhibitionPage() {
                 <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">{item.module}</span>
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">{item.chartType}</span>
                 <span className="rounded-full bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500">{item.file}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${(() => { const useReal = cardReal.has(item.id) ? cardReal.get(item.id)! : globalReal; return useReal ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'; })()}`}>{(() => { const useReal = cardReal.has(item.id) ? cardReal.get(item.id)! : globalReal; return useReal ? '🔗真实' : '🔮模拟'; })()}</span>
               </div>
               <div className="border-y border-slate-100 bg-slate-50/50 p-2">
-                <Comp />
+                {(() => { const dtId = parseInt(item.id.split('-')[0], 10); const useReal = cardReal.has(item.id) ? cardReal.get(item.id)! : globalReal; return <GalleryCardContent dtId={dtId} useReal={useReal} Comp={item.Component} />; })()}
               </div>
               <div className="flex items-center justify-between gap-2 px-3 py-2">
                 <div className="flex gap-1">

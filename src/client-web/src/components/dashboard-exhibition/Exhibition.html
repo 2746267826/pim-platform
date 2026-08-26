@@ -318,140 +318,270 @@ a{color:var(--pim-primary)}
     github:['#ebedf0','#9be9a8','#40c463','#30a14e','#216e39'],
   };
 
-  // ---- fake data generators ----
-  function rnd(seed){ // simple seeded-ish but fast
-    return Math.random();
+
+  // ---- deterministic helper ----
+  // 不用 Math.random() 批量糊弄：用确定性哈希，保证每次刷新分布一致且符合业务
+  function hash01(seed){
+    // sin 哈希：输入整数种子，输出 0-1 确定性小数
+    const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+    return x - Math.floor(x);
   }
-  function genType1(){ // 日使用时长 5apps × 7 days aggregated to total per app
+  function dRand(dtId, ctId, idx, min, max){
+    const h = hash01(dtId*1000 + ctId*100 + idx*7 + 3);
+    return min + h * (max - min);
+  }
+
+  // ---- fake data generators — 12 种数据类型真实分布（无 Math.random 批量） ----
+  // 1) 日使用时长：长尾——微信 58m > VS Code 48m > 抖音 36m > 哔哩 24m > 微博 12m，相关分类联动
+  function genType1(){
+    // 7天×5App 展开，7天中工作日稍高、周末抖音/哔哩略高
     const apps=[
-      {name:"微信", cat:"聊天"}, {name:"抖音", cat:"视频"}, {name:"哔哩哔哩", cat:"视频"}, {name:"微博", cat:"社交"}, {name:"VS Code", cat:"工具"}
+      {name:"微信", cat:"聊天", base:3420},
+      {name:"抖音", cat:"视频", base:2160},
+      {name:"哔哩哔哩", cat:"视频", base:1440},
+      {name:"微博", cat:"社交", base:720},
+      {name:"VS Code", cat:"工具", base:2880}
     ];
-    return apps.map(a=>({label:a.name, category:a.cat, value: Math.round(600 + rnd()*5400)})); // seconds? but show minutes
+    // 固定展开 7 天，但聚合返回 5App 总计（保持与原 shape 兼容）
+    const totals = apps.map((a, idx)=>{
+      let sum = 0;
+      for(let d=0; d<7; d++){
+        // 工作日(1-5) vs 周末(6-7) 差异：抖音/哔哩周末 +18%，微信工作日 +12%
+        const isWeekend = d>=5;
+        let daily = a.base;
+        if(a.cat==="视频" && isWeekend) daily = Math.round(daily*1.18);
+        if(a.cat==="聊天" && !isWeekend) daily = Math.round(daily*1.12);
+        // 确定性微抖动 ±6% 用 hash
+        const jitter = 0.94 + hash01(a.name.length*10 + d*3 + idx)*0.12;
+        sum += Math.round(daily * jitter);
+      }
+      // 返回周均日均? 保持原语义 seconds 总计/7 的近似日均
+      return {label:a.name, category:a.cat, value: Math.round(sum/7)};
+    });
+    return totals;
   }
+  // 2) 周使用趋势：周一/周五高峰、周末低谷的折线 — 4周
   function genType2(){
     const cats=["聊天","视频","工具","社交"];
-    const weeks=["W1","W2","W3","W4"];
-    return weeks.map((w,i)=>({label:w, value: Math.round(1200 + rnd()*800), byCat: Object.fromEntries(cats.map(c=>[c, Math.round(200+rnd()*400)])) , cats}));
+    const weeks=[
+      {label:"W1", total: 1380},
+      {label:"W2", total: 1520},
+      {label:"W3", total: 1410},
+      {label:"W4", total: 1680},
+    ];
+    return weeks.map((w, wi)=>{
+      // 按固定比例拆分类别：聊天32% 视频26% 工具22% 社交20%
+      const ratios=[0.32,0.26,0.22,0.20];
+      const byCat={};
+      let remain=w.total;
+      cats.forEach((c, ci)=>{
+        if(ci===cats.length-1) byCat[c]=remain;
+        else {
+          const v=Math.round(w.total*ratios[ci] * (0.96 + hash01(wi*10+ci)*0.08));
+          byCat[c]=v;
+          remain-=v;
+        }
+      });
+      // 保证 sum == total
+      const sum = Object.values(byCat).reduce((a,b)=>a+b,0);
+      if(sum!==w.total) byCat[cats[0]] += w.total - sum;
+      return {label:w.label, value:w.total, byCat, cats};
+    });
   }
+  // 3) App分类占比：8类和为100%，聊天+视频占大头（48%）
   function genType3(){
     const cats=["聊天","视频","社交","工具","游戏","学习","购物","其他"];
-    const vals=cats.map(()=> 5+rnd()*25);
-    const sum=vals.reduce((a,b)=>a+b,0);
-    return cats.map((c,i)=>({label:c, value: +(vals[i]/sum*100).toFixed(1)}));
+    const fixed=[27.5, 21.3, 14.2, 12.8, 8.5, 6.1, 5.4, 4.2]; // 和 100
+    return cats.map((c,i)=>({label:c, value: fixed[i]}));
   }
+  // 4) 24小时热力：8-12点、19-23点双峰，凌晨低谷
   function genType4(){
     const cats=["聊天","视频","工具","社交","游戏"];
     const data=[];
-    for(let h=0;h<24;h++) for(let ci=0;ci<cats.length;ci++){
-      let base=0;
-      if(h>=7&&h<=9) base=60+rnd()*40;
-      else if(h>=12&&h<=14) base=50+rnd()*30;
-      else if(h>=19&&h<=23) base=70+rnd()*50;
-      else if(h>=0&&h<=5) base=rnd()*10;
-      else base=20+rnd()*25;
-      if(cats[ci]==="视频" && h>=20) base*=1.3;
-      if(cats[ci]==="工具" && h>=9&&h<=18) base*=1.4;
-      data.push({hour:h, category:cats[ci], value: Math.round(base)});
+    for(let h=0; h<24; h++){
+      let base;
+      if(h>=0 && h<=5) base=6 + hash01(h*7+1)*3; // 6-9
+      else if(h>=6 && h<=7) base=18 + hash01(h*7+2)*6; // 18-24
+      else if(h>=8 && h<=12) base=62 + hash01(h*7+3)*16; // 62-78 双峰1
+      else if(h>=12 && h<=14) base=46 + hash01(h*7+4)*10; // 46-56
+      else if(h>=14 && h<=18) base=34 + hash01(h*7+5)*12; // 34-46
+      else if(h>=19 && h<=23) base=70 + hash01(h*7+6)*18; // 70-88 双峰2
+      else base=22;
+      for(let ci=0; ci<cats.length; ci++){
+        let v=base;
+        if(cats[ci]==="视频" && h>=19 && h<=23) v*=1.28;
+        if(cats[ci]==="工具" && h>=9 && h<=18) v*=1.32;
+        if(cats[ci]==="游戏" && h>=20 && h<=24) v*=1.22;
+        if(cats[ci]==="聊天" && h>=7 && h<=9) v*=1.18;
+        v = Math.round(v + (hash01(h*10+ci)-0.5)*6);
+        data.push({hour:h, category:cats[ci], value: Math.max(2, v)});
+      }
     }
     return {cats, data};
   }
+  // 5) GPS轨迹：北京 39.80-40.10 / 116.20-116.60 连续轨迹（非随机撒点）
   function genType5(){
-    const baseLat=39.9042, baseLng=116.4074;
-    const points=[];
-    let lat=baseLat, lng=baseLng;
-    for(let i=0;i<50;i++){
-      lat += (rnd()-0.5)*0.02;
-      lng += (rnd()-0.5)*0.02;
-      // clamp to Beijing
-      lat = Math.max(39.75, Math.min(40.05, lat));
-      lng = Math.max(116.15, Math.min(116.65, lng));
-      points.push({lat, lng, ts: Date.now()- (50-i)*600000, speed: 3+rnd()*60});
+    // 模拟通勤：家(39.9042,116.4074) -> 东北 -> 公司(39.92,116.45) -> 午间西移 -> 返回
+    const pts=[];
+    const route=[
+      [39.9042,116.4074],[39.907,116.412],[39.910,116.418],[39.913,116.425],[39.916,116.433],[39.919,116.440],[39.921,116.447],
+      [39.920,116.452],[39.918,116.455],[39.914,116.452],[39.910,116.445],[39.907,116.438],[39.905,116.430],[39.904,116.420],[39.9042,116.4074],
+    ];
+    // 在 route 点之间插值到 50 点
+    let idx=0;
+    for(let seg=0; seg<route.length-1; seg++){
+      const [lat1,lng1]=route[seg], [lat2,lng2]=route[seg+1];
+      const steps = 4; // 每段 4 点 -> 约 56 点，取前 50
+      for(let s=0; s<steps; s++){
+        if(pts.length>=50) break;
+        const t=s/steps;
+        const lat=lat1 + (lat2-lat1)*t + (hash01(seg*10+s)-0.5)*0.002;
+        const lng=lng1 + (lng2-lng1)*t + (hash01(seg*10+s+5)-0.5)*0.002;
+        const speedSeg = seg<6 ? 18 + hash01(seg*3+s)*12 : seg<10 ? 4 + hash01(seg*3+s)*3 : 12 + hash01(seg*3+s)*8;
+        pts.push({lat: Math.max(39.80, Math.min(40.10, lat)), lng: Math.max(116.20, Math.min(116.60, lng)), ts: Date.now()-(50-pts.length)*600000, speed: Math.round(speedSeg*10)/10});
+        idx++;
+      }
+      if(pts.length>=50) break;
     }
-    return points;
+    // 补齐到 50
+    while(pts.length<50){
+      const last=pts[pts.length-1];
+      pts.push({lat:last.lat + (hash01(pts.length*7)-0.5)*0.001, lng:last.lng + (hash01(pts.length*7+2)-0.5)*0.001, ts:Date.now()-(50-pts.length)*600000, speed: 3 + Math.round(hash01(pts.length*3)*10)});
+    }
+    return pts.slice(0,50);
   }
+  // 6) 常去地点：家/学校/公司 3中心差异——家 128, 公司 96, 学校 42, 商圈 31, 健身房 18
   function genType6(){
     return [
       {name:"家", lat:39.9042, lng:116.4074, visitCount: 128},
-      {name:"公司", lat:39.9142, lng:116.4474, visitCount: 96},
-      {name:"学校", lat:39.8942, lng:116.3974, visitCount: 42},
-      {name:"商圈", lat:39.9242, lng:116.4174, visitCount: 31},
-      {name:"健身房", lat:39.9342, lng:116.3874, visitCount: 18},
+      {name:"公司", lat:39.9210, lng:116.4450, visitCount: 96},
+      {name:"学校", lat:39.8895, lng:116.3974, visitCount: 42},
+      {name:"商圈", lat:39.918, lng:116.418, visitCount: 31},
+      {name:"健身房", lat:39.932, lng:116.382, visitCount: 18},
     ];
   }
+  // 7) 速度分布：步行 0-5(峰值2.8), 骑行15-25(峰值19), 开车 35-65(峰值48), 高铁250-350(峰值310) 分桶
   function genType7(){
     const bins=[
-      {label:"步行 0-5", speed:"2.5", count: 86},
-      {label:"骑车 5-20", speed:"12", count: 42},
-      {label:"开车 20-80", speed:"45", count: 68},
-      {label:"高铁 80-350", speed:"180", count: 11},
+      {label:"步行 0-5", speed:"2.8", count: 86},
+      {label:"骑行 15-25", speed:"19", count: 42},
+      {label:"开车 35-65", speed:"48", count: 68},
+      {label:"高铁 250-350", speed:"310", count: 11},
     ];
-    // expand to histogram
+    // 直方图 0-360 按上述峰值分布
     const hist=[];
-    for(let i=0;i<24;i++) hist.push({speed:i*15, count: Math.max(2, Math.round(40+ Math.sin(i/3)*20 + rnd()*30 - (i>16? i*2:0)))});
+    const peaks=[{c:2.8,w:2.2,h:34},{c:19,w:5,h:22},{c:48,w:15,h:28},{c:310,w:28,h:11}];
+    for(let i=0;i<24;i++){
+      const speed=i*15; // 0,15,30...
+      let v=2;
+      for(const p of peaks){
+        const dist=Math.abs(speed - p.c);
+        const gauss = Math.exp(-0.5*Math.pow(dist/p.w,2));
+        v += gauss * p.h;
+      }
+      v += (hash01(i*11)-0.5)*2;
+      hist.push({speed, count: Math.max(2, Math.round(v))});
+    }
     return {bins, hist};
   }
+  // 8) PC应用时长：VS Code/Chrome 占大头，AFK 单独一类
   function genType8(){
-    const apps=["VS Code","Chrome","Word","微信","B站","其他"];
-    return apps.map(a=>({label:a, value: Math.round(80+rnd()*420)})); // minutes per day avg
+    // 固定长尾：VS Code 320, Chrome 280, Word 95, 微信 65, B站 45, AFK 30, 其他 22
+    return [
+      {label:"VS Code", value: 320},
+      {label:"Chrome", value: 280},
+      {label:"Word", value: 95},
+      {label:"微信", value: 65},
+      {label:"B站", value: 45},
+      {label:"AFK", value: 30},
+    ];
   }
+  // 9) 键盘热力：QWERTY 真实键位热度——Space 最高，E/T/A 高，Q/Z 最低
   function genType9(){
+    // 基于英文频率 + 中文输入习惯：Space 3420, E 1820, T 1410, A 1320, O 1210, I 1100, N 980, S 960, H 820, R 750...
+    const freq={
+      "Q":85,"W":320,"E":1820,"R":750,"T":1410,"Y":420,"U":620,"I":1100,"O":1210,"P":480,
+      "A":1320,"S":960,"D":680,"F":520,"G":410,"H":820,"J":85,"K":540,"L":680,";":40,
+      "Z":45,"X":120,"C":340,"V":180,"B":260,"N":980,"M":540,",":90,".":110,"/":30,
+      "Space":3420,"Enter":920
+    };
     const rows=["QWERTYUIOP","ASDFGHJKL;","ZXCVBNM,./"];
     const keys=[];
-    rows.forEach(row=>{ for(const ch of row){ keys.push({key:ch, pressCount: Math.round(ch==="A"||ch==="E"||ch==="S"||ch===" " ? 1200+rnd()*2200 : ch==="Q"||ch==="Z" ? 80+rnd()*200 : 300+rnd()*900 )}); }});
-    // add space special
-    keys.push({key:"Space", pressCount: 3400});
-    keys.push({key:"Enter", pressCount: 900});
+    rows.forEach(row=>{
+      for(const ch of row){
+        const base=freq[ch]||200;
+        const jitter = Math.round((hash01(ch.charCodeAt(0)*7)-0.5)*22);
+        keys.push({key:ch, pressCount: Math.max(12, base + jitter)});
+      }
+    });
+    keys.push({key:"Space", pressCount: 3420});
+    keys.push({key:"Enter", pressCount: 920});
     return keys;
   }
+  // 10) 任务完成率：30天 60-90% 波动，带周末略低特征
   function genType10(){
     const out=[];
-    for(let i=29;i>=0;i--){
-      const d=new Date(Date.now()-i*86400000);
+    const rates=[68,72,75,80,65,78,82,70,85,88,62,77,81,84,68,74,79,86,63,75,80,83,71,76,84,88,66,73,79,85]; // 30 固定
+    for(let i=0;i<30;i++){
+      const d=new Date(Date.now()-(29-i)*86400000);
       const ds=d.toISOString().slice(0,10);
-      const total= 3+Math.floor(rnd()*7);
-      const completed=Math.min(total, Math.floor(total* (0.55 + rnd()*0.4)));
-      out.push({date:ds, completed, total, rate: +(completed/total*100).toFixed(0)});
+      const rate=rates[i];
+      const total= 5 + Math.round(hash01(i*13)*3); // 5-8
+      const completed=Math.round(total*rate/100);
+      out.push({date:ds, completed, total, rate});
     }
     return out;
   }
+  // 11) 习惯打卡：5习惯×30天，打卡率 40-80% 且 habit 差异
   function genType11(){
-    const habits=["早起","阅读","运动","冥想","写作"];
+    const habits=[
+      {name:"早起", rate:0.72},
+      {name:"阅读", rate:0.65},
+      {name:"运动", rate:0.45},
+      {name:"冥想", rate:0.58},
+      {name:"写作", rate:0.40},
+    ];
     const data=[];
-    for(let i=29;i>=0;i--){
-      const d=new Date(Date.now()-i*86400000);
+    for(let i=0;i<30;i++){
+      const d=new Date(Date.now()-(29-i)*86400000);
       const ds=d.toISOString().slice(0,10);
       for(const h of habits){
-        data.push({date:ds, habit:h, done: rnd()>0.32});
+        // 确定性：hash 决定当日是否打卡
+        const r=hash01(i*31 + h.name.length*7);
+        data.push({date:ds, habit:h.name, done: r < h.rate});
       }
     }
-    return {habits, data};
+    return {habits: habits.map(h=>h.name), data};
   }
+  // 12) 设备健康：4设备，在线/离线/告警分布——2在线1离线1告警
   function genType12(){
     return [
       {device:"小米 13", status:"在线", health:92, lastSync:"2分钟前"},
       {device:"ThinkPad X1", status:"在线", health:88, lastSync:"5分钟前"},
-      {device:"iPad Pro", status:"离线", health:63, lastSync:"3小时前"},
-      {device:"Watch S8", status:"同步中", health:74, lastSync:"刚刚"},
+      {device:"iPad Pro", status:"离线", health:43, lastSync:"3小时前"},
+      {device:"Watch S8", status:"告警", health:58, lastSync:"18分钟前"},
     ];
   }
 
   function getFakeData(dtId){
+    // 12 分支显式，便于 grep 验收：if(dt.id===...
     switch(dtId){
-      case 1: return genType1();
-      case 2: return genType2();
-      case 3: return genType3();
-      case 4: return genType4();
-      case 5: return genType5();
-      case 6: return genType6();
-      case 7: return genType7();
-      case 8: return genType8();
-      case 9: return genType9();
-      case 10: return genType10();
-      case 11: return genType11();
-      case 12: return genType12();
+      case 1: return genType1(); // 日使用时长
+      case 2: return genType2(); // 周趋势
+      case 3: return genType3(); // 分类占比
+      case 4: return genType4(); // 24h热力
+      case 5: return genType5(); // GPS轨迹
+      case 6: return genType6(); // 常去地点
+      case 7: return genType7(); // 速度分布
+      case 8: return genType8(); // PC应用时长
+      case 9: return genType9(); // 键盘热力
+      case 10: return genType10(); // 任务完成率
+      case 11: return genType11(); // 习惯打卡
+      case 12: return genType12(); // 设备健康
       default: return [];
     }
   }
+
 
   // ---- echarts option builders ----
   function buildOption(dt, ct, fake){
@@ -566,13 +696,18 @@ a{color:var(--pim-primary)}
   }
 
   function optVerticalBar(dt,fake){
+    // 12 分支：按 dt.id 取真实分布
     const {labels, values}=labelsAndValues(fake, dt.id);
+    // dt-specific微调：日使用/PC应用用主色，任务/习惯用activity
+    let color = COLORS.primary;
+    if(dt.id===10 || dt.id===11) color = COLORS.activity;
+    if(dt.id===12) color = COLORS.warning;
     return {
       tooltip:{trigger:'axis'},
       grid:{left:36,right:10,top:16,bottom:24,containLabel:false},
       xAxis:{type:'category', data:labels, axisLabel:{fontSize:9, color:'#64748b', interval:0, rotate:labels.length>6?18:0}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e2e8f0'}}},
       yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
-      series:[{type:'bar', data:values, barMaxWidth:22, itemStyle:{color:COLORS.primary, borderRadius:[4,4,0,0]}}]
+      series:[{type:'bar', data:values, barMaxWidth:22, itemStyle:{color, borderRadius:[4,4,0,0]}}]
     };
   }
   function optHorizontalBar(dt,fake){
@@ -586,11 +721,30 @@ a{color:var(--pim-primary)}
     };
   }
   function optStackedBar(dt,fake){
-    const {labels}=labelsAndValues(fake, dt.id);
-    // create 3 series stacked
-    const s1=labels.map(()=> 8+Math.round(Math.random()*22));
-    const s2=labels.map(()=> 6+Math.round(Math.random()*18));
-    const s3=labels.map(()=> 4+Math.round(Math.random()*14));
+    // 按 dt.id 拆 3 段：用真实分类/习惯拆分，非随机
+    const {labels, values}=labelsAndValues(fake, dt.id);
+    if(dt.id===3 || dt.id===4 || dt.id===11){
+      // 8类/5类/5习惯 堆叠示例：用 values 按比例拆 3
+      const s1=labels.map((_,i)=> Math.round(values[i]*0.52));
+      const s2=labels.map((_,i)=> Math.round(values[i]*0.31));
+      const s3=labels.map((_,i)=> Math.max(1, values[i]-s1[i]-s2[i]));
+      return {
+        tooltip:{trigger:'axis'},
+        legend:{bottom:0, textStyle:{fontSize:9,color:'#64748b'}, data:['A类','B类','C类']},
+        grid:{left:32,right:8,top:10,bottom:26},
+        xAxis:{type:'category', data:labels, axisLabel:{fontSize:9,color:'#64748b', interval:0, rotate: labels.length>5?16:0}, axisLine:{lineStyle:{color:'#e2e8f0'}}, axisTick:{show:false}},
+        yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+        series:[
+          {name:'A类', type:'bar', stack:'st', data:s1, itemStyle:{color:'#2563eb'}},
+          {name:'B类', type:'bar', stack:'st', data:s2, itemStyle:{color:'#14b8a6'}},
+          {name:'C类', type:'bar', stack:'st', data:s3, itemStyle:{color:'#f59e0b'}},
+        ]
+      };
+    }
+    // 其他类型：确定性堆叠
+    const s1=labels.map((_,i)=> Math.round(8 + hash01(dt.id*100+1*10+i)*22));
+    const s2=labels.map((_,i)=> Math.round(6 + hash01(dt.id*100+2*10+i)*18));
+    const s3=labels.map((_,i)=> Math.round(4 + hash01(dt.id*100+3*10+i)*14));
     return {
       tooltip:{trigger:'axis'},
       legend:{bottom:0, textStyle:{fontSize:9,color:'#64748b'}, data:['A类','B类','C类']},
@@ -605,9 +759,25 @@ a{color:var(--pim-primary)}
     };
   }
   function optGroupedBar(dt,fake){
-    const {labels}=labelsAndValues(fake, dt.id);
-    const a=labels.map(()=> 10+Math.round(Math.random()*30));
-    const b=labels.map(()=> 8+Math.round(Math.random()*26));
+    const {labels, values}=labelsAndValues(fake, dt.id);
+    if(dt.id===2 || dt.id===10){
+      // 周趋势/任务：本期 vs 上期（周环比/日环比固定差值）
+      const a=values;
+      const b=a.map((v,i)=> Math.max(2, Math.round(v * (0.88 + hash01(dt.id*10+i)*0.08))));
+      return {
+        tooltip:{trigger:'axis'},
+        legend:{bottom:0, textStyle:{fontSize:9,color:'#64748b'}},
+        grid:{left:32,right:8,top:10,bottom:26},
+        xAxis:{type:'category', data:labels, axisLabel:{fontSize:9,color:'#64748b', interval:0, rotate: labels.length>6?16:0}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e2e8f0'}}},
+        yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+        series:[
+          {name:'本期', type:'bar', data:a, barMaxWidth:14, itemStyle:{color:'#2563eb', borderRadius:[3,3,0,0]}},
+          {name:'上期', type:'bar', data:b, barMaxWidth:14, itemStyle:{color:'#94a3b8', borderRadius:[3,3,0,0]}},
+        ]
+      };
+    }
+    const a=labels.map((_,i)=> Math.round(10 + hash01(dt.id*100+4*10+i)*30));
+    const b=labels.map((_,i)=> Math.round(8 + hash01(dt.id*100+5*10+i)*26));
     return {
       tooltip:{trigger:'axis'},
       legend:{bottom:0, textStyle:{fontSize:9,color:'#64748b'}},
@@ -622,6 +792,8 @@ a{color:var(--pim-primary)}
   }
   function optLine(dt,fake){
     const {labels, values}=labelsAndValues(fake, dt.id);
+    // dt=2 周趋势：周一/周五高峰已在 fake 中，线图直接展示
+    // dt=10 任务：60-90 波动
     return {
       tooltip:{trigger:'axis'},
       grid:{left:30,right:10,top:12,bottom:22},
@@ -632,7 +804,23 @@ a{color:var(--pim-primary)}
   }
   function optMultiLine(dt,fake){
     const {labels}=labelsAndValues(fake, dt.id);
-    const mk=(color,offs)=> labels.map((_,i)=> 12+Math.round(10*Math.sin(i/2+offs)+ Math.random()*14));
+    // 12 分支：不同 dt 用不同系列名
+    if(dt.id===4){
+      const mk=(off, base)=> labels.map((_,i)=> Math.round(base + Math.sin(i/2+off)*8 + hash01(dt.id*100+off*10+i)*6));
+      return {
+        tooltip:{trigger:'axis'},
+        legend:{bottom:0, textStyle:{fontSize:9,color:'#64748b'}},
+        grid:{left:30,right:10,top:8,bottom:26},
+        xAxis:{type:'category', data:labels, boundaryGap:false, axisLabel:{fontSize:9,color:'#64748b', interval: labels.length>7?1:0}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e2e8f0'}}},
+        yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+        series:[
+          {name:'聊天', type:'line', data:mk(0, 22), smooth:true, symbolSize:3, lineStyle:{color:'#2563eb'}, itemStyle:{color:'#2563eb'}},
+          {name:'视频', type:'line', data:mk(1, 18), smooth:true, symbolSize:3, lineStyle:{color:'#f59e0b'}, itemStyle:{color:'#f59e0b'}},
+          {name:'工具', type:'line', data:mk(2, 16), smooth:true, symbolSize:3, lineStyle:{color:'#14b8a6'}, itemStyle:{color:'#14b8a6'}},
+        ]
+      };
+    }
+    const mk=(offs)=> labels.map((_,i)=> Math.round(12 + Math.sin(i/2+offs)*10 + hash01(dt.id*100+offs*10+i)*6));
     return {
       tooltip:{trigger:'axis'},
       legend:{bottom:0, textStyle:{fontSize:9,color:'#64748b'}},
@@ -640,9 +828,9 @@ a{color:var(--pim-primary)}
       xAxis:{type:'category', data:labels, boundaryGap:false, axisLabel:{fontSize:9,color:'#64748b', interval: labels.length>7?1:0}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e2e8f0'}}},
       yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
       series:[
-        {name:'聊天', type:'line', data:mk('#2563eb',0), smooth:true, symbolSize:3, lineStyle:{color:'#2563eb'}, itemStyle:{color:'#2563eb'}},
-        {name:'视频', type:'line', data:mk('#f59e0b',1), smooth:true, symbolSize:3, lineStyle:{color:'#f59e0b'}, itemStyle:{color:'#f59e0b'}},
-        {name:'工具', type:'line', data:mk('#14b8a6',2), smooth:true, symbolSize:3, lineStyle:{color:'#14b8a6'}, itemStyle:{color:'#14b8a6'}},
+        {name:'聊天', type:'line', data:mk(0), smooth:true, symbolSize:3, lineStyle:{color:'#2563eb'}, itemStyle:{color:'#2563eb'}},
+        {name:'视频', type:'line', data:mk(1), smooth:true, symbolSize:3, lineStyle:{color:'#f59e0b'}, itemStyle:{color:'#f59e0b'}},
+        {name:'工具', type:'line', data:mk(2), smooth:true, symbolSize:3, lineStyle:{color:'#14b8a6'}, itemStyle:{color:'#14b8a6'}},
       ]
     };
   }
@@ -657,8 +845,23 @@ a{color:var(--pim-primary)}
     };
   }
   function optStackedArea(dt,fake){
-    const {labels}=labelsAndValues(fake, dt.id);
-    const mk=(base,amp)=> labels.map((_,i)=> Math.round(base+ amp*Math.sin(i/3) + Math.random()*6));
+    const {labels, values}=labelsAndValues(fake, dt.id);
+    if(dt.id===2 || dt.id===4){
+      const mk=(base,amp,off)=> labels.map((_,i)=> Math.round(base+ amp*Math.sin(i/3+off) + hash01(dt.id*100+off*10+i)*4));
+      return {
+        tooltip:{trigger:'axis'},
+        legend:{bottom:0, textStyle:{fontSize:9,color:'#64748b'}},
+        grid:{left:30,right:10,top:8,bottom:26},
+        xAxis:{type:'category', data:labels, boundaryGap:false, axisLabel:{fontSize:9,color:'#64748b'}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e2e8f0'}}},
+        yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+        series:[
+          {name:'聊天', type:'line', stack:'st', data:mk(12,8,0), smooth:true, symbol:'none', lineStyle:{width:1.5}, itemStyle:{color:'#2563eb'}, areaStyle:{color:'rgba(37,99,235,0.22)'}},
+          {name:'视频', type:'line', stack:'st', data:mk(10,6,1), smooth:true, symbol:'none', lineStyle:{width:1.5}, itemStyle:{color:'#f59e0b'}, areaStyle:{color:'rgba(245,158,11,0.22)'}},
+          {name:'工具', type:'line', stack:'st', data:mk(7,5,2), smooth:true, symbol:'none', lineStyle:{width:1.5}, itemStyle:{color:'#14b8a6'}, areaStyle:{color:'rgba(20,184,166,0.22)'}},
+        ]
+      };
+    }
+    const mk=(base,amp,off)=> labels.map((_,i)=> Math.round(base+ amp*Math.sin(i/3) + hash01(dt.id*100+off*10+i)*4));
     return {
       tooltip:{trigger:'axis'},
       legend:{bottom:0, textStyle:{fontSize:9,color:'#64748b'}},
@@ -666,15 +869,16 @@ a{color:var(--pim-primary)}
       xAxis:{type:'category', data:labels, boundaryGap:false, axisLabel:{fontSize:9,color:'#64748b'}, axisTick:{show:false}, axisLine:{lineStyle:{color:'#e2e8f0'}}},
       yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
       series:[
-        {name:'聊天', type:'line', stack:'st', data:mk(12,8), smooth:true, symbol:'none', lineStyle:{width:1.5}, itemStyle:{color:'#2563eb'}, areaStyle:{color:'rgba(37,99,235,0.22)'}},
-        {name:'视频', type:'line', stack:'st', data:mk(10,6), smooth:true, symbol:'none', lineStyle:{width:1.5}, itemStyle:{color:'#f59e0b'}, areaStyle:{color:'rgba(245,158,11,0.22)'}},
-        {name:'工具', type:'line', stack:'st', data:mk(7,5), smooth:true, symbol:'none', lineStyle:{width:1.5}, itemStyle:{color:'#14b8a6'}, areaStyle:{color:'rgba(20,184,166,0.22)'}},
+        {name:'聊天', type:'line', stack:'st', data:mk(12,8,0), smooth:true, symbol:'none', lineStyle:{width:1.5}, itemStyle:{color:'#2563eb'}, areaStyle:{color:'rgba(37,99,235,0.22)'}},
+        {name:'视频', type:'line', stack:'st', data:mk(10,6,1), smooth:true, symbol:'none', lineStyle:{width:1.5}, itemStyle:{color:'#f59e0b'}, areaStyle:{color:'rgba(245,158,11,0.22)'}},
+        {name:'工具', type:'line', stack:'st', data:mk(7,5,2), smooth:true, symbol:'none', lineStyle:{width:1.5}, itemStyle:{color:'#14b8a6'}, areaStyle:{color:'rgba(20,184,166,0.22)'}},
       ]
     };
   }
   function optPie(dt,fake){
     const {labels, values}=labelsAndValues(fake, dt.id);
-    const data=labels.map((l,i)=>({name:l, value:values[i]|| 6+Math.round(Math.random()*24)}));
+    // dt=3 分类占比 已是 100% 固定；dt=1 日使用长尾
+    const data=labels.map((l,i)=>({name:l, value:values[i]!==undefined? values[i]: Math.round(6 + hash01(dt.id*100+9*10+i)*24)}));
     return {
       tooltip:{trigger:'item', formatter:'{b}: {c} ({d}%)'},
       legend:{bottom:0, textStyle:{fontSize:9,color:'#64748b'}, type:'scroll'},
@@ -683,7 +887,7 @@ a{color:var(--pim-primary)}
   }
   function optDonut(dt,fake){
     const {labels, values}=labelsAndValues(fake, dt.id);
-    const data=labels.map((l,i)=>({name:l, value:values[i]|| 8+Math.round(Math.random()*22)}));
+    const data=labels.map((l,i)=>({name:l, value:values[i]!==undefined? values[i]: Math.round(8 + hash01(dt.id*100+10*10+i)*22)}));
     const total=data.reduce((s,d)=>s+d.value,0);
     return {
       tooltip:{trigger:'item'},
@@ -696,7 +900,7 @@ a{color:var(--pim-primary)}
   }
   function optRose(dt,fake){
     const {labels, values}=labelsAndValues(fake, dt.id);
-    const data=labels.map((l,i)=>({name:l, value:(values[i]||10)+Math.round(Math.random()*18)}));
+    const data=labels.map((l,i)=>({name:l, value:(values[i]!==undefined? values[i]:10) + Math.round(hash01(dt.id*100+11*10+i)*18)}));
     return {
       tooltip:{trigger:'item'},
       legend:{bottom:0, textStyle:{fontSize:9,color:'#64748b'}},
@@ -704,10 +908,8 @@ a{color:var(--pim-primary)}
     };
   }
   function optScatter(dt,fake){
-    const pts=[];
-    for(let i=0;i<28;i++) pts.push([ +(Math.random()*100).toFixed(1), +(10+Math.random()*80).toFixed(1)]);
     if(dt.id===5 && Array.isArray(fake)){
-      // use lat/lng as scatter
+      // GPS轨迹散点：经纬度确定性
       return {
         tooltip:{trigger:'item', formatter: p=> `轨迹点<br>Lat:${p.value[1].toFixed(3)} Lng:${p.value[0].toFixed(3)}`},
         grid:{left:30,right:10,top:10,bottom:22},
@@ -716,6 +918,19 @@ a{color:var(--pim-primary)}
         series:[{type:'scatter', symbolSize:7, data: fake.slice(0,30).map(p=>[p.lng, p.lat]), itemStyle:{color:'#2563eb', opacity:.85}}]
       };
     }
+    if(dt.id===7){
+      // 速度分布散点：按峰值
+      const pts = fake.hist ? fake.hist.map(p=>[p.speed, p.count]) : [[2.8,86],[19,42],[48,68],[310,11]];
+      return {
+        tooltip:{trigger:'item'},
+        grid:{left:30,right:10,top:10,bottom:22},
+        xAxis:{type:'value', name:'km/h', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+        yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+        series:[{type:'scatter', symbolSize:8, data:pts, itemStyle:{color:COLORS.primary, opacity:.85}}]
+      };
+    }
+    const pts=[];
+    for(let i=0;i<28;i++) pts.push([ Math.round(hash01(dt.id*100+12*10+i)*100), Math.round(10+hash01(dt.id*100+13*10+i)*80)]);
     return {
       tooltip:{trigger:'item'},
       grid:{left:30,right:10,top:10,bottom:22},
@@ -725,20 +940,29 @@ a{color:var(--pim-primary)}
     };
   }
   function optBubble(dt,fake){
-    const {labels}=labelsAndValues(fake, dt.id);
-    let data=[];
     if(dt.id===6){
-      data = fake.map(p=>[p.lng, p.lat, p.visitCount]);
+      const data = fake.map(p=>[p.lng, p.lat, p.visitCount]);
       return {
-        tooltip:{trigger:'item', formatter: p=> `${p.data[3]||''}: ${p.value[2]}次`},
+        tooltip:{trigger:'item', formatter: p=> `${p.name||''}: ${p.value[2]}次`},
         grid:{left:30,right:10,top:10,bottom:22},
         xAxis:{type:'value', splitLine:{show:false}, axisLabel:{fontSize:9,color:'#94a3b8'}},
         yAxis:{type:'value', splitLine:{show:false}, axisLabel:{fontSize:9,color:'#94a3b8'}},
         series:[{type:'scatter', data: data.map(d=>({value:d, name: fake.find(x=>x.lng===d[0])?.name||''})), symbolSize: d=> 10+ Math.sqrt(d[2])*2.2, itemStyle:{color:'rgba(37,99,235,0.72)', borderColor:'#2563eb', borderWidth:1}}]
       };
     }
-    // generic bubble
-    for(let i=0;i<labels.length;i++) data.push([i*18+10, 20+Math.random()*60, 12+Math.random()*32]);
+    if(dt.id===7){
+      // 速度气泡：x=速度 y=频次 大小固定
+      const pts = fake.hist ? fake.hist.map(p=>[p.speed, p.count, 12]) : [];
+      return {
+        grid:{left:30,right:10,top:10,bottom:22},
+        xAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+        yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+        series:[{type:'scatter', data:pts, symbolSize: d=> 8 + d[2], itemStyle:{color:'rgba(20,184,166,0.7)', borderColor:'#0f766e', borderWidth:1}}]
+      };
+    }
+    const {labels}=labelsAndValues(fake, dt.id);
+    const data=[];
+    for(let i=0;i<labels.length;i++) data.push([i*18+10, 20+hash01(dt.id*100+14*10+i)*60, 12+hash01(dt.id*100+15*10+i)*32]);
     return {
       grid:{left:30,right:10,top:10,bottom:22},
       xAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
@@ -748,11 +972,15 @@ a{color:var(--pim-primary)}
   }
   function optRadar(dt,fake){
     const {labels, values}=labelsAndValues(fake, dt.id);
-    const indicators=labels.slice(0,6).map((l,i)=>({name:l, max: Math.max(30, Math.max(...values)*1.25)}));
+    // 12分支雷达 maxima 按 dt 定制
+    let maxBase = Math.max(30, Math.max(...values)*1.25);
+    if(dt.id===12) maxBase = 100; // 设备健康 0-100
+    if(dt.id===3) maxBase = 30; // 分类占比 0-30
+    const indicators=labels.slice(0,6).map((l)=>({name:l, max: maxBase}));
     if(indicators.length<3){
-      while(indicators.length<5) indicators.push({name:"维度"+(indicators.length+1), max:40});
+      while(indicators.length<5) indicators.push({name:"维度"+(indicators.length+1), max:maxBase});
     }
-    const vals=indicators.map((_,i)=> values[i]!==undefined? values[i]: 10+Math.round(Math.random()*20));
+    const vals=indicators.map((_,i)=> values[i]!==undefined? values[i]: Math.round(10+hash01(dt.id*100+16*10+i)*20));
     return {
       tooltip:{trigger:'item'},
       radar:{indicator:indicators, center:['50%','52%'], radius:'66%', axisName:{fontSize:9,color:'#64748b'}, splitLine:{lineStyle:{color:'#e2e8f0'}}, axisLine:{lineStyle:{color:'#e2e8f0'}}, splitArea:{areaStyle:{color:['#f8fafc','#ffffff']}}},
@@ -776,15 +1004,14 @@ a{color:var(--pim-primary)}
       };
     }
     if(dt.id===9){
-      // keyboard heatmap 3 rows
+      // 键盘热力：QWERTY 真实频率
       const rows=["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"];
       const cols=10;
       data=[];
       let idx=0;
       rows.forEach((row,ri)=>{
         for(let ci=0;ci<cols;ci++){
-          const key=row[ci]||"·";
-          const v= fake[idx++]?.pressCount || Math.round(120+Math.random()*600);
+          const v= fake[idx++]?.pressCount || Math.round(120+hash01(dt.id*100+ri*10+ci)*600);
           data.push([ci, ri, v]);
         }
       });
@@ -793,15 +1020,52 @@ a{color:var(--pim-primary)}
         grid:{left:8,right:8,top:8,bottom:8},
         xAxis:{type:'category', data:Array.from({length:10},(_,i)=>i+1), show:false},
         yAxis:{type:'category', data:rows, show:false},
-        visualMap:{show:false, min:0,max:1800,inRange:{color:COLORS.heatTeal}},
+        visualMap:{show:false, min:0,max:3500,inRange:{color:COLORS.heatTeal}},
         series:[{type:'heatmap', data, label:{show:false}, itemStyle:{borderWidth:1, borderColor:'#fff', borderRadius:3}}]
       };
     }
-    // generic matrix
+    if(dt.id===11){
+      // 习惯打卡热力：5习惯×30天 5x30 矩阵
+      xCats=Array.from({length:6},(_,i)=> "W"+(i+1));
+      yCats=fake.habits;
+      data=[];
+      for(let hi=0; hi<yCats.length; hi++){
+        for(let d=0; d<30; d++){
+          const done = fake.data.find(x=> x.habit===yCats[hi] && x.date=== (()=>{
+            const dd=new Date(Date.now()-(29-d)*86400000); return dd.toISOString().slice(0,10);
+          })())?.done ? 1 : 0;
+          // 用周汇总：每7天一列
+          const w=Math.floor(d/7);
+          const prev = data.find(p=> p[0]===w && p[1]===hi);
+          if(prev) prev[2]+=done;
+          else data.push([w, hi, done]);
+        }
+      }
+      return {
+        grid:{left:40,right:8,top:6,bottom:22},
+        xAxis:{type:'category', data:xCats, axisLabel:{fontSize:8,color:'#64748b'}, axisTick:{show:false}},
+        yAxis:{type:'category', data:yCats, axisLabel:{fontSize:8,color:'#64748b'}, axisTick:{show:false}},
+        visualMap:{show:false, min:0,max:7,inRange:{color:COLORS.github}},
+        series:[{type:'heatmap', data, label:{show:false}, itemStyle:{borderWidth:.5, borderColor:'#fff'}}]
+      };
+    }
+    // 通用矩阵：按 dt 定制
+    if(dt.id===7){
+      xCats=["0-5","15-25","35-65","250-350"];
+      yCats=["频次"];
+      data=xCats.map((_,x)=> [x,0, fake.bins ? fake.bins[x].count : Math.round(12+hash01(dt.id*100+x)*50)]);
+      return {
+        grid:{left:46,right:8,top:8,bottom:22},
+        xAxis:{type:'category', data:xCats, axisLabel:{fontSize:8,color:'#64748b'}, axisTick:{show:false}},
+        yAxis:{type:'category', data:yCats, show:false},
+        visualMap:{show:false, min:0,max:90,inRange:{color:COLORS.heatTeal}},
+        series:[{type:'heatmap', data, label:{show:true, fontSize:9, color:'#0f172a'}, itemStyle:{borderWidth:1, borderColor:'#fff'}}]
+      };
+    }
     xCats=["周一","周二","周三","周四","周五","周六","周日"];
     yCats=["0-6","6-12","12-18","18-24"];
     data=[];
-    for(let y=0;y<yCats.length;y++) for(let x=0;x<xCats.length;x++) data.push([x,y, Math.round(5+Math.random()*80)]);
+    for(let y=0;y<yCats.length;y++) for(let x=0;x<xCats.length;x++) data.push([x,y, Math.round(5+hash01(dt.id*100+x*10+y)*80)]);
     return {
       grid:{left:40,right:8,top:6,bottom:22},
       xAxis:{type:'category', data:xCats, axisLabel:{fontSize:8,color:'#64748b'}, axisTick:{show:false}},
@@ -811,7 +1075,7 @@ a{color:var(--pim-primary)}
     };
   }
   function optCalendar(dt,fake){
-    // fake calendar heatmap with fake.data per date
+    // 12分支：任务/习惯真实日历，其余用固定周历
     let dates=[];
     if(dt.id===10){
       dates=fake.map(d=>[d.date, d.rate]);
@@ -819,11 +1083,16 @@ a{color:var(--pim-primary)}
       const byDate=new Map();
       fake.data.forEach(x=>{ if(x.done) byDate.set(x.date,(byDate.get(x.date)||0)+1)});
       dates=[...byDate.entries()].map(([k,v])=>[k,v]);
+    } else if(dt.id===1 || dt.id===8){
+      // 日/PC 使用：聚合到日历按日均值
+      for(let i=0;i<30;i++){
+        const d=new Date(Date.now()-(29-i)*86400000).toISOString().slice(0,10);
+        const v= Math.round(22 + Math.sin(i/5)*8 + hash01(dt.id*100+i)*6);
+        dates.push([d, v]);
+      }
     } else {
-      // last 30 days random
-      for(let i=29;i>=0;i--){ const d=new Date(Date.now()-i*86400000).toISOString().slice(0,10); dates.push([d, Math.round(Math.random()*4)]);}
+      for(let i=0;i<30;i++){ const d=new Date(Date.now()-(29-i)*86400000).toISOString().slice(0,10); dates.push([d, Math.round(hash01(dt.id*100+i)*4)]);}
     }
-    // render as heatmap week x day
     const weeks=5;
     const weekdays=["一","二","三","四","五","六","日"];
     const xCats=Array.from({length:weeks},(_,i)=>"W"+(i+1));
@@ -843,10 +1112,19 @@ a{color:var(--pim-primary)}
     };
   }
   function optClock(dt,fake){
-    const {labels, values}=labelsAndValues(fake, dt.id);
-    // clock: pie with 24 segments representing hour distribution
-    const hours=Array.from({length:24},(_,i)=>({name:i+":00", value: 6+Math.round(18*Math.sin((i-6)/24*2*Math.PI + .5)+ Math.random()*10)}));
-    // normalize positive
+    // 24h 时钟：按 dt 定制外环数值
+    let hours;
+    if(dt.id===4){
+      // 24h 热力直接映射
+      const agg=new Map();
+      fake.data.forEach(d=> agg.set(d.hour,(agg.get(d.hour)||0)+d.value));
+      hours=Array.from({length:24},(_,i)=>({name:i+":00", value: agg.get(i)||6}));
+    } else if(dt.id===9){
+      hours=Array.from({length:24},(_,i)=>({name:i+":00", value: Math.round(12+ hash01(dt.id*100+i)*22)}));
+    } else {
+      const {values}=labelsAndValues(fake, dt.id);
+      hours=Array.from({length:24},(_,i)=>({name:i+":00", value: values[i%values.length]|| Math.round(6+hash01(dt.id*100+i)*18)}));
+    }
     hours.forEach(h=> h.value=Math.max(2,h.value));
     return {
       tooltip:{trigger:'item'},
@@ -857,7 +1135,12 @@ a{color:var(--pim-primary)}
   }
   function optTreemap(dt,fake){
     const {labels, values}=labelsAndValues(fake, dt.id);
-    const data=labels.map((l,i)=>({name:l, value:values[i]|| 10+Math.round(Math.random()*30)}));
+    // dt=8 PC应用：AFK 单独色
+    const data=labels.map((l,i)=>{
+      const v=values[i]!==undefined? values[i]: Math.round(10+hash01(dt.id*100+18*10+i)*30);
+      const color = l==="AFK" ? "#94a3b8" : undefined;
+      return color ? {name:l, value:v, itemStyle:{color}} : {name:l, value:v};
+    });
     return {
       tooltip:{formatter: p=> `${p.name}: ${p.value}`},
       series:[{type:'treemap', data, roam:false, nodeClick:false, breadcrumb:{show:false}, label:{show:true, fontSize:9, color:'#fff'}, itemStyle:{borderColor:'#fff', borderWidth:1, gapWidth:1}, levels:[{itemStyle:{borderColor:'#fff', borderWidth:1, gapWidth:1}}]}]
@@ -867,8 +1150,8 @@ a{color:var(--pim-primary)}
     const {labels, values}=labelsAndValues(fake, dt.id);
     const cats=labels.slice(0,4);
     const data=cats.map((c,i)=>({
-      name:c, value: values[i]||20,
-      children: [1,2].map(j=>({name:c+"-"+j, value: Math.round((values[i]||20)/2 + (Math.random()*6-3))}))
+      name:c, value: values[i]!==undefined? values[i]:20,
+      children: [1,2].map(j=>({name:c+"-"+j, value: Math.round((values[i]||20)/2 + (hash01(dt.id*100+19*10+i*2+j)-0.5)*6)}))
     }));
     return {
       tooltip:{trigger:'item'},
@@ -876,18 +1159,35 @@ a{color:var(--pim-primary)}
     };
   }
   function optFunnel(dt,fake){
-    const {labels, values}=labelsAndValues(fake, dt.id);
-    const data=labels.slice(0,5).map((l,i)=>({name:l, value: values[i]|| 60 - i*8 + Math.round(Math.random()*8)}));
+    // 12分支：任务漏斗用完成率，PC用分类
+    let labels, values;
+    if(dt.id===10){
+      const total=fake.reduce((s,d)=>s+d.total,0);
+      const completed=fake.reduce((s,d)=>s+d.completed,0);
+      labels=["创建","进行","完成"];
+      values=[total, Math.round(total*0.78), completed];
+    } else {
+      const lv=labelsAndValues(fake, dt.id);
+      labels=lv.labels; values=lv.values;
+    }
+    const data=labels.slice(0,5).map((l,i)=>({name:l, value: values[i]!==undefined? values[i]: Math.round(60 - i*8 + (hash01(dt.id*100+20*10+i)-0.5)*8)}));
     data.sort((a,b)=> b.value-a.value);
     return {
       tooltip:{trigger:'item'},
       legend:{bottom:0, textStyle:{fontSize:9,color:'#64748b'}},
-      series:[{type:'funnel', left: '10%', top: 10, bottom: 28, width: '80%', sort:'descending', gap:2, label:{fontSize:9, color:'#334155', position:'inside', formatter:'{b}'}, itemStyle:{borderColor:'#fff', borderWidth:1}, data}]
+      series:[{type:'funnel', left:'10%', top:10, bottom:28, width:'80%', sort:'descending', gap:2, label:{fontSize:9, color:'#334155', position:'inside', formatter:'{b}'}, itemStyle:{borderColor:'#fff', borderWidth:1}, data}]
     };
   }
   function optGauge(dt,fake){
     const {values}=labelsAndValues(fake, dt.id);
-    const v= values[0]|| 68; // 0-100
+    let v= values[0]|| 68;
+    // 12分支：设备健康取平均 health，任务取平均 rate
+    if(dt.id===12) v = fake.reduce((s,d)=>s+d.health,0)/fake.length;
+    if(dt.id===10) v = fake.reduce((s,d)=>s+d.rate,0)/fake.length;
+    if(dt.id===11) {
+      const total=fake.data.length, done=fake.data.filter(d=>d.done).length;
+      v = done/total*100;
+    }
     const pct= Math.max(0,Math.min(100, Math.round(v%101)));
     return {
       series:[{type:'gauge', min:0,max:100, splitNumber:5, axisLine:{lineStyle:{width:12, color:[[pct/100, COLORS.primary],[1,'#e2e8f0']]}},
@@ -895,14 +1195,16 @@ a{color:var(--pim-primary)}
         axisTick:{distance:-12, length:4, lineStyle:{color:'#94a3b8', width:1}},
         splitLine:{distance:-12, length:10, lineStyle:{color:'#64748b', width:1}},
         axisLabel:{fontSize:8,color:'#64748b', distance:12},
-        detail:{valueAnimation:true, fontSize:18, fontWeight:800, color:'#0f172a', offsetCenter:[0,'68%'], formatter:'{value}%'},
+        detail:{valueAnimation:true, fontSize:18, fontWeight:'bold', color:'#0f172a', offsetCenter:[0,'68%'], formatter:'{value}%'},
         data:[{value:pct}]}]
     };
   }
   function optLiquid(dt,fake){
     const {values}=labelsAndValues(fake, dt.id);
-    const pct=Math.max(8,Math.min(96, Math.round((values[0]||54)%100)));
-    // fake liquid with pie + wave gradient
+    let v= values[0]||54;
+    if(dt.id===10) v = fake.reduce((s,d)=>s+d.rate,0)/fake.length;
+    if(dt.id===12) v = fake.reduce((s,d)=>s+d.health,0)/fake.length;
+    const pct=Math.max(8,Math.min(96, Math.round(v%100)));
     return {
       title:{text:pct+'%', left:'center', top:'42%', textStyle:{fontSize:18, fontWeight:800, color:'#0f766e'}},
       series:[{type:'pie', radius:['56%','70%'], center:['50%','46%'], data:[{value:pct, name:'已完成', itemStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'#5eead4'},{offset:1,color:'#0f766e'}]}}},{value:100-pct, name:'剩余', itemStyle:{color:'#f1f5f9'}}], label:{show:false}, silent:true},
@@ -910,26 +1212,54 @@ a{color:var(--pim-primary)}
     };
   }
   function optSankey(dt,fake){
-    const nodes=[{name:'聊天'},{name:'视频'},{name:'工具'},{name:'上午'},{name:'下午'},{name:'晚间'},{name:'手机'},{name:'PC'}];
-    const links=[
-      {source:'聊天',target:'上午',value:12},{source:'聊天',target:'晚间',value:18},
-      {source:'视频',target:'晚间',value:22},{source:'视频',target:'下午',value:10},
-      {source:'工具',target:'上午',value:16},{source:'工具',target:'下午',value:14},
-      {source:'上午',target:'手机',value:14},{source:'上午',target:'PC',value:14},
-      {source:'下午',target:'手机',value:12},{source:'下午',target:'PC',value:12},
-      {source:'晚间',target:'手机',value:28},{source:'晚间',target:'PC',value:12},
-    ];
+    // 12分支：手机使用/PC活动/日程 各有语义
+    if(dt.id===1 || dt.id===3 || dt.id===8){
+      const nodes=[{name:'聊天'},{name:'视频'},{name:'工具'},{name:'上午'},{name:'下午'},{name:'晚间'},{name:'手机'},{name:'PC'}];
+      const links=[
+        {source:'聊天',target:'上午',value:12},{source:'聊天',target:'晚间',value:18},
+        {source:'视频',target:'晚间',value:22},{source:'视频',target:'下午',value:10},
+        {source:'工具',target:'上午',value:16},{source:'工具',target:'下午',value:14},
+        {source:'上午',target:'手机',value:14},{source:'上午',target:'PC',value:14},
+        {source:'下午',target:'手机',value:12},{source:'下午',target:'PC',value:12},
+        {source:'晚间',target:'手机',value:28},{source:'晚间',target:'PC',value:12},
+      ];
+      return {
+        tooltip:{trigger:'item'},
+        series:[{type:'sankey', data:nodes, links, emphasis:{focus:'adjacency'}, lineStyle:{color:'gradient', curveness:0.5}, label:{fontSize:9, color:'#334155'}, nodeWidth:10, nodeGap:8}]
+      };
+    }
+    const nodes=[{name:'家'},{name:'公司'},{name:'学校'},{name:'通勤'},{name:'停留'}];
+    const links=[{source:'家',target:'通勤',value:18},{source:'通勤',target:'公司',value:16},{source:'公司',target:'停留',value:14},{source:'学校',target:'通勤',value:8}];
     return {
       tooltip:{trigger:'item'},
       series:[{type:'sankey', data:nodes, links, emphasis:{focus:'adjacency'}, lineStyle:{color:'gradient', curveness:0.5}, label:{fontSize:9, color:'#334155'}, nodeWidth:10, nodeGap:8}]
     };
   }
   function optBoxplot(dt,fake){
-    // boxplot data: 7 items each [min,Q1,median,Q3,max]
-    const categories=labelsAndValues(fake, dt.id).labels.slice(0,7);
-    const boxData=categories.map(()=>{ const base=12+Math.random()*30, q1=base+4+Math.random()*8, med=q1+3+Math.random()*6, q3=med+3+Math.random()*6, mx=q3+4+Math.random()*8, mn=Math.max(1,base-Math.random()*8); return [mn.toFixed(1), q1.toFixed(1), med.toFixed(1), q3.toFixed(1), mx.toFixed(1)];});
+    // 12分支：速度/PC时长/任务 有真实四分位
+    let categories, boxData;
+    if(dt.id===7){
+      categories=["步行","骑行","开车","高铁"];
+      boxData=[
+        ["1.2","2.1","2.8","3.6","4.8"],
+        ["12","15","19","22","26"],
+        ["28","35","48","58","72"],
+        ["240","270","310","335","355"]
+      ];
+    } else if(dt.id===8){
+      const lv=labelsAndValues(fake, dt.id);
+      categories=lv.labels.slice(0,5);
+      boxData=categories.map((_,i)=>{
+        const base= lv.values[i]|| 40;
+        const q1=base*0.72, med=base*0.95, q3=base*1.18, mn=base*0.45, mx=base*1.35;
+        return [mn.toFixed(1),q1.toFixed(1),med.toFixed(1),q3.toFixed(1),mx.toFixed(1)];
+      });
+    } else {
+      categories=labelsAndValues(fake, dt.id).labels.slice(0,5);
+      boxData=categories.map((_,i)=>{ const base=12+hash01(dt.id*100+24*10+i)*30, q1=base+4+hash01(dt.id*100+25*10+i)*8, med=q1+3+hash01(dt.id*100+26*10+i)*6, q3=med+3+hash01(dt.id*100+27*10+i)*6, mx=q3+4+hash01(dt.id*100+28*10+i)*8, mn=Math.max(1,base-hash01(dt.id*100+29*10+i)*8); return [mn.toFixed(1), q1.toFixed(1), med.toFixed(1), q3.toFixed(1), mx.toFixed(1)];});
+    }
     const scatterData=[];
-    categories.forEach((_,i)=>{ for(let k=0;k<2;k++) scatterData.push([i, +( (parseFloat(boxData[i][4])+2+Math.random()*6).toFixed(1) )]);});
+    categories.forEach((_,i)=>{ for(let k=0;k<2;k++) scatterData.push([i, +( (parseFloat(boxData[i][4])+2+hash01(dt.id*100+30*10+i*2+k)*6).toFixed(1) )]);});
     return {
       tooltip:{trigger:'item'},
       grid:{left:32,right:10,top:10,bottom:24},
@@ -939,22 +1269,45 @@ a{color:var(--pim-primary)}
     };
   }
   function optViolin(dt,fake){
-    // violin approximated with mirrored area + boxplot middle
     const {labels}=labelsAndValues(fake, dt.id);
     const cats=labels.slice(0,5);
-    // use custom to draw mirrored violins: we fake with bar + line density
+    // 12分支：速度/PC/键盘 形态不同
+    if(dt.id===7){
+      return {
+        grid:{left:32,right:10,top:10,bottom:24},
+        xAxis:{type:'category', data:["步行","骑行","开车","高铁"], axisLabel:{fontSize:9,color:'#64748b'}, axisTick:{show:false}},
+        yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+        series:[
+          {type:'boxplot', data: [["1.1","2.0","2.8","3.4","4.5"],["12","15","19","22","26"],["30","36","48","57","70"],["245","275","310","333","352"]], itemStyle:{color:'#fff', borderColor:'#0f766e'}},
+        ]
+      };
+    }
     return {
       grid:{left:32,right:10,top:10,bottom:24},
       xAxis:{type:'category', data:cats, axisLabel:{fontSize:9,color:'#64748b'}, axisTick:{show:false}},
       yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
       series:[
-        {type:'boxplot', data: cats.map(()=>{ const b=18+Math.random()*16; return [ (b-8).toFixed(1),(b-3).toFixed(1),b.toFixed(1),(b+3).toFixed(1),(b+9).toFixed(1)];}), itemStyle:{color:'#fff', borderColor:'#0f766e'}},
-        {type:'line', data: cats.map(()=> 16+Math.random()*12), smooth:true, symbol:'none', lineStyle:{width:0}, areaStyle:{color:'rgba(20,184,166,0.18)'}, stack:'a'},
-        {type:'line', data: cats.map(()=> 20+Math.random()*12), smooth:true, symbol:'none', lineStyle:{width:0}, areaStyle:{color:'rgba(37,99,235,0.14)'}, stack:'a'},
+        {type:'boxplot', data: cats.map((_,i)=>{ const b=18+hash01(dt.id*100+31*10+i)*16; return [ (b-8).toFixed(1),(b-3).toFixed(1),b.toFixed(1),(b+3).toFixed(1),(b+9).toFixed(1)];}), itemStyle:{color:'#fff', borderColor:'#0f766e'}},
+        {type:'line', data: cats.map((_,i)=> Math.round(16+hash01(dt.id*100+32*10+i)*12)), smooth:true, symbol:'none', lineStyle:{width:0}, areaStyle:{color:'rgba(20,184,166,0.18)'}, stack:'a'},
+        {type:'line', data: cats.map((_,i)=> Math.round(20+hash01(dt.id*100+33*10+i)*12)), smooth:true, symbol:'none', lineStyle:{width:0}, areaStyle:{color:'rgba(37,99,235,0.14)'}, stack:'a'},
       ]
     };
   }
   function optParallel(dt,fake){
+    // 12分支：设备健康多维对比 vs 其他通用
+    if(dt.id===12){
+      const data=fake.map(d=>[d.health, d.status==="在线"?1:0, d.device==="小米 13"?1:0, hash01(d.device.length*7)*100]);
+      return {
+        parallelAxis:[
+          {dim:0, name:'健康分', min:0, max:100, nameTextStyle:{fontSize:9,color:'#64748b'}},
+          {dim:1, name:'在线', min:0, max:1, nameTextStyle:{fontSize:9,color:'#64748b'}},
+          {dim:2, name:'主设备', min:0, max:1, nameTextStyle:{fontSize:9,color:'#64748b'}},
+          {dim:3, name:'活跃', min:0, max:100, nameTextStyle:{fontSize:9,color:'#64748b'}},
+        ],
+        parallel:{left:40,right:12,top:14,bottom:22},
+        series:[{type:'parallel', lineStyle:{width:1.2, color:'rgba(37,99,235,0.5)'}, data}]
+      };
+    }
     return {
       parallelAxis:[
         {dim:0, name:'使用时长', min:0, max:100, nameTextStyle:{fontSize:9,color:'#64748b'}},
@@ -963,14 +1316,16 @@ a{color:var(--pim-primary)}
         {dim:3, name:'完成率', min:0, max:100, nameTextStyle:{fontSize:9,color:'#64748b'}},
       ],
       parallel:{left:40,right:12,top:14,bottom:22},
-      series:[{type:'parallel', lineStyle:{width:1.2, color:'rgba(37,99,235,0.5)'}, data: Array.from({length:18},()=> [12+Math.random()*80, 10+Math.random()*70, 22+Math.random()*68, 38+Math.random()*58])}]
+      series:[{type:'parallel', lineStyle:{width:1.2, color:'rgba(37,99,235,0.5)'}, data: Array.from({length:18},(_,i)=> [12+hash01(dt.id*100+i)*80, 10+hash01(dt.id*200+i)*70, 22+hash01(dt.id*300+i)*68, 38+hash01(dt.id*400+i)*58])}]
     };
   }
   function optGraph(dt,fake){
-    const nodes=labelsAndValues(fake, dt.id).labels.slice(0,7).map((l,i)=>({name:l, symbolSize: 12+ Math.random()*18, itemStyle:{color: pal[i%pal.length]}}));
-    if(nodes.length<4) while(nodes.length<6) nodes.push({name:'节点'+nodes.length, symbolSize:14, itemStyle:{color:pal[nodes.length%pal.length]}});
+    const {labels}=labelsAndValues(fake, dt.id);
+    const labs=labels.slice(0,6);
+    while(labs.length<4) labs.push("节点"+(labs.length+1));
+    const nodes=labs.map((l,i)=>({name:l, symbolSize: 12+ Math.round(hash01(dt.id*100+34*10+i)*18), itemStyle:{color: COLORS.palette[i%COLORS.palette.length]}}));
     const links=[];
-    for(let i=0;i<nodes.length;i++) for(let j=i+1;j<nodes.length;j++) if(Math.random()>0.62) links.push({source:i,target:j, lineStyle:{width:1, color:'#cbd5e1'}});
+    for(let i=0;i<nodes.length;i++) for(let j=i+1;j<nodes.length;j++) if(hash01(dt.id*100+35*10+i*10+j) > 0.62) links.push({source:i,target:j, lineStyle:{width:1, color:'#cbd5e1'}});
     if(links.length===0) links.push({source:0,target:1},{source:1,target:2});
     return {
       tooltip:{trigger:'item'},
@@ -981,7 +1336,7 @@ a{color:var(--pim-primary)}
     const {labels}=labelsAndValues(fake, dt.id);
     const cats=labels.slice(0,6);
     const arcs=[];
-    for(let i=0;i<cats.length;i++) for(let j=i+1;j<cats.length;j++) if(Math.random()>0.7) arcs.push([i,j]);
+    for(let i=0;i<cats.length;i++) for(let j=i+1;j<cats.length;j++) if(hash01(dt.id*100+36*10+i*10+j)>0.68) arcs.push([i,j]);
     return {
       grid:{left:24,right:10,top:12,bottom:22},
       xAxis:{type:'category', data:cats, axisLabel:{fontSize:9,color:'#64748b'}, axisLine:{show:false}, axisTick:{show:false}},
@@ -1009,8 +1364,8 @@ a{color:var(--pim-primary)}
   }
   function optFlame(dt,fake){
     const {labels, values}=labelsAndValues(fake, dt.id);
-    const data=labels.slice(0,5).map((l,i)=>({name:l, value:values[i]|| 18+Math.round(Math.random()*22)}));
-    // flame as stacked bar horizontal layered
+    // dt=8 PC火焰：VS Code 最长
+    const data=labels.slice(0,5).map((l,i)=>({name:l, value:values[i]!==undefined? values[i]: Math.round(18+hash01(dt.id*100+37*10+i)*22)}));
     return {
       tooltip:{trigger:'axis'},
       grid:{left:70,right:10,top:8,bottom:8},
@@ -1021,12 +1376,16 @@ a{color:var(--pim-primary)}
   }
   function optProgressRing(dt,fake){
     const {values}=labelsAndValues(fake, dt.id);
-    const pct=Math.max(5,Math.min(100, Math.round((values[0]||62)%101)));
+    let v=values[0]||62;
+    if(dt.id===10) v=fake.reduce((s,d)=>s+d.rate,0)/fake.length;
+    if(dt.id===11) v=fake.data.filter(d=>d.done).length / fake.data.length *100;
+    if(dt.id===12) v=fake.reduce((s,d)=>s+d.health,0)/fake.length;
+    const pct=Math.max(5,Math.min(100, Math.round(v%101)));
     return {
       series:[
         {type:'gauge', startAngle:90, endAngle:-270, min:0,max:100, progress:{show:true, width:12, itemStyle:{color:{type:'linear',x:0,y:0,x2:1,y2:0,colorStops:[{offset:0,color:'#2563eb'},{offset:1,color:'#14b8a6'}]}}}, axisLine:{lineStyle:{width:12, color:[[1,'#f1f5f9']]}},
         pointer:{show:false}, axisTick:{show:false}, splitLine:{show:false}, axisLabel:{show:false},
-        detail:{valueAnimation:true, fontSize:16, fontWeight:800, color:'#0f172a', offsetCenter:[0,0], formatter:pct+'%'}, data:[{value:pct, name:''}], title:{show:false}},
+        detail:{valueAnimation:true, fontSize:16, fontWeight:'bold', color:'#0f172a', offsetCenter:[0,0], formatter:pct+'%'}, data:[{value:pct, name:''}], title:{show:false}},
         {type:'pie', radius:['0','0'], center:['50%','50%'], data:[], label:{show:false}}
       ]
     };
@@ -1036,14 +1395,25 @@ a{color:var(--pim-primary)}
     return {
       tooltip:{trigger:'axis'},
       grid:{left:72,right:16,top:8,bottom:8},
-      xAxis:{type:'value', show:false, max: Math.max(...values)*1.22},
+      xAxis:{type:'value', show:false, max: Math.max(...values,1)*1.22},
       yAxis:{type:'category', data:labels, inverse:true, axisLabel:{fontSize:10,color:'#334155'}, axisTick:{show:false}, axisLine:{show:false}},
       series:[{type:'bar', data:values, barWidth:12, itemStyle:{borderRadius:[0,8,8,0], color:{type:'linear',x:0,y:0,x2:1,y2:0,colorStops:[{offset:0,color:'#2563eb'},{offset:1,color:'#22d3ee'}]}}, label:{show:true, position:'right', fontSize:9, color:'#64748b', formatter:'{c}'}}]
     };
   }
   function optDiverging(dt,fake){
     const {labels}=labelsAndValues(fake, dt.id);
-    const vals=labels.map(()=> Math.round((Math.random()-0.5)*34));
+    // 12分支：设备/任务 用正负差异
+    if(dt.id===10){
+      const vals=fake.map(d=> d.rate - 75);
+      return {
+        tooltip:{trigger:'axis'},
+        grid:{left:72,right:16,top:8,bottom:8},
+        xAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+        yAxis:{type:'category', data:fake.map(d=>d.date.slice(5)), inverse:true, axisLabel:{fontSize:9,color:'#334155'}, axisTick:{show:false}},
+        series:[{type:'bar', data:vals.slice(0,8), barWidth:10, itemStyle:{borderRadius:[4,4,4,4], color: params=> params.value>=0 ? '#14b8a6':'#ef4444'}, label:{show:true, position: params=> params.value>=0?'right':'left', fontSize:9, color:'#475569', formatter:'{c}'}}]
+      };
+    }
+    const vals=labels.map((_,i)=> Math.round((hash01(dt.id*100+38*10+i)-0.5)*34));
     return {
       tooltip:{trigger:'axis'},
       grid:{left:72,right:16,top:8,bottom:8},
@@ -1053,10 +1423,10 @@ a{color:var(--pim-primary)}
     };
   }
   function optBullet(dt,fake){
-    const {labels, values}=labelsAndValues(fake, dt.id);
+    const {labels}=labelsAndValues(fake, dt.id);
     const cats=labels.slice(0,5);
-    const actual=cats.map(()=> 42+Math.round(Math.random()*30));
-    const target=cats.map(()=> 60+Math.round(Math.random()*18));
+    const actual=cats.map((_,i)=> Math.round(42+hash01(dt.id*100+39*10+i)*30));
+    const target=cats.map((_,i)=> Math.round(60+hash01(dt.id*100+40*10+i)*18));
     return {
       tooltip:{trigger:'axis'},
       grid:{left:54,right:12,top:8,bottom:18},
@@ -1071,9 +1441,31 @@ a{color:var(--pim-primary)}
     };
   }
   function optSmallMultiples(dt,fake){
-    // show as bar with grouping but title small multiples simulated via grid? We fake with multi bar groups
     const {labels}=labelsAndValues(fake, dt.id);
-    // create 4 small series as if 4 days
+    // 12分支：习惯按习惯拆，任务按周拆
+    if(dt.id===11){
+      const habits=fake.habits;
+      return {
+        tooltip:{trigger:'axis'},
+        legend:{bottom:0, textStyle:{fontSize:8,color:'#64748b'}},
+        grid:{left:26,right:8,top:8,bottom:24},
+        xAxis:{type:'category', data:["周1","周2","周3","周4"], axisLabel:{fontSize:8,color:'#64748b'}, axisTick:{show:false}},
+        yAxis:{type:'value', max:7, splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:8,color:'#94a3b8'}},
+        series: habits.slice(0,3).map((h,hi)=> ({
+          name:h, type:'bar', data: [0,1,2,3].map(wi=>{
+            let c=0;
+            for(let d=0; d<7; d++){
+              const dayIdx=wi*7+d;
+              if(dayIdx<30){
+                const ds=new Date(Date.now()-(29-dayIdx)*86400000).toISOString().slice(0,10);
+                if(fake.data.find(x=> x.habit===h && x.date===ds && x.done)) c++;
+              }
+            }
+            return c;
+          }), itemStyle:{color: COLORS.palette[hi%COLORS.palette.length], opacity:.92}, barMaxWidth:8
+        }))
+      };
+    }
     return {
       tooltip:{trigger:'axis'},
       legend:{bottom:0, textStyle:{fontSize:8,color:'#64748b'}},
@@ -1081,16 +1473,15 @@ a{color:var(--pim-primary)}
       xAxis:{type:'category', data:labels.slice(0,5), axisLabel:{fontSize:8,color:'#64748b'}, axisTick:{show:false}},
       yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:8,color:'#94a3b8'}},
       series:[
-        {name:'Day1', type:'bar', data: labels.slice(0,5).map(()=> 6+Math.round(Math.random()*14)), itemStyle:{color:'#2563eb', opacity:.92}, barMaxWidth:8},
-        {name:'Day2', type:'bar', data: labels.slice(0,5).map(()=> 6+Math.round(Math.random()*14)), itemStyle:{color:'#14b8a6', opacity:.92}, barMaxWidth:8},
-        {name:'Day3', type:'bar', data: labels.slice(0,5).map(()=> 6+Math.round(Math.random()*14)), itemStyle:{color:'#f59e0b', opacity:.92}, barMaxWidth:8},
+        {name:'Day1', type:'bar', data: labels.slice(0,5).map((_,i)=> Math.round(6+hash01(dt.id*100+41*10+i)*14)), itemStyle:{color:'#2563eb', opacity:.92}, barMaxWidth:8},
+        {name:'Day2', type:'bar', data: labels.slice(0,5).map((_,i)=> Math.round(6+hash01(dt.id*100+42*10+i)*14)), itemStyle:{color:'#14b8a6', opacity:.92}, barMaxWidth:8},
+        {name:'Day3', type:'bar', data: labels.slice(0,5).map((_,i)=> Math.round(6+hash01(dt.id*100+43*10+i)*14)), itemStyle:{color:'#f59e0b', opacity:.92}, barMaxWidth:8},
       ]
     };
   }
   function optStream(dt,fake){
-    // themeRiver approximate with stacked area
     const {labels}=labelsAndValues(fake, dt.id);
-    const mk=(base)=> labels.map((_,i)=> Math.round(base + 6*Math.sin(i/2)+ Math.random()*5));
+    const mk=(base, off)=> labels.map((_,i)=> Math.round(base + 6*Math.sin(i/2+off)+ hash01(dt.id*100+off*10+i)*4));
     return {
       tooltip:{trigger:'axis'},
       legend:{bottom:0, textStyle:{fontSize:9,color:'#64748b'}},
@@ -1098,17 +1489,17 @@ a{color:var(--pim-primary)}
       xAxis:{type:'category', data:labels, boundaryGap:false, axisLabel:{fontSize:9,color:'#64748b'}, axisTick:{show:false}},
       yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
       series:[
-        {name:'聊天', type:'line', stack:'st', data:mk(10), smooth:true, symbol:'none', areaStyle:{color:'rgba(37,99,235,0.22)'}, lineStyle:{width:0}},
-        {name:'视频', type:'line', stack:'st', data:mk(8), smooth:true, symbol:'none', areaStyle:{color:'rgba(245,158,11,0.22)'}, lineStyle:{width:0}},
-        {name:'工具', type:'line', stack:'st', data:mk(6), smooth:true, symbol:'none', areaStyle:{color:'rgba(20,184,166,0.22)'}, lineStyle:{width:0}},
+        {name:'聊天', type:'line', stack:'st', data:mk(10,0), smooth:true, symbol:'none', areaStyle:{color:'rgba(37,99,235,0.22)'}, lineStyle:{width:0}},
+        {name:'视频', type:'line', stack:'st', data:mk(8,1), smooth:true, symbol:'none', areaStyle:{color:'rgba(245,158,11,0.22)'}, lineStyle:{width:0}},
+        {name:'工具', type:'line', stack:'st', data:mk(6,2), smooth:true, symbol:'none', areaStyle:{color:'rgba(20,184,166,0.22)'}, lineStyle:{width:0}},
       ]
     };
   }
   function optWordcloud(dt,fake){
     const {labels, values}=labelsAndValues(fake, dt.id);
-    const data=labels.map((l,i)=>({name:l, value:(values[i]||10)* (0.9+Math.random()*0.4)}));
-    // fake wordcloud with scatter where symbolSize maps value and label is name
-    const pts=data.map((d,i)=>({value:[Math.random()*100, Math.random()*100, d.value], name:d.name}));
+    // 12分支：PC应用/分类用真实标签
+    const data=labels.map((l,i)=>({name:l, value:(values[i]!==undefined? values[i]:10)*(0.9+hash01(dt.id*100+44*10+i)*0.4)}));
+    const pts=data.map((d,i)=>({value:[hash01(dt.id*100+45*10+i)*100, hash01(dt.id*100+46*10+i)*100, d.value], name:d.name}));
     return {
       tooltip:{formatter: p=> `${p.name}: ${Math.round(p.value[2])}`},
       grid:{left:6,right:6,top:6,bottom:6},
@@ -1120,23 +1511,26 @@ a{color:var(--pim-primary)}
   function optAnnotated(dt,fake){
     const {labels, values}=labelsAndValues(fake, dt.id);
     const annIdx=Math.floor(labels.length/2);
+    // 12分支：任务在完成率谷底标注“周会”
+    let markLabel="发布", markVal=values[annIdx];
+    if(dt.id===10) { markLabel="周会"; markVal=values[5]||values[annIdx]; }
+    if(dt.id===4) { markLabel="高峰"; markVal=Math.max(...values); }
     return {
       tooltip:{trigger:'axis'},
       grid:{left:30,right:10,top:12,bottom:22},
       xAxis:{type:'category', data:labels, boundaryGap:false, axisLabel:{fontSize:9,color:'#64748b'}, axisTick:{show:false}},
       yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
       series:[{type:'line', data:values, smooth:true, symbol:'circle', symbolSize:4, lineStyle:{color:'#2563eb', width:2}, itemStyle:{color:'#2563eb'},
-        markPoint:{symbol:'pin', symbolSize:36, label:{fontSize:8, color:'#fff'}, data:[{name:'发布', value:values[annIdx], xAxis:annIdx, yAxis:values[annIdx], itemStyle:{color:'#f59e0b'}}]},
+        markPoint:{symbol:'pin', symbolSize:36, label:{fontSize:8, color:'#fff'}, data:[{name:markLabel, value:markVal, xAxis:annIdx, yAxis:markVal, itemStyle:{color:'#f59e0b'}}]},
         markLine:{silent:true, lineStyle:{color:'#94a3b8', type:'dashed'}, data:[{yAxis: Math.max(...values)*0.62, label:{formatter:'均值', fontSize:9, color:'#64748b'}}]}
       }]
     };
   }
   function optScatterMatrix(dt,fake){
-    // fake matrix grid 2x2 scatter inside single grid via multiple series? Simplify as single scatter with clusters
     const data=[];
     for(let k=0;k<3;k++){
-      const cx=22+Math.random()*56, cy=22+Math.random()*56;
-      for(let i=0;i<9;i++) data.push([cx+(Math.random()-0.5)*18, cy+(Math.random()-0.5)*18]);
+      const cx=22+hash01(dt.id*100+k*10)*56, cy=22+hash01(dt.id*200+k*10)*56;
+      for(let i=0;i<9;i++) data.push([cx+(hash01(dt.id*300+k*10+i)-0.5)*18, cy+(hash01(dt.id*400+k*10+i)-0.5)*18]);
     }
     return {
       grid:{left:28,right:10,top:10,bottom:22},
@@ -1152,15 +1546,13 @@ a{color:var(--pim-primary)}
   function optHexbin(dt,fake){
     if(dt.id===5){
       const pts=fake.map(p=>[p.lng, p.lat]);
-      // hex-ish by heatmap with binning approximation
-      const xCats=Array.from({length:12},(_,i)=> (116.15+i*0.04).toFixed(2));
-      const yCats=Array.from({length:8},(_,i)=> (39.75+i*0.04).toFixed(2));
+      const xCats=Array.from({length:12},(_,i)=> (116.20+i*0.038).toFixed(2));
+      const yCats=Array.from({length:8},(_,i)=> (39.80+i*0.037).toFixed(2));
       const data=[];
       pts.forEach(p=>{
-        const xi=Math.floor((p[0]-116.15)/0.04), yi=Math.floor((p[1]-39.75)/0.04);
+        const xi=Math.floor((p[0]-116.20)/0.038), yi=Math.floor((p[1]-39.80)/0.037);
         if(xi>=0&&xi<12&&yi>=0&&yi<8) data.push([xi, yi, 1]);
       });
-      // aggregate
       const map=new Map();
       data.forEach(d=>{ const k=d[0]+','+d[1]; map.set(k,(map.get(k)||0)+1);});
       const agg=[...map.entries()].map(([k,v])=>{ const [x,y]=k.split(',').map(Number); return [x,y,v];});
@@ -1172,11 +1564,22 @@ a{color:var(--pim-primary)}
         series:[{type:'heatmap', data:agg, itemStyle:{borderWidth:.5, borderColor:'#fff', borderRadius:2}}]
       };
     }
-    // generic hex as heatmap
+    if(dt.id===6){
+      xCats=["家","公司","学校","商圈","健身房"];
+      yCats=["访问"];
+      data=xCats.map((_,x)=> [x,0, fake[x].visitCount]);
+      return {
+        grid:{left:46,right:8,top:8,bottom:22},
+        xAxis:{type:'category', data:xCats, axisLabel:{fontSize:8,color:'#64748b'}, axisTick:{show:false}},
+        yAxis:{type:'category', data:yCats, show:false},
+        visualMap:{show:false, min:0,max:130,inRange:{color:COLORS.heatTeal}},
+        series:[{type:'heatmap', data, label:{show:true, fontSize:9, color:'#0f172a'}, itemStyle:{borderWidth:1, borderColor:'#fff'}}]
+      };
+    }
     const xCats=["A","B","C","D","E","F","G","H"];
     const yCats=["1","2","3","4","5","6"];
     const data=[];
-    for(let y=0;y<yCats.length;y++) for(let x=0;x<xCats.length;x++) data.push([x,y, Math.round(Math.random()*40)]);
+    for(let y=0;y<yCats.length;y++) for(let x=0;x<xCats.length;x++) data.push([x,y, Math.round(hash01(dt.id*100+x*10+y)*40)]);
     return {
       grid:{left:30,right:8,top:8,bottom:20},
       xAxis:{type:'category', data:xCats, axisLabel:{fontSize:8,color:'#64748b'}, axisTick:{show:false}},
@@ -1185,7 +1588,6 @@ a{color:var(--pim-primary)}
       series:[{type:'heatmap', data, itemStyle:{borderWidth:.8, borderColor:'#fff'}}]
     };
   }
-
   // ---- build card list 480 ----
   const allCards=[];
   DATA_TYPES.forEach(dt=>{

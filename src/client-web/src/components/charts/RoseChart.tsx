@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import EChartBox from './EChartBox';
 import { chartColors } from './chartColors';
 import type { EChartsOption } from '../../lib/echarts';
-import { hash01 } from './fakeData';
 
 /**
  * RoseChart.tsx — 南丁格尔玫瑰图

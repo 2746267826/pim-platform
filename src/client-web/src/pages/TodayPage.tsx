@@ -15,6 +15,9 @@ import TodaySectionHost, {
   todaySectionOrder,
 } from '../components/today/TodaySectionHost';
 import type { ScheduledItem } from '../components/today/TodayScheduleList';
+import WeekTrendLine from '../components/charts/WeekTrendLine';
+import HabitCalendarHeatmap from '../components/charts/HabitCalendarHeatmap';
+import { useExhibitionData } from '../components/charts/hooks/useExhibitionData';
 import type { EventResponse, TaskResponse, TodaySectionKind, TodaySectionRegistryItem } from '../types';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
@@ -279,6 +282,9 @@ export default function TodayPage() {
         </div>
       )}
 
+      {/* 展览馆嵌入：周趋势 + 习惯打卡（真实数据 via useExhibitionData） */}
+      <TodayExhibitionEmbed dateStr={dateStr} />
+
       <TaskEditorDialog
         open={taskEditorOpen}
         onClose={() => setTaskEditorOpen(false)}
@@ -290,5 +296,24 @@ export default function TodayPage() {
         event={editingEvent}
       />
     </div>
+  );
+}
+
+function TodayExhibitionEmbed({ dateStr }: { dateStr: string }) {
+  const q2 = useExhibitionData(2, { real: true, date: dateStr });
+  const q11 = useExhibitionData(11, { real: true, date: dateStr });
+  return (
+    <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="pim-card p-4">
+        <h3 className="text-sm font-semibold text-slate-900">周趋势 · 折线图（真实）</h3>
+        <p className="mt-1 text-xs text-slate-500">周一/五双峰，周末-20% · {q2.isReal ? '🔗真实' : '🔮模拟'}</p>
+        <div className="mt-3">{q2.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q2.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <WeekTrendLine data={q2.data as never} />}</div>
+      </div>
+      <div className="pim-card p-4">
+        <h3 className="text-sm font-semibold text-slate-900">习惯打卡 · 日历热力（真实）</h3>
+        <p className="mt-1 text-xs text-slate-500">5习惯×30天 · {q11.isReal ? '🔗真实' : '🔮模拟'}</p>
+        <div className="mt-3">{q11.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q11.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <HabitCalendarHeatmap />}</div>
+      </div>
+    </section>
   );
 }

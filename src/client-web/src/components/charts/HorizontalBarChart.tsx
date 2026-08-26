@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import EChartBox from './EChartBox';
 import { chartColors } from './chartColors';
 import type { EChartsOption } from '../../lib/echarts';
-import { hash01 } from './fakeData';
 
 /**
  * HorizontalBarChart.tsx — 水平柱状图

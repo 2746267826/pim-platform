@@ -247,6 +247,152 @@ export function buildCalendarHeatmapOption(dates: string[], values: number[]): E
   } as unknown as EChartsOption;
 }
 
+export function buildGroupedBarOption(labels: string[], a: number[], b: number[]): EChartsOption {
+  return {
+    tooltip:{trigger:'axis'},
+    grid:{left:32,right:8,top:10,bottom:26},
+    xAxis:{type:'category', data:labels, axisLabel:{fontSize:9,color:chartColors.textMuted}, axisTick:{show:false}},
+    yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+    series:[
+      {name:'本期', type:'bar', data:a, barMaxWidth:14, itemStyle:{color:chartColors.primary, borderRadius:[3,3,0,0]}},
+      {name:'上期', type:'bar', data:b, barMaxWidth:14, itemStyle:{color:chartColors.textMuted, borderRadius:[3,3,0,0]}},
+    ],
+  } as EChartsOption;
+}
+export function buildMultiLineOption(labels: string[], series: {name:string, data:number[], color:string}[]): EChartsOption {
+  return {
+    tooltip:{trigger:'axis'},
+    legend:{bottom:0, textStyle:{fontSize:9,color:chartColors.textMuted}},
+    grid:{left:32,right:10,top:8,bottom:26},
+    xAxis:{type:'category', data:labels, boundaryGap:false, axisLabel:{fontSize:9,color:chartColors.textMuted}, axisTick:{show:false}},
+    yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+    series: series.map(s=>({name:s.name, type:'line', data:s.data, smooth:true, symbol:'circle', symbolSize:4, lineStyle:{width:2,color:s.color}, itemStyle:{color:s.color}})),
+  } as EChartsOption;
+}
+export function buildStackedAreaOption(labels: string[], series: {name:string, data:number[], color:string}[]): EChartsOption {
+  return {
+    tooltip:{trigger:'axis'},
+    legend:{bottom:0, textStyle:{fontSize:9,color:chartColors.textMuted}},
+    grid:{left:32,right:10,top:8,bottom:26},
+    xAxis:{type:'category', data:labels, boundaryGap:false, axisLabel:{fontSize:9,color:chartColors.textMuted}, axisTick:{show:false}},
+    yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+    series: series.map(s=>({name:s.name, type:'line', stack:'st', data:s.data, smooth:true, symbol:'none', lineStyle:{width:1.5, color:s.color}, areaStyle:{color: s.color+'33'}})),
+  } as unknown as EChartsOption;
+}
+export function buildClockOption(hours: {name:string, value:number}[]): EChartsOption {
+  return {
+    tooltip:{trigger:'item'},
+    series:[{type:'pie', radius:['34%','72%'], center:['50%','50%'], data:hours, label:{show:false}, itemStyle:{borderColor:'#fff', borderWidth:1}}],
+    graphic:[{type:'text', left:'center', top:'center', style:{text:'24h', fontSize:12, fontWeight:700, fill:chartColors.textMuted}}],
+  } as EChartsOption;
+}
+export function buildSunburstOption(data: unknown[]): EChartsOption {
+  return { tooltip:{trigger:'item'}, series:[{type:'sunburst', data: data as never, radius:[0,'88%'], label:{fontSize:8, color:'#334155', rotate:'radial'}, itemStyle:{borderWidth:1, borderColor:'#fff'}}] } as EChartsOption;
+}
+export function buildLiquidOption(pct: number): EChartsOption {
+  return {
+    title:{text:pct+'%', left:'center', top:'42%', textStyle:{fontSize:18, fontWeight:800, color:'#0f766e'}},
+    series:[{type:'pie', radius:['56%','70%'], center:['50%','46%'], data:[{value:pct, itemStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'#5eead4'},{offset:1,color:'#0f766e'}]}}},{value:100-pct, itemStyle:{color:'#f1f5f9'}}], label:{show:false}}],
+  } as unknown as EChartsOption;
+}
+export function buildBoxplotOption(categories: string[], boxData: (string|number)[][], scatter: number[][]): EChartsOption {
+  return {
+    tooltip:{trigger:'item'},
+    grid:{left:32,right:10,top:10,bottom:24},
+    xAxis:{type:'category', data:categories, axisLabel:{fontSize:8,color:chartColors.textMuted}},
+    yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+    series:[{type:'boxplot', data:boxData, itemStyle:{color:'#fff', borderColor:chartColors.primary}, boxWidth:[12,26] as unknown as number},{type:'scatter', data:scatter, symbolSize:4, itemStyle:{color:chartColors.warning}}],
+  } as EChartsOption;
+}
+export function buildViolinOption(categories: string[], boxData: (string|number)[][]): EChartsOption {
+  return {
+    grid:{left:32,right:10,top:10,bottom:24},
+    xAxis:{type:'category', data:categories, axisLabel:{fontSize:9,color:chartColors.textMuted}},
+    yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+    series:[{type:'boxplot', data:boxData, itemStyle:{color:'#fff', borderColor:'#0f766e'}}],
+  } as EChartsOption;
+}
+export function buildParallelOption(data: number[][]): EChartsOption {
+  return {
+    parallelAxis:[{dim:0, name:'A', min:0, max:100},{dim:1, name:'B', min:0, max:100},{dim:2, name:'C', min:0, max:100},{dim:3, name:'D', min:0, max:100}],
+    parallel:{left:40,right:12,top:14,bottom:22},
+    series:[{type:'parallel', lineStyle:{width:1.2, color:'rgba(37,99,235,0.5)'}, data}],
+  } as EChartsOption;
+}
+export function buildGraphOption(nodes: {name:string, symbolSize:number}[], links: {source:number,target:number}[]): EChartsOption {
+  return { tooltip:{trigger:'item'}, series:[{type:'graph', layout:'force', data:nodes, links, roam:true, force:{repulsion:80, gravity:0.12, edgeLength:46}, label:{show:true, fontSize:9, color:'#334155'}}] } as unknown as EChartsOption;
+}
+export function buildArcOption(categories: string[], arcs: number[][]): EChartsOption {
+  return {
+    grid:{left:24,right:10,top:12,bottom:22},
+    xAxis:{type:'category', data:categories, axisLabel:{fontSize:9,color:chartColors.textMuted}},
+    yAxis:{type:'value', show:false},
+    series:[{type:'scatter', data: categories.map((_,i)=>[i,1]), symbolSize:10, itemStyle:{color:chartColors.primary}},{type:'custom', renderItem:(()=>null) as unknown as never, data: arcs.map(d=>({value:d}))}],
+  } as EChartsOption;
+}
+export function buildStepOption(labels: string[], values: number[]): EChartsOption {
+  return { tooltip:{trigger:'axis'}, grid:{left:30,right:10,top:12,bottom:22}, xAxis:{type:'category', data:labels, boundaryGap:false}, yAxis:{type:'value'}, series:[{type:'line', step:'middle', data:values, symbol:'circle', symbolSize:4, lineStyle:{width:2, color:'#8b5cf6'}, itemStyle:{color:'#8b5cf6'}}] } as EChartsOption;
+}
+export function buildFlameOption(labels: string[], values: number[]): EChartsOption {
+  return { tooltip:{trigger:'axis'}, grid:{left:70,right:10,top:8,bottom:8}, xAxis:{type:'value', show:false}, yAxis:{type:'category', data:labels, inverse:true}, series:[{type:'bar', data:values, barWidth:10, itemStyle:{color:{type:'linear',x:0,y:0,x2:1,y2:0,colorStops:[{offset:0,color:'#f59e0b'},{offset:1,color:'#ef4444'}]}, borderRadius:[0,6,6,0]}}] } as EChartsOption;
+}
+export function buildDivergingOption(labels: string[], values: number[]): EChartsOption {
+  return {
+    tooltip:{trigger:'axis'},
+    grid:{left:72,right:16,top:8,bottom:8},
+    xAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}},
+    yAxis:{type:'category', data:labels, inverse:true},
+    series:[{type:'bar', data:values, barWidth:10, itemStyle:{color: (p: {value:number})=> p.value>=0 ? chartColors.activity : chartColors.danger}}],
+  } as unknown as EChartsOption;
+}
+export function buildBulletOption(categories: string[], actual: number[], target: number[]): EChartsOption {
+  return {
+    grid:{left:54,right:12,top:8,bottom:18},
+    xAxis:{type:'value', max:100},
+    yAxis:{type:'category', data:categories, inverse:true},
+    series:[
+      {type:'bar', data: Array(categories.length).fill(80), barWidth:14, itemStyle:{color:'#f1f5f9'}, barGap:'-100%'},
+      {type:'bar', data: Array(categories.length).fill(60), barWidth:14, itemStyle:{color:'#e2e8f0'}, barGap:'-100%'},
+      {type:'bar', data: actual, barWidth:6, itemStyle:{color:chartColors.primary}},
+      {type:'scatter', data: target.map((v,i)=>[v,i]), symbol:'rect', symbolSize:[2,14], itemStyle:{color:chartColors.danger}},
+    ],
+  } as unknown as EChartsOption;
+}
+export function buildStreamOption(labels: string[], series: {name:string, data:number[]}[]): EChartsOption {
+  return {
+    tooltip:{trigger:'axis'},
+    xAxis:{type:'category', data:labels, boundaryGap:false},
+    yAxis:{type:'value'},
+    series: series.map(s=>({name:s.name, type:'line', stack:'st', data:s.data, smooth:true, symbol:'none', areaStyle:{}})),
+  } as EChartsOption;
+}
+export function buildAnnotatedOption(labels: string[], values: number[], mark: {x:number, y:number, label:string}): EChartsOption {
+  return {
+    tooltip:{trigger:'axis'},
+    grid:{left:30,right:10,top:12,bottom:22},
+    xAxis:{type:'category', data:labels, boundaryGap:false},
+    yAxis:{type:'value'},
+    series:[{type:'line', data:values, smooth:true, symbol:'circle', symbolSize:4, lineStyle:{width:2, color:chartColors.primary}, markPoint:{data:[{name:mark.label, value:mark.y, xAxis:mark.x, yAxis:mark.y}]}}],
+  } as EChartsOption;
+}
+export function buildScatterMatrixOption(points: number[][][]): EChartsOption {
+  return {
+    grid:{left:28,right:10,top:10,bottom:22},
+    xAxis:{type:'value'},
+    yAxis:{type:'value'},
+    series: points.map((pts,i)=>({type:'scatter', data:pts, symbolSize:6, itemStyle:{color: ['#2563eb','#f59e0b','#14b8a6'][i%3]}})),
+  } as unknown as EChartsOption;
+}
+export function buildHexbinOption(xCats: string[], yCats: string[], data: [number,number,number][]): EChartsOption {
+  return {
+    grid:{left:38,right:8,top:8,bottom:22},
+    xAxis:{type:'category', data:xCats},
+    yAxis:{type:'category', data:yCats},
+    visualMap:{show:false, inRange:{color:chartColors.heatmapTeal}},
+    series:[{type:'heatmap', data}],
+  } as EChartsOption;
+}
+
 // 为了验收：导出一个包含 40 种形式的映射，方便页面动态取用
 export const CHART_TYPE_NAMES = [
   "柱状图（垂直）","柱状图（水平）","堆叠柱状图","分组柱状图","折线图","多线折线图","面积图","堆叠面积图","饼图","环形图","南丁格尔玫瑰图","散点图","气泡图","雷达图","热力图（矩阵）","日历热力图","24小时时钟图","树图","旭日图","漏斗图","仪表盘","水波图","桑基图","箱线图","小提琴图","平行坐标图","力导向图","弧线图","步进图","火焰图","进度环","渐变进度条","差异图","子弹图","小多图","流图","词云","带注释的时间线","矩阵散点图","六边形分箱",

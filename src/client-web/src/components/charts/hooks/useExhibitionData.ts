@@ -139,6 +139,8 @@ export function useExhibitionData(dtId: number, opts: { real: boolean; date?: st
   };
   const q = queries[dtId];
   if (q && enabled) {
+    // 由于 queryFn 已静默回退到 fakeData，error 恒为 null，isEmpty 亦恒假；
+    // 此分支保留作防御性兜底（若未来移除静默回退，error/isEmpty 将重新生效），目前仅用于开发期断言
     const isEmpty = !q.isLoading && !q.error && (q.data == null || (Array.isArray(q.data) && q.data.length === 0));
     return { data: q.data ?? getFakeData(dtId), loading: q.isLoading, error: q.error as Error | null, isEmpty: !!isEmpty, isReal: true };
   }

@@ -6,9 +6,13 @@ const MAX_DEDUPE_KEYS = 100;
 
 function pruneDedupeMap() {
   if (lastToastAt.size <= MAX_DEDUPE_KEYS) return;
-  const sorted = [...lastToastAt.entries()].sort((a, b) => a[1] - b[1]);
+  // Map 保持插入顺序，首项即最旧，直接删首项 O(1)，避免每次排序 O(n log n)
   const toRemove = lastToastAt.size - MAX_DEDUPE_KEYS;
-  for (let i = 0; i < toRemove; i++) lastToastAt.delete(sorted[i][0]);
+  for (let i = 0; i < toRemove; i++) {
+    const firstKey = lastToastAt.keys().next().value;
+    if (firstKey !== undefined) lastToastAt.delete(firstKey);
+    else break;
+  }
 }
 
 export function showApiError(error: unknown, opts?: { onRetry?: () => void; dedupeKey?: string }) {
@@ -97,8 +101,8 @@ function parseMessageString(msg: string): string {
   if (/\b401\b/.test(msg) || msg.includes('登录已过期') || /\bUnauthorized\b/.test(msg)) return '登录已过期，请重新登录';
   if (/\b403\b/.test(msg) || /\bForbidden\b/.test(msg)) return '无权限访问';
   if (/\b404\b/.test(msg)) return '请求的资源不存在';
-  if (/\b(500|502|503|504)\b/.test(msg)) return '服务器异常，请稍后重试';
-  if (/\bHTTP\s*5\d{2}\b/.test(msg)) return '服务器异常，请稍后重试';
+  // 覆盖所有 5xx：裸 501/505 等 + HTTP 5xx，避免 Sol 指出的 501 漏判
+  if (/\b5\d{2}\b/.test(msg)) return '服务器异常，请稍后重试';
   return msg;
 }
 

@@ -11,13 +11,13 @@ import { showApiError } from './components/error/ApiErrorToast'
 function shouldRetry(failureCount: number, error: unknown): boolean {
   if (failureCount >= 2) return false;
   if (error instanceof DOMException && error.name === 'AbortError') return false;
-  // 支持结构化错误对象 { status: 404 } 直接判定 4xx 不重试
+  // 结构化 { status }：所有 4xx 不重试（覆盖 429/409 等）
   if (typeof error === 'object' && error !== null) {
     const maybe = error as { status?: number };
     if (typeof maybe.status === 'number' && maybe.status >= 400 && maybe.status < 500) return false;
   }
   const msg = error instanceof Error ? error.message ?? '' : String(error ?? '');
-  if (/\b(400|401|403|404|422)\b/.test(msg) || msg.includes('登录已过期') || msg.includes('Unauthorized')) return false;
+  if (/\b4\d{2}\b/.test(msg) || msg.includes('登录已过期') || msg.includes('Unauthorized')) return false;
   if (msg.includes('AbortError')) return false;
   return true;
 }

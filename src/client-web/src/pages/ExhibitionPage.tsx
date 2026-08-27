@@ -198,7 +198,7 @@ export default function ExhibitionPage() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `pim-exhibition-selected-${new Date().toISOString().slice(0, 10)}.json`;
-    a.id = 'btnExport';
+    // 不设置固定 id，避免与常驻按钮 id="btnExport" 重复
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -353,7 +353,16 @@ export default function ExhibitionPage() {
                 const g = GALLERY.find((x) => x.id === id);
                 if (!g) return null;
                 const C = g.Component;
-                return <div key={id} className="rounded-lg border p-2"><div className="mb-2 text-sm font-semibold">{g.title}</div><C /></div>;
+                return (
+                  <div key={id} className="rounded-lg border p-2">
+                    <div className="mb-2 text-sm font-semibold">{g.title}</div>
+                    <CardErrorBoundary cardTitle={g.title}>
+                      <Suspense fallback={<div className="grid h-[120px] place-items-center rounded-md bg-slate-100 text-xs text-slate-500">加载中…</div>}>
+                        <C />
+                      </Suspense>
+                    </CardErrorBoundary>
+                  </div>
+                );
               })}
             </div>
             <button type="button" onClick={exportSelected} className="mt-3 w-full rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white">导出对比清单</button>

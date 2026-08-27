@@ -25,7 +25,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     console.error('[ErrorBoundary]', error, info.componentStack);
   }
 
-  componentDidUpdate(prevProps: Props, prevState: State) {
+  componentDidUpdate(prevProps: Props) {
     if (!this.state.hasError) return;
     if (!this.props.resetKeys) return;
     if (!prevProps.resetKeys) {
@@ -35,8 +35,6 @@ export class ErrorBoundary extends React.Component<Props, State> {
     const changed = this.props.resetKeys.length !== prevProps.resetKeys.length
       || this.props.resetKeys.some((k, i) => k !== prevProps.resetKeys![i]);
     if (changed) this.reset();
-    // prevent infinite loop: also handle internal retryCount bypass? no
-    void prevState;
   }
 
   private reset = () => {

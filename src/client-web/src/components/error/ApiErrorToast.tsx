@@ -2,6 +2,14 @@ import { toast } from 'sonner';
 
 const lastToastAt = new Map<string, number>();
 const DEDUPE_MS = 3000;
+const MAX_DEDUPE_KEYS = 100;
+
+function pruneDedupeMap() {
+  if (lastToastAt.size <= MAX_DEDUPE_KEYS) return;
+  const sorted = [...lastToastAt.entries()].sort((a, b) => a[1] - b[1]);
+  const toRemove = lastToastAt.size - MAX_DEDUPE_KEYS;
+  for (let i = 0; i < toRemove; i++) lastToastAt.delete(sorted[i][0]);
+}
 
 export function showApiError(error: unknown, opts?: { onRetry?: () => void; dedupeKey?: string }) {
   if (isSilentError(error)) return;
@@ -11,6 +19,7 @@ export function showApiError(error: unknown, opts?: { onRetry?: () => void; dedu
   const last = lastToastAt.get(dedupeKey) ?? 0;
   if (now - last < DEDUPE_MS) return;
   lastToastAt.set(dedupeKey, now);
+  pruneDedupeMap();
 
   const description = getDescriptionForMessage(message);
   toast.error(message, {
@@ -89,7 +98,7 @@ function parseMessageString(msg: string): string {
   if (/\b403\b/.test(msg) || /\bForbidden\b/.test(msg)) return '无权限访问';
   if (/\b404\b/.test(msg)) return '请求的资源不存在';
   if (/\b(500|502|503|504)\b/.test(msg)) return '服务器异常，请稍后重试';
-  if (/\bHTTP\s*\d{3}\b/.test(msg)) return '服务器异常，请稍后重试';
+  if (/\bHTTP\s*5\d{2}\b/.test(msg)) return '服务器异常，请稍后重试';
   return msg;
 }
 

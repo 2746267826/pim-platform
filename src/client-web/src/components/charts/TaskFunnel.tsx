@@ -39,7 +39,7 @@ function Empty({ height }: { height: number }) {
 function ErrorCard({ message, height }: { message: string; height: number }) {
   return (
     <div style={{ height }} className="grid place-items-center rounded-md border border-red-200 bg-red-50 p-4 text-center">
-      <div><div className="text-xs font-semibold text-red-600">加载失败</div><div className="mt-1 text-xs text-red-500">{message}</div><button type="button" onClick={()=> location.reload()} className="mt-2 rounded-lg border border-red-200 bg-white px-3 py-1 text-xs font-semibold text-red-600">重试</button></div>
+      <div><div className="text-xs font-semibold text-red-600">加载失败</div><div className="mt-1 text-xs text-red-500">{message}</div></div>
     </div>
   );
 }

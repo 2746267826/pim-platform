@@ -32,9 +32,9 @@ export default class AndroidEmbedLayout extends Component<{ children: ReactNode 
           <button
             type="button"
             className="rounded bg-blue-600 px-4 py-2 text-white text-sm"
-            onClick={() => window.location.reload()}
+            onClick={() => this.setState({ hasError: false })}
           >
-            重新加载
+            重试
           </button>
         </div>
       );

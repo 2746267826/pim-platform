@@ -24,14 +24,13 @@ export class CardErrorBoundary extends React.Component<Props, State> {
     console.error('[CardErrorBoundary]', this.props.cardTitle, error, info.componentStack);
   }
 
-  componentDidUpdate(prevProps: Props, prevState: State) {
+  componentDidUpdate(prevProps: Props) {
     if (!this.state.hasError) return;
     const a = this.props.resetKeys, b = prevProps.resetKeys;
-    if (!a && !b) { void prevState; return; }
+    if (!a && !b) return;
     if (!a || !b || a.length !== b.length || a.some((k, i) => k !== b![i])) {
       this.setState({ hasError: false, error: null, retryCount: 0 });
     }
-    void prevState;
   }
 
   private handleRetry = () => {

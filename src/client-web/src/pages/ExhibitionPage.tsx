@@ -138,17 +138,6 @@ export default function ExhibitionPage() {
   }, []);
   // 埋点 views
   useEffect(() => { try { const c = parseInt(localStorage.getItem('exhibition_views') || '0', 10) + 1; localStorage.setItem('exhibition_views', String(c)); } catch {} }, []);
-  // 键盘 / j/k
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === '/' && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); searchRef.current?.focus(); }
-      if (e.key === 'j' && !(e.target instanceof HTMLInputElement)) { const pages = Math.max(1, Math.ceil(filtered.length / pageSize)); if (page < pages) setPage((p) => p + 1); }
-      if (e.key === 'k' && !(e.target instanceof HTMLInputElement)) { if (page > 1) setPage((p) => p - 1); }
-      if (e.key === 'Escape' && compareOpen) setCompareOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  });
 
   useEffect(() => { try { localStorage.setItem('exhibition_ratings', JSON.stringify([...ratings.entries()])); } catch {} }, [ratings]);
   useEffect(() => { try { localStorage.setItem('exhibition_selected', JSON.stringify([...selected])); } catch {} }, [selected]);
@@ -173,6 +162,18 @@ export default function ExhibitionPage() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageItems = useMemo(() => filtered.slice((page - 1) * pageSize, page * pageSize), [filtered, page]);
+
+  // 键盘 / j/k  — 放 filtered 之后以避免 TDZ，且带正确 deps 避免每帧重绑
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === '/' && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); searchRef.current?.focus(); }
+      if (e.key === 'j' && !(e.target instanceof HTMLInputElement)) { const pages = Math.max(1, Math.ceil(filtered.length / pageSize)); if (page < pages) setPage((p) => p + 1); }
+      if (e.key === 'k' && !(e.target instanceof HTMLInputElement)) { if (page > 1) setPage((p) => p - 1); }
+      if (e.key === 'Escape' && compareOpen) setCompareOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [filtered.length, page, compareOpen, pageSize]);
 
   const toggleSelect = (id: string) => setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const setRate = (id: string, v: number) => setRatings((prev) => { const n = new Map(prev); n.set(id, v); return n; });

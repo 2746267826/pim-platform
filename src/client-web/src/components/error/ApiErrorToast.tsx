@@ -26,8 +26,8 @@ export function showApiError(error: unknown, opts?: { onRetry?: () => void; dedu
   pruneDedupeMap();
 
   const description = getDescriptionForMessage(message);
+  // 仅用 dedupeKey 做节流，不复用 sonner id，避免同文案二次出现被静默更新而用户错过信号
   toast.error(message, {
-    id: dedupeKey,
     description,
     duration: 6000,
     ...(opts?.onRetry

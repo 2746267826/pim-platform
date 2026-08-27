@@ -75,10 +75,10 @@ export function getEmbedBridgeClient(): Promise<import('../embed/androidBridge')
 }
 
 async function refreshAccessToken(): Promise<boolean> {
-  if (isEmbed()) {
-    if (refreshPromise) return refreshPromise;
-    const savedGen = generation;
-    const currentPromise = (async () => {
+  if (refreshPromise) return refreshPromise;
+  const savedGen = generation;
+  const currentPromise = (async () => {
+    if (isEmbed()) {
       try {
         const bridge = await getBridgeClient();
         if (!bridge) {
@@ -106,32 +106,32 @@ async function refreshAccessToken(): Promise<boolean> {
         onAuthChange?.();
       }
       return false;
-    })();
-    refreshPromise = currentPromise;
-    currentPromise.then(
-      () => { if (refreshPromise === currentPromise) refreshPromise = null; },
-      () => { if (refreshPromise === currentPromise) refreshPromise = null; },
-    );
-    return refreshPromise;
-  }
-  if (!refreshToken) return false;
-  const savedGen = generation;
-  const savedRefreshToken = refreshToken;
-  try {
-    const res = await fetch(`${BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: savedRefreshToken })
-    });
-    if (!res.ok) return false;
-    const json = await res.json();
-    const d = json.data;
-    if (generation !== savedGen || refreshToken !== savedRefreshToken) {
-      return false;
     }
-    setTokens(d.accessToken, d.refreshToken);
-    return true;
-  } catch { return false; }
+    // desktop: 复用同一 refreshPromise 避免并发 401 导致第二请求误登出
+    if (!refreshToken) return false;
+    const savedRefreshToken = refreshToken;
+    try {
+      const res = await fetch(`${BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: savedRefreshToken })
+      });
+      if (!res.ok) return false;
+      const json = await res.json();
+      const d = json.data;
+      if (generation !== savedGen || refreshToken !== savedRefreshToken) {
+        return false;
+      }
+      setTokens(d.accessToken, d.refreshToken);
+      return true;
+    } catch { return false; }
+  })();
+  refreshPromise = currentPromise;
+  currentPromise.then(
+    () => { if (refreshPromise === currentPromise) refreshPromise = null; },
+    () => { if (refreshPromise === currentPromise) refreshPromise = null; },
+  );
+  return refreshPromise;
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
@@ -239,7 +239,9 @@ async function apiFetchResponse(
         clearTokens();
         onAuthChange?.();
       }
-      throw new Error('登录已过期，请重新登录');
+      const e = new Error('登录已过期，请重新登录');
+      (e as unknown as { status?: number }).status = 401;
+      throw e;
     }
   }
 
@@ -247,8 +249,13 @@ async function apiFetchResponse(
   logApi(method, path, elapsed, res.status);
 
   if (!res.ok && !(acceptedStatuses?.includes(res.status))) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    const err = await res.json().catch(() => ({} as { message?: string; detail?: string; title?: string }));
+    const msg = err.message || err.detail || err.title || `HTTP ${res.status}`;
+    const e = new Error(msg);
+    (e as unknown as { status?: number }).status = res.status;
+    // 保留原始 detail 以便上层做更友好展示
+    if (err.detail) (e as unknown as { detail?: string }).detail = err.detail;
+    throw e;
   }
 
   return res;

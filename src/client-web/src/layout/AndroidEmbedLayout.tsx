@@ -2,12 +2,13 @@ import { Component, type ReactNode } from 'react';
 
 interface State {
   hasError: boolean;
+  retryCount: number;
 }
 
 export default class AndroidEmbedLayout extends Component<{ children: ReactNode }, State> {
-  state: State = { hasError: false };
+  state: State = { hasError: false, retryCount: 0 };
 
-  static getDerivedStateFromError(): State {
+  static getDerivedStateFromError(): Partial<State> {
     return { hasError: true };
   }
 
@@ -17,6 +18,14 @@ export default class AndroidEmbedLayout extends Component<{ children: ReactNode 
 
   render() {
     if (this.state.hasError) {
+      if (this.state.retryCount >= 3) {
+        return (
+          <div role="alert" className="w-full overflow-y-auto bg-white flex flex-col items-center justify-center gap-4 p-4">
+            <h2 className="text-lg font-semibold text-gray-800">多次重试失败</h2>
+            <p className="text-sm text-gray-500">请稍后重试或联系支持</p>
+          </div>
+        );
+      }
       return (
         <div
           role="alert"
@@ -32,9 +41,9 @@ export default class AndroidEmbedLayout extends Component<{ children: ReactNode 
           <button
             type="button"
             className="rounded bg-blue-600 px-4 py-2 text-white text-sm"
-            onClick={() => window.location.reload()}
+            onClick={() => this.setState((s) => ({ hasError: false, retryCount: s.retryCount + 1 }))}
           >
-            重新加载
+            重试
           </button>
         </div>
       );

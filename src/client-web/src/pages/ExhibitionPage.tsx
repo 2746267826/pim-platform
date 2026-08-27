@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import PageHeader from '../ui/PageHeader';
 import MobileCategoryDonut from '../components/charts/MobileCategoryDonut';
 import HourHeatmapChart from '../components/charts/HourHeatmapChart';
@@ -22,6 +23,7 @@ import TaskFunnel from '../components/charts/TaskFunnel';
 import DataQualityGauge from '../components/charts/DataQualityGauge';
 import { useExhibitionData } from '../components/charts/hooks/useExhibitionData';
 import { getFakeData } from '../components/charts/fakeData';
+import { CardErrorBoundary } from '../components/error/CardErrorBoundary';
 
 /**
  * 展览馆 React 画廊页 — 20+ 生产组件网格，与静态展览馆数据同源（fakeData.ts）
@@ -74,12 +76,8 @@ function GalleryCardContent({ dtId, useReal, Comp }: { dtId: number; useReal: bo
   if (loading) return <div className="grid h-[168px] place-items-center rounded-md bg-slate-100 text-xs text-slate-500" aria-busy="true">加载真实数据…</div>;
   if (error) return <div className="grid h-[168px] place-items-center rounded-md border border-red-200 bg-red-50 p-4 text-center"><div className="text-xs font-semibold text-red-600">真实数据加载失败</div><div className="mt-1 text-xs text-red-500">{String((error as Error).message || error)}</div><div className="mt-2 text-xs text-slate-500">已回退到模拟数据</div><div className="mt-2"><Comp /></div></div>;
   if (isEmpty) return <div className="grid h-[168px] place-items-center rounded-md border border-dashed border-slate-200 bg-white p-4 text-center"><div className="text-xs text-slate-500">真实数据为空</div><div className="mt-1 text-xs text-amber-600">已回退到模拟</div><div className="mt-2 w-full"><Comp /></div></div>;
-  try {
-    // @ts-ignore — 部分组件的 data 形状与真实 API 一致，尝试传递
-    return <Comp data={data as never} />;
-  } catch {
-    return <Comp />;
-  }
+  // @ts-ignore — 部分组件的 data 形状与真实 API 一致，尝试传递；渲染期异常由 CardErrorBoundary 捕获
+  return <Comp data={data as never} />;
 }
 
 function loadSelected(): Set<string> {
@@ -88,6 +86,7 @@ function loadSelected(): Set<string> {
 }
 
 export default function ExhibitionPage() {
+  const queryClient = useQueryClient();
   const searchRef = useRef<HTMLInputElement>(null);
   const [moduleFilter, setModuleFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -139,17 +138,6 @@ export default function ExhibitionPage() {
   }, []);
   // 埋点 views
   useEffect(() => { try { const c = parseInt(localStorage.getItem('exhibition_views') || '0', 10) + 1; localStorage.setItem('exhibition_views', String(c)); } catch {} }, []);
-  // 键盘 / j/k
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === '/' && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); searchRef.current?.focus(); }
-      if (e.key === 'j' && !(e.target instanceof HTMLInputElement)) { const pages = Math.max(1, Math.ceil(filtered.length / pageSize)); if (page < pages) setPage((p) => p + 1); }
-      if (e.key === 'k' && !(e.target instanceof HTMLInputElement)) { if (page > 1) setPage((p) => p - 1); }
-      if (e.key === 'Escape' && compareOpen) setCompareOpen(false);
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  });
 
   useEffect(() => { try { localStorage.setItem('exhibition_ratings', JSON.stringify([...ratings.entries()])); } catch {} }, [ratings]);
   useEffect(() => { try { localStorage.setItem('exhibition_selected', JSON.stringify([...selected])); } catch {} }, [selected]);
@@ -175,6 +163,18 @@ export default function ExhibitionPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageItems = useMemo(() => filtered.slice((page - 1) * pageSize, page * pageSize), [filtered, page]);
 
+  // 键盘 / j/k  — 放 filtered 之后以避免 TDZ，且带正确 deps 避免每帧重绑
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === '/' && !(e.target instanceof HTMLInputElement)) { e.preventDefault(); searchRef.current?.focus(); }
+      if (e.key === 'j' && !(e.target instanceof HTMLInputElement)) { const pages = Math.max(1, Math.ceil(filtered.length / pageSize)); if (page < pages) setPage((p) => p + 1); }
+      if (e.key === 'k' && !(e.target instanceof HTMLInputElement)) { if (page > 1) setPage((p) => p - 1); }
+      if (e.key === 'Escape' && compareOpen) setCompareOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [filtered.length, page, compareOpen, pageSize]);
+
   const toggleSelect = (id: string) => setSelected((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const setRate = (id: string, v: number) => setRatings((prev) => { const n = new Map(prev); n.set(id, v); return n; });
   const copyLink = (id: string) => {
@@ -198,7 +198,7 @@ export default function ExhibitionPage() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `pim-exhibition-selected-${new Date().toISOString().slice(0, 10)}.json`;
-    a.id = 'btnExport';
+    // 不设置固定 id，避免与常驻按钮 id="btnExport" 重复
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -295,7 +295,22 @@ export default function ExhibitionPage() {
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${(() => { const useReal = cardReal.has(item.id) ? cardReal.get(item.id)! : globalReal; return useReal ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'; })()}`}>{(() => { const useReal = cardReal.has(item.id) ? cardReal.get(item.id)! : globalReal; return useReal ? '🔗真实' : '🔮模拟'; })()}</span>
               </div>
               <div className="border-y border-slate-100 bg-slate-50/50 p-2">
-                {(() => { const dtId = parseInt(item.id.split('-')[0], 10); const useReal = cardReal.has(item.id) ? cardReal.get(item.id)! : globalReal; return <GalleryCardContent dtId={dtId} useReal={useReal} Comp={item.Component} />; })()}
+                {(() => {
+                  const dtId = parseInt(item.id.split('-')[0], 10);
+                  const useReal = cardReal.has(item.id) ? cardReal.get(item.id)! : globalReal;
+                  return (
+                    <CardErrorBoundary
+                      key={`${item.id}-${useReal ? 'real' : 'mock'}`}
+                      cardTitle={item.title}
+                      resetKeys={[item.id, useReal]}
+                      onRetry={() => queryClient.invalidateQueries({ queryKey: ['exh', dtId] })}
+                    >
+                      <Suspense fallback={<div className="grid h-[168px] place-items-center rounded-md bg-slate-100 text-xs text-slate-500" aria-busy="true">加载中…</div>}>
+                        <GalleryCardContent dtId={dtId} useReal={useReal} Comp={item.Component} />
+                      </Suspense>
+                    </CardErrorBoundary>
+                  );
+                })()}
               </div>
               <div className="flex items-center justify-between gap-2 px-3 py-2">
                 <div className="flex gap-1">
@@ -338,7 +353,16 @@ export default function ExhibitionPage() {
                 const g = GALLERY.find((x) => x.id === id);
                 if (!g) return null;
                 const C = g.Component;
-                return <div key={id} className="rounded-lg border p-2"><div className="mb-2 text-sm font-semibold">{g.title}</div><C /></div>;
+                return (
+                  <div key={id} className="rounded-lg border p-2">
+                    <div className="mb-2 text-sm font-semibold">{g.title}</div>
+                    <CardErrorBoundary cardTitle={g.title}>
+                      <Suspense fallback={<div className="grid h-[120px] place-items-center rounded-md bg-slate-100 text-xs text-slate-500">加载中…</div>}>
+                        <C />
+                      </Suspense>
+                    </CardErrorBoundary>
+                  </div>
+                );
               })}
             </div>
             <button type="button" onClick={exportSelected} className="mt-3 w-full rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white">导出对比清单</button>

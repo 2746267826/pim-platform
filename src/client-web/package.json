@@ -43,6 +43,7 @@
     "react-hook-form": "^7.76.0",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.15.1",
+    "sonner": "^1.7.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {

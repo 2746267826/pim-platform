@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import PageHeader from '../ui/PageHeader';
 import MobileCategoryDonut from '../components/charts/MobileCategoryDonut';
 import HourHeatmapChart from '../components/charts/HourHeatmapChart';
@@ -22,6 +22,7 @@ import TaskFunnel from '../components/charts/TaskFunnel';
 import DataQualityGauge from '../components/charts/DataQualityGauge';
 import { useExhibitionData } from '../components/charts/hooks/useExhibitionData';
 import { getFakeData } from '../components/charts/fakeData';
+import { CardErrorBoundary } from '../components/error/CardErrorBoundary';
 
 /**
  * 展览馆 React 画廊页 — 20+ 生产组件网格，与静态展览馆数据同源（fakeData.ts）
@@ -295,7 +296,11 @@ export default function ExhibitionPage() {
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${(() => { const useReal = cardReal.has(item.id) ? cardReal.get(item.id)! : globalReal; return useReal ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'; })()}`}>{(() => { const useReal = cardReal.has(item.id) ? cardReal.get(item.id)! : globalReal; return useReal ? '🔗真实' : '🔮模拟'; })()}</span>
               </div>
               <div className="border-y border-slate-100 bg-slate-50/50 p-2">
-                {(() => { const dtId = parseInt(item.id.split('-')[0], 10); const useReal = cardReal.has(item.id) ? cardReal.get(item.id)! : globalReal; return <GalleryCardContent dtId={dtId} useReal={useReal} Comp={item.Component} />; })()}
+                <CardErrorBoundary cardTitle={item.title}>
+                  <Suspense fallback={<div className="grid h-[168px] place-items-center rounded-md bg-slate-100 text-xs text-slate-500" aria-busy="true">加载中…</div>}>
+                    {(() => { const dtId = parseInt(item.id.split('-')[0], 10); const useReal = cardReal.has(item.id) ? cardReal.get(item.id)! : globalReal; return <GalleryCardContent dtId={dtId} useReal={useReal} Comp={item.Component} />; })()}
+                  </Suspense>
+                </CardErrorBoundary>
               </div>
               <div className="flex items-center justify-between gap-2 px-3 py-2">
                 <div className="flex gap-1">

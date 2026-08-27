@@ -19,6 +19,8 @@ import PcDetailQueryPage from '../pages/PcDetailQueryPage';
 import StatusPage from '../pages/StatusPage';
 import AppKnowledgeBasePage from '../pages/AppKnowledgeBasePage';
 import CategoryTreePage from '../pages/CategoryTreePage';
+import { ErrorBoundary } from '../components/error/ErrorBoundary';
+import NotFoundPage from '../components/error/NotFoundPage';
 
 const QuickNotesPage = lazy(() => import('../pages/QuickNotesPage'));
 const FilesPage = lazy(() => import('../pages/FilesPage'));
@@ -59,45 +61,47 @@ export default function AppLayout() {
       <div className="pim-shell h-screen flex overflow-hidden">
         <Sidebar />
         <main className="pim-route-surface flex-1 overflow-auto p-4 pb-20 md:pb-4">
-          <Suspense fallback={<SuspenseFallback />}>
-            <Routes>
-              <Route path="/today" element={<TodayPage />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/workbench" element={<WorkbenchPage />} />
-              <Route path="/sync" element={<Navigate to="/settings/sync" replace />} />
-              <Route path="/data-center" element={<DataCenterPage />} />
-              <Route path="/confirmations" element={<ConfirmationsPage />} />
-              <Route path="/reminders" element={<RemindersPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/habits" element={<HabitsPage />} />
-              <Route path="/exhibition" element={<ExhibitionPage />} />
-              <Route path="/audit/:objectType/:objectId" element={<AuditTimelinePage />} />
-              <Route path="/endpoint-shell" element={<EndpointShellPage />} />
-              <Route path="/quick-notes" element={<QuickNotesPage />} />
-              <Route path="/files" element={<FilesPage />} />
-              <Route path="/timeline" element={<Navigate to="/calendar?view=timeline" replace />} />
-              <Route path="/week" element={<Navigate to="/calendar?view=timeline" replace />} />
-              <Route path="/month" element={<Navigate to="/calendar?view=month" replace />} />
-              <Route path="/tasks" element={<TaskListPage />} />
-              <Route path="/pc-tracker" element={<PcTrackerPage />} />
-              <Route path="/mobile-records" element={<MobileRecordsPage />} />
-              <Route path="/location-history" element={<HistoricalLocationPage />} />
-              <Route path="/devices" element={<DeviceManagementPage />} />
-              <Route path="/devices/:deviceId" element={<DeviceDetailPage />} />
-              <Route path="/status" element={<StatusPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/settings/sync" element={<SyncPage />} />
-              <Route path="/settings/ai" element={<AiSettingsPage />} />
-              <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
-              <Route path="/settings/recycle-bin" element={<RecycleBinPage />} />
-              <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />
-              <Route path="/app-knowledge-base" element={<AppKnowledgeBasePage />} />
-              <Route path="/app-knowledge-base/categories" element={<CategoryTreePage />} />
-              <Route path="/pc-categories" element={<Navigate to="/app-knowledge-base/categories" replace />} />
-              <Route path="/pc-classification" element={<Navigate to="/app-knowledge-base" replace />} />
-              <Route path="*" element={<Navigate to="/today" replace />} />
-            </Routes>
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<SuspenseFallback />}>
+              <Routes>
+                <Route path="/today" element={<TodayPage />} />
+                <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/workbench" element={<WorkbenchPage />} />
+                <Route path="/sync" element={<Navigate to="/settings/sync" replace />} />
+                <Route path="/data-center" element={<DataCenterPage />} />
+                <Route path="/confirmations" element={<ConfirmationsPage />} />
+                <Route path="/reminders" element={<RemindersPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/habits" element={<HabitsPage />} />
+                <Route path="/exhibition" element={<ExhibitionPage />} />
+                <Route path="/audit/:objectType/:objectId" element={<AuditTimelinePage />} />
+                <Route path="/endpoint-shell" element={<EndpointShellPage />} />
+                <Route path="/quick-notes" element={<QuickNotesPage />} />
+                <Route path="/files" element={<FilesPage />} />
+                <Route path="/timeline" element={<Navigate to="/calendar?view=timeline" replace />} />
+                <Route path="/week" element={<Navigate to="/calendar?view=timeline" replace />} />
+                <Route path="/month" element={<Navigate to="/calendar?view=month" replace />} />
+                <Route path="/tasks" element={<TaskListPage />} />
+                <Route path="/pc-tracker" element={<PcTrackerPage />} />
+                <Route path="/mobile-records" element={<MobileRecordsPage />} />
+                <Route path="/location-history" element={<HistoricalLocationPage />} />
+                <Route path="/devices" element={<DeviceManagementPage />} />
+                <Route path="/devices/:deviceId" element={<DeviceDetailPage />} />
+                <Route path="/status" element={<StatusPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/settings/sync" element={<SyncPage />} />
+                <Route path="/settings/ai" element={<AiSettingsPage />} />
+                <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
+                <Route path="/settings/recycle-bin" element={<RecycleBinPage />} />
+                <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />
+                <Route path="/app-knowledge-base" element={<AppKnowledgeBasePage />} />
+                <Route path="/app-knowledge-base/categories" element={<CategoryTreePage />} />
+                <Route path="/pc-categories" element={<Navigate to="/app-knowledge-base/categories" replace />} />
+                <Route path="/pc-classification" element={<Navigate to="/app-knowledge-base" replace />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
           <footer className="mt-6 flex gap-3 border-t border-slate-100 pt-3 text-xs text-slate-400">
             <span>v{localVersion}</span><span>API v{serverVersion ?? '...'}</span>{hasUpdate && <span className="text-amber-600">有新版 v{latestVersion}</span>}
           </footer>

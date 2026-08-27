@@ -8,13 +8,16 @@ import { getFakeData } from '../fakeData';
 export function useExhibitionData(dtId: number, opts: { real: boolean; date?: string }) {
   const date = opts.date ?? '2026-08-19';
   const enabled = opts.real;
+  // 注：展览馆按“崩了也能看”设计，query 失败静默回退到 getFakeData，保证图表不白屏；
+  // 全局 toast 不应对展览馆的回退做提示（避免 9 卡同时失败的 toast 洪水），但仍在 console.warn 保留可排查信号。
+  // 每卡仅 1 个 query enabled（dtId 匹配），9 卡同屏仅 9 个活跃订阅，非 108。
   const q1 = useQuery({ queryKey: ['exh', 1, date, enabled], enabled: enabled && dtId === 1, queryFn: async () => {
     try {
       const charts = await getMobileAnalyticsCharts({ rangeStartUtc: `${date}T00:00:00Z`, rangeEndUtc: `${date}T23:59:59Z` });
       const chart = charts.find((c) => c.chartType === 'top-apps') ?? charts[0];
       if (chart?.points?.length) return chart.points.map((p) => ({ label: p.label, value: p.value }));
       return getFakeData(1);
-    } catch { return getFakeData(1); }
+    } catch (e) { console.warn('[exhibition] q1 fallback to fakeData', e); return getFakeData(1); }
   }});
   const q2 = useQuery({ queryKey: ['exh', 2, date, enabled], enabled: enabled && dtId === 2, queryFn: async () => {
     try {
@@ -29,7 +32,7 @@ export function useExhibitionData(dtId: number, opts: { real: boolean; date?: st
         } catch { points.push({ date: ds, total: 0 }); }
       }
       return points;
-    } catch { return getFakeData(2); }
+    } catch (e) { console.warn('[exhibition] q2 fallback to fakeData', e); return getFakeData(2); }
   }});
   const q3 = useQuery({ queryKey: ['exh', 3, date, enabled], enabled: enabled && dtId === 3, queryFn: async () => {
     try {
@@ -37,13 +40,13 @@ export function useExhibitionData(dtId: number, opts: { real: boolean; date?: st
       const chart = charts.find((c) => c.chartType === 'category-share') ?? charts.find((c) => c.points?.length);
       if (chart?.points?.length) return chart.points.map((p) => ({ label: p.label, value: p.value }));
       return getFakeData(3);
-    } catch { return getFakeData(3); }
+    } catch (e) { console.warn('[exhibition] q3 fallback to fakeData', e); return getFakeData(3); }
   }});
   const q4 = useQuery({ queryKey: ['exh', 4, date, enabled], enabled: enabled && dtId === 4, queryFn: async () => {
     try {
       const buckets = await getMobileAnalyticsHeatmap({ rangeStartUtc: `${date}T00:00:00Z`, rangeEndUtc: `${date}T23:59:59Z` });
       return buckets;
-    } catch { return getFakeData(4); }
+    } catch (e) { console.warn('[exhibition] q4 fallback to fakeData', e); return getFakeData(4); }
   }});
   const q5 = useQuery({ queryKey: ['exh', 5, date, enabled], enabled: enabled && dtId === 5, queryFn: async () => {
     try {
@@ -51,13 +54,13 @@ export function useExhibitionData(dtId: number, opts: { real: boolean; date?: st
       const pts: { lat: number; lng: number; timestamp: string }[] = [];
       tracks.forEach((t) => t.segments.forEach((s) => s.path.forEach((p) => pts.push({ lat: p.latitude, lng: p.longitude, timestamp: p.recordedAtUtc ?? '' }))));
       return pts;
-    } catch { return getFakeData(5); }
+    } catch (e) { console.warn('[exhibition] q5 fallback to fakeData', e); return getFakeData(5); }
   }});
   const q6 = useQuery({ queryKey: ['exh', 6, date, enabled], enabled: enabled && dtId === 6, queryFn: async () => {
     try {
       const res = await getMobileFrequentPlaces({ rangeStartUtc: `${date}T00:00:00Z`, rangeEndUtc: `${date}T23:59:59Z` });
       return res.places.map((p, i) => ({ name: p.isHome ? '家' : `地点${i + 1}`, lat: p.centerLatitude, lng: p.centerLongitude, visitCount: p.pointCount }));
-    } catch { return getFakeData(6); }
+    } catch (e) { console.warn('[exhibition] q6 fallback to fakeData', e); return getFakeData(6); }
   }});
   const q7 = useQuery({ queryKey: ['exh', 7, date, enabled], enabled: enabled && dtId === 7, queryFn: async () => {
     try {
@@ -72,13 +75,13 @@ export function useExhibitionData(dtId: number, opts: { real: boolean; date?: st
       ];
       speeds.forEach((s) => { const b = bins.find((x) => s >= x.min && s < x.max); if (b) b.count++; });
       return bins.map((b) => ({ speed: (b.min + b.max) / 2, count: b.count, label: b.label }));
-    } catch { return getFakeData(7); }
+    } catch (e) { console.warn('[exhibition] q7 fallback to fakeData', e); return getFakeData(7); }
   }});
   const q8 = useQuery({ queryKey: ['exh', 8, date, enabled], enabled: enabled && dtId === 8, queryFn: async () => {
     try {
       const res = await getPcAppUsage({ date });
       return res.items.map((it) => ({ label: it.displayName ?? it.appName, value: it.totalMinutes }));
-    } catch { return getFakeData(8); }
+    } catch (e) { console.warn('[exhibition] q8 fallback to fakeData', e); return getFakeData(8); }
   }});
   const q9 = useQuery({ queryKey: ['exh', 9, date, enabled], enabled: enabled && dtId === 9, queryFn: async () => {
     try {
@@ -87,7 +90,7 @@ export function useExhibitionData(dtId: number, opts: { real: boolean; date?: st
       const keys = Object.entries(counts).map(([k, v]) => ({ key: k, pressCount: v as number }));
       if (keys.length) return keys;
       return getFakeData(9);
-    } catch { return getFakeData(9); }
+    } catch (e) { console.warn('[exhibition] q9 fallback to fakeData', e); return getFakeData(9); }
   }});
   const q10 = useQuery({ queryKey: ['exh', 10, date, enabled], enabled: enabled && dtId === 10, queryFn: async () => {
     try {
@@ -106,19 +109,19 @@ export function useExhibitionData(dtId: number, opts: { real: boolean; date?: st
         if (t.status === 'completed' || t.status === 'Completed') v.completed++;
       });
       return Array.from(map.entries()).map(([date, v]) => ({ date, completed: v.completed, total: v.total, rate: v.total ? Math.round((v.completed / v.total) * 100) : 0 }));
-    } catch { return getFakeData(10); }
+    } catch (e) { console.warn('[exhibition] q10 fallback to fakeData', e); return getFakeData(10); }
   }});
   const q11 = useQuery({ queryKey: ['exh', 11, date, enabled], enabled: enabled && dtId === 11, queryFn: async () => {
     try {
       const habits = await getHabits();
       return { habits: habits.map((h) => h.title), data: [] as { date: string; habit: string; done: boolean }[] };
-    } catch { return getFakeData(11); }
+    } catch (e) { console.warn('[exhibition] q11 fallback to fakeData', e); return getFakeData(11); }
   }});
   const q12 = useQuery({ queryKey: ['exh', 12, date, enabled], enabled: enabled && dtId === 12, queryFn: async () => {
     try {
       const devices = await getManagedDevices();
       return devices.slice(0, 4).map((d: { displayName: string; model: string; isOnline: boolean; lastSeenAtUtc: string }) => ({ device: d.displayName || d.model, status: d.isOnline ? '在线' : '离线', health: d.isOnline ? 88 : 45, lastSync: d.lastSeenAtUtc }));
-    } catch { return getFakeData(12); }
+    } catch (e) { console.warn('[exhibition] q12 fallback to fakeData', e); return getFakeData(12); }
   }});
   const queries: Record<number, { data: unknown; isLoading: boolean; error: unknown }> = {
     1: q1 as unknown as { data: unknown; isLoading: boolean; error: unknown },

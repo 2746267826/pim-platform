@@ -3,17 +3,20 @@ import React from 'react';
 interface Props {
   children: React.ReactNode;
   cardTitle?: string;
+  resetKeys?: unknown[];
+  onRetry?: () => void;
 }
 
 interface State {
   hasError: boolean;
   error: Error | null;
+  retryCount: number;
 }
 
 export class CardErrorBoundary extends React.Component<Props, State> {
-  state: State = { hasError: false, error: null };
+  state: State = { hasError: false, error: null, retryCount: 0 };
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
@@ -21,12 +24,34 @@ export class CardErrorBoundary extends React.Component<Props, State> {
     console.error('[CardErrorBoundary]', this.props.cardTitle, error, info.componentStack);
   }
 
+  componentDidUpdate(prevProps: Props, prevState: State) {
+    if (!this.state.hasError) return;
+    const a = this.props.resetKeys, b = prevProps.resetKeys;
+    if (!a && !b) { void prevState; return; }
+    if (!a || !b || a.length !== b.length || a.some((k, i) => k !== b![i])) {
+      this.setState({ hasError: false, error: null, retryCount: 0 });
+    }
+    void prevState;
+  }
+
   private handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+    if (this.state.retryCount >= 3) return;
+    this.setState((s) => ({ hasError: false, error: null, retryCount: s.retryCount + 1 }));
+    this.props.onRetry?.();
   };
 
   render() {
     if (this.state.hasError) {
+      if (this.state.retryCount >= 3) {
+        return (
+          <div className="grid min-h-[168px] place-items-center rounded-md border border-red-200 bg-red-50 p-4 text-center">
+            <div className="space-y-2">
+              <div className="text-xs font-semibold text-red-600">多次重试失败</div>
+              <div className="mx-auto max-w-[260px] truncate text-xs text-red-500">请刷新页面或稍后重试</div>
+            </div>
+          </div>
+        );
+      }
       return (
         <div className="grid min-h-[168px] place-items-center rounded-md border border-red-200 bg-red-50 p-4 text-center">
           <div className="space-y-2">

@@ -61,7 +61,7 @@ export default function AppLayout() {
       <div className="pim-shell h-screen flex overflow-hidden">
         <Sidebar />
         <main className="pim-route-surface flex-1 overflow-auto p-4 pb-20 md:pb-4">
-          <ErrorBoundary>
+          <ErrorBoundary key={location.pathname} resetKeys={[location.pathname]}>
             <Suspense fallback={<SuspenseFallback />}>
               <Routes>
                 <Route path="/today" element={<TodayPage />} />

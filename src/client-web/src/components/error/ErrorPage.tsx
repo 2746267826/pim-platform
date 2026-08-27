@@ -29,7 +29,12 @@ export default function ErrorPage({ error, onRetry, onGoHome, title = '页面加
             </summary>
             <div className="mt-2 max-h-48 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
               <div className="font-semibold text-red-600">{error.name}: {error.message}</div>
-              {error.stack && <pre className="mt-2 whitespace-pre-wrap break-all text-[11px] text-slate-500">{error.stack}</pre>}
+              {import.meta.env.DEV && error.stack && (
+                <pre className="mt-2 whitespace-pre-wrap break-all text-[11px] text-slate-500">{error.stack}</pre>
+              )}
+              {!import.meta.env.DEV && (
+                <p className="mt-2 text-[11px] text-slate-400">错误详情已记录到控制台</p>
+              )}
             </div>
           </details>
         )}

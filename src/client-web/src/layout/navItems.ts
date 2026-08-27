@@ -13,6 +13,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: '提醒', path: '/reminders', short: '提' },
   { label: '报告', path: '/reports', short: '报' },
   { label: '习惯', path: '/habits', short: '习' },
+  { label: '展览馆', path: '/exhibition', short: '展' },
   { label: '快速记录', path: '/quick-notes', short: '记' },
   { label: '文件', path: '/files', short: '文' },
   { label: '任务', path: '/tasks', short: '任' },

@@ -22,6 +22,9 @@ import CategoryTimeline from '../components/pc-tracker/CategoryTimeline';
 import DailyActivityPanel from '../components/pc-tracker/DailyActivityPanel';
 import KeyboardHeatmap from '../components/pc-tracker/KeyboardHeatmap';
 import LabelingQueue from '../components/labeling/LabelingQueue';
+import PcAppDonut from '../components/charts/PcAppDonut';
+import KeyboardHeatmapChart from '../components/charts/KeyboardHeatmap';
+import { useExhibitionData } from '../components/charts/hooks/useExhibitionData';
 import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import PcReviewSummary from '../components/pc-tracker/PcReviewSummary';
 import ContextConfirmationPanel from '../components/pc-tracker/ContextConfirmationPanel';
@@ -354,6 +357,9 @@ export default function PcTrackerPage() {
         <LabelingQueue limit={20} />
       </AnalysisCard>
 
+      {/* 展览馆嵌入：PC应用环形 + 键盘热力（真实 via useExhibitionData） */}
+      <PcExhibitionEmbed dateStr={dateStr} />
+
       <ClassificationPreviewDialog
         suggestion={activeSuggestion}
         date={dateStr}
@@ -373,6 +379,25 @@ export default function PcTrackerPage() {
         dateStr={dateStr}
         onClose={() => setTimelineDialogOpen(false)}
       />
+    </div>
+  );
+}
+
+function PcExhibitionEmbed({ dateStr }: { dateStr: string }) {
+  const q8 = useExhibitionData(8, { real: true, date: dateStr });
+  const q9 = useExhibitionData(9, { real: true, date: dateStr });
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <section className="pim-card p-4">
+        <h3 className="text-sm font-semibold text-slate-900">PC应用时长 · 环形图（真实）</h3>
+        <p className="mt-1 text-xs text-slate-500">VS Code/Chrome占大头 · {q8.isReal ? '🔗真实' : '🔮模拟'} {q8.isEmpty ? '· 暂无数据' : ''}</p>
+        <div className="mt-3">{q8.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q8.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <PcAppDonut />}</div>
+      </section>
+      <section className="pim-card p-4">
+        <h3 className="text-sm font-semibold text-slate-900">键盘热力 · 矩阵（真实）</h3>
+        <p className="mt-1 text-xs text-slate-500">QWERTY真实频率 · {q9.isReal ? '🔗真实' : '🔮模拟'}</p>
+        <div className="mt-3">{q9.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q9.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <KeyboardHeatmapChart />}</div>
+      </section>
     </div>
   );
 }

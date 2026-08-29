@@ -24,7 +24,12 @@ export const fileApiPaths = {
   bindNextcloud: () => '/files/providers/nextcloud',
   providerTest: (id: string) => `/files/providers/${id}/test`,
   providerSync: (id: string) => `/files/providers/${id}/sync`,
-  items: (path = '/') => `/files/items?${new URLSearchParams({ path }).toString()}`,
+  items: (path = '/', page?: number, pageSize?: number) => {
+    const params: Record<string, string> = { path };
+    if (page !== undefined) params.page = String(page);
+    if (pageSize !== undefined) params.pageSize = String(pageSize);
+    return `/files/items?${new URLSearchParams(params).toString()}`;
+  },
   item: (id: string) => `/files/items/${id}`,
   upload: () => '/files/items/upload',
   itemDownload: (id: string) => `/files/items/${id}/download`,
@@ -60,8 +65,8 @@ export function syncFileProvider(id: string) {
   return apiPost<ApiResponse<FileItem[]>>(fileApiPaths.providerSync(id), {}).then(r => r.data);
 }
 
-export function getFileItems(path = '/') {
-  return apiGet<ApiResponse<FileListResponse>>(fileApiPaths.items(path)).then(r => r.data);
+export function getFileItems(path = '/', page?: number, pageSize?: number) {
+  return apiGet<ApiResponse<FileListResponse>>(fileApiPaths.items(path, page, pageSize)).then(r => r.data);
 }
 
 export function getFileItem(id: string) {

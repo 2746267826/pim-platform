@@ -6,19 +6,28 @@ public static class UpdateChecker
     {
         if (string.IsNullOrWhiteSpace(remote)) return false;
         if (string.IsNullOrWhiteSpace(current)) return true;
-        var rn = ParseN(remote!);
-        var cn = ParseN(current!);
-        if (rn != null && cn != null) return rn > cn;
+        var rv = TryParseVersion(remote!);
+        var cv = TryParseVersion(current!);
+        if (rv is not null && cv is not null) return rv.CompareTo(cv) > 0;
         return string.Compare(remote.Trim(), current.Trim(), StringComparison.Ordinal) > 0;
     }
 
-    private static int? ParseN(string v)
+    private static Version? TryParseVersion(string v)
     {
-        var trimmed = v.Trim();
+        var trimmed = v.Trim().TrimStart('v', 'V');
         if (trimmed.Length == 0) return null;
-        var coreVersion = trimmed.Split(new[] { '+', '-' }).FirstOrDefault();
-        if (coreVersion == null) return null;
-        var last = coreVersion.Split('.').LastOrDefault();
-        return int.TryParse(last, out var n) ? n : (int?)null;
+        // strip prerelease (+/-) metadata
+        var core = trimmed.Split(new[] { '+', '-' }, 2)[0];
+        core = core.Trim();
+        if (Version.TryParse(core, out var ver)) return ver;
+        // pad missing segments: e.g. "1" -> "1.0"
+        var parts = core.Split('.');
+        if (parts.All(p => int.TryParse(p, out _)))
+        {
+            // Try to normalize to at least 2 parts for Version
+            if (parts.Length == 1) core += ".0";
+            if (Version.TryParse(core, out ver)) return ver;
+        }
+        return null;
     }
 }

@@ -10,12 +10,14 @@
 
 | 验证项 | 结果 |
 |--------|------|
-| `dotnet test Pim.sln` | 1170/1170 通过 |
+| `dotnet test Pim.sln` | 截至 2026-08-29 约 1669 passed（阶段一基线 1170/1170，新增 highSpeed/liveUpdate/schedulePolicy 等阶段二模块不在阶段一验收范围） |
 | `:core:testDebugUnitTest :app:testDebugUnitTest` | 通过 |
 | `:app:assembleDebug` | 成功 |
-| `connectedDebugAndroidTest`（API 35 Pixel_Tablet） | 40/40 通过 |
+| `connectedDebugAndroidTest`（API 35 Pixel_Tablet） | 40/40 通过（阶段一基线） |
 | 恢复默认聚焦测试强制 rerun | 成功 |
 | `git diff --check` | 由根代理最终执行，本记录不声称已通过 |
+
+> 注：现仓库 `dotnet test` 已增长至 1669+（1991 个 Fact/Theory），新增模块 `highSpeed`/`liveUpdate`/`schedulePolicy` 等为阶段二产物，不计入阶段一通过项。阶段一验收以本记录 1170 基线为冻结点，阶段二基线另见阶段二验收文档。
 
 ## 手工验收
 

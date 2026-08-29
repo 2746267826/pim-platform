@@ -70,9 +70,9 @@ public sealed class EmbeddedWebViewHost
         }
 
         var tokenJson = JsonSerializer.Serialize(_authService.CurrentAccessToken);
-        var script = $"localStorage.setItem('accessToken', {tokenJson});";
+        // Memory-only injection: avoid localStorage persistence (XSS risk). Use window.__pimToken + sessionStorage.
+        var script = $"window.__pimToken={tokenJson};try{{sessionStorage.setItem('accessToken',{tokenJson});}}catch(e){{}}";
 
-        await View.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(script);
         await View.CoreWebView2.ExecuteScriptAsync(script);
     }
 

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Pim.Client.Core.Models;
 
@@ -72,8 +74,7 @@ public class AuthService
         {
             if (!File.Exists(TokenPath)) return false;
 
-            var json = await File.ReadAllTextAsync(TokenPath);
-            var data = JsonSerializer.Deserialize<PersistedToken>(json);
+            var data = await LoadPersistedTokenAsync();
             if (data is null) return false;
 
             _accessToken = data.AccessToken;
@@ -112,11 +113,59 @@ public class AuthService
                 Username = CurrentUsername,
                 DisplayName = CurrentDisplayName
             };
-            File.WriteAllText(TokenPath, JsonSerializer.Serialize(data));
+            var json = JsonSerializer.Serialize(data);
+            var bytes = Encoding.UTF8.GetBytes(json);
+            byte[] toWrite;
+            if (OperatingSystem.IsWindows())
+            {
+                try
+                {
+                    toWrite = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
+                }
+                catch
+                {
+                    toWrite = bytes;
+                }
+            }
+            else
+            {
+                // Non-Windows fallback: plaintext (encrypted storage unavailable)
+                toWrite = bytes;
+            }
+            File.WriteAllBytes(TokenPath, toWrite);
         }
         catch
         {
             // Best-effort save — don't crash if disk is full
+        }
+    }
+
+    private static async Task<PersistedToken?> LoadPersistedTokenAsync()
+    {
+        var raw = await File.ReadAllBytesAsync(TokenPath);
+        // Try DPAPI unprotect on Windows; fallback to plaintext
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                var unprotected = ProtectedData.Unprotect(raw, null, DataProtectionScope.CurrentUser);
+                var json = Encoding.UTF8.GetString(unprotected);
+                var data = JsonSerializer.Deserialize<PersistedToken>(json);
+                if (data is not null) return data;
+            }
+            catch
+            {
+                // Fall through to plaintext attempt (migration / fallback)
+            }
+        }
+        try
+        {
+            var json = Encoding.UTF8.GetString(raw);
+            return JsonSerializer.Deserialize<PersistedToken>(json);
+        }
+        catch
+        {
+            return null;
         }
     }
 

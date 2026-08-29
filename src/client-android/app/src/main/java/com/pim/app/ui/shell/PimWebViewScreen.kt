@@ -121,6 +121,7 @@ fun decidePimWebNavigation(
     trustedOrigin: String?
 ): PimWebNavigationAction {
     if (trustedOrigin == null) return PimWebNavigationAction.Block
+    if (isBlockedCleartextUrl(navigationUrl)) return PimWebNavigationAction.Block
     return if (shouldOpenInSystemBrowser(navigationUrl, trustedOrigin)) {
         PimWebNavigationAction.OpenInSystemBrowser
     } else {
@@ -130,6 +131,16 @@ fun decidePimWebNavigation(
 
 fun isHttpScheme(url: String): Boolean {
     return runCatching { URI(url).scheme.equals("http", ignoreCase = true) }.getOrDefault(false)
+}
+
+fun isLoopbackHttpUrl(url: String): Boolean {
+    if (!isHttpScheme(url)) return false
+    val host = runCatching { URI(url).host?.lowercase() }.getOrNull() ?: return false
+    return host == "127.0.0.1" || host == "localhost" || host == "10.0.2.2" || host == "::1" || host == "[::1]"
+}
+
+fun isBlockedCleartextUrl(url: String): Boolean {
+    return isHttpScheme(url) && !isLoopbackHttpUrl(url)
 }
 
 fun errorCodeToErrorMessage(errorCode: Int, description: String): ErrorMappingResult {
@@ -256,10 +267,12 @@ fun PimWebViewScreen(
 
     when (navigationAction) {
         PimWebNavigationAction.Block -> {
+            val blockedCleartext = isBlockedCleartextUrl(targetUrl)
             PimWebViewMessage(
                 modifier = modifier,
-                title = "无法加载页面",
-                reason = "服务器地址无效或不受支持。"
+                title = if (blockedCleartext) "已阻止不安全连接" else "无法加载页面",
+                reason = if (blockedCleartext) "已阻止明文 HTTP 连接，请使用 HTTPS 服务器地址。"
+                else "服务器地址无效或不受支持。"
             )
             return
         }

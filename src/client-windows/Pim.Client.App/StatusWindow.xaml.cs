@@ -79,11 +79,12 @@ public partial class StatusWindow : Window
         _apiOk = apiDiag.Ok;
         ApiConnectivityText.Text = apiDiag.Summary;
 
-        var awProbe = await ProbeEndpointAsync("http://127.0.0.1:5600/api/0/buckets/");
+        var awUrl = $"{ClientDefaults.AwBaseUrl.TrimEnd('/')}/api/0/buckets/";
+        var awProbe = await ProbeEndpointAsync(awUrl);
         _awState = awProbe.Ok ? "Available" : "Unavailable";
         AwSummaryText.Text = awProbe.Ok ? "ActivityWatch 已连接" : "ActivityWatch 未连接";
         AwDetailText.Text =
-            $"URL: http://127.0.0.1:5600/api/0/buckets/\n" +
+            $"URL: {awUrl}\n" +
             $"Status: {awProbe.StatusLine}\n" +
             $"Message: {awProbe.Message}\n" +
             $"Time: {timestamp}";

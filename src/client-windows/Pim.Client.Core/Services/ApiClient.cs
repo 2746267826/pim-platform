@@ -57,11 +57,16 @@ public class ApiClient
     public static string NormalizeServerUrl(string baseUrl)
     {
         var trimmed = baseUrl.Trim().TrimEnd('/');
+        if (!trimmed.Contains("://", StringComparison.Ordinal))
+        {
+            trimmed = "http://" + trimmed;
+        }
         if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
         {
             return trimmed;
         }
-
+        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+            return trimmed;
         return uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase)
             ? new UriBuilder(uri) { Host = "127.0.0.1" }.Uri.ToString().TrimEnd('/')
             : trimmed;

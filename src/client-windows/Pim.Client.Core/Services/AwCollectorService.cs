@@ -17,7 +17,7 @@ public class AwCollectorService : IDisposable
     private DateTime? _lastUploadTime;
     private string? _lastUploadError;
     private static readonly object _lock = new();
-    private static readonly string AwBase = Environment.GetEnvironmentVariable("AW_BASE_URL") ?? "http://127.0.0.1:5600";
+    private static readonly string AwBase = ClientDefaults.AwBaseUrl;
     private AwInfoPayload? _awInfo;
     private readonly Dictionary<string, AwBucketPayload> _bucketCache = new();
 

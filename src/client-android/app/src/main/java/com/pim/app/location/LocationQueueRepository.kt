@@ -11,14 +11,32 @@ import com.pim.app.location.quality.RawLocationFix
 import javax.inject.Inject
 
 class LocationQueueRepository @Inject constructor(
-    private val dao: MobileDataDao
+    private val dao: MobileDataDao,
+    private val compressor: TrajectoryCompressor = TrajectoryCompressor()
 ) {
+    @Volatile
+    private var lastAccepted: QualityAcceptedLocation? = null
+
     suspend fun enqueueAccepted(
         accepted: QualityAcceptedLocation,
         rawJson: String,
         source: String = "auto"
     ): Long {
-        return dao.insertLocationPoint(MobileLocationPointEntity.fromAccepted(accepted, rawJson, source))
+        val prev = lastAccepted
+        if (prev != null && compressor.shouldClusterDrop(prev, accepted)) {
+            // Stationary cluster: drop to avoid膨胀 (2.5s挡长期高频)
+            return -1L
+        }
+        val id = dao.insertLocationPoint(MobileLocationPointEntity.fromAccepted(accepted, rawJson, source))
+        if (id != -1L) lastAccepted = accepted
+        return id
+    }
+
+    /**
+     * Batch compression helper for upload path: Douglas-Peucker reduces synced payload.
+     */
+    fun compressForUpload(points: List<MobileLocationPointEntity>): List<MobileLocationPointEntity> {
+        return compressor.compress(points)
     }
 
     suspend fun recordDropped(

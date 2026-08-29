@@ -49,7 +49,8 @@ object LocationUploadPlanner {
 class LocationUploadCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
     private val database: AppDatabase,
-    private val api: ApiService
+    private val api: ApiService,
+    private val compressor: com.pim.app.location.TrajectoryCompressor
 ) {
     private val dao: MobileDataDao = database.mobileDataDao()
 
@@ -124,9 +125,11 @@ class LocationUploadCoordinator @Inject constructor(
 
     private suspend fun pendingRows(limit: Int): List<MobileLocationPointEntity> {
         val pending = dao.getLocationPointsBySyncStatus(MobileSyncStatus.PENDING, limit)
-        if (pending.size >= limit) return pending
+        if (pending.size >= limit) return compressor.compress(pending).take(limit)
         val failed = dao.getLocationPointsBySyncStatus(MobileSyncStatus.FAILED, limit - pending.size)
-        return pending + failed
+        val combined = pending + failed
+        // PIM-035: Douglas-Peucker/5m+30s clustering reduces upload payload for high-frequency 2.5s挡
+        return compressor.compress(combined).take(limit)
     }
 
     private suspend fun applyStatusUpdates(updates: LocationUploadStatusUpdates) {

@@ -12,7 +12,7 @@ import javax.inject.Inject
 
 class LocationQueueRepository @Inject constructor(
     private val dao: MobileDataDao,
-    private val compressor: TrajectoryCompressor = TrajectoryCompressor()
+    private val compressor: TrajectoryCompressor
 ) {
     @Volatile
     private var lastAccepted: QualityAcceptedLocation? = null

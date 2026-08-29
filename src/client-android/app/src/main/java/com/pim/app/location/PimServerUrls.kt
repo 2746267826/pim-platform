@@ -1,8 +1,9 @@
 package com.pim.app.location
 
-// Default server URL: production should use https; http 127.0.0.1 is allowed only for local debug
-// (cleartext permitted via network_security_config loopback domain-config).
-const val DEFAULT_PIM_SERVER_URL = "https://127.0.0.1:5858"
+// Default server URL: keep http for local dev (127.0.0.1:5858) so fresh installs work without TLS;
+// production https is selected via user settings / normalized input. Non-loopback http is blocked
+// by PimWebViewScreen + network_security_config (cleartext false except loopback).
+const val DEFAULT_PIM_SERVER_URL = "http://127.0.0.1:5858"
 
 fun normalizePimServerUrl(value: String): String {
     val trimmed = value.trim().trimEnd('/')
@@ -10,7 +11,7 @@ fun normalizePimServerUrl(value: String): String {
     return if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
         trimmed
     } else {
-        "https://$trimmed"
+        "http://$trimmed"
     }
 }
 

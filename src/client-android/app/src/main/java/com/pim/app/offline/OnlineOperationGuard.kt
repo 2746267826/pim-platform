@@ -104,9 +104,12 @@ class OnlineOperationGuard @Inject constructor(
         }
         val ctx = context ?: return
         try {
-            // Ensure WorkManager is initialized; actual worker is MobileSyncWorker via scheduler,
-            // but we enqueue a generic now-work if scheduler unavailable (e.g. in tests this is no-op).
-            WorkManager.getInstance(ctx)
+            val wm = WorkManager.getInstance(ctx)
+            // Fallback when scheduler is unavailable (e.g. in unit tests or early init): enqueue MobileSyncWorker directly.
+            val request = androidx.work.OneTimeWorkRequestBuilder<com.pim.app.mobile.sync.MobileSyncWorker>()
+                .setConstraints(androidx.work.Constraints.Builder().setRequiredNetworkType(androidx.work.NetworkType.CONNECTED).build())
+                .build()
+            wm.enqueueUniqueWork(MobileSyncScheduler.NOW_NAME, androidx.work.ExistingWorkPolicy.KEEP, request)
         } catch (_: Exception) {
         }
     }

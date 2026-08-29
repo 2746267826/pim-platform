@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "PIM 数据流图 — 从采集到存储的完整链路",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1080, 760],
+    "views": [
+      { "id": "mobilepath", "label": "移动端定位链路", "focus": ["androidLoc", "nginxGw", "pimApi", "trackAgg", "postgres"], "note": "安卓定位 → 网关 → API → 轨迹聚合 → 入库" },
+      { "id": "pcpath", "label": "PC 活动链路", "focus": ["pcActivity", "nginxGw", "pimApi", "classify", "postgres"], "note": "PC 活动 → 网关 → API → 分类引擎 → 入库" },
+      { "id": "webpath", "label": "前端请求链路", "focus": ["webAction", "nginxGw", "pimApi", "postgres"], "note": "前端请求 → 网关 → API → 业务落库 → 响应" }
+    ]
+  },
+  "stages": [
+    { "label": "终端采集" },
+    { "label": "网关接入" },
+    { "label": "接入处理" },
+    { "label": "加工引擎" },
+    { "label": "持久化" }
+  ],
+  "nodes": [
+    { "id": "androidLoc", "type": "frontend", "label": "安卓定位采集", "sublabel": "高精度 · 20m 门控", "stage": 0, "row": 0, "tag": "client-android", "width": 140 },
+    { "id": "pcActivity", "type": "frontend", "label": "PC 活动采集", "sublabel": "前台应用·窗口·键鼠", "stage": 0, "row": 2, "tag": "client-windows" },
+    { "id": "webAction", "type": "frontend", "label": "Web 端操作", "sublabel": "日历·任务·文件·笔记", "stage": 0, "row": 4, "tag": "client-web" },
+    { "id": "nginxGw", "type": "cloud", "label": "Nginx 网关", "sublabel": "HTTPS :443 · 反代 :5000", "stage": 1, "row": 1, "tag": "统一入口" },
+    { "id": "pimApi", "type": "backend", "label": "PIM API 接入层", "sublabel": "ASP.NET Core · JWT 鉴权", "stage": 2, "row": 1, "tag": "Pim.Api" },
+    { "id": "classify", "type": "backend", "label": "活动分类引擎", "sublabel": "三层递进·规则覆盖", "stage": 3, "row": 0, "tag": "确定性计算" },
+    { "id": "trackAgg", "type": "backend", "label": "轨迹聚合引擎", "sublabel": "速度阈值·停留识别", "stage": 3, "row": 2, "tag": "轨迹聚合" },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "事实源 · 16-alpine", "stage": 4, "row": 1, "tag": "持久化" }
+  ],
+  "flows": [
+    { "from": "androidLoc", "to": "nginxGw", "label": "定位上报", "classification": "HTTPS · 移动端定位" },
+    { "from": "pcActivity", "to": "nginxGw", "label": "活动上报", "classification": "HTTPS · PC 活动", "labelAt": [140, 340] },
+    { "from": "webAction", "to": "nginxGw", "label": "前端请求", "classification": "HTTPS · 业务操作", "labelAt": [140, 500] },
+    { "from": "nginxGw", "to": "pimApi", "label": "网关转发", "classification": "反代 :5000" },
+    { "from": "pimApi", "to": "classify", "label": "原始活动流", "classification": "待分类", "labelAt": [620, 180] },
+    { "from": "pimApi", "to": "trackAgg", "label": "原始定位流", "classification": "待聚合", "labelAt": [620, 360] },
+    { "from": "classify", "to": "postgres", "label": "分类落库", "classification": "活动时间线", "labelAt": [860, 180] },
+    { "from": "trackAgg", "to": "postgres", "label": "轨迹落库", "classification": "停留·里程", "labelAt": [860, 360] },
+    { "from": "pimApi", "to": "postgres", "label": "业务写库", "classification": "日历·任务·文件", "route": "bottom-channel", "labelAt": [750, 520] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "主链路 · 采集到入库", "items": ["移动端定位与 PC 活动经 Nginx 统一入口进入 PIM API，分别由轨迹聚合与活动分类引擎处理后再落库", "前端业务操作（日历、任务、文件、笔记）经同一网关与 API 直接写库", "所有处理由服务端代码确定性计算，可复现；分类与聚合结果带置信度与判定依据"] },
+    { "dot": "emerald", "title": "存储与扩展", "items": ["PostgreSQL 是唯一事实源，Redis 负责会话与限流（图中省略以保主链清晰）", "文件切块经哈希嵌入写入 Qdrant（384 维）支撑混合检索，MinIO 存对象、Tika 做文档解析", "敏感路径 /Secrets/* 等默认不进入 AI 处理"] },
+    { "dot": "violet", "title": "消费与智能", "items": ["Web 今日面板与 Hermes Agent 通过同一套 API/MCP 消费数据，今日面板呈现已处理结论而非原始流水", "LiteLLM 聚合外部模型，调用前过滤敏感数据，prompt/response 完整落库审计，可通过 AI_ENABLED=false 一键关闭", "前端请求经 “前端 → 网关 → API → 数据库 → 响应” 闭环返回"] }
+  ]
+}

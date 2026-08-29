@@ -1,0 +1,219 @@
+<svg viewBox="0 0 1080 760" role="img" lang="zh-CN" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase">
+        <title id="archify-diagram-title">PIM 数据流图 — 从采集到存储的完整链路</title>
+        <desc id="archify-diagram-description">由 Archify 生成的数据流图。</desc>
+        <!-- Definitions -->
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-default" />
+          </marker>
+          <marker id="arrowhead-emphasis" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-emphasis" />
+          </marker>
+          <marker id="arrowhead-security" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-security" />
+          </marker>
+          <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-dashed" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" class="c-grid" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <!-- Background Grid -->
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- Data Stages -->
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="0" x="16" y="46" width="168" height="640" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="100" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">01 / 终端采集</text>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="1" x="231" y="46" width="168" height="640" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="315" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">02 / 网关接入</text>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="2" x="446" y="46" width="168" height="640" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="530" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">03 / 接入处理</text>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="3" x="661" y="46" width="168" height="640" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="745" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">04 / 加工引擎</text>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="stage" data-composition-frame-id="4" x="876" y="46" width="168" height="640" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="960" y="68" class="t-dim" font-size="9" font-weight="600" text-anchor="middle">05 / 持久化</text>
+
+        <!-- Flow paths -->
+        <path data-edge-from="androidLoc" data-edge-to="nginxGw" data-edge-label="定位上报" data-edge-key="0" data-composition-points="170,157;214.5,157;214.5,271;259,271" d="M 170 157 L 214.5 157 L 214.5 271 L 259 271" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="pcActivity" data-edge-to="nginxGw" data-edge-label="活动上报" data-edge-key="1" data-composition-points="156,385;207.5,385;207.5,271;259,271" d="M 156 385 L 207.5 385 L 207.5 271 L 259 271" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="webAction" data-edge-to="nginxGw" data-edge-label="前端请求" data-edge-key="2" data-composition-points="156,613;207.5,613;207.5,271;259,271" d="M 156 613 L 207.5 613 L 207.5 271 L 259 271" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="nginxGw" data-edge-to="pimApi" data-edge-label="网关转发" data-edge-key="3" data-composition-points="371,271;474,271" d="M 371 271 L 474 271" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="pimApi" data-edge-to="classify" data-edge-label="原始活动流" data-edge-key="4" data-composition-points="586,271;637.5,271;637.5,157;689,157" d="M 586 271 L 637.5 271 L 637.5 157 L 689 157" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="pimApi" data-edge-to="trackAgg" data-edge-label="原始定位流" data-edge-key="5" data-composition-points="586,271;637.5,271;637.5,385;689,385" d="M 586 271 L 637.5 271 L 637.5 385 L 689 385" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="classify" data-edge-to="postgres" data-edge-label="分类落库" data-edge-key="6" data-composition-points="801,157;852.5,157;852.5,271;904,271" d="M 801 157 L 852.5 157 L 852.5 271 L 904 271" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="trackAgg" data-edge-to="postgres" data-edge-label="轨迹落库" data-edge-key="7" data-composition-points="801,385;852.5,385;852.5,271;904,271" d="M 801 385 L 852.5 385 L 852.5 271 L 904 271" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="pimApi" data-edge-to="postgres" data-edge-label="业务写库" data-edge-key="8" data-composition-points="586,271;586,326;904,326;904,271" d="M 586 271 L 586 326 L 904 326 L 904 271" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+
+        <!-- Nodes -->
+        <g id="node-androidLoc" data-node-id="androidLoc" data-node-label="安卓定位采集" tabindex="0" role="button" aria-label="聚焦安卓定位采集，高精度 · 20m 门控, 01 / 终端采集" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="高精度 · 20m 门控" data-node-tag="client-android" data-node-context="01 / 终端采集">
+          <title>安卓定位采集 · 高精度 · 20m 门控 · 01 / 终端采集 · client-android</title>
+          <rect x="30" y="128" width="140" height="58" rx="6" class="c-mask"/>
+          <rect x="30" y="128" width="140" height="58" rx="6" class="c-frontend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(36 134) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="100" y="149" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">安卓定位采集</text>
+          <text data-detail="context" x="100" y="165" class="t-muted" font-size="7" text-anchor="middle">高精度 · 20m 门控</text>
+        <text data-detail="fine" x="100" y="175" class="t-frontend" font-size="7" text-anchor="middle">client-android</text>
+        </g>
+
+        <g id="node-pcActivity" data-node-id="pcActivity" data-node-label="PC 活动采集" tabindex="0" role="button" aria-label="聚焦PC 活动采集，前台应用·窗口·键鼠, 01 / 终端采集" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="前台应用·窗口·键鼠" data-node-tag="client-windows" data-node-context="01 / 终端采集">
+          <title>PC 活动采集 · 前台应用·窗口·键鼠 · 01 / 终端采集 · client-windows</title>
+          <rect x="44" y="356" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="44" y="356" width="112" height="58" rx="6" class="c-frontend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(50 362) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="100" y="377" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">PC 活动采集</text>
+          <text data-detail="context" x="100" y="393" class="t-muted" font-size="7" text-anchor="middle">前台应用·窗口·键鼠</text>
+        <text data-detail="fine" x="100" y="403" class="t-frontend" font-size="7" text-anchor="middle">client-windows</text>
+        </g>
+
+        <g id="node-webAction" data-node-id="webAction" data-node-label="Web 端操作" tabindex="0" role="button" aria-label="聚焦Web 端操作，日历·任务·文件·笔记, 01 / 终端采集" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="日历·任务·文件·笔记" data-node-tag="client-web" data-node-context="01 / 终端采集">
+          <title>Web 端操作 · 日历·任务·文件·笔记 · 01 / 终端采集 · client-web</title>
+          <rect x="44" y="584" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="44" y="584" width="112" height="58" rx="6" class="c-frontend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(50 590) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="100" y="605" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Web 端操作</text>
+          <text data-detail="context" x="100" y="621" class="t-muted" font-size="7" text-anchor="middle">日历·任务·文件·笔记</text>
+        <text data-detail="fine" x="100" y="631" class="t-frontend" font-size="7" text-anchor="middle">client-web</text>
+        </g>
+
+        <g id="node-nginxGw" data-node-id="nginxGw" data-node-label="Nginx 网关" tabindex="0" role="button" aria-label="聚焦Nginx 网关，HTTPS :443 · 反代 :5000, 02 / 网关接入" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="HTTPS :443 · 反代 :5000" data-node-tag="统一入口" data-node-context="02 / 网关接入">
+          <title>Nginx 网关 · HTTPS :443 · 反代 :5000 · 02 / 网关接入 · 统一入口</title>
+          <rect x="259" y="242" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="259" y="242" width="112" height="58" rx="6" class="c-cloud" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(265 248) scale(0.6875)">
+            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="315" y="263" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">Nginx 网关</text>
+          <text data-detail="context" x="315" y="279" class="t-muted" font-size="7" text-anchor="middle">HTTPS :443 · 反代 :5000</text>
+        <text data-detail="fine" x="315" y="289" class="t-cloud" font-size="7" text-anchor="middle">统一入口</text>
+        </g>
+
+        <g id="node-pimApi" data-node-id="pimApi" data-node-label="PIM API 接入层" tabindex="0" role="button" aria-label="聚焦PIM API 接入层，ASP.NET Core · JWT 鉴权, 03 / 接入处理" aria-pressed="false" data-node-kind="backend" data-node-sublabel="ASP.NET Core · JWT 鉴权" data-node-tag="Pim.Api" data-node-context="03 / 接入处理">
+          <title>PIM API 接入层 · ASP.NET Core · JWT 鉴权 · 03 / 接入处理 · Pim.Api</title>
+          <rect x="474" y="242" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="474" y="242" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(480 248) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="530" y="263" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">PIM API 接入层</text>
+          <text data-detail="context" x="530" y="279" class="t-muted" font-size="7" text-anchor="middle">ASP.NET Core · JWT 鉴权</text>
+        <text data-detail="fine" x="530" y="289" class="t-backend" font-size="7" text-anchor="middle">Pim.Api</text>
+        </g>
+
+        <g id="node-classify" data-node-id="classify" data-node-label="活动分类引擎" tabindex="0" role="button" aria-label="聚焦活动分类引擎，三层递进·规则覆盖, 04 / 加工引擎" aria-pressed="false" data-node-kind="backend" data-node-sublabel="三层递进·规则覆盖" data-node-tag="确定性计算" data-node-context="04 / 加工引擎">
+          <title>活动分类引擎 · 三层递进·规则覆盖 · 04 / 加工引擎 · 确定性计算</title>
+          <rect x="689" y="128" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="689" y="128" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(695 134) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="745" y="149" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">活动分类引擎</text>
+          <text data-detail="context" x="745" y="165" class="t-muted" font-size="7" text-anchor="middle">三层递进·规则覆盖</text>
+        <text data-detail="fine" x="745" y="175" class="t-backend" font-size="7" text-anchor="middle">确定性计算</text>
+        </g>
+
+        <g id="node-trackAgg" data-node-id="trackAgg" data-node-label="轨迹聚合引擎" tabindex="0" role="button" aria-label="聚焦轨迹聚合引擎，速度阈值·停留识别, 04 / 加工引擎" aria-pressed="false" data-node-kind="backend" data-node-sublabel="速度阈值·停留识别" data-node-tag="轨迹聚合" data-node-context="04 / 加工引擎">
+          <title>轨迹聚合引擎 · 速度阈值·停留识别 · 04 / 加工引擎 · 轨迹聚合</title>
+          <rect x="689" y="356" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="689" y="356" width="112" height="58" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(695 362) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="745" y="377" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">轨迹聚合引擎</text>
+          <text data-detail="context" x="745" y="393" class="t-muted" font-size="7" text-anchor="middle">速度阈值·停留识别</text>
+        <text data-detail="fine" x="745" y="403" class="t-backend" font-size="7" text-anchor="middle">轨迹聚合</text>
+        </g>
+
+        <g id="node-postgres" data-node-id="postgres" data-node-label="PostgreSQL" tabindex="0" role="button" aria-label="聚焦PostgreSQL，事实源 · 16-alpine, 05 / 持久化" aria-pressed="false" data-node-kind="database" data-node-sublabel="事实源 · 16-alpine" data-node-tag="持久化" data-node-context="05 / 持久化">
+          <title>PostgreSQL · 事实源 · 16-alpine · 05 / 持久化 · 持久化</title>
+          <rect x="904" y="242" width="112" height="58" rx="6" class="c-mask"/>
+          <rect x="904" y="242" width="112" height="58" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(910 248) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="960" y="263" class="t-primary" font-size="10" font-weight="600" text-anchor="middle">PostgreSQL</text>
+          <text data-detail="context" x="960" y="279" class="t-muted" font-size="7" text-anchor="middle">事实源 · 16-alpine</text>
+        <text data-detail="fine" x="960" y="289" class="t-database" font-size="7" text-anchor="middle">持久化</text>
+        </g>
+
+        <!-- Flow labels -->
+        <g data-detail="context" data-edge-from="androidLoc" data-edge-to="nginxGw" data-edge-label="定位上报" data-edge-key="0">
+          <rect x="164.4" y="193" width="100.2" height="27" rx="4" class="c-mask"/>
+          <text x="214.5" y="204" class="t-muted" font-size="8" text-anchor="middle">定位上报</text>
+        <text data-detail="fine" x="214.5" y="215" class="t-dim" font-size="7" text-anchor="middle">HTTPS · 移动端定位</text>
+        </g>
+        <g data-detail="context" data-edge-from="pcActivity" data-edge-to="nginxGw" data-edge-label="活动上报" data-edge-key="1">
+          <rect x="97.25" y="329" width="85.5" height="27" rx="4" class="c-mask"/>
+          <text x="140" y="340" class="t-muted" font-size="8" text-anchor="middle">活动上报</text>
+        <text data-detail="fine" x="140" y="351" class="t-dim" font-size="7" text-anchor="middle">HTTPS · PC 活动</text>
+        </g>
+        <g data-detail="context" data-edge-from="webAction" data-edge-to="nginxGw" data-edge-label="前端请求" data-edge-key="2">
+          <rect x="94.8" y="489" width="90.4" height="27" rx="4" class="c-mask"/>
+          <text x="140" y="500" class="t-muted" font-size="8" text-anchor="middle">前端请求</text>
+        <text data-detail="fine" x="140" y="511" class="t-dim" font-size="7" text-anchor="middle">HTTPS · 业务操作</text>
+        </g>
+        <g data-detail="context" data-edge-from="nginxGw" data-edge-to="pimApi" data-edge-label="网关转发" data-edge-key="3">
+          <rect x="392" y="250" width="61" height="27" rx="4" class="c-mask"/>
+          <text x="422.5" y="261" class="t-muted" font-size="8" text-anchor="middle">网关转发</text>
+        <text data-detail="fine" x="422.5" y="272" class="t-dim" font-size="7" text-anchor="middle">反代 :5000</text>
+        </g>
+        <g data-detail="context" data-edge-from="pimApi" data-edge-to="classify" data-edge-label="原始活动流" data-edge-key="4">
+          <rect x="589.5" y="169" width="61" height="27" rx="4" class="c-mask"/>
+          <text x="620" y="180" class="t-muted" font-size="8" text-anchor="middle">原始活动流</text>
+        <text data-detail="fine" x="620" y="191" class="t-dim" font-size="7" text-anchor="middle">待分类</text>
+        </g>
+        <g data-detail="context" data-edge-from="pimApi" data-edge-to="trackAgg" data-edge-label="原始定位流" data-edge-key="5">
+          <rect x="589.5" y="349" width="61" height="27" rx="4" class="c-mask"/>
+          <text x="620" y="360" class="t-muted" font-size="8" text-anchor="middle">原始定位流</text>
+        <text data-detail="fine" x="620" y="371" class="t-dim" font-size="7" text-anchor="middle">待聚合</text>
+        </g>
+        <g data-detail="context" data-edge-from="classify" data-edge-to="postgres" data-edge-label="分类落库" data-edge-key="6">
+          <rect x="829.5" y="169" width="61" height="27" rx="4" class="c-mask"/>
+          <text x="860" y="180" class="t-muted" font-size="8" text-anchor="middle">分类落库</text>
+        <text data-detail="fine" x="860" y="191" class="t-dim" font-size="7" text-anchor="middle">活动时间线</text>
+        </g>
+        <g data-detail="context" data-edge-from="trackAgg" data-edge-to="postgres" data-edge-label="轨迹落库" data-edge-key="7">
+          <rect x="831.95" y="349" width="56.1" height="27" rx="4" class="c-mask"/>
+          <text x="860" y="360" class="t-muted" font-size="8" text-anchor="middle">轨迹落库</text>
+        <text data-detail="fine" x="860" y="371" class="t-dim" font-size="7" text-anchor="middle">停留·里程</text>
+        </g>
+        <g data-detail="context" data-edge-from="pimApi" data-edge-to="postgres" data-edge-label="业务写库" data-edge-key="8">
+          <rect x="709.7" y="509" width="80.6" height="27" rx="4" class="c-mask"/>
+          <text x="750" y="520" class="t-muted" font-size="8" text-anchor="middle">业务写库</text>
+        <text data-detail="fine" x="750" y="531" class="t-dim" font-size="7" text-anchor="middle">日历·任务·文件</text>
+        </g>
+
+        <!-- Legend -->
+        <g data-legend="" data-legend-bridge="">
+          <text x="40" y="704" class="t-primary" font-size="12" font-weight="650">图例</text>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="数据存储" data-legend-x="40" data-legend-baseline="724" data-legend-width="83">
+            <rect x="40" y="716" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
+            <text x="62" y="724" class="t-muted" font-size="10" font-weight="500">数据存储</text>
+          </g>
+          <g data-legend-semantic-kind="default" data-legend-x="145" data-legend-baseline="724" data-legend-width="73">
+            <path d="M 145 721 L 179 721" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+            <text x="188" y="724" class="t-muted" font-size="10" font-weight="500">数据流</text>
+          </g>
+        </g>
+      </svg>

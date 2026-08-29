@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "PIM 个人信息中枢 — 系统架构与部署拓扑",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1280, 880],
+    "views": [
+      {
+        "id": "requestpath",
+        "label": "核心请求链路",
+        "focus": ["web", "android", "windows", "nginx", "pimapi", "postgres", "redis"],
+        "note": "三端经反代进入 API 再到存储"
+      },
+      {
+        "id": "mcpchain",
+        "label": "智能体调用链",
+        "focus": ["hermes", "mcp", "pimapi", "storage"],
+        "note": "Hermes 经 MCP 调用 PIM 能力"
+      },
+      {
+        "id": "deployment",
+        "label": "容器化部署",
+        "focus": ["panel", "nginx", "pimapi", "postgres", "redis", "storage"],
+        "note": "1Panel 编排的 Docker 网络与持久化"
+      }
+    ]
+  },
+  "components": [
+    { "id": "android", "type": "frontend", "label": "安卓客户端", "sublabel": "Kotlin · 定位·使用统计", "pos": [28, 92], "size": [168, 66], "tag": "client-android" },
+    { "id": "web", "type": "frontend", "label": "Web 控制台", "sublabel": "React / TypeScript", "pos": [218, 92], "size": [150, 66], "tag": "client-web" },
+    { "id": "windows", "type": "external", "label": "Windows 守护", "sublabel": "PC 活动采集·键鼠统计", "pos": [390, 92], "size": [150, 66], "tag": "client-windows" },
+    { "id": "hermes", "type": "external", "label": "Hermes Agent", "sublabel": "AI 助手·外部调用方", "pos": [1080, 92], "size": [150, 66], "tag": "MCP 客户端" },
+    { "id": "nginx", "type": "cloud", "label": "Nginx 反向代理", "sublabel": "HTTPS :443 / 转发 :5000", "pos": [218, 264], "size": [150, 66], "tag": "nginx.conf" },
+    { "id": "panel", "type": "cloud", "label": "1Panel 面板", "sublabel": "Docker 编排·运维", "pos": [1080, 264], "size": [150, 66], "tag": "容器编排" },
+    { "id": "pimapi", "type": "backend", "label": "PIM API 服务", "sublabel": "ASP.NET Core 8 · 模块化", "pos": [688, 412], "size": [152, 70], "tag": "Pim.Api" },
+    { "id": "modules", "type": "backend", "label": "业务模块集群", "sublabel": "日历·任务·文件·笔记·统计", "pos": [500, 412], "size": [152, 70], "tag": "6 Modules" },
+    { "id": "mcp", "type": "backend", "label": "PIM MCP 服务", "sublabel": "工具暴露·供 Agent 调用", "pos": [876, 412], "size": [152, 70], "tag": "MCP Server" },
+    { "id": "postgres", "type": "database", "label": "PostgreSQL", "sublabel": "主库 pim · 16-alpine", "pos": [500, 590], "size": [152, 70], "tag": "持久化" },
+    { "id": "redis", "type": "database", "label": "Redis 缓存", "sublabel": "会话·限流·队列", "pos": [688, 590], "size": [152, 70], "tag": "7-alpine" },
+    { "id": "storage", "type": "cloud", "label": "存储与智能层", "sublabel": "MinIO · Qdrant · Tika · LiteLLM", "pos": [876, 590], "size": [168, 70], "tag": "对象·向量·AI" }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "宿主机 · 1Panel 容器网络 pim-net", "wraps": ["nginx", "pimapi", "modules", "mcp", "postgres", "redis", "storage"], "pad": 16 },
+    { "kind": "security-group", "label": "私有应用网络 · 仅 API 可访问存储", "wraps": ["pimapi", "modules", "postgres", "redis", "storage"], "pad": 6 }
+  ],
+  "connections": [
+    { "from": "android", "to": "nginx", "label": "HTTPS 定位上报" },
+    { "from": "web", "to": "nginx", "label": "HTTPS 页面与接口", "labelAt": [299, 180] },
+    { "from": "windows", "to": "nginx", "label": "HTTPS 活动采集" },
+    { "from": "nginx", "to": "pimapi", "label": "反代转发 :5000" },
+    { "from": "pimapi", "to": "modules", "label": "模块路由", "labelAt": [620, 496] },
+    { "from": "modules", "to": "postgres", "label": "SQL 持久化", "labelAt": [576, 496] },
+    { "from": "pimapi", "to": "postgres", "label": "EF Core 连接", "fromSide": "bottom", "toSide": "top", "via": [[764, 540], [576, 540]], "labelAt": [640, 560] },
+    { "from": "pimapi", "to": "redis", "label": "缓存 / 限流", "labelAt": [810, 520] },
+    { "from": "pimapi", "to": "storage", "label": "对象存储·向量·AI", "fromSide": "top", "toSide": "top", "via": [[764, 382], [858, 382], [858, 562], [960, 562]], "labelAt": [880, 496] },
+    { "from": "mcp", "to": "pimapi", "label": "工具调用", "fromSide": "top", "toSide": "top", "via": [[952, 362], [764, 362]], "labelAt": [858, 348] },
+    { "from": "hermes", "to": "mcp", "label": "MCP 协议" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "部署关系", "items": ["Nginx 统一入口，反代到 pim-api:5000，仅通过 HTTPS 对外", "1Panel 编排 pim-net 容器网络，管理 API、数据库与存储的生命周期与卷", "所有持久化数据挂载到宿主机 /data，日志落地 jsonl"] },
+    { "dot": "emerald", "title": "数据与模块", "items": ["API 通过 ModuleRegistry 动态加载 6 个业务模块，统一鉴权与审计", "PostgreSQL 是唯一事实源，Redis 负责会话与限流，MinIO/Qdrant/Tika 为可选扩展", "Web 与三端守护仅通过 HTTPS 调用 API，不直连数据库"] },
+    { "dot": "violet", "title": "智能体集成", "items": ["Hermes Agent 通过 MCP 协议调用 PIM MCP Server，工具执行再转调 Pim.Api 内部接口", "LiteLLM 网关聚合外部模型，AI 调用可审计、可关闭，核心统计仍由服务端代码确定性计算", "敏感路径 /Secrets/* 默认不进入 AI 处理"] }
+  ]
+}

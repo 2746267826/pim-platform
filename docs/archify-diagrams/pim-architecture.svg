@@ -1,0 +1,280 @@
+<svg viewBox="0 0 1280 880" role="img" lang="zh-CN" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase">
+        <title id="archify-diagram-title">PIM 个人信息中枢 — 系统架构与部署拓扑</title>
+        <desc id="archify-diagram-description">由 Archify 生成的架构图。</desc>
+        <!-- Definitions -->
+        <defs>
+          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-default" />
+          </marker>
+          <marker id="arrowhead-emphasis" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-emphasis" />
+          </marker>
+          <marker id="arrowhead-security" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-security" />
+          </marker>
+          <marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" class="m-dashed" />
+          </marker>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" class="c-grid" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+
+        <!-- Background Grid -->
+        <rect width="100%" height="100%" fill="url(#grid)" />
+
+        <!-- Boundaries (behind everything) -->
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="region" data-composition-frame-id="0" data-composition-frame-label="宿主机 · 1Panel 容器网络 pim-net" x="202" y="240" width="858" height="440" rx="12" class="c-region" stroke-width="1"/>
+
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="security-group" data-composition-frame-id="1" data-composition-frame-label="私有应用网络 · 仅 API 可访问存储" x="494" y="388" width="556" height="292" rx="8" class="c-security-group" stroke-width="1"/>
+
+        <!-- Connection paths (before components for correct z-order) -->
+        <path data-edge-from="android" data-edge-to="nginx" data-edge-label="HTTPS 定位上报" data-edge-key="0" data-composition-points="196,125;207,125;207,297;218,297" d="M 196 125 L 201.5 125 Q 207 125 207 130.5 L 207 291.5 Q 207 297 212.5 297 L 218 297" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="web" data-edge-to="nginx" data-edge-label="HTTPS 页面与接口" data-edge-key="1" data-composition-points="293,158;293,264" d="M 293 158 L 293 264" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="windows" data-edge-to="nginx" data-edge-label="HTTPS 活动采集" data-edge-key="2" data-composition-points="390,125;379,125;379,290;368,290" d="M 390 125 L 384.5 125 Q 379 125 379 130.5 L 379 284.5 Q 379 290 373.5 290 L 368 290" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="nginx" data-edge-to="pimapi" data-edge-label="反代转发 :5000" data-edge-key="3" data-composition-points="368,304;664,304;664,447;688,447" d="M 368 304 L 656 304 Q 664 304 664 312 L 664 439 Q 664 447 672 447 L 688 447" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="pimapi" data-edge-to="modules" data-edge-label="模块路由" data-edge-key="4" data-composition-points="688,447;652,447" d="M 688 447 L 652 447" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="modules" data-edge-to="postgres" data-edge-label="SQL 持久化" data-edge-key="5" data-composition-points="576,482;576,590" d="M 576 482 L 576 590" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="pimapi" data-edge-to="postgres" data-edge-label="EF Core 连接" data-edge-key="6" data-composition-points="764,482;764,540;576,540;576,590" d="M 764 482 L 764 532 Q 764 540 756 540 L 584 540 Q 576 540 576 548 L 576 590" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="pimapi" data-edge-to="redis" data-edge-label="缓存 / 限流" data-edge-key="7" data-composition-points="764,482;764,590" d="M 764 482 L 764 590" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="pimapi" data-edge-to="storage" data-edge-label="对象存储·向量·AI" data-edge-key="8" data-composition-points="764,412;764,382;858,382;858,562;960,562;960,590" d="M 764 412 L 764 390 Q 764 382 772 382 L 850 382 Q 858 382 858 390 L 858 554 Q 858 562 866 562 L 952 562 Q 960 562 960 570 L 960 590" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="mcp" data-edge-to="pimapi" data-edge-label="工具调用" data-edge-key="9" data-composition-points="952,412;952,362;764,362;764,412" d="M 952 412 L 952 370 Q 952 362 944 362 L 772 362 Q 764 362 764 370 L 764 412" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="hermes" data-edge-to="mcp" data-edge-label="MCP 协议" data-edge-key="10" data-composition-points="1080,125;1054,125;1054,447;1028,447" d="M 1080 125 L 1062 125 Q 1054 125 1054 133 L 1054 439 Q 1054 447 1046 447 L 1028 447" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+        <!-- Components -->
+        <g id="node-android" data-node-id="android" data-node-label="安卓客户端" tabindex="0" role="button" aria-label="聚焦安卓客户端，Kotlin · 定位·使用统计, 架构组件" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Kotlin · 定位·使用统计" data-node-tag="client-android" data-node-context="架构组件">
+          <title>安卓客户端 · Kotlin · 定位·使用统计 · 架构组件 · client-android</title>
+          <rect x="28" y="92" width="168" height="66" rx="6" class="c-mask"/>
+          <rect x="28" y="92" width="168" height="66" rx="6" class="c-frontend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(34 98) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="112" y="123" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">安卓客户端</text>
+        <text data-detail="context" x="112" y="139" class="t-muted" font-size="9" text-anchor="middle">Kotlin · 定位·使用统计</text>
+        <text data-detail="fine" x="112" y="150" class="t-frontend" font-size="7" text-anchor="middle">client-android</text>
+        </g>
+
+        <g id="node-web" data-node-id="web" data-node-label="Web 控制台" tabindex="0" role="button" aria-label="聚焦Web 控制台，React / TypeScript, 架构组件" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="React / TypeScript" data-node-tag="client-web" data-node-context="架构组件">
+          <title>Web 控制台 · React / TypeScript · 架构组件 · client-web</title>
+          <rect x="218" y="92" width="150" height="66" rx="6" class="c-mask"/>
+          <rect x="218" y="92" width="150" height="66" rx="6" class="c-frontend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(224 98) scale(0.6875)">
+            <rect x="2" y="3" width="12" height="10" rx="2"/>
+            <path d="M2 6.5h12"/>
+            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
+            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="293" y="123" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Web 控制台</text>
+        <text data-detail="context" x="293" y="139" class="t-muted" font-size="9" text-anchor="middle">React / TypeScript</text>
+        <text data-detail="fine" x="293" y="150" class="t-frontend" font-size="7" text-anchor="middle">client-web</text>
+        </g>
+
+        <g id="node-windows" data-node-id="windows" data-node-label="Windows 守护" tabindex="0" role="button" aria-label="聚焦Windows 守护，PC 活动采集·键鼠统计, 架构组件" aria-pressed="false" data-node-kind="external" data-node-sublabel="PC 活动采集·键鼠统计" data-node-tag="client-windows" data-node-context="架构组件">
+          <title>Windows 守护 · PC 活动采集·键鼠统计 · 架构组件 · client-windows</title>
+          <rect x="390" y="92" width="150" height="66" rx="6" class="c-mask"/>
+          <rect x="390" y="92" width="150" height="66" rx="6" class="c-external" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(396 98) scale(0.6875)">
+            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
+            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="465" y="123" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Windows 守护</text>
+        <text data-detail="context" x="465" y="139" class="t-muted" font-size="9" text-anchor="middle">PC 活动采集·键鼠统计</text>
+        <text data-detail="fine" x="465" y="150" class="t-external" font-size="7" text-anchor="middle">client-windows</text>
+        </g>
+
+        <g id="node-hermes" data-node-id="hermes" data-node-label="Hermes Agent" tabindex="0" role="button" aria-label="聚焦Hermes Agent，AI 助手·外部调用方, 架构组件" aria-pressed="false" data-node-kind="external" data-node-sublabel="AI 助手·外部调用方" data-node-tag="MCP 客户端" data-node-context="架构组件">
+          <title>Hermes Agent · AI 助手·外部调用方 · 架构组件 · MCP 客户端</title>
+          <rect x="1080" y="92" width="150" height="66" rx="6" class="c-mask"/>
+          <rect x="1080" y="92" width="150" height="66" rx="6" class="c-external" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(1086 98) scale(0.6875)">
+            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
+            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1155" y="123" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Hermes Agent</text>
+        <text data-detail="context" x="1155" y="139" class="t-muted" font-size="9" text-anchor="middle">AI 助手·外部调用方</text>
+        <text data-detail="fine" x="1155" y="150" class="t-external" font-size="7" text-anchor="middle">MCP 客户端</text>
+        </g>
+
+        <g id="node-nginx" data-node-id="nginx" data-node-label="Nginx 反向代理" tabindex="0" role="button" aria-label="聚焦Nginx 反向代理，HTTPS :443 / 转发 :5000, 宿主机 · 1Panel 容器网络 pim-net" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="HTTPS :443 / 转发 :5000" data-node-tag="nginx.conf" data-node-context="宿主机 · 1Panel 容器网络 pim-net">
+          <title>Nginx 反向代理 · HTTPS :443 / 转发 :5000 · 宿主机 · 1Panel 容器网络 pim-net · nginx.conf</title>
+          <rect x="218" y="264" width="150" height="66" rx="6" class="c-mask"/>
+          <rect x="218" y="264" width="150" height="66" rx="6" class="c-cloud" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(224 270) scale(0.6875)">
+            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="293" y="295" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Nginx 反向代理</text>
+        <text data-detail="context" x="293" y="311" class="t-muted" font-size="9" text-anchor="middle">HTTPS :443 / 转发 :5000</text>
+        <text data-detail="fine" x="293" y="322" class="t-cloud" font-size="7" text-anchor="middle">nginx.conf</text>
+        </g>
+
+        <g id="node-panel" data-node-id="panel" data-node-label="1Panel 面板" tabindex="0" role="button" aria-label="聚焦1Panel 面板，Docker 编排·运维, 架构组件" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="Docker 编排·运维" data-node-tag="容器编排" data-node-context="架构组件">
+          <title>1Panel 面板 · Docker 编排·运维 · 架构组件 · 容器编排</title>
+          <rect x="1080" y="264" width="150" height="66" rx="6" class="c-mask"/>
+          <rect x="1080" y="264" width="150" height="66" rx="6" class="c-cloud" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(1086 270) scale(0.6875)">
+            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="1155" y="295" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">1Panel 面板</text>
+        <text data-detail="context" x="1155" y="311" class="t-muted" font-size="9" text-anchor="middle">Docker 编排·运维</text>
+        <text data-detail="fine" x="1155" y="322" class="t-cloud" font-size="7" text-anchor="middle">容器编排</text>
+        </g>
+
+        <g id="node-pimapi" data-node-id="pimapi" data-node-label="PIM API 服务" tabindex="0" role="button" aria-label="聚焦PIM API 服务，ASP.NET Core 8 · 模块化, 宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储" aria-pressed="false" data-node-kind="backend" data-node-sublabel="ASP.NET Core 8 · 模块化" data-node-tag="Pim.Api" data-node-context="宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储">
+          <title>PIM API 服务 · ASP.NET Core 8 · 模块化 · 宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储 · Pim.Api</title>
+          <rect x="688" y="412" width="152" height="70" rx="6" class="c-mask"/>
+          <rect x="688" y="412" width="152" height="70" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(694 418) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="764" y="445" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">PIM API 服务</text>
+        <text data-detail="context" x="764" y="461" class="t-muted" font-size="9" text-anchor="middle">ASP.NET Core 8 · 模块化</text>
+        <text data-detail="fine" x="764" y="474" class="t-backend" font-size="7" text-anchor="middle">Pim.Api</text>
+        </g>
+
+        <g id="node-modules" data-node-id="modules" data-node-label="业务模块集群" tabindex="0" role="button" aria-label="聚焦业务模块集群，日历·任务·文件·笔记·统计, 宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储" aria-pressed="false" data-node-kind="backend" data-node-sublabel="日历·任务·文件·笔记·统计" data-node-tag="6 Modules" data-node-context="宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储">
+          <title>业务模块集群 · 日历·任务·文件·笔记·统计 · 宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储 · 6 Modules</title>
+          <rect x="500" y="412" width="152" height="70" rx="6" class="c-mask"/>
+          <rect x="500" y="412" width="152" height="70" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(506 418) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="576" y="445" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">业务模块集群</text>
+        <text data-detail="context" x="576" y="461" class="t-muted" font-size="9" text-anchor="middle">日历·任务·文件·笔记·统计</text>
+        <text data-detail="fine" x="576" y="474" class="t-backend" font-size="7" text-anchor="middle">6 Modules</text>
+        </g>
+
+        <g id="node-mcp" data-node-id="mcp" data-node-label="PIM MCP 服务" tabindex="0" role="button" aria-label="聚焦PIM MCP 服务，工具暴露·供 Agent 调用, 宿主机 · 1Panel 容器网络 pim-net" aria-pressed="false" data-node-kind="backend" data-node-sublabel="工具暴露·供 Agent 调用" data-node-tag="MCP Server" data-node-context="宿主机 · 1Panel 容器网络 pim-net">
+          <title>PIM MCP 服务 · 工具暴露·供 Agent 调用 · 宿主机 · 1Panel 容器网络 pim-net · MCP Server</title>
+          <rect x="876" y="412" width="152" height="70" rx="6" class="c-mask"/>
+          <rect x="876" y="412" width="152" height="70" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(882 418) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="952" y="445" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">PIM MCP 服务</text>
+        <text data-detail="context" x="952" y="461" class="t-muted" font-size="9" text-anchor="middle">工具暴露·供 Agent 调用</text>
+        <text data-detail="fine" x="952" y="474" class="t-backend" font-size="7" text-anchor="middle">MCP Server</text>
+        </g>
+
+        <g id="node-postgres" data-node-id="postgres" data-node-label="PostgreSQL" tabindex="0" role="button" aria-label="聚焦PostgreSQL，主库 pim · 16-alpine, 宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储" aria-pressed="false" data-node-kind="database" data-node-sublabel="主库 pim · 16-alpine" data-node-tag="持久化" data-node-context="宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储">
+          <title>PostgreSQL · 主库 pim · 16-alpine · 宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储 · 持久化</title>
+          <rect x="500" y="590" width="152" height="70" rx="6" class="c-mask"/>
+          <rect x="500" y="590" width="152" height="70" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(506 596) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="576" y="623" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">PostgreSQL</text>
+        <text data-detail="context" x="576" y="639" class="t-muted" font-size="9" text-anchor="middle">主库 pim · 16-alpine</text>
+        <text data-detail="fine" x="576" y="652" class="t-database" font-size="7" text-anchor="middle">持久化</text>
+        </g>
+
+        <g id="node-redis" data-node-id="redis" data-node-label="Redis 缓存" tabindex="0" role="button" aria-label="聚焦Redis 缓存，会话·限流·队列, 宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储" aria-pressed="false" data-node-kind="database" data-node-sublabel="会话·限流·队列" data-node-tag="7-alpine" data-node-context="宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储">
+          <title>Redis 缓存 · 会话·限流·队列 · 宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储 · 7-alpine</title>
+          <rect x="688" y="590" width="152" height="70" rx="6" class="c-mask"/>
+          <rect x="688" y="590" width="152" height="70" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(694 596) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="764" y="623" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Redis 缓存</text>
+        <text data-detail="context" x="764" y="639" class="t-muted" font-size="9" text-anchor="middle">会话·限流·队列</text>
+        <text data-detail="fine" x="764" y="652" class="t-database" font-size="7" text-anchor="middle">7-alpine</text>
+        </g>
+
+        <g id="node-storage" data-node-id="storage" data-node-label="存储与智能层" tabindex="0" role="button" aria-label="聚焦存储与智能层，MinIO · Qdrant · Tika · LiteLLM, 宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="MinIO · Qdrant · Tika · LiteLLM" data-node-tag="对象·向量·AI" data-node-context="宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储">
+          <title>存储与智能层 · MinIO · Qdrant · Tika · LiteLLM · 宿主机 · 1Panel 容器网络 pim-net › 私有应用网络 · 仅 API 可访问存储 · 对象·向量·AI</title>
+          <rect x="876" y="590" width="168" height="70" rx="6" class="c-mask"/>
+          <rect x="876" y="590" width="168" height="70" rx="6" class="c-cloud" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(882 596) scale(0.6875)">
+            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="960" y="623" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">存储与智能层</text>
+        <text data-detail="context" x="960" y="639" class="t-muted" font-size="8.6" text-anchor="middle">MinIO · Qdrant · Tika · LiteLLM</text>
+        <text data-detail="fine" x="960" y="652" class="t-cloud" font-size="7" text-anchor="middle">对象·向量·AI</text>
+        </g>
+
+        <!-- Connection labels -->
+        <g data-detail="context" data-edge-from="android" data-edge-to="nginx" data-edge-label="HTTPS 定位上报" data-edge-key="0">
+          <rect x="168.4" y="191" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="207" y="201" class="t-muted" font-size="8" text-anchor="middle">HTTPS 定位上报</text>
+        </g>
+        <g data-detail="context" data-edge-from="web" data-edge-to="nginx" data-edge-label="HTTPS 页面与接口" data-edge-key="1">
+          <rect x="255.6" y="170" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="299" y="180" class="t-muted" font-size="8" text-anchor="middle">HTTPS 页面与接口</text>
+        </g>
+        <g data-detail="context" data-edge-from="windows" data-edge-to="nginx" data-edge-label="HTTPS 活动采集" data-edge-key="2">
+          <rect x="340.4" y="187.5" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="379" y="197.5" class="t-muted" font-size="8" text-anchor="middle">HTTPS 活动采集</text>
+        </g>
+        <g data-detail="context" data-edge-from="nginx" data-edge-to="pimapi" data-edge-label="反代转发 :5000" data-edge-key="3">
+          <rect x="625.4" y="355.5" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="664" y="365.5" class="t-muted" font-size="8" text-anchor="middle">反代转发 :5000</text>
+        </g>
+        <g data-detail="context" data-edge-from="pimapi" data-edge-to="modules" data-edge-label="模块路由" data-edge-key="4">
+          <rect x="595.8" y="486" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="620" y="496" class="t-muted" font-size="8" text-anchor="middle">模块路由</text>
+        </g>
+        <g data-detail="context" data-edge-from="modules" data-edge-to="postgres" data-edge-label="SQL 持久化" data-edge-key="5">
+          <rect x="547" y="486" width="58" height="14" rx="3" class="c-mask"/>
+          <text x="576" y="496" class="t-muted" font-size="8" text-anchor="middle">SQL 持久化</text>
+        </g>
+        <g data-detail="context" data-edge-from="pimapi" data-edge-to="postgres" data-edge-label="EF Core 连接" data-edge-key="6">
+          <rect x="606.2" y="550" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="640" y="560" class="t-muted" font-size="8" text-anchor="middle">EF Core 连接</text>
+        </g>
+        <g data-detail="context" data-edge-from="pimapi" data-edge-to="redis" data-edge-label="缓存 / 限流" data-edge-key="7">
+          <rect x="778.6" y="510" width="62.8" height="14" rx="3" class="c-mask"/>
+          <text x="810" y="520" class="t-muted" font-size="8" text-anchor="middle">缓存 / 限流</text>
+        </g>
+        <g data-detail="context" data-edge-from="pimapi" data-edge-to="storage" data-edge-label="对象存储·向量·AI" data-edge-key="8">
+          <rect x="836.6" y="486" width="86.8" height="14" rx="3" class="c-mask"/>
+          <text x="880" y="496" class="t-muted" font-size="8" text-anchor="middle">对象存储·向量·AI</text>
+        </g>
+        <g data-detail="context" data-edge-from="mcp" data-edge-to="pimapi" data-edge-label="工具调用" data-edge-key="9">
+          <rect x="833.8" y="338" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="858" y="348" class="t-muted" font-size="8" text-anchor="middle">工具调用</text>
+        </g>
+        <g data-detail="context" data-edge-from="hermes" data-edge-to="mcp" data-edge-label="MCP 协议" data-edge-key="10">
+          <rect x="1029.8" y="266" width="48.4" height="14" rx="3" class="c-mask"/>
+          <text x="1054" y="276" class="t-muted" font-size="8" text-anchor="middle">MCP 协议</text>
+        </g>
+
+        <!-- Boundary labels (foreground masks keep routes out of titles) -->
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="0" data-composition-frame-kind="region" data-composition-frame-label="宿主机 · 1Panel 容器网络 pim-net">
+          <rect data-graph-role="structural-frame-label-mask" x="206" y="244" width="182.79999999999998" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="210" y="257" class="t-cloud" font-size="9" font-weight="600">宿主机 · 1Panel 容器网络 pim-net</text>
+        </g>
+
+        <g data-graph-role="structural-frame-label" data-composition-frame-id="1" data-composition-frame-kind="security-group" data-composition-frame-label="私有应用网络 · 仅 API 可访问存储">
+          <rect data-graph-role="structural-frame-label-mask" x="498" y="392" width="182.79999999999998" height="16" rx="3" class="c-mask"/>
+          <text data-boundary-label="" x="502" y="405" class="t-security" font-size="9" font-weight="600">私有应用网络 · 仅 API 可访问存储</text>
+        </g>
+
+        <!-- Legend -->
+        <g data-legend="" data-legend-bridge="">
+          <text x="40" y="844" class="t-primary" font-size="12" font-weight="650">图例</text>
+          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="前端" data-legend-x="40" data-legend-baseline="864" data-legend-width="63">
+            <rect x="40" y="855" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
+            <text x="62" y="864" class="t-muted" font-size="10" font-weight="500">前端</text>
+          </g>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="后端" data-legend-x="125" data-legend-baseline="864" data-legend-width="63">
+            <rect x="125" y="855" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
+            <text x="147" y="864" class="t-muted" font-size="10" font-weight="500">后端</text>
+          </g>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="数据库" data-legend-x="210" data-legend-baseline="864" data-legend-width="73">
+            <rect x="210" y="855" width="16" height="10" rx="2.5" class="c-database" stroke-width="1"/>
+            <text x="232" y="864" class="t-muted" font-size="10" font-weight="500">数据库</text>
+          </g>
+          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="云服务" data-legend-x="305" data-legend-baseline="864" data-legend-width="73">
+            <rect x="305" y="855" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
+            <text x="327" y="864" class="t-muted" font-size="10" font-weight="500">云服务</text>
+          </g>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="外部系统" data-legend-x="400" data-legend-baseline="864" data-legend-width="83">
+            <rect x="400" y="855" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
+            <text x="422" y="864" class="t-muted" font-size="10" font-weight="500">外部系统</text>
+          </g>
+        </g>
+      </svg>

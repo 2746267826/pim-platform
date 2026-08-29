@@ -124,12 +124,18 @@ class LocationUploadCoordinator @Inject constructor(
     }
 
     private suspend fun pendingRows(limit: Int): List<MobileLocationPointEntity> {
+        // PIM-035: ensure limit is applied before compress to preserve tail, then compress reduces within limit
         val pending = dao.getLocationPointsBySyncStatus(MobileSyncStatus.PENDING, limit)
-        if (pending.size >= limit) return compressor.compress(pending).take(limit)
+        if (pending.size >= limit) {
+            val slice = pending.take(limit)
+            val compressed = compressor.compress(slice)
+            // Preserve original tail if compression dropped it (Douglas-Peucker keeps endpoints)
+            return if (compressed.isNotEmpty() && compressed.last().id != slice.last().id) (compressed.dropLast(1) + slice.last()).take(limit) else compressed
+        }
         val failed = dao.getLocationPointsBySyncStatus(MobileSyncStatus.FAILED, limit - pending.size)
-        val combined = pending + failed
-        // PIM-035: Douglas-Peucker/5m+30s clustering reduces upload payload for high-frequency 2.5s挡
-        return compressor.compress(combined).take(limit)
+        val combined = (pending + failed).take(limit)
+        val compressed = compressor.compress(combined)
+        return if (compressed.isNotEmpty() && combined.isNotEmpty() && compressed.last().id != combined.last().id) (compressed.dropLast(1) + combined.last()).take(limit) else compressed
     }
 
     private suspend fun applyStatusUpdates(updates: LocationUploadStatusUpdates) {

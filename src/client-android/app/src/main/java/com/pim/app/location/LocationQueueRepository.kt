@@ -22,13 +22,20 @@ class LocationQueueRepository @Inject constructor(
         rawJson: String,
         source: String = "auto"
     ): Long {
-        val prev = lastAccepted
-        if (prev != null && compressor.shouldClusterDrop(prev, accepted)) {
-            // Stationary cluster: drop to avoid膨胀 (2.5s挡长期高频)
-            return -1L
+        // Synchronized check-then-set to avoid race on volatile lastAccepted
+        synchronized(this) {
+            val prev = lastAccepted
+            if (prev != null && compressor.shouldClusterDrop(prev, accepted)) {
+                return -1L
+            }
+            // Note: DB insert is outside synchronized to avoid holding lock during I/O;
+            // we optimistically update lastAccepted after successful insert.
+            // If concurrent insert races, at most one extra point may be dropped/kept, which is acceptable vs unbounded growth.
         }
         val id = dao.insertLocationPoint(MobileLocationPointEntity.fromAccepted(accepted, rawJson, source))
-        if (id != -1L) lastAccepted = accepted
+        if (id != -1L) {
+            synchronized(this) { lastAccepted = accepted }
+        }
         return id
     }
 

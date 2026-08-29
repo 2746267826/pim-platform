@@ -1,0 +1,3 @@
+GET /api/v1/pc/aggregation/app-usage?start=2025-08-21&end=2025-08-20 -> 400 ArgumentException (PcActivityAggregationService.cs:238)
+GET /api/v1/mobile/analytics/overview?rangeStartUtc=2025-08-21&rangeEndUtc=2025-08-20 -> 200 silently swapped (MobileAnalyticsQueryService.cs:35)
+GET /api/v1/pc/detail?start=2025-08-21&end=2025-08-20 -> 200 empty (PcTrackerService.cs:708)

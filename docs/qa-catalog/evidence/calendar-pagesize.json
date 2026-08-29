@@ -1,0 +1,3 @@
+GET /api/v1/calendar/events?start=2026-01-01T00:00:00Z&end=2026-12-31T00:00:00Z&page=1&pageSize=10000 -> 200 full Take(10000) (no Clamp)
+GET /api/v1/calendar/events?page=-1&pageSize=0 -> Skip negative not guarded
+code: CalendarModule.cs:329 no Clamp vs CalendarService.cs:942 has Clamp(1,100)

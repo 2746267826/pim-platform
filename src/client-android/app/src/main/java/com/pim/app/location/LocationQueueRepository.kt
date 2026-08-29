@@ -11,14 +11,39 @@ import com.pim.app.location.quality.RawLocationFix
 import javax.inject.Inject
 
 class LocationQueueRepository @Inject constructor(
-    private val dao: MobileDataDao
+    private val dao: MobileDataDao,
+    private val compressor: TrajectoryCompressor
 ) {
+    @Volatile
+    private var lastAccepted: QualityAcceptedLocation? = null
+
     suspend fun enqueueAccepted(
         accepted: QualityAcceptedLocation,
         rawJson: String,
         source: String = "auto"
     ): Long {
-        return dao.insertLocationPoint(MobileLocationPointEntity.fromAccepted(accepted, rawJson, source))
+        // Synchronized check-then-set to avoid race on volatile lastAccepted
+        synchronized(this) {
+            val prev = lastAccepted
+            if (prev != null && compressor.shouldClusterDrop(prev, accepted)) {
+                return -1L
+            }
+            // Note: DB insert is outside synchronized to avoid holding lock during I/O;
+            // we optimistically update lastAccepted after successful insert.
+            // If concurrent insert races, at most one extra point may be dropped/kept, which is acceptable vs unbounded growth.
+        }
+        val id = dao.insertLocationPoint(MobileLocationPointEntity.fromAccepted(accepted, rawJson, source))
+        if (id != -1L) {
+            synchronized(this) { lastAccepted = accepted }
+        }
+        return id
+    }
+
+    /**
+     * Batch compression helper for upload path: Douglas-Peucker reduces synced payload.
+     */
+    fun compressForUpload(points: List<MobileLocationPointEntity>): List<MobileLocationPointEntity> {
+        return compressor.compress(points)
     }
 
     suspend fun recordDropped(

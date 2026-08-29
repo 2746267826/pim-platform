@@ -7,8 +7,7 @@ namespace Pim.Client.Core.Services;
 
 public sealed class KeyStatsCollectorService : IDisposable
 {
-    private static readonly string KeyStatsBase =
-        Environment.GetEnvironmentVariable("KEYSTATS_BASE_URL") ?? "http://127.0.0.1:18080";
+    private static readonly string KeyStatsBase = ClientDefaults.KeyStatsBaseUrl;
 
     private readonly HttpClient _keyStats;
     private readonly ApiClient _api;

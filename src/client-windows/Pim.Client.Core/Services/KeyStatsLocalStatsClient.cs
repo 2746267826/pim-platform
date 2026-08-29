@@ -7,7 +7,7 @@ namespace Pim.Client.Core.Services;
 public sealed class KeyStatsLocalStatsClient : IDisposable
 {
     public static string ResolveBaseUrl()
-        => Environment.GetEnvironmentVariable("KEYSTATS_BASE_URL") ?? "http://127.0.0.1:18080";
+        => ClientDefaults.KeyStatsBaseUrl;
 
     private readonly HttpClient _http;
     private readonly bool _ownsHttp;

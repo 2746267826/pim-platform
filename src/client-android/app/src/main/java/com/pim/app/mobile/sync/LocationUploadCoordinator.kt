@@ -49,7 +49,8 @@ object LocationUploadPlanner {
 class LocationUploadCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
     private val database: AppDatabase,
-    private val api: ApiService
+    private val api: ApiService,
+    private val compressor: com.pim.app.location.TrajectoryCompressor
 ) {
     private val dao: MobileDataDao = database.mobileDataDao()
 
@@ -123,10 +124,18 @@ class LocationUploadCoordinator @Inject constructor(
     }
 
     private suspend fun pendingRows(limit: Int): List<MobileLocationPointEntity> {
+        // PIM-035: ensure limit is applied before compress to preserve tail, then compress reduces within limit
         val pending = dao.getLocationPointsBySyncStatus(MobileSyncStatus.PENDING, limit)
-        if (pending.size >= limit) return pending
+        if (pending.size >= limit) {
+            val slice = pending.take(limit)
+            val compressed = compressor.compress(slice)
+            // Preserve original tail if compression dropped it (Douglas-Peucker keeps endpoints)
+            return if (compressed.isNotEmpty() && compressed.last().id != slice.last().id) (compressed.dropLast(1) + slice.last()).take(limit) else compressed
+        }
         val failed = dao.getLocationPointsBySyncStatus(MobileSyncStatus.FAILED, limit - pending.size)
-        return pending + failed
+        val combined = (pending + failed).take(limit)
+        val compressed = compressor.compress(combined)
+        return if (compressed.isNotEmpty() && combined.isNotEmpty() && compressed.last().id != combined.last().id) (compressed.dropLast(1) + combined.last()).take(limit) else compressed
     }
 
     private suspend fun applyStatusUpdates(updates: LocationUploadStatusUpdates) {

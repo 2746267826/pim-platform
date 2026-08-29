@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
+import androidx.security.crypto.MasterKey
 import com.pim.core.settings.PimServerEndpoints
 import java.time.Instant
 
@@ -27,15 +27,17 @@ class AndroidSecurePreferencesFactory(
 ) : SecurePreferencesFactory {
     override fun open(): SharedPreferences {
         val masterKey = try {
-            MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+            MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
         } catch (failure: Exception) {
             throw SecureStorageUnavailableException("Android master key is unavailable", failure)
         }
         return try {
             EncryptedSharedPreferences.create(
+                context,
                 PREFS_NAME,
                 masterKey,
-                context,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )

@@ -44,7 +44,14 @@ const queryClient = new QueryClient({
         if (hasData || isBackgroundPolling) return;
       }
       // 按 queryKey 去重，避免不同页面的同文案 5xx 互相压制导致某一页面的错误被误判为已提示
-      const dedupeKey = query?.queryKey ? `q:${String(query.queryKey[0])}:${String(query.queryKey[1] ?? '')}` : undefined;
+      // 使用 JSON.stringify 稳定序列化，避免 [object Object] 归一化失效
+      let keyPart = '';
+      try {
+        keyPart = query?.queryKey ? JSON.stringify(query.queryKey) : '';
+      } catch {
+        keyPart = query?.queryKey ? String(query.queryKey[0]) : '';
+      }
+      const dedupeKey = keyPart ? `q:${keyPart}` : undefined;
       // 同时在 dedupeKey 中保留 message 语义，避免不同错误类型互相覆盖
       const messageKey = dedupeKey ? `${dedupeKey}:${(error as Error)?.message?.slice(0, 20) ?? ''}` : undefined;
       showApiError(error, { dedupeKey: messageKey });

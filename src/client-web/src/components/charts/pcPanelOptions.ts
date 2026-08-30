@@ -224,9 +224,9 @@ export function buildReviewMetrics(
   const distItems = distribution?.items ?? [];
   if (distItems.length > 0) {
     const other = distItems.find(item => item.categoryName === '其他');
-    otherPct = other?.percentage ?? 0;
-    coverage = Math.round((100 - otherPct) * 10) / 10;
-    otherPct = Math.round(otherPct * 10) / 10;
+    otherPct = Math.round((other?.percentage ?? 0) * 10) / 10;
+    otherPct = Math.max(0, Math.min(100, otherPct));
+    coverage = Math.max(0, Math.min(100, Math.round((100 - otherPct) * 10) / 10));
   }
 
   const mainCategoryName = summary?.categories?.[0]?.categoryName || '暂无';

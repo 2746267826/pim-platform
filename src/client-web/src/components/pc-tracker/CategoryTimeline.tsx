@@ -31,7 +31,12 @@ export default function CategoryTimeline({ timeline }: Props) {
     const productiveCats = ['工作', '编程', '文档', '学习', '邮件', '终端', '办公'];
 
     timeline
-      .filter(item => item.start && item.end)
+      .filter(item => {
+        if (!item.start || !item.end) return false;
+        const s = new Date(item.start).getTime();
+        const e = new Date(item.end).getTime();
+        return Number.isFinite(s) && Number.isFinite(e) && e > s;
+      })
       .forEach(item => {
         const start = new Date(item.start);
         const end = new Date(item.end);

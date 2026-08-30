@@ -139,8 +139,9 @@ function formatAxisValue(value: number, unit: string): string {
   if (unit === 'seconds') {
     const v = Math.round(value);
     if (v >= 3600) {
-      const h = Math.floor(v / 3600);
-      const m = Math.round((v % 3600) / 60);
+      let h = Math.floor(v / 3600);
+      let m = Math.round((v % 3600) / 60);
+      if (m === 60) { h += 1; m = 0; }
       if (m === 0) return `${h}小时`;
       return `${h}小时${m}分钟`;
     }

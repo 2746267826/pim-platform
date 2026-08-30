@@ -136,10 +136,17 @@ export default function CalendarPage() {
   });
   const { mutate: mutatePlanTask } = planTaskMutation;
 
+  const safeEvents = useMemo(() => {
+    if (Array.isArray(events)) return events;
+    const maybePaged = events as unknown as { items?: unknown };
+    if (maybePaged && Array.isArray(maybePaged.items)) return maybePaged.items as EventResponse[];
+    return [] as EventResponse[];
+  }, [events]);
+
   const calendarEvents = useMemo(() => {
     const visibleEvents = hiddenCalendarIds.size > 0
-      ? events.filter(event => !hiddenCalendarIds.has(event.calendarId))
-      : events;
+      ? safeEvents.filter(event => !hiddenCalendarIds.has(event.calendarId))
+      : safeEvents;
     const layerItems = calendarLayerData?.items ?? [];
 
     return buildCalendarEvents(
@@ -149,7 +156,7 @@ export default function CalendarPage() {
       enabledLayerSet,
       calendars,
     );
-  }, [calendarLayerData?.items, calendars, enabledLayerSet, events, hiddenCalendarIds, tasks]);
+  }, [calendarLayerData?.items, calendars, enabledLayerSet, safeEvents, tasks, hiddenCalendarIds]);
 
   function toggleCalendarLayer(layerId: CalendarLayerToggleId) {
     setEnabledLayerIds(current => (

@@ -271,10 +271,18 @@ export async function deleteCalendar(id: string) {
 }
 
 export async function getEvents(start: string, end: string) {
-  const r = await apiGet<ApiResponse<EventResponse[]>>(
+  // PIM-024: /calendar/events now always returns PagedResult<EventResponse>
+  // Keep legacy getEvents() returning EventResponse[] for callers like CalendarPage
+  // by unwrapping the PagedResult and falling back to legacy array shape.
+  const r = await apiGet<ApiResponse<PagedResult<EventResponse> | EventResponse[]>>(
     `/calendar/events?start=${start}&end=${end}`
   );
-  return r.data;
+  const data = r.data as unknown;
+  if (Array.isArray(data)) return data as EventResponse[];
+  if (data && typeof data === 'object' && Array.isArray((data as PagedResult<EventResponse>).items)) {
+    return (data as PagedResult<EventResponse>).items;
+  }
+  return [];
 }
 
 export async function createEvent(data: Partial<UnifiedEventDraft>) {

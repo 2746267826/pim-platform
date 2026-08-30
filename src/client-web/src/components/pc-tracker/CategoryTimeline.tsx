@@ -9,6 +9,13 @@ interface Props {
 
 export default function CategoryTimeline({ timeline }: Props) {
   const ganttOption = useMemo(() => buildCategoryGanttOption(timeline), [timeline]);
+  const ganttDataLength = (ganttOption as unknown as { series?: Array<{ data?: unknown[] }> })?.series?.[0]?.data?.length ?? 0;
+  const hasValidSegments = useMemo(() => timeline.some(item => {
+    if (!item.start || !item.end) return false;
+    const s = new Date(item.start).getTime();
+    const e = new Date(item.end).getTime();
+    return Number.isFinite(s) && Number.isFinite(e) && e > s;
+  }), [timeline]);
 
   const { hourRange, stats, legend } = useMemo(() => {
     if (!timeline.length) {
@@ -24,7 +31,12 @@ export default function CategoryTimeline({ timeline }: Props) {
     const productiveCats = ['工作', '编程', '文档', '学习', '邮件', '终端', '办公'];
 
     timeline
-      .filter(item => item.start && item.end)
+      .filter(item => {
+        if (!item.start || !item.end) return false;
+        const s = new Date(item.start).getTime();
+        const e = new Date(item.end).getTime();
+        return Number.isFinite(s) && Number.isFinite(e) && e > s;
+      })
       .forEach(item => {
         const start = new Date(item.start);
         const end = new Date(item.end);
@@ -78,7 +90,8 @@ export default function CategoryTimeline({ timeline }: Props) {
   }, [hourRange]);
 
   const rowHeight = 44;
-  const hasSegments = timeline.some(item => item.start && item.end);
+  const hasSegments = hasValidSegments;
+  const showFallback = hasSegments && ganttDataLength === 0;
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white">
@@ -101,6 +114,27 @@ export default function CategoryTimeline({ timeline }: Props) {
       <div className="px-4 pb-3 pt-3">
         {!hasSegments ? (
           <div className="py-10 text-center text-sm text-slate-400">暂无时间线数据</div>
+        ) : showFallback ? (
+          <div className="space-y-2">
+            <div className="py-2 text-center text-xs text-amber-600">时间线数据可展示为列表（图表渲染备用）</div>
+            <div className="max-h-[320px] overflow-auto rounded-md border border-slate-100">
+              {timeline.slice(0, 50).map((item, idx) => {
+                const s = new Date(item.start);
+                const e = new Date(item.end);
+                const label = Number.isFinite(s.getTime()) ? `${String(s.getHours()).padStart(2,'0')}:${String(s.getMinutes()).padStart(2,'0')}` : item.start.slice(11,16);
+                const endLabel = Number.isFinite(e.getTime()) ? `${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}` : item.end.slice(11,16);
+                return (
+                  <div key={idx} className="flex items-center gap-2 border-b border-slate-50 px-3 py-2 text-xs">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.categoryColor || '#94a3b8' }} />
+                    <span className="font-medium text-slate-700">{item.categoryName || '其他'}</span>
+                    <span className="text-slate-500">{item.appName || '未知应用'}</span>
+                    <span className="ml-auto text-slate-400">{label} - {endLabel} · {Math.round(item.durationMinutes)} 分钟</span>
+                  </div>
+                );
+              })}
+              {timeline.length > 50 && <div className="px-3 py-2 text-center text-xs text-slate-400">… 共 {timeline.length} 条，仅展示前 50 条</div>}
+            </div>
+          </div>
         ) : (
           <EChartBox
             option={ganttOption}

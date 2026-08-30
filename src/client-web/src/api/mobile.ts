@@ -795,20 +795,20 @@ export interface DeviceListItem {
   syncStatus: string; dataQuality: string; storagePressure: string;
 }
 export function getManagedDevices(sortBy?: string): Promise<DeviceListItem[]> {
-  return apiGet<ApiResponse<DeviceListItem[]>>(withQuery('/api/v1/mobile/devices/manage', [['sortBy', sortBy]])).then(r => r.data);
+  return apiGet<ApiResponse<DeviceListItem[]>>(withQuery('/mobile/devices/manage', [['sortBy', sortBy]])).then(r => r.data);
 }
 export function renameDevice(deviceId: string, displayName: string): Promise<void> {
-  return apiPost(`/api/v1/mobile/devices/${pathSegment(deviceId)}/rename`, { displayName }).then(() => {});
+  return apiPost(`/mobile/devices/${pathSegment(deviceId)}/rename`, { displayName }).then(() => {});
 }
 export function previewMerge(sourceDeviceIds: string[], targetDeviceId: string): Promise<any> {
-  return apiPost('/api/v1/mobile/devices/merge/preview', { sourceDeviceIds, targetDeviceId }).then((r: any) => r.data ?? r);
+  return apiPost('/mobile/devices/merge/preview', { sourceDeviceIds, targetDeviceId }).then((r: any) => r.data ?? r);
 }
 export function mergeDevices(sourceDeviceIds: string[], targetDeviceId: string): Promise<void> {
-  return apiPost('/api/v1/mobile/devices/merge', { sourceDeviceIds, targetDeviceId }).then(() => {});
+  return apiPost('/mobile/devices/merge', { sourceDeviceIds, targetDeviceId }).then(() => {});
 }
 export function previewDeleteDevice(deviceId: string): Promise<any> {
-  return apiGet(`/api/v1/mobile/devices/${pathSegment(deviceId)}/delete-preview`).then((r: any) => r.data ?? r);
+  return apiGet(`/mobile/devices/${pathSegment(deviceId)}/delete-preview`).then((r: any) => r.data ?? r);
 }
-export function deleteDevice(deviceId: string): Promise<void> { return apiDelete(`/api/v1/mobile/devices/${pathSegment(deviceId)}`).then(()=>{}); }
-export function getDeviceDetail(deviceId: string): Promise<any> { return apiGet(`/api/v1/mobile/devices/${pathSegment(deviceId)}/detail`).then((r:any)=>r.data ?? r); }
-export function exportDevice(deviceId: string): Promise<Blob> { return fetch(`/api/v1/mobile/devices/${pathSegment(deviceId)}/export`, { headers: { Authorization: `Bearer ${localStorage.getItem('pim_token')||''}` } }).then(r=>r.blob()); }
+export function deleteDevice(deviceId: string): Promise<void> { return apiDelete(`/mobile/devices/${pathSegment(deviceId)}`).then(()=>{}); }
+export function getDeviceDetail(deviceId: string): Promise<any> { return apiGet(`/mobile/devices/${pathSegment(deviceId)}/detail`).then((r:any)=>r.data ?? r); }
+export function exportDevice(deviceId: string): Promise<Blob> { return fetch(`/api/v1/mobile/devices/${pathSegment(deviceId)}/export`, { headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')||localStorage.getItem('pim_token')||''}` } }).then(r=>r.blob()); }

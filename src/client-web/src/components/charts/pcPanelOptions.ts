@@ -270,8 +270,8 @@ export function buildReviewMetrics(
     },
     {
       label: '分类覆盖率',
-      value: coverage !== null ? `${coverage.toFixed(1)}%` : '—',
-      helper: coverage !== null ? `100% - 其他 ${otherPct.toFixed(1)}%` : '等待同步',
+      value: coverage !== null ? `${coverage}%` : '—',
+      helper: coverage !== null ? `100% - 其他 ${otherPct}%` : '等待同步',
       tone: 'activity',
     },
   ];

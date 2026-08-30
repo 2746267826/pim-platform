@@ -132,18 +132,7 @@ begin
       end;
   end;
 
-  // 2) Check dotnet shared directory existence via FindFirst pattern
-  if DirExists(ExpandConstant('{pf}\dotnet\shared\Microsoft.NETCore.App')) or
-     DirExists(ExpandConstant('{pf32}\dotnet\shared\Microsoft.NETCore.App')) or
-     DirExists(ExpandConstant('{commonpf}\dotnet\shared\Microsoft.NETCore.App')) then
-  begin
-    // Do lightweight directory scan: check if any 8.* subdir exists
-    // Use Exec to list: we just probe for existence of 8.0.* folder via FileExists wildcard trick
-    // Inno's DirExists does not support wildcard, so we attempt to find via FindFirst would need external.
-    // As approximation, if shared\Microsoft.NETCore.App exists, try dotnet --list-runtimes fallback.
-  end;
-
-  // 3) Fallback: dotnet --list-runtimes parsing (handles standalone installs or custom paths)
+  // 2) Fallback: dotnet --list-runtimes parsing (handles standalone installs or custom paths)
   TempFile := ExpandConstant('{tmp}\pim_dotnet_runtimes.txt');
   CheckCmd := '/c dotnet --list-runtimes > "' + TempFile + '" 2>&1';
   if Exec(ExpandConstant('{cmd}'), CheckCmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then

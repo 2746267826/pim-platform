@@ -178,7 +178,23 @@ async function apiFetchRaw<T>(
   const res = await apiFetchResponse(path, opts, includeJsonContentType, acceptedStatuses);
 
   if (res.status === 204 || res.headers.get('content-length') === '0') return undefined as T;
-  return res.json();
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return res.json() as Promise<T>;
+  }
+  // 非 JSON 响应：先读取文本，检测是否为 HTML（SPA fallback 常见）
+  const text = await res.text();
+  const trimmed = text.trim().toLowerCase();
+  if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html') || contentType.includes('text/html')) {
+    const preview = text.slice(0, 120).replace(/\s+/g, ' ');
+    throw new Error(`接口 ${path} 返回了 HTML 而非 JSON（可能是路径错误或后端未启动）：${preview}`);
+  }
+  if (!text) return undefined as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`接口 ${path} 返回了非 JSON 响应（Content-Type: ${contentType || 'unknown'}）：${text.slice(0, 200)}`);
+  }
 }
 
 async function apiFetchResponse(
@@ -249,7 +265,21 @@ async function apiFetchResponse(
   logApi(method, path, elapsed, res.status);
 
   if (!res.ok && !(acceptedStatuses?.includes(res.status))) {
-    const err = await res.json().catch(() => ({} as { message?: string; detail?: string; title?: string }));
+    const contentType = res.headers.get('content-type') || '';
+    let err: { message?: string; detail?: string; title?: string } = {};
+    if (contentType.includes('application/json')) {
+      err = await res.json().catch(() => ({} as { message?: string; detail?: string; title?: string }));
+    } else {
+      const text = await res.text().catch(() => '');
+      const trimmed = text.trim().toLowerCase();
+      if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html') || contentType.includes('text/html')) {
+        const preview = text.slice(0, 120).replace(/\s+/g, ' ');
+        const e = new Error(`接口 ${path} 返回了 HTML 而非 JSON（HTTP ${res.status}，可能是路径错误或代理未配置）：${preview}`);
+        (e as unknown as { status?: number }).status = res.status;
+        throw e;
+      }
+      try { err = JSON.parse(text); } catch { err = { message: text.slice(0, 200) || `HTTP ${res.status}` }; }
+    }
     const msg = err.message || err.detail || err.title || `HTTP ${res.status}`;
     const e = new Error(msg);
     (e as unknown as { status?: number }).status = res.status;

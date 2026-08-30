@@ -22,13 +22,53 @@ export interface DayHeatmapMatrixProps {  error?: string | null;
  data?: {hour:number, category:string, value:number}[]; categories?: string[]; loading?:boolean; height?:number; }
 const CATS = ["聊天","视频","工具","社交","游戏"];
 const FALLBACK = (()=>{ const a: {hour:number, category:string, value:number}[]=[]; for(let h=0;h<24;h++){ let base=h>=8&&h<=12?68 : h>=19&&h<=23?76 : h>=0&&h<=5?7 : 32; for(const c of CATS){ let v=base; if(c==="视频"&&h>=19) v*=1.28; if(c==="工具"&&h>=9&&h<=18) v*=1.32; a.push({hour:h, category:c, value: Math.round(v)});}} return a;})();
+function normalizeHeatmapData(input: unknown): {hour:number, category:string, value:number}[] {
+  if (!input) return FALLBACK;
+  if (Array.isArray(input)) {
+    // 已是目标数组？检查首元素是否含 hour/category/value 或 localHour/lifeCategory/foregroundSeconds
+    if (input.length===0) return [];
+    const first = input[0] as unknown;
+    if (!first || typeof first !== 'object') return FALLBACK;
+    const firstRec = first as Record<string,unknown>;
+    if ('hour' in firstRec && 'category' in firstRec && 'value' in firstRec) {
+      return input as {hour:number, category:string, value:number}[];
+    }
+    if ('localHour' in firstRec || 'LocalHour' in firstRec) {
+      return (input as Array<Record<string,unknown>>).map((d) => ({
+        hour: (d.localHour as number) ?? (d.LocalHour as number) ?? 0,
+        category: (d.lifeCategory as string) ?? (d.LifeCategory as string) ?? (d.category as string) ?? '聊天',
+        value: (d.foregroundSeconds as number) ?? (d.ForegroundSeconds as number) ?? (d.value as number) ?? 0,
+      }));
+    }
+    return input as {hour:number, category:string, value:number}[];
+  }
+  // 对象形状 {cats, data} 来自 genType4
+  if (typeof input==='object' && input !== null) {
+    const obj = input as Record<string,unknown>;
+    if (Array.isArray(obj.data)) {
+      // data 已是 {hour, category, value}[]
+      const arr = obj.data as Array<unknown>;
+      if (arr.length) {
+        const first = arr[0] as Record<string,unknown>;
+        if (first && typeof first==='object' && 'hour' in first) return arr as unknown as {hour:number, category:string, value:number}[];
+      }
+    }
+    if (Array.isArray(obj.cats) && Array.isArray(obj.data)) {
+      return obj.data as {hour:number, category:string, value:number}[];
+    }
+  }
+  return FALLBACK;
+}
+
 export default function DayHeatmapMatrix({ data, categories, loading, error, height=220 }: DayHeatmapMatrixProps){
   const cats = categories ?? CATS;
-  const src = data ?? FALLBACK;
+  const raw = (data as unknown);
+  const src = normalizeHeatmapData(raw ?? FALLBACK);
+  const effectiveSrc = src.length ? src : FALLBACK;
   const option = useMemo<EChartsOption>(()=>{
     const xCats = Array.from({length:24},(_,i)=> i+":00");
     const yCats = cats;
-    const hm = src.map(d=> [d.hour, yCats.indexOf(d.category), d.value] as [number,number,number]);
+    const hm = effectiveSrc.map(d=> [Number(d.hour) || 0, yCats.indexOf(String(d.category)), Number(d.value) || 0] as [number,number,number]);
     return {
       tooltip:{position:'top'},
       grid:{left:46,right:8,top:8,bottom:28},
@@ -37,7 +77,7 @@ export default function DayHeatmapMatrix({ data, categories, loading, error, hei
       visualMap:{show:false, min:0, max:90, inRange:{color:chartColors.heatmapTeal}},
       series:[{type:'heatmap', data:hm, label:{show:false}, itemStyle:{borderWidth:.5, borderColor:'#fff'}}]
     } as EChartsOption;
-  },[src,cats]);
+  },[effectiveSrc,cats]);
   if (loading) return <Skeleton height={height} />
   if (error) return <ErrorCard message={error} height={height} />
   if (data && data.length===0) return <Empty height={height} />;

@@ -26,12 +26,57 @@ const FALLBACK = [
   {habit:"冥想", streak:6, rate:58},
   {habit:"写作", streak:2, rate:40},
 ];
+function normalizeHabitData(input: unknown): {habit:string, streak:number, rate:number}[] {
+  if (!input) return FALLBACK;
+  if (Array.isArray(input)) {
+    if (input.length===0) return FALLBACK;
+    const first = input[0] as unknown;
+    if (!first || typeof first !== 'object') return FALLBACK;
+    const firstRec = first as Record<string,unknown>;
+    if ('habit' in firstRec && 'rate' in firstRec) return input as {habit:string, streak:number, rate:number}[];
+    // 可能是 {habits:[], data:[]} 被误传为数组？
+    return FALLBACK;
+  }
+  if (typeof input==='object' && input !== null) {
+    const obj = input as Record<string,unknown>;
+    // 形状 {habits: string[], data: {habit, done, date}[]}
+    if (Array.isArray(obj.habits) && Array.isArray(obj.data)) {
+      const habits = obj.habits as string[];
+      const data = obj.data as Array<{habit:string, done:boolean, date:string}>;
+      const totalDays = 30;
+      return habits.map(habit => {
+        const records = data.filter(d=> d.habit===habit);
+        const doneCount = records.filter(d=> d.done).length;
+        const rate = totalDays ? Math.round((doneCount/totalDays)*100) : 0;
+        // 计算连续打卡：从最近一天往回数连续 done 的天数
+        let streak = 0;
+        const sorted = [...records].sort((a,b)=> a.date.localeCompare(b.date));
+        for (let i=sorted.length-1; i>=0; i--) {
+          if (sorted[i].done) streak++; else break;
+        }
+        if (records.length===0) {
+          // 若无详细数据， fallback 到 0 streak，rate 按空处理回退
+          return { habit, streak: 0, rate: 0 };
+        }
+        return { habit, streak, rate };
+      });
+    }
+    // 兼容 {data: [...]} 包装
+    if (Array.isArray(obj.data) && (obj.data as unknown[]).length && typeof (obj.data as unknown[])[0]==='object') {
+      const arr = obj.data as unknown[];
+      if (arr.length && 'habit' in (arr[0] as Record<string,unknown>)) return arr as {habit:string, streak:number, rate:number}[];
+    }
+  }
+  return FALLBACK;
+}
+
 export default function HabitStreakRing({ data, loading, error, height=180 }: HabitStreakRingProps){
-  const src = data ?? FALLBACK;
+  const src = normalizeHabitData((data as unknown) ?? FALLBACK);
+  const effective = src.length ? src : FALLBACK;
   const option = useMemo<EChartsOption>(()=>{
     return {
       tooltip:{trigger:'item'},
-      series: src.map((d, idx)=>({
+      series: effective.map((d, idx)=>({
         type:'gauge',
         center:[`${(idx*20+10)}%`,'55%'],
         radius:'38%',
@@ -39,12 +84,12 @@ export default function HabitStreakRing({ data, loading, error, height=180 }: Ha
         progress:{show:true, width:8},
         axisLine:{lineStyle:{width:8, color:[[1,'#f1f5f9']]}},
         pointer:{show:false}, axisTick:{show:false}, splitLine:{show:false}, axisLabel:{show:false},
-        detail:{valueAnimation:true, fontSize:11, fontWeight:'bold', color:'#0f172a', offsetCenter:[0,0], formatter: d.rate+'%'},
+        detail:{valueAnimation:true, fontSize:11, fontWeight:'bold', color:'#0f172a', offsetCenter:[0,0], formatter: `${d.rate}%`},
         title:{show:true, offsetCenter:[0,'72%'], fontSize:9, color:'#64748b'},
         data:[{value:d.rate, name:d.habit}]
       }))
     } as EChartsOption;
-  },[src]);
+  },[effective]);
   if (loading) return <Skeleton height={height} />
   if (error) return <ErrorCard message={error} height={height} />
   if (data && data.length===0) return <Empty height={height} />;

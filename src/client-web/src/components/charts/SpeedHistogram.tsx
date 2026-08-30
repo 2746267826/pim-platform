@@ -23,18 +23,51 @@ export interface SpeedHistogramProps {  error?: string | null;
 const FALLBACK = [
   {speed:2.8, count:86},{speed:19, count:42},{speed:48, count:68},{speed:310, count:11},
 ];
+function normalizeSpeedData(input: unknown): {speed:number, count:number}[] {
+  if (!input) return FALLBACK;
+  if (Array.isArray(input)) {
+    if (input.length===0) return FALLBACK;
+    const first = input[0] as unknown;
+    if (!first || typeof first !== 'object') return FALLBACK;
+    const firstRec = first as Record<string,unknown>;
+    if ('speed' in firstRec && 'count' in firstRec) return input as {speed:number, count:number}[];
+    return FALLBACK;
+  }
+  if (typeof input==='object' && input !== null) {
+    const obj = input as Record<string,unknown>;
+    if (Array.isArray(obj.hist)) {
+      const hist = obj.hist as Array<unknown>;
+      if (hist.length) {
+        const firstHist = hist[0] as Record<string,unknown>;
+        if (firstHist && typeof firstHist==='object' && 'speed' in firstHist) return hist as unknown as {speed:number, count:number}[];
+      }
+    }
+    if (Array.isArray(obj.bins)) {
+      const bins = obj.bins as Array<Record<string,unknown>>;
+      // bins: {speed:string, count:number, label:string} -> 标准化
+      return bins.map(b=> ({ speed: Number(b.speed) || 0, count: Number(b.count) || 0 }));
+    }
+    // 兼容 {hist, bins} 同时存在时优先 hist
+    if (Array.isArray(obj.hist) && (obj.hist as unknown[]).length===0 && Array.isArray(obj.bins)) {
+      return (obj.bins as Array<Record<string,unknown>>).map(b=> ({ speed: Number(b.speed)||0, count: Number(b.count)||0 }));
+    }
+  }
+  return FALLBACK;
+}
+
 export default function SpeedHistogram({ data, loading, error, height=180 }: SpeedHistogramProps){
-  const src = data ?? FALLBACK;
+  const src = normalizeSpeedData((data as unknown) ?? FALLBACK);
+  const effective = src.length ? src : FALLBACK;
   // 展开为直方图：按 0-360 分箱
   const option = useMemo<EChartsOption>(()=>{
-    const isBinned = src.length<=4;
+    const isBinned = effective.length<=4;
     if(isBinned){
       return {
         tooltip:{trigger:'axis'},
         grid:{left:36,right:10,top:10,bottom:22},
-        xAxis:{type:'category', data: src.map(d=> d.speed<10? d.speed+" km/h" : d.speed+" km/h"), axisLabel:{fontSize:9,color:chartColors.textMuted}, axisTick:{show:false}, axisLine:{lineStyle:{color:chartColors.borderSoft}}},
+        xAxis:{type:'category', data: effective.map(d=> (d.speed as number)<10? (d.speed as number)+" km/h" : (d.speed as number)+" km/h"), axisLabel:{fontSize:9,color:chartColors.textMuted}, axisTick:{show:false}, axisLine:{lineStyle:{color:chartColors.borderSoft}}},
         yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
-        series:[{type:'bar', data: src.map(d=>d.count), barMaxWidth:32, itemStyle:{color:chartColors.primary, borderRadius:[4,4,0,0]}}]
+        series:[{type:'bar', data: effective.map(d=>d.count), barMaxWidth:32, itemStyle:{color:chartColors.primary, borderRadius:[4,4,0,0]}}]
       } as EChartsOption;
     }
     return {
@@ -42,9 +75,9 @@ export default function SpeedHistogram({ data, loading, error, height=180 }: Spe
       grid:{left:36,right:10,top:10,bottom:22},
       xAxis:{type:'value', name:'km/h', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:chartColors.textMuted}},
       yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
-      series:[{type:'bar', data: src.map(d=>[d.speed, d.count]), barWidth:10, itemStyle:{color:chartColors.primary, borderRadius:[4,4,0,0]}}]
+      series:[{type:'bar', data: effective.map(d=>[d.speed, d.count]), barWidth:10, itemStyle:{color:chartColors.primary, borderRadius:[4,4,0,0]}}]
     } as EChartsOption;
-  },[src]);
+  },[effective]);
   if (loading) return <Skeleton height={height} />
   if (error) return <ErrorCard message={error} height={height} />
   if (data && data.length===0) return <Empty height={height} />;

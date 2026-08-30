@@ -187,12 +187,15 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
   const repositionedForQuery = useRef<string | null>(null);
   const locationQueryKey = useMemo(() => JSON.stringify(locationQuery), [locationQuery]);
 
+  // 关键修复：避免依赖 tracksQuery.data 的数组引用（每次轮询即使内容不变也会产生新引用），
+  // 改为依赖 tracks.length + locationQueryKey，且仅在 queryKey 变更时重定位，消除自激循环 (#310)
+  const tracksLength = tracks.length;
   useEffect(() => {
-    if (!tracksQuery.data || tracksQuery.data.length === 0) return;
+    if (tracksLength === 0) return;
     if (repositionedForQuery.current === locationQueryKey) return;
     repositionedForQuery.current = locationQueryKey;
     requestReposition();
-  }, [tracksQuery.data, locationQueryKey]);
+  }, [tracksLength, locationQueryKey]);
 
   function resetPagination() {
     cursorStack.current = [];
@@ -358,12 +361,12 @@ function LocationExhibitionEmbed() {
       <section className="pim-card p-4">
         <h3 className="text-sm font-semibold text-slate-900">GPS轨迹 · 散点/线图（真实）</h3>
         <p className="mt-1 text-xs text-slate-500">家→地铁→公司3段连续 · {q5.isReal ? '🔗真实' : '🔮模拟'} {q5.isEmpty ? '· 暂无数据' : ''}</p>
-        <div className="mt-3">{q5.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q5.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <GpsTrackMap />}</div>
+        <div className="mt-3">{q5.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q5.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <GpsTrackMap data={q5.data as import('../components/charts/GpsTrackMap').GpsPoint[]} />}</div>
       </section>
       <section className="pim-card p-4">
         <h3 className="text-sm font-semibold text-slate-900">常去地点 · 气泡图（真实）</h3>
         <p className="mt-1 text-xs text-slate-500">家128 公司96 · {q6.isReal ? '🔗真实' : '🔮模拟'}</p>
-        <div className="mt-3">{q6.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q6.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <LocationBubbleChart />}</div>
+        <div className="mt-3">{q6.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q6.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <LocationBubbleChart data={q6.data} />}</div>
       </section>
     </div>
   );

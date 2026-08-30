@@ -247,20 +247,29 @@ class ScheduleWindowRepository @Inject constructor(
         val startIso = Instant.ofEpochMilli(startMillis).toString()
         val endIso = Instant.ofEpochMilli(endMillis).toString()
 
-        val response = apiService.getEvents(start = startIso, end = endIso)
-
-        if (response.code != 0) {
-            return buildFailureSnapshot(
-                identity = identity,
-                nowMillis = nowMillis,
-                errorKind = ScheduleRefreshErrorKind.Server,
-                errorMessage = "服务器暂时不可用",
-                startMillis = startMillis,
-                endMillis = endMillis
-            )
+        // PIM-024: server now returns PagedResult; paginate until all items collected to avoid 100-item truncation.
+        val allEvents = mutableListOf<EventResponse>()
+        var page = 1
+        while (true) {
+            val response = apiService.getEvents(start = startIso, end = endIso, page = page, pageSize = 100)
+            if (response.code != 0) {
+                return buildFailureSnapshot(
+                    identity = identity,
+                    nowMillis = nowMillis,
+                    errorKind = ScheduleRefreshErrorKind.Server,
+                    errorMessage = "服务器暂时不可用",
+                    startMillis = startMillis,
+                    endMillis = endMillis
+                )
+            }
+            val paged = response.data
+            if (paged == null) break
+            allEvents.addAll(paged.items)
+            if (paged.items.isEmpty() || allEvents.size >= paged.totalCount || page >= paged.totalPages || page >= 20) break
+            page++
         }
-
-        val events = response.data.orEmpty()
+        // Defensive: if server reported truncation but items empty, fall through with collected
+        val events = allEvents
         val windows = mapEvents(events)
         val cacheWindows = windows.map { it.toCacheWindow() }
 
@@ -415,14 +424,22 @@ class ScheduleWindowRepository @Inject constructor(
     }
 
     suspend fun loadWindows(startMillis: Long, endMillis: Long): List<ScheduleWindow> {
-        val response = apiService.getEvents(
-            start = Instant.ofEpochMilli(startMillis).toString(),
-            end = Instant.ofEpochMilli(endMillis).toString()
-        )
-        if (response.code != 0) {
-            error(response.message.ifBlank { "加载日程失败" })
+        val startIso = Instant.ofEpochMilli(startMillis).toString()
+        val endIso = Instant.ofEpochMilli(endMillis).toString()
+        val allEvents = mutableListOf<EventResponse>()
+        var page = 1
+        while (true) {
+            val response = apiService.getEvents(start = startIso, end = endIso, page = page, pageSize = 100)
+            if (response.code != 0) {
+                error(response.message.ifBlank { "加载日程失败" })
+            }
+            val paged = response.data
+            if (paged == null || paged.items.isEmpty()) break
+            allEvents.addAll(paged.items)
+            if (allEvents.size >= paged.totalCount || page >= paged.totalPages || page >= 20) break
+            page++
         }
-        return mapEvents(response.data.orEmpty())
+        return mapEvents(allEvents)
     }
 
     suspend fun currentWindow(windows: List<ScheduleWindow>, nowMillis: Long): ScheduleWindow? {

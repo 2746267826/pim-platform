@@ -122,6 +122,15 @@ data class SearchResult(
     val url: String
 )
 
+@Serializable
+data class PagedResult<T>(
+    val items: List<T> = emptyList(),
+    val page: Int = 1,
+    val pageSize: Int = 50,
+    val totalCount: Int = 0,
+    val totalPages: Int = 0
+)
+
 // ICS
 
 @Serializable

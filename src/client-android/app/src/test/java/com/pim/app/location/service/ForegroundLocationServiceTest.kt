@@ -147,16 +147,41 @@ class ForegroundLocationServiceTest {
         val serverSettings = ServerSettingsStore(context, authStore).also {
             runCatching { it.setBaseUrl("http://127.0.0.1:5858/api/v1/") }
         }
-        val api = Proxy.newProxyInstance(
-            ApiService::class.java.classLoader,
-            arrayOf(ApiService::class.java)
-        ) { _, method, _ ->
-            if (method.name == "getEvents") {
-                ApiResponse(code = 0, message = "ok", data = emptyList<EventResponse>())
-            } else {
-                error("Unexpected ApiService call: ${method.name}")
-            }
-        } as ApiService
+        val api = object : ApiService {
+            override suspend fun getEvents(start: String, end: String, page: Int?, pageSize: Int?): ApiResponse<com.pim.core.models.PagedResult<EventResponse>> =
+                ApiResponse(code = 0, message = "ok", data = com.pim.core.models.PagedResult(items = emptyList(), page = 1, pageSize = 100, totalCount = 0, totalPages = 0))
+            override suspend fun login(request: com.pim.core.models.LoginRequest) = error("not mocked")
+            override suspend fun register(request: com.pim.core.models.RegisterRequest) = error("not mocked")
+            override suspend fun refresh(request: com.pim.core.models.RefreshRequest) = error("not mocked")
+            override suspend fun getCalendars() = error("not mocked")
+            override suspend fun createCalendar(request: com.pim.core.models.CreateCalendarRequest) = error("not mocked")
+            override suspend fun createEvent(request: com.pim.core.models.CreateEventRequest) = error("not mocked")
+            override suspend fun updateEvent(id: String, request: com.pim.core.models.CreateEventRequest) = error("not mocked")
+            override suspend fun deleteEvent(id: String) = error("not mocked")
+            override suspend fun getTasks(inbox: Boolean?) = error("not mocked")
+            override suspend fun createTask(request: com.pim.core.models.CreateTaskRequest) = error("not mocked")
+            override suspend fun updateTask(id: String, request: com.pim.core.models.CreateTaskRequest) = error("not mocked")
+            override suspend fun deleteTask(id: String) = error("not mocked")
+            override suspend fun search(query: String, type: String?) = error("not mocked")
+            override suspend fun importIcs(body: okhttp3.RequestBody) = error("not mocked")
+            override suspend fun exportIcs(start: String, end: String) = error("not mocked")
+            override suspend fun syncOutlook() = error("not mocked")
+            override suspend fun uploadStats(batch: com.pim.core.models.UploadBatch) = error("not mocked")
+            override suspend fun registerMobileDevice(request: com.pim.core.models.MobileDeviceRegisterRequest) = error("not mocked")
+            override suspend fun getMobileGaps(request: com.pim.core.models.MobileGapRequest) = error("not mocked")
+            override suspend fun uploadMobileUsage(request: com.pim.core.models.MobileUsageEventsUploadRequest) = error("not mocked")
+            override suspend fun uploadMobileLocation(request: com.pim.core.models.MobileLocationPointRequest) = error("not mocked")
+            override suspend fun getMobileSummary(date: String?, deviceId: String?) = error("not mocked")
+            override suspend fun getMobileTimeline(date: String?, deviceId: String?) = error("not mocked")
+            override suspend fun getMobileQuality(date: String?, deviceId: String?, rangeStartUtc: String?, rangeEndUtc: String?) = error("not mocked")
+            override suspend fun getMobileLocationHistory(rangeStartUtc: String?, rangeEndUtc: String?, deviceId: String?, maxAccuracyMeters: Double, includeRejected: Boolean, cursor: String?, pageSize: Int?) = error("not mocked")
+            override suspend fun getMobileLocationOverview(rangeStartUtc: String, rangeEndUtc: String, deviceId: String?, maxAccuracyMeters: Double) = error("not mocked")
+            override suspend fun getMobileLocationTracks(rangeStartUtc: String, rangeEndUtc: String, deviceId: String?, maxAccuracyMeters: Double) = error("not mocked")
+            override suspend fun getMobileLocationSegmentPoints(segmentId: String, rangeStartUtc: String?, rangeEndUtc: String?, timezone: String?, deviceId: String?, maxAccuracyMeters: Double, includeRejected: Boolean, cursor: String?, pageSize: Int?) = error("not mocked")
+            override suspend fun sendHeartbeat(request: com.pim.core.models.DaemonHeartbeatRequest) = error("not mocked")
+            override suspend fun sendEndpointNotificationAction(deviceId: String, request: com.pim.core.models.EndpointNotificationActionRequestDto) = error("not mocked")
+            override suspend fun getClientLatest() = com.pim.core.models.ClientShellLatestResponse()
+        }
         return ScheduleWindowRepository(
             api,
             ScheduleCacheStore(cacheDir, Json { ignoreUnknownKeys = true }),
@@ -698,15 +723,42 @@ class ForegroundLocationServiceTest {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(LocationNotificationRenderer.NOTIFICATION_ID)
 
-        val apiService = Proxy.newProxyInstance(
-            ApiService::class.java.classLoader,
-            arrayOf(ApiService::class.java)
-        ) { _, method, _ ->
-            if (method.name == "getEvents") {
+        val apiService = object : ApiService {
+            override suspend fun getEvents(start: String, end: String, page: Int?, pageSize: Int?): ApiResponse<com.pim.core.models.PagedResult<EventResponse>> {
                 throw CancellationException("test cancellation")
             }
-            error("Unexpected ApiService call: ${method.name}")
-        } as ApiService
+            override suspend fun login(request: com.pim.core.models.LoginRequest) = error("not mocked")
+            override suspend fun register(request: com.pim.core.models.RegisterRequest) = error("not mocked")
+            override suspend fun refresh(request: com.pim.core.models.RefreshRequest) = error("not mocked")
+            override suspend fun getCalendars() = error("not mocked")
+            override suspend fun createCalendar(request: com.pim.core.models.CreateCalendarRequest) = error("not mocked")
+            override suspend fun createEvent(request: com.pim.core.models.CreateEventRequest) = error("not mocked")
+            override suspend fun updateEvent(id: String, request: com.pim.core.models.CreateEventRequest) = error("not mocked")
+            override suspend fun deleteEvent(id: String) = error("not mocked")
+            override suspend fun getTasks(inbox: Boolean?) = error("not mocked")
+            override suspend fun createTask(request: com.pim.core.models.CreateTaskRequest) = error("not mocked")
+            override suspend fun updateTask(id: String, request: com.pim.core.models.CreateTaskRequest) = error("not mocked")
+            override suspend fun deleteTask(id: String) = error("not mocked")
+            override suspend fun search(query: String, type: String?) = error("not mocked")
+            override suspend fun importIcs(body: okhttp3.RequestBody) = error("not mocked")
+            override suspend fun exportIcs(start: String, end: String) = error("not mocked")
+            override suspend fun syncOutlook() = error("not mocked")
+            override suspend fun uploadStats(batch: com.pim.core.models.UploadBatch) = error("not mocked")
+            override suspend fun registerMobileDevice(request: com.pim.core.models.MobileDeviceRegisterRequest) = error("not mocked")
+            override suspend fun getMobileGaps(request: com.pim.core.models.MobileGapRequest) = error("not mocked")
+            override suspend fun uploadMobileUsage(request: com.pim.core.models.MobileUsageEventsUploadRequest) = error("not mocked")
+            override suspend fun uploadMobileLocation(request: com.pim.core.models.MobileLocationPointRequest) = error("not mocked")
+            override suspend fun getMobileSummary(date: String?, deviceId: String?) = error("not mocked")
+            override suspend fun getMobileTimeline(date: String?, deviceId: String?) = error("not mocked")
+            override suspend fun getMobileQuality(date: String?, deviceId: String?, rangeStartUtc: String?, rangeEndUtc: String?) = error("not mocked")
+            override suspend fun getMobileLocationHistory(rangeStartUtc: String?, rangeEndUtc: String?, deviceId: String?, maxAccuracyMeters: Double, includeRejected: Boolean, cursor: String?, pageSize: Int?) = error("not mocked")
+            override suspend fun getMobileLocationOverview(rangeStartUtc: String, rangeEndUtc: String, deviceId: String?, maxAccuracyMeters: Double) = error("not mocked")
+            override suspend fun getMobileLocationTracks(rangeStartUtc: String, rangeEndUtc: String, deviceId: String?, maxAccuracyMeters: Double) = error("not mocked")
+            override suspend fun getMobileLocationSegmentPoints(segmentId: String, rangeStartUtc: String?, rangeEndUtc: String?, timezone: String?, deviceId: String?, maxAccuracyMeters: Double, includeRejected: Boolean, cursor: String?, pageSize: Int?) = error("not mocked")
+            override suspend fun sendHeartbeat(request: com.pim.core.models.DaemonHeartbeatRequest) = error("not mocked")
+            override suspend fun sendEndpointNotificationAction(deviceId: String, request: com.pim.core.models.EndpointNotificationActionRequestDto) = error("not mocked")
+            override suspend fun getClientLatest() = com.pim.core.models.ClientShellLatestResponse()
+        }
 
         val service = buildService()
         val testCacheDir = java.io.File(context.filesDir, "fg-test-cache-" + java.lang.System.nanoTime())
@@ -3224,7 +3276,7 @@ class ForegroundLocationServiceTest {
         var capturedStart: String? = null
         var capturedEnd: String? = null
 
-        override suspend fun getEvents(start: String, end: String): ApiResponse<List<EventResponse>> {
+        override suspend fun getEvents(start: String, end: String, page: Int?, pageSize: Int?): ApiResponse<com.pim.core.models.PagedResult<EventResponse>> {
             callCount++
             capturedStart = start
             capturedEnd = end
@@ -3234,7 +3286,7 @@ class ForegroundLocationServiceTest {
                 failNext = null
                 throw t
             }
-            return ApiResponse(code = 0, message = "ok", data = events)
+            return ApiResponse(code = 0, message = "ok", data = com.pim.core.models.PagedResult(items = events, page = 1, pageSize = 100, totalCount = events.size, totalPages = 1))
         }
 
         override suspend fun login(body: com.pim.core.models.LoginRequest) = error("not mocked")

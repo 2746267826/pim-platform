@@ -247,7 +247,8 @@ class ScheduleWindowRepository @Inject constructor(
         val startIso = Instant.ofEpochMilli(startMillis).toString()
         val endIso = Instant.ofEpochMilli(endMillis).toString()
 
-        val response = apiService.getEvents(start = startIso, end = endIso)
+        // PIM-024: server now returns PagedResult; request first page with max size to preserve legacy unbounded behavior.
+        val response = apiService.getEvents(start = startIso, end = endIso, page = 1, pageSize = 100)
 
         if (response.code != 0) {
             return buildFailureSnapshot(
@@ -260,7 +261,7 @@ class ScheduleWindowRepository @Inject constructor(
             )
         }
 
-        val events = response.data.orEmpty()
+        val events = response.data?.items.orEmpty()
         val windows = mapEvents(events)
         val cacheWindows = windows.map { it.toCacheWindow() }
 
@@ -417,12 +418,14 @@ class ScheduleWindowRepository @Inject constructor(
     suspend fun loadWindows(startMillis: Long, endMillis: Long): List<ScheduleWindow> {
         val response = apiService.getEvents(
             start = Instant.ofEpochMilli(startMillis).toString(),
-            end = Instant.ofEpochMilli(endMillis).toString()
+            end = Instant.ofEpochMilli(endMillis).toString(),
+            page = 1,
+            pageSize = 100
         )
         if (response.code != 0) {
             error(response.message.ifBlank { "加载日程失败" })
         }
-        return mapEvents(response.data.orEmpty())
+        return mapEvents(response.data?.items.orEmpty())
     }
 
     suspend fun currentWindow(windows: List<ScheduleWindow>, nowMillis: Long): ScheduleWindow? {

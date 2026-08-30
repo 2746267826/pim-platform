@@ -766,7 +766,7 @@ class ScheduleWindowRepositoryTest {
         var responseCode: Int? = null
         var responseMessage: String? = null
 
-        override suspend fun getEvents(start: String, end: String): ApiResponse<List<EventResponse>> {
+        override suspend fun getEvents(start: String, end: String, page: Int?, pageSize: Int?): ApiResponse<com.pim.core.models.PagedResult<EventResponse>> {
             callCount++
             capturedStart = start
             capturedEnd = end
@@ -778,7 +778,7 @@ class ScheduleWindowRepositoryTest {
             }
             val code = responseCode ?: 0
             val msg = responseMessage ?: "ok"
-            return ApiResponse(code = code, message = msg, data = events)
+            return ApiResponse(code = code, message = msg, data = com.pim.core.models.PagedResult(items = events, page = 1, pageSize = 100, totalCount = events.size, totalPages = 1))
         }
         override suspend fun login(body: com.pim.core.models.LoginRequest) = error("not mocked")
         override suspend fun register(body: com.pim.core.models.RegisterRequest) = error("not mocked")
@@ -822,7 +822,7 @@ class ScheduleWindowRepositoryTest {
         val callCount: Int get() = counter.get()
         private val order = CopyOnWriteArrayList<String>()
 
-        override suspend fun getEvents(start: String, end: String): ApiResponse<List<EventResponse>> {
+        override suspend fun getEvents(start: String, end: String, page: Int?, pageSize: Int?): ApiResponse<com.pim.core.models.PagedResult<EventResponse>> {
             val n = counter.incrementAndGet()
             return if (n == 1) {
                 order.add("A")
@@ -831,14 +831,17 @@ class ScheduleWindowRepositoryTest {
                 ApiResponse(
                     code = 0,
                     message = "ok",
-                    data = listOf(
-                        EventResponse(
-                            id = "A",
-                            title = "A",
-                            location = null,
-                            dtStart = "2026-07-08T01:00:00Z",
-                            dtEnd = "2026-07-08T02:00:00Z"
-                        )
+                    data = com.pim.core.models.PagedResult(
+                        items = listOf(
+                            EventResponse(
+                                id = "A",
+                                title = "A",
+                                location = null,
+                                dtStart = "2026-07-08T01:00:00Z",
+                                dtEnd = "2026-07-08T02:00:00Z"
+                            )
+                        ),
+                        page = 1, pageSize = 100, totalCount = 1, totalPages = 1
                     )
                 )
             } else {
@@ -848,14 +851,17 @@ class ScheduleWindowRepositoryTest {
                 ApiResponse(
                     code = 0,
                     message = "ok",
-                    data = listOf(
-                        EventResponse(
-                            id = "B",
-                            title = "B",
-                            location = null,
-                            dtStart = "2026-07-08T01:00:00Z",
-                            dtEnd = "2026-07-08T02:00:00Z"
-                        )
+                    data = com.pim.core.models.PagedResult(
+                        items = listOf(
+                            EventResponse(
+                                id = "B",
+                                title = "B",
+                                location = null,
+                                dtStart = "2026-07-08T01:00:00Z",
+                                dtEnd = "2026-07-08T02:00:00Z"
+                            )
+                        ),
+                        page = 1, pageSize = 100, totalCount = 1, totalPages = 1
                     )
                 )
             }

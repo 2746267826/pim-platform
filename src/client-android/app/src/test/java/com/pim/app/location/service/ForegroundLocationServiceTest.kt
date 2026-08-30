@@ -152,7 +152,7 @@ class ForegroundLocationServiceTest {
             arrayOf(ApiService::class.java)
         ) { _, method, _ ->
             if (method.name == "getEvents") {
-                ApiResponse(code = 0, message = "ok", data = emptyList<EventResponse>())
+                ApiResponse(code = 0, message = "ok", data = com.pim.core.models.PagedResult(items = emptyList(), page = 1, pageSize = 100, totalCount = 0, totalPages = 0))
             } else {
                 error("Unexpected ApiService call: ${method.name}")
             }
@@ -3224,7 +3224,7 @@ class ForegroundLocationServiceTest {
         var capturedStart: String? = null
         var capturedEnd: String? = null
 
-        override suspend fun getEvents(start: String, end: String): ApiResponse<List<EventResponse>> {
+        override suspend fun getEvents(start: String, end: String, page: Int?, pageSize: Int?): ApiResponse<com.pim.core.models.PagedResult<EventResponse>> {
             callCount++
             capturedStart = start
             capturedEnd = end
@@ -3234,7 +3234,7 @@ class ForegroundLocationServiceTest {
                 failNext = null
                 throw t
             }
-            return ApiResponse(code = 0, message = "ok", data = events)
+            return ApiResponse(code = 0, message = "ok", data = com.pim.core.models.PagedResult(items = events, page = 1, pageSize = 100, totalCount = events.size, totalPages = 1))
         }
 
         override suspend fun login(body: com.pim.core.models.LoginRequest) = error("not mocked")

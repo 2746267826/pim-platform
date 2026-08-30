@@ -23,12 +23,15 @@ interface ApiService {
     @POST("calendar/calendars")
     suspend fun createCalendar(@Body request: CreateCalendarRequest): ApiResponse<CalendarResponse>
 
-    // Events
+    // Events — PIM-024: server now always returns PagedResult; keep legacy list fallback via wrapper handling in repository.
+    // New clients should request page/pageSize. Absolute path not needed here as calendar is under /api/v1.
     @GET("calendar/events")
     suspend fun getEvents(
         @Query("start") start: String,
-        @Query("end") end: String
-    ): ApiResponse<List<EventResponse>>
+        @Query("end") end: String,
+        @Query("page") page: Int? = null,
+        @Query("pageSize") pageSize: Int? = null
+    ): ApiResponse<PagedResult<EventResponse>>
 
     @POST("calendar/events")
     suspend fun createEvent(@Body request: CreateEventRequest): ApiResponse<EventResponse>
@@ -169,6 +172,6 @@ interface ApiService {
         @Body request: EndpointNotificationActionRequestDto
     ): ApiResponse<EndpointNotificationActionResponseDto>
 
-    @GET("client/shell/latest")
+    @GET("/api/client/shell/latest")
     suspend fun getClientLatest(): ClientShellLatestResponse
 }

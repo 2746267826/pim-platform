@@ -1143,7 +1143,7 @@ class SettingsServerMutationTest {
             override suspend fun refresh(request: com.pim.core.models.RefreshRequest) = error("not used")
             override suspend fun getCalendars() = error("not used")
             override suspend fun createCalendar(request: com.pim.core.models.CreateCalendarRequest) = error("not used")
-            override suspend fun getEvents(start: String, end: String) = error("not used")
+            override suspend fun getEvents(start: String, end: String, page: Int?, pageSize: Int?) = error("not used")
             override suspend fun createEvent(request: com.pim.core.models.CreateEventRequest) = error("not used")
             override suspend fun updateEvent(id: String, request: com.pim.core.models.CreateEventRequest) = error("not used")
             override suspend fun deleteEvent(id: String) = error("not used")

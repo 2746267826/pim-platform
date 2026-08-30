@@ -32,7 +32,11 @@ public class DaemonConfig
         try
         {
             Directory.CreateDirectory(Dir);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(this));
+            var json = JsonSerializer.Serialize(this);
+            var tmp = FilePath + ".tmp";
+            File.WriteAllText(tmp, json);
+            // Atomic replace: move temp over target
+            File.Move(tmp, FilePath, overwrite: true);
         }
         catch { }
     }

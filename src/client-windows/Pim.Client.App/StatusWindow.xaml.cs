@@ -400,8 +400,38 @@ public partial class StatusWindow : Window
                 return;
             }
 
-            _processManager.Restart(exe, Process.GetCurrentProcess().SessionId);
-            MessageBox.Show("已请求重启 KeyStats。", "PIM", MessageBoxButton.OK, MessageBoxImage.Information);
+            var sessionId = Process.GetCurrentProcess().SessionId;
+            // 先停止当前会话实例
+            foreach (var p in _processManager.ListProcesses(sessionId))
+            {
+                _processManager.TryStop(p.ProcessId);
+            }
+
+            // 优先通过计划任务拉起（免 UAC），失败回退到直接启动
+            bool viaTask = false;
+            try
+            {
+                viaTask = TaskSchedulerAutoStartManager.TryRunKeyStatsTask();
+            }
+            catch { }
+
+            if (viaTask)
+            {
+                MessageBox.Show("已通过计划任务重启 KeyStats（无 UAC 弹窗）。", "PIM", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            else
+            {
+                try
+                {
+                    _processManager.StartInCurrentSession(exe);
+                    MessageBox.Show("已请求重启 KeyStats（任务不可用，已回退到直接启动，可能弹 UAC）。", "PIM", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                catch (Exception ex2)
+                {
+                    MessageBox.Show($"重启 KeyStats 失败：{ex2.Message}", "PIM", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+            }
             RefreshAll();
         }
         catch (Exception ex)
@@ -504,7 +534,36 @@ public partial class StatusWindow : Window
     private void OnAutoStartToggled(object sender, RoutedEventArgs e)
     {
         var enabled = AutoStartCheckBox.IsChecked == true;
-        AutoStartManager.Set(enabled);
+        var ok = AutoStartManager.Set(enabled);
+        if (!ok && OperatingSystem.IsWindows())
+        {
+            var res = MessageBox.Show(
+                "修改自启需要管理员权限，是否以管理员身份重试？\n\n提示：请右键 PIM 守护程序 - 以管理员身份运行 后再修改，或在任务计划程序中手动启用/禁用 \\PIM\\PIM Daemon。",
+                "PIM",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (res == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    var exe = Environment.ProcessPath ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Pim.Client.App.exe");
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = exe,
+                        UseShellExecute = true,
+                        Verb = "runas",
+                    };
+                    Process.Start(psi);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"提权启动失败：{ex.Message}", "PIM", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            // 回滚 UI 到实际状态
+            AutoStartCheckBox.IsChecked = AutoStartManager.IsRegistered;
+            return;
+        }
 
         var config = DaemonConfig.Load();
         config.AutoStart = enabled;

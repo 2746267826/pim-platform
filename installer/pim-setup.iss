@@ -47,7 +47,9 @@ AllowNoIcons=yes
 ;SignTool=default
 
 [Languages]
-Name: "chinese"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+; Use Default.isl for both to ensure ISCC succeeds on all runner images (ChineseSimplified.isl not always present).
+; Wizard UI will still be Chinese-capable via custom messages; fallback to Default is safe.
+Name: "chinese"; MessagesFile: "compiler:Default.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]

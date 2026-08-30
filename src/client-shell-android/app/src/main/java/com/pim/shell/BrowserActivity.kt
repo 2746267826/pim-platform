@@ -71,21 +71,25 @@ class BrowserActivity : AppCompatActivity() {
         else webView.restoreState(savedInstanceState)
 
         Thread {
+            var conn: java.net.HttpURLConnection? = null
             try {
                 val u = java.net.URL("${serverUrl.trimEnd('/')}/api/client/shell/latest")
-                val conn = u.openConnection() as java.net.HttpURLConnection
+                conn = u.openConnection() as java.net.HttpURLConnection
                 conn.connectTimeout = 3000
                 conn.readTimeout = 3000
                 val text = conn.inputStream.bufferedReader().readText()
                 val json = org.json.JSONObject(text)
-                val remote = json.optString("androidVersion").takeIf { it.isNotBlank() }
-                val dl = json.optString("androidUrl").takeIf { it.isNotBlank() }
+                // Prefer shell-specific version if present, fallback to classic android for backward compat
+                val remote = json.optString("shellAndroidVersion").takeIf { it.isNotBlank() }
+                    ?: json.optString("androidVersion").takeIf { it.isNotBlank() }
+                val dl = json.optString("shellAndroidUrl").takeIf { it.isNotBlank() }
+                    ?: json.optString("androidUrl").takeIf { it.isNotBlank() }
                 if (remote != null && dl != null && UpdateChecker.isNewer(BuildConfig.VERSION_NAME, remote)) {
                     runOnUiThread {
                         android.widget.Toast.makeText(this, "发现新版 $remote", android.widget.Toast.LENGTH_LONG).show()
                     }
                 }
-            } catch (_: Exception) { }
+            } catch (_: Exception) { } finally { try { conn?.disconnect() } catch (_: Exception) {} }
         }.start()
     }
 

@@ -483,7 +483,10 @@ class SettingsViewModel @Inject constructor(
         if (remote.isNullOrBlank()) return false
         if (current.isNullOrBlank()) return true
         fun parseN(v: String): Int? {
-            val core = v.trim().split("+", "-").firstOrNull() ?: return null
+            val t = v.trim().trimStart('v', 'V')
+            if (t.isEmpty()) return null
+            val core = t.split("+", "-").firstOrNull()?.trim() ?: return null
+            if (core.isEmpty()) return null
             return core.split(".").lastOrNull()?.toIntOrNull()
         }
         val rn = parseN(remote)

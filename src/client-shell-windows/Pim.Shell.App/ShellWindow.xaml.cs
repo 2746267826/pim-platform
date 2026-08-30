@@ -53,14 +53,17 @@ public partial class ShellWindow : Window
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
             var latest = await http.GetFromJsonAsync<LatestDto>($"{_serverUrl.TrimEnd('/')}/api/client/shell/latest");
             if (latest?.error != null) { Logger.Warn($"Update check failed: {latest.error} checkedAt={latest.checkedAt}"); Dispatcher.Invoke(() => { UpdateText.Text = $"检查失败: {latest.error} checkedAt={latest.checkedAt}"; UpdateBar.Visibility = Visibility.Visible; UpdateButton.Visibility = Visibility.Collapsed; _updateUrl = null; }); return; }
-            if (latest?.windowsVersion != null && UpdateChecker.IsNewer(_currentVersion, latest.windowsVersion) && !string.IsNullOrWhiteSpace(latest.windowsUrl))
+            // Prefer shell-specific version/url if present, fallback to classic windows for backward compat
+            var remoteVersion = latest?.shellWindowsVersion ?? latest?.windowsVersion;
+            var remoteUrl = latest?.shellWindowsUrl ?? latest?.windowsUrl;
+            if (remoteVersion != null && UpdateChecker.IsNewer(_currentVersion, remoteVersion) && !string.IsNullOrWhiteSpace(remoteUrl))
             {
-                Logger.Info($"Update available current={_currentVersion} latest={latest.windowsVersion}");
-                Dispatcher.Invoke(() => { UpdateText.Text = $"发现新版 {latest.windowsVersion}"; UpdateBar.Visibility = Visibility.Visible; UpdateButton.Visibility = Visibility.Visible; _updateUrl = latest.windowsUrl; });
+                Logger.Info($"Update available current={_currentVersion} latest={remoteVersion}");
+                Dispatcher.Invoke(() => { UpdateText.Text = $"发现新版 {remoteVersion}"; UpdateBar.Visibility = Visibility.Visible; UpdateButton.Visibility = Visibility.Visible; _updateUrl = remoteUrl; });
             }
             else
             {
-                Logger.Info($"Update check no update current={_currentVersion} latest={latest?.windowsVersion} checkedAt={latest?.checkedAt}");
+                Logger.Info($"Update check no update current={_currentVersion} latest={remoteVersion} checkedAt={latest?.checkedAt}");
             }
         }
         catch (Exception ex) { Logger.Warn($"Update check exception: {ex.Message}", ex); Dispatcher.Invoke(() => { UpdateText.Text = $"检查异常: {ex.Message}"; UpdateBar.Visibility = Visibility.Visible; UpdateButton.Visibility = Visibility.Collapsed; _updateUrl = null; }); }
@@ -88,7 +91,7 @@ public partial class ShellWindow : Window
         _updateTimer.Dispose();
         base.OnClosed(e);
     }
-    private record LatestDto(string? windowsVersion, string? windowsUrl, string? androidVersion, string? androidUrl, string? error, string? checkedAt);
+    private record LatestDto(string? windowsVersion, string? windowsUrl, string? androidVersion, string? androidUrl, string? shellWindowsVersion, string? shellWindowsUrl, string? shellAndroidVersion, string? shellAndroidUrl, string? error, string? checkedAt);
 
     private void OnNavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
         => ErrorOverlay.Visibility = e.IsSuccess ? Visibility.Collapsed : Visibility.Visible;

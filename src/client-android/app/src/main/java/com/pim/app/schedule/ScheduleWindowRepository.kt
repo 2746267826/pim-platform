@@ -250,8 +250,6 @@ class ScheduleWindowRepository @Inject constructor(
         // PIM-024: server now returns PagedResult; paginate until all items collected to avoid 100-item truncation.
         val allEvents = mutableListOf<EventResponse>()
         var page = 1
-        var totalCount: Int? = null
-        var totalPages: Int? = null
         while (true) {
             val response = apiService.getEvents(start = startIso, end = endIso, page = page, pageSize = 100)
             if (response.code != 0) {
@@ -267,9 +265,7 @@ class ScheduleWindowRepository @Inject constructor(
             val paged = response.data
             if (paged == null) break
             allEvents.addAll(paged.items)
-            totalCount = paged.totalCount
-            totalPages = paged.totalPages
-            if (paged.items.isEmpty() || allEvents.size >= totalCount || page >= totalPages || page >= 20) break
+            if (paged.items.isEmpty() || allEvents.size >= paged.totalCount || page >= paged.totalPages || page >= 20) break
             page++
         }
         // Defensive: if server reported truncation but items empty, fall through with collected

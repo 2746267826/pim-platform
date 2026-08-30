@@ -357,7 +357,8 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// 确保 KeyStats 在当前用户会话收敛为单实例并优先用户态启动。
+    /// 确保 KeyStats 在当前用户会话收敛为单实例。开机阶段优先通过计划任务 \PIM\PIM KeyStats 拉起（免 UAC 提权），
+    /// 任务不存在或失败时回退到 Process.Start（会弹 UAC，但比起不来好）。
     /// </summary>
     private static void EnsureKeyStatsRunning()
     {
@@ -371,10 +372,45 @@ public partial class App : Application
                 return;
             }
 
-            var plan = manager.EnsureRunning(exe, Process.GetCurrentProcess().SessionId);
+            var sessionId = Process.GetCurrentProcess().SessionId;
+            var processes = manager.ListProcesses(sessionId);
+            var plan = KeyStatsProcessManager.BuildConvergencePlan(processes, sessionId);
+            var stopResults = manager.StopProcesses(plan.ProcessIdsToStop);
+            if (plan.ProcessIdsToStop.Count > 0)
+            {
+                Logger.Info($"KeyStats ensure-running stopped {plan.ProcessIdsToStop.Count} extra process(es)");
+            }
+
             if (plan.ShouldStart)
             {
-                Logger.Info("KeyStats ensure-running started process in current session");
+                // 优先走任务计划免 UAC
+                bool viaTask = false;
+                try
+                {
+                    viaTask = TaskSchedulerAutoStartManager.TryRunKeyStatsTask();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"TryRunKeyStatsTask threw: {ex.Message}");
+                }
+
+                if (viaTask)
+                {
+                    Logger.Info("KeyStats ensure-running triggered via scheduled task \\PIM\\PIM KeyStats (no UAC)");
+                }
+                else
+                {
+                    try
+                    {
+                        manager.StartInCurrentSession(exe);
+                        Logger.Info("KeyStats ensure-running started process in current session (fallback Process.Start, may prompt UAC)");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Fallback Process.Start for KeyStats failed: {ex.Message}");
+                        throw;
+                    }
+                }
             }
             else if (plan.KeepProcessId is int keepPid)
             {
@@ -383,11 +419,6 @@ public partial class App : Application
             else
             {
                 Logger.Info("KeyStats ensure-running completed with no keep process");
-            }
-
-            if (plan.ProcessIdsToStop.Count > 0)
-            {
-                Logger.Info($"KeyStats ensure-running stopped {plan.ProcessIdsToStop.Count} extra process(es)");
             }
         }
         catch (Exception ex)

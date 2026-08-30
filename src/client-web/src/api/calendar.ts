@@ -271,16 +271,20 @@ export async function deleteCalendar(id: string) {
 }
 
 export async function getEvents(start: string, end: string) {
-  // PIM-024: /calendar/events now always returns PagedResult<EventResponse>
+  // PIM-024: /calendar/events now always returns PagedResult<EventResponse> (commit 775539e).
   // Keep legacy getEvents() returning EventResponse[] for callers like CalendarPage
-  // by unwrapping the PagedResult and falling back to legacy array shape.
+  // by unwrapping PagedResult.items and falling back to legacy array shape.
+  // Use pageSize=100 (backend max) to minimize truncation vs old unbounded List.
   const r = await apiGet<ApiResponse<PagedResult<EventResponse> | EventResponse[]>>(
-    `/calendar/events?start=${start}&end=${end}`
+    `/calendar/events?start=${start}&end=${end}&page=1&pageSize=100`
   );
   const data = r.data as unknown;
   if (Array.isArray(data)) return data as EventResponse[];
   if (data && typeof data === 'object' && Array.isArray((data as PagedResult<EventResponse>).items)) {
     return (data as PagedResult<EventResponse>).items;
+  }
+  if (data !== null && data !== undefined) {
+    console.warn('[calendar] getEvents: unexpected response shape, fallback to []', data);
   }
   return [];
 }

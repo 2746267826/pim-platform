@@ -136,6 +136,8 @@ export default function CalendarPage() {
   });
   const { mutate: mutatePlanTask } = planTaskMutation;
 
+  // defense-in-depth: API 层已主归一化为 EventResponse[]，此处仅为历史兼容兜底
+  // 若上游回退或契约再次漂移，仍能避免 .filter 崩溃；稳定后可移除
   const safeEvents = useMemo(() => {
     if (Array.isArray(events)) return events;
     const maybePaged = events as unknown as { items?: unknown };

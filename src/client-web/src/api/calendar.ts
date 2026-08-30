@@ -281,7 +281,11 @@ export async function getEvents(start: string, end: string) {
   const data = r.data as unknown;
   if (Array.isArray(data)) return data as EventResponse[];
   if (data && typeof data === 'object' && Array.isArray((data as PagedResult<EventResponse>).items)) {
-    return (data as PagedResult<EventResponse>).items;
+    const paged = data as PagedResult<EventResponse>;
+    if (typeof paged.totalCount === 'number' && paged.items.length < paged.totalCount) {
+      console.warn(`[calendar] getEvents: truncated ${paged.items.length}/${paged.totalCount}, first page only`);
+    }
+    return paged.items;
   }
   if (data !== null && data !== undefined) {
     console.warn('[calendar] getEvents: unexpected response shape, fallback to []', data);

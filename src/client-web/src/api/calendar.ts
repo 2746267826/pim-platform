@@ -271,10 +271,26 @@ export async function deleteCalendar(id: string) {
 }
 
 export async function getEvents(start: string, end: string) {
-  const r = await apiGet<ApiResponse<EventResponse[]>>(
-    `/calendar/events?start=${start}&end=${end}`
+  // PIM-024: /calendar/events now always returns PagedResult<EventResponse> (commit 775539e).
+  // Keep legacy getEvents() returning EventResponse[] for callers like CalendarPage
+  // by unwrapping PagedResult.items and falling back to legacy array shape.
+  // Use pageSize=100 (backend max) to minimize truncation vs old unbounded List.
+  const r = await apiGet<ApiResponse<PagedResult<EventResponse> | EventResponse[]>>(
+    `/calendar/events?start=${start}&end=${end}&page=1&pageSize=100`
   );
-  return r.data;
+  const data = r.data as unknown;
+  if (Array.isArray(data)) return data as EventResponse[];
+  if (data && typeof data === 'object' && Array.isArray((data as PagedResult<EventResponse>).items)) {
+    const paged = data as PagedResult<EventResponse>;
+    if (typeof paged.totalCount === 'number' && paged.items.length < paged.totalCount) {
+      console.warn(`[calendar] getEvents: truncated ${paged.items.length}/${paged.totalCount}, first page only`);
+    }
+    return paged.items;
+  }
+  if (data !== null && data !== undefined) {
+    console.warn('[calendar] getEvents: unexpected response shape, fallback to []', data);
+  }
+  return [];
 }
 
 export async function createEvent(data: Partial<UnifiedEventDraft>) {

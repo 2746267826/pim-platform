@@ -225,7 +225,8 @@ export function buildReviewMetrics(
   if (distItems.length > 0) {
     const other = distItems.find(item => item.categoryName === '其他');
     otherPct = other?.percentage ?? 0;
-    coverage = 100 - otherPct;
+    coverage = Math.round((100 - otherPct) * 10) / 10;
+    otherPct = Math.round(otherPct * 10) / 10;
   }
 
   const mainCategoryName = summary?.categories?.[0]?.categoryName || '暂无';
@@ -269,8 +270,8 @@ export function buildReviewMetrics(
     },
     {
       label: '分类覆盖率',
-      value: coverage !== null ? `${coverage}%` : '—',
-      helper: coverage !== null ? `100% - 其他 ${otherPct}%` : '等待同步',
+      value: coverage !== null ? `${coverage.toFixed(1)}%` : '—',
+      helper: coverage !== null ? `100% - 其他 ${otherPct.toFixed(1)}%` : '等待同步',
       tone: 'activity',
     },
   ];

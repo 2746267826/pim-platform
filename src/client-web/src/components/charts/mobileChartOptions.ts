@@ -134,9 +134,25 @@ const CATEGORY_TREND_FALLBACK_COLORS = [
 /** 手机分析图表按 chartType 分派：category-share→donut pie、top-apps→横向 bar、daily-total→line、
  * hour-distribution→bar、category-trend→line 多 series（按 lifeCategory 分组）、switch-trend→bar。
  * 可点数据项携带 lifeCategory/packageName 原始值供点击反查。 */
+function formatAxisValue(value: number, unit: string): string {
+  if (unit === 'count') return `${Math.round(value)}次`;
+  if (unit === 'seconds') {
+    const v = Math.round(value);
+    if (v >= 3600) {
+      const h = Math.floor(v / 3600);
+      const m = Math.round((v % 3600) / 60);
+      if (m === 0) return `${h}小时`;
+      return `${h}小时${m}分钟`;
+    }
+    if (v >= 60) return `${Math.round(v / 60)}分钟`;
+    return `${v}秒`;
+  }
+  if (unit === 'ratio') return `${Math.round(value * 100)}%`;
+  return String(Math.round(value));
+}
+
 export function buildAnalyticsChartOption(chart: MobileAnalyticsChart): EChartsOption {
   const points = chart.points ?? [];
-  const unit = chart.unit === 'seconds' ? '分钟' : chart.unit === 'count' ? '次' : '';
 
   switch (chart.chartType) {
     case 'category-share': {
@@ -237,7 +253,7 @@ export function buildAnalyticsChartOption(chart: MobileAnalyticsChart): EChartsO
           backgroundColor: 'rgba(15, 23, 42, 0.92)',
           textStyle: { color: '#fff', fontSize: 11 },
         },
-        grid: { left: 48, right: 16, top: 8, bottom: 22 },
+        grid: { left: 56, right: 16, top: 8, bottom: 22 },
         xAxis: [
           {
             type: 'category',
@@ -250,7 +266,7 @@ export function buildAnalyticsChartOption(chart: MobileAnalyticsChart): EChartsO
         yAxis: [
           {
             type: 'value',
-            axisLabel: { ...axisLabel, formatter: (value: number) => `${Math.round(value)}${unit}` },
+            axisLabel: { ...axisLabel, formatter: (value: number) => formatAxisValue(value, chart.unit) },
             splitLine: { lineStyle: { color: chartColors.borderSoft } },
           },
         ],
@@ -305,7 +321,7 @@ export function buildAnalyticsChartOption(chart: MobileAnalyticsChart): EChartsO
           textStyle: { fontSize: 10, color: chartColors.textMuted },
           type: 'scroll',
         },
-        grid: { left: 48, right: 16, top: 8, bottom: 30 },
+        grid: { left: 56, right: 16, top: 8, bottom: 30 },
         xAxis: [
           {
             type: 'category',
@@ -318,7 +334,7 @@ export function buildAnalyticsChartOption(chart: MobileAnalyticsChart): EChartsO
         yAxis: [
           {
             type: 'value',
-            axisLabel: { ...axisLabel, formatter: (value: number) => `${Math.round(value)}${unit}` },
+            axisLabel: { ...axisLabel, formatter: (value: number) => formatAxisValue(value, chart.unit) },
             splitLine: { lineStyle: { color: chartColors.borderSoft } },
           },
         ],

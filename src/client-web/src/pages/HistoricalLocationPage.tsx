@@ -304,7 +304,7 @@ export default function HistoricalLocationPage({ embedded }: { embedded?: boolea
 
   return (
     <div className="pb-20 md:pb-4 space-y-4">
-      <div className="h-[60vh] md:h-[70vh]">
+      <div className="min-h-[520px]">
         <HistoricalLocationDashboard
       rangeShortcut={rangeShortcut}
       rangeStartDate={rangeStartDate}

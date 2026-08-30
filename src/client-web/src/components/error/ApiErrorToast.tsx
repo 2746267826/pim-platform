@@ -2,6 +2,7 @@ import { toast } from 'sonner';
 
 const lastToastAt = new Map<string, number>();
 const DEDUPE_MS = 3000;
+const DEDUPE_MS_SERVER = 30000;
 const MAX_DEDUPE_KEYS = 100;
 
 function pruneDedupeMap() {
@@ -21,7 +22,8 @@ export function showApiError(error: unknown, opts?: { onRetry?: () => void; dedu
   const dedupeKey = opts?.dedupeKey ?? message;
   const now = Date.now();
   const last = lastToastAt.get(dedupeKey) ?? 0;
-  if (now - last < DEDUPE_MS) return;
+  const dedupeMs = message === '服务器异常，请稍后重试' ? DEDUPE_MS_SERVER : DEDUPE_MS;
+  if (now - last < dedupeMs) return;
   lastToastAt.set(dedupeKey, now);
   pruneDedupeMap();
 
@@ -43,8 +45,15 @@ function isSilentError(error: unknown): boolean {
     if (msg.includes('AbortError')) return true;
     // 401 由 AuthContext 统一处理跳转到登录，不需要额外 toast 避免重复提示
     // 但为避免静默失败，仍允许在非 api/client 的 401 场景下提示，此处不过滤，由调用方决定
+    // 轮询场景下 5xx 属于瞬时失败，不应全量 toast 覆盖用户真实操作反馈
+    // 调用方需通过 dedupeKey 区分不同 query 的 5xx，此处不额外静默，由外层决定
   }
   return false;
+}
+
+export function isServerError(error: unknown): boolean {
+  const msg = parseErrorMessage(error);
+  return msg === '服务器异常，请稍后重试';
 }
 
 function getDescriptionForMessage(message: string): string {

@@ -6,28 +6,21 @@ public static class UpdateChecker
     {
         if (string.IsNullOrWhiteSpace(remote)) return false;
         if (string.IsNullOrWhiteSpace(current)) return true;
-        var rv = TryParseVersion(remote!);
-        var cv = TryParseVersion(current!);
-        if (rv is not null && cv is not null) return rv.CompareTo(cv) > 0;
-        return string.Compare(remote.Trim(), current.Trim(), StringComparison.Ordinal) > 0;
+        var rn = ParseN(remote!);
+        var cn = ParseN(current!);
+        if (rn is not null && cn is not null) return rn.Value > cn.Value;
+        return string.Compare(remote!.Trim(), current!.Trim(), StringComparison.Ordinal) > 0;
     }
 
-    private static Version? TryParseVersion(string v)
+    private static int? ParseN(string v)
     {
         var trimmed = v.Trim().TrimStart('v', 'V');
         if (trimmed.Length == 0) return null;
-        // strip prerelease (+/-) metadata
-        var core = trimmed.Split(new[] { '+', '-' }, 2)[0];
-        core = core.Trim();
-        if (Version.TryParse(core, out var ver)) return ver;
-        // pad missing segments: e.g. "1" -> "1.0"
-        var parts = core.Split('.');
-        if (parts.All(p => int.TryParse(p, out _)))
-        {
-            // Try to normalize to at least 2 parts for Version
-            if (parts.Length == 1) core += ".0";
-            if (Version.TryParse(core, out ver)) return ver;
-        }
+        // strip prerelease/build metadata like -pr.5 or +android.1, keep core before first +/-
+        var core = trimmed.Split(new[] { '+', '-' }, 2)[0].Trim();
+        if (core.Length == 0) return null;
+        var last = core.Split('.').LastOrDefault();
+        if (last != null && int.TryParse(last, out var n)) return n;
         return null;
     }
 }

@@ -370,6 +370,10 @@ data class ClientShellLatestResponse(
     val androidUrl: String? = null,
     val windowsVersion: String? = null,
     val windowsUrl: String? = null,
+    val shellWindowsVersion: String? = null,
+    val shellWindowsUrl: String? = null,
+    val shellAndroidVersion: String? = null,
+    val shellAndroidUrl: String? = null,
     val checkedAt: String? = null,
     val error: String? = null
 )

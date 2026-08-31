@@ -63,6 +63,8 @@ public sealed class TrackerSessionManager
     {
         if (window is null) return null;
 
+        TrackerSession? closed = null;
+        TrackerSession? result = null;
         lock (_lock)
         {
             if (_config.ExcludedApps.Any(a => string.Equals(a, window.AppName, StringComparison.OrdinalIgnoreCase)))
@@ -76,31 +78,27 @@ public sealed class TrackerSessionManager
                 _current = CreateSession(window, now);
                 _sessionsCreated++;
                 _logger?.Info("SessionManager", $"Session opened: {window.AppName} ({window.WindowTitle}) at {now:O}");
-                return _current;
+                result = _current;
             }
-
-            if (_current.IsIdle)
+            else if (_current.IsIdle)
             {
-                CloseCurrentLocked(now);
+                closed = CloseCurrentLocked(now);
                 _current = CreateSession(window, now);
                 _sessionsCreated++;
                 _isIdle = false;
                 _logger?.Info("SessionManager", $"Idle ended, new session {window.AppName} at {now:O}");
-                return _current;
+                result = _current;
             }
-
-            if (!string.Equals(_current.AppName, window.AppName, StringComparison.OrdinalIgnoreCase))
+            else if (!string.Equals(_current.AppName, window.AppName, StringComparison.OrdinalIgnoreCase))
             {
-                var old = CloseCurrentLocked(now);
+                closed = CloseCurrentLocked(now);
                 _current = CreateSession(window, now);
                 _sessionsCreated++;
-                _logger?.Info("SessionManager", $"App switched {_current.AppName} from {old?.AppName} at {now:O}");
-                return _current;
+                _logger?.Info("SessionManager", $"App switched {_current.AppName} from {closed?.AppName} at {now:O}");
+                result = _current;
             }
-
-            if (!string.Equals(_current.WindowTitle, window.WindowTitle, StringComparison.Ordinal))
+            else if (!string.Equals(_current.WindowTitle, window.WindowTitle, StringComparison.Ordinal))
             {
-                // Close previous page visit duration
                 if (_current.PageVisits.Count > 0)
                 {
                     var prev = _current.PageVisits[^1];
@@ -127,13 +125,14 @@ public sealed class TrackerSessionManager
                 _current.WindowTitle = window.WindowTitle;
                 _logger?.Debug("SessionManager", $"PageVisit in {window.AppName}: {window.WindowTitle}");
             }
-
-            return null;
         }
+        if (closed is not null) RaiseSessionClosed(closed);
+        return result;
     }
 
     public TrackerSession? HandleIdleStarted(DateTimeOffset now, TimeSpan idleDuration)
     {
+        TrackerSession? closed = null;
         lock (_lock)
         {
             if (_isIdle) return null;
@@ -142,7 +141,7 @@ public sealed class TrackerSessionManager
             var idleStart = now - grace;
 
             _isIdle = true;
-            var closed = CloseCurrentLocked(idleStart);
+            closed = CloseCurrentLocked(idleStart);
             _current = new TrackerSession
             {
                 Id = System.Threading.Interlocked.Increment(ref _globalId),
@@ -156,17 +155,19 @@ public sealed class TrackerSessionManager
             };
             _sessionsCreated++;
             _logger?.Info("SessionManager", $"Idle started at {idleStart:O} (grace {grace.TotalSeconds}s), duration {idleDuration.TotalSeconds}s");
-            return closed;
         }
+        if (closed is not null) RaiseSessionClosed(closed);
+        return closed;
     }
 
     public TrackerSession? HandleIdleEnded(DateTimeOffset now, TrackerWindowInfo? window)
     {
+        TrackerSession? closed = null;
         lock (_lock)
         {
             if (!_isIdle) return null;
             _isIdle = false;
-            var closed = CloseCurrentLocked(now);
+            closed = CloseCurrentLocked(now);
             _logger?.Info("SessionManager", $"Idle ended at {now:O}");
 
             if (window is not null)
@@ -178,34 +179,40 @@ public sealed class TrackerSessionManager
             {
                 _current = null;
             }
-            return closed;
         }
+        if (closed is not null) RaiseSessionClosed(closed);
+        return closed;
     }
 
     public TrackerSession? HandleGap(DateTimeOffset gapStart, DateTimeOffset now)
     {
+        TrackerSession? closed = null;
         lock (_lock)
         {
             _logger?.Info("SessionManager", $"Gap detected from {gapStart:O} to {now:O}, duration {(now - gapStart).TotalSeconds}s");
-            var closed = CloseCurrentLocked(gapStart);
+            closed = CloseCurrentLocked(gapStart);
             _current = null;
             _isIdle = false;
-            return closed;
         }
+        if (closed is not null) RaiseSessionClosed(closed);
+        return closed;
     }
 
     public TrackerSession? CloseCurrent(DateTimeOffset endedAt)
     {
+        TrackerSession? closed;
         lock (_lock)
         {
-            return CloseCurrentLocked(endedAt);
+            closed = CloseCurrentLocked(endedAt);
         }
+        if (closed is not null)
+            Task.Run(() => SessionClosed?.Invoke(closed));
+        return closed;
     }
 
     private TrackerSession? CloseCurrentLocked(DateTimeOffset endedAt)
     {
         if (_current is null) return null;
-        // finalize last page visit if open
         if (_current.PageVisits.Count > 0)
         {
             var last = _current.PageVisits[^1];
@@ -221,10 +228,13 @@ public sealed class TrackerSessionManager
         if (_current.DurationSecs < 0) _current.DurationSecs = 0;
         var closed = _current;
         _current = null;
-        // invoke outside lock to avoid deadlock
-        Task.Run(() => SessionClosed?.Invoke(closed));
         _logger?.Info("SessionManager", $"Session closed: {closed.AppName} duration {closed.DurationSecs:F1}s pageVisits={closed.PageVisits.Count} idle={closed.IsIdle}");
         return closed;
+    }
+
+    private void RaiseSessionClosed(TrackerSession session)
+    {
+        Task.Run(() => SessionClosed?.Invoke(session));
     }
 
     public TrackerSession? Flush(DateTimeOffset now)

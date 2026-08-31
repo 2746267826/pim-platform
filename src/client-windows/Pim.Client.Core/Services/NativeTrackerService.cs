@@ -32,6 +32,7 @@ public sealed class NativeTrackerService : IDisposable
     private DateTimeOffset _lastPollTime = DateTimeOffset.UtcNow;
     private TrackerWindowInfo? _lastWindow;
     private IntPtr _hookHandle = IntPtr.Zero;
+    private IntPtr _hookHandle2 = IntPtr.Zero;
     private Win32Hook.WinEventProc? _hookCallback;
 
     public Action<string>? Log { get; set; }
@@ -332,9 +333,10 @@ public sealed class NativeTrackerService : IDisposable
                 return;
             }
 
-            _hookHandle = hook1 != IntPtr.Zero ? hook1 : hook2;
+            _hookHandle = hook1;
+            _hookHandle2 = hook2;
             lock (_statsLock) _hookActive = true;
-            _logger.Info("Tracker", "Hook registered successfully");
+            _logger.Info("Tracker", $"Hook registered successfully h1={hook1} h2={hook2}");
 
             // Message loop
             while (!ct.IsCancellationRequested)
@@ -353,6 +355,7 @@ public sealed class NativeTrackerService : IDisposable
         finally
         {
             try { Win32Hook.Unhook(_hookHandle); } catch { }
+            try { Win32Hook.Unhook(_hookHandle2); } catch { }
         }
     }
 

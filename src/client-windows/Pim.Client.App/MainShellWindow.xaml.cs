@@ -9,7 +9,7 @@ public partial class MainShellWindow : Window
 {
     private readonly ApiClient _apiClient;
     private readonly AuthService _authService;
-    private readonly AwCollectorService _awCollector;
+    private readonly NativeTrackerService? _tracker;
     private readonly KeyStatsCollectorService _keyStatsCollector;
     private readonly EmbeddedWebViewHost _webHost;
     private string _currentRoute = "/today";
@@ -20,7 +20,7 @@ public partial class MainShellWindow : Window
 
         _apiClient = App.Services.GetRequiredService<ApiClient>();
         _authService = App.Services.GetRequiredService<AuthService>();
-        _awCollector = App.Services.GetRequiredService<AwCollectorService>();
+        _tracker = App.Services.GetService<NativeTrackerService>();
         _keyStatsCollector = App.Services.GetRequiredService<KeyStatsCollectorService>();
         _webHost = new EmbeddedWebViewHost(_apiClient, _authService);
 
@@ -101,9 +101,10 @@ public partial class MainShellWindow : Window
         AccountStateText.Text = _authService.IsAuthenticated
             ? $"账户状态：{_authService.CurrentUsername} 已登录"
             : "账户状态：未登录";
+        var trackerInfo = _tracker is null ? "Tracker 未启动"
+            : $"Tracker: poll={_tracker.PollCount} sessions={_tracker.SessionsCreated} 上传={_tracker.EventsUploaded} 错误={_tracker.LastError ?? "无"} hook={_tracker.HookActive} 浏览器={_tracker.BrowserConnected}";
         UploadStateText.Text =
-            $"采集上传状态：ActivityWatch 队列 {_awCollector.QueueCount} 条；" +
-            $"AW 错误 {_awCollector.LastUploadError ?? "无"}；" +
+            $"采集上传状态：{trackerInfo}；" +
             $"KeyStats 错误 {_keyStatsCollector.LastUploadError ?? "无"}";
     }
 }

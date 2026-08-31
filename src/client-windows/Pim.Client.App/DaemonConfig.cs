@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using Pim.Client.Core;
+using Pim.Client.Core.Models;
 
 namespace Pim.Client.App;
 
@@ -8,6 +9,7 @@ public class DaemonConfig
 {
     public string ServerUrl { get; set; } = ClientDefaults.DefaultServerUrl;
     public bool AutoStart { get; set; } = true;
+    public TrackerConfig Tracker { get; set; } = new();
 
     private static readonly string Dir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PIM");

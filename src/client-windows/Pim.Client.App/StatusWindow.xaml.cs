@@ -15,13 +15,14 @@ public partial class StatusWindow : Window
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(3) };
     private readonly ApiClient _apiClient;
     private readonly AuthService _authService;
-    private readonly AwCollectorService _awCollector;
+    private readonly NativeTrackerService? _tracker;
+    private readonly BrowserBridgeService? _bridge;
     private readonly KeyStatsCollectorService _keyStatsCollector;
     private readonly KeyStatsProcessManager _processManager;
     private readonly KeyStatsOneClickFixService _fixService;
 
     private string _lastDiagnosticsReport = string.Empty;
-    private string _awState = "Unknown";
+    private string _trackerState = "Unknown";
     private string _ksState = "Unknown";
     private string? _ksSkipReason;
     private bool _apiOk;
@@ -32,7 +33,8 @@ public partial class StatusWindow : Window
 
         _apiClient = App.Services.GetRequiredService<ApiClient>();
         _authService = App.Services.GetRequiredService<AuthService>();
-        _awCollector = App.Services.GetRequiredService<AwCollectorService>();
+        _tracker = App.Services.GetService<NativeTrackerService>();
+        _bridge = App.Services.GetService<BrowserBridgeService>();
         _keyStatsCollector = App.Services.GetRequiredService<KeyStatsCollectorService>();
         _processManager = App.Services.GetRequiredService<KeyStatsProcessManager>();
         _fixService = new KeyStatsOneClickFixService(_processManager, new KeyStatsLocalStatsClient());
@@ -79,14 +81,17 @@ public partial class StatusWindow : Window
         _apiOk = apiDiag.Ok;
         ApiConnectivityText.Text = apiDiag.Summary;
 
-        var awUrl = $"{ClientDefaults.AwBaseUrl.TrimEnd('/')}/api/0/buckets/";
-        var awProbe = await ProbeEndpointAsync(awUrl);
-        _awState = awProbe.Ok ? "Available" : "Unavailable";
-        AwSummaryText.Text = awProbe.Ok ? "ActivityWatch 已连接" : "ActivityWatch 未连接";
+        var trackerUrl = $"http://localhost:{(_tracker is null ? 15601 : DaemonConfig.Load().Tracker.BrowserBridgePort)}/browser/ping";
+        var trackerProbe = await ProbeEndpointAsync(trackerUrl);
+        var bridgeConnected = _bridge?.IsConnected ?? _tracker?.BrowserConnected ?? false;
+        _trackerState = trackerProbe.Ok || bridgeConnected ? "Available" : "Unavailable";
+        AwSummaryText.Text = bridgeConnected ? "Tracker 浏览器已连接" : trackerProbe.Ok ? "Tracker 桥接正常" : "Tracker 浏览器未连接";
         AwDetailText.Text =
-            $"URL: {awUrl}\n" +
-            $"Status: {awProbe.StatusLine}\n" +
-            $"Message: {awProbe.Message}\n" +
+            $"URL: {trackerUrl}\n" +
+            $"Status: {trackerProbe.StatusLine}\n" +
+            $"Message: {trackerProbe.Message}\n" +
+            $"Bridge: {(bridgeConnected ? "已连接" : "未连接")}\n" +
+            $"Polls: {_tracker?.PollCount ?? 0} Sessions: {_tracker?.SessionsCreated ?? 0} Hook: {_tracker?.HookActive}\n" +
             $"Time: {timestamp}";
 
         var processes = _processManager.ListProcesses(sessionId);
@@ -127,10 +132,10 @@ public partial class StatusWindow : Window
             }
         }
 
-        var queueCount = _awCollector.QueueCount;
-        AwQueueText.Text = queueCount > 0
-            ? $"ActivityWatch 队列 {queueCount} 条待上传"
-            : "ActivityWatch 队列为空";
+        var queueCount = 0; // tracker uses internal concurrent queue, not exposed as count
+        AwQueueText.Text = _tracker is null
+            ? "Tracker 未启动"
+            : $"Tracker 队列: 已上传 {_tracker.EventsUploaded} 失败 {_tracker.UploadFailures} 会话 {_tracker.SessionsCreated}";
 
         KeyStatsUploadText.Text = FormatUploadLine(
             "KeyStats",
@@ -142,15 +147,15 @@ public partial class StatusWindow : Window
             : _ksSkipReason;
 
         var errors = new List<string>();
-        if (!string.IsNullOrWhiteSpace(_awCollector.LastUploadError))
-            errors.Add($"ActivityWatch: {_awCollector.LastUploadError}");
+        if (!string.IsNullOrWhiteSpace(_tracker?.LastError))
+            errors.Add($"Tracker: {_tracker.LastError}");
         if (!string.IsNullOrWhiteSpace(_keyStatsCollector.LastUploadError))
             errors.Add($"KeyStats: {_keyStatsCollector.LastUploadError}");
         LastErrorsText.Text = errors.Count == 0 ? "无" : string.Join("\n", errors);
 
         var overall = StatusCenterEvaluator.Rate(
             _authService.IsAuthenticated,
-            _awState,
+            _trackerState,
             _ksState,
             _ksSkipReason,
             queueCount);
@@ -252,12 +257,11 @@ public partial class StatusWindow : Window
         sb.AppendLine($"Username: {_authService.CurrentUsername ?? "(none)"}");
         sb.AppendLine($"Server: {_authService.ServerUrl}");
         sb.AppendLine($"API: {api.Summary} ({api.StatusLine})");
-        sb.AppendLine($"ActivityWatch: {_awState} / {aw.StatusLine} / {aw.Message}");
+        sb.AppendLine($"Tracker: {_trackerState} / {aw.StatusLine} / {aw.Message} polls={_tracker?.PollCount} hook={_tracker?.HookActive} browser={_tracker?.BrowserConnected}");
         sb.AppendLine($"KeyStats: {_ksState} skip={_ksSkipReason ?? "none"}");
         sb.AppendLine($"KeyStats processes: {FormatProcesses(processes)}");
-        sb.AppendLine($"AW Queue: {queueCount}");
-        sb.AppendLine($"AW LastUpload: {_awCollector.LastUploadTime?.ToString("O") ?? "none"}");
-        sb.AppendLine($"AW LastError: {_awCollector.LastUploadError ?? "none"}");
+        sb.AppendLine($"Tracker Queue: 已上传={_tracker?.EventsUploaded} 失败={_tracker?.UploadFailures}");
+        sb.AppendLine($"Tracker LastError: {_tracker?.LastError ?? "none"}");
         sb.AppendLine($"KS LastUpload: {_keyStatsCollector.LastUploadTime?.ToString("O") ?? "none"}");
         sb.AppendLine($"KS LastError: {_keyStatsCollector.LastUploadError ?? "none"}");
         sb.AppendLine($"KS LastSkip: {_keyStatsCollector.LastSkipReason ?? "none"}");
@@ -316,10 +320,10 @@ public partial class StatusWindow : Window
         ManualSyncButton.Content = "同步中...";
         try
         {
-            await Task.WhenAll(_awCollector.SyncNowAsync(), _keyStatsCollector.SyncNowAsync());
+            await _keyStatsCollector.SyncNowAsync();
             await RefreshStatusAsync();
 
-            var uploadErrors = BuildUploadErrorMessage(_awCollector.LastUploadError, _keyStatsCollector.LastUploadError);
+            var uploadErrors = BuildUploadErrorMessage(_tracker?.LastError, _keyStatsCollector.LastUploadError);
             if (uploadErrors is not null)
             {
                 MessageBox.Show($"同步已执行，但上传仍有错误：\n{uploadErrors}", "PIM", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -521,11 +525,11 @@ public partial class StatusWindow : Window
 
     private void OnClose(object sender, RoutedEventArgs e) => Close();
 
-    private static string? BuildUploadErrorMessage(string? awError, string? keyStatsError)
+    private static string? BuildUploadErrorMessage(string? trackerError, string? keyStatsError)
     {
         var errors = new List<string>();
-        if (!string.IsNullOrWhiteSpace(awError))
-            errors.Add($"ActivityWatch: {awError}");
+        if (!string.IsNullOrWhiteSpace(trackerError))
+            errors.Add($"Tracker: {trackerError}");
         if (!string.IsNullOrWhiteSpace(keyStatsError))
             errors.Add($"KeyStats: {keyStatsError}");
         return errors.Count == 0 ? null : string.Join("\n", errors);

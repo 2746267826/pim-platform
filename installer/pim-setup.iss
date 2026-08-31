@@ -277,64 +277,40 @@ var
   ResultCode: Integer;
 begin
   Exec(ExpandConstant('{cmd}'), '/c schtasks /delete /tn "' + LegacyTask + '" /f 2>nul', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec(ExpandConstant('{cmd}'), '/c schtasks /delete /tn "' + KeyStatsTask + '" /f 2>nul', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(ExpandConstant('{cmd}'), '/c schtasks /delete /tn "PimKeyStats" /f 2>nul', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  // 旧路径兼容: 根路径 \PimKeyStats 已处理，额外清理可能存在的 \PIM\PIM Daemon 旧实例以便重建
-  // 不在此删除新任务，创建时会 /f 覆盖
+  // 清理旧的 KeyStats 独立任务（新版 KeyStats 作为子进程继承 HIGHEST，无需独立任务）
 end;
 
 procedure CreatePimTasks();
 var
   ResultCode: Integer;
   AppDaemon: String;
-  AppKeyStats: String;
   Cmd: String;
-  SuccessDaemon, SuccessKeyStats: Boolean;
+  SuccessDaemon: Boolean;
 begin
   CleanLegacyRunEntries();
   DeleteLegacyTasks();
 
   AppDaemon := ExpandConstant('{app}\Pim.Client.App.exe');
-  AppKeyStats := ExpandConstant('{app}\KeyStats.exe');
 
-  // 任务以当前安装用户 (per-machine admin) 创建，触发器 ONLOGON 对应该用户登录时触发。
-  // 已验证与旧 KeyStats 的 PimKeyStats 任务一致：省略 /RU 避免口令提示，任务在交互会话 (Session 1) 以 LIMITED/HIGHEST 运行；
-  // 若需支持多用户任意登录，可改为 XML 模板 + Principal GroupId=Users，此处保持 schtasks 简洁实现并由应用层 EnsureKeyStatsRunning 兜底。
-  // Daemon: LIMITED, ONLOGON, delay 10s, allow on-demand
-  Cmd := '/c schtasks /create /tn "' + DaemonTask + '" /tr "\"' + AppDaemon + '\"" /sc onlogon /rl limited /f /delay 0000:10 2>nul';
+  // 仅创建一个 HIGHEST 任务 \PIM\PIM Daemon，KeyStats 改为子进程继承权限
+  Cmd := '/c schtasks /create /tn "' + DaemonTask + '" /tr "\"' + AppDaemon + '\"" /sc onlogon /rl highest /f /delay 0000:10 2>nul';
   SuccessDaemon := Exec(ExpandConstant('{cmd}'), Cmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
   if not SuccessDaemon then
   begin
     // retry without delay (older Windows)
-    Cmd := '/c schtasks /create /tn "' + DaemonTask + '" /tr "\"' + AppDaemon + '\"" /sc onlogon /rl limited /f 2>nul';
+    Cmd := '/c schtasks /create /tn "' + DaemonTask + '" /tr "\"' + AppDaemon + '\"" /sc onlogon /rl highest /f 2>nul';
     SuccessDaemon := Exec(ExpandConstant('{cmd}'), Cmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
   end;
   if not SuccessDaemon then
   begin
-    // Fallback: try via XML or just warn; don't block install
     Log('CreatePimTasks: failed to create daemon task, code ' + IntToStr(ResultCode));
-    // 降级提示：任务创建失败，将回退到注册表自启（会弹 UAC）
-    // 不阻断安装，仅日志
   end;
 
-  // KeyStats: HIGHEST, ONLOGON, delay 10s
-  Cmd := '/c schtasks /create /tn "' + KeyStatsTask + '" /tr "\"' + AppKeyStats + '\"" /sc onlogon /rl highest /f /delay 0000:10 2>nul';
-  SuccessKeyStats := Exec(ExpandConstant('{cmd}'), Cmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
-  if not SuccessKeyStats then
+  if not SuccessDaemon then
   begin
-    Cmd := '/c schtasks /create /tn "' + KeyStatsTask + '" /tr "\"' + AppKeyStats + '\"" /sc onlogon /rl highest /f 2>nul';
-    SuccessKeyStats := Exec(ExpandConstant('{cmd}'), Cmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
-  end;
-  if not SuccessKeyStats then
-  begin
-    Log('CreatePimTasks: failed to create KeyStats task, code ' + IntToStr(ResultCode));
-  end;
-
-  if (not SuccessDaemon) or (not SuccessKeyStats) then
-  begin
-    // 若 HIGHEST 任务创建失败（如企业策略限制），尝试回退注册表自启但不阻断安装
-    // 注册表回退由应用层 AutoStartManager 兜底，此处仅提示
-    if not SuccessKeyStats then
-      MsgBox('任务创建失败（可能受企业策略限制），KeyStats 开机自启将回退到注册表方式（会弹 UAC）。可手动在任务计划程序中检查 \PIM\PIM KeyStats。', mbInformation, MB_OK);
+    MsgBox('任务创建失败（可能受企业策略限制），开机自启将回退到注册表方式（会弹 UAC）。可手动在任务计划程序中检查 \PIM\PIM Daemon。', mbInformation, MB_OK);
   end;
 end;
 

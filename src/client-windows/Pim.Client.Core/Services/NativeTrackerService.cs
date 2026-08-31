@@ -54,6 +54,8 @@ public sealed class NativeTrackerService : IDisposable
             return (DateTimeOffset.UtcNow - hb).TotalSeconds;
         }
     }
+    public IReadOnlyList<BrowserConnection> GetBrowserConnections() => _bridge.GetConnectionsSnapshot();
+    public IReadOnlyDictionary<string, BrowserConnection> BrowserConnections => _bridge.Connections;
 
     public NativeTrackerService(
         ApiClient api,
@@ -146,6 +148,7 @@ public sealed class NativeTrackerService : IDisposable
         var pageVisitCount = session.PageVisits.Count;
         var pageVisitDuration = session.PageVisits.Sum(v => v.DurationSecs ?? 0);
 
+        var hbForWindow = _bridge.LastHeartbeat;
         var list = new List<TrackerEventForUpload>
         {
             new TrackerEventForUpload
@@ -163,7 +166,9 @@ public sealed class NativeTrackerService : IDisposable
                 Date = session.Date,
                 RawJson = new { sessionId = session.Id, pageVisits = session.PageVisits },
                 PageVisitCount = pageVisitCount,
-                PageVisitDuration = pageVisitDuration
+                PageVisitDuration = pageVisitDuration,
+                Browser = hbForWindow?.Browser,
+                InstanceId = hbForWindow?.InstanceId
             }
         };
 
@@ -173,6 +178,7 @@ public sealed class NativeTrackerService : IDisposable
         {
             var pvDuration = pv.DurationSecs ?? 0;
             if (pvDuration <= 0) continue;
+            var hbForPage = _bridge.LastHeartbeat;
             list.Add(new TrackerEventForUpload
             {
                 Timestamp = pv.StartedAt.ToString("O"),
@@ -185,13 +191,15 @@ public sealed class NativeTrackerService : IDisposable
                 Url = pv.Url,
                 Domain = pv.Domain,
                 PagePath = null,
-                Audible = _bridge.LastHeartbeat?.Audible,
-                Incognito = _bridge.LastHeartbeat?.Incognito,
-                TabCount = _bridge.LastHeartbeat?.TabCount,
+                Audible = hbForPage?.Audible,
+                Incognito = hbForPage?.Incognito,
+                TabCount = hbForPage?.TabCount,
                 IsIdle = false,
                 IsMediaActive = false,
                 Date = pv.StartedAt.ToString("yyyy-MM-dd"),
-                RawJson = new { sessionId = session.Id, pageVisit = pv }
+                RawJson = new { sessionId = session.Id, pageVisit = pv },
+                Browser = hbForPage?.Browser,
+                InstanceId = hbForPage?.InstanceId
             });
         }
 

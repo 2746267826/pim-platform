@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -16,6 +17,8 @@ public sealed class BrowserBridgeService : IDisposable
     private Task? _listenTask;
     private DateTimeOffset _lastHeartbeatTime = DateTimeOffset.MinValue;
     private BrowserHeartbeat? _lastHeartbeat;
+    private readonly ConcurrentDictionary<string, BrowserConnection> _connections = new();
+    private Timer? _checkTimer;
 
     public BrowserBridgeService(int port = 15601, TrackerLogger? logger = null)
     {
@@ -25,9 +28,40 @@ public sealed class BrowserBridgeService : IDisposable
     }
 
     public ChannelReader<BrowserHeartbeat> Reader => _channel.Reader;
-    public BrowserHeartbeat? LastHeartbeat => _lastHeartbeat;
-    public DateTimeOffset LastHeartbeatTime => _lastHeartbeatTime;
-    public bool IsConnected => _lastHeartbeat is not null && (DateTimeOffset.UtcNow - _lastHeartbeatTime).TotalSeconds < 120;
+    public IReadOnlyDictionary<string, BrowserConnection> Connections => _connections;
+    public BrowserHeartbeat? LastHeartbeat
+    {
+        get
+        {
+            if (_connections.IsEmpty) return _lastHeartbeat;
+            var latest = _connections.Values.OrderByDescending(c => c.LastHeartbeat).FirstOrDefault();
+            if (latest is null) return _lastHeartbeat;
+            if (_lastHeartbeat is null) return new BrowserHeartbeat
+            {
+                Url = latest.LastUrl ?? string.Empty,
+                Title = latest.LastTitle ?? string.Empty,
+                Audible = latest.LastAudible ?? false,
+                Incognito = latest.LastIncognito ?? false,
+                TabCount = latest.LastTabCount ?? 0,
+                Browser = latest.BrowserType,
+                InstanceId = latest.InstanceId,
+                Timestamp = latest.LastHeartbeat.ToString("O")
+            };
+            return _lastHeartbeat;
+        }
+    }
+    public DateTimeOffset LastHeartbeatTime
+    {
+        get
+        {
+            if (_connections.IsEmpty) return _lastHeartbeatTime;
+            var latest = _connections.Values.Max(c => c.LastHeartbeat);
+            return latest > _lastHeartbeatTime ? latest : _lastHeartbeatTime;
+        }
+    }
+    public bool IsConnected => _connections.IsEmpty
+        ? (_lastHeartbeat is not null && (DateTimeOffset.UtcNow - _lastHeartbeatTime).TotalSeconds < 120)
+        : _connections.Values.Any(c => c.IsConnected);
 
     public void Start()
     {
@@ -48,14 +82,110 @@ public sealed class BrowserBridgeService : IDisposable
         }
 
         _listenTask = Task.Run(() => ListenLoopAsync(_cts.Token));
+        _checkTimer = new Timer(_ => CheckConnections(), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 
     public void Stop()
     {
+        try { _checkTimer?.Dispose(); } catch { }
+        _checkTimer = null;
         try { _cts?.Cancel(); } catch { }
         try { _listener?.Stop(); } catch { }
         try { _listener?.Close(); } catch { }
         _listener = null;
+    }
+
+    public void OnHeartbeat(BrowserHeartbeat hb)
+    {
+        var instanceId = string.IsNullOrWhiteSpace(hb.InstanceId) ? "unknown" : hb.InstanceId;
+        var browserType = string.IsNullOrWhiteSpace(hb.Browser) ? "other" : hb.Browser.ToLowerInvariant();
+        hb.Browser = browserType;
+        hb.InstanceId = instanceId;
+
+        var conn = _connections.GetOrAdd(instanceId, _ => new BrowserConnection
+        {
+            InstanceId = instanceId,
+            BrowserType = browserType,
+            DisplayName = BuildDisplayName(hb),
+            FirstSeen = DateTimeOffset.UtcNow,
+        });
+        conn.BrowserType = browserType;
+        conn.IsConnected = true;
+        conn.LastHeartbeat = DateTimeOffset.UtcNow;
+        conn.LastUrl = hb.Url;
+        conn.LastTitle = hb.Title;
+        conn.LastAudible = hb.Audible;
+        conn.LastTabCount = hb.TabCount;
+        conn.LastIncognito = hb.Incognito;
+        conn.HeartbeatCount++;
+
+        RebuildDisplayNames(browserType);
+
+        _lastHeartbeat = hb;
+        _lastHeartbeatTime = DateTimeOffset.UtcNow;
+        _channel.Writer.TryWrite(hb);
+        _logger?.Debug("BrowserBridge", $"Heartbeat {hb.Domain} browser={hb.Browser} instance={instanceId} audible={hb.Audible} tabs={hb.TabCount}");
+    }
+
+    private void RebuildDisplayNames(string browserType)
+    {
+        var same = _connections.Values.Where(c => c.BrowserType == browserType).ToList();
+        var count = same.Count;
+        foreach (var c in same)
+        {
+            c.DisplayName = BuildDisplayNameForConnection(c, count);
+        }
+    }
+
+    private string BuildDisplayNameForConnection(BrowserConnection conn, int sameTypeCount)
+    {
+        var type = conn.BrowserType switch
+        {
+            "chrome" => "Chrome",
+            "edge" => "Edge",
+            "firefox" => "Firefox",
+            "safari" => "Safari",
+            _ => conn.BrowserType
+        };
+        if (conn.LastIncognito == true) return $"{type} (无痕)";
+        var shortId = conn.InstanceId.Length > 4 ? conn.InstanceId[^4..] : conn.InstanceId;
+        if (sameTypeCount <= 1) return type;
+        return $"{type} ({shortId})";
+    }
+
+    private string BuildDisplayName(BrowserHeartbeat hb)
+    {
+        var type = hb.Browser switch
+        {
+            "chrome" => "Chrome",
+            "edge" => "Edge",
+            "firefox" => "Firefox",
+            "safari" => "Safari",
+            _ => hb.Browser
+        };
+        if (hb.Incognito) return $"{type} (无痕)";
+        var shortId = hb.InstanceId.Length > 4 ? hb.InstanceId[^4..] : hb.InstanceId;
+        var sameTypeCount = _connections.Values.Count(c => c.BrowserType == hb.Browser) + 1;
+        if (sameTypeCount <= 1) return type;
+        return $"{type} ({shortId})";
+    }
+
+    public void CheckConnections()
+    {
+        foreach (var conn in _connections.Values)
+        {
+            var silentSeconds = (DateTimeOffset.UtcNow - conn.LastHeartbeat).TotalSeconds;
+            if (conn.IsConnected && silentSeconds > 120)
+            {
+                conn.IsConnected = false;
+                _logger?.Warn("BrowserBridge", $"BrowserBridge {conn.DisplayName} disconnected, silent for {silentSeconds:F0}s");
+            }
+        }
+    }
+
+    public IReadOnlyList<BrowserConnection> GetConnectionsSnapshot()
+    {
+        return _connections.Values.OrderBy(c => c.BrowserType).ThenBy(c => c.InstanceId).ToList();
     }
 
     private async Task ListenLoopAsync(CancellationToken ct)
@@ -142,10 +272,9 @@ public sealed class BrowserBridgeService : IDisposable
                 {
                     if (string.IsNullOrWhiteSpace(hb.Timestamp))
                         hb.Timestamp = DateTimeOffset.UtcNow.ToString("O");
-                    _lastHeartbeat = hb;
-                    _lastHeartbeatTime = DateTimeOffset.UtcNow;
-                    _channel.Writer.TryWrite(hb);
-                    _logger?.Debug("BrowserBridge", $"Heartbeat {hb.Domain} audible={hb.Audible} tabs={hb.TabCount}");
+                    if (string.IsNullOrWhiteSpace(hb.Browser)) hb.Browser = "other";
+                    if (string.IsNullOrWhiteSpace(hb.InstanceId)) hb.InstanceId = "unknown";
+                    OnHeartbeat(hb);
                 }
 
                 resp.StatusCode = 204;

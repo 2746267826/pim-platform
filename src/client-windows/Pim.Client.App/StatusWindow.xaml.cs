@@ -165,6 +165,8 @@ public partial class StatusWindow : Window
         var suggestion = KeyStatsFixAdvisor.BuildSuggestion(health);
         KeyStatsFixSuggestionText.Text = suggestion.MessageZh;
 
+        RefreshBrowserConnections();
+
         _lastDiagnosticsReport = BuildDiagnosticsReport(
             timestamp,
             apiDiag,
@@ -239,6 +241,79 @@ public partial class StatusWindow : Window
         if (ago.TotalHours < 1) return $"{(int)ago.TotalMinutes} 分钟前";
         if (ago.TotalDays < 1) return $"{(int)ago.TotalHours} 小时前";
         return $"{(int)ago.TotalDays} 天前";
+    }
+
+    private void RefreshBrowserConnections()
+    {
+        try
+        {
+            var conns = _bridge?.GetConnectionsSnapshot() ?? _tracker?.GetBrowserConnections() ?? new List<Pim.Client.Core.Models.BrowserConnection>();
+            var ordered = conns.OrderByDescending(c => c.IsConnected).ThenBy(c => c.BrowserType).ThenBy(c => c.InstanceId).ToList();
+
+            if (ordered.Count == 0)
+            {
+                BrowserConnectionsList.ItemsSource = null;
+                BrowserEmptyText.Visibility = Visibility.Visible;
+                BrowserSummaryText.Text = _bridge?.IsConnected == true || _tracker?.BrowserConnected == true
+                    ? "浏览器已连接但暂无实例详情"
+                    : "暂无浏览器连接";
+                return;
+            }
+
+            BrowserEmptyText.Visibility = Visibility.Collapsed;
+            var vms = ordered.Select(c =>
+            {
+                var status = c.IsConnected ? "✅ 已连接" : "❌ 未连接";
+                var ago = c.IsConnected
+                    ? $"{(int)(DateTimeOffset.UtcNow - c.LastHeartbeat).TotalSeconds}秒前"
+                    : "—";
+                var heartbeatAgo = c.IsConnected ? $"心跳: {ago}" : "心跳: —";
+                var url = string.IsNullOrWhiteSpace(c.LastUrl) ? "—" : c.LastUrl!;
+                var audibleText = c.LastAudible == true ? "是 🔊" : "否";
+                var meta = $"标签页: {c.LastTabCount?.ToString() ?? "—"} | 音频: {audibleText}";
+                var countText = $"心跳累计: {c.HeartbeatCount} 次";
+                if (!string.IsNullOrWhiteSpace(c.LastTitle))
+                    countText += $" | 标题: {c.LastTitle}";
+                return new
+                {
+                    DisplayName = c.DisplayName,
+                    StatusText = status,
+                    HeartbeatAgo = heartbeatAgo,
+                    Url = url,
+                    Meta = meta,
+                    HeartbeatCountText = countText
+                };
+            }).ToList();
+
+            BrowserConnectionsList.ItemsSource = vms;
+            var connectedCount = ordered.Count(c => c.IsConnected);
+            BrowserSummaryText.Text = $"共 {ordered.Count} 个实例，{connectedCount} 个已连接";
+        }
+        catch (Exception ex)
+        {
+            BrowserSummaryText.Text = $"浏览器连接加载失败: {ex.Message}";
+        }
+    }
+
+    private async void OnTestBrowserConnection(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var port = DaemonConfig.Load().Tracker.BrowserBridgePort;
+            var url = $"http://localhost:{port}/browser/ping";
+            var (ok, statusLine, message) = await ProbeEndpointAsync(url);
+            var detail = ok ? $"连接正常\n{statusLine}\n{message}" : $"连接失败\n{statusLine}\n{message}";
+            if (ok && (_bridge?.IsConnected ?? _tracker?.BrowserConnected ?? false))
+                detail += "\n浏览器已连接";
+            else if (ok)
+                detail += "\n桥接正常但浏览器未发送心跳（请检查扩展是否已安装并刷新页面）";
+            MessageBox.Show(detail, "PIM", MessageBoxButton.OK, ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            await RefreshStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"测试连接失败: {ex.Message}", "PIM", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private string BuildDiagnosticsReport(

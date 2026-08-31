@@ -7,6 +7,8 @@ export interface HeartbeatData {
   audible: boolean;
   incognito: boolean;
   tabCount: number;
+  browser: string;
+  instanceId: string;
 }
 
 export async function sendHeartbeat(data: HeartbeatData): Promise<boolean> {

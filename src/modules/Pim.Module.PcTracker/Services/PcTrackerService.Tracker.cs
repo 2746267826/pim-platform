@@ -65,6 +65,8 @@ public partial class PcTrackerService
                 TabCount = e.TabCount,
                 PageVisitCount = e.PageVisitCount,
                 PageVisitDuration = e.PageVisitDuration,
+                Browser = e.Browser,
+                InstanceId = e.InstanceId,
                 RawJson = rawJson,
                 CreatedAt = now,
                 Date = date.Date

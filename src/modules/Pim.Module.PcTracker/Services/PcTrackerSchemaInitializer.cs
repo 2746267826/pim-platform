@@ -531,6 +531,8 @@ CREATE TABLE IF NOT EXISTS pc_tracker_events (
     tab_count INTEGER,
     page_visit_count INTEGER DEFAULT 0,
     page_visit_duration DOUBLE PRECISION DEFAULT 0,
+    browser VARCHAR(16),
+    instance_id VARCHAR(128),
     raw_json JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     date DATE NOT NULL
@@ -540,7 +542,11 @@ CREATE INDEX IF NOT EXISTS idx_tracker_events_timestamp ON pc_tracker_events(tim
 CREATE INDEX IF NOT EXISTS idx_tracker_events_app ON pc_tracker_events(app_name, date);
 CREATE INDEX IF NOT EXISTS idx_tracker_events_event_type ON pc_tracker_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_tracker_events_is_idle ON pc_tracker_events(is_idle);
+CREATE INDEX IF NOT EXISTS idx_tracker_events_browser ON pc_tracker_events(browser);
+CREATE INDEX IF NOT EXISTS idx_tracker_events_instance ON pc_tracker_events(instance_id);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_tracker_events_dedup ON pc_tracker_events(device_id, timestamp, duration, event_type, app_name);
+ALTER TABLE pc_tracker_events ADD COLUMN IF NOT EXISTS browser VARCHAR(16);
+ALTER TABLE pc_tracker_events ADD COLUMN IF NOT EXISTS instance_id VARCHAR(128);
 
 -- Native Tracker: pc_tracker_health
 CREATE TABLE IF NOT EXISTS pc_tracker_health (

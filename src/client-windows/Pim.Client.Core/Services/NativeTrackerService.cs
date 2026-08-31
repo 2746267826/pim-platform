@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Channels;
 using Pim.Client.Core.Models;
@@ -387,10 +388,11 @@ public sealed class NativeTrackerService : IDisposable
 
         while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
         {
+            List<TrackerEventForUpload>? batch = null;
             try
             {
                 if (_uploadQueue.IsEmpty) continue;
-                var batch = new List<TrackerEventForUpload>();
+                batch = new List<TrackerEventForUpload>();
                 while (batch.Count < _config.UploadBatchSize && _uploadQueue.TryDequeue(out var ev))
                     batch.Add(ev);
 
@@ -409,6 +411,7 @@ public sealed class NativeTrackerService : IDisposable
                     _logger.Info("Tracker", $"Uploaded {batch.Count} events -> {result.Data} saved");
                     Log?.Invoke($"[Tracker] Uploaded {batch.Count} events -> {result.Data} saved");
                     lock (_statsLock) _lastError = null;
+                    batch = null;
                 }
                 else
                 {
@@ -416,6 +419,7 @@ public sealed class NativeTrackerService : IDisposable
                     _logger.Warn("Tracker", "Upload returned null response");
                     // Re-queue for retry (simple: push back)
                     foreach (var ev in batch) _uploadQueue.Enqueue(ev);
+                    batch = null;
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
@@ -423,12 +427,27 @@ public sealed class NativeTrackerService : IDisposable
             {
                 lock (_statsLock) { _uploadFailures++; _lastError = ex.Message; }
                 _logger.Error("Tracker", $"Upload Http error: {ex.Message}", ex);
-                await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false);
+                var status = ex.StatusCode;
+                var isClientError = status.HasValue && (int)status.Value >= 400 && (int)status.Value < 500;
+                if (!isClientError && batch is not null)
+                {
+                    foreach (var ev in batch) _uploadQueue.Enqueue(ev);
+                }
+                else if (isClientError)
+                {
+                    _logger.Warn("Tracker", $"Dropping batch due to client error {(int)status!} {status}, not requeuing {batch?.Count ?? 0} events");
+                }
+                try { await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false); } catch (OperationCanceledException) { break; }
             }
             catch (Exception ex)
             {
                 lock (_statsLock) { _uploadFailures++; _lastError = ex.Message; }
                 _logger.Error("Tracker", $"Upload error: {ex.Message}", ex);
+                if (batch is not null)
+                {
+                    foreach (var ev in batch) _uploadQueue.Enqueue(ev);
+                }
+                try { await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false); } catch (OperationCanceledException) { break; }
             }
         }
     }

@@ -108,8 +108,41 @@ test('buildAnalyticsChartOption dispatches by chartType', () => {
   const bar = buildAnalyticsChartOption(topApps) as any;
   assert.equal(bar.series[0].type, 'bar');
   assert.equal(bar.yAxis[0].type, 'category');
-  assert.deepEqual(bar.yAxis[0].data, ['com.tencent.mm'], 'horizontal bar yAxis is package name');
+  assert.deepEqual(bar.yAxis[0].data, ['微信'], 'horizontal bar yAxis shows displayName (label) not packageName #161');
   assert.equal(bar.series[0].data[0].packageName, 'com.tencent.mm', 'clickable data item carries raw packageName');
+  // #161: fallback to packageName when label absent or whitespace
+  const topAppsFallback: MobileAnalyticsChart = {
+    key: 'top-apps',
+    title: 'Top App',
+    chartType: 'top-apps',
+    unit: 'seconds',
+    points: [{ key: 'x', label: '', value: 100, packageName: 'com.unknown.app' }],
+  };
+  const barFallback = buildAnalyticsChartOption(topAppsFallback) as any;
+  assert.deepEqual(barFallback.yAxis[0].data, ['com.unknown.app'], 'fallback to packageName when label empty');
+  const topAppsWs: MobileAnalyticsChart = {
+    key: 'top-apps',
+    title: 'Top App',
+    chartType: 'top-apps',
+    unit: 'seconds',
+    points: [{ key: 'y', label: '   ', value: 100, packageName: 'com.example.ws' }],
+  };
+  assert.deepEqual((buildAnalyticsChartOption(topAppsWs) as any).yAxis[0].data, ['com.example.ws'], 'whitespace label falls back to packageName');
+  // tooltip should show displayName
+  const topAppsTooltip: MobileAnalyticsChart = {
+    key: 'top-apps',
+    title: 'Top App',
+    chartType: 'top-apps',
+    unit: 'seconds',
+    points: [{ key: 't', label: '微信', value: 7200, packageName: 'com.tencent.mm' }],
+  };
+  const tipOpt = buildAnalyticsChartOption(topAppsTooltip) as any;
+  assert.equal(tipOpt.tooltip.formatter({ name: '微信', value: 7200 }), '微信 · 2小时', 'tooltip uses displayName');
+  // #162: xAxis anti-overlap and layout
+  assert.equal(bar.xAxis[0].axisLabel.hideOverlap, true, 'xAxis labels hide overlap to prevent crowding #162');
+  assert.equal(bar.grid.bottom, 24, 'grid bottom gives xAxis room #162');
+  assert.equal(bar.yAxis[0].axisLabel.overflow, 'truncate', 'yAxis truncate long packageNames');
+  assert.equal(bar.yAxis[0].axisLabel.width, 88, 'yAxis label width with truncate');
 
   const dailyTotal: MobileAnalyticsChart = {
     key: 'daily-total',

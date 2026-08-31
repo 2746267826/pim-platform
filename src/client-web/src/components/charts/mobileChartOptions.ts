@@ -206,19 +206,21 @@ export function buildAnalyticsChartOption(chart: MobileAnalyticsChart): EChartsO
           backgroundColor: 'rgba(15, 23, 42, 0.92)',
           textStyle: { color: '#fff', fontSize: 11 },
         },
-        grid: { left: 96, right: 16, top: 8, bottom: 16 },
+        // #162: bottom 24 预留时长 label 高度（比常规 22 多 2px 防裁剪），hideOverlap 避免 5h33m 等长文本在 value 轴上重叠
+        grid: { left: 96, right: 16, top: 8, bottom: 24 },
         xAxis: [
           {
             type: 'value',
-            axisLabel: { ...axisLabel, formatter: (value: number) => formatDuration(value) },
+            axisLabel: { ...axisLabel, formatter: (value: number) => formatDuration(value), hideOverlap: true },
             splitLine: { lineStyle: { color: chartColors.borderSoft } },
           },
         ],
         yAxis: [
           {
             type: 'category',
-            data: points.map(point => point.packageName ?? point.label),
-            axisLabel,
+            // #161: 优先显示 displayName（label），trim 后为空则回退 packageName；均为空白则回退空串避免空白刻度
+            data: points.map(point => (point.label?.trim() ? point.label.trim() : (point.packageName?.trim() ? point.packageName.trim() : ''))),
+            axisLabel: { ...axisLabel, overflow: 'truncate', width: 88 }, // width 88 = grid.left 96 - 8 gutter，超长包名截断省略
             axisLine,
             axisTick: { show: false },
           },

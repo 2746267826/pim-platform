@@ -78,102 +78,99 @@ public partial class StatusWindow : Window
         var sessionId = Process.GetCurrentProcess().SessionId;
 
         var apiDiag = await BuildApiProbeAsync();
-        _apiOk = apiDiag.Ok;
-        ApiConnectivityText.Text = apiDiag.Summary;
-
         var trackerUrl = $"http://localhost:{(_tracker is null ? 15601 : DaemonConfig.Load().Tracker.BrowserBridgePort)}/browser/ping";
         var trackerProbe = await ProbeEndpointAsync(trackerUrl);
-        var bridgeConnected = _bridge?.IsConnected ?? _tracker?.BrowserConnected ?? false;
-        _trackerState = trackerProbe.Ok || bridgeConnected ? "Available" : "Unavailable";
-        AwSummaryText.Text = bridgeConnected ? "Tracker 浏览器已连接" : trackerProbe.Ok ? "Tracker 桥接正常" : "Tracker 浏览器未连接";
-        AwDetailText.Text =
-            $"URL: {trackerUrl}\n" +
-            $"Status: {trackerProbe.StatusLine}\n" +
-            $"Message: {trackerProbe.Message}\n" +
-            $"Bridge: {(bridgeConnected ? "已连接" : "未连接")}\n" +
-            $"Polls: {_tracker?.PollCount ?? 0} Sessions: {_tracker?.SessionsCreated ?? 0} Hook: {_tracker?.HookActive}\n" +
-            $"Time: {timestamp}";
-
         var processes = _processManager.ListProcesses(sessionId);
         var health = _keyStatsCollector.LastHealth;
-        _ksSkipReason = _keyStatsCollector.LastSkipReason ?? health?.SkipReason;
-        _ksState = health?.DaemonSourceState
-                   ?? (processes.Count > 0 ? "Unknown" : "Unavailable");
+        var lastUploadTime = _keyStatsCollector.LastUploadTime;
+        var lastUploadError = _keyStatsCollector.LastUploadError;
+        var lastSkipReason = _keyStatsCollector.LastSkipReason;
 
-        if (health is not null)
+        // Compute state on background thread
+        var bridgeConnected = _bridge?.IsConnected ?? _tracker?.BrowserConnected ?? false;
+        var trackerState = trackerProbe.Ok || bridgeConnected ? "Available" : "Unavailable";
+        var ksSkipReasonLocal = lastSkipReason ?? health?.SkipReason;
+        var ksStateLocal = health?.DaemonSourceState ?? (processes.Count > 0 ? "Unknown" : "Unavailable");
+        if (health is null && processes.Count == 0)
         {
-            KeyStatsSummaryText.Text = health.SummaryZh;
-            KeyStatsDetailText.Text =
-                $"DaemonSourceState: {health.DaemonSourceState}\n" +
-                $"DetailState: {health.DetailState}\n" +
-                $"ProcessCount: {health.ProcessCount}\n" +
-                $"HasForeignSession: {health.HasForeignSessionProcess}\n" +
-                $"SkipReason: {health.SkipReason ?? "none"}\n" +
-                $"CanUpload: {health.CanUpload}\n" +
-                $"Processes: {FormatProcesses(processes)}\n" +
-                $"Time: {timestamp}";
+            ksStateLocal = "Unavailable";
+            ksSkipReasonLocal ??= "missing-process";
         }
-        else
-        {
-            var liveCount = processes.Count;
-            KeyStatsSummaryText.Text = liveCount == 0
-                ? "KeyStats 进程未运行（尚无健康探测结果）"
-                : $"检测到 {liveCount} 个 KeyStats 进程（尚无健康探测结果）";
-            KeyStatsDetailText.Text =
-                $"DaemonSourceState: {_ksState}\n" +
-                $"ProcessCount: {liveCount}\n" +
-                $"Processes: {FormatProcesses(processes)}\n" +
-                $"SkipReason: {_ksSkipReason ?? "none"}\n" +
-                $"Time: {timestamp}";
-            if (liveCount == 0)
-            {
-                _ksState = "Unavailable";
-                _ksSkipReason ??= "missing-process";
-            }
-        }
-
-        var queueCount = 0; // tracker uses internal concurrent queue, not exposed as count
-        AwQueueText.Text = _tracker is null
-            ? "Tracker 未启动"
-            : $"Tracker 队列: 已上传 {_tracker.EventsUploaded} 失败 {_tracker.UploadFailures} 会话 {_tracker.SessionsCreated}";
-
-        KeyStatsUploadText.Text = FormatUploadLine(
-            "KeyStats",
-            _keyStatsCollector.LastUploadTime,
-            _keyStatsCollector.LastUploadError);
-
-        KeyStatsSkipText.Text = string.IsNullOrWhiteSpace(_ksSkipReason)
-            ? "无"
-            : _ksSkipReason;
-
-        var errors = new List<string>();
-        if (!string.IsNullOrWhiteSpace(_tracker?.LastError))
-            errors.Add($"Tracker: {_tracker.LastError}");
-        if (!string.IsNullOrWhiteSpace(_keyStatsCollector.LastUploadError))
-            errors.Add($"KeyStats: {_keyStatsCollector.LastUploadError}");
-        LastErrorsText.Text = errors.Count == 0 ? "无" : string.Join("\n", errors);
-
+        var queueCount = 0;
         var overall = StatusCenterEvaluator.Rate(
             _authService.IsAuthenticated,
-            _trackerState,
-            _ksState,
-            _ksSkipReason,
+            trackerState,
+            ksStateLocal,
+            ksSkipReasonLocal,
             queueCount);
-        OverviewHealthText.Text = overall;
-        OverallHealthText.Text = $"整体状态：{overall}";
-
         var suggestion = KeyStatsFixAdvisor.BuildSuggestion(health);
-        KeyStatsFixSuggestionText.Text = suggestion.MessageZh;
-
-        RefreshBrowserConnections();
-
-        _lastDiagnosticsReport = BuildDiagnosticsReport(
+        var report = BuildDiagnosticsReport(
             timestamp,
             apiDiag,
             trackerProbe,
             processes,
             queueCount,
             overall);
+
+        // Dispatch UI updates to main thread
+        await Dispatcher.InvokeAsync(() =>
+        {
+            _apiOk = apiDiag.Ok;
+            ApiConnectivityText.Text = apiDiag.Summary;
+            _trackerState = trackerState;
+            AwSummaryText.Text = bridgeConnected ? "Tracker 浏览器已连接" : trackerProbe.Ok ? "Tracker 桥接正常" : "Tracker 浏览器未连接";
+            AwDetailText.Text =
+                $"URL: {trackerUrl}\n" +
+                $"Status: {trackerProbe.StatusLine}\n" +
+                $"Message: {trackerProbe.Message}\n" +
+                $"Bridge: {(bridgeConnected ? "已连接" : "未连接")}\n" +
+                $"Polls: {_tracker?.PollCount ?? 0} Sessions: {_tracker?.SessionsCreated ?? 0} Hook: {_tracker?.HookActive}\n" +
+                $"Time: {timestamp}";
+            _ksSkipReason = ksSkipReasonLocal;
+            _ksState = ksStateLocal;
+            if (health is not null)
+            {
+                KeyStatsSummaryText.Text = health.SummaryZh;
+                KeyStatsDetailText.Text =
+                    $"DaemonSourceState: {health.DaemonSourceState}\n" +
+                    $"DetailState: {health.DetailState}\n" +
+                    $"ProcessCount: {health.ProcessCount}\n" +
+                    $"HasForeignSession: {health.HasForeignSessionProcess}\n" +
+                    $"SkipReason: {health.SkipReason ?? "none"}\n" +
+                    $"CanUpload: {health.CanUpload}\n" +
+                    $"Processes: {FormatProcesses(processes)}\n" +
+                    $"Time: {timestamp}";
+            }
+            else
+            {
+                var liveCount = processes.Count;
+                KeyStatsSummaryText.Text = liveCount == 0
+                    ? "KeyStats 进程未运行（尚无健康探测结果）"
+                    : $"检测到 {liveCount} 个 KeyStats 进程（尚无健康探测结果）";
+                KeyStatsDetailText.Text =
+                    $"DaemonSourceState: {_ksState}\n" +
+                    $"ProcessCount: {liveCount}\n" +
+                    $"Processes: {FormatProcesses(processes)}\n" +
+                    $"SkipReason: {_ksSkipReason ?? "none"}\n" +
+                    $"Time: {timestamp}";
+            }
+            AwQueueText.Text = _tracker is null
+                ? "Tracker 未启动"
+                : $"Tracker 队列: 已上传 {_tracker.EventsUploaded} 失败 {_tracker.UploadFailures} 会话 {_tracker.SessionsCreated}";
+            KeyStatsUploadText.Text = FormatUploadLine("KeyStats", lastUploadTime, lastUploadError);
+            KeyStatsSkipText.Text = string.IsNullOrWhiteSpace(_ksSkipReason) ? "无" : _ksSkipReason;
+            var errors = new List<string>();
+            if (!string.IsNullOrWhiteSpace(_tracker?.LastError))
+                errors.Add($"Tracker: {_tracker.LastError}");
+            if (!string.IsNullOrWhiteSpace(lastUploadError))
+                errors.Add($"KeyStats: {lastUploadError}");
+            LastErrorsText.Text = errors.Count == 0 ? "无" : string.Join("\n", errors);
+            OverviewHealthText.Text = overall;
+            OverallHealthText.Text = $"整体状态：{overall}";
+            KeyStatsFixSuggestionText.Text = suggestion.MessageZh;
+            RefreshBrowserConnections();
+            _lastDiagnosticsReport = report;
+        });
     }
 
     private async Task<(bool Ok, string Summary, string StatusLine, string Message)> BuildApiProbeAsync()

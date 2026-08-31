@@ -537,6 +537,8 @@ CREATE TABLE IF NOT EXISTS pc_tracker_events (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     date DATE NOT NULL
 );
+ALTER TABLE pc_tracker_events ADD COLUMN IF NOT EXISTS browser VARCHAR(16);
+ALTER TABLE pc_tracker_events ADD COLUMN IF NOT EXISTS instance_id VARCHAR(128);
 CREATE INDEX IF NOT EXISTS idx_tracker_events_device_date ON pc_tracker_events(device_id, date);
 CREATE INDEX IF NOT EXISTS idx_tracker_events_timestamp ON pc_tracker_events(timestamp);
 CREATE INDEX IF NOT EXISTS idx_tracker_events_app ON pc_tracker_events(app_name, date);
@@ -545,8 +547,6 @@ CREATE INDEX IF NOT EXISTS idx_tracker_events_is_idle ON pc_tracker_events(is_id
 CREATE INDEX IF NOT EXISTS idx_tracker_events_browser ON pc_tracker_events(browser);
 CREATE INDEX IF NOT EXISTS idx_tracker_events_instance ON pc_tracker_events(instance_id);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_tracker_events_dedup ON pc_tracker_events(device_id, timestamp, duration, event_type, app_name);
-ALTER TABLE pc_tracker_events ADD COLUMN IF NOT EXISTS browser VARCHAR(16);
-ALTER TABLE pc_tracker_events ADD COLUMN IF NOT EXISTS instance_id VARCHAR(128);
 
 -- Native Tracker: pc_tracker_health
 CREATE TABLE IF NOT EXISTS pc_tracker_health (

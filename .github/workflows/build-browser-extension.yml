@@ -82,12 +82,10 @@ jobs:
         working-directory: pim-watcher-web
         run: |
           mkdir -p build/artifacts
-          cd dist && zip -r "../build/artifacts/pim-browser-extension-v${{ steps.ver.outputs.artifact_slug }}.zip" . > /dev/null
-          ls -lh build/artifacts/*.zip
-          # also copy to pim-watcher-web root for windows integration check
-          cp build/artifacts/*.zip ../../build/artifacts/ 2>/dev/null || true
           mkdir -p ../../build/artifacts
-          cp build/artifacts/*.zip ../../build/artifacts/
+          cd dist && zip -r "../build/artifacts/pim-browser-extension-v${{ steps.ver.outputs.artifact_slug }}.zip" . > /dev/null
+          ls -lh ../build/artifacts/*.zip
+          cp ../build/artifacts/*.zip ../../build/artifacts/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7

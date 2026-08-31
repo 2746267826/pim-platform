@@ -42,6 +42,15 @@ public partial class PcTrackerService
             if (timestamp > DateTimeOffset.UtcNow.AddMinutes(5))
                 throw new ArgumentException($"Timestamp '{e.Timestamp}' is in the future.", nameof(req));
 
+            if (e.Browser is not null && e.Browser.Length > 16)
+                throw new ArgumentException($"Browser too long (max 16): '{e.Browser}'", nameof(req));
+            if (e.InstanceId is not null && e.InstanceId.Length > 128)
+                throw new ArgumentException($"InstanceId too long (max 128): '{e.InstanceId}'", nameof(req));
+            var browserNorm = string.IsNullOrWhiteSpace(e.Browser) ? null : e.Browser.ToLowerInvariant();
+            var allowedBrowsers = new HashSet<string> { "chrome", "edge", "firefox", "safari", "other" };
+            if (browserNorm is not null && !allowedBrowsers.Contains(browserNorm))
+                browserNorm = "other";
+
             var rawJson = e.RawJson is null ? "{}" : JsonSerializer.Serialize(e.RawJson, ApiJsonSerializerOptions);
 
             entities.Add(new TrackerEventEntity
@@ -65,7 +74,7 @@ public partial class PcTrackerService
                 TabCount = e.TabCount,
                 PageVisitCount = e.PageVisitCount,
                 PageVisitDuration = e.PageVisitDuration,
-                Browser = e.Browser,
+                Browser = browserNorm,
                 InstanceId = e.InstanceId,
                 RawJson = rawJson,
                 CreatedAt = now,
@@ -75,16 +84,16 @@ public partial class PcTrackerService
 
         if (entities.Count == 0) return 0;
 
-        // Deduplication: same device + timestamp + duration + eventType + appName equivalent to aw logic
+        // Deduplication: same device + timestamp + duration + eventType + appName + browser + instanceId
         var minTs = entities.Min(x => x.Timestamp);
         var maxTs = entities.Max(x => x.Timestamp);
         var existing = await _db.Set<TrackerEventEntity>()
             .Where(x => x.DeviceId == req.DeviceId && x.Timestamp >= minTs && x.Timestamp <= maxTs)
-            .Select(x => new { x.Timestamp, x.Duration, x.EventType, x.AppName })
+            .Select(x => new { x.Timestamp, x.Duration, x.EventType, x.AppName, x.Browser, x.InstanceId })
             .ToListAsync(ct);
-        var existingKeys = existing.Select(x => MakeTrackerKey(x.Timestamp, x.Duration, x.EventType, x.AppName)).ToHashSet();
+        var existingKeys = existing.Select(x => MakeTrackerKey(x.Timestamp, x.Duration, x.EventType, x.AppName, x.Browser, x.InstanceId)).ToHashSet();
 
-        var toInsert = entities.Where(x => existingKeys.Add(MakeTrackerKey(x.Timestamp, x.Duration, x.EventType, x.AppName))).ToList();
+        var toInsert = entities.Where(x => existingKeys.Add(MakeTrackerKey(x.Timestamp, x.Duration, x.EventType, x.AppName, x.Browser, x.InstanceId))).ToList();
         if (toInsert.Count == 0) return 0;
 
         _db.Set<TrackerEventEntity>().AddRange(toInsert);
@@ -98,10 +107,10 @@ public partial class PcTrackerService
             // retry once: re-evaluate dedup against fresh db state
             var retryExisting = await _db.Set<TrackerEventEntity>()
                 .Where(x => x.DeviceId == req.DeviceId && x.Timestamp >= minTs && x.Timestamp <= maxTs)
-                .Select(x => new { x.Timestamp, x.Duration, x.EventType, x.AppName })
+                .Select(x => new { x.Timestamp, x.Duration, x.EventType, x.AppName, x.Browser, x.InstanceId })
                 .ToListAsync(ct);
-            var retryKeys = retryExisting.Select(x => MakeTrackerKey(x.Timestamp, x.Duration, x.EventType, x.AppName)).ToHashSet();
-            var retryInsert = entities.Where(x => retryKeys.Add(MakeTrackerKey(x.Timestamp, x.Duration, x.EventType, x.AppName))).ToList();
+            var retryKeys = retryExisting.Select(x => MakeTrackerKey(x.Timestamp, x.Duration, x.EventType, x.AppName, x.Browser, x.InstanceId)).ToHashSet();
+            var retryInsert = entities.Where(x => retryKeys.Add(MakeTrackerKey(x.Timestamp, x.Duration, x.EventType, x.AppName, x.Browser, x.InstanceId))).ToList();
             if (retryInsert.Count == 0) return 0;
             _db.Set<TrackerEventEntity>().AddRange(retryInsert);
             await _db.SaveChangesAsync(ct);
@@ -203,8 +212,8 @@ public partial class PcTrackerService
         return await _classificationSnapshots.EnsureClassificationsAsync(records, rules, auditId: null, ct);
     }
 
-    private static string MakeTrackerKey(DateTimeOffset ts, double duration, string eventType, string? appName)
-        => $"{ts.ToUnixTimeMilliseconds()}|{duration.ToString("G17", System.Globalization.CultureInfo.InvariantCulture)}|{eventType}|{appName}";
+    private static string MakeTrackerKey(DateTimeOffset ts, double duration, string eventType, string? appName, string? browser = null, string? instanceId = null)
+        => $"{ts.ToUnixTimeMilliseconds()}|{duration.ToString("G17", System.Globalization.CultureInfo.InvariantCulture)}|{eventType}|{appName}|{browser}|{instanceId}";
 
     private static DateTimeOffset TruncateToMillisecond(DateTimeOffset dto)
     {

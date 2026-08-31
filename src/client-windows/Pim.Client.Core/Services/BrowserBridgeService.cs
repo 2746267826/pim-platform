@@ -97,8 +97,12 @@ public sealed class BrowserBridgeService : IDisposable
 
     public void OnHeartbeat(BrowserHeartbeat hb)
     {
-        var instanceId = string.IsNullOrWhiteSpace(hb.InstanceId) ? "unknown" : hb.InstanceId;
-        var browserType = string.IsNullOrWhiteSpace(hb.Browser) ? "other" : hb.Browser.ToLowerInvariant();
+        var instanceId = string.IsNullOrWhiteSpace(hb.InstanceId) ? "unknown" : hb.InstanceId.Trim();
+        if (instanceId.Length > 128) instanceId = instanceId.Substring(0, 128);
+        var browserType = string.IsNullOrWhiteSpace(hb.Browser) ? "other" : hb.Browser.ToLowerInvariant().Trim();
+        var allowed = new HashSet<string> { "chrome", "edge", "firefox", "safari", "other" };
+        if (!allowed.Contains(browserType)) browserType = "other";
+        if (browserType.Length > 16) browserType = browserType.Substring(0, 16);
         hb.Browser = browserType;
         hb.InstanceId = instanceId;
 
@@ -109,15 +113,18 @@ public sealed class BrowserBridgeService : IDisposable
             DisplayName = BuildDisplayName(hb),
             FirstSeen = DateTimeOffset.UtcNow,
         });
-        conn.BrowserType = browserType;
-        conn.IsConnected = true;
-        conn.LastHeartbeat = DateTimeOffset.UtcNow;
-        conn.LastUrl = hb.Url;
-        conn.LastTitle = hb.Title;
-        conn.LastAudible = hb.Audible;
-        conn.LastTabCount = hb.TabCount;
-        conn.LastIncognito = hb.Incognito;
-        conn.HeartbeatCount++;
+        lock (conn)
+        {
+            conn.BrowserType = browserType;
+            conn.IsConnected = true;
+            conn.LastHeartbeat = DateTimeOffset.UtcNow;
+            conn.LastUrl = hb.Url;
+            conn.LastTitle = hb.Title;
+            conn.LastAudible = hb.Audible;
+            conn.LastTabCount = hb.TabCount;
+            conn.LastIncognito = hb.Incognito;
+            conn.HeartbeatCount++;
+        }
 
         RebuildDisplayNames(browserType);
 
@@ -133,7 +140,10 @@ public sealed class BrowserBridgeService : IDisposable
         var count = same.Count;
         foreach (var c in same)
         {
-            c.DisplayName = BuildDisplayNameForConnection(c, count);
+            lock (c)
+            {
+                c.DisplayName = BuildDisplayNameForConnection(c, count);
+            }
         }
     }
 
@@ -148,6 +158,7 @@ public sealed class BrowserBridgeService : IDisposable
             _ => conn.BrowserType
         };
         if (conn.LastIncognito == true) return $"{type} (无痕)";
+        if (conn.InstanceId == "unknown") return sameTypeCount <= 1 ? type : $"{type} (未知)";
         var shortId = conn.InstanceId.Length > 4 ? conn.InstanceId[^4..] : conn.InstanceId;
         if (sameTypeCount <= 1) return type;
         return $"{type} ({shortId})";
@@ -164,6 +175,7 @@ public sealed class BrowserBridgeService : IDisposable
             _ => hb.Browser
         };
         if (hb.Incognito) return $"{type} (无痕)";
+        if (hb.InstanceId == "unknown") return type;
         var shortId = hb.InstanceId.Length > 4 ? hb.InstanceId[^4..] : hb.InstanceId;
         var sameTypeCount = _connections.Values.Count(c => c.BrowserType == hb.Browser) + 1;
         if (sameTypeCount <= 1) return type;
@@ -174,11 +186,14 @@ public sealed class BrowserBridgeService : IDisposable
     {
         foreach (var conn in _connections.Values)
         {
-            var silentSeconds = (DateTimeOffset.UtcNow - conn.LastHeartbeat).TotalSeconds;
-            if (conn.IsConnected && silentSeconds > 120)
+            lock (conn)
             {
-                conn.IsConnected = false;
-                _logger?.Warn("BrowserBridge", $"BrowserBridge {conn.DisplayName} disconnected, silent for {silentSeconds:F0}s");
+                var silentSeconds = (DateTimeOffset.UtcNow - conn.LastHeartbeat).TotalSeconds;
+                if (conn.IsConnected && silentSeconds > 120)
+                {
+                    conn.IsConnected = false;
+                    _logger?.Warn("BrowserBridge", $"BrowserBridge {conn.DisplayName} disconnected, silent for {silentSeconds:F0}s");
+                }
             }
         }
     }
@@ -255,8 +270,38 @@ public sealed class BrowserBridgeService : IDisposable
             if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/browser/heartbeat")
             {
                 string body;
-                using (var reader = new StreamReader(req.InputStream, req.ContentEncoding ?? Encoding.UTF8))
-                    body = await reader.ReadToEndAsync().ConfigureAwait(false);
+                {
+                    if (req.ContentLength64 > 8192)
+                    {
+                        resp.StatusCode = 413;
+                        resp.Close();
+                        _logger?.Warn("BrowserBridge", $"Rejected oversized heartbeat {req.ContentLength64}");
+                        return;
+                    }
+                    using var ms = new System.IO.MemoryStream();
+                    var buffer = new byte[4096];
+                    int total = 0;
+                    int read;
+                    while ((read = await req.InputStream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+                    {
+                        total += read;
+                        if (total > 8192)
+                        {
+                            resp.StatusCode = 413;
+                            resp.Close();
+                            _logger?.Warn("BrowserBridge", $"Rejected oversized heartbeat total {total}");
+                            return;
+                        }
+                        ms.Write(buffer, 0, read);
+                    }
+                    body = Encoding.UTF8.GetString(ms.ToArray());
+                    if (body.Length > 8192)
+                    {
+                        resp.StatusCode = 413;
+                        resp.Close();
+                        return;
+                    }
+                }
 
                 BrowserHeartbeat? hb = null;
                 try
@@ -274,6 +319,21 @@ public sealed class BrowserBridgeService : IDisposable
                         hb.Timestamp = DateTimeOffset.UtcNow.ToString("O");
                     if (string.IsNullOrWhiteSpace(hb.Browser)) hb.Browser = "other";
                     if (string.IsNullOrWhiteSpace(hb.InstanceId)) hb.InstanceId = "unknown";
+                    if (hb.InstanceId.Length > 128)
+                    {
+                        resp.StatusCode = 400;
+                        resp.Close();
+                        _logger?.Warn("BrowserBridge", $"Rejected heartbeat with instanceId too long {hb.InstanceId.Length}");
+                        return;
+                    }
+                    if (hb.Browser.Length > 16) hb.Browser = hb.Browser.Substring(0, 16);
+                    if (_connections.Count >= 32 && !_connections.ContainsKey(hb.InstanceId))
+                    {
+                        resp.StatusCode = 429;
+                        resp.Close();
+                        _logger?.Warn("BrowserBridge", $"Rejected heartbeat: too many connections {_connections.Count}");
+                        return;
+                    }
                     OnHeartbeat(hb);
                 }
 

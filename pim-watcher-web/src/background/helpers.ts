@@ -9,17 +9,18 @@ export function getBrowserType(): string {
 
 export async function getInstanceId(): Promise<string> {
     const anyBrowser: any = (globalThis as any).browser ?? (globalThis as any).chrome
-    if (anyBrowser?.runtime?.id) return anyBrowser.runtime.id
     try {
         const stored: any = await anyBrowser?.storage?.local?.get?.('instanceId')
         if (stored?.instanceId) return stored.instanceId
+    } catch {}
+    try {
         const uuid = crypto.randomUUID()
-        await anyBrowser?.storage?.local?.set?.({ instanceId: uuid })
-        return uuid
+        const baseId = anyBrowser?.runtime?.id ? `${anyBrowser.runtime.id}_${uuid.slice(0, 8)}` : uuid
+        await anyBrowser?.storage?.local?.set?.({ instanceId: baseId })
+        return baseId
     } catch {
         const uuid = crypto.randomUUID()
-        try { await anyBrowser?.storage?.local?.set?.({ instanceId: uuid }) } catch {}
-        return uuid
+        return anyBrowser?.runtime?.id ? `${anyBrowser.runtime.id}_${uuid.slice(0, 8)}` : uuid
     }
 }
 

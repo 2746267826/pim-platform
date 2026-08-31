@@ -440,6 +440,7 @@ public sealed class NativeTrackerService : IDisposable
                 {
                     foreach (var ev in batch) _uploadQueue.Enqueue(ev);
                 }
+                try { await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false); } catch (OperationCanceledException) { break; }
             }
         }
     }

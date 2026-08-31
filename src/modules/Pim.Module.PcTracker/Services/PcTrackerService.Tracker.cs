@@ -202,12 +202,12 @@ public partial class PcTrackerService
     }
 
     private static string MakeTrackerKey(DateTimeOffset ts, double duration, string eventType, string? appName)
-        => $"{ts.ToUnixTimeMilliseconds()}|{duration}|{eventType}|{appName}";
+        => $"{ts.ToUnixTimeMilliseconds()}|{duration.ToString("G17", System.Globalization.CultureInfo.InvariantCulture)}|{eventType}|{appName}";
 
     private static DateTimeOffset TruncateToMillisecond(DateTimeOffset dto)
     {
-        var ticks = dto.Ticks - (dto.Ticks % TimeSpan.TicksPerMillisecond);
-        return new DateTimeOffset(ticks, dto.Offset);
+        // Use UTC milliseconds to stay consistent with MakeTrackerKey's ToUnixTimeMilliseconds
+        return DateTimeOffset.FromUnixTimeMilliseconds(dto.ToUnixTimeMilliseconds());
     }
 
     private async Task<List<PcDetailRecord>> BuildInterpretedTrackerDetailRecordsAsync(List<TrackerEventEntity> events, CancellationToken ct)

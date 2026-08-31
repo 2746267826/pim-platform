@@ -7,6 +7,10 @@ namespace Pim.Module.Calendar.Services;
 public static class EventDescriptionSanitizer
 {
     private static readonly HtmlSanitizer Sanitizer;
+    private static readonly Regex ScriptRegex = new(@"<script\b[^>]*>.*?</script\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled, TimeSpan.FromMilliseconds(200));
+    private static readonly Regex StyleRegex = new(@"<style\b[^>]*>.*?</style\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled, TimeSpan.FromMilliseconds(200));
+    private static readonly Regex CommentRegex = new(@"<!--.*?-->", RegexOptions.Singleline | RegexOptions.Compiled, TimeSpan.FromMilliseconds(200));
+    private static readonly Regex TagStripRegex = new(@"<[^>]+>", RegexOptions.Compiled, TimeSpan.FromMilliseconds(200));
 
     static EventDescriptionSanitizer()
     {
@@ -31,12 +35,6 @@ public static class EventDescriptionSanitizer
         Sanitizer.AllowedSchemes.Add("http");
         Sanitizer.AllowedSchemes.Add("https");
         Sanitizer.AllowedSchemes.Add("mailto");
-
-        Sanitizer.RemovingTag += (_, e) =>
-        {
-            if (e.Tag.TagName.Equals("style", StringComparison.OrdinalIgnoreCase))
-                e.Cancel = false;
-        };
     }
 
     public static string NormalizeHtml(string html)
@@ -70,7 +68,7 @@ public static class EventDescriptionSanitizer
         if (string.IsNullOrWhiteSpace(html))
             return true;
 
-        var text = Regex.Replace(html, "<[^>]+>", string.Empty);
+        var text = TagStripRegex.Replace(html, string.Empty);
         text = WebUtility.HtmlDecode(text);
         text = text.Replace("\u00A0", " ", StringComparison.Ordinal);
         return string.IsNullOrWhiteSpace(text);
@@ -84,10 +82,10 @@ public static class EventDescriptionSanitizer
     private static string PreprocessHtml(string html)
     {
         // Remove script/style blocks entirely including content (XSS vectors and Exchange CSS)
-        html = Regex.Replace(html, @"<script\b[^>]*>.*?</script\s*>", string.Empty, RegexOptions.IgnoreCase | RegexOptions.Singleline);
-        html = Regex.Replace(html, @"<style\b[^>]*>.*?</style\s*>", string.Empty, RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        html = ScriptRegex.Replace(html, string.Empty);
+        html = StyleRegex.Replace(html, string.Empty);
         // Remove HTML comments (e.g. <!-- converted from rtf --> and <!-- .EmailQuote ... -->)
-        html = Regex.Replace(html, @"<!--.*?-->", string.Empty, RegexOptions.Singleline);
+        html = CommentRegex.Replace(html, string.Empty);
         return html;
     }
 }

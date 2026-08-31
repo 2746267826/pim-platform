@@ -67,9 +67,9 @@ public static class TaskSchedulerAutoStartManager
 
     /// <summary>
     /// Set or clear auto-start. Returns true if operation succeeded via tasks or registry fallback.
-    /// When enabled, tries to create both daemon and KeyStats tasks (highest for KeyStats).
-    /// When disabled, deletes tasks. Cleans legacy registry values regardless.
-    /// If task operation fails due to lack of elevation, falls back to registry and logs warning.
+    /// New design: only \PIM\PIM Daemon (HIGHEST), KeyStats runs as child process inheriting privilege.
+    /// When enabled, ensures daemon exists and cleans legacy KeyStats task/registry entries.
+    /// When disabled, deletes daemon task and cleans all.
     /// </summary>
     public static bool Set(bool enabled)
     {
@@ -83,54 +83,32 @@ public static class TaskSchedulerAutoStartManager
                 if (schtasksAvailable)
                 {
                     bool daemonExists = false;
-                    bool ksExists = false;
                     try { daemonExists = svc.IsDaemonTaskRegistered(); } catch { }
-                    try { ksExists = svc.IsKeyStatsTaskRegistered(); } catch { }
 
-                    if (daemonExists && ksExists)
+                    if (daemonExists)
                     {
-                        // Already correctly registered, just clean legacy entries and avoid elevation
+                        // Already registered, clean legacy KeyStats artifacts
+                        try { svc.TryDeleteTask(KeyStatsTaskPath); } catch { }
                         try { svc.CleanupLegacyTasks(); } catch { }
                         CleanLegacyRunEntries();
                         return true;
                     }
 
-                    bool daemonOk = true;
-                    bool keyStatsOk = true;
-
-                    if (!daemonExists)
-                        daemonOk = svc.TryCreateDaemonTask(ExecutablePath);
-                    // KeyStats task: create if missing; installer should have created it, but ensure
-                    if (!ksExists)
-                    {
-                        try
-                        {
-                            var ksExe = KeyStatsExePath;
-                            keyStatsOk = svc.TryCreateKeyStatsTask(ksExe);
-                        }
-                        catch { keyStatsOk = false; }
-                    }
-
+                    bool daemonOk = svc.TryCreateDaemonTask(ExecutablePath);
+                    // Ensure legacy KeyStats task removed
+                    try { svc.TryDeleteTask(KeyStatsTaskPath); } catch { }
                     try { svc.CleanupLegacyTasks(); } catch { }
                     CleanLegacyRunEntries();
 
-                    if (daemonOk && keyStatsOk)
+                    if (daemonOk)
                         return true;
 
-                    if (daemonOk && !keyStatsOk)
-                    {
-                        Logger.Warn("Failed to create KeyStats scheduled task (maybe policy); daemon task created");
-                        return true;
-                    }
-
-                    if (!daemonOk)
-                    {
-                        Logger.Warn($"Failed to create daemon scheduled task (exit non-zero), need elevation. KeyStatsOk={keyStatsOk}");
-                        return false;
-                    }
+                    Logger.Warn($"Failed to create daemon scheduled task (exit non-zero), need elevation.");
+                    return false;
                 }
                 // schtasks not available (non-Windows): fallback to registry
                 SetRegistry(true);
+                try { svc.TryDeleteTask(KeyStatsTaskPath); } catch { }
                 try { svc.CleanupLegacyTasks(); } catch { }
                 CleanLegacyKeyStatsOnly();
                 return true;
@@ -143,6 +121,7 @@ public static class TaskSchedulerAutoStartManager
                     try { daemonExists = svc.IsDaemonTaskRegistered(); } catch { }
                     if (!daemonExists)
                     {
+                        try { svc.TryDeleteTask(KeyStatsTaskPath); } catch { }
                         try { svc.CleanupLegacyTasks(); } catch { }
                         CleanLegacyRunEntries();
                         SetRegistry(false);
@@ -150,7 +129,7 @@ public static class TaskSchedulerAutoStartManager
                     }
 
                     var delDaemon = svc.TryDeleteTask(DaemonTaskPath);
-                    var delKs = svc.TryDeleteTask(KeyStatsTaskPath);
+                    try { svc.TryDeleteTask(KeyStatsTaskPath); } catch { }
                     try { svc.CleanupLegacyTasks(); } catch { }
                     CleanLegacyRunEntries();
                     var stillExists = false;

@@ -33,7 +33,6 @@ public partial class TrayIcon : IDisposable
         _notifyIcon.ContextMenuStrip.Items.Add("打开状态中心", null, (_, _) => ShowStatusWindow());
         _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         _notifyIcon.ContextMenuStrip.Items.Add("立即同步", null, async (_, _) => await TriggerSyncAsync());
-        _notifyIcon.ContextMenuStrip.Items.Add("回填最近 14 天 ActivityWatch", null, async (_, _) => await TriggerAwBackfillAsync());
         _notifyIcon.ContextMenuStrip.Items.Add("在浏览器打开 Web 工作台", null, (_, _) => OpenWebWorkbench());
         _notifyIcon.ContextMenuStrip.Items.Add(new System.Windows.Forms.ToolStripSeparator());
         var version = GetVersion();
@@ -120,11 +119,11 @@ public partial class TrayIcon : IDisposable
     {
         try
         {
-            var awCollector = App.Services.GetRequiredService<AwCollectorService>();
             var keyStatsCollector = App.Services.GetRequiredService<KeyStatsCollectorService>();
-            await Task.WhenAll(awCollector.SyncNowAsync(), keyStatsCollector.SyncNowAsync());
+            await keyStatsCollector.SyncNowAsync();
 
-            var uploadErrors = BuildUploadErrorMessage(awCollector.LastUploadError, keyStatsCollector.LastUploadError);
+            var tracker = App.Services.GetService<NativeTrackerService>();
+            var uploadErrors = BuildUploadErrorMessage(tracker?.LastError, keyStatsCollector.LastUploadError);
             if (uploadErrors is not null)
             {
                 System.Windows.Forms.MessageBox.Show($"同步已执行，但上传仍有错误：\n{uploadErrors}", "PIM",
@@ -143,38 +142,12 @@ public partial class TrayIcon : IDisposable
         }
     }
 
-    private static async Task TriggerAwBackfillAsync()
-    {
-        try
-        {
-            var awCollector = App.Services.GetRequiredService<AwCollectorService>();
-            var endUtc = DateTimeOffset.UtcNow;
-            await awCollector.BackfillAsync(endUtc.AddDays(-14), endUtc);
-
-            if (!string.IsNullOrWhiteSpace(awCollector.LastUploadError))
-            {
-                System.Windows.Forms.MessageBox.Show($"ActivityWatch 回填已执行，但仍有上传错误：\n{awCollector.LastUploadError}", "PIM",
-                    System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
-            }
-            else
-            {
-                System.Windows.Forms.MessageBox.Show("ActivityWatch 最近 14 天回填完成", "PIM",
-                    System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Information);
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Windows.Forms.MessageBox.Show($"ActivityWatch 回填失败：{ex.Message}", "PIM",
-                System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
-        }
-    }
-
-    private static string? BuildUploadErrorMessage(string? awError, string? keyStatsError)
+    private static string? BuildUploadErrorMessage(string? trackerError, string? keyStatsError)
     {
         var errors = new List<string>();
-        if (!string.IsNullOrWhiteSpace(awError))
+        if (!string.IsNullOrWhiteSpace(trackerError))
         {
-            errors.Add($"ActivityWatch: {awError}");
+            errors.Add($"Tracker: {trackerError}");
         }
 
         if (!string.IsNullOrWhiteSpace(keyStatsError))

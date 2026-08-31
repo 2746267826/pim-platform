@@ -105,7 +105,7 @@ public sealed class ScheduledTaskService
 
     public bool TryCreateDaemonTask(string exePath)
     {
-        return TryCreateTask(DaemonTaskPath, exePath, "limited");
+        return TryCreateTask(DaemonTaskPath, exePath, "highest");
     }
 
     public bool TryCreateKeyStatsTask(string exePath)

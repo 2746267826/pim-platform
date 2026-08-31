@@ -127,10 +127,14 @@ public partial class App : Application
                     Logger.Warn("Login skipped; daemon running without API access, uploads will fail");
             }
 
-            var awCollector = Services.GetRequiredService<AwCollectorService>();
-            awCollector.Log = msg => Logger.Info(msg);
-            awCollector.Start();
-            Logger.Info("ActivityWatch collector started");
+            var tracker = Services.GetRequiredService<NativeTrackerService>();
+            tracker.Log = msg => Logger.Info(msg);
+            tracker.Start();
+            Logger.Info("NativeTrackerService started");
+
+            var bridge = Services.GetRequiredService<BrowserBridgeService>();
+            // Bridge already started inside tracker, but ensure standalone start if needed
+            try { bridge.Start(); } catch { }
 
             EnsureKeyStatsRunning();
 
@@ -195,17 +199,17 @@ public partial class App : Application
         {
             var reporter = Services.GetRequiredService<DaemonHeartbeatReporter>();
             var config = DaemonConfig.Load();
-            var aw = Services.GetRequiredService<AwCollectorService>();
+            var tracker = Services.GetService<NativeTrackerService>();
             var ks = Services.GetRequiredService<KeyStatsCollectorService>();
 
-            var awState = aw.LastUploadError is null && aw.LastUploadTime is not null
-                ? "Available"
-                : aw.LastUploadError is null ? "Unknown" : "Unavailable";
+            var trackerState = tracker is null ? "Unknown"
+                : tracker.LastError is null && tracker.EventsUploaded > 0 ? "Available"
+                : tracker.LastError is null ? "Unknown" : "Unavailable";
             var ksHealth = ks.LastHealth;
             var ksState = ksHealth?.DaemonSourceState ?? "Unknown";
 
-            var lastSuccess = MaxTime(aw.LastUploadTime, ks.LastUploadTime);
-            var lastError = aw.LastUploadError ?? ks.LastUploadError;
+            var lastSuccess = MaxTime(tracker?.EventsUploaded > 0 ? DateTime.Now : null, ks.LastUploadTime);
+            var lastError = tracker?.LastError ?? ks.LastUploadError;
             var version = typeof(App).Assembly
                 .GetCustomAttributes(false)
                 .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
@@ -218,15 +222,19 @@ public partial class App : Application
                 lastSuccess is DateTime dt ? new DateTimeOffset(dt) : null,
                 DateTimeOffset.UtcNow,
                 lastError,
-                aw.QueueCount,
-                awState,
+                tracker is null ? 0 : 0,
+                trackerState,
                 ksState,
                 new
                 {
                     keyStatsDetailState = ksHealth?.DetailState.ToString(),
                     keyStatsProcessCount = ksHealth?.ProcessCount,
                     keyStatsSkipReason = ks.LastSkipReason,
-                    awQueueCount = aw.QueueCount
+                    trackerPollCount = tracker?.PollCount ?? 0,
+                    trackerSessionsCreated = tracker?.SessionsCreated ?? 0,
+                    trackerEventsUploaded = tracker?.EventsUploaded ?? 0,
+                    trackerHookActive = tracker?.HookActive ?? false,
+                    trackerBrowserConnected = tracker?.BrowserConnected ?? false
                 });
             await reporter.ReportAsync(heartbeat, ct);
             Logger.Info("Daemon heartbeat reported");
@@ -330,6 +338,8 @@ public partial class App : Application
         // 先停心跳并等待在途心跳结束（避免在途心跳清掉 planned 标记），再上报；Cancel 幂等，多次调用安全。
         StopHeartbeatLoopAndWait();
         TryReportPlannedOffline("exit", wait: true);
+        try { Services.GetService<NativeTrackerService>()?.Stop(); } catch { }
+        try { Services.GetService<BrowserBridgeService>()?.Stop(); } catch { }
         _heartbeatTimer.Dispose();
         _heartbeatTask?.ContinueWith(
             task => Logger.Warn($"Daemon heartbeat loop faulted: {task.Exception?.GetBaseException().Message ?? "unknown error"}"),
@@ -357,8 +367,7 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// 确保 KeyStats 在当前用户会话收敛为单实例。开机阶段优先通过计划任务 \PIM\PIM KeyStats 拉起（免 UAC 提权），
-    /// 任务不存在或失败时回退到 Process.Start（会弹 UAC，但比起不来好）。
+    /// 确保 KeyStats 作为子进程运行（继承守护程序 HIGHEST 权限），替代旧的独立计划任务模式。
     /// </summary>
     private static void EnsureKeyStatsRunning()
     {
@@ -383,33 +392,16 @@ public partial class App : Application
 
             if (plan.ShouldStart)
             {
-                // 优先走任务计划免 UAC
-                bool viaTask = false;
                 try
                 {
-                    viaTask = TaskSchedulerAutoStartManager.TryRunKeyStatsTask();
+                    // 直接作为子进程拉起，继承父进程 HIGHEST 权限，无需独立计划任务
+                    manager.StartInCurrentSession(exe);
+                    Logger.Info("KeyStats ensure-running started as child process (inherited HIGHEST)");
                 }
                 catch (Exception ex)
                 {
-                    Logger.Warn($"TryRunKeyStatsTask threw: {ex.Message}");
-                }
-
-                if (viaTask)
-                {
-                    Logger.Info("KeyStats ensure-running triggered via scheduled task \\PIM\\PIM KeyStats (no UAC)");
-                }
-                else
-                {
-                    try
-                    {
-                        manager.StartInCurrentSession(exe);
-                        Logger.Info("KeyStats ensure-running started process in current session (fallback Process.Start, may prompt UAC)");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Warn($"Fallback Process.Start for KeyStats failed: {ex.Message}");
-                        throw;
-                    }
+                    Logger.Warn($"Failed to start KeyStats as child process: {ex.Message}");
+                    throw;
                 }
             }
             else if (plan.KeepProcessId is int keepPid)

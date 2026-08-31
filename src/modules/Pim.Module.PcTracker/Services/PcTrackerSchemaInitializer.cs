@@ -546,7 +546,8 @@ CREATE INDEX IF NOT EXISTS idx_tracker_events_event_type ON pc_tracker_events(ev
 CREATE INDEX IF NOT EXISTS idx_tracker_events_is_idle ON pc_tracker_events(is_idle);
 CREATE INDEX IF NOT EXISTS idx_tracker_events_browser ON pc_tracker_events(browser);
 CREATE INDEX IF NOT EXISTS idx_tracker_events_instance ON pc_tracker_events(instance_id);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_tracker_events_dedup ON pc_tracker_events(device_id, timestamp, duration, event_type, app_name);
+DROP INDEX IF EXISTS ux_tracker_events_dedup;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_tracker_events_dedup ON pc_tracker_events(device_id, timestamp, duration, event_type, app_name, browser, instance_id);
 
 -- Native Tracker: pc_tracker_health
 CREATE TABLE IF NOT EXISTS pc_tracker_health (

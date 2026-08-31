@@ -113,7 +113,7 @@ public sealed class BrowserBridgeService : IDisposable
             DisplayName = BuildDisplayName(hb),
             FirstSeen = DateTimeOffset.UtcNow,
         });
-        lock (conn)
+        lock (conn.SyncRoot)
         {
             conn.BrowserType = browserType;
             conn.IsConnected = true;
@@ -140,7 +140,7 @@ public sealed class BrowserBridgeService : IDisposable
         var count = same.Count;
         foreach (var c in same)
         {
-            lock (c)
+            lock (c.SyncRoot)
             {
                 c.DisplayName = BuildDisplayNameForConnection(c, count);
             }
@@ -186,7 +186,7 @@ public sealed class BrowserBridgeService : IDisposable
     {
         foreach (var conn in _connections.Values)
         {
-            lock (conn)
+            lock (conn.SyncRoot)
             {
                 var silentSeconds = (DateTimeOffset.UtcNow - conn.LastHeartbeat).TotalSeconds;
                 if (conn.IsConnected && silentSeconds > 120)

@@ -15,12 +15,12 @@ export async function getInstanceId(): Promise<string> {
     } catch {}
     try {
         const uuid = crypto.randomUUID()
-        const baseId = anyBrowser?.runtime?.id ? `${anyBrowser.runtime.id}_${uuid.slice(0, 8)}` : uuid
+        const baseId = anyBrowser?.runtime?.id ? `${anyBrowser.runtime.id}_${uuid}` : uuid
         await anyBrowser?.storage?.local?.set?.({ instanceId: baseId })
         return baseId
     } catch {
         const uuid = crypto.randomUUID()
-        return anyBrowser?.runtime?.id ? `${anyBrowser.runtime.id}_${uuid.slice(0, 8)}` : uuid
+        return anyBrowser?.runtime?.id ? `${anyBrowser.runtime.id}_${uuid}` : uuid
     }
 }
 

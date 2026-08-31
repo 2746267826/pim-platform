@@ -131,6 +131,7 @@ public sealed class BrowserConnection
     public bool? LastIncognito { get; set; }
     public long HeartbeatCount { get; set; }
     public DateTimeOffset FirstSeen { get; set; }
+    public readonly object SyncRoot = new();
 }
 
 public sealed class TrackerEventsUploadRequest

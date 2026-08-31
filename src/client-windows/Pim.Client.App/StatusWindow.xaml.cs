@@ -168,7 +168,7 @@ public partial class StatusWindow : Window
         _lastDiagnosticsReport = BuildDiagnosticsReport(
             timestamp,
             apiDiag,
-            awProbe,
+            trackerProbe,
             processes,
             queueCount,
             overall);

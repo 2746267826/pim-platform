@@ -429,11 +429,12 @@ public sealed class NativeTrackerService : IDisposable
                 _logger.Error("Tracker", $"Upload Http error: {ex.Message}", ex);
                 var status = ex.StatusCode;
                 var isClientError = status.HasValue && (int)status.Value >= 400 && (int)status.Value < 500;
-                if (!isClientError && batch is not null)
+                var isRetryableClientError = status == HttpStatusCode.RequestTimeout || (int?)status == 429;
+                if ((!isClientError || isRetryableClientError) && batch is not null)
                 {
                     foreach (var ev in batch) _uploadQueue.Enqueue(ev);
                 }
-                else if (isClientError)
+                else if (isClientError && !isRetryableClientError)
                 {
                     _logger.Warn("Tracker", $"Dropping batch due to client error {(int)status!} {status}, not requeuing {batch?.Count ?? 0} events");
                 }

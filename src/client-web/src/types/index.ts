@@ -1504,3 +1504,46 @@ export interface FileTrashItem {
   size: number | null;
   deletedAt: string;
 }
+
+// === MCP module types ===
+
+export type McpPermissionMap = Record<string, boolean>;
+export type McpPermissions = { read: McpPermissionMap; write: McpPermissionMap };
+
+export interface McpToolInfo {
+  name: string;
+  group: string;
+  description: string;
+  isWrite: boolean;
+}
+
+export interface McpCatalog {
+  read: McpToolInfo[];
+  write: McpToolInfo[];
+}
+
+export interface McpClient {
+  id: string;
+  name: string;
+  status: 'active' | 'revoked';
+  tokenPrefix: string;
+  permissions: McpPermissions;
+  createdAt: string;
+  revokedAt: string | null;
+  lastSeenAt: string | null;
+  callCount: number;
+  writeCallCount: number;
+  lastTool: string | null;
+  online: boolean;
+  createdByUsername: string | null;
+}
+
+export interface McpClientCreateResult {
+  client: McpClient;
+  token: string;
+}
+
+export interface McpClientUpdateRequest {
+  name?: string;
+  permissions?: McpPermissions;
+}

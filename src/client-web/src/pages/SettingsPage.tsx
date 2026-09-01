@@ -33,6 +33,12 @@ const settingsLinks = [
     label: 'AI',
     to: '/settings/ai',
   },
+  {
+    title: 'MCP 连接',
+    description: '管理 AI Agent 客户端连接、Token 与工具级权限',
+    label: 'MCP',
+    to: '/settings/mcp',
+  },
 ] as const;
 
 export default function SettingsPage() {

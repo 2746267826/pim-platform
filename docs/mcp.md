@@ -3234,6 +3234,7 @@ async def get_version(-) -> Any: ...
 - 默认模板：新建客户端「读取全开 / 写入全关」。
 - 粒度：读取 101 项 + 写入 50 项均可独立开关（WebUI 设置 → MCP 管理）。
 - 保存即生效（每次调用实时经 `/verify` 校验，无需重启 MCP server）。
+- **写越权防护**：`/verify` 签发的短时 JWT 带 `mcp_tool` 声明，Pim.Api 中间件限制其只能访问该工具对应的 REST 端点——读工具拿到的 JWT 无法驱动任何写端点。JWT 有效期 2 分钟。
 
 ### 生命周期 / Token lifecycle
 1. WebUI 设置 → MCP 管理 → 新建客户端（如 "Hermes"）。

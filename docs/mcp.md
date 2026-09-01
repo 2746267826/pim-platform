@@ -60,6 +60,9 @@ uv pip install --python /usr/bin/python3 --break-system-packages mcp httpx
 |---|---|---|
 | `PIM_API_URL` | `http://127.0.0.1:5858` | Pim.Api 地址 |
 | `PIM_ACCESS_TOKEN` | - | stdio 模式下的 Bearer（选一：`PIM_ACCESS_TOKEN`/`PIM_TOKEN`/`MCP_BEARER_TOKEN`）|
+| `PIM_TOKEN_FILE` | `<script>/.token` | stdio 刷新：token 文件路径（支持 plain JWT 或 JSON `{accessToken, refreshToken}`），按 mtime 热重载 |
+| `PIM_REFRESH_TOKEN` | - | stdio 刷新：refreshToken，401 时自动 `POST /api/v1/auth/refresh` 并回写文件 |
+| `PIM_TOKEN_PATH` | - | `PIM_TOKEN_FILE` 别名 |
 
 ### 启动 / Run
 ```bash
@@ -123,7 +126,8 @@ Content-Type: application/json
 - MCP 从调用方上下文取 `Authorization: Bearer <token>`（HTTP 头）或环境变量 `PIM_ACCESS_TOKEN`（stdio）。
 - `_api()` 透传到 `Pim.Api`：`headers={Authorization: Bearer <token>}`，不再使用 `PIM_USERNAME/PASSWORD` 固定登录。
 - 未带 Bearer：工具返回 `{"error":"missing bearer token...", "code":401}`，Pim.Api 侧审计不到（401 前）。
-- 带 Bearer：审计记真实 `userId`（查 `audit_versions` 或日志）。MCP 不缓存 token、不刷新，过期由 Agent 重登录。
+- 带 Bearer：审计记真实 `userId`（查 `audit_versions` 或日志）。
+- stdio 长驻进程：支持运行时刷新（issue #174）— `PIM_TOKEN_FILE`（或脚本旁 `.token`）按 `mtime` 重读，JWT `exp` 提前 60s 判定过期；若配置 `PIM_REFRESH_TOKEN`，401 时自动 `POST /api/v1/auth/refresh` 并回写文件/env 后重试一次。
 
 ### 401 处理 / Handling 401
 ```json
@@ -136,7 +140,8 @@ Content-Type: application/json
   "code": 401
 }
 ```
-Agent 收到 401 应重新 `POST /auth/login` 刷新后重试。
+- 无 `PIM_REFRESH_TOKEN`：Agent 收到 401 应重新 `POST /auth/login` 刷新后重试（或外部 cron 每 10 分钟刷新 `PIM_TOKEN_FILE`）。
+- 有 `PIM_REFRESH_TOKEN`：MCP 自动刷新并重试一次，失败才返回 401；成功后新 `accessToken` 已持久化到 `PIM_TOKEN_FILE` 与进程 env。
 
 ## 4. 通用约定 / Conventions
 
@@ -3322,7 +3327,7 @@ async def get_version(-) -> Any: ...
 A: 设环境变量 `PIM_ACCESS_TOKEN=<jwt>`（也支持 `PIM_TOKEN`/`MCP_BEARER_TOKEN`），或在 HTTP 模式下带 `Authorization` 头。
 
 **Q: token 过期怎么办？ / Token expired?**
-A: 重新 `POST /api/v1/auth/login` 拿新 `accessToken`，更新环境变量或请求头后重试。MCP 不缓存不刷新。
+A: 重新 `POST /api/v1/auth/login` 拿新 `accessToken`，更新环境变量或请求头后重试。stdio 长驻进程建议：① 设置 `PIM_TOKEN_FILE` 指向外部刷新的 `.token` 文件（MCP 按 mtime 热重载），或 ② 设置 `PIM_REFRESH_TOKEN` 让 MCP 在 401 时自动刷新；HTTP 模式每次请求带新头即可。
 
 **Q: get_event_by_id 找不到？ / Event not found?**
 A: 事件可能被软删除进回收站，用 `get_recycle_bin(type='event')` 或扩大时间范围 `start/end` 后 `get_events` 搜索。

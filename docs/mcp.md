@@ -3288,7 +3288,8 @@ async def get_version(-) -> Any: ...
    `location = /mcp` 为精确匹配，天然优先于 SPA 兜底 `location ^~ /`；若改用前缀
    形式（`location ^~ /mcp/`）**必须放在 `location ^~ /` 之前**，否则 /mcp 请求会被
    兜底转发到 PIM 容器（表现：GET 返回 index.html、POST 返回 `405 allow: GET, HEAD`）。
-   客户端若误带尾斜杠 `/mcp/`，建议加 `location = /mcp/ { return 301 /mcp; }` 归正。
+   客户端若误带尾斜杠 `/mcp/`，建议加 `location = /mcp/ { return 308 /mcp; }` 归正
+   （308 保留方法，301 会把 POST 改写为 GET）。
    模板已含 `proxy_buffering off;`（SSE 事件流防攒批延迟）。
    MCP 的 Streamable HTTP 协议要求 `POST` + `Accept: application/json, text/event-stream`。
 

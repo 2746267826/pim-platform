@@ -1,7 +1,7 @@
 # MCP Server 使用文档 / MCP Server Guide
 
-> PIM MCP v2 — 101 只读工具，0 写入，给自家可信 AI Agent 专用。单次对话可拿全天/周视图。
-> PIM MCP v2 — 101 read-only tools, zero writes, for trusted internal AI Agent. One round-trip for daily/weekly view.
+> PIM MCP v3 — 101 只读 + 50 写入工具（HTTP 多客户端 + 工具级权限），给自家可信 AI Agent 专用。
+> PIM MCP v3 — 101 read-only + 50 write tools (HTTP multi-client + tool-level permissions), for trusted internal AI Agent.
 
 ## 目录 / Table of Contents
 - [1. 概览 / Overview](#1-概览--overview)
@@ -15,34 +15,39 @@
   - [5.4 QuickNotes 3](#54-quicknotes-3)
   - [5.5 Files 8](#55-files-8)
   - [5.6 Core/Infra 14](#56-coreinfra-14)
-- [6. 典型调用流 / Recipes](#6-典型调用流--recipes)
-- [7. 脱敏与隐私 / Redaction](#7-脱敏与隐私--redaction)
-- [8. 限流与分页 / Pagination & Limits](#8-限流与分页--pagination--limits)
-- [9. 常见问题 / FAQ](#9-常见问题--faq)
-- [10. 变更日志 / Changelog](#10-变更日志--changelog)
+  - [5.7 写入工具 50 / Write Tools 50](#57-写入工具-50--write-tools-50)
+- [6. HTTP 接入与 Token / HTTP Access & Tokens](#6-http-接入与-token--http-access--tokens)
+- [7. 典型调用流 / Recipes](#7-典型调用流--recipes)
+- [8. 脱敏与隐私 / Redaction](#8-脱敏与隐私--redaction)
+- [9. 限流与分页 / Pagination & Limits](#9-限流与分页--pagination--limits)
+- [10. 常见问题 / FAQ](#10-常见问题--faq)
+- [11. 变更日志 / Changelog](#11-变更日志--changelog)
 
 ## 1. 概览 / Overview
 
 ### 是什么 / What it is
-- Python `FastMCP` 服务，`stdio` 为主（支持 `Streamable HTTP`），地址 `scripts/mcp/pim_mcp_server.py`。
-- 仅只读：101 工具 = `Calendar 31 + PcTracker 27 + Mobile 18 + QuickNotes 3 + Files 8 + Core/Infra 14`。写入 0。
-- Python `FastMCP` stdio service at `scripts/mcp/pim_mcp_server.py`. 101 read-only tools, 0 writes.
+- Python `FastMCP` 服务，地址 `scripts/mcp/pim_mcp_server.py`。
+- 双传输：`stdio`（默认，兼容 v2）+ `Streamable HTTP`（Phase 3，多客户端远程并发）。
+- 151 工具 = 读取 `101`（Calendar 31 + PcTracker 27 + Mobile 18 + QuickNotes 3 + Files 8 + Core/Infra 14）+ 写入 `50`（Calendar 30 + QuickNotes 8 + Files 6 + PcTracker 4 + Mobile 2）。
+- Python `FastMCP` service at `scripts/mcp/pim_mcp_server.py`. stdio (default) + Streamable HTTP.
 
 ### 能做什么 / What it can do
 - L1 原子查询：一次查一条记录（event/task/note/file）。
 - L2 聚合：一次拿周报（focus-blocks / productivity-range / category-distribution / mobile overview）。
-- 覆盖 AI 常用场景：今天有啥事 / 这周效率 / 人在哪在干啥 / 找文件笔记。
+- L3 写入（Phase 3）：日程/任务/提醒/习惯/日历/导入、笔记与附件、文件上传/移动/删除、PC 分类、手机使用目标——全部受工具级权限控制。
+- 覆盖 AI 常用场景：今天有啥事 / 这周效率 / 人在哪在干啥 / 找文件笔记 / 顺手把日程任务排进去。
 
 ### 不能做什么 / What it cannot do
-- 任何写入：`create/update/delete/sync/import/batch-execute/request-confirmation/writeback` 110+ 路由全部不开放。
+- 写入仅限 50 个已开放工具；`batch/execute`、`/ops/*`、Outlook 写回、端侧采集上传、confirmations 等一律不开。
 - 文件二进制下载 `items/{id}/download` 等流式下载不开放，只给元数据与搜索。
 - `/ops/*` 运维接口不开放。第三方限流/OAuth 不做（自家可信）。
 
 ### 架构 / Architecture
 ```
-AI Agent --(MCP stdio/HTTP + Bearer)--> pim_mcp_server.py --(HTTP + Bearer透传)--> Pim.Api (http://127.0.0.1:5858) --> PostgreSQL/MinIO
+AI Agent --(MCP stdio 或 HTTP + Bearer)--> pim_mcp_server.py --(HTTP Bearer)--> Pim.Api (http://127.0.0.1:5858) --> PostgreSQL/MinIO
 ```
-- 认证透传：MCP 透传 `Authorization: Bearer <PIM JWT>` 到 `Pim.Api`，审计记真实 `userId`。
+- **stdio（v2 兼容）**：透传 `Authorization: Bearer <PIM JWT>`，审计记真实 `userId`。
+- **HTTP（Phase 3）**：每请求带 `Authorization: Bearer <pim_mcp_* Token>`，MCP server 调 `POST /api/v1/mcp/verify` 校验 Token + 工具级权限 + 记录活跃/审计，换取短时用户 JWT 透传 REST。无 Token → 401；错/吊销 Token → 401；写权限关 → 403 `permission denied: <tool>`。
 - 脱敏：MCP 侧后处理，仅脱敏 `url`，`title` 保留。
 
 ## 2. 快速开始 / Quick Start
@@ -66,22 +71,23 @@ uv pip install --python /usr/bin/python3 --break-system-packages mcp httpx
 
 ### 启动 / Run
 ```bash
-# stdio (Claude / Codex / OpenCode)
+# stdio (Claude / Codex / OpenCode) — 兼容 v2，默认
 PIM_API_URL=http://127.0.0.1:5858 PIM_ACCESS_TOKEN=<jwt> python scripts/mcp/pim_mcp_server.py
-# HTTP (Streamable)
-# FastMCP 默认 stdio；如需 HTTP，包装 mcp.run(transport='streamable-http', port=8080)
+# HTTP (Streamable HTTP) — Phase 3，多客户端远程并发
+PIM_MCP_TRANSPORT=http PIM_MCP_HOST=0.0.0.0 PIM_MCP_PORT=8080 PIM_MCP_PATH=/mcp python scripts/mcp/pim_mcp_server.py
 ```
+- 环境变量：`PIM_MCP_TRANSPORT`（stdio/http，默认 stdio）、`PIM_MCP_HOST`（默认 `0.0.0.0`）、`PIM_MCP_PORT`（默认 `8080`）、`PIM_MCP_PATH`（默认 `/mcp`）。
+- 生产部署：nginx 反代 `https://home.hsww.party:15858/mcp` → MCP server 进程；注意 body 大小限制（文件上传调大）。
+- 自检：`python3 scripts/mcp/pim_mcp_server.py --check`（打印 101 读 + 50 写清单）。
 
 ### 客户端配置 / Client configs
-**`mcp.json` (通用)**
+**`mcp.json` (stdio)**
 ```json
 {
   "mcpServers": {
     "pim": {
       "command": "python",
-      "args": [
-        "scripts/mcp/pim_mcp_server.py"
-      ],
+      "args": ["scripts/mcp/pim_mcp_server.py"],
       "env": {
         "PIM_API_URL": "http://127.0.0.1:5858",
         "PIM_ACCESS_TOKEN": "<jwt>"
@@ -90,6 +96,20 @@ PIM_API_URL=http://127.0.0.1:5858 PIM_ACCESS_TOKEN=<jwt> python scripts/mcp/pim_
   }
 }
 ```
+
+**`mcp.json` (HTTP, Phase 3)**
+```json
+{
+  "mcpServers": {
+    "pim": {
+      "type": "http",
+      "url": "https://home.hsww.party:15858/mcp",
+      "headers": { "Authorization": "Bearer <pim_mcp_xxxxxxxx...>" }
+    }
+  }
+}
+```
+- Token 获取：WebUI 设置 → **MCP 管理** → 新建客户端 → 生成一次性 Token（`pim_mcp_` 前缀，只显示一次）。默认权限：读取全开、写入全关。
 
 **`claude_desktop_config.json`**
 ```json
@@ -113,6 +133,8 @@ PIM_API_URL=http://127.0.0.1:5858 PIM_ACCESS_TOKEN=<jwt> python scripts/mcp/pim_
 
 ## 3. 认证 / Authentication
 
+> 两种模式：**stdio**（v2，透传用户 JWT，`PIM_ACCESS_TOKEN`/token 文件）与 **HTTP**（v3，客户端级 `pim_mcp_*` Token，经 `/api/v1/mcp/verify` 鉴权 + 权限校验）。HTTP 模式 Token 在 WebUI 设置 → MCP 管理生成，不暴露账号密码。
+
 ### 登录拿 token / Login
 ```http
 POST /api/v1/auth/login
@@ -120,13 +142,12 @@ Content-Type: application/json
 
 {"username":"alice","password":"***"}
 ```
-返回 ` {code:0, data:{accessToken, refreshToken}}`。`accessToken` 即 JWT。
+返回 ` {code:0, data:{accessToken, refreshToken}}`。`accessToken` 即 JWT。仅 stdio 模式需要；HTTP 模式改用 MCP Token。
 
 ### MCP 透传原理 / Pass-through
-- MCP 从调用方上下文取 `Authorization: Bearer <token>`（HTTP 头）或环境变量 `PIM_ACCESS_TOKEN`（stdio）。
-- `_api()` 透传到 `Pim.Api`：`headers={Authorization: Bearer <token>}`，不再使用 `PIM_USERNAME/PASSWORD` 固定登录。
+- **stdio**：MCP 从环境变量 `PIM_ACCESS_TOKEN`（或 token 文件）取 JWT，透传到 `Pim.Api`，审计记真实 `userId`。
+- **HTTP（v3）**：每请求带 `Authorization: Bearer <pim_mcp_*>`，MCP server 调 `POST /api/v1/mcp/verify` 校验 Token + 工具权限 + 记录活跃/审计，返回短时用户 JWT 后透传 REST。
 - 未带 Bearer：工具返回 `{"error":"missing bearer token...", "code":401}`，Pim.Api 侧审计不到（401 前）。
-- 带 Bearer：审计记真实 `userId`（查 `audit_versions` 或日志）。
 - stdio 长驻进程：支持运行时刷新（issue #174）— `PIM_TOKEN_FILE`（或脚本旁 `.token`）按 `mtime` 重读，JWT `exp` 提前 60s 判定过期；若配置 `PIM_REFRESH_TOKEN`，401 时自动 `POST /api/v1/auth/refresh` 并回写文件/env 后重试一次。
 
 ### 401 处理 / Handling 401
@@ -3105,7 +3126,142 @@ async def get_version(-) -> Any: ...
 }
 ```
 
-## 6. 典型调用流 / Recipes
+## 5.7 写入工具 50 / Write Tools 50
+
+> 全部写入工具走 HTTP MCP（Phase 3）。每次调用需对应 `write` 权限；关闭时返回 `{"error":"permission denied: <tool>","code":403}`。请求体字段为 JSON；`import_ics`/`upload_*` 为 multipart。
+
+**Calendar 事件 5**
+
+| 工具 | 方法 + 路径 | 主要参数 |
+|---|---|---|
+| `create_event` | `POST /api/v1/calendar/events` | calendarId,title,dtStart,dtEnd + 可选 description/location/rRule/attendees... |
+| `update_event` | `PUT /api/v1/calendar/events/{id}` | 同 create + query scope/recurrenceId/originalEventId |
+| `delete_event` | `DELETE /api/v1/calendar/events/{id}` | query scope/recurrenceId/originalEventId |
+| `restore_event` | `POST /api/v1/calendar/events/{id}/restore` | restoreAsCopy? |
+| `batch_delete_events` | `POST /api/v1/calendar/events/batch-delete` | ids[] |
+
+**Calendar 任务 14**
+
+| 工具 | 方法 + 路径 | 主要参数 |
+|---|---|---|
+| `create_task` | `POST /api/v1/calendar/tasks` | title + priority/calendarId/due/status... |
+| `update_task` | `PUT /api/v1/calendar/tasks/{id}` | 同 create 字段 |
+| `delete_task` | `DELETE /api/v1/calendar/tasks/{id}` | — |
+| `restore_task` | `POST /api/v1/calendar/tasks/{id}/restore` | restoreAsCopy? |
+| `move_task` | `POST /api/v1/calendar/tasks/{id}/move` | scheduledStart/duration("01:30:00")/newSortOrder/plannedEnd |
+| `plan_task` | `POST /api/v1/calendar/tasks/{id}/plan` | plannedStart, plannedEnd?, estimatedDuration? |
+| `create_task_segment` | `POST /api/v1/calendar/tasks/{id}/segments` | startsAt,endsAt,status,source |
+| `delete_task_segment` | `DELETE /api/v1/calendar/tasks/{taskId}/segments/{segmentId}` | — |
+| `add_task_checklist_item` | `POST /api/v1/calendar/tasks/{id}/checklist` | title, sortOrder? |
+| `batch_delete_tasks` | `POST /api/v1/calendar/tasks/batch-delete` | ids[] |
+| `batch_update_tasks` | `POST /api/v1/calendar/tasks/batch-update` | ids[] + status?/priority?/calendarId?（至少一个） |
+| `create_task_book` | `POST /api/v1/calendar/task-books` | name, domainProjectId?/kind?/status? |
+| `create_project` | `POST /api/v1/calendar/projects` | name, description?/status? |
+| `schedule_tasks` | `POST /api/v1/calendar/schedule` | taskIds[] |
+
+**Calendar 提醒 3**
+
+| 工具 | 方法 + 路径 | 主要参数 |
+|---|---|---|
+| `create_reminder` | `POST /api/v1/calendar/reminders` | relatedObjectType,relatedObjectId,title,scheduledAt |
+| `snooze_reminder` | `POST /api/v1/calendar/reminders/{id}/snooze` | query scheduledAt?（缺省 +15min） |
+| `dismiss_reminder` | `POST /api/v1/calendar/reminders/{id}/dismiss` | — |
+
+**Calendar 习惯 2**
+
+| 工具 | 方法 + 路径 | 主要参数 |
+|---|---|---|
+| `create_habit` | `POST /api/v1/calendar/habits` | title, cadence?/status?/ruleJson? |
+| `create_habit_occurrence` | `POST /api/v1/calendar/habits/{id}/occurrences` | startsAt,endsAt,status?/source? |
+
+**Calendar 日历/导入 6**
+
+| 工具 | 方法 + 路径 | 主要参数 |
+|---|---|---|
+| `create_availability_window` | `POST /api/v1/calendar/availability` | title,startsAt,endsAt,kind?/source? |
+| `import_ics` | `POST /api/v1/calendar/import-ics` (multipart) | icsContent(文本), calendarId? |
+| `create_calendar` | `POST /api/v1/calendar/calendars` | name,color?/kind? |
+| `update_calendar` | `PUT /api/v1/calendar/calendars/{id}` | name,color?/kind? |
+| `delete_calendar` | `DELETE /api/v1/calendar/calendars/{id}` | — |
+| `restore_calendar` | `POST /api/v1/calendar/calendars/{id}/restore` | — |
+
+**QuickNotes 8**
+
+| 工具 | 方法 + 路径 | 主要参数 |
+|---|---|---|
+| `create_quick_note` | `POST /api/v1/quick-notes` | contentMarkdown, source?/attachmentIds? |
+| `update_quick_note` | `PUT /api/v1/quick-notes/{id}` | contentMarkdown/status/attachmentIds |
+| `delete_quick_note` | `DELETE /api/v1/quick-notes/{id}` | — |
+| `archive_quick_note` | `POST /api/v1/quick-notes/{id}/archive` | — |
+| `restore_quick_note` | `POST /api/v1/quick-notes/{id}/restore` | status? |
+| `process_quick_note` | `POST /api/v1/quick-notes/{id}/process` | — |
+| `upload_quick_note_attachment` | `POST /api/v1/quick-notes/attachments` (multipart) | fileContentBase64, fileName |
+| `delete_quick_note_attachment` | `DELETE /api/v1/quick-notes/attachments/{id}` | — |
+
+**Files 6**
+
+| 工具 | 方法 + 路径 | 主要参数 |
+|---|---|---|
+| `upload_file` | `POST /api/v1/files/items/upload` (multipart) | providerId, path, fileContentBase64, fileName |
+| `move_file` | `POST /api/v1/files/items/{id}/move` | destinationPath |
+| `rename_file` | `POST /api/v1/files/items/{id}/rename` | name |
+| `delete_file` | `DELETE /api/v1/files/items/{id}` | — |
+| `restore_file` | `POST /api/v1/files/trash/{id}/restore` | query trashId（必填） |
+| `index_file` | `POST /api/v1/files/items/{id}/index` | — |
+
+**PcTracker 分类 4**
+
+| 工具 | 方法 + 路径 | 主要参数 |
+|---|---|---|
+| `create_category` | `POST /api/v1/pc/categories` | appPattern, categoryName, color, priority |
+| `update_categories_order` | `PUT /api/v1/pc/categories/reorder` | items:[{id,parentId?,sortOrder}] |
+| `delete_category` | `DELETE /api/v1/pc/categories/{id}` | — |
+| `seed_categories` | `POST /api/v1/pc/categories/seed` | — |
+
+> 注：`/api/v1/pc/categories` 同时注册了 legacy 与新分类树两套模型，实际命中 legacy `SaveCategoryRequest`（appPattern/categoryName/color/priority），MCP `create_category` 按其语义暴露。
+
+**Mobile 目标 2**
+
+| 工具 | 方法 + 路径 | 主要参数 |
+|---|---|---|
+| `create_mobile_goal` | `POST /api/v1/mobile/analytics/goals` | limitSeconds + scope?/packageName?/label? |
+| `delete_mobile_goal` | `DELETE /api/v1/mobile/analytics/goals/{goalId}` | — |
+
+## 6. HTTP 接入与 Token / HTTP Access & Tokens
+
+### 权限模型 / Permissions
+- 按**客户端连接**授权：一个客户端 = 一把 Token = 一套权限。
+- 默认模板：新建客户端「读取全开 / 写入全关」。
+- 粒度：读取 101 项 + 写入 50 项均可独立开关（WebUI 设置 → MCP 管理）。
+- 保存即生效（每次调用实时经 `/verify` 校验，无需重启 MCP server）。
+
+### 生命周期 / Token lifecycle
+1. WebUI 设置 → MCP 管理 → 新建客户端（如 "Hermes"）。
+2. 生成 Token：`pim_mcp_` + 48 位 URL 安全随机串，**只显示一次**，可复制。
+3. AI 客户端配置 `Authorization: Bearer <pim_mcp_...>`。
+4. 调用：MCP server → `POST /api/v1/mcp/verify`（校验 Token + 工具权限 + 记活跃/审计）→ 放行则用短时用户 JWT 调 REST。
+5. 吊销：WebUI 立即失效；吊销后不可再验（401）。
+
+### 错误语义 / Errors
+| 场景 | 结果 |
+|---|---|
+| 无 Token | 401 missing bearer token |
+| 错 Token / 已吊销 | 401 invalid or revoked token |
+| 写权限关闭 | 403 `permission denied: <tool>` |
+| 读取权限关闭 | 403 `permission denied: <tool>` |
+
+### 管理 API / Management API
+| 端点 | 方法 | 说明 |
+|---|---|---|
+| `/api/v1/mcp/clients` | GET | 客户端列表（在线状态/调用次数/最近工具） |
+| `/api/v1/mcp/clients` | POST | 新建客户端 → 返回一次性 Token |
+| `/api/v1/mcp/clients/{id}` | PUT | 改名/改权限 |
+| `/api/v1/mcp/clients/{id}/revoke` | POST | 吊销 Token |
+| `/api/v1/mcp/clients/{id}` | DELETE | 删除客户端 |
+| `/api/v1/mcp/catalog` | GET | 工具目录（读 101 + 写 50，供权限页渲染） |
+| `/api/v1/mcp/verify` | POST | 内部：Token 校验 + 权限鉴权 + 发短时 JWT（仅 MCP server 内网调用） |
+
+## 7. 典型调用流 / Recipes
 
 ### 6.1 今天有啥事 / What's today (4 steps)
 ```json
@@ -3241,7 +3397,7 @@ async def get_version(-) -> Any: ...
 ]
 ```
 
-## 7. 脱敏与隐私 / Redaction
+## 8. 脱敏与隐私 / Redaction
 
 - 仅脱敏 `url`/`link`/`href`：`redactUrls=true`（默认）时，任何 key 含 `url`/`link`/`href` 的字段（`url`, `onlineMeetingUrl`, `openLink`, `externalLink`, `href`）值被替换为 `sha256(url)[0:12]`，字段改名为 `urlHash`/`xxxUrlHash`/`hrefHash`，原文不返回。（按工单 C7 扩展 `link/href` 以防 `openLink` 泄露）
 - `title`/`description`/`location` 保留原文。
@@ -3291,7 +3447,7 @@ async def get_version(-) -> Any: ...
 }
 ```
 
-## 8. 限流与分页 / Pagination & Limits
+## 9. 限流与分页 / Pagination & Limits
 
 - `page>=1`, `1<=pageSize<=100` 默认 20，`pageSize>100` 返回 400。
 - `max_items` MCP 熔断：单工具最多 100 条，超限提示 `nextPage`。
@@ -3321,7 +3477,7 @@ async def get_version(-) -> Any: ...
 }
 ```
 
-## 9. 常见问题 / FAQ
+## 10. 常见问题 / FAQ
 
 **Q: stdio 模式如何传 token？ / How to pass token in stdio?**
 A: 设环境变量 `PIM_ACCESS_TOKEN=<jwt>`（也支持 `PIM_TOKEN`/`MCP_BEARER_TOKEN`），或在 HTTP 模式下带 `Authorization` 头。
@@ -3341,16 +3497,17 @@ A: 本版 0 写入，写入能力 Phase 3 再开，已在 `README TODO` 占坑�
 **Q: 时区跨天不准？ / Timezone day cut?**
 A: 所有聚合按 `timezone` 切天，默认为 `Asia/Shanghai`。传入 `timezone=UTC` 可按 UTC 切天。
 
-## 10. 变更日志 / Changelog
+## 11. 变更日志 / Changelog
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-15 | 24 工具：`PcTracker 16 + Mobile 位置 4 + Today/Search/Status 4` |
 | v2.0 | 2026-08-31 | 新增 77 工具 → 101 工具闭环：`Calendar 31 + PcTracker +11 + Mobile +14 + QuickNotes 3 + Files 8 + Core/Infra +10`，兼容 v1，写入 0 |
+| v3.0 | 2026-09-01 | 新增写入 50 工具 + HTTP（Streamable HTTP）多客户端 + 客户端级 Token 鉴权 + 工具级权限（读 101/写 50）+ WebUI MCP 管理页；stdio 模式兼容 v2 |
 
 ---
 
 **维护 / Maintenance**
 - 代码：`scripts/mcp/pim_mcp_server.py`（主）+ 生产镜像 `/root/.hermes/scripts/pim_mcp_server.py`
-- 测试：`dotnet test Pim.sln` 不受 MCP 影响；MCP 冒烟：带真实 token 调用 §6 四流。
-- 反馈：提 PR 至 `opencode-linux/mcp-v2-readonly` 分支。
+- 后端：`Pim.Module.Mcp`（`mcp_clients` 表 + 管理/verify API），迁移 `AddMcpClients`。
+- 测试：`dotnet test Pim.sln`；`python3 -m pytest scripts/mcp/test_pim_mcp_server.py`；`python3 scripts/mcp/pim_mcp_server.py --check`；HTTP 冒烟 `python3 scripts/mcp/integration_http_smoke.py`；MCP 冒烟：带真实 token 调用 §7 四流。

@@ -59,6 +59,10 @@ pip install mcp httpx
 # or with uv (宿主 PEP668)
 uv pip install --python /usr/bin/python3 --break-system-packages mcp httpx
 ```
+- mcp SDK **1.x 与 2.x 均兼容**（脚本自动适配；mcp>=2 时 `FastMCP` 已更名为 `MCPServer`，
+  构造与 HTTP 启动 API 变化由脚本内部处理）。
+- mcp>=2 不再安装 `httpx`：脚本缺 `httpx` 时自动回退 `httpx2`（drop-in），
+  无需额外安装；如需显式安装可 `pip install httpx`。
 
 ### 环境变量 / Environment
 | 变量 | 默认 | 说明 |
@@ -77,8 +81,8 @@ PIM_API_URL=http://127.0.0.1:5858 PIM_ACCESS_TOKEN=<jwt> python scripts/mcp/pim_
 PIM_MCP_TRANSPORT=http PIM_MCP_HOST=0.0.0.0 PIM_MCP_PORT=8080 PIM_MCP_PATH=/mcp python scripts/mcp/pim_mcp_server.py
 ```
 - 环境变量：`PIM_MCP_TRANSPORT`（stdio/http，默认 stdio）、`PIM_MCP_HOST`（默认 `0.0.0.0`）、`PIM_MCP_PORT`（默认 `8080`）、`PIM_MCP_PATH`（默认 `/mcp`）。
-- 生产部署：nginx 反代 `https://home.hsww.party:15858/mcp` → MCP server 进程；注意 body 大小限制（文件上传调大）。
-- 自检：`python3 scripts/mcp/pim_mcp_server.py --check`（打印 101 读 + 50 写清单）。
+- 自检：`python3 scripts/mcp/pim_mcp_server.py --check`（打印 101 读 + 50 写清单；任何模式下均先于启动执行，mcp 1.x/2.x 通用）。
+- 生产部署（HTTP 模式）：见 §6「生产部署 / Production deployment」——systemd 单元 + OpenResty 反代模板与部署后验证。
 
 ### 客户端配置 / Client configs
 **`mcp.json` (stdio)**
@@ -3257,10 +3261,47 @@ async def get_version(-) -> Any: ...
 | 写权限关闭 | 403 | 40301 `permission denied: <tool>` |
 | 读取权限关闭 | 403 | 40301 `permission denied: <tool>` |
 
-### 生产部署提示 / Production notes
-- `/verify` 是内网端点：MCP server 与 Pim.Api 必须同网（`PIM_API_URL` 指向内网 `127.0.0.1:5858` 或内网地址），不要在公网直接暴露 Pim.Api。
-- nginx 反代 `/mcp` → MCP server 进程时调大 body 大小限制（`client_max_body_size`），否则文件上传会 413。
-- 建议在 nginx 层限制 `/mcp` 的访问来源（仅放行可信 AI 客户端 IP 段）。
+### 生产部署 / Production deployment
+
+> 目标形态：`https://home.hsww.party:15858/mcp`（OpenResty 反代）→ MCP server 进程（HTTP 模式，默认 8080）。完整模板见 `scripts/mcp/deploy/`（systemd 单元 + OpenResty 片段 + 步骤 README）。
+
+1. **启动 MCP server 进程（HTTP 模式）**：
+   ```bash
+   PIM_MCP_TRANSPORT=http PIM_MCP_HOST=0.0.0.0 PIM_MCP_PORT=8080 PIM_MCP_PATH=/mcp \
+     python3 scripts/mcp/pim_mcp_server.py
+   ```
+   生产建议以 systemd 托管（模板 `scripts/mcp/deploy/pim-mcp.service`，`Restart=always`）。
+   ⚠️ `/verify` 是内网端点：MCP server 与 Pim.Api 必须同网（`PIM_API_URL` 指向内网 `127.0.0.1:5858`），不要在公网直接暴露 Pim.Api。
+
+2. **OpenResty 增加 `/mcp` location**（模板 `scripts/mcp/deploy/openresty-mcp.conf`）：
+   ```nginx
+   location = /mcp {
+       proxy_pass http://127.0.0.1:8080;
+       proxy_http_version 1.1;
+       proxy_set_header Host $host;
+       proxy_read_timeout 300s;
+       proxy_send_timeout 300s;
+       client_max_body_size 50m;   # 文件上传（QuickNotes/Files 工具）
+       # allow <可信 AI 客户端 IP 段>;  deny all;   # 建议限制访问来源
+   }
+   ```
+   `location = /mcp` 为精确匹配，天然优先于 SPA 兜底 `location ^~ /`；若改用前缀
+   形式（`location ^~ /mcp/`）**必须放在 `location ^~ /` 之前**，否则 /mcp 请求会被
+   兜底转发到 PIM 容器（表现：GET 返回 index.html、POST 返回 `405 allow: GET, HEAD`）。
+   MCP 的 Streamable HTTP 协议要求 `POST` + `Accept: application/json, text/event-stream`。
+
+3. **部署后验证**（在能访问生产环境的机器上）：
+   ```bash
+   # 无 token GET：应 401 JSON，而不是 200 text/html SPA 页面
+   curl -k https://home.hsww.party:15858/mcp
+   # initialize（带 pim_mcp_* token，WebUI 设置 -> MCP 管理 生成）：
+   curl -k -X POST https://home.hsww.party:15858/mcp \
+     -H "Content-Type: application/json" \
+     -H "Accept: application/json, text/event-stream" \
+     -H "Authorization: Bearer pim_mcp_<token>" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"verify","version":"1.0"}}}'
+   ```
+   期望：`jsonrpc/result/serverInfo` 的 JSON-RPC 响应；`tools/list` 返回 151 个工具。
 
 ### 管理 API / Management API
 | 端点 | 方法 | 说明 |
@@ -3516,6 +3557,7 @@ A: 所有聚合按 `timezone` 切天，默认为 `Asia/Shanghai`。传入 `timez
 | v1.0 | 2026-08-15 | 24 工具：`PcTracker 16 + Mobile 位置 4 + Today/Search/Status 4` |
 | v2.0 | 2026-08-31 | 新增 77 工具 → 101 工具闭环：`Calendar 31 + PcTracker +11 + Mobile +14 + QuickNotes 3 + Files 8 + Core/Infra +10`，兼容 v1，写入 0 |
 | v3.0 | 2026-09-01 | 新增写入 50 工具 + HTTP（Streamable HTTP）多客户端 + 客户端级 Token 鉴权 + 工具级权限（读 101/写 50）+ WebUI MCP 管理页；stdio 模式兼容 v2 |
+| v3.1 | 2026-09-01 | 修复 mcp>=2.0 兼容（构造参数/HTTP app/请求头获取适配，--check/stdio/HTTP 三种模式可用，issue #179）+ 生产部署模板（systemd + OpenResty `/mcp` 反代，issue #178）|
 
 ---
 

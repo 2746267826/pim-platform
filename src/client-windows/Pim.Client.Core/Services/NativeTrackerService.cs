@@ -148,6 +148,8 @@ public sealed class NativeTrackerService : IDisposable
         var pageVisitCount = session.PageVisits.Count;
         var pageVisitDuration = session.PageVisits.Sum(v => v.DurationSecs ?? 0);
 
+        // Snapshot the latest heartbeat once per batch so all events in this
+        // session share the same browser/instanceId attribution.
         var hbForWindow = _bridge.LastHeartbeat;
         var list = new List<TrackerEventForUpload>
         {
@@ -178,7 +180,6 @@ public sealed class NativeTrackerService : IDisposable
         {
             var pvDuration = pv.DurationSecs ?? 0;
             if (pvDuration <= 0) continue;
-            var hbForPage = _bridge.LastHeartbeat;
             list.Add(new TrackerEventForUpload
             {
                 Timestamp = pv.StartedAt.ToString("O"),
@@ -191,15 +192,15 @@ public sealed class NativeTrackerService : IDisposable
                 Url = pv.Url,
                 Domain = pv.Domain,
                 PagePath = null,
-                Audible = hbForPage?.Audible,
-                Incognito = hbForPage?.Incognito,
-                TabCount = hbForPage?.TabCount,
+                Audible = hbForWindow?.Audible,
+                Incognito = hbForWindow?.Incognito,
+                TabCount = hbForWindow?.TabCount,
                 IsIdle = false,
                 IsMediaActive = false,
                 Date = pv.StartedAt.ToString("yyyy-MM-dd"),
                 RawJson = new { sessionId = session.Id, pageVisit = pv },
-                Browser = hbForPage?.Browser,
-                InstanceId = hbForPage?.InstanceId
+                Browser = hbForWindow?.Browser,
+                InstanceId = hbForWindow?.InstanceId
             });
         }
 

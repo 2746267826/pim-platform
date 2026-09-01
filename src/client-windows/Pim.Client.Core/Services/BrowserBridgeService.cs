@@ -9,6 +9,14 @@ namespace Pim.Client.Core.Services;
 
 public sealed class BrowserBridgeService : IDisposable
 {
+    private const int MaxConnections = 32;
+    private const int DisconnectAfterSeconds = 120;
+    private const int EvictAfterSeconds = 600;
+    private static readonly HashSet<string> AllowedBrowserTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "chrome", "edge", "firefox", "safari", "other"
+    };
+
     private readonly int _port;
     private readonly Channel<BrowserHeartbeat> _channel;
     private readonly TrackerLogger? _logger;
@@ -43,7 +51,14 @@ public sealed class BrowserBridgeService : IDisposable
             lock (_lastStateLock)
             {
                 if (_connections.IsEmpty) return _lastHeartbeatTime;
-                var latest = _connections.Values.Max(c => c.LastHeartbeat);
+                var latest = DateTimeOffset.MinValue;
+                foreach (var kv in _connections)
+                {
+                    lock (kv.Value.SyncRoot)
+                    {
+                        if (kv.Value.LastHeartbeat > latest) latest = kv.Value.LastHeartbeat;
+                    }
+                }
                 return latest > _lastHeartbeatTime ? latest : _lastHeartbeatTime;
             }
         }
@@ -55,9 +70,16 @@ public sealed class BrowserBridgeService : IDisposable
             if (_connections.IsEmpty)
             {
                 lock (_lastStateLock)
-                    return _lastHeartbeat is not null && (DateTimeOffset.UtcNow - _lastHeartbeatTime).TotalSeconds < 120;
+                    return _lastHeartbeat is not null && (DateTimeOffset.UtcNow - _lastHeartbeatTime).TotalSeconds < DisconnectAfterSeconds;
             }
-            return _connections.Values.Any(c => c.IsConnected);
+            foreach (var kv in _connections)
+            {
+                lock (kv.Value.SyncRoot)
+                {
+                    if (kv.Value.IsConnected) return true;
+                }
+            }
+            return false;
         }
     }
 
@@ -98,8 +120,7 @@ public sealed class BrowserBridgeService : IDisposable
         var instanceId = string.IsNullOrWhiteSpace(hb.InstanceId) ? "unknown" : hb.InstanceId.Trim();
         if (instanceId.Length > 128) instanceId = instanceId.Substring(0, 128);
         var browserType = string.IsNullOrWhiteSpace(hb.Browser) ? "other" : hb.Browser.ToLowerInvariant().Trim();
-        var allowed = new HashSet<string> { "chrome", "edge", "firefox", "safari", "other" };
-        if (!allowed.Contains(browserType)) browserType = "other";
+        if (!AllowedBrowserTypes.Contains(browserType)) browserType = "other";
         if (browserType.Length > 16) browserType = browserType.Substring(0, 16);
         hb.Browser = browserType;
         hb.InstanceId = instanceId;
@@ -113,6 +134,9 @@ public sealed class BrowserBridgeService : IDisposable
         });
         lock (conn.SyncRoot)
         {
+            // A concurrent eviction may have removed this instance between
+            // GetOrAdd and the lock; re-add so the heartbeat is not lost.
+            _connections.TryAdd(instanceId, conn);
             conn.BrowserType = browserType;
             conn.IsConnected = true;
             conn.LastHeartbeat = DateTimeOffset.UtcNow;
@@ -122,6 +146,21 @@ public sealed class BrowserBridgeService : IDisposable
             conn.LastTabCount = hb.TabCount;
             conn.LastIncognito = hb.Incognito;
             conn.HeartbeatCount++;
+        }
+
+        // Enforce the instance cap: if we are over the limit after adding a new
+        // instance, evict the least recently active one (not the fresh one).
+        if (_connections.Count > MaxConnections)
+        {
+            var stale = _connections
+                .Where(kv => kv.Key != instanceId)
+                .OrderBy(kv => kv.Value.LastHeartbeat)
+                .FirstOrDefault();
+            if (stale.Key is not null)
+            {
+                _connections.TryRemove(stale.Key, out _);
+                _logger?.Warn("BrowserBridge", $"Instance cap {MaxConnections} reached, evicted {stale.Value.DisplayName}");
+            }
         }
 
         RebuildDisplayNames(browserType);
@@ -190,7 +229,7 @@ public sealed class BrowserBridgeService : IDisposable
             lock (conn.SyncRoot)
             {
                 var silentSeconds = (DateTimeOffset.UtcNow - conn.LastHeartbeat).TotalSeconds;
-                if (conn.IsConnected && silentSeconds > 120)
+                if (conn.IsConnected && silentSeconds > DisconnectAfterSeconds)
                 {
                     conn.IsConnected = false;
                     _logger?.Warn("BrowserBridge", $"BrowserBridge {conn.DisplayName} disconnected, silent for {silentSeconds:F0}s");
@@ -199,15 +238,15 @@ public sealed class BrowserBridgeService : IDisposable
         }
 
         // Evict connections that have been disconnected for a long time so the
-        // dictionary does not accumulate stale entries (the 32-instance cap
-        // bounds growth, this reclaims it). Reconnecting re-adds the entry.
+        // dictionary does not accumulate stale entries (the instance cap bounds
+        // growth, this reclaims it). Reconnecting re-adds the entry.
         foreach (var kv in _connections)
         {
             var conn = kv.Value;
             lock (conn.SyncRoot)
             {
                 var idleSeconds = (DateTimeOffset.UtcNow - conn.LastHeartbeat).TotalSeconds;
-                if (!conn.IsConnected && idleSeconds > 600)
+                if (!conn.IsConnected && idleSeconds > EvictAfterSeconds)
                 {
                     _connections.TryRemove(kv.Key, out _);
                     _logger?.Info("BrowserBridge", $"Removed idle browser connection {conn.DisplayName}");
@@ -345,7 +384,7 @@ public sealed class BrowserBridgeService : IDisposable
                         return;
                     }
                     if (hb.Browser.Length > 16) hb.Browser = hb.Browser.Substring(0, 16);
-                    if (_connections.Count >= 32 && !_connections.ContainsKey(hb.InstanceId))
+                    if (_connections.Count >= MaxConnections && !_connections.ContainsKey(hb.InstanceId))
                     {
                         resp.StatusCode = 429;
                         resp.Close();

@@ -39,6 +39,8 @@ public sealed class BrowserHeartbeat
     [JsonPropertyName("incognito")] public bool Incognito { get; set; }
     [JsonPropertyName("tabCount")] public int TabCount { get; set; }
     [JsonPropertyName("timestamp")] public string Timestamp { get; set; } = DateTimeOffset.UtcNow.ToString("O");
+    [JsonPropertyName("browser")] public string Browser { get; set; } = "other";
+    [JsonPropertyName("instanceId")] public string InstanceId { get; set; } = string.Empty;
 
     public DateTimeOffset ParsedTimestamp => DateTimeOffset.TryParse(Timestamp, out var ts) ? ts : DateTimeOffset.UtcNow;
     public string? Domain
@@ -111,6 +113,25 @@ public sealed class TrackerEventForUpload
     [JsonPropertyName("pageVisitDuration")] public double PageVisitDuration { get; set; }
     [JsonPropertyName("rawJson")] public object? RawJson { get; set; }
     [JsonPropertyName("date")] public string Date { get; set; } = string.Empty;
+    [JsonPropertyName("browser")] public string? Browser { get; set; }
+    [JsonPropertyName("instanceId")] public string? InstanceId { get; set; }
+}
+
+public sealed class BrowserConnection
+{
+    public string InstanceId { get; set; } = string.Empty;
+    public string BrowserType { get; set; } = "other";
+    public string DisplayName { get; set; } = string.Empty;
+    public bool IsConnected { get; set; }
+    public DateTimeOffset LastHeartbeat { get; set; }
+    public string? LastUrl { get; set; }
+    public string? LastTitle { get; set; }
+    public bool? LastAudible { get; set; }
+    public int? LastTabCount { get; set; }
+    public bool? LastIncognito { get; set; }
+    public long HeartbeatCount { get; set; }
+    public DateTimeOffset FirstSeen { get; set; }
+    public readonly object SyncRoot = new();
 }
 
 public sealed class TrackerEventsUploadRequest

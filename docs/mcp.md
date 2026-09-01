@@ -69,7 +69,6 @@ AI Agent --(MCP stdio 或 HTTP + Bearer)--> Pim.Api 进程内 MCP Server (.NET 8
 |---|---|---|
 | `MCP:Enabled` | `true` | `/mcp` 端点总开关 |
 | `MCP:Path` | `/mcp` | Streamable HTTP 端点路径 |
-| `MCP:IdleTimeout` | `30m` | Streamable HTTP 会话空闲超时 |
 | 环境变量 `PIM_ACCESS_TOKEN`/`PIM_TOKEN`/`MCP_BEARER_TOKEN` | - | stdio 模式 Bearer（选一）|
 | 环境变量 `PIM_TOKEN_FILE`/`PIM_TOKEN_PATH` | `<app>/.token` | stdio 刷新：token 文件（plain JWT 或 JSON `{accessToken, refreshToken}`），按 mtime 热重载 |
 | 环境变量 `PIM_REFRESH_TOKEN` | - | stdio 刷新：401 时自动 `POST /api/v1/auth/refresh` |

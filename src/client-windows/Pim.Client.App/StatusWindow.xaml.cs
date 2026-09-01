@@ -607,6 +607,12 @@ public partial class StatusWindow : Window
 
     private void OnClose(object sender, RoutedEventArgs e) => Close();
 
+    protected override void OnClosed(EventArgs e)
+    {
+        _refreshGate.Dispose();
+        base.OnClosed(e);
+    }
+
     private static string? BuildUploadErrorMessage(string? trackerError, string? keyStatsError)
     {
         var errors = new List<string>();

@@ -48,19 +48,22 @@ public sealed class BrowserBridgeService : IDisposable
     {
         get
         {
-            lock (_lastStateLock)
+            DateTimeOffset lastStateTime;
+            lock (_lastStateLock) lastStateTime = _lastHeartbeatTime;
+
+            if (_connections.IsEmpty) return lastStateTime;
+
+            // Do not hold _lastStateLock while locking each connection: that would
+            // invert the lock order used by OnHeartbeat (conn.SyncRoot -> _lastStateLock).
+            var latest = DateTimeOffset.MinValue;
+            foreach (var kv in _connections)
             {
-                if (_connections.IsEmpty) return _lastHeartbeatTime;
-                var latest = DateTimeOffset.MinValue;
-                foreach (var kv in _connections)
+                lock (kv.Value.SyncRoot)
                 {
-                    lock (kv.Value.SyncRoot)
-                    {
-                        if (kv.Value.LastHeartbeat > latest) latest = kv.Value.LastHeartbeat;
-                    }
+                    if (kv.Value.LastHeartbeat > latest) latest = kv.Value.LastHeartbeat;
                 }
-                return latest > _lastHeartbeatTime ? latest : _lastHeartbeatTime;
             }
+            return latest > lastStateTime ? latest : lastStateTime;
         }
     }
     public bool IsConnected

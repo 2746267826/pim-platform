@@ -13,6 +13,7 @@ import TaskListPage from '../pages/TaskListPage';
 import PcTrackerPage from '../pages/PcTrackerPage';
 import SettingsPage from '../pages/SettingsPage';
 import AiSettingsPage from '../pages/AiSettingsPage';
+import McpSettingsPage from '../pages/McpSettingsPage';
 import CalendarDataManager from '../pages/CalendarDataManager';
 import RecycleBinPage from '../pages/RecycleBinPage';
 import PcDetailQueryPage from '../pages/PcDetailQueryPage';
@@ -91,6 +92,7 @@ export default function AppLayout() {
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/settings/sync" element={<SyncPage />} />
                 <Route path="/settings/ai" element={<AiSettingsPage />} />
+                <Route path="/settings/mcp" element={<McpSettingsPage />} />
                 <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
                 <Route path="/settings/recycle-bin" element={<RecycleBinPage />} />
                 <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />

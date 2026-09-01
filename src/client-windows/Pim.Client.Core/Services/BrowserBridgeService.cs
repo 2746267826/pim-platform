@@ -17,6 +17,7 @@ public sealed class BrowserBridgeService : IDisposable
     private Task? _listenTask;
     private DateTimeOffset _lastHeartbeatTime = DateTimeOffset.MinValue;
     private BrowserHeartbeat? _lastHeartbeat;
+    private readonly object _lastStateLock = new();
     private readonly ConcurrentDictionary<string, BrowserConnection> _connections = new();
     private Timer? _checkTimer;
 
@@ -31,19 +32,34 @@ public sealed class BrowserBridgeService : IDisposable
     public IReadOnlyDictionary<string, BrowserConnection> Connections => _connections;
     // Most recently received heartbeat. OnHeartbeat always records it, so it is
     // non-null whenever _connections is non-empty.
-    public BrowserHeartbeat? LastHeartbeat => _lastHeartbeat;
+    public BrowserHeartbeat? LastHeartbeat
+    {
+        get { lock (_lastStateLock) return _lastHeartbeat; }
+    }
     public DateTimeOffset LastHeartbeatTime
     {
         get
         {
-            if (_connections.IsEmpty) return _lastHeartbeatTime;
-            var latest = _connections.Values.Max(c => c.LastHeartbeat);
-            return latest > _lastHeartbeatTime ? latest : _lastHeartbeatTime;
+            lock (_lastStateLock)
+            {
+                if (_connections.IsEmpty) return _lastHeartbeatTime;
+                var latest = _connections.Values.Max(c => c.LastHeartbeat);
+                return latest > _lastHeartbeatTime ? latest : _lastHeartbeatTime;
+            }
         }
     }
-    public bool IsConnected => _connections.IsEmpty
-        ? (_lastHeartbeat is not null && (DateTimeOffset.UtcNow - _lastHeartbeatTime).TotalSeconds < 120)
-        : _connections.Values.Any(c => c.IsConnected);
+    public bool IsConnected
+    {
+        get
+        {
+            if (_connections.IsEmpty)
+            {
+                lock (_lastStateLock)
+                    return _lastHeartbeat is not null && (DateTimeOffset.UtcNow - _lastHeartbeatTime).TotalSeconds < 120;
+            }
+            return _connections.Values.Any(c => c.IsConnected);
+        }
+    }
 
     public void Start()
     {
@@ -110,8 +126,11 @@ public sealed class BrowserBridgeService : IDisposable
 
         RebuildDisplayNames(browserType);
 
-        _lastHeartbeat = hb;
-        _lastHeartbeatTime = DateTimeOffset.UtcNow;
+        lock (_lastStateLock)
+        {
+            _lastHeartbeat = hb;
+            _lastHeartbeatTime = DateTimeOffset.UtcNow;
+        }
         _channel.Writer.TryWrite(hb);
         _logger?.Debug("BrowserBridge", $"Heartbeat {hb.Domain} browser={hb.Browser} instance={instanceId} audible={hb.Audible} tabs={hb.TabCount}");
     }
@@ -175,6 +194,23 @@ public sealed class BrowserBridgeService : IDisposable
                 {
                     conn.IsConnected = false;
                     _logger?.Warn("BrowserBridge", $"BrowserBridge {conn.DisplayName} disconnected, silent for {silentSeconds:F0}s");
+                }
+            }
+        }
+
+        // Evict connections that have been disconnected for a long time so the
+        // dictionary does not accumulate stale entries (the 32-instance cap
+        // bounds growth, this reclaims it). Reconnecting re-adds the entry.
+        foreach (var kv in _connections)
+        {
+            var conn = kv.Value;
+            lock (conn.SyncRoot)
+            {
+                var idleSeconds = (DateTimeOffset.UtcNow - conn.LastHeartbeat).TotalSeconds;
+                if (!conn.IsConnected && idleSeconds > 600)
+                {
+                    _connections.TryRemove(kv.Key, out _);
+                    _logger?.Info("BrowserBridge", $"Removed idle browser connection {conn.DisplayName}");
                 }
             }
         }

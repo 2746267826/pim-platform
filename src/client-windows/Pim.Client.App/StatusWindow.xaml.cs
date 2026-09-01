@@ -26,6 +26,7 @@ public partial class StatusWindow : Window
     private string _ksState = "Unknown";
     private string? _ksSkipReason;
     private bool _apiOk;
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
 
     public StatusWindow()
     {
@@ -74,6 +75,10 @@ public partial class StatusWindow : Window
 
     private async Task RefreshStatusAsync()
     {
+        // Skip overlapping refreshes instead of queuing them.
+        if (!await _refreshGate.WaitAsync(0)) return;
+        try
+        {
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         var sessionId = Process.GetCurrentProcess().SessionId;
 
@@ -171,6 +176,11 @@ public partial class StatusWindow : Window
             RefreshBrowserConnections();
             _lastDiagnosticsReport = report;
         });
+        }
+        finally
+        {
+            _refreshGate.Release();
+        }
     }
 
     private async Task<(bool Ok, string Summary, string StatusLine, string Message)> BuildApiProbeAsync()

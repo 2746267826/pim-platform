@@ -35,7 +35,7 @@ function GroupCheckbox({
 
   useEffect(() => {
     if (ref.current) ref.current.indeterminate = partial;
-  }, [partial]);
+  }, [partial, all]);
 
   return (
     <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">

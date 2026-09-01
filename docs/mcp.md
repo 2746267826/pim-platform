@@ -3243,12 +3243,19 @@ async def get_version(-) -> Any: ...
 5. 吊销：WebUI 立即失效；吊销后不可再验（401）。
 
 ### 错误语义 / Errors
-| 场景 | 结果 |
-|---|---|
-| 无 Token | 401 missing bearer token |
-| 错 Token / 已吊销 | 401 invalid or revoked token |
-| 写权限关闭 | 403 `permission denied: <tool>` |
-| 读取权限关闭 | 403 `permission denied: <tool>` |
+> HTTP 状态码与业务码一致给出：401 对应业务码 `40101`，403 对应 `40301`（响应体 `{code, message, data}`）。
+
+| 场景 | HTTP 状态 | 业务码 |
+|---|---|---|
+| 无 Token | 401 | 40101 missing bearer token |
+| 错 Token / 已吊销 | 401 | 40101 invalid or revoked token |
+| 写权限关闭 | 403 | 40301 `permission denied: <tool>` |
+| 读取权限关闭 | 403 | 40301 `permission denied: <tool>` |
+
+### 生产部署提示 / Production notes
+- `/verify` 是内网端点：MCP server 与 Pim.Api 必须同网（`PIM_API_URL` 指向内网 `127.0.0.1:5858` 或内网地址），不要在公网直接暴露 Pim.Api。
+- nginx 反代 `/mcp` → MCP server 进程时调大 body 大小限制（`client_max_body_size`），否则文件上传会 413。
+- 建议在 nginx 层限制 `/mcp` 的访问来源（仅放行可信 AI 客户端 IP 段）。
 
 ### 管理 API / Management API
 | 端点 | 方法 | 说明 |

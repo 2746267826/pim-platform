@@ -78,100 +78,99 @@ public partial class StatusWindow : Window
         var sessionId = Process.GetCurrentProcess().SessionId;
 
         var apiDiag = await BuildApiProbeAsync();
-        _apiOk = apiDiag.Ok;
-        ApiConnectivityText.Text = apiDiag.Summary;
-
         var trackerUrl = $"http://localhost:{(_tracker is null ? 15601 : DaemonConfig.Load().Tracker.BrowserBridgePort)}/browser/ping";
         var trackerProbe = await ProbeEndpointAsync(trackerUrl);
-        var bridgeConnected = _bridge?.IsConnected ?? _tracker?.BrowserConnected ?? false;
-        _trackerState = trackerProbe.Ok || bridgeConnected ? "Available" : "Unavailable";
-        AwSummaryText.Text = bridgeConnected ? "Tracker 浏览器已连接" : trackerProbe.Ok ? "Tracker 桥接正常" : "Tracker 浏览器未连接";
-        AwDetailText.Text =
-            $"URL: {trackerUrl}\n" +
-            $"Status: {trackerProbe.StatusLine}\n" +
-            $"Message: {trackerProbe.Message}\n" +
-            $"Bridge: {(bridgeConnected ? "已连接" : "未连接")}\n" +
-            $"Polls: {_tracker?.PollCount ?? 0} Sessions: {_tracker?.SessionsCreated ?? 0} Hook: {_tracker?.HookActive}\n" +
-            $"Time: {timestamp}";
-
         var processes = _processManager.ListProcesses(sessionId);
         var health = _keyStatsCollector.LastHealth;
-        _ksSkipReason = _keyStatsCollector.LastSkipReason ?? health?.SkipReason;
-        _ksState = health?.DaemonSourceState
-                   ?? (processes.Count > 0 ? "Unknown" : "Unavailable");
+        var lastUploadTime = _keyStatsCollector.LastUploadTime;
+        var lastUploadError = _keyStatsCollector.LastUploadError;
+        var lastSkipReason = _keyStatsCollector.LastSkipReason;
 
-        if (health is not null)
+        // Compute state on background thread
+        var bridgeConnected = _bridge?.IsConnected ?? _tracker?.BrowserConnected ?? false;
+        var trackerState = trackerProbe.Ok || bridgeConnected ? "Available" : "Unavailable";
+        var ksSkipReasonLocal = lastSkipReason ?? health?.SkipReason;
+        var ksStateLocal = health?.DaemonSourceState ?? (processes.Count > 0 ? "Unknown" : "Unavailable");
+        if (health is null && processes.Count == 0)
         {
-            KeyStatsSummaryText.Text = health.SummaryZh;
-            KeyStatsDetailText.Text =
-                $"DaemonSourceState: {health.DaemonSourceState}\n" +
-                $"DetailState: {health.DetailState}\n" +
-                $"ProcessCount: {health.ProcessCount}\n" +
-                $"HasForeignSession: {health.HasForeignSessionProcess}\n" +
-                $"SkipReason: {health.SkipReason ?? "none"}\n" +
-                $"CanUpload: {health.CanUpload}\n" +
-                $"Processes: {FormatProcesses(processes)}\n" +
-                $"Time: {timestamp}";
+            ksStateLocal = "Unavailable";
+            ksSkipReasonLocal ??= "missing-process";
         }
-        else
-        {
-            var liveCount = processes.Count;
-            KeyStatsSummaryText.Text = liveCount == 0
-                ? "KeyStats 进程未运行（尚无健康探测结果）"
-                : $"检测到 {liveCount} 个 KeyStats 进程（尚无健康探测结果）";
-            KeyStatsDetailText.Text =
-                $"DaemonSourceState: {_ksState}\n" +
-                $"ProcessCount: {liveCount}\n" +
-                $"Processes: {FormatProcesses(processes)}\n" +
-                $"SkipReason: {_ksSkipReason ?? "none"}\n" +
-                $"Time: {timestamp}";
-            if (liveCount == 0)
-            {
-                _ksState = "Unavailable";
-                _ksSkipReason ??= "missing-process";
-            }
-        }
-
-        var queueCount = 0; // tracker uses internal concurrent queue, not exposed as count
-        AwQueueText.Text = _tracker is null
-            ? "Tracker 未启动"
-            : $"Tracker 队列: 已上传 {_tracker.EventsUploaded} 失败 {_tracker.UploadFailures} 会话 {_tracker.SessionsCreated}";
-
-        KeyStatsUploadText.Text = FormatUploadLine(
-            "KeyStats",
-            _keyStatsCollector.LastUploadTime,
-            _keyStatsCollector.LastUploadError);
-
-        KeyStatsSkipText.Text = string.IsNullOrWhiteSpace(_ksSkipReason)
-            ? "无"
-            : _ksSkipReason;
-
-        var errors = new List<string>();
-        if (!string.IsNullOrWhiteSpace(_tracker?.LastError))
-            errors.Add($"Tracker: {_tracker.LastError}");
-        if (!string.IsNullOrWhiteSpace(_keyStatsCollector.LastUploadError))
-            errors.Add($"KeyStats: {_keyStatsCollector.LastUploadError}");
-        LastErrorsText.Text = errors.Count == 0 ? "无" : string.Join("\n", errors);
-
+        var queueCount = 0;
         var overall = StatusCenterEvaluator.Rate(
             _authService.IsAuthenticated,
-            _trackerState,
-            _ksState,
-            _ksSkipReason,
+            trackerState,
+            ksStateLocal,
+            ksSkipReasonLocal,
             queueCount);
-        OverviewHealthText.Text = overall;
-        OverallHealthText.Text = $"整体状态：{overall}";
-
         var suggestion = KeyStatsFixAdvisor.BuildSuggestion(health);
-        KeyStatsFixSuggestionText.Text = suggestion.MessageZh;
-
-        _lastDiagnosticsReport = BuildDiagnosticsReport(
+        var report = BuildDiagnosticsReport(
             timestamp,
             apiDiag,
             trackerProbe,
             processes,
             queueCount,
             overall);
+
+        // Dispatch UI updates to main thread
+        await Dispatcher.InvokeAsync(() =>
+        {
+            _apiOk = apiDiag.Ok;
+            ApiConnectivityText.Text = apiDiag.Summary;
+            _trackerState = trackerState;
+            AwSummaryText.Text = bridgeConnected ? "Tracker 浏览器已连接" : trackerProbe.Ok ? "Tracker 桥接正常" : "Tracker 浏览器未连接";
+            AwDetailText.Text =
+                $"URL: {trackerUrl}\n" +
+                $"Status: {trackerProbe.StatusLine}\n" +
+                $"Message: {trackerProbe.Message}\n" +
+                $"Bridge: {(bridgeConnected ? "已连接" : "未连接")}\n" +
+                $"Polls: {_tracker?.PollCount ?? 0} Sessions: {_tracker?.SessionsCreated ?? 0} Hook: {_tracker?.HookActive}\n" +
+                $"Time: {timestamp}";
+            _ksSkipReason = ksSkipReasonLocal;
+            _ksState = ksStateLocal;
+            if (health is not null)
+            {
+                KeyStatsSummaryText.Text = health.SummaryZh;
+                KeyStatsDetailText.Text =
+                    $"DaemonSourceState: {health.DaemonSourceState}\n" +
+                    $"DetailState: {health.DetailState}\n" +
+                    $"ProcessCount: {health.ProcessCount}\n" +
+                    $"HasForeignSession: {health.HasForeignSessionProcess}\n" +
+                    $"SkipReason: {health.SkipReason ?? "none"}\n" +
+                    $"CanUpload: {health.CanUpload}\n" +
+                    $"Processes: {FormatProcesses(processes)}\n" +
+                    $"Time: {timestamp}";
+            }
+            else
+            {
+                var liveCount = processes.Count;
+                KeyStatsSummaryText.Text = liveCount == 0
+                    ? "KeyStats 进程未运行（尚无健康探测结果）"
+                    : $"检测到 {liveCount} 个 KeyStats 进程（尚无健康探测结果）";
+                KeyStatsDetailText.Text =
+                    $"DaemonSourceState: {_ksState}\n" +
+                    $"ProcessCount: {liveCount}\n" +
+                    $"Processes: {FormatProcesses(processes)}\n" +
+                    $"SkipReason: {_ksSkipReason ?? "none"}\n" +
+                    $"Time: {timestamp}";
+            }
+            AwQueueText.Text = _tracker is null
+                ? "Tracker 未启动"
+                : $"Tracker 队列: 已上传 {_tracker.EventsUploaded} 失败 {_tracker.UploadFailures} 会话 {_tracker.SessionsCreated}";
+            KeyStatsUploadText.Text = FormatUploadLine("KeyStats", lastUploadTime, lastUploadError);
+            KeyStatsSkipText.Text = string.IsNullOrWhiteSpace(_ksSkipReason) ? "无" : _ksSkipReason;
+            var errors = new List<string>();
+            if (!string.IsNullOrWhiteSpace(_tracker?.LastError))
+                errors.Add($"Tracker: {_tracker.LastError}");
+            if (!string.IsNullOrWhiteSpace(lastUploadError))
+                errors.Add($"KeyStats: {lastUploadError}");
+            LastErrorsText.Text = errors.Count == 0 ? "无" : string.Join("\n", errors);
+            OverviewHealthText.Text = overall;
+            OverallHealthText.Text = $"整体状态：{overall}";
+            KeyStatsFixSuggestionText.Text = suggestion.MessageZh;
+            RefreshBrowserConnections();
+            _lastDiagnosticsReport = report;
+        });
     }
 
     private async Task<(bool Ok, string Summary, string StatusLine, string Message)> BuildApiProbeAsync()
@@ -239,6 +238,79 @@ public partial class StatusWindow : Window
         if (ago.TotalHours < 1) return $"{(int)ago.TotalMinutes} 分钟前";
         if (ago.TotalDays < 1) return $"{(int)ago.TotalHours} 小时前";
         return $"{(int)ago.TotalDays} 天前";
+    }
+
+    private void RefreshBrowserConnections()
+    {
+        try
+        {
+            var conns = _bridge?.GetConnectionsSnapshot() ?? _tracker?.GetBrowserConnections() ?? new List<Pim.Client.Core.Models.BrowserConnection>();
+            var ordered = conns.OrderByDescending(c => c.IsConnected).ThenBy(c => c.BrowserType).ThenBy(c => c.InstanceId).ToList();
+
+            if (ordered.Count == 0)
+            {
+                BrowserConnectionsList.ItemsSource = null;
+                BrowserEmptyText.Visibility = Visibility.Visible;
+                BrowserSummaryText.Text = _bridge?.IsConnected == true || _tracker?.BrowserConnected == true
+                    ? "浏览器已连接但暂无实例详情"
+                    : "暂无浏览器连接";
+                return;
+            }
+
+            BrowserEmptyText.Visibility = Visibility.Collapsed;
+            var vms = ordered.Select(c =>
+            {
+                var status = c.IsConnected ? "✅ 已连接" : "❌ 未连接";
+                var ago = c.IsConnected
+                    ? $"{(int)(DateTimeOffset.UtcNow - c.LastHeartbeat).TotalSeconds}秒前"
+                    : "—";
+                var heartbeatAgo = c.IsConnected ? $"心跳: {ago}" : "心跳: —";
+                var url = string.IsNullOrWhiteSpace(c.LastUrl) ? "—" : c.LastUrl!;
+                var audibleText = c.LastAudible == true ? "是 🔊" : "否";
+                var meta = $"标签页: {c.LastTabCount?.ToString() ?? "—"} | 音频: {audibleText}";
+                var countText = $"心跳累计: {c.HeartbeatCount} 次";
+                if (!string.IsNullOrWhiteSpace(c.LastTitle))
+                    countText += $" | 标题: {c.LastTitle}";
+                return new
+                {
+                    DisplayName = c.DisplayName,
+                    StatusText = status,
+                    HeartbeatAgo = heartbeatAgo,
+                    Url = url,
+                    Meta = meta,
+                    HeartbeatCountText = countText
+                };
+            }).ToList();
+
+            BrowserConnectionsList.ItemsSource = vms;
+            var connectedCount = ordered.Count(c => c.IsConnected);
+            BrowserSummaryText.Text = $"共 {ordered.Count} 个实例，{connectedCount} 个已连接";
+        }
+        catch (Exception ex)
+        {
+            BrowserSummaryText.Text = $"浏览器连接加载失败: {ex.Message}";
+        }
+    }
+
+    private async void OnTestBrowserConnection(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var port = DaemonConfig.Load().Tracker.BrowserBridgePort;
+            var url = $"http://localhost:{port}/browser/ping";
+            var (ok, statusLine, message) = await ProbeEndpointAsync(url);
+            var detail = ok ? $"连接正常\n{statusLine}\n{message}" : $"连接失败\n{statusLine}\n{message}";
+            if (ok && (_bridge?.IsConnected ?? _tracker?.BrowserConnected ?? false))
+                detail += "\n浏览器已连接";
+            else if (ok)
+                detail += "\n桥接正常但浏览器未发送心跳（请检查扩展是否已安装并刷新页面）";
+            MessageBox.Show(detail, "PIM", MessageBoxButton.OK, ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            await RefreshStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"测试连接失败: {ex.Message}", "PIM", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private string BuildDiagnosticsReport(

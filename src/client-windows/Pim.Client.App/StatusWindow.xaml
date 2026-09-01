@@ -229,6 +229,80 @@
                 </ScrollViewer>
             </TabItem>
 
+            <!-- 浏览器 -->
+            <TabItem Header="浏览器">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="浏览器连接"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource PimTextBrush}"/>
+                        <TextBlock Text="多浏览器多 profile 同时连接时自动区分"
+                                   FontSize="12"
+                                   Margin="0,4,0,12"
+                                   Foreground="{StaticResource PimMutedTextBrush}"/>
+                        <ItemsControl x:Name="BrowserConnectionsList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource PimBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Background="{StaticResource PimMutedSurfaceBrush}"
+                                            Padding="12"
+                                            Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           FontWeight="SemiBold"
+                                                           Width="140"
+                                                           Foreground="{StaticResource PimTextBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding StatusText}"
+                                                           Margin="8,0,0,0"
+                                                           Foreground="{StaticResource PimTextBrush}"/>
+                                                <TextBlock Text="{Binding HeartbeatAgo}"
+                                                           Margin="8,0,0,0"
+                                                           Foreground="{StaticResource PimMutedTextBrush}"
+                                                           FontSize="12"/>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Url}"
+                                                       Foreground="{StaticResource PimMutedTextBrush}"
+                                                       FontSize="12"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Margin="0,4,0,0"/>
+                                            <TextBlock Text="{Binding Meta}"
+                                                       Foreground="{StaticResource PimMutedTextBrush}"
+                                                       FontSize="12"
+                                                       Margin="0,2,0,0"/>
+                                            <TextBlock Text="{Binding HeartbeatCountText}"
+                                                       Foreground="{StaticResource PimMutedTextBrush}"
+                                                       FontSize="11"
+                                                       Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock x:Name="BrowserEmptyText"
+                                   Text="暂无浏览器连接 — 请在 Chrome/Edge 安装 PIM 扩展并保持后台运行"
+                                   TextWrapping="Wrap"
+                                   Margin="0,8,0,0"
+                                   Foreground="{StaticResource PimMutedTextBrush}"
+                                   Visibility="Collapsed"/>
+                        <TextBlock x:Name="BrowserSummaryText"
+                                   Text="—"
+                                   TextWrapping="Wrap"
+                                   Margin="0,8,0,0"
+                                   Foreground="{StaticResource PimMutedTextBrush}"
+                                   FontSize="12"/>
+                        <Button Content="&#x1F50C; 测试连接"
+                                Style="{StaticResource PimSecondaryButton}"
+                                Margin="0,12,0,0"
+                                HorizontalAlignment="Left"
+                                Click="OnTestBrowserConnection"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <!-- 设置 -->
             <TabItem Header="设置">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16">

@@ -44,45 +44,45 @@
 
 ### 架构 / Architecture
 ```
-AI Agent --(MCP stdio 或 HTTP + Bearer)--> pim_mcp_server.py --(HTTP Bearer)--> Pim.Api (http://127.0.0.1:5858) --> PostgreSQL/MinIO
+AI Agent --(MCP stdio 或 HTTP + Bearer)--> Pim.Api 进程内 MCP Server (.NET 8, ModelContextProtocol SDK) --> 内部业务服务 --> PostgreSQL/MinIO
 ```
-- **stdio（v2 兼容）**：透传 `Authorization: Bearer <PIM JWT>`，审计记真实 `userId`。
-- **HTTP（Phase 3）**：每请求带 `Authorization: Bearer <pim_mcp_* Token>`，MCP server 调 `POST /api/v1/mcp/verify` 校验 Token + 工具级权限 + 记录活跃/审计，换取短时用户 JWT 透传 REST。无 Token → 401；错/吊销 Token → 401；写权限关 → 403 `permission denied: <tool>`。
+> v4（2026-09-01）：MCP Server 已**集成进 Pim.Api 进程内**（`/mcp` Streamable HTTP 端点 +
+> stdio），Python 独立进程（`scripts/mcp/pim_mcp_server.py`）退役（源码保留，仅作行为基准）。
+> 单容器单服务：不再有独立的 Python 进程 / systemd 单元 / 8080 端口。
+- **stdio（v2 兼容）**：`dotnet Pim.Api.dll --mcp-stdio`，透传 `Authorization: Bearer <PIM JWT>`
+  （env `PIM_ACCESS_TOKEN`/`PIM_TOKEN`… 或 token 文件 `PIM_TOKEN_FILE`/`.token`），审计记真实 `userId`。
+- **HTTP（Phase 3）**：每请求带 `Authorization: Bearer <pim_mcp_* Token>`，MCP 端点进程内调
+  `McpClientService.VerifyAsync`（等价原 `/api/v1/mcp/verify`：Token 校验 + 工具级权限 + 记录活跃/审计），
+  复用短时 scoped JWT + `McpScopedTokenMiddleware` 端点越权封死。无 Token → 401；错/吊销 Token → 401；
+  写权限关 → 403 `permission denied: <tool>`。
 - 脱敏：MCP 侧后处理，仅脱敏 `url`，`title` 保留。
 
 ## 2. 快速开始 / Quick Start
 
 ### 依赖 / Dependencies
-```bash
-python3 --version  # >=3.10
-pip install mcp httpx
-# or with uv (宿主 PEP668)
-uv pip install --python /usr/bin/python3 --break-system-packages mcp httpx
-```
-- mcp SDK **1.x 与 2.x 均兼容**（脚本自动适配；mcp>=2 时 `FastMCP` 已更名为 `MCPServer`，
-  构造与 HTTP 启动 API 变化由脚本内部处理）。
-- mcp>=2 不再安装 `httpx`：脚本缺 `httpx` 时自动回退 `httpx2`（drop-in），
-  无需额外安装；如需显式安装可 `pip install httpx`。
+- **不再需要 Python / mcp SDK**：MCP Server 集成在 Pim.Api（.NET 8，官方
+  `ModelContextProtocol.AspNetCore` SDK）进程内，随 API 一起构建与发布。
+- Python 版 `scripts/mcp/pim_mcp_server.py` 已退役（源码保留，仅作行为基准与对比参考）。
 
-### 环境变量 / Environment
-| 变量 | 默认 | 说明 |
+### 配置 / Configuration
+| 配置项 | 默认 | 说明 |
 |---|---|---|
-| `PIM_API_URL` | `http://127.0.0.1:5858` | Pim.Api 地址 |
-| `PIM_ACCESS_TOKEN` | - | stdio 模式下的 Bearer（选一：`PIM_ACCESS_TOKEN`/`PIM_TOKEN`/`MCP_BEARER_TOKEN`）|
-| `PIM_TOKEN_FILE` | `<script>/.token` | stdio 刷新：token 文件路径（支持 plain JWT 或 JSON `{accessToken, refreshToken}`），按 mtime 热重载 |
-| `PIM_REFRESH_TOKEN` | - | stdio 刷新：refreshToken，401 时自动 `POST /api/v1/auth/refresh` 并回写文件 |
-| `PIM_TOKEN_PATH` | - | `PIM_TOKEN_FILE` 别名 |
+| `MCP:Enabled` | `true` | `/mcp` 端点总开关 |
+| `MCP:Path` | `/mcp` | Streamable HTTP 端点路径 |
+| 环境变量 `PIM_ACCESS_TOKEN`/`PIM_TOKEN`/`MCP_BEARER_TOKEN` | - | stdio 模式 Bearer（选一）|
+| 环境变量 `PIM_TOKEN_FILE`/`PIM_TOKEN_PATH` | `<app>/.token` | stdio 刷新：token 文件（plain JWT 或 JSON `{accessToken, refreshToken}`），按 mtime 热重载 |
+| 环境变量 `PIM_REFRESH_TOKEN` | - | stdio 刷新：401 时自动 `POST /api/v1/auth/refresh` |
 
 ### 启动 / Run
 ```bash
-# stdio (Claude / Codex / OpenCode) — 兼容 v2，默认
-PIM_API_URL=http://127.0.0.1:5858 PIM_ACCESS_TOKEN=<jwt> python scripts/mcp/pim_mcp_server.py
-# HTTP (Streamable HTTP) — Phase 3，多客户端远程并发
-PIM_MCP_TRANSPORT=http PIM_MCP_HOST=0.0.0.0 PIM_MCP_PORT=8080 PIM_MCP_PATH=/mcp python scripts/mcp/pim_mcp_server.py
+# 进程内 HTTP（Streamable HTTP）— 随 Pim.Api 启动即生效，无需单独进程
+dotnet src/Pim.Api.dll --urls http://127.0.0.1:5858
+# stdio (Claude / Codex / OpenCode) — 独立进程，工具注册表与 HTTP 完全一致
+PIM_ACCESS_TOKEN=<jwt> dotnet src/Pim.Api.dll --mcp-stdio
 ```
-- 环境变量：`PIM_MCP_TRANSPORT`（stdio/http，默认 stdio）、`PIM_MCP_HOST`（默认 `0.0.0.0`）、`PIM_MCP_PORT`（默认 `8080`）、`PIM_MCP_PATH`（默认 `/mcp`）。
-- 自检：`python3 scripts/mcp/pim_mcp_server.py --check`（打印 101 读 + 50 写清单；任何模式下均先于启动执行，mcp 1.x/2.x 通用）。
-- 生产部署（HTTP 模式）：见 §6「生产部署 / Production deployment」——systemd 单元 + OpenResty 反代模板与部署后验证。
+- `--mcp-stdio` 模式下 stdout 只承载 MCP 协议，日志走 stderr 与文件。
+- 自检：`dotnet test tests/Pim.UnitTests` 的 `Mcp*` 用例覆盖 151 工具契约等价性。
+- 生产部署（HTTP 模式）：见 §6「生产部署 / Production deployment」——Pim.Api 单容器直接对外。
 
 ### 客户端配置 / Client configs
 **`mcp.json` (stdio)**
@@ -90,10 +90,11 @@ PIM_MCP_TRANSPORT=http PIM_MCP_HOST=0.0.0.0 PIM_MCP_PORT=8080 PIM_MCP_PATH=/mcp 
 {
   "mcpServers": {
     "pim": {
-      "command": "python",
-      "args": ["scripts/mcp/pim_mcp_server.py"],
+      "command": "dotnet",
+      "args": ["/opt/pim/Pim.Api.dll", "--mcp-stdio"],
       "env": {
-        "PIM_API_URL": "http://127.0.0.1:5858",
+        "ConnectionStrings__DefaultConnection": "Host=127.0.0.1;Database=pim;Username=pim;Password=...",
+        "Jwt__PrivateKeyPath": "/data/keys/jwt_private.pem",
         "PIM_ACCESS_TOKEN": "<jwt>"
       }
     }
@@ -120,12 +121,12 @@ PIM_MCP_TRANSPORT=http PIM_MCP_HOST=0.0.0.0 PIM_MCP_PORT=8080 PIM_MCP_PATH=/mcp 
 {
   "mcpServers": {
     "pim": {
-      "command": "python",
+      "command": "dotnet",
       "args": [
-        "/absolute/path/scripts/mcp/pim_mcp_server.py"
+        "/opt/pim/Pim.Api.dll",
+        "--mcp-stdio"
       ],
       "env": {
-        "PIM_API_URL": "http://127.0.0.1:5858",
         "PIM_ACCESS_TOKEN": "<jwt>"
       }
     }
@@ -3263,20 +3264,20 @@ async def get_version(-) -> Any: ...
 
 ### 生产部署 / Production deployment
 
-> 目标形态：`https://home.hsww.party:15858/mcp`（OpenResty 反代）→ MCP server 进程（HTTP 模式，默认 8080）。完整模板见 `scripts/mcp/deploy/`（systemd 单元 + OpenResty 片段 + 步骤 README）。
+> 目标形态：`https://home.hsww.party:15858/mcp`（OpenResty 反代）→ **Pim.Api 进程内 MCP 端点**
+> （无独立 Python 进程 / systemd 单元 / 8080 端口）。模板见 `scripts/mcp/deploy/openresty-mcp.conf`；
+> `scripts/mcp/deploy/pim-mcp.service` 与 `deploy/README.md` 已废弃（Python 服务退役）。
 
-1. **启动 MCP server 进程（HTTP 模式）**：
-   ```bash
-   PIM_MCP_TRANSPORT=http PIM_MCP_HOST=0.0.0.0 PIM_MCP_PORT=8080 PIM_MCP_PATH=/mcp \
-     python3 scripts/mcp/pim_mcp_server.py
-   ```
-   生产建议以 systemd 托管（模板 `scripts/mcp/deploy/pim-mcp.service`，`Restart=always`）。
-   ⚠️ `/verify` 是内网端点：MCP server 与 Pim.Api 必须同网（`PIM_API_URL` 指向内网 `127.0.0.1:5858`），不要在公网直接暴露 Pim.Api。
+1. **Pim.Api 启动即自带 `/mcp`**（`MCP:Enabled` 默认开）：
+   - 端点行为：GET = SSE 事件流、POST = JSON-RPC（协议协商支持 2025-03-26）；`/mcp/` 尾斜杠
+     由应用层 308 归正（保留方法与 body，301 会把 POST 改写为 GET）。
+   - 无需再部署 Python 进程；`POST /api/v1/mcp/verify` 保留为内网管理用途（WebUI 权限编辑），
+     MCP 调用链路进程内直通业务服务。
 
 2. **OpenResty 增加 `/mcp` location**（模板 `scripts/mcp/deploy/openresty-mcp.conf`）：
    ```nginx
    location = /mcp {
-       proxy_pass http://127.0.0.1:8080;
+       proxy_pass http://127.0.0.1:5858;   # Pim.Api 内网端口（按部署现状调整）
        proxy_http_version 1.1;
        proxy_set_header Host $host;
        proxy_read_timeout 300s;
@@ -3288,8 +3289,7 @@ async def get_version(-) -> Any: ...
    `location = /mcp` 为精确匹配，天然优先于 SPA 兜底 `location ^~ /`；若改用前缀
    形式（`location ^~ /mcp/`）**必须放在 `location ^~ /` 之前**，否则 /mcp 请求会被
    兜底转发到 PIM 容器（表现：GET 返回 index.html、POST 返回 `405 allow: GET, HEAD`）。
-   客户端若误带尾斜杠 `/mcp/`，建议加 `location = /mcp/ { return 308 /mcp; }` 归正
-   （308 保留方法，301 会把 POST 改写为 GET）。
+   客户端若误带尾斜杠 `/mcp/`，应用层已 308 归正；nginx 侧也可加 `location = /mcp/ { return 308 /mcp; }`。
    模板已含 `proxy_buffering off;`（SSE 事件流防攒批延迟）。
    MCP 的 Streamable HTTP 协议要求 `POST` + `Accept: application/json, text/event-stream`。
 
@@ -3560,6 +3560,7 @@ A: 所有聚合按 `timezone` 切天，默认为 `Asia/Shanghai`。传入 `timez
 | v1.0 | 2026-08-15 | 24 工具：`PcTracker 16 + Mobile 位置 4 + Today/Search/Status 4` |
 | v2.0 | 2026-08-31 | 新增 77 工具 → 101 工具闭环：`Calendar 31 + PcTracker +11 + Mobile +14 + QuickNotes 3 + Files 8 + Core/Infra +10`，兼容 v1，写入 0 |
 | v3.0 | 2026-09-01 | 新增写入 50 工具 + HTTP（Streamable HTTP）多客户端 + 客户端级 Token 鉴权 + 工具级权限（读 101/写 50）+ WebUI MCP 管理页；stdio 模式兼容 v2 |
+| v4.0 | 2026-09-01 | MCP Server 集成进 Pim.Api（.NET 8）进程内：`/mcp` Streamable HTTP + `--mcp-stdio`，151 工具契约与 Python 版等价；Python 独立服务退役（源码保留作行为基准） |
 | v3.1 | 2026-09-01 | 修复 mcp>=2.0 兼容（构造参数/HTTP app/请求头获取适配，--check/stdio/HTTP 三种模式可用，issue #179）+ 生产部署模板（systemd + OpenResty `/mcp` 反代，issue #178）|
 
 ---

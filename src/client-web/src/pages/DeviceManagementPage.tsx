@@ -53,7 +53,7 @@ function MergeConfirmDialog({
   const canMerge = targetId && srcDevices.length > 0 && !mergeMut.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs animate-backdrop" onClick={onClose}>
       <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog" onClick={e => e.stopPropagation()}>
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
           <h2 className="text-base font-semibold text-zinc-900">合并设备</h2>

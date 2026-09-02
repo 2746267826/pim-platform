@@ -83,9 +83,10 @@ interface NoteDialogProps {
   noteId: string | null;
   onClose: () => void;
   onSaved: () => void;
+  initialContent?: string;
 }
 
-function NoteDialog({ open, mode, noteId, onClose, onSaved }: NoteDialogProps) {
+function NoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: NoteDialogProps) {
   const queryClient = useQueryClient();
 
   const [content, setContent] = useState('');
@@ -117,13 +118,13 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved }: NoteDialogProps) {
   // Reset state when opening
   useEffect(() => {
     if (open && mode === 'create') {
-      setContent('');
+      setContent(initialContent ?? '');
       setAttachmentIds([]);
       setLocalAttachments([]);
       setIsArchived(false);
       setEditError(null);
     }
-  }, [open, mode]);
+  }, [open, mode, initialContent]);
 
   const createMutation = useMutation({
     mutationFn: (markdown: string) =>
@@ -199,12 +200,24 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved }: NoteDialogProps) {
     },
   });
 
+  const processMutation = useMutation({
+    mutationFn: processQuickNote,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
+      queryClient.invalidateQueries({ queryKey: ['quick-notes', 'detail', noteId] });
+    },
+    onError: () => {
+      setEditError('处理失败');
+    },
+  });
+
   const busy =
     createMutation.isPending ||
     updateMutation.isPending ||
     archiveMutation.isPending ||
     restoreMutation.isPending ||
-    deleteMutation.isPending;
+    deleteMutation.isPending ||
+    processMutation.isPending;
 
   function handleSave() {
     const trimmed = content.trim();
@@ -331,11 +344,11 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved }: NoteDialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs animate-backdrop"
       onClick={onClose}
     >
       <div
-        className="flex w-full max-w-2xl flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog"
+        className="flex w-full max-w-2xl flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog max-h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
         <header className="flex shrink-0 items-center justify-between border-b border-zinc-200 px-5 py-4">
@@ -381,18 +394,13 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved }: NoteDialogProps) {
                   type="button"
                   onClick={() => {
                     if (noteId) {
-                      processQuickNote(noteId)
-                        .then(() => {
-                          queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
-                          queryClient.invalidateQueries({ queryKey: ['quick-notes', 'detail', noteId] });
-                        })
-                        .catch(() => setEditError('处理失败'));
+                      processMutation.mutate(noteId);
                     }
                   }}
                   disabled={busy}
                   className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
                 >
-                  标记处理
+                  {processMutation.isPending ? '处理中...' : '标记处理'}
                 </button>
               )}
             </div>
@@ -495,6 +503,7 @@ export default function QuickNotesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const [dialogNoteId, setDialogNoteId] = useState<string | null>(null);
+  const [dialogInitialContent, setDialogInitialContent] = useState('');
 
   // FAB state
   const [showFabMenu, setShowFabMenu] = useState(false);
@@ -505,12 +514,12 @@ export default function QuickNotesPage() {
   useEffect(() => {
     if (prefill && !hasPrefilled.current) {
       hasPrefilled.current = true;
-      openCreateDialog();
+      openCreateDialog(prefill);
     }
   }, [prefill]);
 
-  useShellShare(useCallback(() => {
-    openCreateDialog();
+  useShellShare(useCallback((detail) => {
+    openCreateDialog(detail.text ?? detail.url);
   }, []));
 
   const listParams = useMemo(() => ({
@@ -545,9 +554,10 @@ export default function QuickNotesPage() {
     void queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
   }
 
-  function openCreateDialog() {
+  function openCreateDialog(initialContent?: string) {
     setDialogMode('create');
     setDialogNoteId(null);
+    setDialogInitialContent(initialContent ?? '');
     setDialogOpen(true);
     setShowFabMenu(false);
     setError(null);
@@ -677,7 +687,7 @@ export default function QuickNotesPage() {
           <div className="animate-dialog rounded-xl border border-zinc-200 bg-white p-1 shadow-dialog">
             <button
               type="button"
-              onClick={openCreateDialog}
+              onClick={() => openCreateDialog()}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
             >
               <Pencil className="h-4 w-4" /> 写闪念
@@ -712,6 +722,7 @@ export default function QuickNotesPage() {
         open={dialogOpen}
         mode={dialogMode}
         noteId={dialogNoteId}
+        initialContent={dialogInitialContent}
         onClose={closeDialog}
         onSaved={invalidateQuickNotes}
       />

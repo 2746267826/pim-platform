@@ -246,7 +246,13 @@ export default function McpSettingsPage() {
                         </code>
                       </td>
                       <td className="px-2 py-2.5">
-                        <StatusBadge tone="activity">200</StatusBadge>
+                        {client.status === 'revoked' ? (
+                          <StatusBadge tone="danger">已吊销</StatusBadge>
+                        ) : client.callCount === 0 ? (
+                          <StatusBadge tone="neutral">无调用</StatusBadge>
+                        ) : (
+                          <StatusBadge tone="activity">成功</StatusBadge>
+                        )}
                       </td>
                       <td className="px-2 py-2.5 text-xs text-slate-500">—</td>
                       <td className="max-w-[200px] truncate px-2 py-2.5 text-xs text-slate-500 font-mono">

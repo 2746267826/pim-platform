@@ -300,7 +300,7 @@ export default function Sidebar() {
 
         <CalendarBookSection
           title="任务本"
-          books={taskBooks.map(b => ({ ...b, color: '#6366f1' }))}
+          books={taskBooks.map(b => ({ ...b, color: (b as { color?: string }).color || '#6366f1' }))}
           queryKey={['task-books']}
           kind="task"
         />

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { getMobileDevices, getMobileQuality } from '../api/mobile';
 import { getPcQuality } from '../api/pcTracker';
@@ -130,6 +131,16 @@ export default function StatusPage() {
     })),
   });
 
+  const deviceQualityMap = useMemo(() => {
+    const map = new Map<string, MobileQuality>();
+    deviceQualityQueries.forEach((query, idx) => {
+      if (query.data) {
+        map.set(devices[idx]?.deviceId, query.data as MobileQuality);
+      }
+    });
+    return map;
+  }, [deviceQualityQueries, devices]);
+
   const isOnline = (lastSeenAt: string): boolean => {
     const elapsed = Date.now() - new Date(lastSeenAt).getTime();
     return elapsed < 15 * 60 * 1000;
@@ -203,8 +214,8 @@ export default function StatusPage() {
             <section className="space-y-3">
               <h2 className="text-sm font-semibold text-slate-800">连接设备</h2>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                {devices.map((device, idx) => {
-                  const q = deviceQualityQueries[idx]?.data as MobileQuality | undefined;
+                {devices.map((device) => {
+                  const q = deviceQualityMap.get(device.deviceId) as MobileQuality | undefined;
                   const online = isOnline(device.lastSeenAt);
                   return (
                     <section key={device.deviceId} className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">

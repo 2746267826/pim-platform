@@ -163,6 +163,9 @@ export const calendarApiPaths = {
   taskChecklist(id: string) {
     return `/calendar/tasks/${encodeURIComponent(id)}/checklist`;
   },
+  checklistItem(taskId: string, itemId: string) {
+    return `/calendar/tasks/${encodeURIComponent(taskId)}/checklist/${encodeURIComponent(itemId)}`;
+  },
   habits() {
     return '/calendar/habits';
   },
@@ -539,6 +542,22 @@ export async function createTaskBook(data: CreateTaskBookRequest) {
 export async function addTaskChecklistItem(taskId: string, data: AddTaskChecklistItemRequest) {
   const r = await apiPost<ApiResponse<TaskChecklistItem>>(
     calendarApiPaths.taskChecklist(taskId),
+    data
+  );
+  return r.data;
+}
+
+export async function deleteTaskChecklistItem(taskId: string, itemId: string) {
+  await apiDelete(calendarApiPaths.checklistItem(taskId, itemId));
+}
+
+export async function updateTaskChecklistItem(
+  taskId: string,
+  itemId: string,
+  data: { title?: string; isDone?: boolean }
+) {
+  const r = await apiPut<ApiResponse<TaskChecklistItem>>(
+    calendarApiPaths.checklistItem(taskId, itemId),
     data
   );
   return r.data;

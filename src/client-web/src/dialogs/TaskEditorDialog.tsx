@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, type FormEvent } from 'react';
 import { useMutation, useQueryClient, useQuery, type QueryClient } from '@tanstack/react-query';
-import { createTask, updateTask, deleteTask, getTaskBooks, addTaskChecklistItem, taskToMutationData } from '../api/calendar';
+import { createTask, updateTask, deleteTask, getTaskBooks, addTaskChecklistItem, deleteTaskChecklistItem, updateTaskChecklistItem, taskToMutationData } from '../api/calendar';
 import type { TaskMutationData } from '../api/calendar';
 import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
 import StatusBadge from '../ui/StatusBadge';
@@ -70,6 +70,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
   const [validationErrorMessage, setValidationErrorMessage] = useState<string | null>(null);
+  const checklistSaveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const queryClient = useQueryClient();
 
   const { data: taskBooks } = useQuery({
@@ -143,7 +144,9 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   function handleToggleComplete() {
     if (!task) return;
     const newStatus = task?.status === 'COMPLETED' ? 'NEEDS-ACTION' : 'COMPLETED';
-    updateMut.mutate(taskToMutationData(task, { status: newStatus }));
+    updateMut.mutate(taskToMutationData(task, { status: newStatus }), {
+      onSuccess: () => { setStatus(newStatus); }
+    });
   }
 
   function handleSubmit(e: FormEvent) {
@@ -205,19 +208,30 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   }
 
   function handleChecklistToggle(item: TaskChecklistItem) {
+    if (!task) return;
     setChecklistItems(prev =>
       prev.map(i => i.id === item.id ? { ...i, isDone: !i.isDone } : i)
     );
+    updateTaskChecklistItem(task.id, item.id, { isDone: !item.isDone });
   }
 
   function handleChecklistDelete(itemId: string) {
+    if (!task) return;
     setChecklistItems(prev => prev.filter(i => i.id !== itemId));
+    deleteTaskChecklistItem(task.id, itemId);
   }
 
   function handleChecklistTextChange(itemId: string, text: string) {
+    if (!task) return;
     setChecklistItems(prev =>
       prev.map(i => i.id === itemId ? { ...i, title: text } : i)
     );
+    const existing = checklistSaveTimers.current.get(itemId);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      updateTaskChecklistItem(task!.id, itemId, { title: text });
+    }, 500);
+    checklistSaveTimers.current.set(itemId, timer);
   }
 
   if (!open) return null;

@@ -124,11 +124,16 @@ public partial class StatusWindow : Window
             ApiConnectivityText.Text = apiDiag.Summary;
             _trackerState = trackerState;
             AwSummaryText.Text = bridgeConnected ? "Tracker 浏览器已连接" : trackerProbe.Ok ? "Tracker 桥接正常" : "Tracker 浏览器未连接";
+            var siteConnected = _tracker?.SiteConnected ?? _bridge?.IsSiteConnected ?? false;
+            var siteAge = _tracker?.SiteLastEventAgeSeconds;
             AwDetailText.Text =
                 $"URL: {trackerUrl}\n" +
                 $"Status: {trackerProbe.StatusLine}\n" +
                 $"Message: {trackerProbe.Message}\n" +
                 $"Bridge: {(bridgeConnected ? "已连接" : "未连接")}\n" +
+                $"站点通道: {(siteConnected ? "已连接" : "未连接")} 收={_tracker?.SiteEventsReceived ?? 0} 传={_tracker?.SiteEventsUploaded ?? 0} 弃={_tracker?.SiteEventsDropped ?? 0}" +
+                (siteAge is { } age ? $" 最近={age:F0}s前" : "") +
+                ($" 错误={_tracker?.SiteLastError ?? "无"}") + "\n" +
                 $"Polls: {_tracker?.PollCount ?? 0} Sessions: {_tracker?.SessionsCreated ?? 0} Hook: {_tracker?.HookActive}\n" +
                 $"Time: {timestamp}";
             _ksSkipReason = ksSkipReasonLocal;

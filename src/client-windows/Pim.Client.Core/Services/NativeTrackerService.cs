@@ -20,11 +20,16 @@ public sealed class NativeTrackerService : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private readonly Channel<TrackerWindowInfo> _windowChannel = Channel.CreateUnbounded<TrackerWindowInfo>();
     private readonly ConcurrentQueue<TrackerEventForUpload> _uploadQueue = new();
+    private readonly ConcurrentQueue<SiteEventDto> _siteUploadQueue = new();
     private readonly object _statsLock = new();
+    private readonly object _siteStatsLock = new();
     private long _pollCount;
     private long _eventsUploaded;
     private long _uploadFailures;
+    private long _siteEventsUploaded;
+    private long _siteUploadFailures;
     private string? _lastError;
+    private string? _siteLastError;
     private bool _hookActive = true;
     private bool _running;
     private Task? _pollTask;
@@ -32,6 +37,7 @@ public sealed class NativeTrackerService : IDisposable
     private Task? _uploadTask;
     private Task? _healthTask;
     private Task? _browserTask;
+    private Task? _siteUploadTask;
     private DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
     private DateTimeOffset _lastPollTime = DateTimeOffset.UtcNow;
     private DateTimeOffset _lastEmittedEventEnd = DateTimeOffset.MinValue;
@@ -60,6 +66,23 @@ public sealed class NativeTrackerService : IDisposable
     }
     public IReadOnlyList<BrowserConnection> GetBrowserConnections() => _bridge.GetConnectionsSnapshot();
     public IReadOnlyDictionary<string, BrowserConnection> BrowserConnections => _bridge.Connections;
+
+    // —— 站点级数据通道（Time Tracker fork） ——
+    public bool SiteConnected => _bridge.IsSiteConnected;
+    public long SiteEventsReceived => _bridge.SiteEventsReceived;
+    public long SiteEventsDropped => _bridge.SiteEventsDropped;
+    public long SiteEventsUploaded { get { lock (_siteStatsLock) return _siteEventsUploaded; } }
+    public long SiteUploadFailures { get { lock (_siteStatsLock) return _siteUploadFailures; } }
+    public string? SiteLastError { get { lock (_siteStatsLock) return _siteLastError; } }
+    public double? SiteLastEventAgeSeconds
+    {
+        get
+        {
+            var t = _bridge.SiteLastBatchTime;
+            if (t is null) return null;
+            return (DateTimeOffset.UtcNow - t.Value).TotalSeconds;
+        }
+    }
 
     public NativeTrackerService(
         ApiClient api,
@@ -117,6 +140,7 @@ public sealed class NativeTrackerService : IDisposable
         _hookTask = Task.Run(() => HookLoopAsync(_cts.Token));
         _uploadTask = Task.Run(() => UploadLoopAsync(_cts.Token));
         _healthTask = Task.Run(() => HealthLoopAsync(_cts.Token));
+        _siteUploadTask = Task.Run(() => SiteUploadLoopAsync(_cts.Token));
         _browserTask = Task.Run(() => BrowserLoopAsync(_cts.Token));
 
         _logger.Info("Tracker", "NativeTrackerService started");
@@ -691,6 +715,97 @@ public sealed class NativeTrackerService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Drains site-level events from the bridge channel and uploads them to
+    /// /pc/browser-tt/upload with the same retry semantics as the window
+    /// tracker: requeue on server/transport errors, drop on other 4xx.
+    /// </summary>
+    private async Task SiteUploadLoopAsync(CancellationToken ct)
+    {
+        var interval = TimeSpan.FromSeconds(Math.Max(5, _config.UploadIntervalSeconds));
+        using var timer = new PeriodicTimer(interval);
+
+        while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
+        {
+            List<SiteEventDto>? batch = null;
+            try
+            {
+                var drained = 0;
+                while (drained < 5000 && _bridge.SiteReader.TryRead(out var ev))
+                {
+                    _siteUploadQueue.Enqueue(ev);
+                    drained++;
+                }
+                if (_siteUploadQueue.IsEmpty) continue;
+
+                batch = new List<SiteEventDto>();
+                while (batch.Count < _config.UploadBatchSize && _siteUploadQueue.TryDequeue(out var ev))
+                    batch.Add(ev);
+                if (batch.Count == 0) continue;
+
+                // 日期归属在本机推导（focus/tick 取结束时间的本地日期，visit 取当天），
+                // 避免服务器时区不同导致按日聚合错位。
+                foreach (var ev in batch)
+                {
+                    if (!string.IsNullOrEmpty(ev.Date)) continue;
+                    var basisMs = ev.EndMs ?? ev.StartMs;
+                    ev.Date = basisMs is { } ms
+                        ? DateTimeOffset.FromUnixTimeMilliseconds(ms).ToLocalTime().ToString("yyyy-MM-dd")
+                        : DateTimeOffset.Now.ToString("yyyy-MM-dd");
+                }
+
+                var req = new SiteEventsUploadRequest
+                {
+                    DeviceId = Environment.MachineName,
+                    Events = batch
+                };
+                var result = await _api.PostAsync<ApiResponse<int>>("/pc/browser-tt/upload", req, ct).ConfigureAwait(false);
+                if (result is not null)
+                {
+                    lock (_siteStatsLock) _siteEventsUploaded += batch.Count;
+                    _logger.Info("Tracker", $"Site batch uploaded {batch.Count} events -> {result.Data} saved");
+                    lock (_siteStatsLock) _siteLastError = null;
+                    batch = null;
+                }
+                else
+                {
+                    lock (_siteStatsLock) { _siteUploadFailures++; _siteLastError = "Upload returned null response"; }
+                    _logger.Warn("Tracker", "Site upload returned null response");
+                    foreach (var ev in batch) _siteUploadQueue.Enqueue(ev);
+                    batch = null;
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
+            catch (HttpRequestException ex)
+            {
+                lock (_siteStatsLock) { _siteUploadFailures++; _siteLastError = ex.Message; }
+                _logger.Error("Tracker", $"Site upload Http error: {ex.Message}", ex);
+                var status = ex.StatusCode;
+                var isClientError = status.HasValue && (int)status.Value >= 400 && (int)status.Value < 500;
+                var isRetryableClientError = status == HttpStatusCode.RequestTimeout || (int?)status == 429;
+                if ((!isClientError || isRetryableClientError) && batch is not null)
+                {
+                    foreach (var ev in batch) _siteUploadQueue.Enqueue(ev);
+                }
+                else if (isClientError && !isRetryableClientError)
+                {
+                    _logger.Warn("Tracker", $"Dropping site batch due to client error {(int)status!} {status}, not requeuing {batch?.Count ?? 0} events");
+                }
+                try { await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false); } catch (OperationCanceledException) { break; }
+            }
+            catch (Exception ex)
+            {
+                lock (_siteStatsLock) { _siteUploadFailures++; _siteLastError = ex.Message; }
+                _logger.Error("Tracker", $"Site upload error: {ex.Message}", ex);
+                if (batch is not null)
+                {
+                    foreach (var ev in batch) _siteUploadQueue.Enqueue(ev);
+                }
+                try { await Task.Delay(TimeSpan.FromSeconds(5), ct).ConfigureAwait(false); } catch (OperationCanceledException) { break; }
+            }
+        }
+    }
+
     private async Task HealthLoopAsync(CancellationToken ct)
     {
         var interval = TimeSpan.FromSeconds(_config.HealthReportIntervalSeconds);
@@ -712,7 +827,11 @@ public sealed class NativeTrackerService : IDisposable
                     UploadFailures = UploadFailures,
                     LastError = LastError,
                     BrowserConnected = BrowserConnected,
-                    BrowserHeartbeatAgeSeconds = BrowserHeartbeatAgeSeconds
+                    BrowserHeartbeatAgeSeconds = BrowserHeartbeatAgeSeconds,
+                    SiteConnected = SiteConnected,
+                    SiteLastEventAgeSeconds = SiteLastEventAgeSeconds,
+                    SiteEventsUploaded = SiteEventsUploaded,
+                    SiteLastError = SiteLastError
                 };
                 await _api.PostAsync<ApiResponse<string>>("/pc/tracker/health", req, ct).ConfigureAwait(false);
                 _logger.Debug("Tracker", $"Health reported: hook={req.HookActive} polls={req.PollCount} sessions={req.SessionsCreated} uploaded={req.EventsUploaded}");

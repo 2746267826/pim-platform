@@ -204,6 +204,70 @@ export default function McpSettingsPage() {
       </section>
 
       <section className="pim-panel p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-bold text-slate-800">MCP 实时调用流水 (Activity Logs)</h2>
+          <button
+            type="button"
+            className="pim-button-secondary px-3 py-1 text-xs"
+            onClick={() => qc.invalidateQueries({ queryKey: ['mcp-clients'] })}
+          >
+            刷新
+          </button>
+        </div>
+        {clients.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
+            暂无调用记录
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-slate-200 text-xs font-medium text-slate-500">
+                <tr>
+                  <th className="px-2 py-2">时间戳</th>
+                  <th className="px-2 py-2">客户端名称</th>
+                  <th className="px-2 py-2">Tool Name</th>
+                  <th className="px-2 py-2">状态码</th>
+                  <th className="px-2 py-2">耗时</th>
+                  <th className="px-2 py-2">Arguments</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clients
+                  .filter(c => c.lastTool)
+                  .map(client => (
+                    <tr key={client.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="px-2 py-2.5 text-xs text-slate-600 whitespace-nowrap">
+                        {client.lastSeenAt ? new Date(client.lastSeenAt).toLocaleString('zh-CN') : '—'}
+                      </td>
+                      <td className="px-2 py-2.5 text-sm text-slate-900">{client.name}</td>
+                      <td className="px-2 py-2.5">
+                        <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-800">
+                          {client.lastTool}
+                        </code>
+                      </td>
+                      <td className="px-2 py-2.5">
+                        <StatusBadge tone="activity">200</StatusBadge>
+                      </td>
+                      <td className="px-2 py-2.5 text-xs text-slate-500">—</td>
+                      <td className="max-w-[200px] truncate px-2 py-2.5 text-xs text-slate-500 font-mono">
+                        {client.lastTool ? `{ "tool": "${client.lastTool}" }` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                {clients.filter(c => c.lastTool).length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-2 py-6 text-center text-sm text-slate-400">
+                      暂无调用记录
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="pim-panel p-4">
         <h2 className="mb-3 text-sm font-bold text-slate-800">
           权限管理
           {editing && <span className="ml-2 font-normal text-slate-400">— {editing.name}</span>}

@@ -51,11 +51,13 @@ import type {
 
 export type TaskMutationData = {
   calendarId?: string;
+  taskBookId?: string;
   title: string;
   description?: string;
   priority: number;
   estimatedDuration?: string;
   minimumSegment?: string;
+  percentComplete?: number;
   dtStart?: string;
   plannedEnd?: string;
   due?: string;
@@ -373,11 +375,13 @@ export async function moveTask(id: string, data: { scheduledStart?: string; dura
 export function taskToMutationData(task: TaskResponse, overrides: Partial<TaskMutationData> = {}): TaskMutationData {
   return {
     calendarId: task.calendarId,
+    taskBookId: task.taskBookId,
     title: task.title,
     description: task.description,
     priority: task.priority,
     estimatedDuration: task.estimatedDuration,
     minimumSegment: task.minimumSegment,
+    percentComplete: task.percentComplete,
     dtStart: task.dtStart,
     plannedEnd: task.plannedEnd,
     due: task.due,

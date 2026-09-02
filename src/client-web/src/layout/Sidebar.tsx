@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getCalendars, createCalendar, updateCalendar, deleteCalendar, previewCalendarDelete } from '../api/calendar';
+import { getCalendars, createCalendar, updateCalendar, deleteCalendar, previewCalendarDelete, getTaskBooks } from '../api/calendar';
 import { useAuth } from '../auth/AuthContext';
 import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import SidebarStatusIndicator from '../components/status/SidebarStatusIndicator';
@@ -254,8 +254,8 @@ export default function Sidebar() {
   });
 
   const { data: taskBooks = [] } = useQuery({
-    queryKey: ['calendars', 'task'],
-    queryFn: () => getCalendars('task')
+    queryKey: ['task-books'],
+    queryFn: () => getTaskBooks()
   });
 
   return (
@@ -300,8 +300,8 @@ export default function Sidebar() {
 
         <CalendarBookSection
           title="任务本"
-          books={taskBooks}
-          queryKey={['calendars']}
+          books={taskBooks.map(b => ({ ...b, color: '#6366f1' }))}
+          queryKey={['task-books']}
           kind="task"
         />
       </nav>

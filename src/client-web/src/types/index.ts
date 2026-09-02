@@ -109,11 +109,13 @@ export interface EventResponse {
 export interface TaskResponse {
   id: string;
   calendarId?: string;
+  taskBookId?: string;
   title: string;
   description?: string;
   priority: number;
   estimatedDuration?: string;
   minimumSegment?: string;
+  percentComplete?: number;
   dtStart?: string;
   due?: string;
   plannedEnd?: string;
@@ -121,6 +123,7 @@ export interface TaskResponse {
   isInbox: boolean;
   sortOrder?: number;
   subTasks?: TaskResponse[];
+  checklistItems?: TaskChecklistItem[];
 }
 
 export type TaskPlanningState =

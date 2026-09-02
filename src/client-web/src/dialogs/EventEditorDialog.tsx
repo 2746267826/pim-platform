@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState, useId, useEffect, type FormEvent, type KeyboardEvent } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { createEvent, updateEvent, deleteEvent, getCalendars, getOutlookSettings, writeOutlookEvent } from '../api/calendar';
-import EditorDrawer from '../ui/EditorDrawer';
 import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
 import BeforeAfterDiff from '../components/schedule/BeforeAfterDiff';
 import { Field } from './common';
@@ -434,37 +433,22 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
     }
   }
 
-  const footer = (
-    <>
-      <div>
-        {event && !isReadOnly && (
-          <button type="button" onClick={handleDelete}
-            disabled={isProcessing}
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 disabled:opacity-50">
-            删除
-          </button>
-        )}
-      </div>
-      <div className="flex gap-2">
-        <button type="button" onClick={onClose}
-          className="pim-button-secondary px-4 py-2 text-sm">取消</button>
-        {!isReadOnly && (
-          <button type="submit" form="event-editor-form"
-            disabled={isProcessing || isLoading || (!event && !hasWritableCalendar(calendars || [], hiddenCalendarIds))}
-            className="pim-button-primary px-4 py-2 text-sm disabled:opacity-50">
-            {event ? '保存' : '创建'}
-          </button>
-        )}
-      </div>
-    </>
-  );
-
   const titleText = isReadOnly ? `${event ? '编辑日程' : '新建日程'}（只读）` : (event ? '编辑日程' : '新建日程');
+
+  if (!open) return null;
 
   return (
     <>
-    <EditorDrawer open={open} onClose={onClose} title={titleText} footer={footer}>
-      <form id="event-editor-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs animate-backdrop" onClick={onClose}>
+      <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog" onClick={e => e.stopPropagation()}>
+        <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 shrink-0">
+          <h2 className="text-base font-semibold text-zinc-900">{titleText}</h2>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 p-1 rounded-lg hover:bg-zinc-100">
+            <i data-lucide="x" className="w-4 h-4"></i>
+          </button>
+        </header>
+        <div className="overflow-y-auto max-h-[75vh] px-5 py-4 space-y-4">
+          <form id="event-editor-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
         {writebackValidationError && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
             {writebackValidationError}
@@ -590,7 +574,31 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         </EventSection>
         {(isOutlook || event?.source === 'outlook-ics') && <OutlookAdditionalInfo info={event?.outlookAdditionalInfo} />}
       </form>
-    </EditorDrawer>
+        </div>
+        <footer className="flex items-center justify-between border-t border-zinc-200 px-5 py-4 shrink-0">
+          <div>
+            {event && !isReadOnly && (
+              <button type="button" onClick={handleDelete}
+                disabled={isProcessing}
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 disabled:opacity-50">
+                删除
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose}
+              className="pim-button-secondary px-4 py-2 text-sm">取消</button>
+            {!isReadOnly && (
+              <button type="submit" form="event-editor-form"
+                disabled={isProcessing || isLoading || (!event && !hasWritableCalendar(calendars || [], hiddenCalendarIds))}
+                className="pim-button-primary px-4 py-2 text-sm disabled:opacity-50">
+                {event ? '保存' : '创建'}
+              </button>
+            )}
+          </div>
+        </footer>
+      </div>
+    </div>
     {!isOutlookExisting && (
       <ConfirmActionDialog
         open={deleteInput !== null}

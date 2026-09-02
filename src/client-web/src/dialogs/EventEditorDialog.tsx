@@ -440,7 +440,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs animate-backdrop" onClick={onClose}>
-      <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog" onClick={e => e.stopPropagation()}>
+      <aside role="dialog" aria-modal="true" className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog" onClick={e => e.stopPropagation()}>
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 shrink-0">
           <h2 className="text-base font-semibold text-zinc-900">{titleText}</h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 p-1 rounded-lg hover:bg-zinc-100">
@@ -597,7 +597,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
             )}
           </div>
         </footer>
-      </div>
+      </aside>
     </div>
     {!isOutlookExisting && (
       <ConfirmActionDialog

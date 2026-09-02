@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useShellShare } from '../hooks/useShellShare';
+import {
+  Calendar,
+  CheckSquare,
+  File,
+  Paperclip,
+  Pencil,
+  Plus,
+  Upload,
+  X,
+} from 'lucide-react';
 
 import {
   archiveQuickNote,
@@ -12,16 +22,16 @@ import {
   processQuickNote,
   restoreQuickNote,
   updateQuickNote,
+  uploadQuickNoteAttachment,
 } from '../api/quickNotes';
-import { buildQuickNoteUpdatePayload } from '../components/quick-notes/quickNoteAttachmentBlobUrls';
 import QuickNoteEditor from '../components/quick-notes/QuickNoteEditor';
-import QuickNoteMarkdownPreview from '../components/quick-notes/QuickNoteMarkdownPreview';
-import type { QuickNoteDetail, QuickNoteListItem, QuickNoteStatus } from '../types';
+import type { QuickNoteAttachment, QuickNoteListItem, QuickNoteStatus } from '../types';
 import EmptyState from '../ui/EmptyState';
 import MobilePageHeader from '../ui/MobilePageHeader';
 import PageHeader from '../ui/PageHeader';
 
-const statusFilters: Array<{ key: QuickNoteStatus; label: string }> = [
+const statusFilters: Array<{ key: QuickNoteStatus | 'all'; label: string }> = [
+  { key: 'all', label: '全部' },
   { key: 'inbox', label: '收集箱' },
   { key: 'processed', label: '已处理' },
   { key: 'archived', label: '已归档' },
@@ -37,7 +47,6 @@ function formatDateTime(value: string | null | undefined) {
   if (!value) return '未知时间';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-
   return parsed.toLocaleString('zh-CN', {
     month: '2-digit',
     day: '2-digit',
@@ -66,40 +75,450 @@ function StatusBadge({ status }: { status: QuickNoteStatus }) {
   );
 }
 
+// ─── NoteDialog ───────────────────────────────────────────────────────────────
+
+interface NoteDialogProps {
+  open: boolean;
+  mode: 'create' | 'edit';
+  noteId: string | null;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function NoteDialog({ open, mode, noteId, onClose, onSaved }: NoteDialogProps) {
+  const queryClient = useQueryClient();
+
+  const [content, setContent] = useState('');
+  const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
+  const [localAttachments, setLocalAttachments] = useState<QuickNoteAttachment[]>([]);
+  const [isArchived, setIsArchived] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  // Fetch detail for edit mode
+  const detailQuery = useQuery({
+    queryKey: ['quick-notes', 'detail', noteId],
+    queryFn: () => getQuickNote(noteId as string),
+    enabled: mode === 'edit' && Boolean(noteId),
+  });
+
+  const selected = detailQuery.data;
+
+  // Populate state when detail loads
+  useEffect(() => {
+    if (mode === 'edit' && selected) {
+      setContent(selected.contentMarkdown);
+      setAttachmentIds(selected.attachments.map(a => a.id));
+      setLocalAttachments(selected.attachments);
+      setIsArchived(selected.status === 'archived');
+    }
+  }, [mode, selected]);
+
+  // Reset state when opening
+  useEffect(() => {
+    if (open && mode === 'create') {
+      setContent('');
+      setAttachmentIds([]);
+      setLocalAttachments([]);
+      setIsArchived(false);
+      setEditError(null);
+    }
+  }, [open, mode]);
+
+  const createMutation = useMutation({
+    mutationFn: (markdown: string) =>
+      createQuickNote({
+        contentMarkdown: markdown,
+        source: 'web-page',
+        attachmentIds: attachmentIds.length > 0 ? attachmentIds : undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
+      onSaved();
+      onClose();
+    },
+    onError: () => {
+      setEditError('创建失败，请稍后重试。');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      markdown,
+      attIds,
+    }: {
+      id: string;
+      markdown: string;
+      attIds: string[];
+    }) => updateQuickNote(id, { contentMarkdown: markdown, attachmentIds: attIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
+      queryClient.invalidateQueries({ queryKey: ['quick-notes', 'detail', noteId] });
+      onSaved();
+      onClose();
+    },
+    onError: () => {
+      setEditError('保存失败，请稍后重试。');
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: archiveQuickNote,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
+      queryClient.invalidateQueries({ queryKey: ['quick-notes', 'detail', noteId] });
+      setIsArchived(true);
+    },
+    onError: () => {
+      setEditError('归档失败，请稍后重试。');
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (id: string) => restoreQuickNote(id, 'inbox'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
+      queryClient.invalidateQueries({ queryKey: ['quick-notes', 'detail', noteId] });
+      setIsArchived(false);
+    },
+    onError: () => {
+      setEditError('恢复失败，请稍后重试。');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteQuickNote,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
+      onSaved();
+      onClose();
+    },
+    onError: () => {
+      setEditError('删除失败，请稍后重试。');
+    },
+  });
+
+  const busy =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    archiveMutation.isPending ||
+    restoreMutation.isPending ||
+    deleteMutation.isPending;
+
+  function handleSave() {
+    const trimmed = content.trim();
+    if (!trimmed) return;
+
+    if (mode === 'create') {
+      createMutation.mutate(content);
+    } else if (noteId) {
+      updateMutation.mutate({ id: noteId, markdown: content, attIds: attachmentIds });
+    }
+  }
+
+  function handleArchiveToggle() {
+    if (!noteId) return;
+    if (isArchived) {
+      restoreMutation.mutate(noteId);
+    } else {
+      archiveMutation.mutate(noteId);
+    }
+  }
+
+  function handleDelete() {
+    if (!noteId) return;
+    const confirmed = window.confirm('确定删除这条快速记录？此操作无法撤销。');
+    if (confirmed) {
+      deleteMutation.mutate(noteId);
+    }
+  }
+
+  async function handleFileUpload(file: File) {
+    if (!noteId && mode === 'edit') return;
+    if (mode === 'create') {
+      // Upload then associate on save
+      try {
+        const result = await uploadQuickNoteAttachment(file);
+        setAttachmentIds(prev => [...prev, result.id]);
+        setLocalAttachments(prev => [
+          ...prev,
+          {
+            id: result.id,
+            fileName: result.fileName,
+            contentType: result.contentType,
+            sizeBytes: result.sizeBytes,
+            downloadUrl: result.downloadUrl,
+            previewUrl: result.previewUrl,
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+      } catch {
+        setEditError('附件上传失败');
+      }
+      return;
+    }
+
+    // Edit mode: upload then update note immediately
+    try {
+      const result = await uploadQuickNoteAttachment(file);
+      const newIds = [...attachmentIds, result.id];
+      await updateMutation.mutateAsync({ id: noteId!, markdown: content, attIds: newIds });
+      setAttachmentIds(newIds);
+      setLocalAttachments(prev => [
+        ...prev,
+        {
+          id: result.id,
+          fileName: result.fileName,
+          contentType: result.contentType,
+          sizeBytes: result.sizeBytes,
+          downloadUrl: result.downloadUrl,
+          previewUrl: result.previewUrl,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+      queryClient.invalidateQueries({ queryKey: ['quick-notes', 'detail', noteId] });
+    } catch {
+      setEditError('附件上传失败');
+    }
+  }
+
+  function handleFileInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (file) {
+      void handleFileUpload(file);
+    }
+    event.target.value = '';
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragOver(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) {
+      void handleFileUpload(file);
+    }
+  }
+
+  function handleDragOver(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragOver(true);
+  }
+
+  function handleDragLeave(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragOver(false);
+  }
+
+  function removeAttachment(attId: string) {
+    const newIds = attachmentIds.filter(id => id !== attId);
+    setAttachmentIds(newIds);
+    setLocalAttachments(prev => prev.filter(a => a.id !== attId));
+
+    if (mode === 'edit' && noteId) {
+      updateMutation.mutate({ id: noteId, markdown: content, attIds: newIds });
+    }
+  }
+
+  function formatFileSize(bytes: number) {
+    if (bytes < 1024) return `${bytes}B`;
+    return `${(bytes / 1024).toFixed(0)}KB`;
+  }
+
+  if (!open) return null;
+
+  const isLoading = mode === 'edit' && detailQuery.isLoading;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs"
+      onClick={onClose}
+    >
+      <div
+        className="flex w-full max-w-2xl flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog"
+        onClick={e => e.stopPropagation()}
+      >
+        <header className="flex shrink-0 items-center justify-between border-b border-zinc-200 px-5 py-4">
+          <h2 className="text-base font-semibold text-zinc-900">
+            {mode === 'edit' ? '编辑记录' : '写闪念'}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20 text-sm text-zinc-500">
+            加载中...
+          </div>
+        ) : (
+          <div className="max-h-[75vh] space-y-4 overflow-y-auto px-5 py-4">
+            {editError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {editError}
+              </div>
+            )}
+
+            <QuickNoteEditor value={content} onChange={setContent} minHeight={200} />
+
+            <div className="flex items-center gap-4">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-700">
+                <input
+                  type="checkbox"
+                  checked={isArchived}
+                  onChange={handleArchiveToggle}
+                  disabled={busy || mode === 'create'}
+                  className="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500"
+                />
+                已归档
+              </label>
+              {mode === 'edit' && selected && selected.status !== 'processed' && selected.status !== 'archived' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (noteId) {
+                      processQuickNote(noteId)
+                        .then(() => {
+                          queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
+                          queryClient.invalidateQueries({ queryKey: ['quick-notes', 'detail', noteId] });
+                        })
+                        .catch(() => setEditError('处理失败'));
+                    }
+                  }}
+                  disabled={busy}
+                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                >
+                  标记处理
+                </button>
+              )}
+            </div>
+
+            {/* Attachments */}
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-zinc-700">附件</h3>
+
+              {localAttachments.length > 0 && (
+                <div className="mb-2 space-y-1">
+                  {localAttachments.map(att => (
+                    <div key={att.id} className="flex items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-sm">
+                      <File className="h-4 w-4 shrink-0 text-zinc-400" />
+                      <span className="min-w-0 flex-1 truncate text-zinc-700">{att.fileName}</span>
+                      <span className="shrink-0 text-xs text-zinc-400">{formatFileSize(att.sizeBytes)}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(att.id)}
+                        disabled={busy}
+                        className="shrink-0 rounded p-0.5 text-zinc-400 hover:text-red-600 disabled:opacity-50"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-sm text-zinc-500 hover:border-blue-300 hover:text-blue-600">
+                <Upload className="h-4 w-4" />
+                上传附件
+                <input type="file" hidden onChange={handleFileInputChange} />
+              </label>
+
+              <div
+                className={`mt-2 rounded-lg border-2 border-dashed p-4 text-center text-sm transition-colors ${
+                  dragOver
+                    ? 'border-blue-400 bg-blue-50 text-blue-600'
+                    : 'border-zinc-200 text-zinc-400'
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                拖拽文件到此处上传
+              </div>
+            </div>
+          </div>
+        )}
+
+        <footer className="flex shrink-0 items-center justify-between border-t border-zinc-200 px-5 py-4">
+          {mode === 'edit' && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={busy}
+              className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
+            >
+              删除
+            </button>
+          )}
+          {mode === 'create' && <div />}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-zinc-200 px-4 py-2 text-sm text-zinc-600 hover:bg-zinc-50"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!content.trim() || busy}
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm text-white hover:bg-zinc-800 disabled:opacity-50"
+            >
+              {busy ? '保存中...' : '保存'}
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function QuickNotesPage() {
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<QuickNoteStatus>('inbox');
+  const navigate = useNavigate();
+  const [statusFilter, setStatusFilter] = useState<QuickNoteStatus | 'all'>('all');
   const [search, setSearch] = useState('');
-  const [draft, setDraft] = useState('');
   const [searchParams] = useSearchParams();
   const prefill = searchParams.get('prefill') ?? searchParams.get('text') ?? '';
   const isEmbed = searchParams.get('embed') === '1';
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [editMarkdown, setEditMarkdown] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
-  const selectedIdRef = useRef<string | null>(null);
+
+  // Dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
+  const [dialogNoteId, setDialogNoteId] = useState<string | null>(null);
+
+  // FAB state
+  const [showFabMenu, setShowFabMenu] = useState(false);
+  const fabRef = useRef<HTMLDivElement>(null);
 
   const hasPrefilled = useRef(false);
 
   useEffect(() => {
     if (prefill && !hasPrefilled.current) {
       hasPrefilled.current = true;
-      setDraft(prefill);
+      openCreateDialog();
     }
   }, [prefill]);
 
-  useShellShare(useCallback((detail) => {
-    const text = detail.text ?? detail.url ?? '';
-    if (text) setDraft((prev) => (prev ? `${prev}\n\n${text}` : text));
+  useShellShare(useCallback(() => {
+    openCreateDialog();
   }, []));
 
   const listParams = useMemo(() => ({
-    status,
+    status: statusFilter === 'all' ? undefined : statusFilter,
     search: search.trim() || undefined,
     page: 1,
     pageSize: 50,
-  }), [search, status]);
+  }), [search, statusFilter]);
 
   const listQuery = useQuery({
     queryKey: ['quick-notes', 'list', listParams],
@@ -111,220 +530,59 @@ export default function QuickNotesPage() {
     [deletedIds, listQuery.data?.items],
   );
 
-  const detailQuery = useQuery({
-    queryKey: ['quick-notes', 'detail', selectedId],
-    queryFn: () => getQuickNote(selectedId as string),
-    enabled: Boolean(selectedId),
-  });
-
-  const selected = detailQuery.data;
-
-  const setSelection = useCallback((nextId: string | null) => {
-    selectedIdRef.current = nextId;
-    setSelectedId(nextId);
-  }, []);
-
-  const updateSelection = useCallback((updater: (current: string | null) => string | null) => {
-    setSelectedId(current => {
-      const next = updater(current);
-      selectedIdRef.current = next;
-      return next;
-    });
-  }, []);
-
   useEffect(() => {
     if (listQuery.data) {
       const idsInList = new Set(listQuery.data.items.map(note => note.id));
       setDeletedIds(current => {
         const pendingIds = Array.from(current).filter(id => idsInList.has(id));
-
-        if (pendingIds.length === current.size) {
-          return current;
-        }
-
+        if (pendingIds.length === current.size) return current;
         return new Set(pendingIds);
       });
     }
   }, [listQuery.data]);
 
-  useEffect(() => {
-    if (selected) {
-      setEditMarkdown(selected.contentMarkdown);
-    }
-  }, [selected]);
-
-  useEffect(() => {
-    if (!selectedId) {
-      setEditMarkdown('');
-    }
-  }, [selectedId]);
-
-  useEffect(() => {
-    if (listQuery.isLoading) return;
-
-    updateSelection(current => {
-      if (notes.length === 0) {
-        return null;
-      }
-
-      if (current && notes.some(note => note.id === current)) {
-        return current;
-      }
-
-      return notes[0].id;
-    });
-  }, [listQuery.isLoading, notes, updateSelection]);
-
-  function clearSelectionIfCurrent(targetId: string) {
-    updateSelection(current => {
-      if (current === targetId) {
-        return null;
-      }
-
-      return current;
-    });
-  }
-
-  function hideDeletedNote(id: string) {
-    setDeletedIds(current => {
-      if (current.has(id)) return current;
-
-      const next = new Set(current);
-      next.add(id);
-      return next;
-    });
-  }
-
-  function changeStatusIfCurrent(targetId: string, nextStatus: QuickNoteStatus) {
-    if (selectedIdRef.current === targetId) {
-      setStatus(nextStatus);
-      setSelection(targetId);
-    }
-  }
-
-  function selectCreatedNote(note: QuickNoteDetail) {
-    setDraft('');
-    setSelection(note.id);
-    setStatus(note.status);
-    setError(null);
-    invalidateQuickNotes(note.id);
-  }
-
-  function selectNote(note: QuickNoteListItem) {
-    if (deletedIds.has(note.id)) {
-      setDeletedIds(current => {
-        if (!current.has(note.id)) return current;
-
-        const next = new Set(current);
-        next.delete(note.id);
-        return next;
-      });
-    }
-    setSelection(note.id);
-    setError(null);
-  }
-
-  function invalidateQuickNotes(id?: string | null) {
+  function invalidateQuickNotes() {
     void queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
-    if (id) {
-      void queryClient.invalidateQueries({ queryKey: ['quick-notes', 'detail', id] });
+  }
+
+  function openCreateDialog() {
+    setDialogMode('create');
+    setDialogNoteId(null);
+    setDialogOpen(true);
+    setShowFabMenu(false);
+    setError(null);
+  }
+
+  function openEditDialog(noteId: string) {
+    setDialogMode('edit');
+    setDialogNoteId(noteId);
+    setDialogOpen(true);
+    setShowFabMenu(false);
+    setError(null);
+  }
+
+  function closeDialog() {
+    setDialogOpen(false);
+    setDialogNoteId(null);
+  }
+
+  // Close FAB menu on outside click
+  useEffect(() => {
+    if (!showFabMenu) return;
+    function handleClick(e: MouseEvent) {
+      if (fabRef.current && !fabRef.current.contains(e.target as Node)) {
+        setShowFabMenu(false);
+      }
     }
-  }
-
-  const createMutation = useMutation({
-    mutationFn: (contentMarkdown: string) => createQuickNote({ contentMarkdown, source: 'web-page' }),
-    onSuccess: selectCreatedNote,
-    onError: () => setError('创建失败，请稍后重试。'),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      payload,
-    }: {
-      id: string;
-      payload: ReturnType<typeof buildQuickNoteUpdatePayload>;
-    }) => updateQuickNote(id, payload),
-    onSuccess: note => {
-      setError(null);
-      invalidateQuickNotes(note.id);
-    },
-    onError: () => setError('保存失败，请稍后重试。'),
-  });
-
-  const processMutation = useMutation({
-    mutationFn: processQuickNote,
-    onSuccess: note => {
-      changeStatusIfCurrent(note.id, note.status);
-      invalidateQuickNotes(note.id);
-    },
-    onError: () => setError('处理失败，请稍后重试。'),
-  });
-
-  const archiveMutation = useMutation({
-    mutationFn: archiveQuickNote,
-    onSuccess: note => {
-      changeStatusIfCurrent(note.id, note.status);
-      invalidateQuickNotes(note.id);
-    },
-    onError: () => setError('归档失败，请稍后重试。'),
-  });
-
-  const restoreMutation = useMutation({
-    mutationFn: ({ id, nextStatus }: { id: string; nextStatus: QuickNoteStatus }) => restoreQuickNote(id, nextStatus),
-    onSuccess: note => {
-      changeStatusIfCurrent(note.id, note.status);
-      invalidateQuickNotes(note.id);
-    },
-    onError: () => setError('恢复失败，请稍后重试。'),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: deleteQuickNote,
-    onSuccess: (_deletedId, id) => {
-      hideDeletedNote(id);
-      clearSelectionIfCurrent(id);
-      setError(null);
-      invalidateQuickNotes(id);
-    },
-    onError: () => setError('删除失败，请稍后重试。'),
-  });
-
-  const busy =
-    createMutation.isPending ||
-    updateMutation.isPending ||
-    processMutation.isPending ||
-    archiveMutation.isPending ||
-    restoreMutation.isPending ||
-    deleteMutation.isPending;
-
-  function handleCreate() {
-    const trimmed = draft.trim();
-    if (!trimmed || createMutation.isPending) return;
-    createMutation.mutate(draft);
-  }
-
-  function handleSave() {
-    if (!selected || updateMutation.isPending) return;
-    const trimmed = editMarkdown.trim();
-    if (!trimmed || editMarkdown === selected.contentMarkdown) return;
-    updateMutation.mutate({
-      id: selected.id,
-      payload: buildQuickNoteUpdatePayload(editMarkdown),
-    });
-  }
-
-  function handleDelete(note: QuickNoteDetail) {
-    if (deleteMutation.isPending) return;
-    const confirmed = window.confirm('确定删除这条快速记录？此操作无法撤销。');
-    if (confirmed) {
-      deleteMutation.mutate(note.id);
-    }
-  }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showFabMenu]);
 
   return (
-    <div className="mx-auto flex h-full max-w-[1440px] flex-col gap-4 overflow-auto pb-20 md:pb-4">
-      {!isEmbed && <MobilePageHeader title="快速记录" action={<span className="md:hidden text-xs text-slate-500">收集</span>} />}
+    <div className="mx-auto flex h-full max-w-[1440px] flex-col gap-4 overflow-auto pb-24 md:pb-4">
+      {!isEmbed && (
+        <MobilePageHeader title="快速记录" action={<span className="text-xs text-slate-500 md:hidden">收集</span>} />
+      )}
       {!isEmbed && (
         <PageHeader
           title="快速记录"
@@ -343,199 +601,120 @@ export default function QuickNotesPage() {
       )}
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
+
+      {/* Filters & Search */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-2">
+          {statusFilters.map(item => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setStatusFilter(item.key)}
+              className={`min-h-[36px] rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                statusFilter === item.key
+                  ? 'border-zinc-900 bg-zinc-900 text-white'
+                  : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <label className="block flex-1 min-w-[200px] max-w-xs">
+          <span className="sr-only">搜索快速记录</span>
+          <input
+            type="search"
+            value={search}
+            onChange={event => setSearch(event.target.value)}
+            placeholder="搜索内容..."
+            className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
+          />
+        </label>
+      </div>
+
+      {/* Masonry Card List */}
+      {listQuery.isLoading ? (
+        <div className="py-10 text-center text-sm text-zinc-500">加载中...</div>
+      ) : notes.length === 0 ? (
+        <EmptyState title="没有快速记录" description="调整筛选或新建一条记录。" />
+      ) : (
+        <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 xl:columns-4">
+          {notes.map(note => (
+            <div
+              key={note.id}
+              className="mb-4 break-inside-avoid cursor-pointer rounded-xl border border-zinc-200 bg-white shadow-card transition-shadow hover:shadow-subtle"
+              onClick={() => openEditDialog(note.id)}
+            >
+              <div className="p-4">
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <p className="line-clamp-3 min-w-0 text-sm leading-relaxed text-zinc-800">
+                    {noteTitle(note)}
+                  </p>
+                  <StatusBadge status={note.status} />
+                </div>
+
+                <div className="text-xs text-zinc-400">
+                  {formatDateTime(note.createdAt)}
+                </div>
+
+                {note.attachmentCount > 0 && (
+                  <div className="mt-2 flex items-center gap-1.5 border-t border-zinc-100 pt-2 text-[10px] text-zinc-400">
+                    <Paperclip className="h-3 w-3" />
+                    <span>{note.attachmentCount} 个附件</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[420px_minmax(320px,0.75fr)_minmax(420px,1.25fr)]">
-        <section className="flex min-h-[420px] flex-col rounded-lg border border-slate-200 bg-white">
-          <div className="border-b border-slate-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-900">新建记录</h2>
-            <p className="mt-1 text-xs text-slate-500">支持 Markdown 和图片上传。</p>
+      {/* FAB */}
+      <div ref={fabRef} className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
+        {showFabMenu && (
+          <div className="animate-dialog rounded-xl border border-zinc-200 bg-white p-1 shadow-dialog">
+            <button
+              type="button"
+              onClick={openCreateDialog}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
+            >
+              <Pencil className="h-4 w-4" /> 写闪念
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/tasks')}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
+            >
+              <CheckSquare className="h-4 w-4" /> 建任务
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/calendar')}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
+            >
+              <Calendar className="h-4 w-4" /> 排日程
+            </button>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
-            <div className="min-h-0 flex-1 overflow-auto">
-              <QuickNoteEditor value={draft} onChange={setDraft} minHeight={320} />
-            </div>
-            <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-              <span className="text-xs text-slate-400">{draft.trim().length} 字符</span>
-              <button
-                type="button"
-                onClick={handleCreate}
-                disabled={!draft.trim() || createMutation.isPending}
-                className="min-h-[44px] rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                {createMutation.isPending ? '保存中...' : '保存记录'}
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <section className="flex min-h-[420px] flex-col rounded-lg border border-slate-200 bg-white">
-          <div className="space-y-3 border-b border-slate-200 p-3">
-            <div className="flex flex-wrap gap-2">
-              {statusFilters.map(item => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => {
-                    setStatus(item.key);
-                    setSelection(null);
-                  }}
-                  className={`min-h-[44px] rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    status === item.key
-                      ? 'border-blue-600 bg-blue-600 text-white'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-slate-50'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-            <label className="block">
-              <span className="sr-only">搜索快速记录</span>
-              <input
-                type="search"
-                value={search}
-                onChange={event => {
-                  setSearch(event.target.value);
-                  setSelection(null);
-                }}
-                placeholder="搜索内容..."
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-              />
-            </label>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-auto p-2">
-            {listQuery.isLoading ? (
-              <div className="p-4 text-sm text-slate-500">加载中...</div>
-            ) : notes.length === 0 ? (
-              <EmptyState title="没有快速记录" description="调整筛选或新建一条记录。" />
-            ) : (
-              <div className="space-y-2">
-                {notes.map(note => {
-                  const active = note.id === selectedId;
-                  return (
-                    <button
-                      key={note.id}
-                      type="button"
-                      onClick={() => selectNote(note)}
-                      className={`w-full rounded-lg border p-3 text-left transition-colors ${
-                        active
-                          ? 'border-blue-300 bg-blue-50'
-                          : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="line-clamp-2 min-w-0 text-sm font-medium text-slate-900">{noteTitle(note)}</p>
-                        <StatusBadge status={note.status} />
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                        <span>{formatDateTime(note.updatedAt)}</span>
-                        <span>{note.source}</span>
-                        {note.attachmentCount > 0 && <span>{note.attachmentCount} 个附件</span>}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="flex min-h-[420px] flex-col rounded-lg border border-slate-200 bg-white">
-          {!selectedId ? (
-            <div className="p-4">
-              <EmptyState title="选择一条记录" description="从列表中打开记录后可预览、编辑和处理。" />
-            </div>
-          ) : detailQuery.isLoading ? (
-            <div className="p-4 text-sm text-slate-500">加载详情中...</div>
-          ) : !selected ? (
-            <div className="p-4">
-              <EmptyState title="记录不可用" description="这条记录可能已被删除，请刷新列表。" />
-            </div>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 px-4 py-3">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="truncate text-sm font-semibold text-slate-900">记录详情</h2>
-                    <StatusBadge status={selected.status} />
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    创建 {formatDateTime(selected.createdAt)} · 更新 {formatDateTime(selected.updatedAt)}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {selected.status !== 'processed' && selected.status !== 'archived' && (
-                    <button
-                      type="button"
-                      onClick={() => processMutation.mutate(selected.id)}
-                      disabled={busy}
-                      className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      标记处理
-                    </button>
-                  )}
-                  {selected.status !== 'archived' ? (
-                    <button
-                      type="button"
-                      onClick={() => archiveMutation.mutate(selected.id)}
-                      disabled={busy}
-                      className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      归档
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => restoreMutation.mutate({ id: selected.id, nextStatus: 'inbox' })}
-                      disabled={busy}
-                      className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      恢复到收集箱
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(selected)}
-                    disabled={busy}
-                    className="rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    删除
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-hidden 2xl:grid-cols-2">
-                <div className="flex min-h-[360px] flex-col border-b border-slate-200 p-3 2xl:border-b-0 2xl:border-r">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <h3 className="text-xs font-semibold uppercase text-slate-500">编辑</h3>
-                    <button
-                      type="button"
-                      onClick={handleSave}
-                      disabled={!editMarkdown.trim() || editMarkdown === selected.contentMarkdown || updateMutation.isPending}
-                      className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                    >
-                      {updateMutation.isPending ? '保存中...' : '保存修改'}
-                    </button>
-                  </div>
-                  <div className="min-h-0 flex-1 overflow-auto">
-                    <QuickNoteEditor value={editMarkdown} onChange={setEditMarkdown} minHeight={300} />
-                  </div>
-                </div>
-
-                <div className="min-h-[360px] overflow-auto p-3">
-                  <h3 className="mb-2 text-xs font-semibold uppercase text-slate-500">预览</h3>
-                  <QuickNoteMarkdownPreview markdown={editMarkdown} attachments={selected.attachments} minHeight={300} />
-                </div>
-              </div>
-            </>
-          )}
-        </section>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowFabMenu(prev => !prev)}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition-transform hover:scale-105 hover:bg-zinc-800"
+        >
+          <Plus className={`h-6 w-6 transition-transform ${showFabMenu ? 'rotate-45' : ''}`} />
+        </button>
       </div>
+
+      {/* NoteDialog */}
+      <NoteDialog
+        open={dialogOpen}
+        mode={dialogMode}
+        noteId={dialogNoteId}
+        onClose={closeDialog}
+        onSaved={invalidateQuickNotes}
+      />
     </div>
   );
 }

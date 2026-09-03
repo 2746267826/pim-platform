@@ -27,7 +27,8 @@
 html,
 body,
 #root {
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -44,9 +45,13 @@ textarea {
 }
 
 .pim-shell {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
   background: var(--pim-bg);
 }
+
 
 .pim-route-surface {
   min-width: 0;

@@ -291,7 +291,7 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps = 
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-full w-[260px] max-w-[80vw] flex-col border-r border-slate-200/80 bg-white/95 shadow-2xl transition-transform duration-200 ease-out md:static md:z-auto md:w-[220px] md:bg-white/90 md:shadow-none md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-full w-[260px] max-w-[80vw] flex-col border-r border-slate-200/80 bg-white/95 shadow-2xl transition-transform duration-200 ease-out md:static md:z-auto md:w-[220px] md:h-full md:max-h-full md:shrink-0 md:bg-white/90 md:shadow-none md:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none md:pointer-events-auto'
         } md:flex`}
       >
@@ -315,7 +315,8 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps = 
         </div>
         <SidebarStatusIndicator />
 
-        <nav className="flex-1 space-y-1 overflow-auto px-3 pb-3">
+        <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 pb-3">
+
           {primaryNavItems.map(item => {
             const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
 

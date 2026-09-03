@@ -85,7 +85,7 @@ export default function AppLayout() {
         </header>
 
         <Sidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
-        <main className="pim-route-surface flex-1 overflow-auto p-4">
+        <main className="pim-route-surface flex-1 min-w-0 min-h-0 h-full overflow-y-auto p-4">
           <ErrorBoundary key={location.pathname} resetKeys={[location.pathname]}>
             <Suspense fallback={<SuspenseFallback />}>
               <Routes>

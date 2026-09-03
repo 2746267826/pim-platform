@@ -316,27 +316,7 @@ textarea {
   box-shadow: 0 2px 6px rgba(100, 116, 139, 0.35);
 }
 
-@media (max-width: 760px) {
-  .pim-shell {
-    height: auto;
-    min-height: 100vh;
-    flex-direction: column;
-    overflow: auto;
-  }
-
-  .pim-shell > aside {
-    width: 100%;
-    max-height: 18rem;
-    border-right: 0;
-    border-bottom: 1px solid var(--pim-border);
-  }
-
-  .pim-route-surface {
-    width: 100%;
-    overflow: visible;
-    padding: 0.75rem;
-  }
-
+@media (max-width: 768px) {
   .pim-panel,
   .pim-card {
     border-radius: var(--pim-radius-sm);
@@ -347,7 +327,9 @@ textarea {
     height: 24rem;
     height: max(24rem, calc(100dvh - 28rem));
   }
+
 }
+
 
 .calendar-event-card[data-calendar-event-card] {
   background: color-mix(in srgb, var(--calendar-accent, #2563eb) 15%, transparent);

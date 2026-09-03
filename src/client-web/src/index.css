@@ -325,8 +325,9 @@ textarea {
   .calendar-board {
     flex: none;
     height: 24rem;
-    height: max(24rem, calc(100dvh - 8rem));
+    height: max(24rem, calc(100dvh - 28rem));
   }
+
 }
 
 

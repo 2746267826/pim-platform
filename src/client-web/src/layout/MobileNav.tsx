@@ -3,6 +3,9 @@ import { NAV_ITEMS } from './navItems';
 
 const MOBILE_NAV_PATHS = ['/today', '/calendar', '/quick-notes', '/tasks', '/reminders'];
 
+/**
+ * @deprecated 方案 B 已全面采用顶部轻量 Header 与侧滑抽屉 Drawer 替代移动端底部导航栏。
+ */
 export default function MobileNav() {
   const items = NAV_ITEMS.filter((item) => MOBILE_NAV_PATHS.includes(item.path));
   return (

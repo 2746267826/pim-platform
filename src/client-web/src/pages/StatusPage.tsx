@@ -127,7 +127,8 @@ export default function StatusPage() {
     queries: devices.map(device => ({
       queryKey: ['status-device-quality', device.deviceId],
       queryFn: () => getMobileQuality(undefined, device.deviceId),
-      refetchInterval: getDeferredAutoRefreshInterval,
+      staleTime: 30_000,
+      refetchInterval: 60_000,
     })),
   });
 

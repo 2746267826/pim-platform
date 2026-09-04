@@ -7,12 +7,13 @@ import PermissionEditor from '../components/mcp/PermissionEditor';
 import {
   createMcpClient,
   deleteMcpClient,
+  getMcpActivity,
   getMcpCatalog,
   listMcpClients,
   revokeMcpClient,
   updateMcpClient,
 } from '../api/mcp';
-import type { McpClient, McpPermissions } from '../types';
+import type { McpActivityLogEntry, McpClient, McpPermissions } from '../types';
 
 function relativeTime(iso: string | null): string {
   if (!iso) return '从未';
@@ -41,6 +42,11 @@ export default function McpSettingsPage() {
     refetchInterval: 10_000,
   });
   const { data: catalog } = useQuery({ queryKey: ['mcp-catalog'], queryFn: getMcpCatalog });
+  const { data: activityLogs = [] } = useQuery({
+    queryKey: ['mcp-activity'],
+    queryFn: getMcpActivity,
+    refetchInterval: 10_000,
+  });
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState('');
@@ -209,12 +215,12 @@ export default function McpSettingsPage() {
           <button
             type="button"
             className="pim-button-secondary px-3 py-1 text-xs"
-            onClick={() => qc.invalidateQueries({ queryKey: ['mcp-clients'] })}
+            onClick={() => qc.invalidateQueries({ queryKey: ['mcp-activity'] })}
           >
             刷新
           </button>
         </div>
-        {clients.length === 0 ? (
+        {activityLogs.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
             暂无调用记录
           </p>
@@ -232,41 +238,40 @@ export default function McpSettingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {clients
-                  .filter(c => c.lastTool)
-                  .map(client => (
-                    <tr key={client.id} className="border-b border-slate-100 hover:bg-slate-50">
+                {activityLogs.map((entry: McpActivityLogEntry) => {
+                  const statusClass = entry.statusCode >= 400
+                    ? 'border-red-200 bg-red-50 text-red-700'
+                    : entry.statusCode === 200
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : 'border-slate-200 bg-slate-100 text-slate-700';
+                  return (
+                    <tr key={`${entry.timestamp}-${entry.toolName}-${entry.clientName}`} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="px-2 py-2.5 text-xs text-slate-600 whitespace-nowrap">
-                        {client.lastSeenAt ? new Date(client.lastSeenAt).toLocaleString('zh-CN') : '—'}
+                        {new Date(entry.timestamp).toLocaleString('zh-CN')}
                       </td>
-                      <td className="px-2 py-2.5 text-sm text-slate-900">{client.name}</td>
+                      <td className="px-2 py-2.5 text-sm text-slate-900">{entry.clientName}</td>
                       <td className="px-2 py-2.5">
                         <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-800">
-                          {client.lastTool}
+                          {entry.toolName}
                         </code>
                       </td>
                       <td className="px-2 py-2.5">
-                        {client.status === 'revoked' ? (
-                          <StatusBadge tone="danger">已吊销</StatusBadge>
-                        ) : client.callCount === 0 ? (
-                          <StatusBadge tone="neutral">无调用</StatusBadge>
-                        ) : (
-                          <StatusBadge tone="activity">成功</StatusBadge>
-                        )}
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusClass}`}>
+                          {entry.statusCode}
+                        </span>
                       </td>
-                      <td className="px-2 py-2.5 text-xs text-slate-500">—</td>
-                      <td className="max-w-[200px] truncate px-2 py-2.5 text-xs text-slate-500 font-mono">
-                        {client.lastTool ? `{ "tool": "${client.lastTool}" }` : '—'}
+                      <td className="px-2 py-2.5 text-xs text-slate-500">{entry.durationMs}ms</td>
+                      <td className="px-2 py-2.5">
+                        <span
+                          className="block max-w-[200px] truncate font-mono text-xs text-slate-500"
+                          title={entry.argumentsSummary || '—'}
+                        >
+                          {entry.argumentsSummary || '—'}
+                        </span>
                       </td>
                     </tr>
-                  ))}
-                {clients.filter(c => c.lastTool).length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-2 py-6 text-center text-sm text-slate-400">
-                      暂无调用记录
-                    </td>
-                  </tr>
-                )}
+                  );
+                })}
               </tbody>
             </table>
           </div>

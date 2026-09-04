@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getManagedDevices, renameDevice, previewMerge, mergeDevices, previewDeleteDevice, deleteDevice, exportDevice } from '../api/mobile';
 
@@ -13,9 +13,19 @@ function MergeConfirmDialog({
 }) {
   const qc = useQueryClient();
   const [targetId, setTargetId] = useState('');
-  const [preview, setPreview] = useState<{ total?: number; sessions?: number; events?: number; locations?: number } | null>(null);
+  const [preview, setPreview] = useState<{ items: { deviceId: string; dataCount: number }[]; total: number } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.focus();
+    return () => {
+      previouslyFocusedRef.current?.focus();
+    };
+  }, []);
 
   const mergeMut = useMutation({
     mutationFn: ({ src, tgt }: { src: string[]; tgt: string }) => mergeDevices(src, tgt),
@@ -54,9 +64,18 @@ function MergeConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs animate-backdrop" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog" onClick={e => e.stopPropagation()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="merge-confirm-dialog-title"
+        tabIndex={-1}
+        ref={dialogRef}
+        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
+        className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog"
+        onClick={e => e.stopPropagation()}
+      >
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
-          <h2 className="text-base font-semibold text-zinc-900">合并设备</h2>
+          <h2 id="merge-confirm-dialog-title" className="text-base font-semibold text-zinc-900">合并设备</h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600">
             <i data-lucide="x" className="w-4 h-4"></i>
           </button>
@@ -90,20 +109,10 @@ function MergeConfirmDialog({
           {preview && !previewLoading && (
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 space-y-2">
               <p className="text-sm font-semibold text-zinc-800">合并预览</p>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="rounded bg-white p-2 border border-zinc-100">
-                  <p className="text-lg font-bold text-zinc-900">{preview.sessions ?? preview.total ?? 0}</p>
-                  <p className="text-xs text-zinc-500">Sessions</p>
-                </div>
-                <div className="rounded bg-white p-2 border border-zinc-100">
-                  <p className="text-lg font-bold text-zinc-900">{preview.events ?? 0}</p>
-                  <p className="text-xs text-zinc-500">Events</p>
-                </div>
-                <div className="rounded bg-white p-2 border border-zinc-100">
-                  <p className="text-lg font-bold text-zinc-900">{preview.locations ?? 0}</p>
-                  <p className="text-xs text-zinc-500">Locations</p>
-                </div>
-              </div>
+              <p className="text-sm text-zinc-700">影响记录总数：<span className="font-bold text-zinc-900">{preview.total}</span> 条</p>
+              {preview.items.length > 0 && (
+                <p className="text-xs text-zinc-500">涉及 {preview.items.length} 台设备</p>
+              )}
             </div>
           )}
 

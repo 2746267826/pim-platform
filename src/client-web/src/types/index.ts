@@ -165,6 +165,7 @@ export interface TaskBook {
   name: string;
   kind: string;
   status: string;
+  taskCount?: number;
 }
 
 export interface CreateTaskBookRequest {
@@ -1549,4 +1550,13 @@ export interface McpClientCreateResult {
 export interface McpClientUpdateRequest {
   name?: string;
   permissions?: McpPermissions;
+}
+
+export interface McpActivityLogEntry {
+  timestamp: string;
+  clientName: string;
+  toolName: string;
+  statusCode: number;
+  durationMs: number;
+  argumentsSummary: string;
 }

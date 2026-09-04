@@ -15,11 +15,13 @@ function CalendarBookSection({
   books,
   queryKey,
   kind,
+  manageable = true,
 }: {
   title: string;
-  books: Array<{ id: string; name: string; color: string }>;
+  books: Array<{ id: string; name: string; color: string; taskCount?: number }>;
   queryKey: string[];
   kind: string;
+  manageable?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -143,16 +145,18 @@ function CalendarBookSection({
     <div className="mt-4 border-t border-slate-200/80 pt-4">
       <div className="mb-2 flex items-center justify-between px-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{title}</p>
-        <button
-          onClick={() => setShowNew(!showNew)}
-          className="h-6 w-6 rounded-full text-sm leading-none text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-          aria-label={`新建${title}`}
-        >
-          +
-        </button>
+        {manageable && (
+          <button
+            onClick={() => setShowNew(!showNew)}
+            className="h-6 w-6 rounded-full text-sm leading-none text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+            aria-label={`新建${title}`}
+          >
+            +
+          </button>
+        )}
       </div>
 
-      {showNew && (
+      {manageable && showNew && (
         <div className="px-2 mb-2 flex gap-1">
           <input
             type="text" placeholder={`${title}名称`}
@@ -189,7 +193,7 @@ function CalendarBookSection({
               {hidden ? '○' : '●'}
             </button>
             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: book.color }} />
-            {editingId === book.id ? (
+            {editingId === book.id && manageable ? (
               <input
                 type="text" value={editName}
                 onChange={e => setEditName(e.target.value)}
@@ -201,12 +205,16 @@ function CalendarBookSection({
             ) : (
               <span
                 className="flex-1 truncate text-xs text-slate-600 cursor-pointer"
-                onDoubleClick={() => startRename(book.id, book.name)}
-                title="双击重命名"
+                onDoubleClick={manageable ? () => startRename(book.id, book.name) : undefined}
+                title={manageable ? '双击重命名' : undefined}
               >
                 {book.name}
               </span>
             )}
+            {book.taskCount !== undefined && (
+              <span className="ml-auto rounded-full bg-slate-100 px-1.5 text-[10px] text-slate-500">{book.taskCount}</span>
+            )}
+            {manageable && (
             <div className="hidden group-hover:flex items-center gap-0.5">
               <button
                 onClick={() => startRename(book.id, book.name)}
@@ -224,12 +232,13 @@ function CalendarBookSection({
                 ✕
               </button>
             </div>
+            )}
           </div>
         );
       })}
 
       {(!books || books.length === 0) && !showNew && (
-        <p className="px-2 py-1 text-xs text-slate-400">暂无{title}，点击 + 创建</p>
+        <p className="px-2 py-1 text-xs text-slate-400">暂无{title}{manageable ? '，点击 + 创建' : ''}</p>
       )}
 
       <ConfirmActionDialog
@@ -303,6 +312,7 @@ export default function Sidebar() {
           books={taskBooks.map(b => ({ ...b, color: (b as { color?: string }).color || '#6366f1' }))}
           queryKey={['task-books']}
           kind="task"
+          manageable={false}
         />
       </nav>
 

@@ -88,6 +88,17 @@ interface NoteDialogProps {
 
 function NoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: NoteDialogProps) {
   const queryClient = useQueryClient();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.focus();
+    return () => {
+      previouslyFocusedRef.current?.focus();
+    };
+  }, [open]);
 
   const [content, setContent] = useState('');
   const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
@@ -161,6 +172,26 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: No
     },
     onError: () => {
       setEditError('保存失败，请稍后重试。');
+    },
+  });
+
+  const attachmentMutation = useMutation({
+    mutationFn: ({
+      id,
+      markdown,
+      attIds,
+    }: {
+      id: string;
+      markdown: string;
+      attIds: string[];
+    }) => updateQuickNote(id, { contentMarkdown: markdown, attachmentIds: attIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
+      queryClient.invalidateQueries({ queryKey: ['quick-notes', 'detail', noteId] });
+      setEditError(null);
+    },
+    onError: () => {
+      setEditError('附件操作失败，请稍后重试。');
     },
   });
 
@@ -273,27 +304,33 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: No
     }
 
     // Edit mode: upload then update note immediately
+    let result: Awaited<ReturnType<typeof uploadQuickNoteAttachment>>;
     try {
-      const result = await uploadQuickNoteAttachment(file);
-      const newIds = [...attachmentIds, result.id];
-      await updateMutation.mutateAsync({ id: noteId!, markdown: content, attIds: newIds });
-      setAttachmentIds(newIds);
-      setLocalAttachments(prev => [
-        ...prev,
-        {
-          id: result.id,
-          fileName: result.fileName,
-          contentType: result.contentType,
-          sizeBytes: result.sizeBytes,
-          downloadUrl: result.downloadUrl,
-          previewUrl: result.previewUrl,
-          createdAt: new Date().toISOString(),
-        },
-      ]);
-      queryClient.invalidateQueries({ queryKey: ['quick-notes', 'detail', noteId] });
+      result = await uploadQuickNoteAttachment(file);
     } catch {
       setEditError('附件上传失败');
+      return;
     }
+    const newIds = [...attachmentIds, result.id];
+    try {
+      await attachmentMutation.mutateAsync({ id: noteId!, markdown: content, attIds: newIds });
+    } catch {
+      return;
+    }
+    setAttachmentIds(newIds);
+    setLocalAttachments(prev => [
+      ...prev,
+      {
+        id: result.id,
+        fileName: result.fileName,
+        contentType: result.contentType,
+        sizeBytes: result.sizeBytes,
+        downloadUrl: result.downloadUrl,
+        previewUrl: result.previewUrl,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    queryClient.invalidateQueries({ queryKey: ['quick-notes', 'detail', noteId] });
   }
 
   function handleFileInputChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -329,7 +366,7 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: No
     setLocalAttachments(prev => prev.filter(a => a.id !== attId));
 
     if (mode === 'edit' && noteId) {
-      updateMutation.mutate({ id: noteId, markdown: content, attIds: newIds });
+      attachmentMutation.mutate({ id: noteId, markdown: content, attIds: newIds });
     }
   }
 
@@ -348,11 +385,17 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: No
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="quick-note-dialog-title"
+        tabIndex={-1}
+        ref={dialogRef}
+        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
         className="flex w-full max-w-2xl flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog max-h-[85vh]"
         onClick={e => e.stopPropagation()}
       >
         <header className="flex shrink-0 items-center justify-between border-b border-zinc-200 px-5 py-4">
-          <h2 className="text-base font-semibold text-zinc-900">
+          <h2 id="quick-note-dialog-title" className="text-base font-semibold text-zinc-900">
             {mode === 'edit' ? '编辑记录' : '写闪念'}
           </h2>
           <button

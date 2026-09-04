@@ -163,6 +163,9 @@ export const calendarApiPaths = {
   taskChecklist(id: string) {
     return `/calendar/tasks/${encodeURIComponent(id)}/checklist`;
   },
+  taskChecklistItem(taskId: string, itemId: string) {
+    return `/calendar/tasks/${encodeURIComponent(taskId)}/checklist/${encodeURIComponent(itemId)}`;
+  },
   checklistItem(taskId: string, itemId: string) {
     return `/calendar/tasks/${encodeURIComponent(taskId)}/checklist/${encodeURIComponent(itemId)}`;
   },
@@ -548,7 +551,7 @@ export async function addTaskChecklistItem(taskId: string, data: AddTaskChecklis
 }
 
 export async function deleteTaskChecklistItem(taskId: string, itemId: string) {
-  await apiDelete(calendarApiPaths.checklistItem(taskId, itemId));
+  await apiDelete(calendarApiPaths.taskChecklistItem(taskId, itemId));
 }
 
 export async function updateTaskChecklistItem(
@@ -557,7 +560,7 @@ export async function updateTaskChecklistItem(
   data: { title?: string; isDone?: boolean }
 ) {
   const r = await apiPut<ApiResponse<TaskChecklistItem>>(
-    calendarApiPaths.checklistItem(taskId, itemId),
+    calendarApiPaths.taskChecklistItem(taskId, itemId),
     data
   );
   return r.data;

@@ -94,6 +94,17 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
   const queryClient = useQueryClient();
   const { hiddenCalendarIds } = useCalendarVisibility();
+  const dialogRef = useRef<HTMLElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.focus();
+    return () => {
+      previouslyFocusedRef.current?.focus();
+    };
+  }, [open]);
 
   function patchForm(patch: Partial<EventFormValue>) {
     setForm(prev => ({ ...prev, ...patch }));
@@ -440,7 +451,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs animate-backdrop" onClick={onClose}>
-      <aside role="dialog" aria-modal="true" className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog" onClick={e => e.stopPropagation()}>
+      <aside role="dialog" aria-modal="true" tabIndex={-1} ref={dialogRef} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }} className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog" onClick={e => e.stopPropagation()}>
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 shrink-0">
           <h2 className="text-base font-semibold text-zinc-900">{titleText}</h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 p-1 rounded-lg hover:bg-zinc-100">

@@ -1,4 +1,4 @@
-import { useState, useRef, type FormEvent } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useMutation, useQueryClient, useQuery, type QueryClient } from '@tanstack/react-query';
 import { createTask, updateTask, deleteTask, getCalendars, getTaskBooks, addTaskChecklistItem, deleteTaskChecklistItem, updateTaskChecklistItem, taskToMutationData } from '../api/calendar';
 import type { TaskMutationData } from '../api/calendar';
@@ -71,8 +71,24 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
   const [validationErrorMessage, setValidationErrorMessage] = useState<string | null>(null);
+  const [checklistError, setChecklistError] = useState<string | null>(null);
   const checklistSaveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const dialogRef = useRef<HTMLElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.focus();
+    return () => {
+      previouslyFocusedRef.current?.focus();
+    };
+  }, [open]);
+
+  useEffect(() => () => {
+    checklistSaveTimers.current.forEach(clearTimeout);
+  }, []);
 
   const { data: taskBooks } = useQuery({
     queryKey: ['task-books'],
@@ -150,7 +166,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
 
   function handleToggleComplete() {
     if (!task) return;
-    const newStatus = task?.status === 'COMPLETED' ? 'NEEDS-ACTION' : 'COMPLETED';
+    const newStatus = status === 'COMPLETED' ? 'NEEDS-ACTION' : 'COMPLETED';
     updateMut.mutate(taskToMutationData(task, { status: newStatus }), {
       onSuccess: () => { setStatus(newStatus); }
     });
@@ -220,13 +236,31 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
     setChecklistItems(prev =>
       prev.map(i => i.id === item.id ? { ...i, isDone: !i.isDone } : i)
     );
-    updateTaskChecklistItem(task.id, item.id, { isDone: !item.isDone });
+    updateTaskChecklistItem(task.id, item.id, { isDone: !item.isDone })
+      .catch(() => {
+        setChecklistItems(prev =>
+          prev.map(i => i.id === item.id ? { ...i, isDone: item.isDone } : i)
+        );
+        setChecklistError('检查项保存失败');
+      });
   }
 
   function handleChecklistDelete(itemId: string) {
     if (!task) return;
+    const removedIndex = checklistItems.findIndex(i => i.id === itemId);
+    const removed = checklistItems.find(i => i.id === itemId);
     setChecklistItems(prev => prev.filter(i => i.id !== itemId));
-    deleteTaskChecklistItem(task.id, itemId);
+    deleteTaskChecklistItem(task.id, itemId)
+      .catch(() => {
+        if (removed) {
+          setChecklistItems(prev => {
+            const next = [...prev];
+            next.splice(Math.min(removedIndex, next.length), 0, removed);
+            return next;
+          });
+        }
+        setChecklistError('检查项保存失败');
+      });
   }
 
   function handleChecklistTextChange(itemId: string, text: string) {
@@ -237,7 +271,10 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
     const existing = checklistSaveTimers.current.get(itemId);
     if (existing) clearTimeout(existing);
     const timer = setTimeout(() => {
-      updateTaskChecklistItem(task!.id, itemId, { title: text });
+      updateTaskChecklistItem(task!.id, itemId, { title: text })
+        .catch(() => {
+          setChecklistError('检查项保存失败');
+        });
     }, 500);
     checklistSaveTimers.current.set(itemId, timer);
   }
@@ -247,7 +284,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs animate-backdrop" onClick={onClose}>
-      <aside role="dialog" aria-modal="true" className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog" onClick={e => e.stopPropagation()}>
+      <aside role="dialog" aria-modal="true" tabIndex={-1} ref={dialogRef} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }} className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog" onClick={e => e.stopPropagation()}>
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 shrink-0">
           <h2 className="text-base font-semibold text-zinc-900">{task ? '编辑任务' : '新建任务'}</h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 p-1 rounded-lg hover:bg-zinc-100">
@@ -390,6 +427,9 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
           {/* Checklist */}
           <div className="border-t border-zinc-200 pt-4">
             <p className="text-sm font-medium text-gray-600 mb-2">子检查项</p>
+            {checklistError && (
+              <p className="mb-2 text-xs text-red-600">{checklistError}</p>
+            )}
             <div className="space-y-2">
               {checklistItems.map(item => (
                 <div key={item.id} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">

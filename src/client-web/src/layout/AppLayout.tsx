@@ -42,6 +42,7 @@ const AuditTimelinePage = lazy(() => import('../pages/AuditTimelinePage'));
 const EndpointShellPage = lazy(() => import('../pages/EndpointShellPage'));
 const ExhibitionPage = lazy(() => import('../pages/ExhibitionPage'));
 const AdminUsersPage = lazy(() => import('../pages/AdminUsersPage'));
+const PcBrowserSitePage = lazy(() => import('../pages/PcBrowserSitePage'));
 
 function SuspenseFallback() {
   return <div className="h-full" aria-busy="true" />;
@@ -110,6 +111,7 @@ export default function AppLayout() {
                 <Route path="/month" element={<Navigate to="/calendar?view=month" replace />} />
                 <Route path="/tasks" element={<TaskListPage />} />
                 <Route path="/pc-tracker" element={<PcTrackerPage />} />
+                <Route path="/pc-tracker/browser" element={<PcBrowserSitePage />} />
                 <Route path="/mobile-records" element={<MobileRecordsPage />} />
                 <Route path="/location-history" element={<HistoricalLocationPage />} />
                 <Route path="/devices" element={<DeviceManagementPage />} />

@@ -14,7 +14,11 @@ function loadHiddenIds(): Set<string> {
 }
 
 function saveHiddenIds(ids: Set<string>): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
+  } catch {
+    // localStorage unavailable (private mode / quota): degrade to in-memory only
+  }
 }
 
 interface VisibilityContext {

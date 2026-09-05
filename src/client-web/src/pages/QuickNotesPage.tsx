@@ -248,7 +248,8 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: No
     archiveMutation.isPending ||
     restoreMutation.isPending ||
     deleteMutation.isPending ||
-    processMutation.isPending;
+    processMutation.isPending ||
+    attachmentMutation.isPending;
 
   function handleSave() {
     const trimmed = content.trim();

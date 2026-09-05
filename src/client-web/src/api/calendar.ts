@@ -166,9 +166,6 @@ export const calendarApiPaths = {
   taskChecklistItem(taskId: string, itemId: string) {
     return `/calendar/tasks/${encodeURIComponent(taskId)}/checklist/${encodeURIComponent(itemId)}`;
   },
-  checklistItem(taskId: string, itemId: string) {
-    return `/calendar/tasks/${encodeURIComponent(taskId)}/checklist/${encodeURIComponent(itemId)}`;
-  },
   habits() {
     return '/calendar/habits';
   },

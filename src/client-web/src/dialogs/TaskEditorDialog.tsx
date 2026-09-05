@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type FormEvent } from 'react';
+import { useState, useRef, useEffect, useId, type FormEvent } from 'react';
 import { useMutation, useQueryClient, useQuery, type QueryClient } from '@tanstack/react-query';
 import { createTask, updateTask, deleteTask, getCalendars, getTaskBooks, addTaskChecklistItem, deleteTaskChecklistItem, updateTaskChecklistItem, taskToMutationData } from '../api/calendar';
 import type { TaskMutationData } from '../api/calendar';
@@ -73,8 +73,10 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   const [validationErrorMessage, setValidationErrorMessage] = useState<string | null>(null);
   const [checklistError, setChecklistError] = useState<string | null>(null);
   const checklistSaveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const savedTitlesRef = useRef<Map<string, string>>(new Map((task?.checklistItems ?? []).map(i => [i.id, i.title])));
   const dialogRef = useRef<HTMLElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -272,8 +274,15 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
     if (existing) clearTimeout(existing);
     const timer = setTimeout(() => {
       updateTaskChecklistItem(task!.id, itemId, { title: text })
+        .then(() => { savedTitlesRef.current.set(itemId, text); })
         .catch(() => {
-          setChecklistError('检查项保存失败');
+          const saved = savedTitlesRef.current.get(itemId);
+          if (saved !== undefined) {
+            setChecklistItems(prev =>
+              prev.map(i => i.id === itemId ? { ...i, title: saved } : i)
+            );
+          }
+          setChecklistError('检查项保存失败，已恢复上次保存的标题');
         });
     }, 500);
     checklistSaveTimers.current.set(itemId, timer);
@@ -284,9 +293,9 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs animate-backdrop" onClick={onClose}>
-      <aside role="dialog" aria-modal="true" tabIndex={-1} ref={dialogRef} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }} className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog" onClick={e => e.stopPropagation()}>
+      <aside role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} ref={dialogRef} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }} className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog" onClick={e => e.stopPropagation()}>
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 shrink-0">
-          <h2 className="text-base font-semibold text-zinc-900">{task ? '编辑任务' : '新建任务'}</h2>
+          <h2 id={titleId} className="text-base font-semibold text-zinc-900">{task ? '编辑任务' : '新建任务'}</h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 p-1 rounded-lg hover:bg-zinc-100">
             <i data-lucide="x" className="w-4 h-4"></i>
           </button>

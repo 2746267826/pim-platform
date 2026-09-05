@@ -169,7 +169,7 @@ export default function WorkbenchPage() {
         />
       </div>
 
-      <section className={`grid grid-cols-1 gap-3 ${focus ? 'lg:grid-cols-3' : 'md:grid-cols-2 xl:grid-cols-4'}`}>
+      <section className={`grid grid-cols-1 gap-3 items-start ${focus ? 'lg:grid-cols-3' : 'md:grid-cols-2 xl:grid-cols-4'}`}>
         <DashboardMetric
           label="日程图层"
           value={compactNumber(layerData?.items.length)}
@@ -194,7 +194,7 @@ export default function WorkbenchPage() {
         )}
       </section>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 items-start lg:grid-cols-2 xl:grid-cols-3">
         <section className="pim-panel min-w-0 p-4 xl:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -247,7 +247,7 @@ export default function WorkbenchPage() {
         </section>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 items-start lg:grid-cols-2 xl:grid-cols-3">
         <section className="pim-panel min-w-0 p-4">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-slate-950">微软日历同步</h2>

@@ -1,11 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
-import { getMobileQuality } from '../api/mobile';
+import { useMemo } from 'react';
+import { useQuery, useQueries } from '@tanstack/react-query';
+import { getMobileDevices, getMobileQuality } from '../api/mobile';
 import { getPcQuality } from '../api/pcTracker';
 import { getComponentKindLabel, getHealthStatusLabel, getStatusDetail } from '../api/status';
 import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import MobileDiagnosticsPanel, { type MobileQualityDiagnosticsData } from '../components/status/MobileDiagnosticsPanel';
 import type { PimHealthStatus, StatusComponent } from '../types';
+import type { MobileQuality } from '../api/mobile';
 import PageHeader from '../ui/PageHeader';
+import StatusBadge from '../ui/StatusBadge';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 const statusStyles: Record<PimHealthStatus, { text: string; bg: string; border: string; dot: string }> = {
@@ -114,6 +117,36 @@ export default function StatusPage() {
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
+  const { data: devices = [] } = useQuery({
+    queryKey: ['status-mobile-devices'],
+    queryFn: getMobileDevices,
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const deviceQualityQueries = useQueries({
+    queries: devices.map(device => ({
+      queryKey: ['status-device-quality', device.deviceId],
+      queryFn: () => getMobileQuality(undefined, device.deviceId),
+      staleTime: 30_000,
+      refetchInterval: 60_000,
+    })),
+  });
+
+  const deviceQualityMap = useMemo(() => {
+    const map = new Map<string, MobileQuality>();
+    deviceQualityQueries.forEach((query, idx) => {
+      if (query.data) {
+        map.set(devices[idx]?.deviceId, query.data as MobileQuality);
+      }
+    });
+    return map;
+  }, [deviceQualityQueries, devices]);
+
+  const isOnline = (lastSeenAt: string): boolean => {
+    const elapsed = Date.now() - new Date(lastSeenAt).getTime();
+    return elapsed < 15 * 60 * 1000;
+  };
+
   const summary = data?.summary;
   const summaryStatus = summary?.status ?? 'Unknown';
 
@@ -177,6 +210,43 @@ export default function StatusPage() {
             isLoading={mobileQualityLoading}
             error={mobileQualityError}
           />
+
+          {devices.length > 0 && (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold text-slate-800">连接设备</h2>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                {devices.map((device) => {
+                  const q = deviceQualityMap.get(device.deviceId) as MobileQuality | undefined;
+                  const online = isOnline(device.lastSeenAt);
+                  return (
+                    <section key={device.deviceId} className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-semibold text-slate-900">{device.displayName}</h3>
+                          <p className="mt-0.5 truncate text-xs text-slate-400 font-mono">{device.deviceId}</p>
+                        </div>
+                        {online ? (
+                          <StatusBadge tone="activity">在线</StatusBadge>
+                        ) : (
+                          <StatusBadge tone="neutral">离线</StatusBadge>
+                        )}
+                      </div>
+                      <div className="mt-3 space-y-1 text-xs text-slate-600">
+                        <p>{device.brand} {device.model}</p>
+                        <p>Android {device.androidVersion} · App {device.appVersion}</p>
+                        <p>最后心跳：{new Date(device.lastSeenAt).toLocaleString('zh-CN')}</p>
+                        {q && (
+                          <p className="mt-1">
+                            数据质量：<StatusBadge tone={q.overallStatus === 'Healthy' ? 'activity' : q.overallStatus === 'Warning' ? 'warning' : 'danger'}>{q.label}</StatusBadge>
+                          </p>
+                        )}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {data.nextSteps.length > 0 && (
             <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">

@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   batchDeleteTasks,
-  getCalendars,
+  getTaskBooks,
   getTasksPaged,
   updateTask,
   taskToMutationData,
@@ -186,8 +186,8 @@ export default function TaskListPage() {
   }
 
   const { data: taskBooks = [], isLoading: taskBooksLoading } = useQuery({
-    queryKey: ['calendars', 'task'],
-    queryFn: () => getCalendars('task'),
+    queryKey: ['task-books'],
+    queryFn: () => getTaskBooks(),
   });
 
   const taskQuery = useMemo(

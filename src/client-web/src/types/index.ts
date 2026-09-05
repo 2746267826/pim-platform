@@ -109,11 +109,13 @@ export interface EventResponse {
 export interface TaskResponse {
   id: string;
   calendarId?: string;
+  taskBookId?: string;
   title: string;
   description?: string;
   priority: number;
   estimatedDuration?: string;
   minimumSegment?: string;
+  percentComplete?: number;
   dtStart?: string;
   due?: string;
   plannedEnd?: string;
@@ -121,6 +123,7 @@ export interface TaskResponse {
   isInbox: boolean;
   sortOrder?: number;
   subTasks?: TaskResponse[];
+  checklistItems?: TaskChecklistItem[];
 }
 
 export type TaskPlanningState =
@@ -162,6 +165,7 @@ export interface TaskBook {
   name: string;
   kind: string;
   status: string;
+  taskCount?: number;
 }
 
 export interface CreateTaskBookRequest {
@@ -1546,4 +1550,13 @@ export interface McpClientCreateResult {
 export interface McpClientUpdateRequest {
   name?: string;
   permissions?: McpPermissions;
+}
+
+export interface McpActivityLogEntry {
+  timestamp: string;
+  clientName: string;
+  toolName: string;
+  statusCode: number;
+  durationMs: number;
+  argumentsSummary: string;
 }

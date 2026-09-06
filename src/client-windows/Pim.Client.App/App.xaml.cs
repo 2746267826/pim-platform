@@ -5,6 +5,7 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using Pim.Client.App.Services;
+using Pim.Client.Core.Models;
 using Pim.Client.Core.Services;
 
 namespace Pim.Client.App;

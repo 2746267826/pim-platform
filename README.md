@@ -1,5 +1,24 @@
 # PIM — 个人信息中枢
 
+<p align="center">
+  <a href="https://github.com/2746267826/pim-platform/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/2746267826/pim-platform/ci.yml?branch=master&label=CI&logo=github" /></a>
+  <a href="https://github.com/2746267826/pim-platform/releases"><img alt="Release" src="https://img.shields.io/github/actions/workflow/status/2746267826/pim-platform/build-api.yml?branch=master&label=Release&logo=github" /></a>
+  <a href="https://github.com/2746267826/pim-platform"><img alt="Platforms" src="https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20Web-1f6feb" /></a>
+  <a href="https://github.com/2746267826/pim-platform"><img alt="Tech" src="https://img.shields.io/badge/Tech-.NET%208%20%7C%20React%20%7C%20Kotlin-512bd4" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/2746267826/pim-platform"><img alt="Commits/month" src="https://img.shields.io/github/commit-activity/m/2746267826/pim-platform" /></a>
+  <a href="https://github.com/2746267826/pim-platform/pulls"><img alt="PRs" src="https://img.shields.io/github/issues-pr/2746267826/pim-platform" /></a>
+  <a href="https://github.com/2746267826/pim-platform/issues"><img alt="Issues" src="https://img.shields.io/github/issues/2746267826/pim-platform" /></a>
+  <a href="https://github.com/2746267826/pim-platform/graphs/contributors"><img alt="Contributors" src="https://img.shields.io/github/contributors/2746267826/pim-platform" /></a>
+  <a href="https://github.com/2746267826/pim-platform"><img alt="License" src="https://img.shields.io/badge/License-MIT-green" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/2746267826/pim-platform"><img alt="Last commit" src="https://img.shields.io/github/last-commit/2746267826/pim-platform" /></a>
+</p>
+
 PIM（Personal Information Manager）是一个自托管的个人信息中枢：自动记录电脑使用与手机活动，理解你的时间都花在了哪里，并把数据变成看得懂的结论。
 
 [简介](#简介) · [功能特性](#功能特性) · [架构总览](#架构总览) · [设计逻辑](#设计逻辑) · [快速开始](#快速开始) · [部署指南](#部署指南) · [客户端](#客户端) · [配置参考](#配置参考) · [常见问题](#常见问题) · [开发指南](#开发指南) · [许可证](#许可证)

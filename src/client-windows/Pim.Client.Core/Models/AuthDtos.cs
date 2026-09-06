@@ -169,3 +169,11 @@ public class PagedResult<T>
     [JsonPropertyName("totalPages")]
     public int TotalPages { get; set; }
 }
+
+public enum TokenRestoreResult
+{
+    NoSavedToken,
+    Success,
+    PendingNetwork,
+    InvalidCredentials
+}

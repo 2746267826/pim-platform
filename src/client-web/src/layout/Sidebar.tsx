@@ -16,12 +16,14 @@ function CalendarBookSection({
   queryKey,
   kind,
   manageable = true,
+  onSelectBook,
 }: {
   title: string;
   books: Array<{ id: string; name: string; color: string; taskCount?: number }>;
   queryKey: string[];
   kind: string;
   manageable?: boolean;
+  onSelectBook?: (bookId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -204,9 +206,10 @@ function CalendarBookSection({
               />
             ) : (
               <span
-                className="flex-1 truncate text-xs text-slate-600 cursor-pointer"
+                className={`flex-1 truncate text-xs text-slate-600 ${onSelectBook ? 'cursor-pointer hover:text-blue-600 font-medium' : 'cursor-default'}`}
+                onClick={onSelectBook ? () => onSelectBook(book.id) : undefined}
                 onDoubleClick={manageable ? () => startRename(book.id, book.name) : undefined}
-                title={manageable ? '双击重命名' : undefined}
+                title={onSelectBook ? `查看「${book.name}」` : (manageable ? '双击重命名' : undefined)}
               >
                 {book.name}
               </span>
@@ -355,6 +358,7 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps = 
             books={calendars}
             queryKey={['calendars']}
             kind="calendar"
+            onSelectBook={bookId => handleNavigate(`/calendar?calendarId=${bookId}`)}
           />
 
           <CalendarBookSection
@@ -363,6 +367,7 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps = 
             queryKey={['task-books']}
             kind="task"
             manageable={false}
+            onSelectBook={bookId => handleNavigate(`/tasks?taskBookId=${bookId}`)}
           />
         </nav>
 

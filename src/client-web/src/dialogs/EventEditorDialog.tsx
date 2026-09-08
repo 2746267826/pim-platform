@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useMemo, useRef, useState, useId, useEffect, type FormEvent, type KeyboardEvent } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { createEvent, updateEvent, deleteEvent, getCalendars, getOutlookSettings, writeOutlookEvent } from '../api/calendar';
@@ -456,7 +457,7 @@ function EventEditorForm({ open, onClose, event, defaultStart, defaultEnd }: Pro
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 shrink-0">
           <h2 id={editorTitleId} className="text-base font-semibold text-zinc-900">{titleText}</h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 p-1 rounded-lg hover:bg-zinc-100">
-            <i data-lucide="x" className="w-4 h-4"></i>
+            <X className="w-4 h-4" />
           </button>
         </header>
         <div className="overflow-y-auto max-h-[75vh] px-5 py-4 space-y-4">

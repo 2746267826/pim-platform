@@ -142,3 +142,30 @@ export async function getStatusDetail() {
   const response = await apiGet<ApiResponse<unknown>>(statusApiPaths.detail);
   return normalizeStatusDetail(response.data);
 }
+
+export interface DaemonHeartbeat {
+  deviceId: string;
+  daemonKind: string;
+  version: string;
+  serverUrl: string;
+  lastSuccessfulUploadAt?: string | null;
+  lastAttemptedUploadAt?: string | null;
+  lastError?: string | null;
+  uploadQueueCount?: number | null;
+  activityWatchState: string;
+  keyStatsState: string;
+  collectionPaused: boolean;
+  statusJson: string;
+  receivedAt: string;
+  plannedOfflineAt?: string | null;
+  offlineReason?: string | null;
+}
+
+export async function getDaemonHeartbeats(): Promise<DaemonHeartbeat[]> {
+  try {
+    const response = await apiGet<ApiResponse<DaemonHeartbeat[]>>('/daemon/heartbeats');
+    return response.data ?? [];
+  } catch {
+    return [];
+  }
+}

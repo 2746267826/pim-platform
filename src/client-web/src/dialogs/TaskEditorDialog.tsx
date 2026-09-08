@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useState, useRef, useEffect, useId, type FormEvent } from 'react';
 import { useMutation, useQueryClient, useQuery, type QueryClient } from '@tanstack/react-query';
 import { createTask, updateTask, deleteTask, getCalendars, getTaskBooks, addTaskChecklistItem, deleteTaskChecklistItem, updateTaskChecklistItem, taskToMutationData } from '../api/calendar';
@@ -297,7 +298,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 shrink-0">
           <h2 id={titleId} className="text-base font-semibold text-zinc-900">{task ? '编辑任务' : '新建任务'}</h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 p-1 rounded-lg hover:bg-zinc-100">
-            <i data-lucide="x" className="w-4 h-4"></i>
+            <X className="w-4 h-4" />
           </button>
         </header>
         <div className="overflow-y-auto max-h-[75vh] px-5 py-4 space-y-4">
@@ -460,7 +461,7 @@ function TaskEditorForm({ open, onClose, task, defaultDtStart }: Props) {
                     className="text-slate-400 hover:text-red-500 p-1 shrink-0"
                     title="删除"
                   >
-                    <i data-lucide="x" className="w-3.5 h-3.5"></i>
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}

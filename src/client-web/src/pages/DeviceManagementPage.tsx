@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getManagedDevices, renameDevice, previewMerge, mergeDevices, previewDeleteDevice, deleteDevice, exportDevice } from '../api/mobile';
@@ -77,7 +78,7 @@ function MergeConfirmDialog({
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
           <h2 id="merge-confirm-dialog-title" className="text-base font-semibold text-zinc-900">合并设备</h2>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600">
-            <i data-lucide="x" className="w-4 h-4"></i>
+            <X className="w-4 h-4" />
           </button>
         </header>
         <div className="overflow-y-auto max-h-[75vh] px-5 py-4 space-y-4">

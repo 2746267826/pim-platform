@@ -43,6 +43,26 @@ const statusLabels: Record<QuickNoteStatus, string> = {
   archived: '已归档',
 };
 
+const noteCategories = ['全部', '灵感', '学业', '开发', '运维', '生活'] as const;
+
+function extractNoteCategory(text?: string | null): string {
+  if (!text) return '闪念';
+  const match = text.match(/^\[(.*?)\]/) || text.match(/^#(.*?)\s/) || text.match(/^【(.*?)】/);
+  if (match && match[1]?.trim()) {
+    return match[1].trim();
+  }
+  for (const cat of ['灵感', '学业', '开发', '运维', '生活']) {
+    if (text.includes(cat)) return cat;
+  }
+  return '闪念';
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) return '未知时间';
   const parsed = new Date(value);
@@ -101,11 +121,23 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: No
   }, [open]);
 
   const [content, setContent] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('闪念');
   const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
   const [localAttachments, setLocalAttachments] = useState<QuickNoteAttachment[]>([]);
   const [isArchived, setIsArchived] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+
+  function handleCategoryChange(newCat: string) {
+    setSelectedCategory(newCat);
+    setContent(prev => {
+      const hasPrefix = /^\[.*?\]\s*/.test(prev);
+      if (hasPrefix) {
+        return prev.replace(/^\[.*?\]\s*/, `[${newCat}] `);
+      }
+      return `[${newCat}] ${prev}`;
+    });
+  }
 
   // Fetch detail for edit mode
   const detailQuery = useQuery({
@@ -120,6 +152,7 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: No
   useEffect(() => {
     if (mode === 'edit' && selected) {
       setContent(selected.contentMarkdown);
+      setSelectedCategory(extractNoteCategory(selected.contentMarkdown));
       setAttachmentIds(selected.attachments.map(a => a.id));
       setLocalAttachments(selected.attachments);
       setIsArchived(selected.status === 'archived');
@@ -130,6 +163,7 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: No
   useEffect(() => {
     if (open && mode === 'create') {
       setContent(initialContent ?? '');
+      setSelectedCategory(extractNoteCategory(initialContent));
       setAttachmentIds([]);
       setLocalAttachments([]);
       setIsArchived(false);
@@ -371,10 +405,7 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: No
     }
   }
 
-  function formatFileSize(bytes: number) {
-    if (bytes < 1024) return `${bytes}B`;
-    return `${(bytes / 1024).toFixed(0)}KB`;
-  }
+
 
   if (!open) return null;
 
@@ -419,6 +450,25 @@ function NoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: No
                 {editError}
               </div>
             )}
+
+            <div className="flex items-center justify-between gap-2 pb-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-zinc-500">记录分类：</span>
+                <select
+                  value={selectedCategory}
+                  onChange={e => handleCategoryChange(e.target.value)}
+                  className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-800 outline-none focus:border-zinc-400"
+                >
+                  <option value="灵感">💡 灵感</option>
+                  <option value="学业">🎓 学业</option>
+                  <option value="开发">💻 开发</option>
+                  <option value="运维">🛠️ 运维</option>
+                  <option value="生活">🌱 生活</option>
+                  <option value="闪念">📝 闪念</option>
+                </select>
+              </div>
+              <span className="text-[11px] text-zinc-400 font-mono">支持 Markdown 语法</span>
+            </div>
 
             <QuickNoteEditor value={content} onChange={setContent} minHeight={200} />
 
@@ -536,6 +586,7 @@ export default function QuickNotesPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<QuickNoteStatus | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('全部');
   const [search, setSearch] = useState('');
   const [searchParams] = useSearchParams();
   const prefill = searchParams.get('prefill') ?? searchParams.get('text') ?? '';
@@ -579,8 +630,10 @@ export default function QuickNotesPage() {
   });
 
   const notes = useMemo(
-    () => (listQuery.data?.items ?? []).filter(note => !deletedIds.has(note.id)),
-    [deletedIds, listQuery.data?.items],
+    () => (listQuery.data?.items ?? [])
+      .filter(note => !deletedIds.has(note.id))
+      .filter(note => categoryFilter === '全部' || extractNoteCategory(note.contentPreview) === categoryFilter),
+    [deletedIds, listQuery.data?.items, categoryFilter],
   );
 
   useEffect(() => {
@@ -659,14 +712,15 @@ export default function QuickNotesPage() {
       )}
 
       {/* Filters & Search */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-zinc-400 font-mono">状态:</span>
           {statusFilters.map(item => (
             <button
               key={item.key}
               type="button"
               onClick={() => setStatusFilter(item.key)}
-              className={`min-h-[36px] rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+              className={`min-h-[32px] rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
                 statusFilter === item.key
                   ? 'border-zinc-900 bg-zinc-900 text-white'
                   : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
@@ -688,6 +742,25 @@ export default function QuickNotesPage() {
         </label>
       </div>
 
+      {/* Category Pills Filter */}
+      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+        <span className="text-xs text-zinc-400 font-mono mr-1">分类:</span>
+        {noteCategories.map(cat => (
+          <button
+            key={cat}
+            type="button"
+            onClick={() => setCategoryFilter(cat)}
+            className={`min-h-[28px] rounded-lg border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+              categoryFilter === cat
+                ? 'border-amber-400 bg-amber-50 text-amber-900 font-semibold'
+                : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
       {/* Masonry Card List */}
       {listQuery.isLoading ? (
         <div className="py-10 text-center text-sm text-zinc-500">加载中...</div>
@@ -695,33 +768,59 @@ export default function QuickNotesPage() {
         <EmptyState title="没有快速记录" description="调整筛选或新建一条记录。" />
       ) : (
         <div className="columns-1 gap-4 sm:columns-2 lg:columns-3 xl:columns-4">
-          {notes.map(note => (
-            <div
-              key={note.id}
-              className="mb-4 break-inside-avoid cursor-pointer rounded-xl border border-zinc-200 bg-white shadow-card transition-shadow hover:shadow-subtle"
-              onClick={() => openEditDialog(note.id)}
-            >
-              <div className="p-4">
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <p className="line-clamp-3 min-w-0 text-sm leading-relaxed text-zinc-800">
-                    {noteTitle(note)}
-                  </p>
-                  <StatusBadge status={note.status} />
-                </div>
+          {notes.map(note => {
+            const cat = extractNoteCategory(note.contentPreview);
+            return (
+              <div
+                key={note.id}
+                className="mb-4 break-inside-avoid cursor-pointer rounded-xl border border-zinc-200 bg-white shadow-card transition-all hover:border-zinc-300 hover:shadow-subtle"
+                onClick={() => openEditDialog(note.id)}
+              >
+                <div className="p-4 flex flex-col justify-between">
+                  <div>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-amber-50 text-amber-700 border border-amber-200 font-mono">
+                        {cat}
+                      </span>
+                      <span className="text-[11px] text-zinc-400 font-mono">
+                        {formatDateTime(note.createdAt)}
+                      </span>
+                    </div>
 
-                <div className="text-xs text-zinc-400">
-                  {formatDateTime(note.createdAt)}
-                </div>
+                    <p className="line-clamp-4 min-w-0 text-xs leading-relaxed text-zinc-800">
+                      {noteTitle(note)}
+                    </p>
 
-                {note.attachmentCount > 0 && (
-                  <div className="mt-2 flex items-center gap-1.5 border-t border-zinc-100 pt-2 text-[10px] text-zinc-400">
-                    <Paperclip className="h-3 w-3" />
-                    <span>{note.attachmentCount} 个附件</span>
+                    {/* Attachments preview capsules */}
+                    {note.attachments && note.attachments.length > 0 ? (
+                      <div className="mt-3 pt-2 border-t border-zinc-100 flex flex-wrap gap-1.5">
+                        {note.attachments.map(att => (
+                          <span
+                            key={att.id}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-50 border border-zinc-200 text-[11px] text-zinc-600 font-mono"
+                          >
+                            <Paperclip className="h-3 w-3 text-zinc-400 shrink-0" />
+                            <span className="truncate max-w-[120px]">{att.fileName}</span>
+                            <span className="text-zinc-400 text-[10px]">({formatFileSize(att.sizeBytes)})</span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : note.attachmentCount > 0 ? (
+                      <div className="mt-3 pt-2 border-t border-zinc-100 flex items-center gap-1 text-[11px] text-zinc-400 font-mono">
+                        <Paperclip className="h-3 w-3" />
+                        <span>{note.attachmentCount} 个附件</span>
+                      </div>
+                    ) : null}
                   </div>
-                )}
+
+                  <div className="mt-3 pt-2 border-t border-zinc-50 text-[11px] text-zinc-400 flex justify-between items-center">
+                    <span>点击编辑</span>
+                    <StatusBadge status={note.status} />
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

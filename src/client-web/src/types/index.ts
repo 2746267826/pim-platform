@@ -1239,6 +1239,7 @@ export interface QuickNoteListItem {
   status: QuickNoteStatus;
   source: string;
   attachmentCount: number;
+  attachments?: QuickNoteAttachment[];
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;

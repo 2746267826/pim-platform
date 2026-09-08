@@ -1,13 +1,22 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   calendarApiPaths,
   getCalendarLayers,
   getOutlookSettings,
   getOutlookSyncBatches,
+  getTasksPaged,
+  updateTask,
+  getTaskBooks,
+  taskToMutationData,
 } from '../api/calendar';
+import { getPcSummary } from '../api/pcTracker';
 import { getPendingConfirmations, operationsApiPaths } from '../api/operations';
+import TaskEditorDialog from '../dialogs/TaskEditorDialog';
+import type { TaskMutationData } from '../api/calendar';
+import type { TaskResponse } from '../types';
+import { AlertCircle, RefreshCw, Monitor, Plus, CheckCircle2, Circle } from 'lucide-react';
 import PageHeader from '../ui/PageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
@@ -96,7 +105,43 @@ function DashboardMetric({ label, value, detail }: { label: string; value: strin
 export default function WorkbenchPage() {
   const [densityMode, setDensityMode] = useState<DensityMode>('standard');
   const [workbenchView, setWorkbenchView] = useState<WorkbenchView>('schedule');
+  const [taskEditorOpen, setTaskEditorOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<TaskResponse | undefined>();
+  const queryClient = useQueryClient();
   const range = useMemo(todayRange, []);
+  const todayStr = useMemo(() => range.start.split('T')[0], [range]);
+
+  const { data: tasksData, isLoading: tasksLoading } = useQuery({
+    queryKey: ['workbench-tasks'],
+    queryFn: () => getTasksPaged({ pageSize: 50 }),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const { data: taskBooks = [] } = useQuery({
+    queryKey: ['workbench-task-books'],
+    queryFn: () => getTaskBooks(),
+  });
+
+  const taskBookMap = useMemo(() => {
+    return new Map(taskBooks.map(b => [b.id, b.name]));
+  }, [taskBooks]);
+
+  const { data: pcSummary } = useQuery({
+    queryKey: ['workbench-pc-summary', todayStr],
+    queryFn: () => getPcSummary(todayStr),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const toggleTaskMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: TaskMutationData }) => updateTask(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workbench-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks-paged'] });
+    },
+  });
+
+  const tasksList = tasksData?.items ?? [];
 
   const { data: layerData, isLoading: layersLoading } = useQuery({
     queryKey: ['workbench-calendar-layers', range.start, range.end],
@@ -194,109 +239,241 @@ export default function WorkbenchPage() {
         )}
       </section>
 
-      <div className="grid grid-cols-1 gap-4 items-start lg:grid-cols-2 xl:grid-cols-3">
-        <section className="pim-panel min-w-0 p-4 xl:col-span-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-950">日程图层</h2>
-              <p className="mt-1 text-xs text-slate-500">今日范围：{formatDateTime(range.start)} 至 {formatDateTime(range.end)}</p>
+      {/* 日程图层概览 */}
+      <section className="pim-panel min-w-0 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-950">日程图层</h2>
+            <p className="mt-1 text-xs text-slate-500">今日范围：{formatDateTime(range.start)} 至 {formatDateTime(range.end)}</p>
+          </div>
+          <Link to="/calendar" className="pim-button-secondary inline-flex min-h-[38px] items-center px-3 py-1.5 text-sm">
+            打开日历
+          </Link>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {dashboardLayers.map(layer => (
+            <div key={layer} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <p className="truncate text-xs font-semibold text-slate-700">{layerLabels[layer]}</p>
+              <p className="mt-1 text-lg font-semibold text-slate-950">{layerCounts.get(layer) ?? 0}</p>
             </div>
-            <Link to="/calendar" className="pim-button-secondary inline-flex min-h-[44px] items-center px-3 py-1.5 text-sm">
-              打开日历
-            </Link>
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {dashboardLayers.map(layer => (
-              <div key={layer} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                <p className="truncate text-xs font-semibold text-slate-700">{layerLabels[layer]}</p>
-                <p className="mt-1 text-lg font-semibold text-slate-950">{layerCounts.get(layer) ?? 0}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+          ))}
+        </div>
+      </section>
 
-        <section className="pim-panel min-w-0 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-950">待确认操作</h2>
-            <Link to="/confirmations" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-              查看全部
-            </Link>
-          </div>
-          <div className="mt-3 space-y-2">
-            {confirmations.slice(0, compact ? 3 : 5).map(item => (
-              <Link
-                key={item.id}
-                to="/confirmations"
-                className="block rounded-lg border border-slate-200 bg-white px-3 py-2 transition-colors hover:border-blue-200 hover:bg-blue-50"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 truncate text-sm font-medium text-slate-800">{item.summary}</p>
-                  <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                    {item.riskLevel}
-                  </span>
+      {/* 核心工作台两列独立布局 (针对 #192 卡片强制拉伸超长) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* 左侧列：待确认、微软同步、PC概览 (紧凑自适应堆叠，绝不被右侧拉伸留白) */}
+        <div className="lg:col-span-5 space-y-4">
+          {/* 卡片 A：待确认操作 */}
+          <div className="p-4 rounded-xl border border-zinc-200 bg-white shadow-xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-xs text-zinc-800 flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                <span>待确认操作 (Pending Confirmations)</span>
+              </span>
+              <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full font-mono">
+                {confirmations.length} 条待处理
+              </span>
+            </div>
+            {confirmations.length > 0 ? (
+              <div className="space-y-2 mt-2">
+                {confirmations.slice(0, compact ? 2 : 3).map(item => (
+                  <Link
+                    key={item.id}
+                    to="/confirmations"
+                    className="block rounded-lg border border-zinc-100 bg-zinc-50/50 p-2.5 transition-colors hover:border-blue-200 hover:bg-blue-50/40"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 truncate text-xs font-medium text-zinc-800">{item.summary}</p>
+                      <span className="shrink-0 rounded bg-amber-100/70 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 font-mono">
+                        {item.riskLevel}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-[11px] text-zinc-500">{item.source} · {item.operationType}</p>
+                  </Link>
+                ))}
+                <div className="pt-1">
+                  <Link to="/confirmations" className="text-xs text-blue-600 hover:underline font-medium">
+                    前往核验队列 ({confirmations.length}) →
+                  </Link>
                 </div>
-                <p className="mt-1 truncate text-xs text-slate-500">{item.source} / {item.operationType}</p>
-              </Link>
-            ))}
-            {confirmations.length === 0 && (
-              <p className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
-                暂无待确认操作。
-              </p>
-            )}
-          </div>
-        </section>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 items-start lg:grid-cols-2 xl:grid-cols-3">
-        <section className="pim-panel min-w-0 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-950">微软日历同步</h2>
-            <Link to="/settings/sync" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-              配置
-            </Link>
-          </div>
-          <dl className="mt-3 grid grid-cols-1 gap-2 text-sm">
-            <div className="rounded-lg bg-slate-50 px-3 py-2">
-              <dt className="text-xs text-slate-400">提供方</dt>
-              <dd className="font-medium text-slate-800">{formatProvider(settings?.provider)}</dd>
-            </div>
-            <div className="rounded-lg bg-slate-50 px-3 py-2">
-              <dt className="text-xs text-slate-400">最近同步</dt>
-              <dd className="font-medium text-slate-800">{formatDateTime(settings?.lastSyncedAt)}</dd>
-            </div>
-            {settings?.lastError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700">
-                <dt className="text-xs font-semibold">最近错误</dt>
-                <dd className="mt-1 text-sm">{settings.lastError}</dd>
               </div>
+            ) : (
+              <p className="text-xs text-zinc-500 mt-2 py-2">暂无待核验的外部操作或异常变更。</p>
             )}
-          </dl>
-        </section>
-
-        <section className="pim-panel min-w-0 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-950">提醒</h2>
-            <Link to="/reminders" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-              打开
-            </Link>
           </div>
-          <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
-            配置提醒规则后，这里会显示触发规则和发送队列。
-          </p>
-        </section>
 
-        <section className="pim-panel min-w-0 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-950">报告</h2>
-            <Link to="/reports" className="text-xs font-semibold text-blue-600 hover:text-blue-700">
-              打开
-            </Link>
+          {/* 卡片 B：微软日历同步状态 */}
+          <div className="p-4 rounded-xl border border-zinc-200 bg-white shadow-xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-xs text-zinc-800 flex items-center gap-1.5">
+                <RefreshCw className="w-4 h-4 text-blue-500" />
+                <span>Microsoft Outlook 同步</span>
+              </span>
+              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-full font-mono">
+                {formatStatus(settings?.status)}
+              </span>
+            </div>
+            <div className="text-xs text-zinc-600 space-y-1.5 font-mono pt-1">
+              <div className="flex justify-between">
+                <span className="text-zinc-400 font-sans">上次同步:</span>
+                <span className="text-zinc-700">{formatDateTime(settings?.lastSyncedAt)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400 font-sans">服务状态:</span>
+                <span className="text-zinc-700">{formatProvider(settings?.provider)} ({formatStatus(settings?.tokenHealth)})</span>
+              </div>
+              {settings?.lastError && (
+                <div className="mt-1 text-[11px] text-red-600 font-sans bg-red-50 p-1.5 rounded border border-red-100">
+                  {settings.lastError}
+                </div>
+              )}
+            </div>
+            <div className="mt-3 pt-2 border-t border-zinc-100 flex justify-end">
+              <Link to="/settings/sync" className="text-xs text-blue-600 hover:underline font-medium font-sans">
+                配置同步设置 →
+              </Link>
+            </div>
           </div>
-          <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
-            有报告数据后，这里会显示导出记录和报告运行情况。
-          </p>
-        </section>
+
+          {/* 卡片 C：PC 活跃状态概览 */}
+          <div className="p-4 rounded-xl border border-zinc-200 bg-white shadow-xs">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-xs text-zinc-800 flex items-center gap-1.5">
+                <Monitor className="w-4 h-4 text-indigo-500" />
+                <span>PC 记录概览</span>
+              </span>
+              <Link to="/pc-records" className="text-xs text-blue-600 hover:underline cursor-pointer">
+                查看详情 →
+              </Link>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center pt-1 font-mono text-xs">
+              <div className="p-2 bg-zinc-50 rounded-lg border border-zinc-100">
+                <div className="text-zinc-400 text-[10px] font-sans">今日键盘输入</div>
+                <div className="font-bold text-zinc-900 text-sm mt-0.5">
+                  {pcSummary?.keystats?.keyPresses ? pcSummary.keystats.keyPresses.toLocaleString() : '—'}
+                </div>
+              </div>
+              <div className="p-2 bg-zinc-50 rounded-lg border border-zinc-100">
+                <div className="text-zinc-400 text-[10px] font-sans">专注应用</div>
+                <div className="font-bold text-emerald-600 text-sm mt-0.5 truncate" title={pcSummary?.metrics?.mostFocusedApp || '—'}>
+                  {pcSummary?.metrics?.mostFocusedApp || '—'}
+                </div>
+              </div>
+              <div className="p-2 bg-zinc-50 rounded-lg border border-zinc-100">
+                <div className="text-zinc-400 text-[10px] font-sans">活跃时长</div>
+                <div className="font-bold text-zinc-900 text-sm mt-0.5 truncate">
+                  {pcSummary?.metrics?.activeInputDuration || (pcSummary?.heatmap
+                    ? `${(pcSummary.heatmap.reduce((acc, h) => acc + (h.activeMinutes || 0), 0) / 60).toFixed(1)}h`
+                    : '—')}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 右侧列：待办任务列表 (设置 max-h-[520px] 内部独立滚动，再多任务也不会把整页撑炸) */}
+        <div className="lg:col-span-7">
+          <div className="rounded-xl border border-zinc-200 bg-white shadow-xs overflow-hidden">
+            <div className="px-4 py-3 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/70">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-xs text-zinc-800">待办任务 (Tasks · 独立滚动容器)</span>
+                <span className="text-[10px] bg-zinc-200/80 text-zinc-700 px-1.5 py-0.5 rounded-full font-mono font-semibold">
+                  {tasksList.length} 项
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setSelectedTask(undefined); setTaskEditorOpen(true); }}
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 hover:underline"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>添加任务</span>
+              </button>
+            </div>
+
+            {/* 限制最大高度并内置独立滚动条 */}
+            <div className="max-h-[520px] overflow-y-auto divide-y divide-zinc-100">
+              {tasksLoading && (
+                <div className="p-6 text-center text-xs text-zinc-400">正在加载待办任务...</div>
+              )}
+              {!tasksLoading && tasksList.length === 0 && (
+                <div className="p-8 text-center text-xs text-zinc-400">
+                  暂无待办任务。点击右上角「添加任务」创建。
+                </div>
+              )}
+              {tasksList.map(task => {
+                const isCompleted = task.status === 'COMPLETED';
+                const bookName = task.calendarId ? taskBookMap.get(task.calendarId) : undefined;
+                return (
+                  <div
+                    key={task.id}
+                    onClick={() => { setSelectedTask(task); setTaskEditorOpen(true); }}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-50/80 transition-colors cursor-pointer group"
+                  >
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        toggleTaskMutation.mutate({
+                          id: task.id,
+                          data: taskToMutationData(task, {
+                            status: isCompleted ? 'NEEDS-ACTION' : 'COMPLETED',
+                          }),
+                        });
+                      }}
+                      className="shrink-0 text-zinc-400 hover:text-blue-600 transition-colors"
+                      title={isCompleted ? '标为未完成' : '标为完成'}
+                    >
+                      {isCompleted ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Circle className="w-4 h-4" />
+                      )}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium truncate group-hover:text-blue-600 ${isCompleted ? 'line-through text-zinc-400' : 'text-zinc-900'}`}>
+                          {task.title}
+                        </span>
+                        {task.priority !== undefined && task.priority !== null && task.priority > 0 && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-mono">
+                            P{task.priority}
+                          </span>
+                        )}
+                        {bookName && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 font-mono truncate max-w-[100px]">
+                            {bookName}
+                          </span>
+                        )}
+                      </div>
+                      {task.description && (
+                        <p className="text-xs text-zinc-400 truncate mt-0.5">{task.description}</p>
+                      )}
+                    </div>
+                    {task.due && (
+                      <div className="text-xs font-mono text-zinc-400 shrink-0">
+                        {task.due.split('T')[0]}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="px-4 py-2 border-t border-zinc-100 bg-zinc-50/50 text-[11px] text-zinc-400 flex justify-between items-center">
+              <span>💡 容器内部独立滚动，右侧再长也不影响左侧卡片紧凑排布</span>
+              <span className="font-mono">共 {tasksList.length} 项</span>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <TaskEditorDialog
+        open={taskEditorOpen}
+        onClose={() => { setTaskEditorOpen(false); setSelectedTask(undefined); }}
+        task={selectedTask}
+      />
 
       <section className="pim-panel p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">

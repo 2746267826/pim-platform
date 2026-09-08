@@ -71,6 +71,17 @@ public class QuickNoteService
                 note.ContentMarkdown,
                 note.Status,
                 note.Source,
+                Attachments = note.Attachments
+                    .Where(attachment => attachment.DeletedAt == null)
+                    .Select(a => new QuickNoteAttachmentDto(
+                        a.Id,
+                        a.FileName,
+                        a.ContentType,
+                        a.SizeBytes,
+                        a.DownloadUrl,
+                        a.PreviewUrl,
+                        a.CreatedAt))
+                    .ToList(),
                 AttachmentCount = note.Attachments.Count(attachment => attachment.DeletedAt == null),
                 note.CreatedAt,
                 note.UpdatedAt,
@@ -87,7 +98,8 @@ public class QuickNoteService
                 note.AttachmentCount,
                 note.CreatedAt,
                 note.UpdatedAt,
-                note.ArchivedAt))
+                note.ArchivedAt,
+                note.Attachments))
             .ToList();
 
         return new PagedResult<QuickNoteListItemDto>(items, page, pageSize, totalCount, totalPages);

@@ -62,31 +62,10 @@ public class QuickNoteService
 
         var entities = await notes
             .AsNoTracking()
+            .Include(note => note.Attachments)
             .OrderByDescending(note => note.UpdatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(note => new
-            {
-                note.Id,
-                note.ContentMarkdown,
-                note.Status,
-                note.Source,
-                Attachments = note.Attachments
-                    .Where(attachment => attachment.DeletedAt == null)
-                    .Select(a => new QuickNoteAttachmentDto(
-                        a.Id,
-                        a.FileName,
-                        a.ContentType,
-                        a.SizeBytes,
-                        a.DownloadUrl,
-                        a.PreviewUrl,
-                        a.CreatedAt))
-                    .ToList(),
-                AttachmentCount = note.Attachments.Count(attachment => attachment.DeletedAt == null),
-                note.CreatedAt,
-                note.UpdatedAt,
-                note.ArchivedAt
-            })
             .ToListAsync(ct);
 
         var items = entities
@@ -95,11 +74,15 @@ public class QuickNoteService
                 BuildPreview(note.ContentMarkdown),
                 note.Status,
                 note.Source,
-                note.AttachmentCount,
+                note.Attachments.Count(attachment => attachment.DeletedAt == null),
                 note.CreatedAt,
                 note.UpdatedAt,
                 note.ArchivedAt,
-                note.Attachments))
+                note.Attachments
+                    .Where(attachment => attachment.DeletedAt == null)
+                    .OrderBy(attachment => attachment.CreatedAt)
+                    .Select(MapAttachment)
+                    .ToList()))
             .ToList();
 
         return new PagedResult<QuickNoteListItemDto>(items, page, pageSize, totalCount, totalPages);

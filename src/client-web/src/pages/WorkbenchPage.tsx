@@ -269,7 +269,7 @@ export default function WorkbenchPage() {
             <div className="flex items-center justify-between mb-2">
               <span className="font-semibold text-xs text-zinc-800 flex items-center gap-1.5">
                 <AlertCircle className="w-4 h-4 text-amber-500" />
-                <span>待确认操作 (Pending Confirmations)</span>
+                <span>待确认操作</span>
               </span>
               <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full font-mono">
                 {confirmations.length} 条待处理
@@ -356,8 +356,8 @@ export default function WorkbenchPage() {
               </div>
               <div className="p-2 bg-zinc-50 rounded-lg border border-zinc-100">
                 <div className="text-zinc-400 text-[10px] font-sans">专注应用</div>
-                <div className="font-bold text-emerald-600 text-sm mt-0.5 truncate" title={pcSummary?.metrics?.mostFocusedApp || '—'}>
-                  {pcSummary?.metrics?.mostFocusedApp || '—'}
+                <div className="font-bold text-emerald-600 text-sm mt-0.5 truncate" title={pcSummary?.appRanking?.[0]?.displayName || pcSummary?.appRanking?.[0]?.appName || '—'}>
+                  {pcSummary?.appRanking?.[0]?.displayName || pcSummary?.appRanking?.[0]?.appName || '—'}
                 </div>
               </div>
               <div className="p-2 bg-zinc-50 rounded-lg border border-zinc-100">

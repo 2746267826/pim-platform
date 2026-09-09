@@ -10,7 +10,7 @@ using Pim.Module.Mobile.Entities;
 using Pim.Module.QuickNotes.Entities;
 using Xunit;
 
-namespace Pim.UnitTests.Infrastructure;
+namespace Pim.UnitTests.DataIsolation;
 
 /// <summary>
 /// 集中式数据隔离测试：IUserOwnedEntity 全局查询过滤器的行为与完整性防护。

@@ -45,7 +45,7 @@ public sealed class MetricsRefreshService(
         }
     }
 
-    internal async Task RefreshOnceAsync(CancellationToken ct)
+    public async Task RefreshOnceAsync(CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<PimDbContext>();

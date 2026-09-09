@@ -31,21 +31,25 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {
             var ex = args.ExceptionObject as Exception;
-            Logger.Error("UnhandledException", ex);
-            BootstrapLog.Write($"UnhandledException: {Describe(ex)}");
+            var detail = Describe(ex);
+            // 守住不变量：Serilog 挂了至少写 bootstrap
+            BootstrapLog.Write($"UnhandledException: {detail}");
+            try { Logger.Error("UnhandledException", ex); } catch { }
         };
 
         TaskScheduler.UnobservedTaskException += (_, args) =>
         {
-            Logger.Error("UnobservedTaskException", args.Exception);
-            BootstrapLog.Write($"UnobservedTaskException: {Describe(args.Exception)}");
+            var detail = Describe(args.Exception);
+            BootstrapLog.Write($"UnobservedTaskException: {detail}");
+            try { Logger.Error("UnobservedTaskException", args.Exception); } catch { }
             args.SetObserved();
         };
 
         app.DispatcherUnhandledException += (_, args) =>
         {
-            Logger.Error("DispatcherUnhandledException (swallowed, continuing)", args.Exception);
-            BootstrapLog.Write($"DispatcherUnhandledException (swallowed, continuing): {Describe(args.Exception)}");
+            var detail = Describe(args.Exception);
+            BootstrapLog.Write($"DispatcherUnhandledException (swallowed, continuing): {detail}");
+            try { Logger.Error("DispatcherUnhandledException (swallowed, continuing)", args.Exception); } catch { }
             args.Handled = true;
         };
     }
@@ -54,13 +58,12 @@ public partial class App : Application
 
     protected override async void OnStartup(StartupEventArgs e)
     {
-        BootstrapLog.Write("OnStartup entered");
-
-        Logger.Initialize();
-        BootstrapLog.Write("Logger initialized");
-
         try
         {
+            BootstrapLog.Write("OnStartup entered");
+            Logger.Initialize();
+            BootstrapLog.Write("Logger initialized");
+
             Logger.Info("Daemon starting");
             Services = Pim.Client.App.Startup.ConfigureServices();
             Logger.Info("DI configured");
@@ -378,20 +381,28 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        // 先停心跳并等待在途心跳结束（避免在途心跳清掉 planned 标记），再上报；Cancel 幂等，多次调用安全。
-        StopHeartbeatLoopAndWait();
-        TryReportPlannedOffline("exit", wait: true);
-        try { Services.GetService<NativeTrackerService>()?.Stop(); } catch { }
-        try { Services.GetService<BrowserBridgeService>()?.Stop(); } catch { }
-        _heartbeatTimer.Dispose();
-        _heartbeatTask?.ContinueWith(
-            task => Logger.Warn($"Daemon heartbeat loop faulted: {task.Exception?.GetBaseException().Message ?? "unknown error"}"),
-            TaskContinuationOptions.OnlyOnFaulted);
-        _shutdown.Dispose();
-        _trayIcon?.Dispose();
-        Logger.Info("Daemon exiting");
-        BootstrapLog.Write($"Daemon exiting (ExitCode={e.ApplicationExitCode})");
-        base.OnExit(e);
+        try
+        {
+            // 先停心跳并等待在途心跳结束（避免在途心跳清掉 planned 标记），再上报；Cancel 幂等，多次调用安全。
+            StopHeartbeatLoopAndWait();
+            TryReportPlannedOffline("exit", wait: true);
+            try { Services.GetService<NativeTrackerService>()?.Stop(); } catch { }
+            try { Services.GetService<BrowserBridgeService>()?.Stop(); } catch { }
+            _heartbeatTimer.Dispose();
+            _heartbeatTask?.ContinueWith(
+                task => Logger.Warn($"Daemon heartbeat loop faulted: {task.Exception?.GetBaseException().Message ?? "unknown error"}"),
+                TaskContinuationOptions.OnlyOnFaulted);
+            _shutdown.Dispose();
+            _trayIcon?.Dispose();
+        }
+        finally
+        {
+            // 即便上面清理抛错，也必须保证退出埋点与 base.OnExit 必然执行
+            Logger.Info("Daemon exiting");
+            BootstrapLog.Write($"Daemon exiting (ExitCode={e.ApplicationExitCode})");
+            Logger.Shutdown();
+            base.OnExit(e);
+        }
     }
 
     private void StopHeartbeatLoopAndWait()

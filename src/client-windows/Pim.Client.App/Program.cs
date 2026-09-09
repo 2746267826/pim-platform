@@ -41,15 +41,21 @@ internal static class Program
         // D2：尽早安装全局崩溃钩子（AppDomain / TaskScheduler / Dispatcher），须在 Run 之前。
         App.InstallExceptionHooks(app);
 
-        app.InitializeComponent();
         try
         {
+            app.InitializeComponent();
             app.Run();
         }
         catch (Exception ex)
         {
+            // 覆盖资源加载 / WPF 运行期未捕获异常（放进 try 前已注册 AppDomain 钩子也会兜底）
             BootstrapLog.Write($"Unhandled exception in WPF run loop: {ex}");
             throw;
+        }
+        finally
+        {
+            // 退出后落盘剩余日志
+            Logger.Shutdown();
         }
     }
 }

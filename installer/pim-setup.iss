@@ -55,6 +55,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[Dirs]
+; 预创建 WER 崩溃转储目录，避免全新机器上目录缺失导致 WER 静默丢弃转储
+Name: "{commonappdata}\PIM\dumps"
+
 [Icons]
 Name: "{group}\PIM 守护程序"; Filename: "{app}\Pim.Client.App.exe"; IconFilename: "{app}\Pim.Client.App.exe"
 Name: "{group}\PIM Shell"; Filename: "{app}\Pim.Shell.App.exe"; IconFilename: "{app}\Pim.Shell.App.exe"

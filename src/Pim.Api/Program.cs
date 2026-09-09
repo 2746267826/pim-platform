@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Pim.Api;
 using Pim.Api.Endpoints;
+using Pim.Api.Health;
 using Pim.Api.Infrastructure;
 using Pim.Api.Infrastructure.Ops;
 using Pim.Api.Middleware;
@@ -13,8 +14,10 @@ using Pim.Api.Today;
 using Pim.Core.Caching;
 using Pim.Core.Today;
 using Pim.Infrastructure.Extensions;
+using Pim.Infrastructure.Metrics;
 using Pim.Infrastructure.Operations;
 using Pim.Module.Mcp.Services;
+using Prometheus;
 using Serilog;
 using Serilog.Formatting.Compact;
 
@@ -22,7 +25,16 @@ using Serilog.Formatting.Compact;
 // protocol, so console logs must go to stderr (serilog text writer sink) in that mode.
 var isMcpStdio = args.Contains("--mcp-stdio", StringComparer.Ordinal);
 
-Log.Logger = new LoggerConfiguration()
+// 可选 Loki 日志聚合：设置 LOKI_URL（如 http://loki:3100）即启用，未设置时仅文件 + 控制台
+var lokiUrl = Environment.GetEnvironmentVariable("LOKI_URL")
+    ?? Environment.GetEnvironmentVariable("Loki__Url");
+
+static Serilog.LoggerConfiguration WithLoki(Serilog.LoggerConfiguration cfg, string? url)
+    => string.IsNullOrWhiteSpace(url)
+        ? cfg
+        : cfg.WriteTo.GrafanaLoki(url, [new Serilog.Sinks.Grafana.Loki.LokiLabel("app", "pim-api")]);
+
+Log.Logger = WithLoki(new LoggerConfiguration()
     .MinimumLevel.Debug()
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Service", "pim-api")
@@ -30,7 +42,7 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.File(new CompactJsonFormatter(), "/data/pim/logs/pim-api-.jsonl",
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: LoggingConfig.ResolveRetainedFileCount(
-            Environment.GetEnvironmentVariable("PIM_LOG_RETAINED_FILES")))
+            Environment.GetEnvironmentVariable("PIM_LOG_RETAINED_FILES"))), lokiUrl)
     .CreateLogger();
 
 if (isMcpStdio)
@@ -38,7 +50,7 @@ if (isMcpStdio)
     // stdio mode: stdout carries ONLY the MCP protocol. Swap the console sink to stderr
     // (the file sink above remains for ops forensics).
     Log.CloseAndFlush();
-    Log.Logger = new LoggerConfiguration()
+    Log.Logger = WithLoki(new LoggerConfiguration()
         .MinimumLevel.Debug()
         .Enrich.FromLogContext()
         .Enrich.WithProperty("Service", "pim-api")
@@ -46,12 +58,16 @@ if (isMcpStdio)
         .WriteTo.File(new CompactJsonFormatter(), "/data/pim/logs/pim-api-.jsonl",
             rollingInterval: RollingInterval.Day,
             retainedFileCountLimit: LoggingConfig.ResolveRetainedFileCount(
-                Environment.GetEnvironmentVariable("PIM_LOG_RETAINED_FILES")))
+                Environment.GetEnvironmentVariable("PIM_LOG_RETAINED_FILES"))), lokiUrl)
         .CreateLogger();
 }
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog();
+
+// Observability: health checks + metrics refresh
+builder.Services.AddPimHealthChecks(builder.Configuration);
+builder.Services.AddHostedService<Pim.Infrastructure.Metrics.MetricsRefreshService>();
 
 // Infrastructure
 builder.Services.AddPimInfrastructure(builder.Configuration);
@@ -184,6 +200,7 @@ app.UseSerilogRequestLogging(options =>
 });
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseCors();
+app.UseHttpMetrics();
 app.UseAuthentication();
 app.UseMiddleware<OpsRateLimitMiddleware>();
 app.UseMiddleware<OpsKeyMiddleware>();
@@ -240,6 +257,39 @@ catch (Exception ex)
 
 // Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTimeOffset.UtcNow })).AllowAnonymous();
+
+// Liveness（进程存活）与 Readiness（依赖可用；可选依赖仅 Degraded）
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => false
+}).AllowAnonymous();
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains("ready"),
+    ResponseWriter = Pim.Api.Health.PimHealthChecks.WriteReadyResponse
+}).AllowAnonymous();
+
+// Prometheus 指标端点：admin JWT 或 OpsKey（X-PIM-Ops-Key / Bearer）鉴权，不公开
+app.MapMetrics("/metrics").AddEndpointFilter(async (context, next) =>
+{
+    var http = context.HttpContext;
+    if (http.User.IsInRole("admin"))
+        return await next(context);
+
+    var cfg = http.RequestServices.GetRequiredService<IConfiguration>();
+    var validator = new OpsKeyValidator(cfg["PIM_OPS_KEY"] ?? cfg["Ops:Key"]);
+    var key = http.Request.Headers["X-PIM-Ops-Key"].FirstOrDefault();
+    if (string.IsNullOrWhiteSpace(key))
+    {
+        var auth = http.Request.Headers.Authorization.FirstOrDefault();
+        if (auth?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true)
+            key = auth["Bearer ".Length..];
+    }
+    if (validator.HasKeys && validator.IsValid(key))
+        return await next(context);
+
+    return Results.Json(new { code = 40101, message = "MetricsAuthRequired" }, statusCode: 401);
+});
 
 // Ops endpoints
 app.MapOpsLogsEndpoints();

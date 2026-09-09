@@ -27,7 +27,8 @@ public static class Logger
                 new CompactJsonFormatter(),
                 logFile,
                 rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 30)
+                retainedFileCountLimit: 30,
+                flushToDiskInterval: TimeSpan.FromSeconds(1))
             .CreateLogger();
     }
 

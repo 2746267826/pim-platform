@@ -70,6 +70,8 @@ const
   LegacyTask = 'PimKeyStats';
   DotNetDownloadUrl = 'https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64';
   RunKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
+  WerDumpsKey = 'SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\Pim.Client.App.exe';
+  WerDumpsDir = '{commonappdata}\PIM\dumps';
 
 var
   DeleteUserDataOnUninstall: Boolean;
@@ -314,6 +316,15 @@ begin
   end;
 end;
 
+procedure RegisterWerDumps();
+begin
+  // WER LocalDumps：为 Pim.Client.App.exe 崩溃时在本机落完整转储（DumpType=2 full），保留最近 10 份；幂等。
+  // 存放于 {commonappdata}\PIM\dumps（即 C:\ProgramData\PIM\dumps）。仅对 Daemon 注册，KeyStats/Shell 不注册。
+  RegWriteStringValue(HKLM, WerDumpsKey, 'DumpFolder', ExpandConstant(WerDumpsDir));
+  RegWriteDWordValue(HKLM, WerDumpsKey, 'DumpType', 2);
+  RegWriteDWordValue(HKLM, WerDumpsKey, 'DumpCount', 10);
+end;
+
 procedure RemovePimTasks();
 var
   ResultCode: Integer;
@@ -330,6 +341,7 @@ begin
   if CurStep = ssPostInstall then
   begin
     CreatePimTasks();
+    RegisterWerDumps();
     // 版本比对：若旧版已安装且当前为旧版覆盖新版，提示用户确认（Inno 默认已处理 AppVersion，但我们额外日志）
     // Inno 的 AppVersion 覆盖逻辑由 [Setup] AppVersion 控制，此处不额外阻断
   end;
@@ -345,6 +357,9 @@ begin
     KillPimProcesses();
     RemovePimTasks();
     CleanLegacyRunEntries();
+    // 卸载清理 WER LocalDumps 注册与已产生的崩溃转储目录
+    RegDeleteKeyIncludingSubkeys(HKLM, WerDumpsKey);
+    DelTree(ExpandConstant(WerDumpsDir), True, True, True);
   end;
   if CurUninstallStep = usPostUninstall then
   begin

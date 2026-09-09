@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { CalendarVisibilityProvider } from '../context/CalendarVisibilityContext';
 import QuickNoteFloatingButton from '../components/quick-notes/QuickNoteFloatingButton';
 import Sidebar from './Sidebar';
-import MobileNav from './MobileNav';
+import { NAV_ITEMS } from './navItems';
 import InboxPanel from '../panels/InboxPanel';
 import TodayPage from '../pages/TodayPage';
 import CalendarPage from '../pages/CalendarPage';
@@ -40,6 +40,7 @@ const HabitsPage = lazy(() => import('../pages/HabitsPage'));
 const AuditTimelinePage = lazy(() => import('../pages/AuditTimelinePage'));
 const EndpointShellPage = lazy(() => import('../pages/EndpointShellPage'));
 const ExhibitionPage = lazy(() => import('../pages/ExhibitionPage'));
+const AdminUsersPage = lazy(() => import('../pages/AdminUsersPage'));
 
 function SuspenseFallback() {
   return <div className="h-full" aria-busy="true" />;
@@ -49,19 +50,43 @@ export default function AppLayout() {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
   const [quickNoteOpen, setQuickNoteOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+
+  const currentNavItem = NAV_ITEMS.find(
+    (item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
+  );
+  const pageTitle = currentNavItem?.label ?? '个人中枢';
 
   const showCalendarInbox = location.pathname === '/calendar' || location.pathname.startsWith('/calendar/');
   const { localVersion, serverVersion, latestVersion, hasUpdate } = useVersionInfo();
 
   return (
     <CalendarVisibilityProvider>
-      <div className="pim-shell h-screen flex overflow-hidden">
-        <Sidebar />
-        <main className="pim-route-surface flex-1 overflow-auto p-4 pb-20 md:pb-4">
+      <div className="pim-shell h-screen flex flex-col md:flex-row overflow-hidden">
+        {/* Mobile Top Header */}
+        <header className="flex h-12 shrink-0 items-center justify-between border-b border-slate-200/80 bg-white/95 px-3 backdrop-blur-sm md:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+            aria-label="打开主菜单"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-800">{pageTitle}</span>
+          </div>
+          <div className="w-9" aria-hidden="true" />
+        </header>
+
+        <Sidebar mobileOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+        <main className="pim-route-surface flex-1 min-w-0 min-h-0 h-full overflow-y-auto p-4">
           <ErrorBoundary key={location.pathname} resetKeys={[location.pathname]}>
             <Suspense fallback={<SuspenseFallback />}>
               <Routes>
@@ -96,6 +121,7 @@ export default function AppLayout() {
                 <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
                 <Route path="/settings/recycle-bin" element={<RecycleBinPage />} />
                 <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />
+                <Route path="/settings/users" element={<AdminUsersPage />} />
                 <Route path="/app-knowledge-base" element={<AppKnowledgeBasePage />} />
                 <Route path="/app-knowledge-base/categories" element={<CategoryTreePage />} />
                 <Route path="/pc-categories" element={<Navigate to="/app-knowledge-base/categories" replace />} />
@@ -115,7 +141,6 @@ export default function AppLayout() {
             <QuickNoteFloatingPanel onClose={() => setQuickNoteOpen(false)} />
           </Suspense>
         )}
-        <MobileNav />
       </div>
     </CalendarVisibilityProvider>
   );

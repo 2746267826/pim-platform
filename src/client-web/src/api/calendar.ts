@@ -51,11 +51,13 @@ import type {
 
 export type TaskMutationData = {
   calendarId?: string;
+  taskBookId?: string;
   title: string;
   description?: string;
   priority: number;
   estimatedDuration?: string;
   minimumSegment?: string;
+  percentComplete?: number;
   dtStart?: string;
   plannedEnd?: string;
   due?: string;
@@ -160,6 +162,9 @@ export const calendarApiPaths = {
   },
   taskChecklist(id: string) {
     return `/calendar/tasks/${encodeURIComponent(id)}/checklist`;
+  },
+  taskChecklistItem(taskId: string, itemId: string) {
+    return `/calendar/tasks/${encodeURIComponent(taskId)}/checklist/${encodeURIComponent(itemId)}`;
   },
   habits() {
     return '/calendar/habits';
@@ -373,11 +378,13 @@ export async function moveTask(id: string, data: { scheduledStart?: string; dura
 export function taskToMutationData(task: TaskResponse, overrides: Partial<TaskMutationData> = {}): TaskMutationData {
   return {
     calendarId: task.calendarId,
+    taskBookId: task.taskBookId,
     title: task.title,
     description: task.description,
     priority: task.priority,
     estimatedDuration: task.estimatedDuration,
     minimumSegment: task.minimumSegment,
+    percentComplete: task.percentComplete,
     dtStart: task.dtStart,
     plannedEnd: task.plannedEnd,
     due: task.due,
@@ -535,6 +542,22 @@ export async function createTaskBook(data: CreateTaskBookRequest) {
 export async function addTaskChecklistItem(taskId: string, data: AddTaskChecklistItemRequest) {
   const r = await apiPost<ApiResponse<TaskChecklistItem>>(
     calendarApiPaths.taskChecklist(taskId),
+    data
+  );
+  return r.data;
+}
+
+export async function deleteTaskChecklistItem(taskId: string, itemId: string) {
+  await apiDelete(calendarApiPaths.taskChecklistItem(taskId, itemId));
+}
+
+export async function updateTaskChecklistItem(
+  taskId: string,
+  itemId: string,
+  data: { title?: string; isDone?: boolean }
+) {
+  const r = await apiPut<ApiResponse<TaskChecklistItem>>(
+    calendarApiPaths.taskChecklistItem(taskId, itemId),
     data
   );
   return r.data;

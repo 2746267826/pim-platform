@@ -7,12 +7,13 @@ import PermissionEditor from '../components/mcp/PermissionEditor';
 import {
   createMcpClient,
   deleteMcpClient,
+  getMcpActivity,
   getMcpCatalog,
   listMcpClients,
   revokeMcpClient,
   updateMcpClient,
 } from '../api/mcp';
-import type { McpClient, McpPermissions } from '../types';
+import type { McpActivityLogEntry, McpClient, McpPermissions } from '../types';
 
 function relativeTime(iso: string | null): string {
   if (!iso) return '从未';
@@ -41,6 +42,11 @@ export default function McpSettingsPage() {
     refetchInterval: 10_000,
   });
   const { data: catalog } = useQuery({ queryKey: ['mcp-catalog'], queryFn: getMcpCatalog });
+  const { data: activityLogs = [] } = useQuery({
+    queryKey: ['mcp-activity'],
+    queryFn: getMcpActivity,
+    refetchInterval: 10_000,
+  });
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState('');
@@ -197,6 +203,75 @@ export default function McpSettingsPage() {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="pim-panel p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-bold text-slate-800">MCP 实时调用流水 (Activity Logs)</h2>
+          <button
+            type="button"
+            className="pim-button-secondary px-3 py-1 text-xs"
+            onClick={() => qc.invalidateQueries({ queryKey: ['mcp-activity'] })}
+          >
+            刷新
+          </button>
+        </div>
+        {activityLogs.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-200 px-3 py-6 text-center text-sm text-slate-500">
+            暂无调用记录
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-slate-200 text-xs font-medium text-slate-500">
+                <tr>
+                  <th className="px-2 py-2">时间戳</th>
+                  <th className="px-2 py-2">客户端名称</th>
+                  <th className="px-2 py-2">Tool Name</th>
+                  <th className="px-2 py-2">状态码</th>
+                  <th className="px-2 py-2">耗时</th>
+                  <th className="px-2 py-2">Arguments</th>
+                </tr>
+              </thead>
+              <tbody>
+                {activityLogs.map((entry: McpActivityLogEntry) => {
+                  const statusClass = entry.statusCode >= 400
+                    ? 'border-red-200 bg-red-50 text-red-700'
+                    : entry.statusCode === 200
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : 'border-slate-200 bg-slate-100 text-slate-700';
+                  return (
+                    <tr key={`${entry.timestamp}-${entry.toolName}-${entry.clientName}`} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="px-2 py-2.5 text-xs text-slate-600 whitespace-nowrap">
+                        {new Date(entry.timestamp).toLocaleString('zh-CN')}
+                      </td>
+                      <td className="px-2 py-2.5 text-sm text-slate-900">{entry.clientName}</td>
+                      <td className="px-2 py-2.5">
+                        <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-800">
+                          {entry.toolName}
+                        </code>
+                      </td>
+                      <td className="px-2 py-2.5">
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${statusClass}`}>
+                          {entry.statusCode}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2.5 text-xs text-slate-500">{entry.durationMs}ms</td>
+                      <td className="px-2 py-2.5">
+                        <span
+                          className="block max-w-[200px] truncate font-mono text-xs text-slate-500"
+                          title={entry.argumentsSummary || '—'}
+                        >
+                          {entry.argumentsSummary || '—'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

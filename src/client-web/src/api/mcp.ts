@@ -1,6 +1,6 @@
 import { apiDelete, apiGet, apiPost, apiPut } from './client';
 import type { ApiResponse } from '../types';
-import type { McpCatalog, McpClient, McpClientCreateResult, McpClientUpdateRequest } from '../types';
+import type { McpActivityLogEntry, McpCatalog, McpClient, McpClientCreateResult, McpClientUpdateRequest } from '../types';
 
 export const mcpApiPaths = {
   list: '/mcp/clients',
@@ -8,6 +8,7 @@ export const mcpApiPaths = {
   client: (id: string) => `/mcp/clients/${id}`,
   revoke: (id: string) => `/mcp/clients/${id}/revoke`,
   catalog: '/mcp/catalog',
+  activity: '/mcp/activity',
 } as const;
 
 export async function listMcpClients(): Promise<McpClient[]> {
@@ -36,5 +37,10 @@ export async function deleteMcpClient(id: string): Promise<void> {
 
 export async function getMcpCatalog(): Promise<McpCatalog> {
   const response = await apiGet<ApiResponse<McpCatalog>>(mcpApiPaths.catalog);
+  return response.data;
+}
+
+export async function getMcpActivity(): Promise<McpActivityLogEntry[]> {
+  const response = await apiGet<ApiResponse<McpActivityLogEntry[]>>(mcpApiPaths.activity);
   return response.data;
 }

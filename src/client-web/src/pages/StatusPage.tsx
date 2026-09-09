@@ -1,11 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
-import { getMobileQuality } from '../api/mobile';
+import { useMemo } from 'react';
+import { useQuery, useQueries } from '@tanstack/react-query';
+import { getMobileDevices, getMobileQuality } from '../api/mobile';
 import { getPcQuality } from '../api/pcTracker';
-import { getComponentKindLabel, getHealthStatusLabel, getStatusDetail } from '../api/status';
+import { getComponentKindLabel, getHealthStatusLabel, getStatusDetail, getDaemonHeartbeats } from '../api/status';
 import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import MobileDiagnosticsPanel, { type MobileQualityDiagnosticsData } from '../components/status/MobileDiagnosticsPanel';
 import type { PimHealthStatus, StatusComponent } from '../types';
+import type { MobileQuality } from '../api/mobile';
 import PageHeader from '../ui/PageHeader';
+import StatusBadge from '../ui/StatusBadge';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 
 const statusStyles: Record<PimHealthStatus, { text: string; bg: string; border: string; dot: string }> = {
@@ -114,6 +117,46 @@ export default function StatusPage() {
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
+  const { data: devices = [] } = useQuery({
+    queryKey: ['status-mobile-devices'],
+    queryFn: getMobileDevices,
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const {
+    data: daemons = [],
+    refetch: refetchDaemons,
+    isFetching: daemonsFetching,
+  } = useQuery({
+    queryKey: ['status-daemon-heartbeats'],
+    queryFn: getDaemonHeartbeats,
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const deviceQualityQueries = useQueries({
+    queries: devices.map(device => ({
+      queryKey: ['status-device-quality', device.deviceId],
+      queryFn: () => getMobileQuality(undefined, device.deviceId),
+      staleTime: 30_000,
+      refetchInterval: 60_000,
+    })),
+  });
+
+  const deviceQualityMap = useMemo(() => {
+    const map = new Map<string, MobileQuality>();
+    deviceQualityQueries.forEach((query, idx) => {
+      if (query.data) {
+        map.set(devices[idx]?.deviceId, query.data as MobileQuality);
+      }
+    });
+    return map;
+  }, [deviceQualityQueries, devices]);
+
+  const isOnline = (lastSeenAt: string): boolean => {
+    const elapsed = Date.now() - new Date(lastSeenAt).getTime();
+    return elapsed < 15 * 60 * 1000;
+  };
+
   const summary = data?.summary;
   const summaryStatus = summary?.status ?? 'Unknown';
 
@@ -129,8 +172,9 @@ export default function StatusPage() {
               void refetchStatus();
               void refetchPcQuality();
               void refetchMobileQuality();
+              void refetchDaemons();
             }}
-            disabled={statusFetching || pcQualityFetching || mobileQualityFetching}
+            disabled={statusFetching || pcQualityFetching || mobileQualityFetching || daemonsFetching}
             className="pim-button-secondary px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
             刷新
@@ -177,6 +221,83 @@ export default function StatusPage() {
             isLoading={mobileQualityLoading}
             error={mobileQualityError}
           />
+
+          {(devices.length > 0 || daemons.length > 0) && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-semibold text-slate-800">连接设备与工作站 (Multi-Device Status)</h2>
+                <span className="text-xs text-slate-400 font-mono">
+                  {daemons.length} PC · {devices.length} 移动端
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                {/* Windows Workstations */}
+                {daemons.map((daemon) => {
+                  const isPlanned = Boolean(daemon.plannedOfflineAt);
+                  const isRecent = isOnline(daemon.receivedAt);
+                  return (
+                    <section key={`${daemon.daemonKind}-${daemon.deviceId}`} className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-semibold text-slate-900">{daemon.deviceId}</h3>
+                          <p className="mt-0.5 truncate text-xs text-slate-400 font-mono">
+                            {daemon.daemonKind === 'windows' ? 'Windows 守护程序' : daemon.daemonKind}
+                          </p>
+                        </div>
+                        {isPlanned ? (
+                          <StatusBadge tone="neutral">计划离线</StatusBadge>
+                        ) : isRecent ? (
+                          <StatusBadge tone="activity">在线</StatusBadge>
+                        ) : (
+                          <StatusBadge tone="warning">离线</StatusBadge>
+                        )}
+                      </div>
+                      <div className="mt-3 space-y-1 text-xs text-slate-600 font-mono">
+                        <p className="truncate">程序版本: <span className="text-slate-800 font-sans">{daemon.version || '未知'}</span></p>
+                        <p>最后心跳: <span className={isRecent ? 'text-emerald-600 font-medium font-sans' : 'text-slate-500 font-sans'}>{new Date(daemon.receivedAt).toLocaleString('zh-CN')}</span></p>
+                        <p className="truncate">Native 追踪: <span className="text-slate-800">{daemon.activityWatchState} / {daemon.keyStatsState}</span></p>
+                        <p>待上传队列: <span className="text-slate-800">{daemon.uploadQueueCount ?? 0} 条</span></p>
+                        {daemon.plannedOfflineAt && (
+                          <p className="text-slate-500 font-sans">离线原因: {daemon.offlineReason || '正常关机/休眠'}</p>
+                        )}
+                      </div>
+                    </section>
+                  );
+                })}
+
+                {/* Mobile Devices */}
+                {devices.map((device) => {
+                  const q = deviceQualityMap.get(device.deviceId) as MobileQuality | undefined;
+                  const online = isOnline(device.lastSeenAt);
+                  return (
+                    <section key={device.deviceId} className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="truncate text-sm font-semibold text-slate-900">{device.displayName}</h3>
+                          <p className="mt-0.5 truncate text-xs text-slate-400 font-mono">{device.deviceId}</p>
+                        </div>
+                        {online ? (
+                          <StatusBadge tone="activity">在线</StatusBadge>
+                        ) : (
+                          <StatusBadge tone="neutral">离线</StatusBadge>
+                        )}
+                      </div>
+                      <div className="mt-3 space-y-1 text-xs text-slate-600">
+                        <p>{device.brand ? `${device.brand} ` : ''}{device.model || '移动设备'}</p>
+                        <p>{device.androidVersion ? `Android ${device.androidVersion}` : '移动端'} · App {device.appVersion || '未知'}</p>
+                        <p>最后心跳：{new Date(device.lastSeenAt).toLocaleString('zh-CN')}</p>
+                        {q && (
+                          <p className="mt-1">
+                            数据质量：<StatusBadge tone={q.overallStatus === 'Healthy' ? 'activity' : q.overallStatus === 'Warning' ? 'warning' : 'danger'}>{q.label}</StatusBadge>
+                          </p>
+                        )}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {data.nextSteps.length > 0 && (
             <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">

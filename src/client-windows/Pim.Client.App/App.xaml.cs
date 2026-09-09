@@ -5,6 +5,7 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using Pim.Client.App.Services;
+using Pim.Client.Core.Models;
 using Pim.Client.Core.Services;
 
 namespace Pim.Client.App;
@@ -145,11 +146,15 @@ public partial class App : Application
             Logger.Info("Tray icon shown");
             BootstrapLog.Write("Tray icon shown");
 
-            var restored = await authService.TryRestoreTokenAsync();
-            if (restored)
+            var restoreResult = await authService.TryRestoreTokenDetailedAsync();
+            if (restoreResult == TokenRestoreResult.Success)
             {
                 Logger.Info($"Authenticated as {authService.CurrentUsername} (token restored)");
                 BootstrapLog.Write("Token restored; already authenticated");
+            }
+            else if (restoreResult == TokenRestoreResult.PendingNetwork)
+            {
+                Logger.Info($"Saved token found for {authService.CurrentUsername}, but network unreachable at startup; daemon will refresh in background");
             }
             else
             {
@@ -254,7 +259,23 @@ public partial class App : Application
             var ksHealth = ks.LastHealth;
             var ksState = ksHealth?.DaemonSourceState ?? "Unknown";
 
-            var lastSuccess = MaxTime(tracker?.EventsUploaded > 0 ? DateTime.Now : null, ks.LastUploadTime);
+            var authService = Services.GetRequiredService<AuthService>();
+            if (!authService.IsAuthenticated && authService.HasSavedToken)
+            {
+                try
+                {
+                    if (await authService.RefreshAsync())
+                    {
+                        Logger.Info($"Authenticated as {authService.CurrentUsername} (token refreshed in heartbeat loop)");
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            var lastSuccess = MaxTime(tracker?.EventsUploaded > 0 ? DateTime.UtcNow : null, ks.LastUploadTime?.ToUniversalTime());
+            var lastSuccessUtc = lastSuccess is DateTime dt ? new DateTimeOffset(DateTime.SpecifyKind(dt, DateTimeKind.Utc), TimeSpan.Zero) : (DateTimeOffset?)null;
             var lastError = tracker?.LastError ?? ks.LastUploadError;
             var version = typeof(App).Assembly
                 .GetCustomAttributes(false)
@@ -265,7 +286,7 @@ public partial class App : Application
                 Environment.MachineName,
                 version,
                 config.ServerUrl,
-                lastSuccess is DateTime dt ? new DateTimeOffset(dt) : null,
+                lastSuccessUtc,
                 DateTimeOffset.UtcNow,
                 lastError,
                 tracker is null ? 0 : 0,

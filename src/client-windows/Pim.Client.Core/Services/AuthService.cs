@@ -8,24 +8,28 @@ namespace Pim.Client.Core.Services;
 public class AuthService
 {
     private readonly ApiClient _apiClient;
+    private readonly string _tokenPath;
+    private readonly string _tokenDir;
     private string? _accessToken;
     private string? _refreshToken;
     private DateTimeOffset _accessTokenExpiry;
 
-    private static readonly string TokenDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "PIM");
-    private static readonly string TokenPath = Path.Combine(TokenDir, "token.json");
-
-    public AuthService(ApiClient apiClient)
+    public AuthService(ApiClient apiClient, string? tokenPath = null)
     {
         _apiClient = apiClient;
+        _tokenPath = tokenPath ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "PIM", "token.json");
+        _tokenDir = Path.GetDirectoryName(_tokenPath) ?? "";
         _apiClient.RequestTiming += (desc, ms) =>
             System.Diagnostics.Debug.WriteLine($"[ApiTiming] {desc} took {ms}ms");
     }
 
     public bool IsAuthenticated => !string.IsNullOrEmpty(_accessToken) &&
                                     DateTimeOffset.UtcNow < _accessTokenExpiry;
+
+    public bool HasSavedToken => File.Exists(_tokenPath);
+    public bool IsTokenExpired => !string.IsNullOrEmpty(_accessToken) && DateTimeOffset.UtcNow >= _accessTokenExpiry;
 
     public string? CurrentUserId { get; private set; }
     public string? CurrentUsername { get; private set; }
@@ -68,14 +72,14 @@ public class AuthService
             : $"错误码 {result.Code}: {result.Message}";
     }
 
-    public async Task<bool> TryRestoreTokenAsync()
+    public async Task<TokenRestoreResult> TryRestoreTokenDetailedAsync()
     {
         try
         {
-            if (!File.Exists(TokenPath)) return false;
+            if (!File.Exists(_tokenPath)) return TokenRestoreResult.NoSavedToken;
 
-            var data = await LoadPersistedTokenAsync();
-            if (data is null) return false;
+            var data = await LoadPersistedTokenAsync(_tokenPath);
+            if (data is null) return TokenRestoreResult.NoSavedToken;
 
             _accessToken = data.AccessToken;
             _refreshToken = data.RefreshToken;
@@ -84,26 +88,65 @@ public class AuthService
             CurrentUsername = data.Username;
             CurrentDisplayName = data.DisplayName;
 
-            _apiClient.SetAccessToken(_accessToken!);
+            if (!string.IsNullOrEmpty(_accessToken))
+            {
+                _apiClient.SetAccessToken(_accessToken);
+            }
             _apiClient.OnUnauthorized = RefreshAsync;
 
-            // If token expired, try refresh
-            if (!IsAuthenticated)
-                return await RefreshAsync();
+            // If token not expired, restored successfully
+            if (IsAuthenticated)
+                return TokenRestoreResult.Success;
 
-            return true;
+            // If token expired, try refresh
+            if (!string.IsNullOrEmpty(_refreshToken))
+            {
+                try
+                {
+                    var refreshed = await RefreshAsync();
+                    if (refreshed)
+                    {
+                        return TokenRestoreResult.Success;
+                    }
+                    if (!HasSavedToken || string.IsNullOrEmpty(_refreshToken))
+                    {
+                        return TokenRestoreResult.InvalidCredentials;
+                    }
+                    return TokenRestoreResult.PendingNetwork;
+                }
+                catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    Logout();
+                    return TokenRestoreResult.InvalidCredentials;
+                }
+                catch
+                {
+                    return TokenRestoreResult.PendingNetwork;
+                }
+            }
+
+            return TokenRestoreResult.NoSavedToken;
         }
         catch
         {
-            return false;
+            return TokenRestoreResult.NoSavedToken;
         }
+    }
+
+    public async Task<bool> TryRestoreTokenAsync()
+    {
+        var result = await TryRestoreTokenDetailedAsync();
+        return result == TokenRestoreResult.Success;
     }
 
     private void SaveToken()
     {
         try
         {
-            Directory.CreateDirectory(TokenDir);
+            if (!string.IsNullOrEmpty(_tokenDir))
+            {
+                Directory.CreateDirectory(_tokenDir);
+            }
             var data = new PersistedToken
             {
                 AccessToken = _accessToken!,
@@ -132,7 +175,7 @@ public class AuthService
                 // Non-Windows fallback: plaintext (encrypted storage unavailable)
                 toWrite = bytes;
             }
-            File.WriteAllBytes(TokenPath, toWrite);
+            File.WriteAllBytes(_tokenPath, toWrite);
         }
         catch
         {
@@ -140,9 +183,9 @@ public class AuthService
         }
     }
 
-    private static async Task<PersistedToken?> LoadPersistedTokenAsync()
+    private static async Task<PersistedToken?> LoadPersistedTokenAsync(string tokenPath)
     {
-        var raw = await File.ReadAllBytesAsync(TokenPath);
+        var raw = await File.ReadAllBytesAsync(tokenPath);
         // Try DPAPI unprotect on Windows; fallback to plaintext
         if (OperatingSystem.IsWindows())
         {
@@ -190,18 +233,31 @@ public class AuthService
     {
         if (string.IsNullOrEmpty(_refreshToken)) return false;
 
-        var result = await _apiClient.PostAsync<ApiResponse<AuthResponse>>("/auth/refresh",
-            new { refreshToken = _refreshToken });
+        try
+        {
+            var result = await _apiClient.PostAsync<ApiResponse<AuthResponse>>("/auth/refresh",
+                new { refreshToken = _refreshToken });
 
-        if (result?.Data is null) return false;
+            if (result?.Data is null) return false;
 
-        _accessToken = result.Data.AccessToken;
-        _refreshToken = result.Data.RefreshToken;
-        _accessTokenExpiry = result.Data.ExpiresAt;
+            _accessToken = result.Data.AccessToken;
+            _refreshToken = result.Data.RefreshToken;
+            _accessTokenExpiry = result.Data.ExpiresAt;
 
-        _apiClient.SetAccessToken(_accessToken);
-        SaveToken();
-        return true;
+            _apiClient.SetAccessToken(_accessToken);
+            SaveToken();
+            return true;
+        }
+        catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Logout();
+            return false;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[AuthService] Refresh failed due to transient/network error: {ex.Message}");
+            return false;
+        }
     }
 
     public void Logout()
@@ -212,7 +268,7 @@ public class AuthService
         CurrentUsername = null;
         CurrentDisplayName = null;
         _apiClient.ClearAccessToken();
-        try { File.Delete(TokenPath); } catch { }
+        try { File.Delete(_tokenPath); } catch { }
     }
 
     private class PersistedToken

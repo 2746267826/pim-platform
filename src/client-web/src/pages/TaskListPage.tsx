@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   batchDeleteTasks,
-  getCalendars,
+  getTaskBooks,
   getTasksPaged,
   updateTask,
   taskToMutationData,
@@ -169,6 +170,14 @@ export default function TaskListPage() {
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [search, setSearch] = useState('');
   const [selectedTaskBook, setSelectedTaskBook] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const urlTaskBook = searchParams.get('taskBookId') || searchParams.get('calendarId');
+    if (urlTaskBook && urlTaskBook !== selectedTaskBook) {
+      setSelectedTaskBook(urlTaskBook);
+    }
+  }, [searchParams, selectedTaskBook]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
   const [deleteInput, setDeleteInput] = useState<DeleteConfirmationInput | null>(null);
@@ -186,8 +195,8 @@ export default function TaskListPage() {
   }
 
   const { data: taskBooks = [], isLoading: taskBooksLoading } = useQuery({
-    queryKey: ['calendars', 'task'],
-    queryFn: () => getCalendars('task'),
+    queryKey: ['task-books'],
+    queryFn: () => getTaskBooks(),
   });
 
   const taskQuery = useMemo(
@@ -264,6 +273,13 @@ export default function TaskListPage() {
   function handleTaskBookChange(nextTaskBook: string) {
     setSelectedTaskBook(nextTaskBook);
     clearSelectionState();
+    if (nextTaskBook) {
+      searchParams.set('taskBookId', nextTaskBook);
+    } else {
+      searchParams.delete('taskBookId');
+      searchParams.delete('calendarId');
+    }
+    setSearchParams(searchParams, { replace: true });
   }
 
   function toggleTaskSelection(taskId: string, checked: boolean) {

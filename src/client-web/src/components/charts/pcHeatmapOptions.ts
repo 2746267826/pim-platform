@@ -156,7 +156,7 @@ export function buildCategoryGanttOption(timeline: TimelineItem[]): EChartsOptio
     const hourLabel = `${pad(start.getHours())}:00`;
     const rowIdx = rowIndex.get(hourLabel) ?? 0;
     data.push({
-      value: [rowIdx, start.getTime(), end.getTime()],
+      value: [start.getTime(), end.getTime(), rowIdx],
       itemStyle: { color: item.categoryColor || '#94a3b8' },
       segment: item,
     });
@@ -201,16 +201,16 @@ export function buildCategoryGanttOption(timeline: TimelineItem[]): EChartsOptio
     series: [
       {
         type: 'custom',
-        // value = [小时行索引, startMs, endMs]：y 取维度 0，x 取维度 1-2 的时间区间，
+        // value = [startMs, endMs, yIdx]：x 取维度 0-1 的时间区间，y 取维度 2 的行索引，
         // 让 time 轴 min/max 与刻度按真实区间计算
-        encode: { x: [1, 2], y: 0 },
+        encode: { x: [0, 1], y: 2 },
         renderItem: (params: unknown, api: unknown) => {
           const p = params as { value?: number[]; data?: { itemStyle?: { color?: string } } };
           const a = api as { coord?: (v: number[]) => number[]; size?: (v: number[]) => number[] };
           const value = Array.isArray(p.value) ? p.value : [0, 0, 0];
-          const yIdx = Number(value[0]) || 0;
-          const startMs = Number(value[1]);
-          const endMs = Number(value[2]);
+          const startMs = Number(value[0]);
+          const endMs = Number(value[1]);
+          const yIdx = Number(value[2]) || 0;
           let x = 0;
           let y = 0;
           let width = 4;

@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getCalendars, createCalendar, updateCalendar, deleteCalendar, previewCalendarDelete } from '../api/calendar';
+import { getCalendars, createCalendar, updateCalendar, deleteCalendar, previewCalendarDelete, getTaskBooks } from '../api/calendar';
 import { useAuth } from '../auth/AuthContext';
 import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import SidebarStatusIndicator from '../components/status/SidebarStatusIndicator';
@@ -15,11 +15,15 @@ function CalendarBookSection({
   books,
   queryKey,
   kind,
+  manageable = true,
+  onSelectBook,
 }: {
   title: string;
-  books: Array<{ id: string; name: string; color: string }>;
+  books: Array<{ id: string; name: string; color: string; taskCount?: number }>;
   queryKey: string[];
   kind: string;
+  manageable?: boolean;
+  onSelectBook?: (bookId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -143,16 +147,18 @@ function CalendarBookSection({
     <div className="mt-4 border-t border-slate-200/80 pt-4">
       <div className="mb-2 flex items-center justify-between px-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{title}</p>
-        <button
-          onClick={() => setShowNew(!showNew)}
-          className="h-6 w-6 rounded-full text-sm leading-none text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
-          aria-label={`新建${title}`}
-        >
-          +
-        </button>
+        {manageable && (
+          <button
+            onClick={() => setShowNew(!showNew)}
+            className="h-6 w-6 rounded-full text-sm leading-none text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+            aria-label={`新建${title}`}
+          >
+            +
+          </button>
+        )}
       </div>
 
-      {showNew && (
+      {manageable && showNew && (
         <div className="px-2 mb-2 flex gap-1">
           <input
             type="text" placeholder={`${title}名称`}
@@ -189,7 +195,7 @@ function CalendarBookSection({
               {hidden ? '○' : '●'}
             </button>
             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: book.color }} />
-            {editingId === book.id ? (
+            {editingId === book.id && manageable ? (
               <input
                 type="text" value={editName}
                 onChange={e => setEditName(e.target.value)}
@@ -200,13 +206,18 @@ function CalendarBookSection({
               />
             ) : (
               <span
-                className="flex-1 truncate text-xs text-slate-600 cursor-pointer"
-                onDoubleClick={() => startRename(book.id, book.name)}
-                title="双击重命名"
+                className={`flex-1 truncate text-xs text-slate-600 ${onSelectBook ? 'cursor-pointer hover:text-blue-600 font-medium' : 'cursor-default'}`}
+                onClick={onSelectBook ? () => onSelectBook(book.id) : undefined}
+                onDoubleClick={manageable ? () => startRename(book.id, book.name) : undefined}
+                title={onSelectBook ? `查看「${book.name}」` : (manageable ? '双击重命名' : undefined)}
               >
                 {book.name}
               </span>
             )}
+            {book.taskCount !== undefined && (
+              <span className="ml-auto rounded-full bg-slate-100 px-1.5 text-[10px] text-slate-500">{book.taskCount}</span>
+            )}
+            {manageable && (
             <div className="hidden group-hover:flex items-center gap-0.5">
               <button
                 onClick={() => startRename(book.id, book.name)}
@@ -224,12 +235,13 @@ function CalendarBookSection({
                 ✕
               </button>
             </div>
+            )}
           </div>
         );
       })}
 
       {(!books || books.length === 0) && !showNew && (
-        <p className="px-2 py-1 text-xs text-slate-400">暂无{title}，点击 + 创建</p>
+        <p className="px-2 py-1 text-xs text-slate-400">暂无{title}{manageable ? '，点击 + 创建' : ''}</p>
       )}
 
       <ConfirmActionDialog
@@ -243,10 +255,26 @@ function CalendarBookSection({
   );
 }
 
-export default function Sidebar() {
+export interface SidebarProps {
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, username } = useAuth();
+
+  useEffect(() => {
+    if (!mobileOpen || !onClose) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mobileOpen, onClose]);
 
   const { data: calendars = [] } = useQuery({
     queryKey: ['calendars', 'calendar'],
@@ -254,67 +282,106 @@ export default function Sidebar() {
   });
 
   const { data: taskBooks = [] } = useQuery({
-    queryKey: ['calendars', 'task'],
-    queryFn: () => getCalendars('task')
+    queryKey: ['task-books'],
+    queryFn: () => getTaskBooks()
   });
 
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    onClose?.();
+  };
+
   return (
-    <aside className="flex h-full w-[220px] flex-col border-r border-slate-200/80 bg-white/90">
-      <div className="px-4 py-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">PIM</p>
-        <p className="mt-1 text-lg font-semibold text-slate-950">个人中枢</p>
-      </div>
-      <SidebarStatusIndicator />
+    <>
+      {mobileOpen && (
+        <div
+          data-testid="sidebar-backdrop"
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs md:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
 
-      <nav className="flex-1 space-y-1 overflow-auto px-3 pb-3">
-        {primaryNavItems.map(item => {
-          const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
-
-          return (
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex h-full w-[260px] max-w-[80vw] flex-col border-r border-slate-200/80 bg-white/95 shadow-2xl transition-transform duration-200 ease-out md:static md:z-auto md:w-[220px] md:h-full md:max-h-full md:shrink-0 md:bg-white/90 md:shadow-none md:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none md:pointer-events-auto'
+        } md:flex`}
+      >
+        <div className="flex items-center justify-between px-4 py-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">PIM</p>
+            <p className="mt-1 text-lg font-semibold text-slate-950">个人中枢</p>
+          </div>
+          {onClose && (
             <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              aria-current={active ? 'page' : undefined}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-blue-50 text-blue-700 shadow-[inset_0_0_0_1px_rgba(37,99,235,0.12)]'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
-              }`}
+              type="button"
+              onClick={onClose}
+              aria-label="关闭主菜单"
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 md:hidden"
             >
-              <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${
-                active ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
-              }`}>
-                {item.short}
-              </span>
-              <span>{item.label}</span>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
-          );
-        })}
-
-        <CalendarBookSection
-          title="日历本"
-          books={calendars}
-          queryKey={['calendars']}
-          kind="calendar"
-        />
-
-        <CalendarBookSection
-          title="任务本"
-          books={taskBooks}
-          queryKey={['calendars']}
-          kind="task"
-        />
-      </nav>
-
-      <div className="flex items-center justify-between border-t border-slate-200/80 p-3">
-        <div className="min-w-0">
-          <span className="truncate text-xs text-slate-500">{username}</span>
-          <p className="mt-1 truncate text-[10px] text-slate-400" title={__APP_VERSION__}>
-            {__APP_VERSION__}
-          </p>
+          )}
         </div>
-        <button onClick={logout} className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-red-50 hover:text-red-500">退出</button>
-      </div>
-    </aside>
+        <SidebarStatusIndicator />
+
+        <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 pb-3">
+
+          {primaryNavItems.map(item => {
+            const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+
+            return (
+              <button
+                key={item.path}
+                onClick={() => handleNavigate(item.path)}
+                aria-current={active ? 'page' : undefined}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-blue-50 text-blue-700 shadow-[inset_0_0_0_1px_rgba(37,99,235,0.12)]'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                }`}
+              >
+                <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-semibold ${
+                  active ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {item.short}
+                </span>
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+
+          <CalendarBookSection
+            title="日历本"
+            books={calendars}
+            queryKey={['calendars']}
+            kind="calendar"
+            onSelectBook={bookId => handleNavigate(`/calendar?calendarId=${bookId}`)}
+          />
+
+          <CalendarBookSection
+            title="任务本"
+            books={taskBooks.map(b => ({ ...b, color: (b as { color?: string }).color || '#6366f1' }))}
+            queryKey={['task-books']}
+            kind="task"
+            manageable={false}
+            onSelectBook={bookId => handleNavigate(`/tasks?taskBookId=${bookId}`)}
+          />
+        </nav>
+
+        <div className="flex items-center justify-between border-t border-slate-200/80 p-3">
+          <div className="min-w-0">
+            <span className="truncate text-xs text-slate-500">{username}</span>
+            <p className="mt-1 truncate text-[10px] text-slate-400" title={__APP_VERSION__}>
+              {__APP_VERSION__}
+            </p>
+          </div>
+          <button onClick={logout} className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-red-50 hover:text-red-500">退出</button>
+        </div>
+      </aside>
+    </>
   );
 }
+

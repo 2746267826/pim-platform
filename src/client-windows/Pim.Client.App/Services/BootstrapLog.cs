@@ -11,11 +11,12 @@ public static class BootstrapLog
 {
     private const long MaxFileBytes = 512 * 1024; // ~512KB
 
-    private static readonly string LogDir = Path.Combine(
+    // internal 而非 private readonly：供单元测试重定向到临时目录（测试经 Compile Link 编入同一程序集，可访问 internal）。
+    internal static string LogDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "PIM", "logs");
-    private static readonly string FilePath = Path.Combine(LogDir, "bootstrap.log");
-    private static readonly string OldFilePath = Path.Combine(LogDir, "bootstrap.log.old");
+    internal static string FilePath = Path.Combine(LogDir, "bootstrap.log");
+    internal static string OldFilePath = Path.Combine(LogDir, "bootstrap.log.old");
     private static readonly object Sync = new();
 
     public static void Write(string message)

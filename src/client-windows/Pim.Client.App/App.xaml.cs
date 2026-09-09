@@ -36,6 +36,8 @@ public partial class App : Application
             // 守住不变量：Serilog 挂了至少写 bootstrap
             BootstrapLog.Write($"UnhandledException: {detail}");
             try { Logger.Error("UnhandledException", ex); } catch { }
+            // 进程即将终止：尽力把 ≤1s 缓冲落盘，避免 daemon jsonl 丢失这条崩溃记录（Shutdown 幂等且不抛异常）
+            try { Logger.Shutdown(); } catch { }
         };
 
         TaskScheduler.UnobservedTaskException += (_, args) =>
@@ -155,6 +157,7 @@ public partial class App : Application
             else if (restoreResult == TokenRestoreResult.PendingNetwork)
             {
                 Logger.Info($"Saved token found for {authService.CurrentUsername}, but network unreachable at startup; daemon will refresh in background");
+                BootstrapLog.Write("Token saved but network unreachable; will refresh in background");
             }
             else
             {

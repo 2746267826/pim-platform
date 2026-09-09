@@ -235,11 +235,12 @@ public class PimDbContext : DbContext
             var userId = System.Linq.Expressions.Expression.Property(parameter, nameof(IUserOwnedEntity.UserId));
             var currentUserId = System.Linq.Expressions.Expression.Property(
                 System.Linq.Expressions.Expression.Constant(this), nameof(CurrentUserId));
-            // e => CurrentUserId == null || e.UserId == (Guid)CurrentUserId
+            // e => CurrentUserId == null || (Guid?)e.UserId == CurrentUserId
+            // 注意：比较在 Guid? 侧进行，避免 InMemory 提供程序对 (Guid)null 求值抛 "Nullable object must have a value"
             var noUser = System.Linq.Expressions.Expression.Equal(
                 currentUserId, System.Linq.Expressions.Expression.Constant(null, typeof(Guid?)));
             var match = System.Linq.Expressions.Expression.Equal(
-                userId, System.Linq.Expressions.Expression.Convert(currentUserId, typeof(Guid)));
+                System.Linq.Expressions.Expression.Convert(userId, typeof(Guid?)), currentUserId);
             var isolation = (System.Linq.Expressions.LambdaExpression)System.Linq.Expressions.Expression.Lambda(
                 System.Linq.Expressions.Expression.OrElse(noUser, match), parameter);
 

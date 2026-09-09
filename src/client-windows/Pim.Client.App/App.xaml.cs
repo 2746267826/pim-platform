@@ -21,20 +21,50 @@ public partial class App : Application
     private readonly object _plannedOfflineLock = new();
     private readonly SemaphoreSlim _reportSemaphore = new(1, 1);
 
-    protected override async void OnStartup(StartupEventArgs e)
+    /// <summary>
+    /// 安装全局崩溃钩子（在 Program.Main 中、App.Run 之前调用一次，避免重复注册）：
+    /// AppDomain 未处理异常 / TaskScheduler 未观察异常 / Dispatcher 未处理异常（决策 D2-1：吞掉继续运行）。
+    /// 每个钩子都同时写 Serilog (daemon jsonl) 与 bootstrap.log（含完整异常堆栈）。
+    /// </summary>
+    internal static void InstallExceptionHooks(App app)
     {
-        Logger.Initialize();
-
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {
-            Logger.Error("UnhandledException", args.ExceptionObject as Exception);
+            var ex = args.ExceptionObject as Exception;
+            Logger.Error("UnhandledException", ex);
+            BootstrapLog.Write($"UnhandledException: {Describe(ex)}");
         };
+
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            Logger.Error("UnobservedTaskException", args.Exception);
+            BootstrapLog.Write($"UnobservedTaskException: {Describe(args.Exception)}");
+            args.SetObserved();
+        };
+
+        app.DispatcherUnhandledException += (_, args) =>
+        {
+            Logger.Error("DispatcherUnhandledException (swallowed, continuing)", args.Exception);
+            BootstrapLog.Write($"DispatcherUnhandledException (swallowed, continuing): {Describe(args.Exception)}");
+            args.Handled = true;
+        };
+    }
+
+    private static string Describe(Exception? ex) => ex is null ? "unknown exception" : ex.ToString();
+
+    protected override async void OnStartup(StartupEventArgs e)
+    {
+        BootstrapLog.Write("OnStartup entered");
+
+        Logger.Initialize();
+        BootstrapLog.Write("Logger initialized");
 
         try
         {
             Logger.Info("Daemon starting");
             Services = Pim.Client.App.Startup.ConfigureServices();
             Logger.Info("DI configured");
+            BootstrapLog.Write("DI configured");
 
             // Fire-once best-effort report of planned offline before shutdown/suspend/logoff.
             SystemEvents.SessionEnding += (_, e) =>
@@ -110,33 +140,44 @@ public partial class App : Application
             _trayIcon = Services.GetRequiredService<TrayIcon>();
             _trayIcon.Show();
             Logger.Info("Tray icon shown");
+            BootstrapLog.Write("Tray icon shown");
 
             var restored = await authService.TryRestoreTokenAsync();
             if (restored)
             {
                 Logger.Info($"Authenticated as {authService.CurrentUsername} (token restored)");
+                BootstrapLog.Write("Token restored; already authenticated");
             }
             else
             {
                 Logger.Info("No saved token; showing login window");
+                BootstrapLog.Write("No saved token; showing login window");
                 var loginWindow = new LoginWindow();
                 var result = loginWindow.ShowDialog();
                 if (result == true)
+                {
                     Logger.Info($"Authenticated as {authService.CurrentUsername}");
+                    BootstrapLog.Write("Authenticated after login");
+                }
                 else
+                {
                     Logger.Warn("Login skipped; daemon running without API access, uploads will fail");
+                    BootstrapLog.Write("Login skipped; daemon running without API access");
+                }
             }
 
             var tracker = Services.GetRequiredService<NativeTrackerService>();
             tracker.Log = msg => Logger.Info(msg);
             tracker.Start();
             Logger.Info("NativeTrackerService started");
+            BootstrapLog.Write("NativeTrackerService started");
 
             var bridge = Services.GetRequiredService<BrowserBridgeService>();
             // Bridge already started inside tracker, but ensure standalone start if needed
             try { bridge.Start(); } catch { }
 
             EnsureKeyStatsRunning();
+            BootstrapLog.Write("KeyStats ensure done");
 
             var keyStatsCollector = Services.GetRequiredService<KeyStatsCollectorService>();
             keyStatsCollector.Log = msg => Logger.Info(msg);
@@ -145,10 +186,12 @@ public partial class App : Application
 
             _heartbeatTask = Task.Run(() => RunHeartbeatLoopAsync(_shutdown.Token));
             Logger.Info("Daemon heartbeat loop started");
+            BootstrapLog.Write("Heartbeat loop started");
         }
         catch (Exception ex)
         {
             Logger.Error("Fatal daemon startup error", ex);
+            BootstrapLog.Write($"Fatal daemon startup error: {ex}");
             Shutdown();
         }
     }
@@ -347,6 +390,7 @@ public partial class App : Application
         _shutdown.Dispose();
         _trayIcon?.Dispose();
         Logger.Info("Daemon exiting");
+        BootstrapLog.Write($"Daemon exiting (ExitCode={e.ApplicationExitCode})");
         base.OnExit(e);
     }
 

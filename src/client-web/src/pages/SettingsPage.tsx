@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import PageHeader from '../ui/PageHeader';
 import AboutPimCard from '../components/AboutPimCard';
+import { useAuth } from '../auth/AuthContext';
 
 const settingsLinks = [
   {
@@ -41,12 +42,22 @@ const settingsLinks = [
   },
 ] as const;
 
+const adminLink = {
+  title: '用户管理',
+  description: '管理账号角色与启用状态（仅管理员可见）',
+  label: '用户',
+  to: '/settings/users',
+} as const;
+
 export default function SettingsPage() {
+  const { role } = useAuth();
+  const links = role === 'admin' ? [...settingsLinks, adminLink] : settingsLinks;
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-20">
       <PageHeader title="设置" subtitle="管理数据入口与本地记录" />
 
-      {settingsLinks.map(link => (
+      {links.map(link => (
         <Link
           key={link.to}
           to={link.to}

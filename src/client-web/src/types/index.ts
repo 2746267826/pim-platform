@@ -9,7 +9,7 @@ export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
   expiresAt: string;
-  userInfo: { id: string; username: string; displayName: string };
+  user: { id: string; username: string; displayName: string; role: string };
 }
 
 export interface CalendarResponse {

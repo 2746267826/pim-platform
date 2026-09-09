@@ -40,6 +40,7 @@ const HabitsPage = lazy(() => import('../pages/HabitsPage'));
 const AuditTimelinePage = lazy(() => import('../pages/AuditTimelinePage'));
 const EndpointShellPage = lazy(() => import('../pages/EndpointShellPage'));
 const ExhibitionPage = lazy(() => import('../pages/ExhibitionPage'));
+const AdminUsersPage = lazy(() => import('../pages/AdminUsersPage'));
 
 function SuspenseFallback() {
   return <div className="h-full" aria-busy="true" />;
@@ -120,6 +121,7 @@ export default function AppLayout() {
                 <Route path="/settings/calendar-data" element={<CalendarDataManager />} />
                 <Route path="/settings/recycle-bin" element={<RecycleBinPage />} />
                 <Route path="/settings/pc-data" element={<PcDetailQueryPage />} />
+                <Route path="/settings/users" element={<AdminUsersPage />} />
                 <Route path="/app-knowledge-base" element={<AppKnowledgeBasePage />} />
                 <Route path="/app-knowledge-base/categories" element={<CategoryTreePage />} />
                 <Route path="/pc-categories" element={<Navigate to="/app-knowledge-base/categories" replace />} />

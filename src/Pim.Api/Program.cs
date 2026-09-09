@@ -20,6 +20,7 @@ using Pim.Module.Mcp.Services;
 using Prometheus;
 using Serilog;
 using Serilog.Formatting.Compact;
+using Serilog.Sinks.Grafana.Loki;
 
 // --mcp-stdio: dedicated local-process MCP stdio server. Stdout carries ONLY the MCP
 // protocol, so console logs must go to stderr (serilog text writer sink) in that mode.
@@ -32,7 +33,7 @@ var lokiUrl = Environment.GetEnvironmentVariable("LOKI_URL")
 static Serilog.LoggerConfiguration WithLoki(Serilog.LoggerConfiguration cfg, string? url)
     => string.IsNullOrWhiteSpace(url)
         ? cfg
-        : cfg.WriteTo.GrafanaLoki(url, [new Serilog.Sinks.Grafana.Loki.LokiLabel("app", "pim-api")]);
+        : cfg.WriteTo.GrafanaLoki(url, [new LokiLabel { Key = "app", Value = "pim-api" }]);
 
 Log.Logger = WithLoki(new LoggerConfiguration()
     .MinimumLevel.Debug()

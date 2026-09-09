@@ -105,7 +105,8 @@ public sealed class LiteLlmHealthCheck(IHttpClientFactory f, IConfiguration cfg)
     {
         var enabled = bool.TryParse(cfg["AI_ENABLED"] ?? cfg["Ai:Enabled"], out var en) && en;
         if (!enabled) return null;
-        return cfg["AI_BASE_URL"] ?? cfg["Ai:BaseUrl"] is { Length: > 0 } e ? $"{e.TrimEnd('/')}/health/liveliness" : null;
+        var baseUrl = cfg["AI_BASE_URL"] ?? cfg["Ai:BaseUrl"];
+        return baseUrl is { Length: > 0 } ? $"{baseUrl.TrimEnd('/')}/health/liveliness" : null;
     }
 }
 

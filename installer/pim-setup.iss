@@ -324,6 +324,9 @@ procedure RegisterWerDumps();
 begin
   // WER LocalDumps：为 Pim.Client.App.exe 崩溃时在本机落完整转储（DumpType=2 full），保留最近 10 份；幂等。
   // 存放于 {commonappdata}\PIM\dumps（即 C:\ProgramData\PIM\dumps）。仅对 Daemon 注册，KeyStats/Shell 不注册。
+  // 磁盘预算：完整转储含 WPF+WebView2 进程全部内存，单份通常 200~500MB，10 份峰值约 2~5GB。
+  // WER 按 DumpCount 自动滚动覆盖最旧转储，不会无限增长；如需降配可减小 DumpCount（如 5，峰值减半）
+  // 或改用 DumpType=1（迷你转储，仅线程/堆栈/部分内存，单份几十 MB，但原生堆外诊断能力大减）。
   RegWriteStringValue(HKLM, WerDumpsKey, 'DumpFolder', ExpandConstant(WerDumpsDir));
   RegWriteDWordValue(HKLM, WerDumpsKey, 'DumpType', 2);
   RegWriteDWordValue(HKLM, WerDumpsKey, 'DumpCount', 10);

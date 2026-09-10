@@ -14,6 +14,7 @@ public class PcTrackerClassificationV2Tests
 {
     private static PimDbContext CreateInMemoryDb()
     {
+        PimDbContext.RegisterModuleAssembly(typeof(PcCategoryEntity).Assembly);
         var options = new DbContextOptionsBuilder<PimDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;

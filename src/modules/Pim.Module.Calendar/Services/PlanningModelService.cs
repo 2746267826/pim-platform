@@ -668,7 +668,7 @@ public class PlanningModelService
             return null;
         }
 
-        if (result.Status != AiRequestStatus.Completed || string.IsNullOrWhiteSpace(result.ResponseText))
+        if (result.Status != AiRequestStatus.Succeeded || string.IsNullOrWhiteSpace(result.ResponseText))
             return null;
 
         var items = ParseAiPlanJson(result.ResponseText, now, horizonEnd);
@@ -698,7 +698,9 @@ public class PlanningModelService
             {
                 if (!el.TryGetProperty("title", out var titleEl) || titleEl.ValueKind != JsonValueKind.String)
                     continue;
-                if (!el.TryGetProperty("start", out var startEl) || !el.TryGetProperty("end", out var endEl))
+                var hasStart = el.TryGetProperty("start", out var startEl) || el.TryGetProperty("startsAt", out startEl);
+                var hasEnd = el.TryGetProperty("end", out var endEl) || el.TryGetProperty("endsAt", out endEl);
+                if (!hasStart || !hasEnd)
                     continue;
                 if (!DateTimeOffset.TryParse(startEl.GetString(), out var startAt)
                     || !DateTimeOffset.TryParse(endEl.GetString(), out var endAt))

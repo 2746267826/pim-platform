@@ -10,13 +10,18 @@ import {
   updateTask,
   getTaskBooks,
   taskToMutationData,
+  getAiPlaceholders,
+  generateAiPlan,
+  confirmAiPlaceholder,
+  dismissAiPlaceholder,
 } from '../api/calendar';
 import { getPcSummary } from '../api/pcTracker';
 import { getPendingConfirmations, operationsApiPaths } from '../api/operations';
 import TaskEditorDialog from '../dialogs/TaskEditorDialog';
 import type { TaskMutationData } from '../api/calendar';
-import type { TaskResponse } from '../types';
-import { AlertCircle, RefreshCw, Monitor, Plus, CheckCircle2, Circle } from 'lucide-react';
+import type { TaskResponse, AiPlanPlaceholderViewDto } from '../types';
+import { AlertCircle, RefreshCw, Monitor, Plus, CheckCircle2, Circle, Sparkles, Check, X, Clock, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import PageHeader from '../ui/PageHeader';
 import SegmentedControl from '../ui/SegmentedControl';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
@@ -88,6 +93,21 @@ function formatProvider(value?: string | null) {
   return value.toLowerCase() === 'outlook' ? '微软日历' : value;
 }
 
+function formatTimeRange(startStr?: string | null, endStr?: string | null) {
+  if (!startStr || !endStr) return '时间未定';
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return `${startStr} ~ ${endStr}`;
+  const startMonthDay = `${start.getMonth() + 1}月${start.getDate()}日`;
+  const startTime = start.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const endTime = end.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
+  const durationText = durationMinutes >= 60
+    ? `${(durationMinutes / 60).toFixed(1)}小时`
+    : `${durationMinutes}分钟`;
+  return `${startMonthDay} ${startTime} - ${endTime} (${durationText})`;
+}
+
 function compactNumber(value: number | undefined) {
   return String(value ?? 0);
 }
@@ -104,6 +124,7 @@ function DashboardMetric({ label, value, detail }: { label: string; value: strin
 
 export default function WorkbenchPage() {
   const [densityMode, setDensityMode] = useState<DensityMode>('standard');
+  const [aiHorizonDays, setAiHorizonDays] = useState<number>(7);
   const [workbenchView, setWorkbenchView] = useState<WorkbenchView>('schedule');
   const [taskEditorOpen, setTaskEditorOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskResponse | undefined>();
@@ -167,6 +188,52 @@ export default function WorkbenchPage() {
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
+  const { data: placeholders = [], isLoading: placeholdersLoading } = useQuery<AiPlanPlaceholderViewDto[]>({
+    queryKey: ['workbench-ai-placeholders'],
+    queryFn: () => getAiPlaceholders('Suggested'),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const generatePlanMutation = useMutation({
+    mutationFn: (days: number) => generateAiPlan({ horizonDays: days }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['workbench-ai-placeholders'] });
+      queryClient.invalidateQueries({ queryKey: ['workbench-calendar-layers'] });
+      if (res.placeholders?.length > 0) {
+        toast.success(`已由${res.source === 'ai' ? ' AI 模型' : '排程规则引擎'}生成 ${res.placeholders.length} 条排程建议`);
+      } else {
+        toast.info('未发现可排程的待办任务或可用空闲时段');
+      }
+    },
+    onError: (err: any) => {
+      toast.error(`生成建议失败：${err?.message || '未知错误'}`);
+    },
+  });
+
+  const confirmPlaceholderMutation = useMutation({
+    mutationFn: (id: string) => confirmAiPlaceholder(id),
+    onSuccess: () => {
+      toast.success('排程建议已采纳，已进入待确认流程并同步至日程');
+      queryClient.invalidateQueries({ queryKey: ['workbench-ai-placeholders'] });
+      queryClient.invalidateQueries({ queryKey: ['workbench-pending-confirmations'] });
+      queryClient.invalidateQueries({ queryKey: ['workbench-calendar-layers'] });
+    },
+    onError: (err: any) => {
+      toast.error(`采纳失败：${err?.message || '未知错误'}`);
+    },
+  });
+
+  const dismissPlaceholderMutation = useMutation({
+    mutationFn: (id: string) => dismissAiPlaceholder(id),
+    onSuccess: () => {
+      toast.info('已忽略该排程建议');
+      queryClient.invalidateQueries({ queryKey: ['workbench-ai-placeholders'] });
+    },
+    onError: (err: any) => {
+      toast.error(`忽略失败：${err?.message || '未知错误'}`);
+    },
+  });
+
   const layerCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const item of layerData?.items ?? []) {
@@ -226,6 +293,11 @@ export default function WorkbenchPage() {
           detail={confirmationsLoading ? '正在加载确认队列' : '等待复核的操作'}
         />
         <DashboardMetric
+          label="智能排程建议"
+          value={compactNumber(placeholders.length)}
+          detail={placeholdersLoading ? '正在加载建议' : `${placeholders.length} 条待采纳建议`}
+        />
+        <DashboardMetric
           label="微软日历同步"
           value={formatStatus(settings?.status)}
           detail={`令牌：${formatStatus(settings?.tokenHealth)}`}
@@ -258,6 +330,145 @@ export default function WorkbenchPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* AI 智能排程规划面板 */}
+      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-zinc-100">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-blue-50 rounded-lg text-blue-600">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-zinc-900">AI 智能排程建议</h2>
+                <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-mono">
+                  {placeholders.length} 条候选
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                基于待办任务优先级与预估耗时，自动避让已有日程与忙碌时段，由规划引擎协同推荐时间槽。
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 text-xs font-medium">
+              {[
+                { label: '3天', days: 3 },
+                { label: '7天', days: 7 },
+                { label: '14天', days: 14 },
+              ].map(opt => (
+                <button
+                  key={opt.days}
+                  type="button"
+                  onClick={() => setAiHorizonDays(opt.days)}
+                  className={`px-2.5 py-1 rounded-md transition-colors ${
+                    aiHorizonDays === opt.days
+                      ? 'bg-white text-zinc-900 shadow-xs font-semibold'
+                      : 'text-zinc-600 hover:text-zinc-900'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              disabled={generatePlanMutation.isPending}
+              onClick={() => generatePlanMutation.mutate(aiHorizonDays)}
+              className="pim-button-primary inline-flex min-h-[36px] items-center gap-1.5 px-3 py-1.5 text-xs"
+            >
+              {generatePlanMutation.isPending ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>正在规划...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>一键生成排程建议</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {placeholdersLoading && (
+          <div className="py-8 text-center text-xs text-zinc-400">
+            正在加载智能排程建议...
+          </div>
+        )}
+
+        {!placeholdersLoading && placeholders.length === 0 && (
+          <div className="py-8 text-center text-xs text-zinc-500">
+            <p>暂无待处理的排程建议。</p>
+            <p className="mt-1 text-zinc-400">
+              点击上方「一键生成排程建议」，系统将自动排布待办任务并提供最佳时间分配方案。
+            </p>
+          </div>
+        )}
+
+        {!placeholdersLoading && placeholders.length > 0 && (
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {placeholders.map(item => (
+              <div
+                key={item.id}
+                className="flex flex-col justify-between rounded-lg border border-zinc-200 bg-zinc-50/60 p-3 hover:border-blue-200 hover:bg-blue-50/20 transition-all"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold text-xs text-zinc-900 line-clamp-1" title={item.title}>
+                      {item.title}
+                    </h3>
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-mono font-medium ${
+                        item.source === 'ai'
+                          ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                          : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                      }`}
+                    >
+                      {item.source === 'ai' ? 'AI 规划' : '规则引擎'}
+                    </span>
+                  </div>
+
+                  <div className="mt-2 flex items-center gap-1 text-[11px] text-zinc-600">
+                    <Clock className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
+                    <span className="font-mono">{formatTimeRange(item.startsAt, item.endsAt)}</span>
+                  </div>
+
+                  {item.reason && (
+                    <p className="mt-1.5 text-[11px] text-zinc-500 line-clamp-2" title={item.reason}>
+                      {item.reason}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-3 pt-2 border-t border-zinc-200/60 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    disabled={dismissPlaceholderMutation.isPending}
+                    onClick={() => dismissPlaceholderMutation.mutate(item.id)}
+                    className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-900 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                    <span>忽略</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={confirmPlaceholderMutation.isPending}
+                    onClick={() => confirmPlaceholderMutation.mutate(item.id)}
+                    className="inline-flex items-center gap-1 rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700 transition-colors shadow-2xs"
+                  >
+                    <Check className="w-3 h-3" />
+                    <span>采纳排程</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 核心工作台两列独立布局 (针对 #192 卡片强制拉伸超长) */}

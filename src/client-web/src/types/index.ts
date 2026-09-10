@@ -1561,3 +1561,24 @@ export interface McpActivityLogEntry {
   durationMs: number;
   argumentsSummary: string;
 }
+
+export interface AiPlanPlaceholderViewDto {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  reason: string;
+  status: string;
+  source: string;
+  confirmationId?: string | null;
+}
+
+export interface GenerateAiPlanRequest {
+  horizonDays?: number;
+  taskIds?: string[];
+}
+
+export interface GenerateAiPlanResponse {
+  source: string;
+  placeholders: AiPlanPlaceholderViewDto[];
+}

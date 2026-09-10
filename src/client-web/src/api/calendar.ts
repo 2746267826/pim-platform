@@ -8,6 +8,9 @@ import type {
   CalendarRecycleBinItem,
   CalendarResponse,
   CalendarRestorePreviewResponse,
+  AiPlanPlaceholderViewDto,
+  GenerateAiPlanRequest,
+  GenerateAiPlanResponse,
   AddTaskChecklistItemRequest,
   AuditExportResponse,
   CreateTaskExecutionSegmentRequest,
@@ -124,6 +127,18 @@ export const calendarApiPaths = {
   },
   taskSegment(taskId: string, segmentId: string) {
     return `/calendar/tasks/${encodeURIComponent(taskId)}/segments/${encodeURIComponent(segmentId)}`;
+  },
+  aiPlaceholders(status?: string) {
+    return appendQuery('/calendar/ai-placeholders', { status });
+  },
+  aiPlaceholdersGenerate() {
+    return '/calendar/ai-placeholders/generate';
+  },
+  aiPlaceholderConfirm(id: string) {
+    return `/calendar/ai-placeholders/${encodeURIComponent(id)}/confirm`;
+  },
+  aiPlaceholderDismiss(id: string) {
+    return `/calendar/ai-placeholders/${encodeURIComponent(id)}/dismiss`;
   },
   calendarLayers(params: CalendarLayerQueryRequest) {
     return appendQuery('/calendar/layers', {
@@ -833,4 +848,26 @@ export async function importIcs(file: File, calendarId?: string) {
   if (!resp.ok) throw new Error(`导入失败：${resp.status}`);
   const json = await resp.json() as ApiResponse<ImportReport>;
   return json.data;
+}
+
+
+export async function getAiPlaceholders(status?: string): Promise<AiPlanPlaceholderViewDto[]> {
+  const path = calendarApiPaths.aiPlaceholders(status);
+  const r = await apiGet<ApiResponse<AiPlanPlaceholderViewDto[]>>(path);
+  return r.data;
+}
+
+export async function generateAiPlan(request: GenerateAiPlanRequest = {}): Promise<GenerateAiPlanResponse> {
+  const r = await apiPost<ApiResponse<GenerateAiPlanResponse>>(calendarApiPaths.aiPlaceholdersGenerate(), request);
+  return r.data;
+}
+
+export async function confirmAiPlaceholder(id: string): Promise<OperationConfirmation> {
+  const r = await apiPost<ApiResponse<OperationConfirmation>>(calendarApiPaths.aiPlaceholderConfirm(id), {});
+  return r.data;
+}
+
+export async function dismissAiPlaceholder(id: string): Promise<AiPlanPlaceholderViewDto> {
+  const r = await apiPost<ApiResponse<AiPlanPlaceholderViewDto>>(calendarApiPaths.aiPlaceholderDismiss(id), {});
+  return r.data;
 }

@@ -62,10 +62,15 @@ public class PcTrackerClassificationV2Tests
     public void ActivityClassifier_PrioritizesAppSignaturesOverBuiltinRules()
     {
         var context = new ActivityClassificationContext(
+            RecordType: "window",
             AppName: "postman.exe",
             AppNameNormalized: "postman",
+            Domain: null,
+            UrlPath: null,
+            Title: "POST https://api.example.com",
             WindowTitle: "POST https://api.example.com",
-            Domain: null);
+            FilePath: null,
+            BucketType: null);
 
         var signatures = new List<AppSignatureEntity>
         {

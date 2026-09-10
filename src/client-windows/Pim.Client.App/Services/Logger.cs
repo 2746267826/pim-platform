@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
@@ -8,7 +9,7 @@ namespace Pim.Client.App.Services;
 
 public static class Logger
 {
-    private static readonly string LogDir = Path.Combine(
+    internal static string LogDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "PIM", "logs");
 
@@ -27,13 +28,33 @@ public static class Logger
                 new CompactJsonFormatter(),
                 logFile,
                 rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 30)
+                retainedFileCountLimit: 30,
+                flushToDiskInterval: TimeSpan.FromSeconds(1))
             .CreateLogger();
     }
 
     public static void Info(string message) => Write(LogEventLevel.Information, message, null);
     public static void Warn(string message) => Write(LogEventLevel.Warning, message, null);
     public static void Error(string message, Exception? ex = null) => Write(LogEventLevel.Error, message, ex);
+
+    /// <summary>
+    /// 关闭并刷新 Serilog（CloseAndFlush 语义）：确保退出前 ≤1s 缓冲的日志落盘。
+    /// 不抛异常；可重复调用（幂等）。
+    /// </summary>
+    public static void Shutdown()
+    {
+        var logger = Interlocked.Exchange(ref _serilog, null);
+        if (logger is null) return;
+        try
+        {
+            // Serilog Logger 实现 IDisposable，Dispose 内部执行 CloseAndFlush
+            (logger as IDisposable)?.Dispose();
+        }
+        catch
+        {
+            // 静默
+        }
+    }
 
     public static void Trace(string message)
     {

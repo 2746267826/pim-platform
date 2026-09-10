@@ -22,20 +22,58 @@ public partial class App : Application
     private readonly object _plannedOfflineLock = new();
     private readonly SemaphoreSlim _reportSemaphore = new(1, 1);
 
-    protected override async void OnStartup(StartupEventArgs e)
+    /// <summary>
+    /// 安装全局崩溃钩子（在 Program.Main 中、App.Run 之前调用一次，避免重复注册）：
+    /// AppDomain 未处理异常 / TaskScheduler 未观察异常 / Dispatcher 未处理异常（决策 D2-1：吞掉继续运行）。
+    /// 每个钩子都同时写 Serilog (daemon jsonl) 与 bootstrap.log（含完整异常堆栈）。
+    /// </summary>
+    internal static void InstallExceptionHooks(App app)
     {
-        Logger.Initialize();
-
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {
-            Logger.Error("UnhandledException", args.ExceptionObject as Exception);
+            var ex = args.ExceptionObject as Exception;
+            var detail = Describe(ex);
+            // 守住不变量：Serilog 挂了至少写 bootstrap
+            BootstrapLog.Write($"UnhandledException: {detail}");
+            try { Logger.Error("UnhandledException", ex); } catch { }
+            // 进程即将终止：尽力把 ≤1s 缓冲落盘，避免 daemon jsonl 丢失这条崩溃记录（Shutdown 幂等且不抛异常）
+            try { Logger.Shutdown(); } catch { }
         };
 
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            var detail = Describe(args.Exception);
+            BootstrapLog.Write($"UnobservedTaskException: {detail}");
+            try { Logger.Error("UnobservedTaskException", args.Exception); } catch { }
+            args.SetObserved();
+        };
+
+        app.DispatcherUnhandledException += (_, args) =>
+        {
+            var detail = Describe(args.Exception);
+            BootstrapLog.Write($"DispatcherUnhandledException (swallowed, continuing): {detail}");
+            try { Logger.Error("DispatcherUnhandledException (swallowed, continuing)", args.Exception); } catch { }
+            if (args.Exception is not OutOfMemoryException)
+            {
+                args.Handled = true;
+            }
+        };
+    }
+
+    private static string Describe(Exception? ex) => ex is null ? "unknown exception" : ex.ToString();
+
+    protected override async void OnStartup(StartupEventArgs e)
+    {
         try
         {
+            BootstrapLog.Write("OnStartup entered");
+            Logger.Initialize();
+            BootstrapLog.Write("Logger initialized");
+
             Logger.Info("Daemon starting");
             Services = Pim.Client.App.Startup.ConfigureServices();
             Logger.Info("DI configured");
+            BootstrapLog.Write("DI configured");
 
             // Fire-once best-effort report of planned offline before shutdown/suspend/logoff.
             SystemEvents.SessionEnding += (_, e) =>
@@ -111,37 +149,49 @@ public partial class App : Application
             _trayIcon = Services.GetRequiredService<TrayIcon>();
             _trayIcon.Show();
             Logger.Info("Tray icon shown");
+            BootstrapLog.Write("Tray icon shown");
 
             var restoreResult = await authService.TryRestoreTokenDetailedAsync();
             if (restoreResult == TokenRestoreResult.Success)
             {
                 Logger.Info($"Authenticated as {authService.CurrentUsername} (token restored)");
+                BootstrapLog.Write("Token restored; already authenticated");
             }
             else if (restoreResult == TokenRestoreResult.PendingNetwork)
             {
                 Logger.Info($"Saved token found for {authService.CurrentUsername}, but network unreachable at startup; daemon will refresh in background");
+                BootstrapLog.Write("Token saved but network unreachable; will refresh in background");
             }
             else
             {
                 Logger.Info("No saved token; showing login window");
+                BootstrapLog.Write("No saved token; showing login window");
                 var loginWindow = new LoginWindow();
                 var result = loginWindow.ShowDialog();
                 if (result == true)
+                {
                     Logger.Info($"Authenticated as {authService.CurrentUsername}");
+                    BootstrapLog.Write("Authenticated after login");
+                }
                 else
+                {
                     Logger.Warn("Login skipped; daemon running without API access, uploads will fail");
+                    BootstrapLog.Write("Login skipped; daemon running without API access");
+                }
             }
 
             var tracker = Services.GetRequiredService<NativeTrackerService>();
             tracker.Log = msg => Logger.Info(msg);
             tracker.Start();
             Logger.Info("NativeTrackerService started");
+            BootstrapLog.Write("NativeTrackerService started");
 
             var bridge = Services.GetRequiredService<BrowserBridgeService>();
             // Bridge already started inside tracker, but ensure standalone start if needed
             try { bridge.Start(); } catch { }
 
             EnsureKeyStatsRunning();
+            BootstrapLog.Write("KeyStats ensure done");
 
             var keyStatsCollector = Services.GetRequiredService<KeyStatsCollectorService>();
             keyStatsCollector.Log = msg => Logger.Info(msg);
@@ -150,10 +200,12 @@ public partial class App : Application
 
             _heartbeatTask = Task.Run(() => RunHeartbeatLoopAsync(_shutdown.Token));
             Logger.Info("Daemon heartbeat loop started");
+            BootstrapLog.Write("Heartbeat loop started");
         }
         catch (Exception ex)
         {
             Logger.Error("Fatal daemon startup error", ex);
+            BootstrapLog.Write($"Fatal daemon startup error: {ex}");
             Shutdown();
         }
     }
@@ -356,19 +408,28 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        // 先停心跳并等待在途心跳结束（避免在途心跳清掉 planned 标记），再上报；Cancel 幂等，多次调用安全。
-        StopHeartbeatLoopAndWait();
-        TryReportPlannedOffline("exit", wait: true);
-        try { Services.GetService<NativeTrackerService>()?.Stop(); } catch { }
-        try { Services.GetService<BrowserBridgeService>()?.Stop(); } catch { }
-        _heartbeatTimer.Dispose();
-        _heartbeatTask?.ContinueWith(
-            task => Logger.Warn($"Daemon heartbeat loop faulted: {task.Exception?.GetBaseException().Message ?? "unknown error"}"),
-            TaskContinuationOptions.OnlyOnFaulted);
-        _shutdown.Dispose();
-        _trayIcon?.Dispose();
-        Logger.Info("Daemon exiting");
-        base.OnExit(e);
+        try
+        {
+            // 先停心跳并等待在途心跳结束（避免在途心跳清掉 planned 标记），再上报；Cancel 幂等，多次调用安全。
+            StopHeartbeatLoopAndWait();
+            TryReportPlannedOffline("exit", wait: true);
+            try { Services.GetService<NativeTrackerService>()?.Stop(); } catch { }
+            try { Services.GetService<BrowserBridgeService>()?.Stop(); } catch { }
+            _heartbeatTimer.Dispose();
+            _heartbeatTask?.ContinueWith(
+                task => Logger.Warn($"Daemon heartbeat loop faulted: {task.Exception?.GetBaseException().Message ?? "unknown error"}"),
+                TaskContinuationOptions.OnlyOnFaulted);
+            _shutdown.Dispose();
+            _trayIcon?.Dispose();
+        }
+        finally
+        {
+            // 即便上面清理抛错，也必须保证退出埋点与 base.OnExit 必然执行
+            Logger.Info("Daemon exiting");
+            BootstrapLog.Write($"Daemon exiting (ExitCode={e.ApplicationExitCode})");
+            Logger.Shutdown();
+            base.OnExit(e);
+        }
     }
 
     private void StopHeartbeatLoopAndWait()

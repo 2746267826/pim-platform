@@ -14,6 +14,11 @@
     <ProjectReference Include="..\Pim.Client.Infrastructure\Pim.Client.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- 显式 Main（Program.cs）：App.xaml 从自动生成入口的 ApplicationDefinition 降为普通 Page -->
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+  </ItemGroup>
+  <ItemGroup>
     <Resource Include="app.ico" />
   </ItemGroup>
   <ItemGroup>

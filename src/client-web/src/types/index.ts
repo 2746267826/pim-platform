@@ -1582,3 +1582,71 @@ export interface GenerateAiPlanResponse {
   source: string;
   placeholders: AiPlanPlaceholderViewDto[];
 }
+
+export interface ActivityClassificationSuggestionV2 {
+  id: string;
+  clusterKey: string;
+  processName: string | null;
+  domain: string | null;
+  appDisplayName: string | null;
+  appIcon: string | null;
+  currentCategory: string | null;
+  recommendedCategoryName: string | null;
+  recommendedCategoryId: string | null;
+  recommendedProductivity: string | null;
+  confidence: number;
+  recognitionSource: string;
+  isOnlineLookup: boolean;
+  totalDurationSeconds: number;
+  sampleCount: number;
+  status: string;
+  createdAt: string;
+}
+
+export interface BatchAcceptSuggestionItem {
+  suggestionId: string;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  createRule?: boolean;
+}
+
+export interface BatchAcceptSuggestionsRequest {
+  items: BatchAcceptSuggestionItem[];
+}
+
+export interface BatchAcceptResult {
+  acceptedCount: number;
+  rulesCreatedCount: number;
+  failuresCount: number;
+}
+
+export interface AppSignature {
+  id: string;
+  processName: string;
+  displayName: string;
+  categoryPath?: string | null;
+  productivity?: string | null;
+  description?: string | null;
+  source: string;
+  confidence: number;
+  icon?: string | null;
+  lastSeenAt?: string | null;
+  createdAt: string;
+}
+
+export interface ProductivityGoal {
+  dailyProductiveHours: number;
+}
+
+export interface TimelineV2Item {
+  start: string;
+  end: string;
+  appName: string;
+  appDisplayName?: string | null;
+  windowTitle?: string | null;
+  categoryName: string;
+  categoryColor?: string | null;
+  productivity: string;
+  confidence: number;
+  durationMinutes: number;
+}

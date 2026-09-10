@@ -471,3 +471,37 @@ export function getPcLateNight(params: PcAggregationQueryParams = {}) {
 export function getPcCategoryDistribution(params: PcAggregationQueryParams = {}) {
   return apiGet<ApiResponse<PcCategoryDistributionResponse>>(pcAggregationApiPaths.categoryDistribution(params)).then(r => r.data);
 }
+
+// === Classification 2.0 APIs ===
+export function getSuggestionsV2() {
+  return apiGet<ApiResponse<import('../types').ActivityClassificationSuggestionV2[]>>('/pc/classification/suggestions/v2').then(r => r.data);
+}
+
+export function batchAcceptSuggestions(req: import('../types').BatchAcceptSuggestionsRequest) {
+  return apiPost<ApiResponse<import('../types').BatchAcceptResult>>('/pc/classification/suggestions/batch-accept', req).then(r => r.data);
+}
+
+export function exportAppSignatures() {
+  return apiGet<ApiResponse<import('../types').AppSignature[]>>('/pc/app-signatures/export').then(r => r.data);
+}
+
+export function importAppSignatures(signatures: Partial<import('../types').AppSignature>[]) {
+  return apiPost<ApiResponse<{ imported: number; updated: number }>>('/pc/app-signatures/import', signatures).then(r => r.data);
+}
+
+export function lookupAppSignature(processName: string) {
+  return apiPost<ApiResponse<import('../types').AppSignature>>('/pc/app-signatures/lookup', { processName }).then(r => r.data);
+}
+
+export function getProductivityGoals() {
+  return apiGet<ApiResponse<import('../types').ProductivityGoal>>('/pc/productivity/goals').then(r => r.data);
+}
+
+export function updateProductivityGoals(goal: import('../types').ProductivityGoal) {
+  return apiPut<ApiResponse<import('../types').ProductivityGoal>>('/pc/productivity/goals', goal).then(r => r.data);
+}
+
+export function getPcTimelineV2(date?: string) {
+  const q = date ? `?date=${encodeURIComponent(date)}` : "";
+  return apiGet<ApiResponse<import("../types").TimelineV2Item[]>>(`/pc/timeline/v2${q}`).then(r => r.data);
+}

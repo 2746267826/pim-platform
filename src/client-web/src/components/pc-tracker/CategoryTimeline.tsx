@@ -105,7 +105,7 @@ export default function CategoryTimeline({ timeline }: Props) {
             </span>
           ))}
           <span className="ml-auto font-semibold text-blue-600">
-            生产性 {stats.productivePercent}% · {stats.eventCount} 条
+            专注率 {stats.productivePercent}% · {stats.eventCount} 条
           </span>
         </div>
       )}

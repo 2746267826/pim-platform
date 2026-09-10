@@ -24,17 +24,24 @@ function getEmojiForApp(appIcon?: string | null, clusterKey?: string): string {
   return '❓';
 }
 
-function getRecognitionBadge(recognitionSource?: string | null) {
-  if (recognitionSource === 'builtin' || recognitionSource === 'manual') {
+function getRecognitionBadge(recognitionSource?: string | null, isOnlineLookup?: boolean) {
+  if (isOnlineLookup || recognitionSource === 'online') {
+    return (
+      <span className="inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+        🌐 联网识别
+      </span>
+    );
+  }
+  if (recognitionSource === 'builtin' || recognitionSource === 'manual' || recognitionSource === 'signature') {
     return (
       <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-        ✅ 已识别
+        📦 内置识别
       </span>
     );
   }
   return (
     <span className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
-      未识别 ❓
+      启发式 💡
     </span>
   );
 }
@@ -124,7 +131,7 @@ export default function ClassificationSuggestionPanel({
                   <span className="truncate text-sm font-semibold text-slate-950">
                     {displayName}
                   </span>
-                  {getRecognitionBadge(suggestion.recognitionSource)}
+                  {getRecognitionBadge(suggestion.recognitionSource, (suggestion as any).isOnlineLookup)}
                   {appName && displayName !== appName && (
                     <span className="truncate text-xs text-slate-400">
                       {appName}

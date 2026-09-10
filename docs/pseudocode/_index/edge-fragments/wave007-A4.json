@@ -1,0 +1,239 @@
+{
+  "slot": "A4",
+  "wave": "wave007",
+  "nodes": [
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/mobile/usage/AppMetadataCollector.kt",
+      "label": "AppMetadataCollector",
+      "path": "src/client-android/app/src/main/java/com/pim/app/mobile/usage/AppMetadataCollector.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/usage/AppMetadataCollector.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt",
+      "label": "ScheduleWindowRepository",
+      "path": "src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/ui/permissions/PermissionCenterScreen.kt",
+      "label": "PermissionCenterScreen",
+      "path": "src/client-android/app/src/main/java/com/pim/app/ui/permissions/PermissionCenterScreen.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/permissions/PermissionCenterScreen.kt.md",
+      "layer": "client-android",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt",
+      "label": "StatusCenterViewModel",
+      "path": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/location/policy/LocationPolicyEngineTest.kt",
+      "label": "LocationPolicyEngineTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/location/policy/LocationPolicyEngineTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/policy/LocationPolicyEngineTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncWindowSplitterTest.kt",
+      "label": "MobileSyncWindowSplitterTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncWindowSplitterTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncWindowSplitterTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/status/StatusIssueTest.kt",
+      "label": "StatusIssueTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/status/StatusIssueTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/status/StatusIssueTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TodayStatusContractTest.kt",
+      "label": "AndroidV2TodayStatusContractTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TodayStatusContractTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TodayStatusContractTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt",
+      "label": "ApiClientProvider",
+      "path": "src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/core/src/test/java/com/pim/core/auth/TokenManagerTest.kt",
+      "label": "TokenManagerTest",
+      "path": "src/client-android/core/src/test/java/com/pim/core/auth/TokenManagerTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/auth/TokenManagerTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/appKnowledgeApiPath.test.ts",
+      "label": "appKnowledgeApiPath.test",
+      "path": "tests/client-web/appKnowledgeApiPath.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/appKnowledgeApiPath.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/endpointShellPage.test.tsx",
+      "label": "endpointShellPage.test",
+      "path": "tests/client-web/endpointShellPage.test.tsx",
+      "doc": "docs/pseudocode/files/tests/client-web/endpointShellPage.test.tsx.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/mobile/usage/AppMetadataCollector.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileAppMetadataEntity.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/schedule/ScheduleWindowRepository.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/models",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/status/StatusCenterRepository.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncScheduler.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeService.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeStore.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/settings/PimServerEndpoints.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/location/policy/LocationPolicyEngineTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/location/policy/LocationPolicyEngineTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettings.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncWindowSplitterTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/status/StatusIssueTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/status/StatusIssue.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/status/StatusIssueTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/status",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TodayStatusContractTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/ui/today/TodayScreen.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TodayStatusContractTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/ui/today/TodayViewModel.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/settings/PimServerEndpoints.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network/OkHttpTimeouts.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/test/java/com/pim/core/auth/TokenManagerTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/auth/TokenManager.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/core/src/test/java/com/pim/core/auth/TokenManagerTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/network/AuthRefreshCoordinator.kt",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/appKnowledgeApiPath.test.ts",
+      "to": "src/client-web/src/api/appKnowledge.ts",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/endpointShellPage.test.tsx",
+      "to": "src/client-web/src/pages/EndpointShellPage.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/endpointShellPage.test.tsx",
+      "to": "src/client-web/src/layout/AppLayout.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/endpointShellPage.test.tsx",
+      "to": "src/client-web/src/api/endpoints.ts",
+      "type": "tests"
+    }
+  ]
+}

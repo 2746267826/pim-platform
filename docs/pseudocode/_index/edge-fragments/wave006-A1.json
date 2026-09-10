@@ -1,0 +1,118 @@
+{
+  "slot": "A1",
+  "wave": "wave006",
+  "nodes": [
+    {
+      "id": "src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx",
+      "label": "ActivityAnalysisHeatmap",
+      "path": "src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx",
+      "label": "KeyboardHeatmap",
+      "path": "src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx",
+      "label": "QuickNoteFloatingPanel",
+      "path": "src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/schedule/TaskSegmentEditor.tsx",
+      "label": "TaskSegmentEditor",
+      "path": "src/client-web/src/components/schedule/TaskSegmentEditor.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/schedule/TaskSegmentEditor.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/context/CalendarVisibilityContext.tsx",
+      "label": "CalendarVisibilityContext",
+      "path": "src/client-web/src/context/CalendarVisibilityContext.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/context/CalendarVisibilityContext.tsx.md",
+      "layer": "client-web",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/pages/AuditTimelinePage.tsx",
+      "label": "AuditTimelinePage",
+      "path": "src/client-web/src/pages/AuditTimelinePage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/AuditTimelinePage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/MobileRecordsPage.tsx",
+      "label": "MobileRecordsPage",
+      "path": "src/client-web/src/pages/MobileRecordsPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/MobileRecordsPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/SyncPage.tsx",
+      "label": "SyncPage",
+      "path": "src/client-web/src/pages/SyncPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/SyncPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/ui/MetricCard.tsx",
+      "label": "MetricCard",
+      "path": "src/client-web/src/ui/MetricCard.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/ui/MetricCard.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/daemon/StatusActivity.kt",
+      "label": "StatusActivity",
+      "path": "src/client-android/app/src/main/java/com/pim/app/daemon/StatusActivity.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/daemon/StatusActivity.kt.md",
+      "layer": "client-android",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt",
+      "label": "LocationCaptureRepository",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt",
+      "label": "ForegroundLocationController",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    { "from": "src/client-web/src/components/pc-tracker/ActivityAnalysisHeatmap.tsx", "to": "src/client-web/src/types/index.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/pc-tracker/KeyboardHeatmap.tsx", "to": "src/client-web/src/types/index.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx", "to": "src/client-web/src/api/quickNotes.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx", "to": "src/client-web/src/components/quick-notes/QuickNoteEditor.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/components/quick-notes/QuickNoteFloatingPanel.tsx", "to": "src/client-web/src/components/quick-notes/quickNoteFloatingState.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/schedule/TaskSegmentEditor.tsx", "to": "src/client-web/src/api/calendar.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/AuditTimelinePage.tsx", "to": "src/client-web/src/api/operations.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/AuditTimelinePage.tsx", "to": "src/client-web/src/components/schedule/BeforeAfterDiff.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/MobileRecordsPage.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/SyncPage.tsx", "to": "src/client-web/src/api/calendar.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/SyncPage.tsx", "to": "src/client-web/src/components/schedule/OutlookConflictResolver.tsx", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt", "to": "src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt", "to": "src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt", "to": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt", "type": "depends_on" }
+  ]
+}

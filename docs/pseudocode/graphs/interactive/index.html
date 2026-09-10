@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>PIM Pseudocode Graph</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; }
+    #banner { padding: 8px 12px; background: #0f172a; color: #e2e8f0; font-size: 14px; }
+    #banner a { color: #93c5fd; }
+    #toolbar { padding: 8px; border-bottom: 1px solid #ccc; display: flex; gap: 8px; }
+    #meta { padding: 4px 8px; color: #444; }
+    canvas { display: block; width: 100vw; height: calc(100vh - 100px); }
+  </style>
+</head>
+<body>
+  <div id="banner">新工作台：<a href="../../viewer/">打开 Pseudocode Viewer</a></div>
+  <div id="toolbar">
+    <input id="q" placeholder="搜索节点 id/label" style="width: 280px" />
+    <select id="layer"><option value="">全部 layer</option></select>
+    <button id="reload">重载</button>
+  </div>
+  <div id="meta">loading…</div>
+  <canvas id="c"></canvas>
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const meta = document.getElementById('meta');
+    let data = { nodes: [], edges: [] };
+    let positions = new Map();
+
+    function resize() {
+      canvas.width = canvas.clientWidth * devicePixelRatio;
+      canvas.height = canvas.clientHeight * devicePixelRatio;
+      ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    }
+    window.addEventListener('resize', () => { resize(); draw(); });
+
+    function layerColor(layer) {
+      const map = {
+        core: '#2563eb', infrastructure: '#7c3aed', api: '#db2777',
+        'client-web': '#059669', 'client-windows': '#d97706', 'client-android': '#0891b2',
+        tests: '#6b7280'
+      };
+      if (map[layer]) return map[layer];
+      if (String(layer).startsWith('module.')) return '#ea580c';
+      return '#334155';
+    }
+
+    async function load() {
+      const res = await fetch('./graph-data.json');
+      data = await res.json();
+      const layers = [...new Set(data.nodes.map(n => n.layer))].sort();
+      const sel = document.getElementById('layer');
+      sel.innerHTML = '<option value="">全部 layer</option>' + layers.map(l => `<option value="${l}">${l}</option>`).join('');
+      initPositions();
+      meta.textContent = `nodes=${data.nodes.length} edges=${data.edges.length}`;
+      draw();
+    }
+
+    function initPositions() {
+      positions = new Map();
+      const w = canvas.clientWidth || 800, h = canvas.clientHeight || 600;
+      data.nodes.forEach((n, i) => {
+        const a = (i / Math.max(data.nodes.length, 1)) * Math.PI * 2;
+        const r = Math.min(w, h) * 0.35;
+        positions.set(n.id, { x: w/2 + Math.cos(a)*r, y: h/2 + Math.sin(a)*r });
+      });
+    }
+
+    function filteredNodes() {
+      const q = document.getElementById('q').value.trim().toLowerCase();
+      const layer = document.getElementById('layer').value;
+      return data.nodes.filter(n => {
+        if (layer && n.layer !== layer) return false;
+        if (!q) return true;
+        return String(n.id).toLowerCase().includes(q) || String(n.label).toLowerCase().includes(q);
+      });
+    }
+
+    function draw() {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+      const nodes = filteredNodes();
+      const ids = new Set(nodes.map(n => n.id));
+      ctx.strokeStyle = '#cbd5e1';
+      data.edges.forEach(e => {
+        if (!ids.has(e.from) || !ids.has(e.to)) return;
+        const a = positions.get(e.from), b = positions.get(e.to);
+        if (!a || !b) return;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      });
+      nodes.forEach(n => {
+        const p = positions.get(n.id); if (!p) return;
+        ctx.fillStyle = layerColor(n.layer);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
+      });
+    }
+
+    document.getElementById('reload').onclick = load;
+    document.getElementById('q').oninput = draw;
+    document.getElementById('layer').onchange = draw;
+    resize();
+    load();
+  </script>
+</body>
+</html>

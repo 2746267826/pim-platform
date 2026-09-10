@@ -1,0 +1,30 @@
+{
+  "slot": "A4",
+  "wave": "wave009",
+  "nodes": [
+    {
+      "id": "tests/Pim.UnitTests/Services/IcsServiceTests.cs",
+      "label": "IcsServiceTests",
+      "path": "tests/Pim.UnitTests/Services/IcsServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/IcsServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Today/TodaySectionProviderTests.cs",
+      "label": "TodaySectionProviderTests",
+      "path": "tests/Pim.UnitTests/Today/TodaySectionProviderTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Today/TodaySectionProviderTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "tests/Pim.UnitTests/Services/IcsServiceTests.cs", "to": "src/modules/Pim.Module.Calendar/Services/IcsService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Today/TodaySectionProviderTests.cs", "to": "src/Pim.Api/Today/TodaySectionProviders.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Today/TodaySectionProviderTests.cs", "to": "src/modules/Pim.Module.Calendar/Services/CalendarService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Today/TodaySectionProviderTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/PcTrackerQualityService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Today/TodaySectionProviderTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/PcTrackerService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Today/TodaySectionProviderTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/ActivitySuggestionService.cs", "type": "tests" }
+  ]
+}

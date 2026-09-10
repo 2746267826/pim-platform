@@ -1,0 +1,284 @@
+{
+  "slot": "A6",
+  "wave": "wave006",
+  "nodes": [
+    {
+      "id": "src/client-web/src/components/pc-tracker/ClassificationSuggestionPanel.tsx",
+      "label": "ClassificationSuggestionPanel",
+      "path": "src/client-web/src/components/pc-tracker/ClassificationSuggestionPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ClassificationSuggestionPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/pc-tracker/QuickClassificationDialog.tsx",
+      "label": "QuickClassificationDialog",
+      "path": "src/client-web/src/components/pc-tracker/QuickClassificationDialog.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/QuickClassificationDialog.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/schedule/DataCenterBatchPreview.tsx",
+      "label": "DataCenterBatchPreview",
+      "path": "src/client-web/src/components/schedule/DataCenterBatchPreview.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/schedule/DataCenterBatchPreview.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/today/TodayPcOverview.tsx",
+      "label": "TodayPcOverview",
+      "path": "src/client-web/src/components/today/TodayPcOverview.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/today/TodayPcOverview.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/layout/AppLayout.tsx",
+      "label": "AppLayout",
+      "path": "src/client-web/src/layout/AppLayout.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/layout/AppLayout.tsx.md",
+      "layer": "client-web",
+      "kind": "entrypoint"
+    },
+    {
+      "id": "src/client-web/src/pages/DataCenterPage.tsx",
+      "label": "DataCenterPage",
+      "path": "src/client-web/src/pages/DataCenterPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/DataCenterPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/RecycleBinPage.tsx",
+      "label": "RecycleBinPage",
+      "path": "src/client-web/src/pages/RecycleBinPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/RecycleBinPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/types/index.ts",
+      "label": "ApiResponse",
+      "path": "src/client-web/src/types/index.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/types/index.ts.md",
+      "layer": "client-web",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-web/src/utils/pcBusinessDay.ts",
+      "label": "getPcBusinessDate",
+      "path": "src/client-web/src/utils/pcBusinessDay.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/utils/pcBusinessDay.ts.md",
+      "layer": "client-web",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataModule.kt",
+      "label": "MobileDataModule",
+      "path": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataModule.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/MobileDataModule.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/policy/GeoDistance.kt",
+      "label": "GeoDistance",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/policy/GeoDistance.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/policy/GeoDistance.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt",
+      "label": "MobileOverview",
+      "path": "src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/client-web/src/components/pc-tracker/ClassificationSuggestionPanel.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/pc-tracker/QuickClassificationDialog.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/schedule/DataCenterBatchPreview.tsx",
+      "to": "src/client-web/src/api/calendar.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/schedule/DataCenterBatchPreview.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayPcOverview.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayPcOverview.tsx",
+      "to": "src/client-web/src/ui/EmptyState.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayPcOverview.tsx",
+      "to": "src/client-web/src/ui/MetricCard.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayPcOverview.tsx",
+      "to": "src/client-web/src/ui/StatusBadge.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayPcOverview.tsx",
+      "to": "src/client-web/src/utils/pcBusinessDay.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/auth/AuthContext.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/components/quick-notes/QuickNoteFloatingButton.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/context/CalendarVisibilityContext.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/layout/Sidebar.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/pages/AiSettingsPage.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/pages/CalendarDataManager.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/pages/CalendarPage.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/pages/CategoryTreePage.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/pages/PcDetailQueryPage.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/pages/PcTrackerPage.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/pages/RecycleBinPage.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/pages/SettingsPage.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/pages/StatusPage.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/pages/TaskListPage.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/pages/TodayPage.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/layout/AppLayout.tsx",
+      "to": "src/client-web/src/panels/InboxPanel.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/DataCenterPage.tsx",
+      "to": "src/client-web/src/api/calendar.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/DataCenterPage.tsx",
+      "to": "src/client-web/src/components/schedule/DataCenterBatchPreview.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/DataCenterPage.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/DataCenterPage.tsx",
+      "to": "src/client-web/src/ui/PageHeader.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/RecycleBinPage.tsx",
+      "to": "src/client-web/src/api/calendar.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/RecycleBinPage.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/RecycleBinPage.tsx",
+      "to": "src/client-web/src/ui/EmptyState.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/RecycleBinPage.tsx",
+      "to": "src/client-web/src/ui/OperationResultBanner.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/RecycleBinPage.tsx",
+      "to": "src/client-web/src/ui/PageHeader.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/mobile/summary/MobileOverviewRepository.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+      "type": "depends_on"
+    }
+  ]
+}

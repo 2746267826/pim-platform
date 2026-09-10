@@ -1,0 +1,143 @@
+{
+  "slot": "A7",
+  "wave": "wave008",
+  "nodes": [
+    {
+      "id": "tests/client-web/mobileTypes.test.ts",
+      "label": "mobileTypes.test",
+      "path": "tests/client-web/mobileTypes.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/mobileTypes.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/quickNotesApiPath.test.ts",
+      "label": "quickNotesApiPath.test",
+      "path": "tests/client-web/quickNotesApiPath.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/quickNotesApiPath.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/scheduleWorkbenchFoundationParity.test.ts",
+      "label": "scheduleWorkbenchFoundationParity.test",
+      "path": "tests/client-web/scheduleWorkbenchFoundationParity.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/scheduleWorkbenchFoundationParity.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/todayTypes.test.ts",
+      "label": "todayTypes.test",
+      "path": "tests/client-web/todayTypes.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/todayTypes.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Ai/AiUsageServiceTests.cs",
+      "label": "AiUsageServiceTests",
+      "path": "tests/Pim.UnitTests/Ai/AiUsageServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiUsageServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Calendar/CalendarWorkbenchQueryTests.cs",
+      "label": "CalendarWorkbenchQueryTests",
+      "path": "tests/Pim.UnitTests/Calendar/CalendarWorkbenchQueryTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarWorkbenchQueryTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Calendar/OutlookIcsServiceTests.cs",
+      "label": "OutlookIcsServiceTests",
+      "path": "tests/Pim.UnitTests/Calendar/OutlookIcsServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookIcsServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Calendar/TaskExecutionSegmentServiceTests.cs",
+      "label": "TaskExecutionSegmentServiceTests",
+      "path": "tests/Pim.UnitTests/Calendar/TaskExecutionSegmentServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/TaskExecutionSegmentServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/ClientWindows/WindowsStatusCenterTests.cs",
+      "label": "WindowsStatusCenterTests",
+      "path": "tests/Pim.UnitTests/ClientWindows/WindowsStatusCenterTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/WindowsStatusCenterTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Files/NextcloudFileProviderAdapterTests.cs",
+      "label": "NextcloudFileProviderAdapterTests",
+      "path": "tests/Pim.UnitTests/Files/NextcloudFileProviderAdapterTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Files/NextcloudFileProviderAdapterTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Mobile/MobileLocationQueryServiceTests.cs",
+      "label": "MobileLocationQueryServiceTests",
+      "path": "tests/Pim.UnitTests/Mobile/MobileLocationQueryServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileLocationQueryServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Mobile/MobileUsageIngestServiceTests.cs",
+      "label": "MobileUsageIngestServiceTests",
+      "path": "tests/Pim.UnitTests/Mobile/MobileUsageIngestServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileUsageIngestServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Operations/PimMigrationAdoptionServiceTests.cs",
+      "label": "PimMigrationAdoptionServiceTests",
+      "path": "tests/Pim.UnitTests/Operations/PimMigrationAdoptionServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Operations/PimMigrationAdoptionServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/QuickNotes/QuickNoteMarkdownReferenceTests.cs",
+      "label": "QuickNoteMarkdownReferenceTests",
+      "path": "tests/Pim.UnitTests/QuickNotes/QuickNoteMarkdownReferenceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteMarkdownReferenceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Services/ActivityTimelineSmoothingServiceTests.cs",
+      "label": "ActivityTimelineSmoothingServiceTests",
+      "path": "tests/Pim.UnitTests/Services/ActivityTimelineSmoothingServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityTimelineSmoothingServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "tests/client-web/mobileTypes.test.ts", "to": "src/client-web/src/api/mobile.ts", "type": "tests" },
+    { "from": "tests/client-web/quickNotesApiPath.test.ts", "to": "src/client-web/src/api/quickNotes.ts", "type": "tests" },
+    { "from": "tests/client-web/scheduleWorkbenchFoundationParity.test.ts", "to": "src/client-web/src/layout/AppLayout.tsx", "type": "tests" },
+    { "from": "tests/client-web/todayTypes.test.ts", "to": "src/client-web/src/types/index.ts", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Ai/AiUsageServiceTests.cs", "to": "src/Pim.Infrastructure/Ai/AiUsageService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/CalendarWorkbenchQueryTests.cs", "to": "src/Pim.Module.Calendar/Services/DataCenterQueryService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/OutlookIcsServiceTests.cs", "to": "src/Pim.Module.Calendar/Services/OutlookIcsService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/TaskExecutionSegmentServiceTests.cs", "to": "src/Pim.Module.Calendar/Services/PlanningModelService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/ClientWindows/WindowsStatusCenterTests.cs", "to": "src/client-windows/Pim.Client.Core/Services/StatusCenterEvaluator.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Files/NextcloudFileProviderAdapterTests.cs", "to": "src/Pim.Module.Files/Providers/NextcloudFileProviderAdapter.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Mobile/MobileLocationQueryServiceTests.cs", "to": "src/Pim.Module.Mobile/Services/MobileLocationQueryService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Mobile/MobileUsageIngestServiceTests.cs", "to": "src/Pim.Module.Mobile/Services/MobileUsageIngestService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Operations/PimMigrationAdoptionServiceTests.cs", "to": "src/Pim.Infrastructure/Data/PimMigrationAdoptionService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/QuickNotes/QuickNoteMarkdownReferenceTests.cs", "to": "src/Pim.Module.QuickNotes/Services/QuickNoteMarkdownReferences.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Services/ActivityTimelineSmoothingServiceTests.cs", "to": "src/Pim.Module.PcTracker/Services/ActivityTimelineSmoothingService.cs", "type": "tests" }
+  ]
+}

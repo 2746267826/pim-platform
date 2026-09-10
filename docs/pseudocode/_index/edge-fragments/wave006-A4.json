@@ -1,0 +1,194 @@
+{
+  "slot": "A4",
+  "wave": "wave006",
+  "nodes": [
+    {
+      "id": "src/client-web/src/components/pc-tracker/ClassificationActionQueue.tsx",
+      "label": "ClassificationActionQueue",
+      "path": "src/client-web/src/components/pc-tracker/ClassificationActionQueue.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ClassificationActionQueue.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/pc-tracker/PcReviewSummary.tsx",
+      "label": "PcReviewSummary",
+      "path": "src/client-web/src/components/pc-tracker/PcReviewSummary.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/PcReviewSummary.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/schedule/BeforeAfterDiff.tsx",
+      "label": "BeforeAfterDiff",
+      "path": "src/client-web/src/components/schedule/BeforeAfterDiff.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/schedule/BeforeAfterDiff.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx",
+      "label": "TodayClassificationSuggestionsSection",
+      "path": "src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/dialogs/TaskEditorDialog.tsx",
+      "label": "TaskEditorDialog",
+      "path": "src/client-web/src/dialogs/TaskEditorDialog.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/dialogs/TaskEditorDialog.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/CategoryTreePage.tsx",
+      "label": "CategoryTreePage",
+      "path": "src/client-web/src/pages/CategoryTreePage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/CategoryTreePage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/PcTrackerPage.tsx",
+      "label": "PcTrackerPage",
+      "path": "src/client-web/src/pages/PcTrackerPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/PcTrackerPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/WorkbenchPage.tsx",
+      "label": "WorkbenchPage",
+      "path": "src/client-web/src/pages/WorkbenchPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/WorkbenchPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/ui/SegmentedControl.tsx",
+      "label": "SegmentedControl",
+      "path": "src/client-web/src/ui/SegmentedControl.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/ui/SegmentedControl.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt",
+      "label": "AppUsageEntity",
+      "path": "src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt.md",
+      "layer": "client-android",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt",
+      "label": "MotionSignalRepository",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/MainActivity.kt",
+      "label": "MainActivity",
+      "path": "src/client-android/app/src/main/java/com/pim/app/MainActivity.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/MainActivity.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/client-web/src/components/pc-tracker/ClassificationActionQueue.tsx",
+      "to": "src/client-web/src/types/index.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/pc-tracker/PcReviewSummary.tsx",
+      "to": "src/client-web/src/types/index.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx",
+      "to": "src/client-web/src/ui/EmptyState.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx",
+      "to": "src/client-web/src/ui/StatusBadge.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/dialogs/TaskEditorDialog.tsx",
+      "to": "src/client-web/src/api/calendar.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/dialogs/TaskEditorDialog.tsx",
+      "to": "src/client-web/src/ui/EditorDrawer.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/dialogs/TaskEditorDialog.tsx",
+      "to": "src/client-web/src/ui/ConfirmActionDialog.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/CategoryTreePage.tsx",
+      "to": "src/client-web/src/api/pcTracker.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/CategoryTreePage.tsx",
+      "to": "src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/PcTrackerPage.tsx",
+      "to": "src/client-web/src/api/pcTracker.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/PcTrackerPage.tsx",
+      "to": "src/client-web/src/api/appKnowledge.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/PcTrackerPage.tsx",
+      "to": "src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/PcTrackerPage.tsx",
+      "to": "src/client-web/src/components/pc-tracker/ClassificationPreviewDialog.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/WorkbenchPage.tsx",
+      "to": "src/client-web/src/api/calendar.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/WorkbenchPage.tsx",
+      "to": "src/client-web/src/api/operations.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/MainActivity.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationController.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/MainActivity.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncScheduler.kt",
+      "type": "depends_on"
+    }
+  ]
+}

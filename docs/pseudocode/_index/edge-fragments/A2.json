@@ -1,0 +1,108 @@
+{
+  "slot": "A2",
+  "nodes": [
+    {
+      "id": "src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs",
+      "label": "MobileDtos",
+      "path": "src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs.md",
+      "layer": "module.mobile",
+      "kind": "dto"
+    },
+    {
+      "id": "src/modules/Pim.Module.Mobile/Entities/MobileUsageAggregateEntity.cs",
+      "label": "MobileUsageAggregateEntity",
+      "path": "src/modules/Pim.Module.Mobile/Entities/MobileUsageAggregateEntity.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileUsageAggregateEntity.cs.md",
+      "layer": "module.mobile",
+      "kind": "entity"
+    },
+    {
+      "id": "src/modules/Pim.Module.Mobile/Services/MobileGapService.cs",
+      "label": "MobileGapService",
+      "path": "src/modules/Pim.Module.Mobile/Services/MobileGapService.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileGapService.cs.md",
+      "layer": "module.mobile",
+      "kind": "service"
+    },
+    {
+      "id": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs",
+      "label": "MobileUsageIngestService",
+      "path": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs.md",
+      "layer": "module.mobile",
+      "kind": "service"
+    },
+    {
+      "id": "src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationEntity.cs",
+      "label": "ActivityClassificationEntity",
+      "path": "src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationEntity.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationEntity.cs.md",
+      "layer": "module.pctracker",
+      "kind": "entity"
+    },
+    {
+      "id": "src/modules/Pim.Module.PcTracker/Entities/KeystatsDailyEntity.cs",
+      "label": "KeystatsDailyEntity",
+      "path": "src/modules/Pim.Module.PcTracker/Entities/KeystatsDailyEntity.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/KeystatsDailyEntity.cs.md",
+      "layer": "module.pctracker",
+      "kind": "entity"
+    },
+    {
+      "id": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs",
+      "label": "ActivityClassificationSnapshotService",
+      "path": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs.md",
+      "layer": "module.pctracker",
+      "kind": "service"
+    },
+    {
+      "id": "src/modules/Pim.Module.PcTracker/Services/ClassificationRuleDraftService.cs",
+      "label": "ClassificationRuleDraftService",
+      "path": "src/modules/Pim.Module.PcTracker/Services/ClassificationRuleDraftService.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ClassificationRuleDraftService.cs.md",
+      "layer": "module.pctracker",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    { "from": "src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs", "to": "src/Pim.Core/Operations", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileGapService.cs", "to": "src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs", "to": "src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile", "to": "src/modules/Pim.Module.Mobile/DTOs/MobileDtos.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Entities/MobileUsageAggregateEntity.cs", "to": "src/modules/Pim.Module.Mobile/DTOs/MobileAnalyticsDtos.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/modules/Pim.Module.Mobile/Entities/MobileUsageAggregateEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileGapService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileGapService.cs", "to": "src/Pim.Infrastructure/Auth/CurrentUserService.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileGapService.cs", "to": "src/modules/Pim.Module.Mobile/Services/MobileUserContext.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileGapService.cs", "to": "src/modules/Pim.Module.Mobile/Entities/MobileUsageEventEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileGapService.cs", "to": "src/modules/Pim.Module.Mobile/Entities/MobileUsageSummaryEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileGapService.cs", "to": "src/modules/Pim.Module.Mobile/Entities/MobileSyncBatchEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs", "to": "src/Pim.Infrastructure/Auth/CurrentUserService.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs", "to": "src/modules/Pim.Module.Mobile/Services/MobileUserContext.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs", "to": "src/modules/Pim.Module.Mobile/Services/MobileSessionInterpreter.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs", "to": "src/modules/Pim.Module.Mobile/Services/MobileSyncBatchEnvelopeCodec.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs", "to": "src/modules/Pim.Module.Mobile/Services/MobileAppCatalogOverrideService.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs", "to": "src/modules/Pim.Module.Mobile/Entities/MobileSyncBatchEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs", "to": "src/modules/Pim.Module.Mobile/Entities/MobileAppCatalogEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs", "to": "src/modules/Pim.Module.Mobile/Entities/MobileUsageEventEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageIngestService.cs", "to": "src/modules/Pim.Module.Mobile/Entities/MobileUsageSummaryEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Entities/KeystatsDailyEntity.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/KeystatsKeyCountEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Entities/KeystatsDailyEntity.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/KeystatsAppBreakdownEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/KeystatsDailyEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/ActivityCategoryRuleEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs", "to": "src/modules/Pim.Module.PcTracker/Services/ActivityClassifier.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs", "to": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationRecordKey.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs", "to": "src/modules/Pim.Module.PcTracker/Services/PcActivityRecordKeyService.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs", "to": "src/modules/Pim.Module.PcTracker/DTOs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ClassificationRuleDraftService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ClassificationRuleDraftService.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationSuggestionEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ClassificationRuleDraftService.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/PcCategoryEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ClassificationRuleDraftService.cs", "to": "src/modules/Pim.Module.PcTracker/DTOs", "type": "depends_on" }
+  ]
+}

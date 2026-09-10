@@ -1,0 +1,143 @@
+{
+  "slot": "A8",
+  "wave": "wave008",
+  "nodes": [
+    {
+      "id": "tests/client-web/outlookSyncInvalidation.test.ts",
+      "label": "outlookSyncInvalidation.test",
+      "path": "tests/client-web/outlookSyncInvalidation.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/outlookSyncInvalidation.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/quickNotesAttachmentUrls.test.ts",
+      "label": "quickNotesAttachmentUrls.test",
+      "path": "tests/client-web/quickNotesAttachmentUrls.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/quickNotesAttachmentUrls.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/scheduleWorkbenchGovernanceUi.test.tsx",
+      "label": "scheduleWorkbenchGovernanceUi.test",
+      "path": "tests/client-web/scheduleWorkbenchGovernanceUi.test.tsx",
+      "doc": "docs/pseudocode/files/tests/client-web/scheduleWorkbenchGovernanceUi.test.tsx.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Ai/AiConfigurationTests.cs",
+      "label": "AiConfigurationTests",
+      "path": "tests/Pim.UnitTests/Ai/AiConfigurationTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiConfigurationTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Api/CorrelationIdMiddlewareTests.cs",
+      "label": "CorrelationIdMiddlewareTests",
+      "path": "tests/Pim.UnitTests/Api/CorrelationIdMiddlewareTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Api/CorrelationIdMiddlewareTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Calendar/DataCenterCoverageTests.cs",
+      "label": "DataCenterCoverageTests",
+      "path": "tests/Pim.UnitTests/Calendar/DataCenterCoverageTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/DataCenterCoverageTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Calendar/OutlookSourceGovernanceTests.cs",
+      "label": "OutlookSourceGovernanceTests",
+      "path": "tests/Pim.UnitTests/Calendar/OutlookSourceGovernanceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookSourceGovernanceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/ClientWindows/ApiClientDefaultsTests.cs",
+      "label": "ApiClientDefaultsTests",
+      "path": "tests/Pim.UnitTests/ClientWindows/ApiClientDefaultsTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/ApiClientDefaultsTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Files/FileAiServiceTests.cs",
+      "label": "FileAiServiceTests",
+      "path": "tests/Pim.UnitTests/Files/FileAiServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Files/FileAiServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Files/QdrantFileVectorStoreTests.cs",
+      "label": "QdrantFileVectorStoreTests",
+      "path": "tests/Pim.UnitTests/Files/QdrantFileVectorStoreTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Files/QdrantFileVectorStoreTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Mobile/MobileLocationServiceTests.cs",
+      "label": "MobileLocationServiceTests",
+      "path": "tests/Pim.UnitTests/Mobile/MobileLocationServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileLocationServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Mobile/MobileUsageQueryServiceTests.cs",
+      "label": "MobileUsageQueryServiceTests",
+      "path": "tests/Pim.UnitTests/Mobile/MobileUsageQueryServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileUsageQueryServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Operations/PimPcTrackerModelTests.cs",
+      "label": "PimPcTrackerModelTests",
+      "path": "tests/Pim.UnitTests/Operations/PimPcTrackerModelTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Operations/PimPcTrackerModelTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/QuickNotes/QuickNoteModelTests.cs",
+      "label": "QuickNoteModelTests",
+      "path": "tests/Pim.UnitTests/QuickNotes/QuickNoteModelTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteModelTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Services/ActivityUrlSanitizerTests.cs",
+      "label": "ActivityUrlSanitizerTests",
+      "path": "tests/Pim.UnitTests/Services/ActivityUrlSanitizerTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityUrlSanitizerTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "tests/client-web/outlookSyncInvalidation.test.ts", "to": "src/client-web/src/pages/SyncPage.tsx", "type": "tests" },
+    { "from": "tests/client-web/quickNotesAttachmentUrls.test.ts", "to": "src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts", "type": "tests" },
+    { "from": "tests/client-web/scheduleWorkbenchGovernanceUi.test.tsx", "to": "src/client-web/src/pages/SyncPage.tsx", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Ai/AiConfigurationTests.cs", "to": "src/Pim.Api/appsettings.json", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Api/CorrelationIdMiddlewareTests.cs", "to": "src/Pim.Api/Infrastructure/CorrelationIdMiddleware.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/DataCenterCoverageTests.cs", "to": "src/Pim.Module.Calendar/Services/DataCenterQueryService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/OutlookSourceGovernanceTests.cs", "to": "src/Pim.Module.Calendar/Services/OutlookConflictService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/ClientWindows/ApiClientDefaultsTests.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Files/FileAiServiceTests.cs", "to": "src/Pim.Module.Files/Services/FileAiService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Files/QdrantFileVectorStoreTests.cs", "to": "src/Pim.Module.Files/Services/QdrantFileVectorStore.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Mobile/MobileLocationServiceTests.cs", "to": "src/Pim.Module.Mobile/Services/MobileLocationService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Mobile/MobileUsageQueryServiceTests.cs", "to": "src/Pim.Module.Mobile/Services/MobileUsageQueryService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Operations/PimPcTrackerModelTests.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/QuickNotes/QuickNoteModelTests.cs", "to": "src/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Services/ActivityUrlSanitizerTests.cs", "to": "src/Pim.Module.PcTracker/Services/ActivityUrlSanitizer.cs", "type": "tests" }
+  ]
+}

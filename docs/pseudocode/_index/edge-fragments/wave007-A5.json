@@ -1,0 +1,224 @@
+{
+  "slot": "A5",
+  "wave": "wave007",
+  "nodes": [
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageAccessChecker.kt",
+      "label": "UsageAccessChecker",
+      "path": "src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageAccessChecker.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageAccessChecker.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt",
+      "label": "TrackingSettingsStore",
+      "path": "src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "label": "PimAppScaffold",
+      "path": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt.md",
+      "layer": "client-android",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/ui/theme/PimTheme.kt",
+      "label": "PimTheme",
+      "path": "src/client-android/app/src/main/java/com/pim/app/ui/theme/PimTheme.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/theme/PimTheme.kt.md",
+      "layer": "client-android",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/location/quality/AltitudeWaitCoordinatorTest.kt",
+      "label": "AltitudeWaitCoordinatorTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/location/quality/AltitudeWaitCoordinatorTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/quality/AltitudeWaitCoordinatorTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/notifications/LocationNotificationRendererTest.kt",
+      "label": "LocationNotificationRendererTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/notifications/LocationNotificationRendererTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/notifications/LocationNotificationRendererTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/TestPimApp.kt",
+      "label": "TestPimApp",
+      "path": "src/client-android/app/src/test/java/com/pim/app/TestPimApp.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/TestPimApp.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/auth/AuthSessionStore.kt",
+      "label": "AuthSessionStore",
+      "path": "src/client-android/core/src/main/java/com/pim/core/auth/AuthSessionStore.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/auth/AuthSessionStore.kt.md",
+      "layer": "client-android",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt",
+      "label": "ApiService",
+      "path": "src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/core/src/test/java/com/pim/core/models/AuthResponseSerializationTest.kt",
+      "label": "AuthResponseSerializationTest",
+      "path": "src/client-android/core/src/test/java/com/pim/core/models/AuthResponseSerializationTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/models/AuthResponseSerializationTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/appKnowledgeComponents.test.tsx",
+      "label": "appKnowledgeComponents.test",
+      "path": "tests/client-web/appKnowledgeComponents.test.tsx",
+      "doc": "docs/pseudocode/files/tests/client-web/appKnowledgeComponents.test.tsx.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/filesApiPath.test.ts",
+      "label": "filesApiPath.test",
+      "path": "tests/client-web/filesApiPath.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/filesApiPath.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/LocationCaptureRepository.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/LocationSubmissionPolicy.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncScheduler.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/auth/TokenManager.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/auth/ServerBoundLoginCoordinator.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/ui/PimAppScaffold.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/settings/ServerUrlValidator.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/location/quality/AltitudeWaitCoordinatorTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/location/quality/AltitudeWaitCoordinatorTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/location/quality/LocationQualityGate.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/test/java/com/pim/app/notifications/LocationNotificationRendererTest.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/notifications/LocationNotificationRenderer.kt",
+      "type": "tests"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/models/AuthModels.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/models/MobileModels.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/models/DaemonModels.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/main/java/com/pim/core/network/ApiService.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/models/EndpointModels.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/core/src/test/java/com/pim/core/models/AuthResponseSerializationTest.kt",
+      "to": "src/client-android/core/src/main/java/com/pim/core/models/AuthModels.kt",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/appKnowledgeComponents.test.tsx",
+      "to": "src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/appKnowledgeComponents.test.tsx",
+      "to": "src/client-web/src/components/app-knowledge/AppKnowledgeContextList.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/appKnowledgeComponents.test.tsx",
+      "to": "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/appKnowledgeComponents.test.tsx",
+      "to": "src/client-web/src/pages/CategoryTreePage.tsx",
+      "type": "tests"
+    },
+    {
+      "from": "tests/client-web/filesApiPath.test.ts",
+      "to": "src/client-web/src/api/files.ts",
+      "type": "tests"
+    }
+  ]
+}

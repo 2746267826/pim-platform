@@ -1,0 +1,20 @@
+{
+  "slot": "A9",
+  "wave": "wave009",
+  "nodes": [
+    {
+      "id": "tests/Pim.UnitTests/Services/PcTrackerCompleteCaptureTests.cs",
+      "label": "PcTrackerCompleteCaptureTests",
+      "path": "tests/Pim.UnitTests/Services/PcTrackerCompleteCaptureTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/PcTrackerCompleteCaptureTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "tests/Pim.UnitTests/Services/PcTrackerCompleteCaptureTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/PcTrackerService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Services/PcTrackerCompleteCaptureTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/PcTrackerSchemaInitializer.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Services/PcTrackerCompleteCaptureTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSnapshotService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Services/PcTrackerCompleteCaptureTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs", "type": "tests" }
+  ]
+}

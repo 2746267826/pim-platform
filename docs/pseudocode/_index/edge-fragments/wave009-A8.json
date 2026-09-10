@@ -1,0 +1,17 @@
+{
+  "slot": "A8",
+  "wave": "wave009",
+  "nodes": [
+    {
+      "id": "tests/Pim.UnitTests/Services/PcCategoryServiceTests.cs",
+      "label": "PcCategoryServiceTests",
+      "path": "tests/Pim.UnitTests/Services/PcCategoryServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/PcCategoryServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "tests/Pim.UnitTests/Services/PcCategoryServiceTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/PcCategoryService.cs", "type": "tests" }
+  ]
+}

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
@@ -8,7 +9,7 @@ namespace Pim.Client.App.Services;
 
 public static class Logger
 {
-    private static readonly string LogDir = Path.Combine(
+    internal static string LogDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "PIM", "logs");
 
@@ -42,8 +43,7 @@ public static class Logger
     /// </summary>
     public static void Shutdown()
     {
-        var logger = _serilog;
-        _serilog = null;
+        var logger = Interlocked.Exchange(ref _serilog, null);
         if (logger is null) return;
         try
         {

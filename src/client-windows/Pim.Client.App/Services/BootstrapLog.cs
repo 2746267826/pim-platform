@@ -1,11 +1,13 @@
 using System.IO;
+using System.Text;
+using System.Threading;
 
 namespace Pim.Client.App.Services;
 
 /// <summary>
-/// 极早期 bootstrap 同步日志：纯 File.AppendAllText，不依赖 Serilog / DI / 第三方库。
-/// 文件：%LOCALAPPDATA%\PIM\logs\bootstrap.log；超约 512KB 滚动为 bootstrap.log.old 后重新开始。
-/// 任何异常都静默吞掉，绝不影响主流程。
+/// 零依赖、纯同步的极简启动日志器，用于诊断 Serilog 尚未初始化或崩溃时的隐蔽退出。
+/// 写入：%LOCALAPPDATA%\PIM\logs\bootstrap.log
+/// 仅保留一个滚动旧文件 bootstrap.log.old（上限 512KB）。
 /// </summary>
 public static class BootstrapLog
 {
@@ -21,23 +23,37 @@ public static class BootstrapLog
 
     public static void Write(string message)
     {
-        try
+        for (var attempt = 0; attempt < 3; attempt++)
         {
-            lock (Sync)
+            try
             {
-                Directory.CreateDirectory(LogDir);
-                if (new FileInfo(FilePath) is { Exists: true } info && info.Length > MaxFileBytes)
+                lock (Sync)
                 {
-                    File.Move(FilePath, OldFilePath, overwrite: true);
-                }
+                    Directory.CreateDirectory(LogDir);
+                    if (new FileInfo(FilePath) is { Exists: true } info && info.Length > MaxFileBytes)
+                    {
+                        try
+                        {
+                            File.Move(FilePath, OldFilePath, overwrite: true);
+                        }
+                        catch
+                        {
+                            // 滚动受阻时不丢弃当次日志，继续追加
+                        }
+                    }
 
-                var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{Environment.ProcessId}] {message}{Environment.NewLine}";
-                File.AppendAllText(FilePath, line);
+                    var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{Environment.ProcessId}] {message}{Environment.NewLine}";
+                    using var stream = new FileStream(FilePath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+                    using var writer = new StreamWriter(stream, Encoding.UTF8);
+                    writer.Write(line);
+                    return;
+                }
             }
-        }
-        catch
-        {
-            // 静默吞掉：bootstrap 日志失败不得影响主流程。
+            catch
+            {
+                if (attempt == 2) break;
+                Thread.Sleep(10);
+            }
         }
     }
 }

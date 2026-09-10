@@ -1,11 +1,11 @@
+using System.IO;
 using Pim.Client.App.Services;
 using Xunit;
 
 namespace Pim.UnitTests.ClientWindows;
 
 /// <summary>
-/// Logger.Shutdown 安全性测试。本类故意不调用 Logger.Initialize()：
-/// 未初始化时 Shutdown 必须是安全 no-op，且退出路径上可重复调用。
+/// Logger.Shutdown 安全性测试。
 /// （Logger 经 Compile Link 编入测试程序集，与 Pim.Client.App 中的实例互不影响。）
 /// </summary>
 public class DaemonLoggerShutdownTests
@@ -44,5 +44,30 @@ public class DaemonLoggerShutdownTests
         });
 
         Assert.Null(ex);
+    }
+
+    [Fact]
+    public void Initialize_And_Shutdown_FlushesBufferedLogsToDisk()
+    {
+        var originalDir = Logger.LogDir;
+        var tempDir = Path.Combine(Path.GetTempPath(), "pim-logger-tests-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Logger.LogDir = tempDir;
+            Logger.Initialize();
+            Logger.Info("Test message before shutdown");
+            Logger.Shutdown();
+
+            var logFiles = Directory.GetFiles(tempDir, "pim-daemon-*.jsonl");
+            Assert.NotEmpty(logFiles);
+            var content = File.ReadAllText(logFiles[0]);
+            Assert.Contains("Test message before shutdown", content);
+        }
+        finally
+        {
+            Logger.Shutdown();
+            Logger.LogDir = originalDir;
+            try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, recursive: true); } catch { }
+        }
     }
 }

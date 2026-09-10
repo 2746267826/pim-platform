@@ -1,4 +1,5 @@
-using System.Threading;
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using Pim.Client.App.Services;
 
@@ -9,30 +10,16 @@ namespace Pim.Client.App;
 /// </summary>
 internal static class Program
 {
-    // 静态字段持有整个进程生命周期，不提前 Dispose。
-    private static Mutex? _singleInstanceMutex;
-
     [STAThread]
     private static void Main()
     {
         BootstrapLog.Write("Process entered");
 
-        // D3：单实例互斥（Global 命名空间需 SeCreateGlobalPrivilege，守护程序以 HIGHEST 计划任务/管理员运行）。
-        try
+        // D3：单实例互斥（开机自启 HIGHEST 任务与用户手动双击均受保护）。
+        if (!SingleInstanceGuard.TryAcquire())
         {
-            _singleInstanceMutex = new Mutex(true, @"Global\PIM_Daemon_SingleInstance", out bool createdNew);
-            if (!createdNew)
-            {
-                BootstrapLog.Write($"Another instance running; exiting (PID={Environment.ProcessId})");
-                Environment.Exit(0);
-            }
-
-            BootstrapLog.Write("Mutex acquired");
-        }
-        catch (Exception ex)
-        {
-            // Global\ 命名空间可能因权限受限而失败：降级为不启用单实例守护，继续启动。
-            BootstrapLog.Write($"Mutex creation failed ({ex.Message}); continuing without single-instance guard");
+            BootstrapLog.Write($"Another instance running; exiting (PID={Environment.ProcessId})");
+            Environment.Exit(0);
         }
 
         var app = new App();
@@ -54,8 +41,9 @@ internal static class Program
         }
         finally
         {
-            // 退出后落盘剩余日志
+            // 退出后落盘剩余日志并释放互斥体
             Logger.Shutdown();
+            SingleInstanceGuard.Release();
         }
     }
 }

@@ -53,7 +53,10 @@ public partial class App : Application
             var detail = Describe(args.Exception);
             BootstrapLog.Write($"DispatcherUnhandledException (swallowed, continuing): {detail}");
             try { Logger.Error("DispatcherUnhandledException (swallowed, continuing)", args.Exception); } catch { }
-            args.Handled = true;
+            if (args.Exception is not OutOfMemoryException)
+            {
+                args.Handled = true;
+            }
         };
     }
 

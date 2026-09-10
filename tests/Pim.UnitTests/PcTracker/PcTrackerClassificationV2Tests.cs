@@ -21,16 +21,16 @@ public class PcTrackerClassificationV2Tests
     }
 
     [Fact]
-    public async Task SchemaInitializer_SeedsOver200AppSignatures()
+    public void SchemaInitializer_SeedsOver200AppSignatures()
     {
         using var db = CreateInMemoryDb();
         var initializer = new PcTrackerSchemaInitializer(db);
 
         // SchemaSql contains more than 200 signatures
-        Assert.True(PcTrackerSchemaInitializer.SchemaSql.Contains("postman.exe"));
-        Assert.True(PcTrackerSchemaInitializer.SchemaSql.Contains("Cyberpunk2077.exe"));
-        Assert.True(PcTrackerSchemaInitializer.SchemaSql.Contains("davinci.exe"));
-        Assert.True(PcTrackerSchemaInitializer.SchemaSql.Contains("pc_suggestion_feedback"));
+        Assert.Contains("postman.exe", PcTrackerSchemaInitializer.SchemaSql);
+        Assert.Contains("Cyberpunk2077.exe", PcTrackerSchemaInitializer.SchemaSql);
+        Assert.Contains("davinci.exe", PcTrackerSchemaInitializer.SchemaSql);
+        Assert.Contains("pc_suggestion_feedback", PcTrackerSchemaInitializer.SchemaSql);
     }
 
     [Fact]
@@ -65,8 +65,7 @@ public class PcTrackerClassificationV2Tests
             AppName: "postman.exe",
             AppNameNormalized: "postman",
             WindowTitle: "POST https://api.example.com",
-            Domain: null,
-            Url: null);
+            Domain: null);
 
         var signatures = new List<AppSignatureEntity>
         {

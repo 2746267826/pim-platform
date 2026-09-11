@@ -113,18 +113,18 @@ export default function EventTimelineDialog({ open, timeline, dateStr, onClose }
                 {entries.length} 条事件
               </span>
               <span className="font-medium text-emerald-600">
-                生产性 {productivePercent}%
+                专注 {productivePercent}%
               </span>
             </div>
             <div className="flex items-center gap-2 text-[10px] text-slate-400">
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" /> 生产性
+                <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" /> 专注
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2 w-2 rounded-full bg-slate-300" /> 中性
               </span>
               <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-full bg-rose-400" /> 分心
+                <span className="inline-block h-2 w-2 rounded-full bg-rose-400" /> 休闲
               </span>
             </div>
           </div>

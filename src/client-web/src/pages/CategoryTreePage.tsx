@@ -35,9 +35,9 @@ function TreeNode({
   };
 
   const productivityLabels: Record<string, string> = {
-    productive: '生产性',
+    productive: '专注',
     neutral: '中性',
-    distracting: '分心',
+    distracting: '休闲',
   };
 
   return (
@@ -87,9 +87,9 @@ const defaultColors = [
 ];
 
 const productivityOptions = [
-  { value: 'productive', label: '生产性', color: 'text-emerald-600' },
+  { value: 'productive', label: '专注', color: 'text-emerald-600' },
   { value: 'neutral', label: '中性', color: 'text-slate-600' },
-  { value: 'distracting', label: '分心', color: 'text-rose-600' },
+  { value: 'distracting', label: '休闲', color: 'text-rose-600' },
 ];
 
 export default function CategoryTreePage() {

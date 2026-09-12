@@ -172,6 +172,28 @@ class MobileSyncUsageQueueTest {
         assertEquals(MobileSyncOutcome.RETRY, sortedMergeOutcome(MobileSyncOutcome.RETRY, MobileSyncOutcome.SUCCESS))
     }
 
+    @Test
+    fun `merge combines failed usage with successful location sync`() {
+        val usageFailedState = MobileSyncState(
+            phase = "old-queue-upload-failed",
+            progressText = "旧队列上传后有 1 条待同步使用记录，已安排重试。",
+            outcome = MobileSyncOutcome.RETRY,
+            failedCount = 1,
+            lastError = "HTTP 500"
+        )
+        val locationSuccessState = MobileSyncState(
+            phase = "location-uploaded",
+            progressText = "已同步 1 个位置点。",
+            outcome = MobileSyncOutcome.SUCCESS,
+            acceptedCount = 1
+        )
+        val merged = locationSuccessState.merge(usageFailedState)
+        assertEquals(MobileSyncOutcome.RETRY, merged.outcome)
+        assertEquals(1, merged.acceptedCount)
+        assertEquals(1, merged.failedCount)
+        assertEquals("HTTP 500", merged.lastError)
+    }
+
     companion object {
         fun event(timeUtc: Long, status: String) = MobileUsageEventEntity(
             packageName = "com.test",

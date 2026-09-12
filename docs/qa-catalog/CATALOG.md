@@ -192,7 +192,7 @@
 - **预期 vs 实际**：预期一致或标 `open-ended`；实际分裂。
 - **证据**：`src/modules/Pim.Module.Mobile/Services/MobileUsageAggregationService.cs:255` vs `MobileTimelineBlockService.cs:408`。
 
-### PIM-018 | Mobile | 一般 | 幂等键不完整：同批次键重放误判 `skipped`
+### PIM-018 | Mobile | 一般 | 幂等键不完整：同批次键重放误判 `skipped`（已修正：见 Issue #215）
 
 - **描述**：批次幂等仅 `user+device+BatchId`（`MobileUsageIngestService.cs:53`），事件去重键 `package+type+timestamp+class` 不含 `CollectedAt/RawJson`，同键不同批次第二次 `ItemResults` 显示 `skipped`。
 - **复现步骤**：

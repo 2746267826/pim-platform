@@ -203,4 +203,40 @@ public class LoggingConfigTests
             Directory.Delete(tempDir, true);
         }
     }
+
+    [Fact]
+    public void FileSink_WithRollOnFileSizeLimit_AndRetainedFileCountLimit_PurgesOldestSegments()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "pim-log-retention-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var logPath = Path.Combine(tempDir, "pim-api-.jsonl");
+            const long smallLimit = 500;
+            const int retainedCount = 2;
+
+            using (var logger = new LoggerConfiguration()
+                .WriteTo.File(new CompactJsonFormatter(), logPath,
+                    rollingInterval: RollingInterval.Day,
+                    fileSizeLimitBytes: smallLimit,
+                    rollOnFileSizeLimit: true,
+                    retainedFileCountLimit: retainedCount)
+                .CreateLogger())
+            {
+                // Write enough logs to trigger multiple rollings (more than retainedCount files)
+                for (int i = 0; i < 60; i++)
+                {
+                    logger.Information("Message number {Index} with padding content to trigger file size rolling", i);
+                }
+            }
+
+            var writtenFiles = Directory.GetFiles(tempDir, "*.jsonl");
+            Assert.True(writtenFiles.Length <= retainedCount,
+                $"Expected at most {retainedCount} files retained, but found {writtenFiles.Length}");
+        }
+        finally
+        {
+            Directory.Delete(tempDir, true);
+        }
+    }
 }

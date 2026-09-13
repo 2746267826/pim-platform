@@ -143,13 +143,17 @@ class UsageEventCollector @Inject constructor(
         val maxDurationMs = minOf(windowDurationMs, MAX_USAGE_DURATION_MS)
 
         return stats
-            .filter { it.packageName != null }
+            .filter {
+                it.packageName != null &&
+                    it.totalTimeInForeground > 0L &&
+                    it.lastTimeUsed >= windowStartUtc
+            }
             .map { usageStats ->
                 MobileUsageSummaryEntity(
                     packageName = usageStats.packageName,
                     windowStartUtc = windowStartUtc,
                     windowEndUtc = windowEndUtc,
-                    totalTimeForegroundMs = usageStats.totalTimeInForeground.coerceIn(0L, maxDurationMs),
+                    totalTimeForegroundMs = usageStats.totalTimeInForeground.coerceIn(1L, maxDurationMs),
                     lastTimeUsedUtc = usageStats.lastTimeUsed,
                     firstTimeStampUtc = usageStats.firstTimeStamp,
                     lastTimeStampUtc = usageStats.lastTimeStamp,

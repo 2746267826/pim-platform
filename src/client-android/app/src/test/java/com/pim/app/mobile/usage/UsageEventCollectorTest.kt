@@ -143,4 +143,61 @@ class UsageEventCollectorTest {
         val summary = result.summaries.first()
         assertEquals(UsageEventCollector.MAX_USAGE_DURATION_MS, summary.totalTimeForegroundMs)
     }
+
+    @Test
+    fun queryUsageStatsFallbackFiltersOutZeroOrNegativeForegroundDuration() {
+        val now = System.currentTimeMillis()
+        val windowDurationMs = 15 * 60 * 1000L
+        val windowStartUtc = now - 30 * 60 * 1000L
+        val windowEndUtc = windowStartUtc + windowDurationMs
+
+        val zeroDurationStats = createUsageStats(
+            packageName = "com.idle.app",
+            totalTimeInForeground = 0L,
+            firstTimeStamp = now - 2 * 60 * 60 * 1000L,
+            lastTimeStamp = now,
+            lastTimeUsed = windowStartUtc + 5_000L
+        )
+
+        val negativeDurationStats = createUsageStats(
+            packageName = "com.negative.app",
+            totalTimeInForeground = -100L,
+            firstTimeStamp = now - 2 * 60 * 60 * 1000L,
+            lastTimeStamp = now,
+            lastTimeUsed = windowStartUtc + 5_000L
+        )
+
+        shadowUsageStatsManager.addUsageStats(UsageStatsManager.INTERVAL_DAILY, zeroDurationStats)
+        shadowUsageStatsManager.addUsageStats(UsageStatsManager.INTERVAL_BEST, zeroDurationStats)
+        shadowUsageStatsManager.addUsageStats(UsageStatsManager.INTERVAL_DAILY, negativeDurationStats)
+        shadowUsageStatsManager.addUsageStats(UsageStatsManager.INTERVAL_BEST, negativeDurationStats)
+
+        val result = collector.collectUsage(windowStartUtc, windowEndUtc)
+        assertEquals(UsageEventCollector.SOURCE_USAGE_STATS_FALLBACK, result.source)
+        assertTrue("Zero/negative duration stats should be excluded to avoid backend invalid-duration rejection", result.summaries.isEmpty())
+    }
+
+    @Test
+    fun queryUsageStatsFallbackFiltersOutAppsNotUsedInWindow() {
+        val now = System.currentTimeMillis()
+        val windowDurationMs = 15 * 60 * 1000L
+        val windowStartUtc = now - 30 * 60 * 1000L
+        val windowEndUtc = windowStartUtc + windowDurationMs
+
+        // App was used before this window started
+        val staleStats = createUsageStats(
+            packageName = "com.stale.app",
+            totalTimeInForeground = 60_000L,
+            firstTimeStamp = now - 2 * 60 * 60 * 1000L,
+            lastTimeStamp = now,
+            lastTimeUsed = windowStartUtc - 1_000L
+        )
+
+        shadowUsageStatsManager.addUsageStats(UsageStatsManager.INTERVAL_DAILY, staleStats)
+        shadowUsageStatsManager.addUsageStats(UsageStatsManager.INTERVAL_BEST, staleStats)
+
+        val result = collector.collectUsage(windowStartUtc, windowEndUtc)
+        assertEquals(UsageEventCollector.SOURCE_USAGE_STATS_FALLBACK, result.source)
+        assertTrue("Apps last used before window start should be excluded", result.summaries.isEmpty())
+    }
 }

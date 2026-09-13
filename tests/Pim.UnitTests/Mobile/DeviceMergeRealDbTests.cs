@@ -147,6 +147,118 @@ public sealed class DeviceMergeRealDbTests
         }
     }
 
+    /// <summary>
+    /// 生产真实形状的端到端验证：把本机 pim 库里「设备最多」那个用户的移动端数据
+    /// 原样复制进临时 schema，再把这批设备合并成一台。
+    ///
+    /// 这条用例覆盖的是合成数据造不出来的情况：重装 App 后用新 device_id 重传同一批记录，
+    /// 于是同一个业务键同时存在于多台设备上（实测 events 有 72,147 个键 / 127,583 行、
+    /// catalog 有 144 个包名重复）。只按 device_id 整体改写的实现在这里会撞唯一索引报 23505，
+    /// 用户看到的仍然是 HTTP 500。
+    /// </summary>
+    [Fact]
+    public async Task MergeAsync_OnProductionShapedData_ResolvesCrossDeviceDuplicateKeys()
+    {
+        MobileTestHelpers.RegisterMobileModule();
+
+        await using var admin = new NpgsqlConnection(ConnStr);
+        if (!await TryOpenAsync(admin)) return;
+
+        var schema = $"test_device_merge_real_{Guid.NewGuid():N}";
+        try
+        {
+            if (!await TryCreateSchemaAsync(admin, schema)) return;
+            if (!await TryCopyBusiestUserAsync(admin, schema)) return;
+
+            var searchPathConn = new NpgsqlConnectionStringBuilder(ConnStr) { SearchPath = schema }.ConnectionString;
+            var options = new DbContextOptionsBuilder<PimDbContext>()
+                .UseNpgsql(searchPathConn, npgsql => npgsql.EnableRetryOnFailure(3))
+                .Options;
+
+            await using var db = new PimDbContext(options);
+
+            var target = await db.Set<MobileDeviceEntity>().OrderByDescending(d => d.LastSeenAtUtc).FirstAsync();
+            var sourceDeviceIds = await db.Set<MobileDeviceEntity>()
+                .Where(d => d.DeviceId != target.DeviceId)
+                .Select(d => d.DeviceId)
+                .ToListAsync();
+            if (sourceDeviceIds.Count == 0) return; // 数据集太小，无从验证
+
+            var duplicatesBefore = await CountDuplicateEventKeysAsync(db);
+            Assert.True(duplicatesBefore > 0, "用例前提：真实数据里应存在跨设备的重复业务键");
+            // 合并前所有设备 catalog 覆盖到的包名集合：合并后必须一个都不能少（#231）。
+            var catalogPackagesBefore = await db.Set<MobileAppCatalogEntity>()
+                .Select(c => c.PackageName)
+                .Distinct()
+                .ToListAsync();
+
+            var service = new DeviceManagementService(
+                db, MobileTestHelpers.CurrentUser(target.UserId), MobileTestHelpers.Time(Now));
+
+            await service.MergeAsync(sourceDeviceIds, target.DeviceId, CancellationToken.None);
+
+            Assert.Equal(0, await CountDuplicateEventKeysAsync(db));
+            Assert.Equal(1, await db.Set<MobileDeviceEntity>().CountAsync());
+            Assert.Empty(await db.Set<MobileAppCatalogEntity>()
+                .Where(c => sourceDeviceIds.Contains(c.DeviceId)).ToListAsync());
+            Assert.Equal(
+                await db.Set<MobileAppCatalogEntity>().CountAsync(),
+                await db.Set<MobileAppCatalogEntity>().Select(c => c.PackageName).Distinct().CountAsync());
+
+            // #231 的真实数据验收：合并前任何设备能解析出的 App 名称，合并后目标设备都要能解析。
+            // （注：真实数据里本来就有约 180 个「出现在 summaries、从不在任何 catalog」的包名，
+            //  那是合并之前就存在的数据缺口，不属于本次修复范围。）
+            var catalogPackagesAfter = await db.Set<MobileAppCatalogEntity>()
+                .Select(c => c.PackageName)
+                .Distinct()
+                .ToListAsync();
+            var lost = catalogPackagesBefore.Except(catalogPackagesAfter).ToList();
+            Assert.True(lost.Count == 0, $"合并丢失了 catalog 覆盖：{string.Join(", ", lost.Take(10))}");
+            Assert.Equal(1, await db.Set<MobileAppCatalogEntity>().Select(c => c.DeviceId).Distinct().CountAsync());
+        }
+        finally
+        {
+            await using var cleanup = new NpgsqlConnection(ConnStr);
+            await cleanup.OpenAsync();
+            await using var drop = new NpgsqlCommand($"DROP SCHEMA IF EXISTS \"{schema}\" CASCADE", cleanup);
+            await drop.ExecuteNonQueryAsync();
+        }
+    }
+
+    private static Task<int> CountDuplicateEventKeysAsync(PimDbContext db)
+        => db.Set<MobileUsageEventEntity>()
+            .GroupBy(e => new { e.PackageName, e.EventType, e.EventTimestampUtc, e.ClassName })
+            .Where(g => g.Count() > 1)
+            .CountAsync();
+
+    /// <summary>把真实库中「设备数最多」的那个用户的移动端数据复制进临时 schema；无数据时返回 false。</summary>
+    private static async Task<bool> TryCopyBusiestUserAsync(NpgsqlConnection conn, string schema)
+    {
+        try
+        {
+            await using var pick = new NpgsqlCommand(
+                "SELECT user_id FROM public.mobile_devices GROUP BY user_id ORDER BY count(*) DESC LIMIT 1", conn);
+            var result = await pick.ExecuteScalarAsync();
+            if (result is not Guid userId) return false;
+
+            foreach (var table in DeviceScopedTables)
+            {
+                await using var copy = new NpgsqlCommand(
+                    $"INSERT INTO \"{schema}\".\"{table}\" SELECT * FROM public.\"{table}\" WHERE user_id = @userId", conn);
+                copy.CommandTimeout = 300;
+                copy.Parameters.AddWithValue("userId", userId);
+                await copy.ExecuteNonQueryAsync();
+            }
+
+            return true;
+        }
+        catch
+        {
+            // 表结构或数据形状不符合预期：跳过而不是误报失败。
+            return false;
+        }
+    }
+
     private static async Task SeedAsync(PimDbContext db)
     {
         db.Set<MobileDeviceEntity>().AddRange(

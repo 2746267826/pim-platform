@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Pim.Core.Exceptions;
 using Pim.Infrastructure.Data;
 using Pim.Module.Mobile.DTOs;
 using Pim.Module.Mobile.Entities;
@@ -186,7 +187,37 @@ public sealed class DeviceManagementServiceTests
         Assert.Equal(TargetDeviceId, row.DeviceId);
         Assert.Equal("Shared New", row.DisplayName);
         Assert.Equal("social", row.Category);
-        Assert.Equal(Now, row.UpdatedAt);
+        // 保留的是「元数据采集时间」，不是合并时刻：改成合并时刻会让目标行
+        // 永远比后续源设备新，多次合并后新采集到的名称/分类会被丢弃。
+        Assert.Equal(Now.AddDays(-30), row.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task MergeAsync_StillAcceptsNewerCatalogMetadataOnALaterMerge()
+    {
+        await using var ctx = await DeviceManagementTestDb.CreateAsync();
+        var db = ctx.Db;
+        SeedDevice(db, TargetDeviceId, Now);
+        SeedDevice(db, SourceDeviceA, Now.AddDays(-60));
+        SeedCatalog(db, TargetDeviceId, "com.shared.app", "T-Old", "uncategorized", Now.AddDays(-90));
+        SeedCatalog(db, SourceDeviceA, "com.shared.app", "S1", "tools", Now.AddDays(-30));
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await service.MergeAsync([SourceDeviceA], TargetDeviceId, CancellationToken.None);
+        Assert.Equal("S1", (await db.Set<MobileAppCatalogEntity>().SingleAsync()).DisplayName);
+
+        // 第二次合并：S2 的元数据采集时间更晚，必须能覆盖第一次合并的结果。
+        SeedDevice(db, SourceDeviceB, Now.AddDays(-50));
+        SeedCatalog(db, SourceDeviceB, "com.shared.app", "S2-Newest", "social", Now.AddDays(-10));
+        await db.SaveChangesAsync();
+
+        await service.MergeAsync([SourceDeviceB], TargetDeviceId, CancellationToken.None);
+
+        var row = Assert.Single(await db.Set<MobileAppCatalogEntity>().ToListAsync());
+        Assert.Equal("S2-Newest", row.DisplayName);
+        Assert.Equal("social", row.Category);
+        Assert.Equal(Now.AddDays(-10), row.UpdatedAt);
     }
 
     [Fact]
@@ -226,6 +257,76 @@ public sealed class DeviceManagementServiceTests
         var row = Assert.Single(await db.Set<MobileAppCatalogEntity>().ToListAsync());
         Assert.Equal("Target Newest", row.DisplayName);
         Assert.Equal("tools", row.Category);
+    }
+
+    [Fact]
+    public async Task MergeAsync_RemovesDuplicateRowsThatShareAUniqueKeyAcrossSourceDevices()
+    {
+        await using var ctx = await DeviceManagementTestDb.CreateAsync();
+        var db = ctx.Db;
+        SeedDevice(db, TargetDeviceId, Now);
+        SeedDevice(db, SourceDeviceA, Now.AddDays(-60));
+        SeedDevice(db, SourceDeviceB, Now.AddDays(-50));
+        // 重装 App 后用新 device_id 重传同一批记录：业务键完全相同的行同时存在于多台源设备。
+        // 生产库实测 events 有 72,147 个键 / 127,583 行这类重复，逐条改写 device_id 会撞
+        // (user_id, device_id, package_name, event_type, event_timestamp_utc, class_name) 唯一索引。
+        var timestamp = Now.AddDays(-55);
+        SeedEvent(db, SourceDeviceA, "com.dup.app", timestamp);
+        SeedEvent(db, SourceDeviceB, "com.dup.app", timestamp);
+        SeedSummary(db, SourceDeviceA, "com.dup.app", timestamp);
+        SeedSummary(db, SourceDeviceB, "com.dup.app", timestamp);
+        SeedBatch(db, SourceDeviceA, "batch-dup", timestamp);
+        SeedBatch(db, SourceDeviceB, "batch-dup", timestamp);
+        // 不重复的行必须原样保留下来
+        SeedEvent(db, SourceDeviceA, "com.unique.app", timestamp);
+        SeedEvent(db, SourceDeviceB, "com.other.app", timestamp.AddMinutes(5));
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await service.MergeAsync([SourceDeviceA, SourceDeviceB], TargetDeviceId, CancellationToken.None);
+
+        Assert.Empty(await RowsStillOwnedByAsync(db, SourceDeviceA));
+        Assert.Empty(await RowsStillOwnedByAsync(db, SourceDeviceB));
+        Assert.Equal(1, await db.Set<MobileUsageEventEntity>().CountAsync(e => e.PackageName == "com.dup.app"));
+        Assert.Equal(1, await db.Set<MobileUsageSummaryEntity>().CountAsync(s => s.PackageName == "com.dup.app"));
+        Assert.Equal(1, await db.Set<MobileSyncBatchEntity>().CountAsync(b => b.BatchId == "batch-dup"));
+        Assert.Equal(3, await db.Set<MobileUsageEventEntity>().CountAsync());
+    }
+
+    [Fact]
+    public async Task MergeAsync_KeepsTheTargetsOwnRowWhenASourceRepeatsItsUniqueKey()
+    {
+        await using var ctx = await DeviceManagementTestDb.CreateAsync();
+        var db = ctx.Db;
+        SeedDevice(db, TargetDeviceId, Now);
+        SeedDevice(db, SourceDeviceA, Now.AddDays(-60));
+        var timestamp = Now.AddDays(-55);
+        SeedEvent(db, TargetDeviceId, "com.dup.app", timestamp);
+        SeedEvent(db, SourceDeviceA, "com.dup.app", timestamp);
+        SeedCatalog(db, TargetDeviceId, "com.dup.app", "Target Copy", "tools", Now.AddDays(-90));
+        SeedCatalog(db, SourceDeviceA, "com.dup.app", "Source Copy", "social", Now.AddDays(-30));
+        await db.SaveChangesAsync();
+        var targetRowId = await db.Set<MobileUsageEventEntity>().Where(e => e.DeviceId == TargetDeviceId).Select(e => e.Id).SingleAsync();
+        var service = CreateService(db);
+
+        await service.MergeAsync([SourceDeviceA], TargetDeviceId, CancellationToken.None);
+
+        var remaining = Assert.Single(await db.Set<MobileUsageEventEntity>().ToListAsync());
+        Assert.Equal(targetRowId, remaining.Id);
+        Assert.Equal(1, await db.Set<MobileAppCatalogEntity>().CountAsync());
+    }
+
+    [Fact]
+    public async Task MergeAsync_RejectsAnEmptySourceList()
+    {
+        await using var ctx = await DeviceManagementTestDb.CreateAsync();
+        var db = ctx.Db;
+        SeedDevice(db, TargetDeviceId, Now);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await Assert.ThrowsAsync<DomainException>(
+            () => service.MergeAsync([], TargetDeviceId, CancellationToken.None));
     }
 
     [Fact]

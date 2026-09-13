@@ -71,7 +71,7 @@ const PRODUCTION_LIKE_DEVICES: DeviceListItem[] = [
 ];
 
 describe('deviceMergeModel 设备区分信息', () => {
-  it('同名的 6 台设备靠短码区分', () => {
+  it('同名的多台设备靠短码区分', () => {
     const ids = PRODUCTION_LIKE_DEVICES.map(item => `…${shortDeviceId(item.deviceId)}`);
     assert.deepEqual(ids, ['…c8c280', '…5ad974', '…5a0dd7']);
     assert.equal(new Set(ids).size, ids.length, '短码必须互不相同');

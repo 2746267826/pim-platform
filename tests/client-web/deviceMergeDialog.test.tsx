@@ -17,7 +17,7 @@ let MergeConfirmDialog: typeof import('../../src/client-web/src/pages/DeviceMana
 
 let container: HTMLElement;
 let root: ReturnType<typeof createRoot>;
-let dom: JSDOM;
+let dom: InstanceType<typeof JSDOM>;
 let originalFetch: typeof globalThis.fetch;
 
 /** issue #232 的真实形态：6 台设备同名，只有第一台是当前活跃设备。 */
@@ -102,7 +102,11 @@ async function settle(times = 6) {
 }
 
 function render(mergeSel: string[], onClose: () => void = () => {}) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  // gcTime 必须是 0：默认 5 分钟会在 root.unmount() 之后留下一个仍然活跃的定时器，
+  // Node 事件循环不退出，单条测试文件会白等 5 分钟（CI web job 同样受影响）。
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+  });
   act(() => {
     root.render(
       React.createElement(

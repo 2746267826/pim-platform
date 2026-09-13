@@ -113,6 +113,7 @@ public sealed class DeviceManagementService
     {
         var userId = MobileUserContext.RequireUserId(_currentUser);
         if (sourceDeviceIds.Contains(targetDeviceId)) throw new DomainException(04001, "源设备不能包含目标设备");
+        if (sourceDeviceIds.Count == 0) throw new DomainException(04001, "至少需要选择一台源设备");
         // 连接层启用了 EnableRetryOnFailure，NpgsqlRetryingExecutionStrategy 明确拒绝
         // 「用户自己发起的事务」：事务内第一条命令就会抛 InvalidOperationException（issue #230）。
         // 必须把整个事务交给 CreateExecutionStrategy() 返回的策略，作为一个可重试单元执行。
@@ -136,18 +137,76 @@ public sealed class DeviceManagementService
         if (devices.Count != allIds.Count) throw new DomainException(04004, "部分设备不存在或不属于当前用户");
 
         await using var tx = _db.Database.IsRelational() ? await _db.Database.BeginTransactionAsync(ct) : null;
-        foreach (var sid in sourceDeviceIds)
+
+        // events / summaries / sync_batches 的唯一索引都以 device_id 开头，而同一个业务键
+        // 可能同时存在于多台设备上（重装 App 后用新 device_id 重传同一批记录；生产库实测
+        // events 有 72,147 个键 / 127,583 行这类重复）。直接整体改写 device_id 会撞唯一索引，
+        // 合并照样 500。这里按 device_id 逐台迁移：先删掉与目标设备已存在的重复行，再整体改写；
+        // 前一台迁过去的行会成为后一台的「目标已有行」，因此每台只需与目标设备比较一次。
+        // 保留哪一份：目标设备已有的行优先，其次是排序在前的源设备，其余删除。
+        var orderedSources = sourceDeviceIds.Distinct().OrderBy(id => id, StringComparer.Ordinal).ToList();
+        foreach (var sid in orderedSources)
         {
-            await _db.Set<MobileUsageEventEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-            await _db.Set<MobileUsageSessionEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-            await _db.Set<MobileUsageSummaryEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-            await _db.Set<MobileLocationPointEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-            await _db.Set<MobileSyncBatchEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-            await _db.Set<MobileTimelineBlockEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
+            await RemoveRowsCollidingWithTargetAsync(userId, sid, targetDeviceId, ct);
+            await MoveDeviceRowsAsync(userId, sid, targetDeviceId, ct);
         }
-        await MergeAppCatalogAsync(userId, sourceDeviceIds, targetDeviceId, ct);
+
+        await MergeAppCatalogAsync(userId, orderedSources, targetDeviceId, ct);
         await _db.Set<MobileDeviceEntity>().Where(d => d.UserId == userId && sourceDeviceIds.Contains(d.DeviceId)).ExecuteDeleteAsync(ct);
         if (tx is not null) await tx.CommitAsync(ct);
+    }
+
+    /// <summary>
+    /// 删除源设备上与目标设备唯一键重复的行，使接下来的整体改写不会撞唯一索引。
+    /// 只覆盖唯一索引含 device_id 的三张表；sessions / location_points / timeline_blocks
+    /// 没有这类索引，改写 device_id 不会冲突。
+    /// </summary>
+    private async Task RemoveRowsCollidingWithTargetAsync(
+        Guid userId,
+        string sourceDeviceId,
+        string targetDeviceId,
+        CancellationToken ct)
+    {
+        var events = _db.Set<MobileUsageEventEntity>();
+        await events
+            .Where(e => e.UserId == userId && e.DeviceId == sourceDeviceId)
+            .Where(e => events.Any(t => t.UserId == userId && t.DeviceId == targetDeviceId
+                && t.PackageName == e.PackageName
+                && t.EventType == e.EventType
+                && t.EventTimestampUtc == e.EventTimestampUtc
+                && t.ClassName == e.ClassName))
+            .ExecuteDeleteAsync(ct);
+
+        var summaries = _db.Set<MobileUsageSummaryEntity>();
+        await summaries
+            .Where(s => s.UserId == userId && s.DeviceId == sourceDeviceId)
+            .Where(s => summaries.Any(t => t.UserId == userId && t.DeviceId == targetDeviceId
+                && t.PackageName == s.PackageName
+                && t.WindowStartUtc == s.WindowStartUtc
+                && t.WindowEndUtc == s.WindowEndUtc
+                && t.SourceKind == s.SourceKind))
+            .ExecuteDeleteAsync(ct);
+
+        var batches = _db.Set<MobileSyncBatchEntity>();
+        await batches
+            .Where(b => b.UserId == userId && b.DeviceId == sourceDeviceId)
+            .Where(b => batches.Any(t => t.UserId == userId && t.DeviceId == targetDeviceId
+                && t.BatchId == b.BatchId))
+            .ExecuteDeleteAsync(ct);
+    }
+
+    private async Task MoveDeviceRowsAsync(
+        Guid userId,
+        string sourceDeviceId,
+        string targetDeviceId,
+        CancellationToken ct)
+    {
+        await _db.Set<MobileUsageEventEntity>().Where(e => e.UserId == userId && e.DeviceId == sourceDeviceId).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
+        await _db.Set<MobileUsageSessionEntity>().Where(e => e.UserId == userId && e.DeviceId == sourceDeviceId).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
+        await _db.Set<MobileUsageSummaryEntity>().Where(e => e.UserId == userId && e.DeviceId == sourceDeviceId).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
+        await _db.Set<MobileLocationPointEntity>().Where(e => e.UserId == userId && e.DeviceId == sourceDeviceId).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
+        await _db.Set<MobileSyncBatchEntity>().Where(e => e.UserId == userId && e.DeviceId == sourceDeviceId).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
+        await _db.Set<MobileTimelineBlockEntity>().Where(e => e.UserId == userId && e.DeviceId == sourceDeviceId).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
     }
 
     /// <summary>
@@ -155,11 +214,14 @@ public sealed class DeviceManagementService
     /// <c>mobile_app_catalog</c>，不迁移就会让并入的历史记录解析不到 App 名称与分类。
     ///
     /// 唯一键是 (user_id, device_id, package_name)，目标设备同一包名只能保留一行，
-    /// 而生产库里 5 台源设备与目标设备的包名大量重复（实测 594 条），
+    /// 而生产库里源设备与目标设备的包名大量重复（实测 144 个包名 / 686 行），
     /// 因此逐条改写 device_id 会撞唯一索引。规则：
-    /// 每个包名先在多条候选里挑出 UpdatedAt 最新的一条；目标设备已有该包名时，
-    /// 仅当候选更新才覆盖目标条目的元数据（时间相同时目标自身的条目优先），
-    /// 其余候选直接删除，避免留下指向已删除 device_id 的孤儿行。
+    /// 每个包名保留 <c>UpdatedAt</c> 最新的一条（连同它的 <c>UpdatedAt</c>），
+    /// 时间相同时目标设备自身的条目优先，落败候选直接删除。
+    ///
+    /// 关键点是不改写 <c>UpdatedAt</c>：它表示「这条 App 元数据是什么时候采集到的」。
+    /// 如果合并时把它改成当前时间，目标行就会永远比后续源设备更新，
+    /// 多次合并后新采集到的名称/分类会被静默丢弃。
     /// </summary>
     private async Task MergeAppCatalogAsync(
         Guid userId,
@@ -177,11 +239,9 @@ public sealed class DeviceManagementService
             .Where(c => c.UserId == userId && c.DeviceId == targetDeviceId)
             .ToDictionaryAsync(c => c.PackageName, ct);
 
-        var now = _timeProvider.GetUtcNow();
         foreach (var group in sourceRows.GroupBy(row => row.PackageName))
         {
-            // 先挑出候选，再统一改写时间戳：逐条改写会把自己刚写上的 now 变成
-            // 下一条的比较基准，导致同包名的较新候选被误删。
+            // 同包名可能同时出现在多台源设备上，先挑出最新的一条作为候选。
             var newest = group
                 .OrderByDescending(row => row.UpdatedAt)
                 .ThenBy(row => row.DeviceId, StringComparer.Ordinal)
@@ -190,8 +250,10 @@ public sealed class DeviceManagementService
             if (targetRows.TryGetValue(newest.PackageName, out var targetRow))
             {
                 if (newest.UpdatedAt > targetRow.UpdatedAt)
+                {
                     CopyCatalogMetadata(newest, targetRow);
-                targetRow.UpdatedAt = now;
+                    targetRow.UpdatedAt = newest.UpdatedAt;
+                }
                 // 目标设备的条目胜出，该包名的全部候选（含 newest）都要删除。
                 foreach (var row in group)
                     catalog.Remove(row);
@@ -199,7 +261,6 @@ public sealed class DeviceManagementService
             else
             {
                 newest.DeviceId = targetDeviceId;
-                newest.UpdatedAt = now;
                 targetRows[newest.PackageName] = newest;
                 foreach (var row in group)
                 {

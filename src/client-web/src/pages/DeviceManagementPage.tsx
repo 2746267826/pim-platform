@@ -33,6 +33,8 @@ export function MergeConfirmDialog({
   const selectedDevices = orderMergeCandidates(
     devices.filter(device => mergeSel.includes(device.deviceId)),
   );
+  const selectedIds = selectedDevices.map(device => device.deviceId);
+  const selectionIsStale = selectedIds.length !== mergeSel.length;
   const [targetId, setTargetId] = useState(() => pickDefaultMergeTarget(selectedDevices));
   // 设备列表可能在弹窗打开期间刷新（react-query 重新拉取）：若原来选中的设备已不在列表里，
   // 退回默认目标，避免把设备合并到一个不在勾选集合里的 device id。
@@ -59,7 +61,8 @@ export function MergeConfirmDialog({
     },
   });
 
-  const sourceDeviceIds = mergeSel.filter(id => id !== effectiveTargetId);
+  // 用「设备列表里真实存在」的勾选集合发请求：列表刷新后 mergeSel 里可能残留已消失的设备。
+  const sourceDeviceIds = selectedIds.filter(id => id !== effectiveTargetId);
   const sourceKey = sourceDeviceIds.join('|');
   const previewQuery = useQuery({
     queryKey: ['device-merge-preview', effectiveTargetId, sourceKey],
@@ -74,27 +77,35 @@ export function MergeConfirmDialog({
   const sourceRows = previewRows.filter(row => !row.isTarget);
   const incomingTotal = mergeIncomingTotal(previewRows);
   const canMerge = Boolean(effectiveTargetId) && sourceRows.length > 0 && !mergeMut.isPending;
-  const previewError = mergeSel.length < 2
-    ? '至少需要选择 2 台不同的设备'
-    : previewQuery.error
-      ? (previewQuery.error instanceof Error ? previewQuery.error.message : '预览失败')
-      : null;
+  const previewError = selectionIsStale
+    ? '设备列表已刷新，部分勾选设备已不在列表中，请关闭弹窗后重新选择'
+    : mergeSel.length < 2
+      ? '至少需要选择 2 台不同的设备'
+      : previewQuery.error
+        ? (previewQuery.error instanceof Error ? previewQuery.error.message : '预览失败')
+        : null;
+
+  // 合并进行中不允许关闭弹窗，否则会丢失错误提示与结果反馈。
+  const requestClose = () => {
+    if (mergeMut.isPending) return;
+    onClose();
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs animate-backdrop" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs animate-backdrop" onClick={requestClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="merge-confirm-dialog-title"
         tabIndex={-1}
         ref={dialogRef}
-        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
+        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); requestClose(); } }}
         className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog"
         onClick={e => e.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
           <h2 id="merge-confirm-dialog-title" className="text-base font-semibold text-zinc-900">合并设备</h2>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600" aria-label="关闭">
+          <button onClick={requestClose} className="text-zinc-400 hover:text-zinc-600" aria-label="关闭">
             <X className="w-4 h-4" />
           </button>
         </header>
@@ -190,13 +201,14 @@ export function MergeConfirmDialog({
         </div>
         <footer className="flex items-center justify-between border-t border-zinc-200 px-5 py-4">
           <div className="text-xs text-zinc-400">
-            {mergeSel.length} 台设备已选 · 保留 {effectiveTargetId ? `…${previewRows.find(row => row.isTarget)?.shortId ?? ''}` : '未选择'}
+            {selectedIds.length} 台设备已选 · 保留 {effectiveTargetId ? `…${previewRows.find(row => row.isTarget)?.shortId ?? ''}` : '未选择'}
           </div>
           <div className="flex gap-2">
             <button
               type="button"
-              className="px-4 py-2 text-sm rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-              onClick={onClose}
+              className="px-4 py-2 text-sm rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
+              disabled={mergeMut.isPending}
+              onClick={requestClose}
             >
               取消
             </button>
@@ -206,7 +218,7 @@ export function MergeConfirmDialog({
               disabled={!canMerge}
               onClick={() => {
                 if (effectiveTargetId) {
-                  mergeMut.mutate({ src: mergeSel.filter(x => x !== effectiveTargetId), tgt: effectiveTargetId });
+                  mergeMut.mutate({ src: sourceDeviceIds, tgt: effectiveTargetId });
                 }
               }}
             >

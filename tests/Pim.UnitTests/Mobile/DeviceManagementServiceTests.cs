@@ -317,7 +317,7 @@ public sealed class DeviceManagementServiceTests
     }
 
     [Fact]
-    public async Task MergeAsync_RejectsAnEmptySourceList()
+    public async Task MergeAsync_RejectsAnEmptyOrNullSourceList()
     {
         await using var ctx = await DeviceManagementTestDb.CreateAsync();
         var db = ctx.Db;
@@ -327,6 +327,10 @@ public sealed class DeviceManagementServiceTests
 
         await Assert.ThrowsAsync<DomainException>(
             () => service.MergeAsync([], TargetDeviceId, CancellationToken.None));
+        // 请求体省略 sourceDeviceIds 时字段为 null；不能让它变成 NRE → HTTP 500。
+        await Assert.ThrowsAsync<DomainException>(
+            () => service.MergeAsync(null!, TargetDeviceId, CancellationToken.None));
+        Assert.Equal(1, await db.Set<MobileDeviceEntity>().CountAsync());
     }
 
     [Fact]
@@ -455,6 +459,9 @@ public sealed class DeviceManagementServiceTests
             DeviceId = deviceId,
             PackageName = packageName,
             EventType = "foreground",
+            // 唯一索引含 class_name；生产数据里没有 NULL（NULL 会被唯一索引视为互不相同，
+            // 反而绕过约束），这里同样给空串以贴近真实形态。
+            ClassName = string.Empty,
             EventTimestampUtc = timestamp,
             SourceWindowStartUtc = timestamp,
             SourceWindowEndUtc = timestamp.AddMinutes(1),

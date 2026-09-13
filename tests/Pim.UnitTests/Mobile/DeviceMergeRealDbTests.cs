@@ -125,26 +125,29 @@ public sealed class DeviceMergeRealDbTests
 
     private static async Task<bool> TryCreateSchemaAsync(NpgsqlConnection conn, string schema)
     {
-        try
+        // 先显式确认目标库里有可借用的表结构；只有「缺表」才跳过，
+        // 其余异常（权限、磁盘、SQL 形状错误）必须让用例失败，不能变成静默绿灯。
+        await using (var probe = new NpgsqlCommand(
+            "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace " +
+            "WHERE n.nspname = 'public' AND c.relname = ANY(@tables)", conn))
         {
-            await using (var create = new NpgsqlCommand($"CREATE SCHEMA \"{schema}\"", conn))
-                await create.ExecuteNonQueryAsync();
-
-            // 借用 pim 库里已存在的表结构，测试库不写 public。
-            foreach (var table in DeviceScopedTables)
-            {
-                await using var copy = new NpgsqlCommand(
-                    $"CREATE TABLE \"{schema}\".\"{table}\" (LIKE public.\"{table}\" INCLUDING ALL)", conn);
-                await copy.ExecuteNonQueryAsync();
-            }
-
-            return true;
+            probe.Parameters.AddWithValue("tables", DeviceScopedTables);
+            var found = Convert.ToInt64(await probe.ExecuteScalarAsync() ?? 0L);
+            if (found < DeviceScopedTables.Length) return false;
         }
-        catch
+
+        await using (var create = new NpgsqlCommand($"CREATE SCHEMA \"{schema}\"", conn))
+            await create.ExecuteNonQueryAsync();
+
+        // 借用 pim 库里已存在的表结构，测试库不写 public。
+        foreach (var table in DeviceScopedTables)
         {
-            // 目标库没有可借用的表结构（例如空库）：跳过。
-            return false;
+            await using var copy = new NpgsqlCommand(
+                $"CREATE TABLE \"{schema}\".\"{table}\" (LIKE public.\"{table}\" INCLUDING ALL)", conn);
+            await copy.ExecuteNonQueryAsync();
         }
+
+        return true;
     }
 
     /// <summary>
@@ -182,10 +185,16 @@ public sealed class DeviceMergeRealDbTests
                 .Where(d => d.DeviceId != target.DeviceId)
                 .Select(d => d.DeviceId)
                 .ToListAsync();
-            if (sourceDeviceIds.Count == 0) return; // 数据集太小，无从验证
+            Assert.True(sourceDeviceIds.Count > 0, "用例前提：镜像里同一个用户至少要有两台设备");
 
             var duplicatesBefore = await CountDuplicateEventKeysAsync(db);
             Assert.True(duplicatesBefore > 0, "用例前提：真实数据里应存在跨设备的重复业务键");
+            // 合并后「每个唯一键恰好剩一行」——同时钉住欠删（唯一键冲突）与过删（丢数据）。
+            var distinctEventKeysBefore = await DistinctEventKeyCountAsync(db);
+            var summariesBefore = await db.Set<MobileUsageSummaryEntity>().CountAsync();
+            var distinctSummaryKeysBefore = await DistinctSummaryKeyCountAsync(db);
+            var batchesBefore = await db.Set<MobileSyncBatchEntity>().CountAsync();
+            var distinctBatchKeysBefore = await DistinctBatchKeyCountAsync(db);
             // 合并前所有设备 catalog 覆盖到的包名集合：合并后必须一个都不能少（#231）。
             var catalogPackagesBefore = await db.Set<MobileAppCatalogEntity>()
                 .Select(c => c.PackageName)
@@ -197,6 +206,11 @@ public sealed class DeviceMergeRealDbTests
 
             await service.MergeAsync(sourceDeviceIds, target.DeviceId, CancellationToken.None);
 
+            Assert.Equal(distinctEventKeysBefore, await db.Set<MobileUsageEventEntity>().CountAsync());
+            Assert.Equal(distinctSummaryKeysBefore, await db.Set<MobileUsageSummaryEntity>().CountAsync());
+            Assert.Equal(distinctBatchKeysBefore, await db.Set<MobileSyncBatchEntity>().CountAsync());
+            Assert.True(summariesBefore >= distinctSummaryKeysBefore);
+            Assert.True(batchesBefore >= distinctBatchKeysBefore);
             Assert.Equal(0, await CountDuplicateEventKeysAsync(db));
             Assert.Equal(1, await db.Set<MobileDeviceEntity>().CountAsync());
             Assert.Empty(await db.Set<MobileAppCatalogEntity>()
@@ -231,32 +245,47 @@ public sealed class DeviceMergeRealDbTests
             .Where(g => g.Count() > 1)
             .CountAsync();
 
-    /// <summary>把真实库中「设备数最多」的那个用户的移动端数据复制进临时 schema；无数据时返回 false。</summary>
+    private static Task<int> DistinctEventKeyCountAsync(PimDbContext db)
+        => db.Set<MobileUsageEventEntity>()
+            .Select(e => new { e.PackageName, e.EventType, e.EventTimestampUtc, e.ClassName })
+            .Distinct()
+            .CountAsync();
+
+    private static Task<int> DistinctSummaryKeyCountAsync(PimDbContext db)
+        => db.Set<MobileUsageSummaryEntity>()
+            .Select(s => new { s.PackageName, s.WindowStartUtc, s.WindowEndUtc, s.SourceKind })
+            .Distinct()
+            .CountAsync();
+
+    private static Task<int> DistinctBatchKeyCountAsync(PimDbContext db)
+        => db.Set<MobileSyncBatchEntity>()
+            .Select(b => b.BatchId)
+            .Distinct()
+            .CountAsync();
+
+    /// <summary>把真实库中「设备数最多」的那个用户的移动端数据复制进临时 schema；库中没有数据时返回 false。</summary>
     private static async Task<bool> TryCopyBusiestUserAsync(NpgsqlConnection conn, string schema)
     {
-        try
+        Guid userId;
+        await using (var pick = new NpgsqlCommand(
+            "SELECT user_id FROM public.mobile_devices GROUP BY user_id ORDER BY count(*) DESC LIMIT 1", conn))
         {
-            await using var pick = new NpgsqlCommand(
-                "SELECT user_id FROM public.mobile_devices GROUP BY user_id ORDER BY count(*) DESC LIMIT 1", conn);
             var result = await pick.ExecuteScalarAsync();
-            if (result is not Guid userId) return false;
-
-            foreach (var table in DeviceScopedTables)
-            {
-                await using var copy = new NpgsqlCommand(
-                    $"INSERT INTO \"{schema}\".\"{table}\" SELECT * FROM public.\"{table}\" WHERE user_id = @userId", conn);
-                copy.CommandTimeout = 300;
-                copy.Parameters.AddWithValue("userId", userId);
-                await copy.ExecuteNonQueryAsync();
-            }
-
-            return true;
+            if (result is not Guid picked) return false;
+            userId = picked;
         }
-        catch
+
+        // 复制过程中的异常不吞：拷不动就让用例失败，否则它会静默绿灯。
+        foreach (var table in DeviceScopedTables)
         {
-            // 表结构或数据形状不符合预期：跳过而不是误报失败。
-            return false;
+            await using var copy = new NpgsqlCommand(
+                $"INSERT INTO \"{schema}\".\"{table}\" SELECT * FROM public.\"{table}\" WHERE user_id = @userId", conn);
+            copy.CommandTimeout = 300;
+            copy.Parameters.AddWithValue("userId", userId);
+            await copy.ExecuteNonQueryAsync();
         }
+
+        return true;
     }
 
     private static async Task SeedAsync(PimDbContext db)

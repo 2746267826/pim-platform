@@ -104,8 +104,12 @@ async function settle(times = 6) {
 function render(mergeSel: string[], onClose: () => void = () => {}) {
   // gcTime 必须是 0：默认 5 分钟会在 root.unmount() 之后留下一个仍然活跃的定时器，
   // Node 事件循环不退出，单条测试文件会白等 5 分钟（CI web job 同样受影响）。
+  // query 与 mutation 都有各自的 gcTime，两处都要关掉。
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false, gcTime: 0 },
+    },
   });
   act(() => {
     root.render(
@@ -233,5 +237,67 @@ describe('合并设备弹窗（issue #232）', () => {
     const text = container.textContent ?? '';
     assert.ok(text.includes('勾选的 2 台设备都会参与合并'));
     assert.ok(text.includes('将并入 200 条记录'));
+  });
+
+  it('设备列表刷新导致勾选设备消失时给出提示并禁用确认合并', async () => {
+    // mergeSel 里有一台设备已经不在列表里（后台刷新后设备被删/被合并）
+    render([ACTIVE, STALE_A, 'android-vanished000000']);
+    await settle();
+
+    assert.equal(radioInputs().length, 2, '只渲染仍然存在的设备');
+    const text = container.textContent ?? '';
+    assert.ok(text.includes('部分勾选设备已不在列表中'), '需要明确提示，而不是只把按钮置灰');
+    const confirm = Array.from(container.querySelectorAll('button'))
+      .find(button => button.textContent?.includes('确认合并'));
+    assert.ok(confirm, '确认合并按钮应存在');
+    assert.equal(confirm!.disabled, true, '勾选集合失效时不允许确认合并');
+    assert.equal(previewCalls.length, 0, '勾选集合失效时不应发起预览');
+  });
+
+  it('合并进行中禁止关闭弹窗', async () => {
+    let closeCalls = 0;
+    let resolveMerge: (() => void) | null = null;
+    render([ACTIVE, STALE_A], () => { closeCalls += 1; });
+    await settle();
+
+    // 让合并请求挂起，模拟「合并中...」
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/mobile/devices/merge')) {
+        await new Promise<void>(resolve => { resolveMerge = resolve; });
+        return new Response(JSON.stringify({ code: 0, message: 'OK', data: 'merged' }), {
+          status: 200, headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ code: 0, message: 'OK', data: null }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      });
+    }) as typeof globalThis.fetch;
+
+    const confirm = Array.from(container.querySelectorAll('button'))
+      .find(button => button.textContent?.includes('确认合并'));
+    assert.ok(confirm, '确认合并按钮应存在');
+    await act(async () => {
+      confirm!.click();
+    });
+    await settle(2);
+
+    assert.ok(container.textContent?.includes('合并中'), '应进入合并中状态');
+
+    const backdrop = container.firstElementChild as HTMLElement;
+    await act(async () => {
+      backdrop.click();
+    });
+    const closeButton = container.querySelector('button[aria-label="关闭"]') as HTMLButtonElement;
+    await act(async () => {
+      closeButton.click();
+    });
+    assert.equal(closeCalls, 0, '合并进行中不允许关闭弹窗');
+
+    await act(async () => {
+      resolveMerge?.();
+    });
+    await settle();
+    assert.equal(closeCalls, 1, '合并成功后应关闭弹窗');
   });
 });

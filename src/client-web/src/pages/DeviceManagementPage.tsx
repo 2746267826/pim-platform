@@ -61,13 +61,15 @@ export function MergeConfirmDialog({
     },
   });
 
-  // 用「设备列表里真实存在」的勾选集合发请求：列表刷新后 mergeSel 里可能残留已消失的设备。
+  // 用「设备列表里真实存在」的勾选集合发请求（纵深防御）：勾选集合失效时下面的 enabled
+  // 已经会拦住请求与合并，这里再保证即使条件放宽也不会把已消失的设备发出去。
   const sourceDeviceIds = selectedIds.filter(id => id !== effectiveTargetId);
   const sourceKey = sourceDeviceIds.join('|');
   const previewQuery = useQuery({
     queryKey: ['device-merge-preview', effectiveTargetId, sourceKey],
     queryFn: () => previewMerge(sourceDeviceIds, effectiveTargetId) as Promise<MergePreview>,
-    enabled: Boolean(effectiveTargetId) && sourceDeviceIds.length > 0,
+    // 勾选集合失效时不预览：此时的「存活子集」不是用户选中的那批设备，预览会误导。
+    enabled: Boolean(effectiveTargetId) && sourceDeviceIds.length > 0 && !selectionIsStale,
   });
 
   // 选项列表用设备列表自带的统计值（稳定），预览明细用后端预览返回的权威记录数。
@@ -76,7 +78,8 @@ export function MergeConfirmDialog({
   const previewRows = buildMergePreviewRows(selectedDevices, effectiveTargetId, preview, renderedAt);
   const sourceRows = previewRows.filter(row => !row.isTarget);
   const incomingTotal = mergeIncomingTotal(previewRows);
-  const canMerge = Boolean(effectiveTargetId) && sourceRows.length > 0 && !mergeMut.isPending;
+  const canMerge = Boolean(effectiveTargetId) && sourceRows.length > 0
+    && !selectionIsStale && !mergeMut.isPending;
   const previewError = selectionIsStale
     ? '设备列表已刷新，部分勾选设备已不在列表中，请关闭弹窗后重新选择'
     : mergeSel.length < 2
@@ -86,8 +89,9 @@ export function MergeConfirmDialog({
         : null;
 
   // 合并进行中不允许关闭弹窗，否则会丢失错误提示与结果反馈。
+  const closeBlocked = mergeMut.isPending;
   const requestClose = () => {
-    if (mergeMut.isPending) return;
+    if (closeBlocked) return;
     onClose();
   };
 
@@ -105,7 +109,12 @@ export function MergeConfirmDialog({
       >
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
           <h2 id="merge-confirm-dialog-title" className="text-base font-semibold text-zinc-900">合并设备</h2>
-          <button onClick={requestClose} className="text-zinc-400 hover:text-zinc-600" aria-label="关闭">
+          <button
+            onClick={requestClose}
+            disabled={closeBlocked}
+            className="text-zinc-400 hover:text-zinc-600 disabled:opacity-40"
+            aria-label="关闭"
+          >
             <X className="w-4 h-4" />
           </button>
         </header>
@@ -207,7 +216,7 @@ export function MergeConfirmDialog({
             <button
               type="button"
               className="px-4 py-2 text-sm rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
-              disabled={mergeMut.isPending}
+              disabled={closeBlocked}
               onClick={requestClose}
             >
               取消

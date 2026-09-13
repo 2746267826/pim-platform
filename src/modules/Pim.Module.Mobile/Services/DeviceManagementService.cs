@@ -112,8 +112,10 @@ public sealed class DeviceManagementService
     public async Task MergeAsync(IReadOnlyList<string> sourceDeviceIds, string targetDeviceId, CancellationToken ct = default)
     {
         var userId = MobileUserContext.RequireUserId(_currentUser);
+        // is not { Count: > 0 } 同时挡住 null（请求体省略 sourceDeviceIds）与空列表，
+        // 否则 null 会在下一行抛 NRE 被兜底成 HTTP 500。
+        if (sourceDeviceIds is not { Count: > 0 }) throw new DomainException(04001, "至少需要选择一台源设备");
         if (sourceDeviceIds.Contains(targetDeviceId)) throw new DomainException(04001, "源设备不能包含目标设备");
-        if (sourceDeviceIds.Count == 0) throw new DomainException(04001, "至少需要选择一台源设备");
         // 连接层启用了 EnableRetryOnFailure，NpgsqlRetryingExecutionStrategy 明确拒绝
         // 「用户自己发起的事务」：事务内第一条命令就会抛 InvalidOperationException（issue #230）。
         // 必须把整个事务交给 CreateExecutionStrategy() 返回的策略，作为一个可重试单元执行。
@@ -158,8 +160,11 @@ public sealed class DeviceManagementService
 
     /// <summary>
     /// 删除源设备上与目标设备唯一键重复的行，使接下来的整体改写不会撞唯一索引。
-    /// 只覆盖唯一索引含 device_id 的三张表；sessions / location_points / timeline_blocks
-    /// 没有这类索引，改写 device_id 不会冲突。
+    ///
+    /// 覆盖 events / summaries / sync_batches 三张唯一索引含 device_id 的表。
+    /// 其余移动端表里，sessions / location_points / timeline_blocks 没有唯一索引，不会冲突；
+    /// mobile_usage_aggregates 虽然有同类唯一索引，但全库没有任何写入方、生产实测 0 行，
+    /// 本次不纳入（既有的孤儿数据缺口，见 PR 说明）。
     /// </summary>
     private async Task RemoveRowsCollidingWithTargetAsync(
         Guid userId,

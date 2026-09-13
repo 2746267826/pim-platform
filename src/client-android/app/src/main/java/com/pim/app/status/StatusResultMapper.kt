@@ -19,13 +19,20 @@ object StatusResultMapper {
         justAccepted: Boolean
     ): SyncPhase {
         if (justAccepted) return SyncPhase.Accepted
+        val phase = syncState.phase.lowercase()
         val active = periodic + immediate
-        if (active.any { it.state == WorkInfo.State.RUNNING }) return SyncPhase.Running
+        if (active.any { it.state == WorkInfo.State.RUNNING }) {
+            if (phase == "catching-up") return SyncPhase.CatchingUp
+            return SyncPhase.Running
+        }
         if (immediate.any { it.state == WorkInfo.State.ENQUEUED && it.runAttemptCount == 0 } ||
             active.any { it.state == WorkInfo.State.BLOCKED }
-        ) return SyncPhase.Waiting
+        ) {
+            if (phase == "catching-up") return SyncPhase.CatchingUp
+            return SyncPhase.Waiting
+        }
 
-        val phase = syncState.phase.lowercase()
+        if (phase == "catching-up") return SyncPhase.CatchingUp
         if (phase in BLOCKED_SYNC_PHASES) return SyncPhase.Blocked
         if (syncState.outcome != MobileSyncOutcome.SUCCESS ||
             phase == "failed" || phase.endsWith("-failed") || phase == "completed-with-errors"

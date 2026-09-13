@@ -150,8 +150,8 @@ class MobileSyncSchedulerTest {
     // --- resolveExistingWorkPolicy ---
 
     @Test
-    fun defaultEnqueueNowUsesKeepPolicy() {
-        assertEquals(ExistingWorkPolicy.KEEP, MobileSyncScheduler.resolveExistingWorkPolicy(false))
+    fun defaultEnqueueNowUsesReplacePolicy() {
+        assertEquals(ExistingWorkPolicy.REPLACE, MobileSyncScheduler.resolveExistingWorkPolicy(false))
     }
 
     @Test

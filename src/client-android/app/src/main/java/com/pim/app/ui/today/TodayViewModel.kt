@@ -135,7 +135,7 @@ internal fun syncNowWithGate(
 ) {
     if (!gate.compareAndSet(false, true)) return
     val phase = currentPhase()
-    if (phase == SyncPhase.Accepted || phase == SyncPhase.Running) {
+    if (phase == SyncPhase.Accepted || phase == SyncPhase.Running || phase == SyncPhase.CatchingUp) {
         gate.set(false)
         return
     }

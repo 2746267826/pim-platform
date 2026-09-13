@@ -879,6 +879,7 @@ private fun phaseLabel(phase: String): String {
         "completed" -> "已完成"
         "completed-with-errors" -> "完成但有错误"
         "failed" -> "失败"
+        "catching-up" -> "补传中"
         else -> phase
     }
 }

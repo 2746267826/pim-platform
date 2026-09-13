@@ -89,7 +89,7 @@ class MobileSyncScheduler @Inject constructor(
         }
 
         fun resolveExistingWorkPolicy(allowMeteredOnce: Boolean): ExistingWorkPolicy {
-            return if (allowMeteredOnce) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
+            return ExistingWorkPolicy.REPLACE
         }
     }
 }

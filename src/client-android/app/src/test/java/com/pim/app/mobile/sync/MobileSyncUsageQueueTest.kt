@@ -173,6 +173,35 @@ class MobileSyncUsageQueueTest {
     }
 
     @Test
+    fun `multi batch constants match requirements`() {
+        assertEquals(10, MAX_USAGE_BATCHES_PER_RUN)
+        assertEquals(120_000L, MAX_USAGE_BATCH_DURATION_MS)
+        assertEquals(500, USAGE_BATCH_LIMIT)
+    }
+
+    @Test
+    fun `merge combines multiple successful catching-up batches`() {
+        val batch1 = MobileSyncState(
+            phase = "catching-up",
+            progressText = "正在补传（剩 819 条）。",
+            outcome = MobileSyncOutcome.SUCCESS,
+            acceptedCount = 500,
+            lastBatchId = "batch-1"
+        )
+        val batch2 = MobileSyncState(
+            phase = "catching-up",
+            progressText = "正在补传（剩 319 条）。",
+            outcome = MobileSyncOutcome.SUCCESS,
+            acceptedCount = 500,
+            lastBatchId = "batch-2"
+        )
+        val merged = batch1.merge(batch2)
+        assertEquals(MobileSyncOutcome.SUCCESS, merged.outcome)
+        assertEquals(1000, merged.acceptedCount)
+        assertEquals("batch-2", merged.lastBatchId)
+    }
+
+    @Test
     fun `merge combines failed usage with successful location sync`() {
         val usageFailedState = MobileSyncState(
             phase = "old-queue-upload-failed",

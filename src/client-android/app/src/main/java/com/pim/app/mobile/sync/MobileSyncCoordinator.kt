@@ -5,7 +5,9 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.SystemClock
 import android.provider.Settings
+import javax.inject.Provider
 
 import com.pim.app.data.AppDatabase
 import com.pim.app.data.MobileAppMetadataEntity
@@ -70,6 +72,10 @@ data class MobileSyncState(
     val lastSuccessfulUploadAt: String? = null
 )
 
+internal const val MAX_USAGE_BATCHES_PER_RUN = 10
+internal const val MAX_USAGE_BATCH_DURATION_MS = 120_000L
+internal const val USAGE_BATCH_LIMIT = 500
+
 @Singleton
 class MobileSyncCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -82,7 +88,8 @@ class MobileSyncCoordinator @Inject constructor(
     private val logs: StructuredLogRepository,
     private val heartbeatReporter: MobileHeartbeatReporter,
     private val serverSettingsStore: ServerSettingsStore,
-    private val locationUploadCoordinator: LocationUploadCoordinator
+    private val locationUploadCoordinator: LocationUploadCoordinator,
+    private val syncScheduler: Provider<MobileSyncScheduler>
 ) {
     private val mobileDataDao = database.mobileDataDao()
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -100,11 +107,17 @@ class MobileSyncCoordinator @Inject constructor(
             return running
         }
 
-        return try {
+        val resultState = try {
             runSyncOnOpen()
         } finally {
             syncMutex.unlock()
         }
+
+        if (resultState.phase == "catching-up" && resultState.outcome == MobileSyncOutcome.SUCCESS) {
+            syncScheduler.get().enqueueNow()
+        }
+
+        return resultState
     }
 
     fun refreshPersistedState() {
@@ -185,22 +198,27 @@ class MobileSyncCoordinator @Inject constructor(
             val oldQueueState = uploadQueuedUsage(deviceIdentity.deviceId, attemptedAt)
             if (oldQueueState != null) {
                 current = current.merge(oldQueueState)
-                if (oldQueueState.outcome == MobileSyncOutcome.RETRY || pendingUsageRemaining(mobileDataDao) > 0) {
+                val remaining = pendingUsageRemaining(mobileDataDao)
+                if (oldQueueState.outcome == MobileSyncOutcome.RETRY || remaining > 0) {
                     current = uploadQueuedLocations(current, attemptedAt)
-                    val outcome = if (oldQueueState.outcome == MobileSyncOutcome.RETRY || current.failedCount > 0) {
+                    val isTrueFailure = oldQueueState.outcome == MobileSyncOutcome.RETRY || current.failedCount > 0
+                    val outcome = if (isTrueFailure) {
                         MobileSyncOutcome.RETRY
                     } else {
-                        current.outcome
+                        MobileSyncOutcome.SUCCESS
                     }
+                    val finalRemaining = pendingUsageRemaining(mobileDataDao)
                     val finalState = current.copy(
                         phase = when {
                             current.phase == "location-upload-failed" -> current.phase
                             oldQueueState.phase == "old-queue-upload-failed" || oldQueueState.phase == "upload-failed" -> oldQueueState.phase
                             current.failedCount > 0 -> "completed-with-errors"
+                            finalRemaining > 0 -> "catching-up"
                             else -> "completed"
                         },
                         progressText = when {
                             current.phase == "location-upload-failed" -> current.progressText
+                            finalRemaining > 0 && !isTrueFailure -> "正在补传（剩 $finalRemaining 条）。"
                             oldQueueState.progressText.isNotBlank() -> oldQueueState.progressText
                             else -> "手机同步已完成，但部分使用记录待重试。"
                         },
@@ -883,34 +901,94 @@ class MobileSyncCoordinator @Inject constructor(
         deviceId: String,
         attemptedAt: String
     ): MobileSyncState? {
-        val batch = loadPendingUsageBatch(mobileDataDao, 500)
-        if (batch.totalCount == 0) return null
+        val initialBatch = loadPendingUsageBatch(mobileDataDao, USAGE_BATCH_LIMIT)
+        if (initialBatch.totalCount == 0) return null
 
-        val windowStart = iso(batch.windowStartUtc!!)
-        val windowEnd = iso(batch.windowEndUtc!!)
+        var batchCount = 0
+        val startTime = SystemClock.elapsedRealtime()
+        var accumulatedState: MobileSyncState? = null
 
-        val uploadState = uploadWindow(
-            deviceId = deviceId,
-            windowStartUtc = windowStart,
-            windowEndUtc = windowEnd,
-            events = batch.events,
-            summaries = batch.summaries,
-            apps = batch.apps,
-            eventIds = batch.events.map { it.id },
-            summaryIds = batch.summaries.map { it.id }
-        )
+        while (batchCount < MAX_USAGE_BATCHES_PER_RUN && (SystemClock.elapsedRealtime() - startTime) < MAX_USAGE_BATCH_DURATION_MS) {
+            val batch = if (batchCount == 0) initialBatch else loadPendingUsageBatch(mobileDataDao, USAGE_BATCH_LIMIT)
+            if (batch.totalCount == 0) break
+            batchCount++
+
+            val windowStart = iso(batch.windowStartUtc!!)
+            val windowEnd = iso(batch.windowEndUtc!!)
+
+            val uploadState = uploadWindow(
+                deviceId = deviceId,
+                windowStartUtc = windowStart,
+                windowEndUtc = windowEnd,
+                events = batch.events,
+                summaries = batch.summaries,
+                apps = batch.apps,
+                eventIds = batch.events.map { it.id },
+                summaryIds = batch.summaries.map { it.id }
+            )
+
+            accumulatedState = accumulatedState?.merge(uploadState) ?: uploadState
+            val remaining = pendingUsageRemaining(mobileDataDao)
+
+            logs.info(
+                "mobile-sync",
+                "使用记录批次上传完成（第 $batchCount 批，已接收 ${accumulatedState.acceptedCount}，剩余 $remaining 条）。",
+                mapOf(
+                    "batchNumber" to batchCount,
+                    "batchId" to (uploadState.lastBatchId ?: ""),
+                    "acceptedCount" to uploadState.acceptedCount,
+                    "skippedCount" to uploadState.skippedCount,
+                    "rejectedCount" to uploadState.rejectedCount,
+                    "failedCount" to uploadState.failedCount,
+                    "remaining" to remaining
+                )
+            )
+
+            if (uploadState.outcome == MobileSyncOutcome.RETRY || uploadState.failedCount > 0) {
+                val failedState = accumulatedState.copy(
+                    phase = "old-queue-upload-failed",
+                    progressText = uploadState.lastError ?: "旧队列上传失败，已安排重试。",
+                    outcome = MobileSyncOutcome.RETRY,
+                    pendingQueueCount = pendingQueueCount(),
+                    lastAttemptedUploadAt = attemptedAt
+                )
+                persistState(failedState)
+                return failedState
+            }
+
+            if (remaining > 0) {
+                val catchingUp = accumulatedState.copy(
+                    phase = "catching-up",
+                    progressText = "正在补传（剩 $remaining 条）。",
+                    outcome = MobileSyncOutcome.SUCCESS,
+                    pendingQueueCount = pendingQueueCount(),
+                    lastAttemptedUploadAt = attemptedAt
+                )
+                persistState(catchingUp)
+                accumulatedState = catchingUp
+            }
+        }
 
         val remaining = pendingUsageRemaining(mobileDataDao)
-        if (uploadState.outcome == MobileSyncOutcome.RETRY || remaining > 0) {
-            return uploadState.copy(
-                phase = "old-queue-upload-failed",
-                progressText = "旧队列上传后有 $remaining 条待同步使用记录，已安排重试。",
-                outcome = MobileSyncOutcome.RETRY,
+        if (remaining > 0) {
+            val catchingUp = (accumulatedState ?: state(
+                phase = "catching-up",
+                progressText = "正在补传（剩 $remaining 条）。",
+                outcome = MobileSyncOutcome.SUCCESS,
                 pendingQueueCount = pendingQueueCount(),
                 lastAttemptedUploadAt = attemptedAt
-            ).also { persistState(it) }
+            )).copy(
+                phase = "catching-up",
+                progressText = "正在补传（剩 $remaining 条）。",
+                outcome = MobileSyncOutcome.SUCCESS,
+                pendingQueueCount = pendingQueueCount(),
+                lastAttemptedUploadAt = attemptedAt
+            )
+            persistState(catchingUp)
+            return catchingUp
         }
-        return uploadState
+
+        return accumulatedState
     }
 
     private fun displayName(profile: MobileDeviceProfileEntity): String {

@@ -33,6 +33,8 @@ import com.pim.core.settings.ServerSettingsStore
 import com.pim.core.util.toCauseChainMessage
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -114,7 +116,7 @@ class MobileSyncCoordinator @Inject constructor(
         }
 
         if (resultState.phase == "catching-up" && resultState.outcome == MobileSyncOutcome.SUCCESS) {
-            syncScheduler.get().enqueueNow()
+            syncScheduler.get().enqueueContinuation()
         }
 
         return resultState
@@ -909,6 +911,7 @@ class MobileSyncCoordinator @Inject constructor(
         var accumulatedState: MobileSyncState? = null
 
         while (batchCount < MAX_USAGE_BATCHES_PER_RUN && (SystemClock.elapsedRealtime() - startTime) < MAX_USAGE_BATCH_DURATION_MS) {
+            currentCoroutineContext().ensureActive()
             val batch = if (batchCount == 0) initialBatch else loadPendingUsageBatch(mobileDataDao, USAGE_BATCH_LIMIT)
             if (batch.totalCount == 0) break
             batchCount++

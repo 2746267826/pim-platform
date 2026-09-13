@@ -42,6 +42,14 @@ class MobileSyncScheduler @Inject constructor(
             .enqueueUniqueWork(NOW_NAME, policy, request)
     }
 
+    fun enqueueContinuation() {
+        val settings = trackingSettingsStore.read()
+        val networkType = resolveImmediateNetworkType(settings, allowMeteredOnce = false)
+        val request = buildImmediateRequest(networkType, allowMeteredOnce = false)
+        WorkManager.getInstance(context)
+            .enqueueUniqueWork(NOW_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+    }
+
     fun cancelOldWork() {
         val workManager = WorkManager.getInstance(context)
         workManager.cancelUniqueWork("pim_upload")
@@ -88,7 +96,7 @@ class MobileSyncScheduler @Inject constructor(
                 .build()
         }
 
-        fun resolveExistingWorkPolicy(allowMeteredOnce: Boolean): ExistingWorkPolicy {
+        fun resolveExistingWorkPolicy(@Suppress("UNUSED_PARAMETER") allowMeteredOnce: Boolean = false): ExistingWorkPolicy {
             return ExistingWorkPolicy.REPLACE
         }
     }

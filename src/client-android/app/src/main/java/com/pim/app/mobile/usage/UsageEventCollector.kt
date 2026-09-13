@@ -140,7 +140,7 @@ class UsageEventCollector @Inject constructor(
         }.orEmpty()
 
         return stats
-            .filter { it.packageName != null }
+            .filter { !it.packageName.isNullOrBlank() && it.totalTimeInForeground > 0L }
             .map { usageStats ->
                 MobileUsageSummaryEntity(
                     packageName = usageStats.packageName,

@@ -359,6 +359,7 @@ public sealed class DeviceManagementServiceTests
         // 查询侧（MobileAppClassificationService）按 UpdatedAt → LastUpdateTimeUtc → …
         // 取最新，合并必须保留同一行，否则合并会改变用户看到的 App 名称。
         var sameMoment = Now.AddDays(-10);
+        var winnerCreatedAt = Now.AddDays(-5);
         db.Set<MobileAppCatalogEntity>().Add(new MobileAppCatalogEntity
         {
             UserId = MobileTestHelpers.UserId,
@@ -366,7 +367,7 @@ public sealed class DeviceManagementServiceTests
             PackageName = "com.tie.app",
             DisplayName = "TARGET-OLD",
             Category = "uncategorized",
-            CreatedAt = sameMoment,
+            CreatedAt = Now.AddDays(-40),
             UpdatedAt = sameMoment,
             LastUpdateTimeUtc = Now.AddDays(-20),
         });
@@ -377,7 +378,7 @@ public sealed class DeviceManagementServiceTests
             PackageName = "com.tie.app",
             DisplayName = "SOURCE-NEW",
             Category = "tools",
-            CreatedAt = sameMoment,
+            CreatedAt = winnerCreatedAt,
             UpdatedAt = sameMoment,
             LastUpdateTimeUtc = Now.AddDays(-1),
         });
@@ -389,7 +390,9 @@ public sealed class DeviceManagementServiceTests
         var row = Assert.Single(await db.Set<MobileAppCatalogEntity>().ToListAsync());
         Assert.Equal("SOURCE-NEW", row.DisplayName);
         Assert.Equal("tools", row.Category);
+        // 取舍链前三级都要跟着胜者走，否则未参与合并的设备可能在合并后反超。
         Assert.Equal(sameMoment, row.UpdatedAt);
+        Assert.Equal(winnerCreatedAt, row.CreatedAt);
     }
 
     [Fact]

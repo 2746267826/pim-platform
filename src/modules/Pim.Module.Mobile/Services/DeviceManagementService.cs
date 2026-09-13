@@ -268,7 +268,11 @@ public sealed class DeviceManagementService
                 if (!ReferenceEquals(winner, targetRow))
                 {
                     CopyCatalogMetadata(winner, targetRow);
+                    // UpdatedAt / CreatedAt 是取舍链的前三级，必须跟着胜者一起搬过来：
+                    // 只搬元数据会让目标行在这两级上仍是旧值，未参与合并的设备就可能
+                    // 在合并后反超，用户看到的名称/分类随之改变。
                     targetRow.UpdatedAt = winner.UpdatedAt;
+                    targetRow.CreatedAt = winner.CreatedAt;
                 }
                 // 目标设备的条目胜出，该包名的全部源候选都要删除。
                 foreach (var row in group)

@@ -324,6 +324,39 @@ class StatusOverallAndSyncPhaseTest {
     }
 
     @Test
+    fun immediateEnqueuedWithRetryRunAttemptReturnsFailedWhenSyncStateFailed() {
+        val failedSyncState = MobileSyncState(
+            phase = "failed",
+            progressText = "手机同步失败。",
+            outcome = MobileSyncOutcome.RETRY,
+            failedCount = 1
+        )
+        val phase = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(),
+            immediate = listOf(workInfo(WorkInfo.State.ENQUEUED, "pim_mobile_sync_now", runAttemptCount = 1)),
+            syncState = failedSyncState,
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.Failed, phase)
+    }
+
+    @Test
+    fun immediateEnqueuedWithRetryRunAttemptReturnsBlockedWhenSyncStateBlocked() {
+        val blockedSyncState = MobileSyncState(
+            phase = "server-missing",
+            progressText = "",
+            outcome = MobileSyncOutcome.SUCCESS
+        )
+        val phase = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(),
+            immediate = listOf(workInfo(WorkInfo.State.ENQUEUED, "pim_mobile_sync_now", runAttemptCount = 1)),
+            syncState = blockedSyncState,
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.Blocked, phase)
+    }
+
+    @Test
     fun persistedPrerequisitePhaseIsBlocked() {
         for (phase in listOf("server-missing", "auth-missing", "usage-permission-missing")) {
             val result = StatusResultMapper.resolveSyncPhase(
@@ -1072,7 +1105,8 @@ class StatusOverallAndSyncPhaseTest {
     private fun workInfo(
         state: WorkInfo.State,
         name: String,
-        nextScheduleTimeMillis: Long = 0
+        nextScheduleTimeMillis: Long = 0,
+        runAttemptCount: Int = 0
     ): WorkInfo {
         return WorkInfo(
             id = java.util.UUID.randomUUID(),
@@ -1080,7 +1114,7 @@ class StatusOverallAndSyncPhaseTest {
             outputData = androidx.work.Data.EMPTY,
             tags = setOf(name),
             progress = androidx.work.Data.EMPTY,
-            runAttemptCount = 0,
+            runAttemptCount = runAttemptCount,
             nextScheduleTimeMillis = nextScheduleTimeMillis
         )
     }

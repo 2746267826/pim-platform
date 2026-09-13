@@ -21,7 +21,7 @@ object StatusResultMapper {
         if (justAccepted) return SyncPhase.Accepted
         val active = periodic + immediate
         if (active.any { it.state == WorkInfo.State.RUNNING }) return SyncPhase.Running
-        if (immediate.any { it.state == WorkInfo.State.ENQUEUED } ||
+        if (immediate.any { it.state == WorkInfo.State.ENQUEUED && it.runAttemptCount == 0 } ||
             active.any { it.state == WorkInfo.State.BLOCKED }
         ) return SyncPhase.Waiting
 

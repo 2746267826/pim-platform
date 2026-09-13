@@ -220,6 +220,22 @@ class TodayViewModelTest {
     }
 
     @Test
+    fun `mapper error when sync phase failed even with pending items`() {
+        val state = baseState(pendingTotal = 64, isLoading = false, syncPhase = SyncPhase.Failed)
+        val uiState = TodayStatusMapper.fromStatus(state, TodayPageReport.EMPTY)
+        assertEquals(TodayStatus.Error, uiState.status)
+        assertEquals("数据同步失败", uiState.statusTitle)
+    }
+
+    @Test
+    fun `mapper blocked when sync phase blocked even with pending items`() {
+        val state = baseState(pendingTotal = 64, isLoading = false, syncPhase = SyncPhase.Blocked)
+        val uiState = TodayStatusMapper.fromStatus(state, TodayPageReport.EMPTY)
+        assertEquals(TodayStatus.Error, uiState.status)
+        assertEquals("同步被阻止", uiState.statusTitle)
+    }
+
+    @Test
     fun `mapper maps counts with separate permanent rejected and uploading`() {
         val state = baseState(
             pendingTotal = 7,

@@ -181,10 +181,37 @@ class MobileSyncCoordinator @Inject constructor(
             registerDevice(deviceIdentity, profile)
             mobileDataDao.updateDeviceProfileSyncStatus(syncStatus = MobileSyncStatus.SYNCED)
 
+            var current = preparing
             val oldQueueState = uploadQueuedUsage(deviceIdentity.deviceId, attemptedAt)
             if (oldQueueState != null) {
+                current = current.merge(oldQueueState)
                 if (oldQueueState.outcome == MobileSyncOutcome.RETRY || pendingUsageRemaining(mobileDataDao) > 0) {
-                    return oldQueueState
+                    current = uploadQueuedLocations(current, attemptedAt)
+                    val outcome = if (oldQueueState.outcome == MobileSyncOutcome.RETRY || current.failedCount > 0) {
+                        MobileSyncOutcome.RETRY
+                    } else {
+                        current.outcome
+                    }
+                    val finalState = current.copy(
+                        phase = when {
+                            current.phase == "location-upload-failed" -> current.phase
+                            oldQueueState.phase == "old-queue-upload-failed" || oldQueueState.phase == "upload-failed" -> oldQueueState.phase
+                            current.failedCount > 0 -> "completed-with-errors"
+                            else -> "completed"
+                        },
+                        progressText = when {
+                            current.phase == "location-upload-failed" -> current.progressText
+                            oldQueueState.progressText.isNotBlank() -> oldQueueState.progressText
+                            else -> "手机同步已完成，但部分使用记录待重试。"
+                        },
+                        outcome = outcome,
+                        isInProgress = false,
+                        pendingQueueCount = pendingQueueCount(),
+                        lastAttemptedUploadAt = attemptedAt
+                    )
+                    persistState(finalState)
+                    sendHeartbeat(deviceIdentity.deviceId, serverUrl, true, finalState)
+                    return finalState
                 }
             }
 
@@ -244,7 +271,7 @@ class MobileSyncCoordinator @Inject constructor(
                 mapOf("serverWindowCount" to serverWindows.size, "uploadWindowCount" to windows.size)
             )
 
-            var current = state(
+            current = state(
                 phase = "collecting",
                 progressText = "正在采集服务器要求补全的窗口。",
                 isInProgress = true,
@@ -376,7 +403,7 @@ class MobileSyncCoordinator @Inject constructor(
             val previous = _state.value
             val detail = ex.toCauseChainMessage()
             val outcome = MobileSyncErrorClassifier.classify(ex)
-            val failed = previous.copy(
+            var failed = previous.copy(
                 phase = "failed",
                 progressText = "手机同步失败。",
                 isInProgress = false,
@@ -388,6 +415,12 @@ class MobileSyncCoordinator @Inject constructor(
                 lastAttemptedUploadAt = attemptedAt
             )
             logs.error("mobile-sync", "手机同步失败：$detail", ex)
+            try {
+                failed = uploadQueuedLocations(failed, attemptedAt)
+            } catch (locEx: Exception) {
+                if (locEx is CancellationException) throw locEx
+                logs.warn("mobile-sync", "在异常处理流程中上传位置也失败", mapOf("error" to (locEx.message ?: "")))
+            }
             persistState(failed)
             sendHeartbeat(deviceIdentity.deviceId, serverUrl, true, failed)
             failed
@@ -473,7 +506,35 @@ class MobileSyncCoordinator @Inject constructor(
             summaries.mapIndexed { index, summary -> summary.toDto(summaryIds[index].toString()) }
         )
 
-        val response = api.uploadMobileUsage(request)
+        val response = try {
+            api.uploadMobileUsage(request)
+        } catch (ex: Exception) {
+            if (ex is CancellationException) throw ex
+            val outcome = MobileSyncErrorClassifier.classify(ex)
+            val message = ex.toCauseChainMessage()
+            markUsageFailed(eventIds, summaryIds, apps, message)
+            logs.warn(
+                "mobile-sync",
+                "使用记录上传异常：$message",
+                mapOf("windowStartUtc" to windowStartUtc, "windowEndUtc" to windowEndUtc, "message" to message)
+            )
+            return state(
+                phase = "upload-failed",
+                progressText = "使用记录上传失败：$message",
+                outcome = outcome,
+                failedCount = maxOf(1, events.size + summaries.size),
+                lastError = ex.message ?: ex::class.java.simpleName,
+                lastErrorDetail = message,
+                currentWindowStartUtc = windowStartUtc,
+                currentWindowEndUtc = windowEndUtc,
+                currentEventCount = events.size,
+                currentSummaryCount = summaries.size,
+                currentAppMetadataCount = apps.size,
+                lastBatchId = batchId,
+                lastBatchStatus = "failed",
+                pendingQueueCount = pendingQueueCount()
+            )
+        }
         val ingest = response.data
         if (response.code != 0 || ingest == null) {
             val message = response.message.ifBlank { "Usage upload failed." }

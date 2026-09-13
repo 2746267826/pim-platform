@@ -303,16 +303,6 @@ object TodayStatusMapper {
             return Triple(TodayStatus.Loading, "加载中", "正在获取状态...")
         }
 
-        if (pendingTotal > 0) {
-            val (title, desc) = when (syncPhase) {
-                SyncPhase.Accepted -> "请求已接受" to "等待系统开始同步"
-                SyncPhase.Waiting -> "等待同步" to "等待网络或系统调度"
-                SyncPhase.Running -> "正在同步" to "等待上传至服务器"
-                else -> "有 $pendingTotal 项待上传" to "等待上传至服务器"
-            }
-            return Triple(TodayStatus.PendingUpload, title, desc)
-        }
-
         if (syncPhase == SyncPhase.Accepted) {
             return Triple(TodayStatus.PendingUpload, "请求已接受", "等待系统开始同步")
         }
@@ -320,7 +310,11 @@ object TodayStatusMapper {
             return Triple(TodayStatus.PendingUpload, "等待同步", "等待网络或系统调度")
         }
         if (syncPhase == SyncPhase.Running) {
-            return Triple(TodayStatus.PendingUpload, "正在同步", "同步正在进行中")
+            return Triple(
+                TodayStatus.PendingUpload,
+                "正在同步",
+                if (pendingTotal > 0) "等待上传至服务器" else "同步正在进行中"
+            )
         }
 
         if (pageReport.error != null) {
@@ -333,6 +327,10 @@ object TodayStatusMapper {
 
         if (syncPhase == SyncPhase.Blocked) {
             return Triple(TodayStatus.Error, "同步被阻止", "请检查网络和服务器连接")
+        }
+
+        if (pendingTotal > 0) {
+            return Triple(TodayStatus.PendingUpload, "有 $pendingTotal 项待上传", "等待上传至服务器")
         }
 
         when (pageReport.hasServerData) {

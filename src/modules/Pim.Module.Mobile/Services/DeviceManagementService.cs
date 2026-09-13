@@ -113,38 +113,116 @@ public sealed class DeviceManagementService
     {
         var userId = MobileUserContext.RequireUserId(_currentUser);
         if (sourceDeviceIds.Contains(targetDeviceId)) throw new DomainException(04001, "源设备不能包含目标设备");
+        // 连接层启用了 EnableRetryOnFailure，NpgsqlRetryingExecutionStrategy 明确拒绝
+        // 「用户自己发起的事务」：事务内第一条命令就会抛 InvalidOperationException（issue #230）。
+        // 必须把整个事务交给 CreateExecutionStrategy() 返回的策略，作为一个可重试单元执行。
+        var strategy = _db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(
+            token => MergeAttemptAsync(userId, sourceDeviceIds, targetDeviceId, token),
+            ct);
+    }
+
+    private async Task MergeAttemptAsync(
+        Guid userId,
+        IReadOnlyList<string> sourceDeviceIds,
+        string targetDeviceId,
+        CancellationToken ct)
+    {
+        // 策略可能整体重跑，清掉上一次尝试残留的跟踪实体。
+        _db.ChangeTracker.Clear();
+
         var allIds = sourceDeviceIds.Concat(new[] { targetDeviceId }).Distinct().ToList();
         var devices = await _db.Set<MobileDeviceEntity>().Where(d => d.UserId == userId && allIds.Contains(d.DeviceId)).ToListAsync(ct);
         if (devices.Count != allIds.Count) throw new DomainException(04004, "部分设备不存在或不属于当前用户");
-        var target = devices.Single(d => d.DeviceId == targetDeviceId);
-        if (_db.Database.IsRelational())
+
+        await using var tx = _db.Database.IsRelational() ? await _db.Database.BeginTransactionAsync(ct) : null;
+        foreach (var sid in sourceDeviceIds)
         {
-            await using var tx = await _db.Database.BeginTransactionAsync(ct);
-            foreach (var sid in sourceDeviceIds)
-            {
-                await _db.Set<MobileUsageEventEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-                await _db.Set<MobileUsageSessionEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-                await _db.Set<MobileUsageSummaryEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-                await _db.Set<MobileLocationPointEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-                await _db.Set<MobileSyncBatchEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-                await _db.Set<MobileTimelineBlockEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-            }
-            await _db.Set<MobileDeviceEntity>().Where(d => d.UserId == userId && sourceDeviceIds.Contains(d.DeviceId)).ExecuteDeleteAsync(ct);
-            await tx.CommitAsync(ct);
+            await _db.Set<MobileUsageEventEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
+            await _db.Set<MobileUsageSessionEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
+            await _db.Set<MobileUsageSummaryEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
+            await _db.Set<MobileLocationPointEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
+            await _db.Set<MobileSyncBatchEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
+            await _db.Set<MobileTimelineBlockEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
         }
-        else
+        await MergeAppCatalogAsync(userId, sourceDeviceIds, targetDeviceId, ct);
+        await _db.Set<MobileDeviceEntity>().Where(d => d.UserId == userId && sourceDeviceIds.Contains(d.DeviceId)).ExecuteDeleteAsync(ct);
+        if (tx is not null) await tx.CommitAsync(ct);
+    }
+
+    /// <summary>
+    /// 把源设备的 App 名称库条目并入目标设备（issue #231）。查询侧按 device_id 过滤
+    /// <c>mobile_app_catalog</c>，不迁移就会让并入的历史记录解析不到 App 名称与分类。
+    ///
+    /// 唯一键是 (user_id, device_id, package_name)，目标设备同一包名只能保留一行，
+    /// 而生产库里 5 台源设备与目标设备的包名大量重复（实测 594 条），
+    /// 因此逐条改写 device_id 会撞唯一索引。规则：
+    /// 每个包名先在多条候选里挑出 UpdatedAt 最新的一条；目标设备已有该包名时，
+    /// 仅当候选更新才覆盖目标条目的元数据（时间相同时目标自身的条目优先），
+    /// 其余候选直接删除，避免留下指向已删除 device_id 的孤儿行。
+    /// </summary>
+    private async Task MergeAppCatalogAsync(
+        Guid userId,
+        IReadOnlyList<string> sourceDeviceIds,
+        string targetDeviceId,
+        CancellationToken ct)
+    {
+        var sourceRows = await _db.Set<MobileAppCatalogEntity>()
+            .Where(c => c.UserId == userId && sourceDeviceIds.Contains(c.DeviceId))
+            .ToListAsync(ct);
+        if (sourceRows.Count == 0) return;
+
+        var catalog = _db.Set<MobileAppCatalogEntity>();
+        var targetRows = await catalog
+            .Where(c => c.UserId == userId && c.DeviceId == targetDeviceId)
+            .ToDictionaryAsync(c => c.PackageName, ct);
+
+        var now = _timeProvider.GetUtcNow();
+        foreach (var group in sourceRows.GroupBy(row => row.PackageName))
         {
-            foreach (var sid in sourceDeviceIds)
+            // 先挑出候选，再统一改写时间戳：逐条改写会把自己刚写上的 now 变成
+            // 下一条的比较基准，导致同包名的较新候选被误删。
+            var newest = group
+                .OrderByDescending(row => row.UpdatedAt)
+                .ThenBy(row => row.DeviceId, StringComparer.Ordinal)
+                .First();
+
+            if (targetRows.TryGetValue(newest.PackageName, out var targetRow))
             {
-                await _db.Set<MobileUsageEventEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-                await _db.Set<MobileUsageSessionEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-                await _db.Set<MobileUsageSummaryEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-                await _db.Set<MobileLocationPointEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-                await _db.Set<MobileSyncBatchEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
-                await _db.Set<MobileTimelineBlockEntity>().Where(e => e.UserId == userId && e.DeviceId == sid).ExecuteUpdateAsync(s => s.SetProperty(e => e.DeviceId, targetDeviceId), ct);
+                if (newest.UpdatedAt > targetRow.UpdatedAt)
+                    CopyCatalogMetadata(newest, targetRow);
+                targetRow.UpdatedAt = now;
+                // 目标设备的条目胜出，该包名的全部候选（含 newest）都要删除。
+                foreach (var row in group)
+                    catalog.Remove(row);
             }
-            await _db.Set<MobileDeviceEntity>().Where(d => d.UserId == userId && sourceDeviceIds.Contains(d.DeviceId)).ExecuteDeleteAsync(ct);
+            else
+            {
+                newest.DeviceId = targetDeviceId;
+                newest.UpdatedAt = now;
+                targetRows[newest.PackageName] = newest;
+                foreach (var row in group)
+                {
+                    if (!ReferenceEquals(row, newest))
+                        catalog.Remove(row);
+                }
+            }
         }
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private static void CopyCatalogMetadata(MobileAppCatalogEntity from, MobileAppCatalogEntity to)
+    {
+        to.DisplayName = from.DisplayName;
+        to.VersionName = from.VersionName;
+        to.VersionCode = from.VersionCode;
+        to.IsSystemApp = from.IsSystemApp;
+        to.Category = from.Category;
+        to.InstallerPackage = from.InstallerPackage;
+        to.FirstInstallTimeUtc = from.FirstInstallTimeUtc;
+        to.LastUpdateTimeUtc = from.LastUpdateTimeUtc;
+        to.RawJson = from.RawJson;
     }
 
     public async Task<DeviceDeletePreviewDto> PreviewDeleteAsync(string deviceId, CancellationToken ct = default)
@@ -159,32 +237,31 @@ public sealed class DeviceManagementService
     public async Task DeleteAsync(string deviceId, CancellationToken ct = default)
     {
         var userId = MobileUserContext.RequireUserId(_currentUser);
+        // 与 MergeAsync 同理：显式事务必须由执行策略执行（issue #230）。
+        var strategy = _db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(token => DeleteAttemptAsync(userId, deviceId, token), ct);
+    }
+
+    private async Task DeleteAttemptAsync(Guid userId, string deviceId, CancellationToken ct)
+    {
+        _db.ChangeTracker.Clear();
+
         var device = await _db.Set<MobileDeviceEntity>().SingleOrDefaultAsync(d => d.UserId == userId && d.DeviceId == deviceId, ct)
             ?? throw new DomainException(04004, "设备不存在");
         var syncing = await _db.Set<MobileSyncBatchEntity>().AnyAsync(b => b.UserId == userId && b.DeviceId == deviceId && b.Status == "syncing", ct);
         if (syncing) throw new DomainException(04002, "设备正在同步，禁止删除");
-        if (_db.Database.IsRelational())
-        {
-            await using var tx = await _db.Database.BeginTransactionAsync(ct);
-            await _db.Set<MobileUsageEventEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await _db.Set<MobileUsageSessionEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await _db.Set<MobileUsageSummaryEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await _db.Set<MobileLocationPointEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await _db.Set<MobileSyncBatchEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await _db.Set<MobileTimelineBlockEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await _db.Set<MobileDeviceEntity>().Where(d => d.UserId == userId && d.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await tx.CommitAsync(ct);
-        }
-        else
-        {
-            await _db.Set<MobileUsageEventEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await _db.Set<MobileUsageSessionEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await _db.Set<MobileUsageSummaryEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await _db.Set<MobileLocationPointEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await _db.Set<MobileSyncBatchEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await _db.Set<MobileTimelineBlockEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-            await _db.Set<MobileDeviceEntity>().Where(d => d.UserId == userId && d.DeviceId == deviceId).ExecuteDeleteAsync(ct);
-        }
+
+        await using var tx = _db.Database.IsRelational() ? await _db.Database.BeginTransactionAsync(ct) : null;
+        await _db.Set<MobileUsageEventEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
+        await _db.Set<MobileUsageSessionEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
+        await _db.Set<MobileUsageSummaryEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
+        await _db.Set<MobileLocationPointEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
+        await _db.Set<MobileSyncBatchEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
+        await _db.Set<MobileTimelineBlockEntity>().Where(e => e.UserId == userId && e.DeviceId == deviceId).ExecuteDeleteAsync(ct);
+        // 设备的 App 名称库条目必须一起删除，否则会留下指向已删除 device_id 的孤儿行（issue #231）。
+        await _db.Set<MobileAppCatalogEntity>().Where(c => c.UserId == userId && c.DeviceId == deviceId).ExecuteDeleteAsync(ct);
+        await _db.Set<MobileDeviceEntity>().Where(d => d.UserId == userId && d.DeviceId == deviceId).ExecuteDeleteAsync(ct);
+        if (tx is not null) await tx.CommitAsync(ct);
     }
 
     public async Task<DeviceExportDto> ExportAsync(string deviceId, CancellationToken ct = default)

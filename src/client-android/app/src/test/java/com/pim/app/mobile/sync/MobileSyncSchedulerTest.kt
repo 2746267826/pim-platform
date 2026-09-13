@@ -111,6 +111,22 @@ class MobileSyncSchedulerTest {
         assertEquals(1, active.size)
     }
 
+    @Test
+    fun enqueueContinuationEnqueuesWorkUnderNowName() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val store = TrackingSettingsStore(
+            context.getSharedPreferences("scheduler_test", Context.MODE_PRIVATE)
+        )
+        val scheduler = MobileSyncScheduler(context, store)
+
+        scheduler.enqueueContinuation()
+
+        val workInfos = WorkManager.getInstance(context)
+            .getWorkInfosForUniqueWork(MobileSyncScheduler.NOW_NAME).get()
+        val active = workInfos.filter { it.state == WorkInfo.State.ENQUEUED }
+        assertEquals(1, active.size)
+    }
+
     // --- buildPeriodicRequest ---
 
     @Test
@@ -150,8 +166,8 @@ class MobileSyncSchedulerTest {
     // --- resolveExistingWorkPolicy ---
 
     @Test
-    fun defaultEnqueueNowUsesKeepPolicy() {
-        assertEquals(ExistingWorkPolicy.KEEP, MobileSyncScheduler.resolveExistingWorkPolicy(false))
+    fun defaultEnqueueNowUsesReplacePolicy() {
+        assertEquals(ExistingWorkPolicy.REPLACE, MobileSyncScheduler.resolveExistingWorkPolicy(false))
     }
 
     @Test

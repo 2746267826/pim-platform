@@ -412,6 +412,61 @@ class StatusOverallAndSyncPhaseTest {
     }
 
     @Test
+    fun persistedCatchingUpPhaseIsCatchingUp() {
+        val result = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(),
+            immediate = emptyList(),
+            syncState = MobileSyncState(
+                phase = "catching-up", progressText = "正在补传（剩 319 条）。",
+                outcome = MobileSyncOutcome.SUCCESS, failedCount = 0
+            ),
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.CatchingUp, result)
+
+        val runningResult = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(),
+            immediate = listOf(workInfo(WorkInfo.State.RUNNING, "pim_mobile_sync_now")),
+            syncState = MobileSyncState(
+                phase = "catching-up", progressText = "正在补传（剩 319 条）。",
+                outcome = MobileSyncOutcome.SUCCESS, failedCount = 0
+            ),
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.CatchingUp, runningResult)
+
+        val enqueuedResult = StatusResultMapper.resolveSyncPhase(
+            periodic = emptyList(),
+            immediate = listOf(workInfo(WorkInfo.State.ENQUEUED, "pim_mobile_sync_now", runAttemptCount = 0)),
+            syncState = MobileSyncState(
+                phase = "catching-up", progressText = "正在补传（剩 319 条）。",
+                outcome = MobileSyncOutcome.SUCCESS, failedCount = 0
+            ),
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.CatchingUp, enqueuedResult)
+    }
+
+    @Test
+    fun catchingUpStateDoesNotProduceSyncFailureIssue() {
+        val state = StatusResultMapper.buildState(
+            snapshot = healthySnapshot,
+            syncState = MobileSyncState(
+                phase = "catching-up",
+                progressText = "正在补传（剩 319 条）。",
+                outcome = MobileSyncOutcome.SUCCESS
+            ),
+            workInfos = StatusWorkInfos(emptyList(), emptyList()),
+            permanentRejected = 0,
+            networkAvailability = NetworkAvailability.Validated,
+            probeResult = null,
+            justAccepted = false
+        )
+        assertEquals(SyncPhase.CatchingUp, state.syncPhase)
+        assertFalse("Catching up should not add sync failure issue", state.issues.any { it.code == "sync-failure" })
+    }
+
+    @Test
     fun persistedCompletedPhaseIsCompleted() {
         for (phase in listOf("completed", "uploaded", "location-uploaded")) {
             val result = StatusResultMapper.resolveSyncPhase(

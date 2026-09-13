@@ -358,8 +358,13 @@ private fun TransportSection(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
+            val displayLabel = if (state.syncPhase == SyncPhase.CatchingUp && state.pendingTotal > 0) {
+                "正在补传（剩 ${state.pendingTotal} 条）"
+            } else {
+                syncPhaseLabel(state.syncPhase)
+            }
             Text(
-                text = syncPhaseLabel(state.syncPhase),
+                text = displayLabel,
                 modifier = Modifier.weight(1f).testTag("status-sync-phase"),
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
@@ -412,6 +417,7 @@ internal fun syncPhaseLabel(phase: SyncPhase): String = when (phase) {
     SyncPhase.Accepted -> "请求已接受"
     SyncPhase.Waiting -> "等待网络或系统调度"
     SyncPhase.Running -> "同步中"
+    SyncPhase.CatchingUp -> "补传中"
     SyncPhase.Blocked -> "同步条件未满足"
     SyncPhase.Completed -> "同步已完成"
     SyncPhase.Failed -> "同步失败"
@@ -423,6 +429,7 @@ internal fun syncButtonLabel(phase: SyncPhase): String = when (phase) {
     SyncPhase.Accepted -> "请求已接受"
     SyncPhase.Waiting -> "立即同步"
     SyncPhase.Running -> "同步中"
+    SyncPhase.CatchingUp -> "补传中"
     SyncPhase.Blocked -> "暂不可同步"
     SyncPhase.Completed -> "再次同步"
     SyncPhase.Failed -> "重新同步"
@@ -431,7 +438,7 @@ internal fun syncButtonLabel(phase: SyncPhase): String = when (phase) {
 
 private fun syncButtonEnabled(phase: SyncPhase): Boolean = when (phase) {
     SyncPhase.Idle, SyncPhase.Waiting, SyncPhase.Completed, SyncPhase.Failed, SyncPhase.Cancelled -> true
-    SyncPhase.Accepted, SyncPhase.Running, SyncPhase.Blocked -> false
+    SyncPhase.Accepted, SyncPhase.Running, SyncPhase.CatchingUp, SyncPhase.Blocked -> false
 }
 
 internal fun syncButtonEnabled(state: StatusCenterState): Boolean {

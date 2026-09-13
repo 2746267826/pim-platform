@@ -139,6 +139,9 @@ class UsageEventCollector @Inject constructor(
             return emptyList()
         }.orEmpty()
 
+        val windowDurationMs = (windowEndUtc - windowStartUtc).coerceAtLeast(0L)
+        val maxDurationMs = minOf(windowDurationMs, MAX_USAGE_DURATION_MS)
+
         return stats
             .filter { it.packageName != null }
             .map { usageStats ->
@@ -146,7 +149,7 @@ class UsageEventCollector @Inject constructor(
                     packageName = usageStats.packageName,
                     windowStartUtc = windowStartUtc,
                     windowEndUtc = windowEndUtc,
-                    totalTimeForegroundMs = usageStats.totalTimeInForeground,
+                    totalTimeForegroundMs = usageStats.totalTimeInForeground.coerceIn(0L, maxDurationMs),
                     lastTimeUsedUtc = usageStats.lastTimeUsed,
                     firstTimeStampUtc = usageStats.firstTimeStamp,
                     lastTimeStampUtc = usageStats.lastTimeStamp,
@@ -238,6 +241,7 @@ class UsageEventCollector @Inject constructor(
         const val SOURCE_USAGE_STATS_FALLBACK = "usage_stats_fallback"
         const val SOURCE_NO_ACCESS = "usage_access_unavailable"
         const val SOURCE_UNAVAILABLE = "usage_stats_manager_unavailable"
+        const val MAX_USAGE_DURATION_MS = 8L * 60 * 60 * 1000L // 8 hours
     }
 }
 

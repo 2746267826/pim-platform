@@ -2,21 +2,46 @@ import { X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getManagedDevices, renameDevice, previewMerge, mergeDevices, previewDeleteDevice, deleteDevice, exportDevice } from '../api/mobile';
+import type { DeviceListItem } from '../api/mobile';
+import {
+  buildMergeCandidates,
+  buildMergePreviewRows,
+  deviceOptionLabel,
+  mergeIncomingTotal,
+  orderMergeCandidates,
+  pickDefaultMergeTarget,
+  type MergePreview,
+} from './deviceMergeModel';
 
-function MergeConfirmDialog({
+/**
+ * 合并设备弹窗（issue #232）。
+ *
+ * 交互约定：设备列表上的勾选 = 参与合并的设备集合（含要保留的那台），
+ * 弹窗里只做一件事——选「保留哪台」。默认选中最近活跃的那台，
+ * 其余设备自动列为「并入后移除」，每台都展示可区分信息与各自的记录数。
+ */
+export function MergeConfirmDialog({
   mergeSel,
   devices,
   onClose,
 }: {
   mergeSel: string[];
-  devices: { deviceId: string; displayName: string }[];
+  devices: DeviceListItem[];
   onClose: () => void;
 }) {
   const qc = useQueryClient();
-  const [targetId, setTargetId] = useState('');
-  const [preview, setPreview] = useState<{ items: { deviceId: string; dataCount: number }[]; total: number } | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
+  const selectedDevices = orderMergeCandidates(
+    devices.filter(device => mergeSel.includes(device.deviceId)),
+  );
+  const selectedIds = selectedDevices.map(device => device.deviceId);
+  const selectionIsStale = selectedIds.length !== mergeSel.length;
+  const [targetId, setTargetId] = useState(() => pickDefaultMergeTarget(selectedDevices));
+  // 设备列表可能在弹窗打开期间刷新（react-query 重新拉取）：若原来选中的设备已不在列表里，
+  // 退回默认目标，避免把设备合并到一个不在勾选集合里的 device id。
+  const effectiveTargetId = selectedDevices.some(device => device.deviceId === targetId)
+    ? targetId
+    : pickDefaultMergeTarget(selectedDevices);
+  const [renderedAt] = useState(() => new Date());
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
@@ -36,70 +61,115 @@ function MergeConfirmDialog({
     },
   });
 
-  const handleTargetChange = async (tgt: string) => {
-    setTargetId(tgt);
-    if (!tgt) {
-      setPreview(null);
-      return;
-    }
-    const src = mergeSel.filter(x => x !== tgt);
-    if (src.length === 0) {
-      setPreview(null);
-      setPreviewError('至少需要选择 2 台不同的设备');
-      return;
-    }
-    setPreviewLoading(true);
-    setPreviewError(null);
-    try {
-      const p = await previewMerge(src, tgt);
-      setPreview(p);
-    } catch (e) {
-      setPreviewError(e instanceof Error ? e.message : '预览失败');
-    } finally {
-      setPreviewLoading(false);
-    }
+  // 用「设备列表里真实存在」的勾选集合发请求（纵深防御）：勾选集合失效时下面的 enabled
+  // 已经会拦住请求与合并，这里再保证即使条件放宽也不会把已消失的设备发出去。
+  const sourceDeviceIds = selectedIds.filter(id => id !== effectiveTargetId);
+  const sourceKey = sourceDeviceIds.join('|');
+  const previewQuery = useQuery({
+    queryKey: ['device-merge-preview', effectiveTargetId, sourceKey],
+    queryFn: () => previewMerge(sourceDeviceIds, effectiveTargetId) as Promise<MergePreview>,
+    // 勾选集合失效时不预览：此时的「存活子集」不是用户选中的那批设备，预览会误导。
+    enabled: Boolean(effectiveTargetId) && sourceDeviceIds.length > 0 && !selectionIsStale,
+  });
+
+  // 选项列表用设备列表自带的统计值（稳定），预览明细用后端预览返回的权威记录数。
+  const candidates = buildMergeCandidates(selectedDevices, renderedAt);
+  const preview = previewQuery.data ?? null;
+  const previewRows = buildMergePreviewRows(selectedDevices, effectiveTargetId, preview, renderedAt);
+  const sourceRows = previewRows.filter(row => !row.isTarget);
+  const incomingTotal = mergeIncomingTotal(previewRows);
+  const canMerge = Boolean(effectiveTargetId) && sourceRows.length > 0
+    && !selectionIsStale && !mergeMut.isPending;
+  const previewError = selectionIsStale
+    ? '设备列表已刷新，部分勾选设备已不在列表中，请关闭弹窗后重新选择'
+    : mergeSel.length < 2
+      ? '至少需要选择 2 台不同的设备'
+      : previewQuery.error
+        ? (previewQuery.error instanceof Error ? previewQuery.error.message : '预览失败')
+        : null;
+
+  // 合并进行中不允许关闭弹窗，否则会丢失错误提示与结果反馈。
+  const closeBlocked = mergeMut.isPending;
+  const requestClose = () => {
+    if (closeBlocked) return;
+    onClose();
   };
 
-  const srcDevices = mergeSel.filter(x => x !== targetId);
-  const canMerge = targetId && srcDevices.length > 0 && !mergeMut.isPending;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs animate-backdrop" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-xs animate-backdrop" onClick={requestClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="merge-confirm-dialog-title"
         tabIndex={-1}
         ref={dialogRef}
-        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
+        onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); requestClose(); } }}
         className="w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-dialog animate-dialog"
         onClick={e => e.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-zinc-200 px-5 py-4">
           <h2 id="merge-confirm-dialog-title" className="text-base font-semibold text-zinc-900">合并设备</h2>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600">
+          <button
+            onClick={requestClose}
+            disabled={closeBlocked}
+            className="text-zinc-400 hover:text-zinc-600 disabled:opacity-40"
+            aria-label="关闭"
+          >
             <X className="w-4 h-4" />
           </button>
         </header>
         <div className="overflow-y-auto max-h-[75vh] px-5 py-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">合并到目标设备</label>
-            <select
-              value={targetId}
-              onChange={e => handleTargetChange(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-blue-300 focus:outline-none"
-            >
-              <option value="">选择目标设备</option>
-              {mergeSel.map(id => {
-                const d = devices.find(x => x.deviceId === id);
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            勾选的 {selectedDevices.length} 台设备都会参与合并，请选择要保留的那台。
+            其余设备的数据会并入它，并入完成后这些设备会从设备列表移除；被保留的设备 ID 不变，手机无需重新注册。
+          </p>
+
+          <fieldset>
+            <legend className="mb-2 block text-sm font-medium text-zinc-700">保留哪台设备</legend>
+            <div className="space-y-2">
+              {candidates.map(candidate => {
+                const isTarget = candidate.deviceId === effectiveTargetId;
                 return (
-                  <option key={id} value={id}>{d?.displayName || id}</option>
+                  <label
+                    key={candidate.deviceId}
+                    title={deviceOptionLabel(candidate)}
+                    className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 text-sm ${
+                      isTarget ? 'border-blue-300 bg-blue-50' : 'border-zinc-200 hover:bg-zinc-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="merge-target-device"
+                      className="mt-1"
+                      value={candidate.deviceId}
+                      checked={isTarget}
+                      onChange={() => setTargetId(candidate.deviceId)}
+                    />
+                    <span className="min-w-0 flex-1 space-y-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-zinc-900">{candidate.displayName}</span>
+                        {candidate.isOnline && (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700">当前活跃</span>
+                        )}
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                            isTarget ? 'bg-blue-600 text-white' : 'bg-zinc-200 text-zinc-700'
+                          }`}
+                        >
+                          {isTarget ? '保留' : '并入后移除'}
+                        </span>
+                      </span>
+                      <span className="block text-xs text-zinc-600">
+                        ID …{candidate.shortId} · 最后活跃 {candidate.lastSeenLabel} · {candidate.dataCount} 条记录
+                      </span>
+                    </span>
+                  </label>
                 );
               })}
-            </select>
-          </div>
+            </div>
+          </fieldset>
 
-          {previewLoading && (
+          {previewQuery.isLoading && (
             <p className="text-sm text-zinc-500">正在加载预览...</p>
           )}
 
@@ -107,13 +177,28 @@ function MergeConfirmDialog({
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{previewError}</p>
           )}
 
-          {preview && !previewLoading && (
+          {preview && !previewQuery.isLoading && (
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 space-y-2">
               <p className="text-sm font-semibold text-zinc-800">合并预览</p>
-              <p className="text-sm text-zinc-700">影响记录总数：<span className="font-bold text-zinc-900">{preview.total}</span> 条</p>
-              {preview.items.length > 0 && (
-                <p className="text-xs text-zinc-500">涉及 {preview.items.length} 台设备</p>
-              )}
+              <ul className="space-y-1">
+                {previewRows.map(row => (
+                  <li key={row.deviceId} className="flex items-center justify-between gap-2 text-xs text-zinc-700">
+                    <span className="min-w-0 truncate">
+                      {row.displayName}
+                      <span className="text-zinc-500">（…{row.shortId}）</span>
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap">
+                      {row.isTarget
+                        ? <>保留，现有 {row.dataCount} 条</>
+                        : <>并入 {row.dataCount} 条后移除</>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="border-t border-zinc-200 pt-2 text-sm text-zinc-800">
+                将并入 <span className="font-bold text-zinc-900">{incomingTotal}</span> 条记录，
+                并移除 <span className="font-medium">{sourceRows.length}</span> 台设备
+              </p>
             </div>
           )}
 
@@ -125,13 +210,14 @@ function MergeConfirmDialog({
         </div>
         <footer className="flex items-center justify-between border-t border-zinc-200 px-5 py-4">
           <div className="text-xs text-zinc-400">
-            {mergeSel.length} 台设备已选
+            {selectedIds.length} 台设备已选 · 保留 {effectiveTargetId ? `…${previewRows.find(row => row.isTarget)?.shortId ?? ''}` : '未选择'}
           </div>
           <div className="flex gap-2">
             <button
               type="button"
-              className="px-4 py-2 text-sm rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-              onClick={onClose}
+              className="px-4 py-2 text-sm rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
+              disabled={closeBlocked}
+              onClick={requestClose}
             >
               取消
             </button>
@@ -140,8 +226,8 @@ function MergeConfirmDialog({
               className="px-4 py-2 text-sm rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
               disabled={!canMerge}
               onClick={() => {
-                if (targetId) {
-                  mergeMut.mutate({ src: mergeSel.filter(x => x !== targetId), tgt: targetId });
+                if (effectiveTargetId) {
+                  mergeMut.mutate({ src: sourceDeviceIds, tgt: effectiveTargetId });
                 }
               }}
             >
@@ -184,7 +270,7 @@ export default function DeviceManagementPage() {
           ? '请勾选需要合并或管理的设备'
           : mergeSel.length === 1
             ? '已选 1 台，请至少勾选 2 台设备以执行数据合并'
-            : `已选 ${mergeSel.length} 台设备`}
+            : `已选 ${mergeSel.length} 台设备（勾选集合即参与合并的设备，含要保留的那台）`}
       </p>
       {mergeSel.length >= 2 && (
         <button

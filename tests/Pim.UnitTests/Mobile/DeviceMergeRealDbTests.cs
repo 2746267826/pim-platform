@@ -116,12 +116,17 @@ public sealed class DeviceMergeRealDbTests
             await conn.OpenAsync();
             return true;
         }
-        catch
+        catch (Exception ex) when (IsServerUnreachable(ex))
         {
-            // CI 无 PostgreSQL：跳过而非失败。
+            // CI 无 PostgreSQL：跳过而非失败。认证/权限/库不存在等配置错误不在此列，
+            // 必须让用例失败，否则会掩盖「连上了但连错了库」这类问题。
             return false;
         }
     }
+
+    private static bool IsServerUnreachable(Exception ex)
+        => ex is System.Net.Sockets.SocketException or TimeoutException
+            || ex.InnerException is System.Net.Sockets.SocketException or TimeoutException;
 
     private static async Task<bool> TryCreateSchemaAsync(NpgsqlConnection conn, string schema)
     {
@@ -191,9 +196,7 @@ public sealed class DeviceMergeRealDbTests
             Assert.True(duplicatesBefore > 0, "用例前提：真实数据里应存在跨设备的重复业务键");
             // 合并后「每个唯一键恰好剩一行」——同时钉住欠删（唯一键冲突）与过删（丢数据）。
             var distinctEventKeysBefore = await DistinctEventKeyCountAsync(db);
-            var summariesBefore = await db.Set<MobileUsageSummaryEntity>().CountAsync();
             var distinctSummaryKeysBefore = await DistinctSummaryKeyCountAsync(db);
-            var batchesBefore = await db.Set<MobileSyncBatchEntity>().CountAsync();
             var distinctBatchKeysBefore = await DistinctBatchKeyCountAsync(db);
             // 合并前所有设备 catalog 覆盖到的包名集合：合并后必须一个都不能少（#231）。
             var catalogPackagesBefore = await db.Set<MobileAppCatalogEntity>()
@@ -209,8 +212,6 @@ public sealed class DeviceMergeRealDbTests
             Assert.Equal(distinctEventKeysBefore, await db.Set<MobileUsageEventEntity>().CountAsync());
             Assert.Equal(distinctSummaryKeysBefore, await db.Set<MobileUsageSummaryEntity>().CountAsync());
             Assert.Equal(distinctBatchKeysBefore, await db.Set<MobileSyncBatchEntity>().CountAsync());
-            Assert.True(summariesBefore >= distinctSummaryKeysBefore);
-            Assert.True(batchesBefore >= distinctBatchKeysBefore);
             Assert.Equal(0, await CountDuplicateEventKeysAsync(db));
             Assert.Equal(1, await db.Set<MobileDeviceEntity>().CountAsync());
             Assert.Empty(await db.Set<MobileAppCatalogEntity>()

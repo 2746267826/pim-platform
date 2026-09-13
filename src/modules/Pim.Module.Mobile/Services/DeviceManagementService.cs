@@ -89,6 +89,8 @@ public sealed class DeviceManagementService
     public async Task<DeviceMergePreviewDto> PreviewMergeAsync(IReadOnlyList<string> sourceDeviceIds, string targetDeviceId, CancellationToken ct = default)
     {
         var userId = MobileUserContext.RequireUserId(_currentUser);
+        // 与 MergeAsync 同样的入参形状：null / 空列表都返回 04001（HTTP 400），不要变成 500。
+        if (sourceDeviceIds is not { Count: > 0 }) throw new DomainException(04001, "至少需要选择一台源设备");
         var allIds = sourceDeviceIds.Concat(new[] { targetDeviceId }).Distinct().ToList();
         var devices = await _db.Set<MobileDeviceEntity>().Where(d => d.UserId == userId && allIds.Contains(d.DeviceId)).ToListAsync(ct);
         if (devices.Count != allIds.Count) throw new DomainException(04004, "部分设备不存在或不属于当前用户");
@@ -221,8 +223,8 @@ public sealed class DeviceManagementService
     /// 唯一键是 (user_id, device_id, package_name)，目标设备同一包名只能保留一行，
     /// 而生产库里源设备与目标设备的包名大量重复（实测 144 个包名 / 686 行），
     /// 因此逐条改写 device_id 会撞唯一索引。规则：
-    /// 每个包名保留 <c>UpdatedAt</c> 最新的一条（连同它的 <c>UpdatedAt</c>），
-    /// 时间相同时目标设备自身的条目优先，落败候选直接删除。
+    /// 每个包名保留「查询侧本来会选中的那一行」（见 <see cref="OrderByCatalogFreshness"/>），
+    /// 落败候选直接删除。
     ///
     /// 关键点是不改写 <c>UpdatedAt</c>：它表示「这条 App 元数据是什么时候采集到的」。
     /// 如果合并时把它改成当前时间，目标行就会永远比后续源设备更新，
@@ -246,37 +248,54 @@ public sealed class DeviceManagementService
 
         foreach (var group in sourceRows.GroupBy(row => row.PackageName))
         {
-            // 同包名可能同时出现在多台源设备上，先挑出最新的一条作为候选。
-            var newest = group
-                .OrderByDescending(row => row.UpdatedAt)
-                .ThenBy(row => row.DeviceId, StringComparer.Ordinal)
-                .First();
+            targetRows.TryGetValue(group.Key, out var targetRow);
+            // 候选 = 该包名的全部源行（目标设备已有则并入目标行），用与查询侧一致的顺序
+            // 挑出「合并前用户看到的那一行」，避免合并本身改变显示结果。
+            var winner = OrderByCatalogFreshness(targetRow is null ? group : group.Append(targetRow)).First();
 
-            if (targetRows.TryGetValue(newest.PackageName, out var targetRow))
+            if (targetRow is null)
             {
-                if (newest.UpdatedAt > targetRow.UpdatedAt)
-                {
-                    CopyCatalogMetadata(newest, targetRow);
-                    targetRow.UpdatedAt = newest.UpdatedAt;
-                }
-                // 目标设备的条目胜出，该包名的全部候选（含 newest）都要删除。
+                winner.DeviceId = targetDeviceId;
+                targetRows[winner.PackageName] = winner;
                 foreach (var row in group)
-                    catalog.Remove(row);
+                {
+                    if (!ReferenceEquals(row, winner))
+                        catalog.Remove(row);
+                }
             }
             else
             {
-                newest.DeviceId = targetDeviceId;
-                targetRows[newest.PackageName] = newest;
-                foreach (var row in group)
+                if (!ReferenceEquals(winner, targetRow))
                 {
-                    if (!ReferenceEquals(row, newest))
-                        catalog.Remove(row);
+                    CopyCatalogMetadata(winner, targetRow);
+                    targetRow.UpdatedAt = winner.UpdatedAt;
                 }
+                // 目标设备的条目胜出，该包名的全部源候选都要删除。
+                foreach (var row in group)
+                    catalog.Remove(row);
             }
         }
 
         await _db.SaveChangesAsync(ct);
     }
+
+    /// <summary>
+    /// 与查询侧 <c>MobileAppClassificationService.LoadLatestMetadataAsync</c> 相同的取舍顺序：
+    /// UpdatedAt → LastUpdateTimeUtc → CreatedAt → DeviceId，保证「合并前能解析出的名称/分类」
+    /// 在合并后仍然解析得到同一份。
+    ///
+    /// LastUpdateTimeUtc 可空：PostgreSQL 的 <c>ORDER BY ... DESC</c> 默认 NULLS FIRST，
+    /// 这里用 HasValue 升序显式对齐（null 排在前面），否则 LINQ 默认把 null 排到最后，
+    /// 会出现「合并前显示源设备的新名称、合并后变成目标设备的旧名称」。
+    /// </summary>
+    private static IEnumerable<MobileAppCatalogEntity> OrderByCatalogFreshness(
+        IEnumerable<MobileAppCatalogEntity> rows)
+        => rows
+            .OrderByDescending(row => row.UpdatedAt)
+            .ThenBy(row => row.LastUpdateTimeUtc.HasValue)
+            .ThenByDescending(row => row.LastUpdateTimeUtc)
+            .ThenByDescending(row => row.CreatedAt)
+            .ThenBy(row => row.DeviceId, StringComparer.Ordinal);
 
     private static void CopyCatalogMetadata(MobileAppCatalogEntity from, MobileAppCatalogEntity to)
     {

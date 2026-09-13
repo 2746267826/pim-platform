@@ -289,6 +289,10 @@ describe('合并设备弹窗（issue #232）', () => {
       backdrop.click();
     });
     const closeButton = container.querySelector('button[aria-label="关闭"]') as HTMLButtonElement;
+    assert.equal(closeButton.disabled, true, '合并进行中关闭按钮必须是 disabled 状态');
+    const cancelButton = Array.from(container.querySelectorAll('button'))
+      .find(button => button.textContent?.includes('取消'));
+    assert.equal(cancelButton?.disabled, true, '合并进行中取消按钮必须是 disabled 状态');
     await act(async () => {
       closeButton.click();
     });

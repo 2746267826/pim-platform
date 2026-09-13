@@ -317,6 +317,21 @@ public sealed class DeviceManagementServiceTests
     }
 
     [Fact]
+    public async Task PreviewMergeAsync_RejectsAnEmptyOrNullSourceList()
+    {
+        await using var ctx = await DeviceManagementTestDb.CreateAsync();
+        var db = ctx.Db;
+        SeedDevice(db, TargetDeviceId, Now);
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await Assert.ThrowsAsync<DomainException>(
+            () => service.PreviewMergeAsync([], TargetDeviceId, CancellationToken.None));
+        await Assert.ThrowsAsync<DomainException>(
+            () => service.PreviewMergeAsync(null!, TargetDeviceId, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task MergeAsync_RejectsAnEmptyOrNullSourceList()
     {
         await using var ctx = await DeviceManagementTestDb.CreateAsync();
@@ -331,6 +346,50 @@ public sealed class DeviceManagementServiceTests
         await Assert.ThrowsAsync<DomainException>(
             () => service.MergeAsync(null!, TargetDeviceId, CancellationToken.None));
         Assert.Equal(1, await db.Set<MobileDeviceEntity>().CountAsync());
+    }
+
+    [Fact]
+    public async Task MergeAsync_BreaksCatalogTiesTheSameWayTheReadPathDoes()
+    {
+        await using var ctx = await DeviceManagementTestDb.CreateAsync();
+        var db = ctx.Db;
+        SeedDevice(db, TargetDeviceId, Now);
+        SeedDevice(db, SourceDeviceA, Now.AddDays(-60));
+        // UpdatedAt 完全相同，但源设备那条的 LastUpdateTimeUtc 更新：
+        // 查询侧（MobileAppClassificationService）按 UpdatedAt → LastUpdateTimeUtc → …
+        // 取最新，合并必须保留同一行，否则合并会改变用户看到的 App 名称。
+        var sameMoment = Now.AddDays(-10);
+        db.Set<MobileAppCatalogEntity>().Add(new MobileAppCatalogEntity
+        {
+            UserId = MobileTestHelpers.UserId,
+            DeviceId = TargetDeviceId,
+            PackageName = "com.tie.app",
+            DisplayName = "TARGET-OLD",
+            Category = "uncategorized",
+            CreatedAt = sameMoment,
+            UpdatedAt = sameMoment,
+            LastUpdateTimeUtc = Now.AddDays(-20),
+        });
+        db.Set<MobileAppCatalogEntity>().Add(new MobileAppCatalogEntity
+        {
+            UserId = MobileTestHelpers.UserId,
+            DeviceId = SourceDeviceA,
+            PackageName = "com.tie.app",
+            DisplayName = "SOURCE-NEW",
+            Category = "tools",
+            CreatedAt = sameMoment,
+            UpdatedAt = sameMoment,
+            LastUpdateTimeUtc = Now.AddDays(-1),
+        });
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await service.MergeAsync([SourceDeviceA], TargetDeviceId, CancellationToken.None);
+
+        var row = Assert.Single(await db.Set<MobileAppCatalogEntity>().ToListAsync());
+        Assert.Equal("SOURCE-NEW", row.DisplayName);
+        Assert.Equal("tools", row.Category);
+        Assert.Equal(sameMoment, row.UpdatedAt);
     }
 
     [Fact]

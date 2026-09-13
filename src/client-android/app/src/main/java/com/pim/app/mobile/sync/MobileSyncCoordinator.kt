@@ -495,7 +495,12 @@ class MobileSyncCoordinator @Inject constructor(
         eventIds: List<Long>,
         summaryIds: List<Long>
     ): MobileSyncState {
-        val batchId = stableBatchId(deviceId, windowStartUtc, windowEndUtc)
+        val sentItems = linkedSetOf<MobileAcknowledgementItem>().apply {
+            eventIds.forEach { add(MobileAcknowledgementItem("usage-event", it.toString())) }
+            summaryIds.forEach { add(MobileAcknowledgementItem("usage-summary", it.toString())) }
+            apps.forEach { add(MobileAcknowledgementItem("app-metadata", "${it.packageName}@${it.versionCode}")) }
+        }
+        val batchId = stableBatchId(deviceId, windowStartUtc, windowEndUtc, sentItems)
         val request = MobileUsageEventsUploadRequest(
             deviceId,
             batchId,
@@ -562,11 +567,6 @@ class MobileSyncCoordinator @Inject constructor(
             )
         }
 
-        val sentItems = linkedSetOf<MobileAcknowledgementItem>().apply {
-            eventIds.forEach { add(MobileAcknowledgementItem("usage-event", it.toString())) }
-            summaryIds.forEach { add(MobileAcknowledgementItem("usage-summary", it.toString())) }
-            apps.forEach { add(MobileAcknowledgementItem("app-metadata", "${it.packageName}@${it.versionCode}")) }
-        }
         processUsageAcknowledgements(mobileDataDao, sentItems, ingest)
         logs.info(
             "mobile-sync",
@@ -947,14 +947,8 @@ class MobileSyncCoordinator @Inject constructor(
         }
     }
 
-    private fun sha256(value: String): String {
-        val bytes = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
-        return bytes.joinToString("") { "%02x".format(Locale.US, it) }
-    }
+    private fun sha256(value: String): String = sha256Hex(value)
 
-    private fun stableBatchId(deviceId: String, windowStartUtc: String, windowEndUtc: String): String {
-        return "android-${sha256("$deviceId|$windowStartUtc|$windowEndUtc").take(24)}"
-    }
 
     private data class DeviceIdentity(
         val deviceId: String,
@@ -965,6 +959,24 @@ class MobileSyncCoordinator @Inject constructor(
         private const val FOURTEEN_DAYS_MS = 14L * 24L * 60L * 60L * 1000L
         private const val PREFS_NAME = "pim_mobile_sync_state"
     }
+}
+
+internal fun sha256Hex(value: String): String {
+    val bytes = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
+    return bytes.joinToString("") { "%02x".format(Locale.US, it) }
+}
+
+internal fun stableBatchId(
+    deviceId: String,
+    windowStartUtc: String,
+    windowEndUtc: String,
+    items: Collection<MobileAcknowledgementItem> = emptyList()
+): String {
+    val itemsSignature = items.asSequence()
+        .map { "${it.entityType}:${it.clientItemKey}" }
+        .sorted()
+        .joinToString(",")
+    return "android-${sha256Hex("$deviceId|$windowStartUtc|$windowEndUtc|$itemsSignature").take(24)}"
 }
 
 private const val MAX_UPLOAD_WINDOW_MS = 2L * 60L * 60L * 1000L

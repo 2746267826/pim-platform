@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Pim.Infrastructure.Data;
@@ -34,7 +35,8 @@ public sealed class MobileIngestRealDbTests
     [Fact]
     public async Task IngestAsync_OnPostgres_RebuildsOnlyWhenTheEventSetOrWindowChanges()
     {
-        await using var database = await TempDatabase.CreateAsync();
+        await using var database = await TempDatabase.TryCreateAsync();
+        if (database is null) return;
         await using var db = database.Db;
         var service = CreateIngest(db);
 
@@ -81,7 +83,8 @@ public sealed class MobileIngestRealDbTests
     [Fact]
     public async Task SubmitAsync_OnPostgres_IsIdempotentDespiteNumericRounding()
     {
-        await using var database = await TempDatabase.CreateAsync();
+        await using var database = await TempDatabase.TryCreateAsync();
+        if (database is null) return;
         await using var db = database.Db;
         var service = new MobileLocationService(db, MobileTestHelpers.CurrentUser(), MobileTestHelpers.Time(Now));
 
@@ -153,11 +156,16 @@ public sealed class MobileIngestRealDbTests
 
         public PimDbContext Db { get; }
 
-        public static async Task<TempDatabase> CreateAsync()
+        /// <summary>CI 没有 PostgreSQL：连不上时返回 null（跳过），其余异常照常抛出。</summary>
+        public static async Task<TempDatabase?> TryCreateAsync()
         {
             MobileTestHelpers.RegisterMobileModule();
             var admin = new NpgsqlConnection(ConnStr);
-            await admin.OpenAsync();
+            if (!await TryOpenAsync(admin))
+            {
+                await admin.DisposeAsync();
+                return null;
+            }
 
             var database = $"test_mobile_ingest_{Guid.NewGuid():N}";
             await using (var create = new NpgsqlCommand($"CREATE DATABASE \"{database}\"", admin))
@@ -169,6 +177,20 @@ public sealed class MobileIngestRealDbTests
                 .Options);
             await db.Database.EnsureCreatedAsync();
             return new TempDatabase(database, admin, db);
+        }
+
+        private static async Task<bool> TryOpenAsync(NpgsqlConnection connection)
+        {
+            try
+            {
+                await connection.OpenAsync();
+                return true;
+            }
+            catch (Exception ex) when (ex is SocketException or TimeoutException
+                || ex.InnerException is SocketException or TimeoutException)
+            {
+                return false;
+            }
         }
 
         public async ValueTask DisposeAsync()

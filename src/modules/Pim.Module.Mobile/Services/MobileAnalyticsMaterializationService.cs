@@ -51,6 +51,9 @@ public sealed class MobileAnalyticsMaterializationService
 
     /// <summary>
     /// 物化 [windowStartUtc, windowEndUtc] 覆盖的整日窗口。窗口按默认时区对齐。
+    ///
+    /// 物化是"先删后写"，必须与 advisory lock 待在同一个事务里：上传链路已经在事务内调用，
+    /// 这里只为"无事务直接调用"的路径补一个自管事务（否则锁随语句结束即释放，形同虚设）。
     /// </summary>
     public async Task<MobileAnalyticsMaterializationResult> MaterializeAsync(
         Guid userId,
@@ -58,6 +61,22 @@ public sealed class MobileAnalyticsMaterializationService
         DateTimeOffset windowStartUtc,
         DateTimeOffset windowEndUtc,
         CancellationToken ct = default)
+    {
+        if (!_db.Database.IsRelational() || _db.Database.CurrentTransaction is not null)
+            return await MaterializeCoreAsync(userId, deviceId, windowStartUtc, windowEndUtc, ct);
+
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        var result = await MaterializeCoreAsync(userId, deviceId, windowStartUtc, windowEndUtc, ct);
+        await transaction.CommitAsync(ct);
+        return result;
+    }
+
+    private async Task<MobileAnalyticsMaterializationResult> MaterializeCoreAsync(
+        Guid userId,
+        string deviceId,
+        DateTimeOffset windowStartUtc,
+        DateTimeOffset windowEndUtc,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(deviceId) || windowEndUtc <= windowStartUtc)
             return MobileAnalyticsMaterializationResult.None;

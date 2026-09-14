@@ -16,7 +16,7 @@ namespace Pim.UnitTests.Mobile;
 /// 1. 上传链路（含"窗口内是否存在待延长的开放会话"）能被 Npgsql 正常翻译
 ///    —— 增量修复期间这里踩过 `jsonb ~~ unknown`（42883）的真库报错；
 /// 2. 定位点幂等依赖 `numeric(10,7)` 落库后的四舍五入与内存值一致；
-/// 3. 定位点唯一索引确实拦得住并发重复写入。
+/// 3. 定位点唯一索引在真库上确实存在并拦得住重复写入（顺序写入即可验证约束本身）。
 ///
 /// 连不上数据库时跳过而非失败，与仓库既有 RealDb 测试一致。
 /// </summary>
@@ -112,7 +112,7 @@ public sealed class MobileIngestRealDbTests
         Assert.Equal(first.Id, second.Id);
         Assert.Equal(1, await db.Set<MobileLocationPointEntity>().CountAsync());
 
-        // 唯一索引必须真的拦得住重复写入（绕过服务层直接插）
+        // 唯一索引确实存在并拦得住重复写入（绕过服务层直接插同一自然键；这是顺序写入，非并发）
         db.ChangeTracker.Clear();
         db.Set<MobileLocationPointEntity>().Add(new MobileLocationPointEntity
         {

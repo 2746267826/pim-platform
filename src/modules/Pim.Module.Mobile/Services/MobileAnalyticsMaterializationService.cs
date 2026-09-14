@@ -67,6 +67,10 @@ public sealed class MobileAnalyticsMaterializationService
             windowEndUtc,
             MobileAnalyticsDefaults.DefaultTimezone);
 
+        // 同一台设备的物化必须串行：并发的"先删后写"会互相删掉对方刚写入的行、
+        // 并撞上派生表唯一索引，让整条上传失败（评审 #5）。锁随事务释放。
+        await AcquireDeviceLockAsync(userId, deviceId, ct);
+
         var buckets = await _aggregationService.BuildHourBucketsAsync(
             deviceId,
             rangeStartUtc,
@@ -127,6 +131,22 @@ public sealed class MobileAnalyticsMaterializationService
             aggregateRows.Count,
             outdatedBlocks.Count,
             blockRows.Count);
+    }
+
+    /// <summary>
+    /// Postgres 事务级 advisory lock：把同一 (user, device) 的物化串行化。
+    /// 其他提供程序（InMemory/SQLite 测试）没有并发写入，直接跳过。
+    /// </summary>
+    private async Task AcquireDeviceLockAsync(Guid userId, string deviceId, CancellationToken ct)
+    {
+        if (!_db.Database.IsRelational()
+            || _db.Database.ProviderName?.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) != true)
+            return;
+
+        var lockKey = MobileAnalyticsMaterializationLock.KeyFor(userId, deviceId);
+        await _db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock({lockKey})",
+            ct);
     }
 
     private static List<MobileUsageAggregateEntity> BuildAggregateRows(
@@ -268,6 +288,17 @@ public sealed class MobileAnalyticsMaterializationService
         {
             return TimeZoneInfo.FindSystemTimeZoneById("China Standard Time");
         }
+    }
+}
+
+/// <summary>同一 (user, device) 的物化锁键：稳定、可跨进程复现。</summary>
+internal static class MobileAnalyticsMaterializationLock
+{
+    public static long KeyFor(Guid userId, string deviceId)
+    {
+        var canonical = $"{userId:N}:{deviceId}";
+        var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(canonical));
+        return BitConverter.ToInt64(hash, 0);
     }
 }
 

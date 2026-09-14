@@ -749,6 +749,45 @@ public sealed class MobileUsageIngestServiceTests
         Assert.Equal(start.AddMinutes(20), sessions[1].StartUtc);
     }
 
+    [Fact]
+    public async Task IngestAsync_RebuildsWhenALaterBatchWidensTheWindowOfAnOpenSession()
+    {
+        // 评审 #1：事件集没变、但窗口更宽时，上一批按"窗口末端封口"的开放会话必须重新封口。
+        await using var db = MobileTestHelpers.CreateDb();
+        var service = CreateService(db);
+        var start = DateTimeOffset.Parse("2026-07-06T08:00:00Z");
+        var foreground = new MobileUsageEventDto(
+            "com.example.messages",
+            "MOVE_TO_FOREGROUND",
+            start.AddMinutes(5),
+            "MainActivity",
+            start.AddMinutes(6),
+            "{}",
+            "item-fg");
+
+        var firstBatch = new MobileUsageEventsUploadRequest(
+            "android-main",
+            "batch-open-1",
+            start,
+            start.AddMinutes(15),
+            [],
+            [foreground],
+            []);
+        await service.IngestAsync(firstBatch, CancellationToken.None);
+        var firstSession = Assert.Single(await db.Set<MobileUsageSessionEntity>().ToListAsync());
+        Assert.Equal(start.AddMinutes(15), firstSession.EndUtc);
+        Assert.Contains("open-ended", firstSession.QualityFlagsJson);
+
+        // 同一事件、窗口扩到 12:00：事件全部命中重复，但会话必须跟着变宽。
+        var widenedBatch = firstBatch with { ClientBatchId = "batch-open-2", SourceWindowEndUtc = start.AddHours(4) };
+        var second = await service.IngestAsync(widenedBatch, CancellationToken.None);
+
+        Assert.Equal(0, second.AcceptedCount);
+        Assert.Equal(1, second.SkippedCount);
+        var session = Assert.Single(await db.Set<MobileUsageSessionEntity>().ToListAsync());
+        Assert.Equal(start.AddHours(4), session.EndUtc);
+    }
+
     private static MobileUsageEventsUploadRequest UploadRequest(
         string batchId,
         string appName,

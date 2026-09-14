@@ -153,7 +153,9 @@ public sealed class MobileUsageIngestService
 
             // 事件集不变 => 会话不变。补偿批重复上传同一窗口时（#248 的 102 个补偿批），
             // 这里直接跳过"整窗口删除 + 重建"，避免把同一份派生数据反复重写上百万行。
-            if (HasNewUsageEvents(result))
+            // 例外：窗口比上一批更宽时，上一批按"窗口末端封口"的开放会话会被重新封口 ——
+            // 事件没变但会话结束时间会变，这种窗口扩展必须重建（评审 #1）。
+            if (HasNewUsageEvents(result) || await HasExtendableOpenSessionAsync(userId, request, ct))
             {
                 await _sessionInterpreter.RebuildSessionsAsync(
                     userId,
@@ -535,6 +537,32 @@ public sealed class MobileUsageIngestService
         string code,
         string message)
         => new(clientItemKey, entityType, outcome, code, message);
+
+    /// <summary>
+    /// 窗口内是否存在"按更早窗口末端封口、且会被本窗口延长"的开放会话。
+    /// 这类会话只由窗口边界决定，事件集不变也会变，因此不能跳过重建。
+    ///
+    /// 注意：quality_flags_json 是 jsonb 列，字符串匹配必须在内存里做
+    /// （服务端会生成 `jsonb ~~ unknown` 而报 42883）。
+    /// </summary>
+    private async Task<bool> HasExtendableOpenSessionAsync(
+        Guid userId,
+        MobileUsageEventsUploadRequest request,
+        CancellationToken ct)
+    {
+        var candidates = await _db.Set<MobileUsageSessionEntity>()
+            .AsNoTracking()
+            .Where(session => session.UserId == userId
+                && session.DeviceId == request.DeviceId
+                && session.StartUtc <= request.WindowEndUtc
+                && session.EndUtc != null
+                && session.EndUtc >= request.WindowStartUtc
+                && session.EndUtc < request.WindowEndUtc)
+            .Select(session => session.QualityFlagsJson)
+            .ToListAsync(ct);
+
+        return candidates.Any(flags => flags.Contains("open-ended", StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>
     /// 本批是否写入了新的使用事件。会话只由事件派生，因此没有新事件时无需重建会话（#248）。

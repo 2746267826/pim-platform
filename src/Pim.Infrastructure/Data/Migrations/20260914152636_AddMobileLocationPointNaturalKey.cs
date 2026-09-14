@@ -11,6 +11,9 @@ namespace Pim.Infrastructure.Data.Migrations
     /// 先按 (user_id, device_id, recorded_at_utc, latitude, longitude) 去重
     /// （保留精度最好的一行，即 horizontal_accuracy_meters 最小；再按 created_at / id 取最早），
     /// 再建唯一索引 —— 否则存量重复行会让建索引直接失败。
+    ///
+    /// 规模：该表实测约 6.3k 行，自连接 DELETE 的执行与持锁时间可忽略；
+    /// 若未来表量级显著增长，应改为按批次删除（评审 Minor #2）。
     /// </summary>
     public partial class AddMobileLocationPointNaturalKey : Migration
     {

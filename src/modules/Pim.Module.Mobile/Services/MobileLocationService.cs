@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
@@ -235,6 +235,11 @@ public sealed class MobileLocationService
             var winner = await FindExistingAsync(key, ct);
             if (winner is null)
                 throw;
+
+            // 并发"胜者"也可能是坏精度点：本次既然是好精度样本，仍要把它升级，
+            // 否则同一点永远停在 rejected（与串行路径的语义不一致，评审 #3）。
+            if (UpsertRejectedToUsable(existing: winner, request, usable: string.Equals(quality, UsableQuality, StringComparison.Ordinal)))
+                await _db.SaveChangesAsync(ct);
 
             return new LocationUpsert(winner, "duplicate");
         }

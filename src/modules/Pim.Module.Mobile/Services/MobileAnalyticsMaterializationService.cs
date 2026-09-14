@@ -65,10 +65,16 @@ public sealed class MobileAnalyticsMaterializationService
         if (!_db.Database.IsRelational() || _db.Database.CurrentTransaction is not null)
             return await MaterializeCoreAsync(userId, deviceId, windowStartUtc, windowEndUtc, ct);
 
-        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
-        var result = await MaterializeCoreAsync(userId, deviceId, windowStartUtc, windowEndUtc, ct);
-        await transaction.CommitAsync(ct);
-        return result;
+        // 自管事务必须走执行策略：生产配置开了 EnableRetryOnFailure，
+        // 直接用 UserTransaction 会被 EF 判为"执行策略不支持用户发起的事务"（评审第三轮）。
+        var strategy = _db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+            var result = await MaterializeCoreAsync(userId, deviceId, windowStartUtc, windowEndUtc, ct);
+            await transaction.CommitAsync(ct);
+            return result;
+        });
     }
 
     private async Task<MobileAnalyticsMaterializationResult> MaterializeCoreAsync(

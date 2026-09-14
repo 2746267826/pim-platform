@@ -131,6 +131,63 @@ public sealed class MobileIngestRealDbTests
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
+    [Fact]
+    public async Task MaterializeAsync_OnPostgresWithRetryingProvider_WorksWithoutAnAmbientTransaction()
+    {
+        // 生产 DbContext 开了 EnableRetryOnFailure：自管事务必须走执行策略，
+        // 否则 EF 会抛"执行策略不支持用户发起的事务"（评审第三轮 Important）。
+        await using var database = await TempDatabase.TryCreateAsync(enableRetry: true);
+        if (database is null) return;
+        await using var db = database.Db;
+
+        var start = DateTimeOffset.Parse("2026-07-06T08:00:00Z");
+        db.Set<MobileUsageSessionEntity>().Add(new MobileUsageSessionEntity
+        {
+            UserId = MobileTestHelpers.UserId,
+            DeviceId = DeviceId,
+            PackageName = "com.example.messages",
+            StartUtc = start.AddMinutes(5),
+            EndUtc = start.AddMinutes(35),
+            DurationMs = 30 * 60 * 1000,
+            QualityFlagsJson = "[]",
+            CreatedAt = Now
+        });
+        await db.SaveChangesAsync();
+
+        var service = CreateMaterialization(db);
+        var result = await service.MaterializeAsync(
+            MobileTestHelpers.UserId,
+            DeviceId,
+            start,
+            start.AddHours(1),
+            CancellationToken.None);
+
+        Assert.True(result.WrittenAggregates > 0);
+        Assert.True(result.WrittenBlocks > 0);
+        Assert.NotEmpty(await db.Set<MobileAnalyticsMaterializationEntity>().AsNoTracking().ToListAsync());
+    }
+
+    private static MobileAnalyticsMaterializationService CreateMaterialization(PimDbContext db)
+    {
+        var timeProvider = MobileTestHelpers.Time(Now);
+        var currentUser = MobileTestHelpers.CurrentUser();
+        return new MobileAnalyticsMaterializationService(
+            db,
+            new MobileUsageAggregationService(
+                db,
+                currentUser,
+                new MobileAnalyticsQueryService(timeProvider),
+                new MobileUsageGoalService(db, currentUser, timeProvider),
+                timeProvider,
+                new MobileAppClassificationService(db, currentUser)),
+            new MobileTimelineBlockService(
+                db,
+                currentUser,
+                timeProvider,
+                new MobileAppClassificationService(db, currentUser)),
+            timeProvider);
+    }
+
     private static MobileUsageIngestService CreateIngest(PimDbContext db)
     {
         var timeProvider = MobileTestHelpers.Time(Now);
@@ -157,7 +214,7 @@ public sealed class MobileIngestRealDbTests
         public PimDbContext Db { get; }
 
         /// <summary>CI 没有 PostgreSQL：连不上时返回 null（跳过），其余异常照常抛出。</summary>
-        public static async Task<TempDatabase?> TryCreateAsync()
+        public static async Task<TempDatabase?> TryCreateAsync(bool enableRetry = false)
         {
             MobileTestHelpers.RegisterMobileModule();
             var admin = new NpgsqlConnection(ConnStr);
@@ -172,9 +229,14 @@ public sealed class MobileIngestRealDbTests
                 await create.ExecuteNonQueryAsync();
 
             var connectionString = new NpgsqlConnectionStringBuilder(ConnStr) { Database = database }.ConnectionString;
-            var db = new PimDbContext(new DbContextOptionsBuilder<PimDbContext>()
-                .UseNpgsql(connectionString)
-                .Options);
+            var builder = new DbContextOptionsBuilder<PimDbContext>().UseNpgsql(
+                connectionString,
+                npgsql =>
+                {
+                    if (enableRetry)
+                        npgsql.EnableRetryOnFailure(3);
+                });
+            var db = new PimDbContext(builder.Options);
             await db.Database.EnsureCreatedAsync();
             return new TempDatabase(database, admin, db);
         }

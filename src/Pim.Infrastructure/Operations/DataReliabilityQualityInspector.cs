@@ -922,7 +922,7 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
 
         await using var scmd = conn.CreateCommand();
         scmd.CommandTimeout = 10;
-        scmd.CommandText = "SELECT count(*) FROM mobile_usage_events WHERE created_at >= (NOW() - interval '24 hours');";
+        scmd.CommandText = "SELECT count(*) FROM mobile_usage_events WHERE created_at >= (SELECT COALESCE(MAX(created_at), NOW()) - interval '24 hours' FROM mobile_usage_events);";
         int sourceCount = Convert.ToInt32(await scmd.ExecuteScalarAsync(ct) ?? 0);
 
         await using var bcmd = conn.CreateCommand();

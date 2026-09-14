@@ -144,14 +144,24 @@ public sealed class MobileUsageIngestService
 
             var result = BuildResult(batch.BatchId, itemResults);
 
+            // 先落库再派生：会话重建读的是数据库快照，事件不先 flush 的话，
+            // 本批自己的事件永远不会参与本次重建（只能等下一批，形成"永远落后一批"的会话缺口，#248）。
+            await _db.SaveChangesAsync(ct);
+
+            // 事件集不变 => 会话不变。补偿批重复上传同一窗口时（#248 的 102 个补偿批），
+            // 这里直接跳过"整窗口删除 + 重建"，避免把同一份派生数据反复重写上百万行。
+            if (HasNewUsageEvents(result))
+            {
+                await _sessionInterpreter.RebuildSessionsAsync(
+                    userId,
+                    request.DeviceId,
+                    request.WindowStartUtc,
+                    request.WindowEndUtc,
+                    ct);
+            }
+
             // 派生工作（会话重建 / 派生表标记）先跑，成功之后才把批次推进到终态：
             // 中途失败时批次保持 pending（"上传中断"信号），而不是先宣告完成再回滚（#243）。
-            await _sessionInterpreter.RebuildSessionsAsync(
-                userId,
-                request.DeviceId,
-                request.WindowStartUtc,
-                request.WindowEndUtc,
-                ct);
             await MarkAffectedAnalyticsStaleAsync(
                 request,
                 request.WindowStartUtc,
@@ -510,6 +520,14 @@ public sealed class MobileUsageIngestService
         string code,
         string message)
         => new(clientItemKey, entityType, outcome, code, message);
+
+    /// <summary>
+    /// 本批是否写入了新的使用事件。会话只由事件派生，因此没有新事件时无需重建会话（#248）。
+    /// </summary>
+    private static bool HasNewUsageEvents(MobileUsageIngestResult result)
+        => result.ItemResults.Any(item =>
+            string.Equals(item.EntityType, "usage-event", StringComparison.Ordinal)
+            && string.Equals(item.Outcome, "accepted", StringComparison.Ordinal));
 
     private static MobileIngestItemResult Rejected(
         string clientItemKey,

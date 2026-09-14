@@ -374,15 +374,23 @@ public sealed class MobileTimelineBlockService
         CancellationToken ct)
     {
         var results = new Dictionary<string, AppClassification>(StringComparer.OrdinalIgnoreCase);
+        // #247：批量分类（3 条查询）替代每包 2~3 次查询的 N+1。
+        var inputs = packageNames
+            .Select(packageName =>
+            {
+                catalog.TryGetValue(packageName, out var app);
+                return new MobileAppClassificationInput(
+                    packageName,
+                    app?.DisplayName,
+                    app?.Category,
+                    app?.InstallerPackage,
+                    app?.IsSystemApp);
+            })
+            .ToList();
+        var classified = await _classificationService!.ClassifyManyAsync(inputs, ct);
         foreach (var packageName in packageNames)
         {
-            catalog.TryGetValue(packageName, out var app);
-            var result = await _classificationService!.ClassifyAsync(new MobileAppClassificationInput(
-                packageName,
-                app?.DisplayName,
-                app?.Category,
-                app?.InstallerPackage,
-                app?.IsSystemApp), ct);
+            var result = classified[packageName];
             results[packageName] = new AppClassification(
                 result.DisplayName,
                 result.LifeCategory,

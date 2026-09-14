@@ -511,27 +511,57 @@ public sealed class MobileUsageAggregationService
         CancellationToken ct)
     {
         var result = new Dictionary<string, Classification>(StringComparer.OrdinalIgnoreCase);
-        foreach (var packageName in packageNames)
+        if (packageNames.Count == 0)
+            return result;
+
+        // #247：一次批量分类（3 条查询）替代原来的每包 2~3 次查询。
+        // 修复前单次 /analytics/charts 会打出 686 条 DbCommand，其中绝大多数来自这里。
+        if (_classificationService is not null)
         {
-            if (_classificationService is not null)
+            var classified = await _classificationService.ClassifyManyAsync(packageNames, ct);
+            foreach (var packageName in packageNames)
             {
-                var classified = await _classificationService.ClassifyAsync(packageName, ct);
+                var classification = classified.GetValueOrDefault(packageName)
+                    ?? new MobileAppClassificationResult(
+                        packageName,
+                        packageName,
+                        MobileLifeCategories.Uncategorized,
+                        false,
+                        false,
+                        "fallback");
                 result[packageName] = new Classification(
-                    classified.DisplayName,
-                    classified.LifeCategory,
-                    classified.IsSystemNoise,
-                    classified.HasMetadata);
-                continue;
+                    classification.DisplayName,
+                    classification.LifeCategory,
+                    classification.IsSystemNoise,
+                    classification.HasMetadata);
             }
 
-            var appOverride = await _db.Set<MobileAppCatalogOverrideEntity>()
-                .AsNoTracking()
-                .SingleOrDefaultAsync(item => item.UserId == userId && item.PackageName == packageName, ct);
-            var app = await _db.Set<MobileAppCatalogEntity>()
-                .AsNoTracking()
-                .Where(item => item.UserId == userId && item.PackageName == packageName)
-                .OrderByDescending(item => item.UpdatedAt)
-                .FirstOrDefaultAsync(ct);
+            return result;
+        }
+
+        // 没有分类服务时的兜底（部分测试/最小宿主）：同样按批读取，避免 N+1。
+        var names = packageNames.Distinct(StringComparer.Ordinal).ToList();
+        var overrides = await _db.Set<MobileAppCatalogOverrideEntity>()
+            .AsNoTracking()
+            .Where(item => item.UserId == userId && names.Contains(item.PackageName))
+            .ToListAsync(ct);
+        var apps = await _db.Set<MobileAppCatalogEntity>()
+            .AsNoTracking()
+            .Where(item => item.UserId == userId && names.Contains(item.PackageName))
+            .OrderByDescending(item => item.UpdatedAt)
+            .ToListAsync(ct);
+        var overrideByPackage = overrides.ToDictionary(item => item.PackageName, StringComparer.OrdinalIgnoreCase);
+        var appByPackage = new Dictionary<string, MobileAppCatalogEntity>(StringComparer.OrdinalIgnoreCase);
+        foreach (var app in apps)
+        {
+            if (!appByPackage.ContainsKey(app.PackageName))
+                appByPackage[app.PackageName] = app;
+        }
+
+        foreach (var packageName in packageNames)
+        {
+            overrideByPackage.TryGetValue(packageName, out var appOverride);
+            appByPackage.TryGetValue(packageName, out var app);
             var builtIn = BuiltIn(packageName);
             var displayName = FirstNonBlank(appOverride?.DisplayNameOverride, app?.DisplayName, builtIn.DisplayName, packageName);
             var lifeCategory = FirstNonBlank(appOverride?.LifeCategory, builtIn.LifeCategory, MapAndroidCategory(app?.Category), MobileLifeCategories.Uncategorized);

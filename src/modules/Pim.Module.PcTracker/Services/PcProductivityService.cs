@@ -207,10 +207,13 @@ public class PcProductivityService
         var dayStart = BusinessDayStart(date.Date);
         var dayEnd = BusinessDayStart(date.Date.AddDays(1));
 
+        // 显式二级排序（Id）：相同 StartedAt 的行在 SQL 中的返回顺序未定义，
+        // 固定下来可让消解输入顺序、进而让整份时间线结果完全可复现。
         var items = await _db.Set<ActivityClassificationEntity>()
             .Where(c => c.StartedAt < dayEnd
                      && c.EndedAt > dayStart)
             .OrderBy(c => c.StartedAt)
+            .ThenBy(c => c.Id)
             .ToListAsync(ct);
 
         // 裁剪到业务日窗口，作为重叠消解的输入候选

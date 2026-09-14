@@ -402,6 +402,29 @@ public sealed class PcTimelineV2Tests
         Assert.Equal(DateTime.Parse(expected, System.Globalization.CultureInfo.InvariantCulture), svc.ResolveBusinessDay(null));
     }
 
+    /// <summary>
+    /// 同起始时间、同置信度、同时长、不同 record_key 的两条快照：胜者由稳定键序决定，
+    /// 与数据库对相同 StartedAt 行的返回顺序无关（查询已追加 ThenBy(Id)）。
+    /// </summary>
+    [Fact]
+    public async Task TimelineV2_IdenticalIntervals_ResolveDeterministically()
+    {
+        await using var db = ServiceTestBase.CreateDb();
+        db.Set<ActivityClassificationEntity>().Add(Snapshot("key-b", Beijing(7, 10), Beijing(7, 11), "视频", "#ef4444", 0.8));
+        db.Set<ActivityClassificationEntity>().Add(Snapshot("key-a", Beijing(7, 10), Beijing(7, 11), "编程", "#10b981", 0.8));
+        await db.SaveChangesAsync();
+
+        var svc = new PcProductivityService(db);
+        var first = await svc.GetTimelineV2Async(TestDate, CancellationToken.None);
+        var second = await svc.GetTimelineV2Async(TestDate, CancellationToken.None);
+
+        var block = Assert.Single(first);
+        // 稳定键序小者胜出（"key-a" < "key-b"）
+        Assert.Equal("key-a", block.AppName);
+        Assert.Equal("编程", block.CategoryName);
+        Assert.Equal(block.AppName, Assert.Single(second).AppName);
+    }
+
     // ================= 不变量：随机负载下依然成立 =================
 
     /// <summary>
@@ -442,6 +465,80 @@ public sealed class PcTimelineV2Tests
                 $"round {round}: 内容合计 {totalMinutes} > 并集跨度 {unionSpanMinutes}");
 
             Assert.DoesNotContain(segments, s => s.End - s.Start < TimeSpan.FromSeconds(60));
+        }
+    }
+
+    /// <summary>
+    /// 确定性回归（review 发现）：候选输入顺序不得影响输出。
+    /// 时间线场景的 StableKey 是 record_key，该列有唯一索引，故胜出规则是全序；
+    /// 这里穷举全部排列，断言「时间段 + 归属键」完全一致。
+    /// </summary>
+    [Fact]
+    public void Resolver_IsIndependentOfCandidateInputOrder()
+    {
+        var origin = new DateTimeOffset(2026, 7, 7, 2, 0, 0, TimeSpan.Zero);
+        var baseline = new List<PcTimelineOverlapResolver.Candidate>
+        {
+            new(origin, origin.AddMinutes(60), 0.9, "key-a"),
+            new(origin.AddMinutes(30), origin.AddMinutes(90), 0.5, "key-b"),
+            new(origin.AddMinutes(45), origin.AddMinutes(75), 0.5, "key-c"),
+            new(origin.AddMinutes(80), origin.AddMinutes(120), 0.9, "key-d"),
+            // 同起止、同置信度的并列对：此时输入次序会变，只有稳定键序决胜能让结果保持一致
+            new(origin.AddMinutes(100), origin.AddMinutes(140), 0.5, "key-f"),
+            new(origin.AddMinutes(100), origin.AddMinutes(140), 0.5, "key-e"),
+        };
+
+        var expected = Fingerprint(baseline, PcTimelineOverlapResolver.Resolve(baseline, TimeSpan.FromSeconds(60)));
+
+        foreach (var permutation in Permutations(baseline))
+        {
+            var actual = Fingerprint(permutation, PcTimelineOverlapResolver.Resolve(permutation, TimeSpan.FromSeconds(60)));
+            Assert.Equal(expected, actual);
+        }
+    }
+
+    /// <summary>StableKey 相同时不得出现「随机」胜者：同一输入重复求解结果必须一致。</summary>
+    [Fact]
+    public void Resolver_DuplicateStableKeys_AreStillRepeatable()
+    {
+        var origin = new DateTimeOffset(2026, 7, 7, 2, 0, 0, TimeSpan.Zero);
+        var candidates = new List<PcTimelineOverlapResolver.Candidate>
+        {
+            new(origin, origin.AddMinutes(60), 0.8, "same-key"),
+            new(origin, origin.AddMinutes(60), 0.8, "same-key"),
+        };
+
+        var first = PcTimelineOverlapResolver.Resolve(candidates, TimeSpan.FromSeconds(60));
+        for (var i = 0; i < 20; i++)
+            Assert.Equal(Fingerprint(candidates, first), Fingerprint(candidates, PcTimelineOverlapResolver.Resolve(candidates, TimeSpan.FromSeconds(60))));
+    }
+
+    /// <summary>把消解结果归一化为「归属键 + 起止」序列，避免比较下标（下标随输入排列变化）。</summary>
+    private static string Fingerprint(
+        IReadOnlyList<PcTimelineOverlapResolver.Candidate> candidates,
+        IReadOnlyList<PcTimelineOverlapResolver.Segment> segments)
+        => string.Join(";", segments.Select(s =>
+            $"{s.Start:O}~{s.End:O}~{candidates[s.WinnerIndex].StableKey}"));
+
+    private static IEnumerable<List<PcTimelineOverlapResolver.Candidate>> Permutations(
+        List<PcTimelineOverlapResolver.Candidate> source)
+    {
+        if (source.Count <= 1)
+        {
+            yield return source;
+            yield break;
+        }
+
+        for (var i = 0; i < source.Count; i++)
+        {
+            var head = source[i];
+            var rest = source.Where((_, index) => index != i).ToList();
+            foreach (var tail in Permutations(rest))
+            {
+                var result = new List<PcTimelineOverlapResolver.Candidate> { head };
+                result.AddRange(tail);
+                yield return result;
+            }
         }
     }
 

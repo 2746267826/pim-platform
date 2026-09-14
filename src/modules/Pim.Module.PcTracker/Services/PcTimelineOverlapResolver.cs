@@ -15,6 +15,13 @@ namespace Pim.Module.PcTracker.Services;
 /// （噪声下限，与 <see cref="PcActivityAggregationService"/> 的 60 秒口径一致）。
 /// </para>
 /// <para>
+/// <b>调用方契约</b>：<see cref="Candidate.StableKey"/> 必须在一批候选中唯一
+/// （时间线场景传 <c>record_key</c>，该列有唯一索引
+/// <c>ux_pc_activity_classifications_record_key</c>）。满足该契约时胜出规则是<b>全序</b>，
+/// 因此输出与候选的输入顺序无关；只有违反契约（两个候选四项字段全同）时，
+/// 才会退回「先到者胜」的输入序，此时两者对调用方已不可区分。
+/// </para>
+/// <para>
 /// 结果保证：块按 start 升序、两两不重叠（<c>blocks[i].Start &gt;= blocks[i-1].End</c>），
 /// 且时长合计 ≤ 输入区间的并集跨度。这是<b>纯函数</b>，不依赖数据库。
 /// </para>
@@ -22,6 +29,7 @@ namespace Pim.Module.PcTracker.Services;
 public static class PcTimelineOverlapResolver
 {
     /// <summary>一个待消解的候选区间（通常是业务日内与快照相交的部分）。</summary>
+    /// <param name="StableKey">稳定且<b>批次内唯一</b>的键（时间线场景为 record_key），用于让胜出规则成为全序。</param>
     public readonly record struct Candidate(
         DateTimeOffset Start,
         DateTimeOffset End,

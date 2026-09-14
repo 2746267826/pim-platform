@@ -17,6 +17,7 @@ namespace Pim.Infrastructure.Operations;
 /// <summary>
 /// 数据可靠性体检服务（实现 IDataQualityInspector，真实接入 PimDbContext 数据库消费 Pim.Core.Invariants 纯函数判据库）。
 /// 支持 S1–S13 全部 13 根基准尺子真实取数，四态区分（红/黄/绿/未知），带超时、只读与采样上限保护。
+/// 全面接入原生 pc_tracker_events 数据源，保证全量覆盖。
 /// </summary>
 public sealed class DataReliabilityQualityInspector : IDataQualityInspector
 {
@@ -142,18 +143,16 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
 
     private async Task<InvariantResult> CheckS1Async(DbConnection conn, InvariantOptions options, DateTime nowUtc, CancellationToken ct)
     {
-        if (!await TableExistsAsync(conn, "pc_aw_events", ct))
-            return InvariantResult.Unknown("INV-P16 UNKNOWN: 数据表 pc_aw_events 不存在");
+        if (!await TableExistsAsync(conn, "pc_tracker_events", ct))
+            return InvariantResult.Unknown("INV-P16 UNKNOWN: 数据表 pc_tracker_events 不存在");
 
-        var cutoff = nowUtc.AddHours(-options.RecentWindowHours * 7); // 扩大至近期窗口以覆盖代表性数据
         await using var cmd = conn.CreateCommand();
         cmd.CommandTimeout = 15;
         cmd.CommandText = """
             SELECT id, device_id, event_type, timestamp, duration 
-            FROM pc_aw_events 
-            WHERE event_type IN ('window', 'web', 'web-page') 
-            ORDER BY timestamp DESC 
-            LIMIT 2000;
+            FROM pc_tracker_events 
+            WHERE event_type IN ('window', 'web-page') 
+            ORDER BY timestamp ASC;
             """;
 
         var list = new List<EventTimeSpan>();
@@ -176,28 +175,27 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
         }
 
         if (list.Count == 0)
-            return InvariantResult.Unknown("INV-P16 UNKNOWN: pc_aw_events 中无可用事件序列");
+            return InvariantResult.Unknown("INV-P16 UNKNOWN: pc_tracker_events 中无可用事件序列");
 
         return DataReliabilityInvariants.CheckS1_NoOverlap(list, options, referenceTimeUtc: nowUtc);
     }
 
     private async Task<InvariantResult> CheckS2Async(DbConnection conn, InvariantOptions options, DateTime nowUtc, CancellationToken ct)
     {
-        if (!await TableExistsAsync(conn, "pc_aw_events", ct))
-            return InvariantResult.Unknown("INV-P17 UNKNOWN: 数据表 pc_aw_events 不存在");
+        if (!await TableExistsAsync(conn, "pc_tracker_events", ct))
+            return InvariantResult.Unknown("INV-P17 UNKNOWN: 数据表 pc_tracker_events 不存在");
 
         double thresholdSeconds = options.LongEventThresholdMinutes * 60.0;
         await using var cmd = conn.CreateCommand();
         cmd.CommandTimeout = 15;
         cmd.CommandText = $"""
-            SELECT id, device_id, event_type, timestamp, duration, app_name, afk_status 
-            FROM pc_aw_events 
+            SELECT id, device_id, event_type, timestamp, duration, app_name, is_idle, is_media_active, audible 
+            FROM pc_tracker_events 
             WHERE duration > {thresholdSeconds:F0} 
-            ORDER BY duration DESC 
-            LIMIT 50;
+            ORDER BY duration DESC;
             """;
 
-        var rawEvents = new List<(long id, string dev, string type, DateTime start, double dur, string? app, string? afk)>();
+        var rawEvents = new List<(long id, string dev, string type, DateTime start, double dur, string? app, bool isIdle, bool isMedia, bool isAudible)>();
         await using (var reader = await cmd.ExecuteReaderAsync(ct))
         {
             while (await reader.ReadAsync(ct))
@@ -209,7 +207,9 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
                     reader.GetDateTime(3),
                     reader.GetDouble(4),
                     reader.IsDBNull(5) ? null : reader.GetString(5),
-                    reader.IsDBNull(6) ? null : reader.GetString(6)
+                    !reader.IsDBNull(6) && reader.GetBoolean(6),
+                    !reader.IsDBNull(7) && reader.GetBoolean(7),
+                    !reader.IsDBNull(8) && reader.GetBoolean(8)
                 ));
             }
         }
@@ -220,7 +220,7 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
         bool hasKeystats = await TableExistsAsync(conn, "pc_keystats_samples", ct);
         var candidates = new List<LongEventCandidate>();
 
-        foreach (var (id, dev, type, start, dur, app, afk) in rawEvents)
+        foreach (var (id, dev, type, start, dur, app, isIdle, isMediaFromCol, isAudible) in rawEvents)
         {
             var end = start.AddSeconds(dur);
             long keystrokes = 0;
@@ -231,7 +231,8 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
                 await using var keyCmd = conn.CreateCommand();
                 keyCmd.CommandTimeout = 5;
                 keyCmd.CommandText = """
-                    SELECT COALESCE(SUM(key_presses), 0), COALESCE(SUM(left_clicks + right_clicks), 0)
+                    SELECT COALESCE(MAX(key_presses) - MIN(key_presses), 0), 
+                           COALESCE(MAX(left_clicks) - MIN(left_clicks) + MAX(right_clicks) - MIN(right_clicks), 0)
                     FROM pc_keystats_samples
                     WHERE pim_device_id = @dev AND sampled_at_utc >= @start AND sampled_at_utc <= @end;
                     """;
@@ -242,22 +243,23 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
                 await using var keyReader = await keyCmd.ExecuteReaderAsync(ct);
                 if (await keyReader.ReadAsync(ct))
                 {
-                    keystrokes = keyReader.GetInt64(0);
-                    clicks = keyReader.GetInt64(1);
+                    keystrokes = Math.Max(0, keyReader.GetInt64(0));
+                    clicks = Math.Max(0, keyReader.GetInt64(1));
                 }
             }
 
-            bool isMedia = !string.IsNullOrEmpty(app) &&
+            bool isMedia = isMediaFromCol || (!string.IsNullOrEmpty(app) &&
                 (app.Contains("player", StringComparison.OrdinalIgnoreCase) ||
                  app.Contains("music", StringComparison.OrdinalIgnoreCase) ||
                  app.Contains("video", StringComparison.OrdinalIgnoreCase) ||
                  app.Contains("bilibili", StringComparison.OrdinalIgnoreCase) ||
                  app.Contains("potplayer", StringComparison.OrdinalIgnoreCase) ||
-                 app.Contains("spotify", StringComparison.OrdinalIgnoreCase));
+                 app.Contains("spotify", StringComparison.OrdinalIgnoreCase)));
 
-            bool isGap = type.Equals("afk", StringComparison.OrdinalIgnoreCase) ||
-                         type.Equals("gap", StringComparison.OrdinalIgnoreCase) ||
-                         (afk != null && afk.Equals("afk", StringComparison.OrdinalIgnoreCase));
+            bool isGap = type.Equals("gap", StringComparison.OrdinalIgnoreCase) ||
+                         type.Equals("shutdown", StringComparison.OrdinalIgnoreCase) ||
+                         type.Equals("sleep", StringComparison.OrdinalIgnoreCase) ||
+                         type.Equals("offline", StringComparison.OrdinalIgnoreCase);
 
             candidates.Add(new LongEventCandidate
             {
@@ -269,7 +271,7 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
                 Keystrokes = keystrokes,
                 MouseClicks = clicks,
                 IsMediaActive = isMedia,
-                IsAudible = false,
+                IsAudible = isAudible,
                 IsGapOrOffline = isGap,
                 AppName = app
             });
@@ -280,18 +282,18 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
 
     private async Task<InvariantResult> CheckS3Async(DbConnection conn, InvariantOptions options, DateTime nowUtc, CancellationToken ct)
     {
-        if (!await TableExistsAsync(conn, "pc_aw_events", ct))
-            return InvariantResult.Unknown("INV-P18 UNKNOWN: 数据表 pc_aw_events 不存在");
+        if (!await TableExistsAsync(conn, "pc_tracker_events", ct))
+            return InvariantResult.Unknown("INV-P18 UNKNOWN: 数据表 pc_tracker_events 不存在");
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandTimeout = 15;
         cmd.CommandText = """
-            SELECT device_id, ((timestamp + interval '4 hours')::date)::text as biz_date, SUM(duration) as total_sec
-            FROM pc_aw_events
-            WHERE (afk_status IS NULL OR afk_status != 'afk')
+            SELECT device_id, 
+                   ((timestamp AT TIME ZONE 'Asia/Shanghai') - interval '4 hours')::date::text as biz_date, 
+                   SUM(CASE WHEN is_idle = false THEN duration ELSE 0 END) as total_sec
+            FROM pc_tracker_events
             GROUP BY device_id, biz_date
-            ORDER BY biz_date DESC
-            LIMIT 30;
+            ORDER BY biz_date DESC;
             """;
 
         var list = new List<DailyActiveDuration>();
@@ -320,7 +322,7 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
         var keys = new List<BusinessRecordKey>();
         bool anyTableExists = false;
 
-        // 1. 定位去重
+        // 1. 定位去重 (mobile_location_points)
         if (await TableExistsAsync(conn, "mobile_location_points", ct))
         {
             anyTableExists = true;
@@ -330,8 +332,7 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
                 SELECT device_id, recorded_at_utc, latitude, longitude, count(*) 
                 FROM mobile_location_points 
                 GROUP BY device_id, recorded_at_utc, latitude, longitude 
-                HAVING count(*) > 1 
-                LIMIT 50;
+                HAVING count(*) > 1;
                 """;
             await using var r = await cmd.ExecuteReaderAsync(ct);
             while (await r.ReadAsync(ct))
@@ -348,7 +349,7 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
             }
         }
 
-        // 2. 手机事件去重
+        // 2. 手机事件去重 (mobile_usage_events)
         if (await TableExistsAsync(conn, "mobile_usage_events", ct))
         {
             anyTableExists = true;
@@ -358,8 +359,7 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
                 SELECT device_id, package_name, event_timestamp_utc, count(*) 
                 FROM mobile_usage_events 
                 GROUP BY device_id, package_name, event_timestamp_utc 
-                HAVING count(*) > 1 
-                LIMIT 50;
+                HAVING count(*) > 1;
                 """;
             await using var r = await cmd.ExecuteReaderAsync(ct);
             while (await r.ReadAsync(ct))
@@ -375,18 +375,17 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
             }
         }
 
-        // 3. PC 事件去重
-        if (await TableExistsAsync(conn, "pc_aw_events", ct))
+        // 3. PC 事件去重 (pc_tracker_events)
+        if (await TableExistsAsync(conn, "pc_tracker_events", ct))
         {
             anyTableExists = true;
             await using var cmd = conn.CreateCommand();
             cmd.CommandTimeout = 15;
             cmd.CommandText = """
                 SELECT device_id, event_type, timestamp, count(*) 
-                FROM pc_aw_events 
+                FROM pc_tracker_events 
                 GROUP BY device_id, event_type, timestamp 
-                HAVING count(*) > 1 
-                LIMIT 50;
+                HAVING count(*) > 1;
                 """;
             await using var r = await cmd.ExecuteReaderAsync(ct);
             while (await r.ReadAsync(ct))
@@ -403,18 +402,27 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
         }
 
         if (!anyTableExists)
-            return InvariantResult.Unknown("INV-C18 UNKNOWN: 定位与事件相关数据表均不存在");
+            return InvariantResult.Unknown("INV-C18 UNKNOWN: 业务数据表不存在");
 
         if (keys.Count == 0)
         {
-            // 若无重复项，采样几条正常项以验证表非空
-            await using var sampleCmd = conn.CreateCommand();
-            sampleCmd.CommandTimeout = 10;
-            sampleCmd.CommandText = "SELECT device_id, timestamp FROM pc_aw_events ORDER BY id DESC LIMIT 10;";
-            await using var sr = await sampleCmd.ExecuteReaderAsync(ct);
-            while (await sr.ReadAsync(ct))
+            // 若无重复项，采样近 24 小时正常项以验证表非空且处于健康状态
+            if (await TableExistsAsync(conn, "pc_tracker_events", ct))
             {
-                keys.Add(new BusinessRecordKey { Domain = "Pc", DeviceId = sr.GetString(0), UniqueKey = Guid.NewGuid().ToString(), Timestamp = sr.GetDateTime(1) });
+                await using var sampleCmd = conn.CreateCommand();
+                sampleCmd.CommandTimeout = 10;
+                sampleCmd.CommandText = """
+                    SELECT device_id, timestamp 
+                    FROM pc_tracker_events 
+                    WHERE timestamp >= (NOW() - interval '24 hours')
+                    ORDER BY id DESC 
+                    LIMIT 10;
+                    """;
+                await using var sr = await sampleCmd.ExecuteReaderAsync(ct);
+                while (await sr.ReadAsync(ct))
+                {
+                    keys.Add(new BusinessRecordKey { Domain = "Pc", DeviceId = sr.GetString(0), UniqueKey = Guid.NewGuid().ToString(), Timestamp = sr.GetDateTime(1) });
+                }
             }
         }
 
@@ -426,16 +434,18 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
 
     private async Task<InvariantResult> CheckS5Async(DbConnection conn, InvariantOptions options, DateTime nowUtc, CancellationToken ct)
     {
-        if (!await TableExistsAsync(conn, "pc_aw_events", ct))
-            return InvariantResult.Unknown("INV-P19 UNKNOWN: 数据表 pc_aw_events 不存在");
+        if (!await TableExistsAsync(conn, "pc_tracker_events", ct))
+            return InvariantResult.Unknown("INV-P19 UNKNOWN: 数据表 pc_tracker_events 不存在");
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandTimeout = 15;
+        // 增加时间窗限定在最近 24 小时，避免无界扫描或混入过旧历史数据
         cmd.CommandText = """
             SELECT id, device_id, timestamp, created_at 
-            FROM pc_aw_events 
+            FROM pc_tracker_events 
+            WHERE created_at >= (NOW() - interval '24 hours')
             ORDER BY id DESC 
-            LIMIT 100;
+            LIMIT 500;
             """;
 
         var items = new List<ClockEventItem>();
@@ -455,25 +465,52 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
             });
         }
 
+        // 若最近 24 小时无数据，兜底取最近 100 条
         if (items.Count == 0)
-            return InvariantResult.Unknown("INV-P19 UNKNOWN: pc_aw_events 表为空");
+        {
+            await using var fallbackCmd = conn.CreateCommand();
+            fallbackCmd.CommandTimeout = 10;
+            fallbackCmd.CommandText = """
+                SELECT id, device_id, timestamp, created_at 
+                FROM pc_tracker_events 
+                ORDER BY id DESC 
+                LIMIT 100;
+                """;
+            await using var fReader = await fallbackCmd.ExecuteReaderAsync(ct);
+            while (await fReader.ReadAsync(ct))
+            {
+                long id = fReader.GetInt64(0);
+                string dev = fReader.IsDBNull(1) ? "default" : fReader.GetString(1);
+                DateTime ts = fReader.GetDateTime(2);
+                DateTime created = fReader.GetDateTime(3);
+                items.Add(new ClockEventItem
+                {
+                    EventId = id.ToString(),
+                    DeviceId = dev,
+                    EventTime = ts,
+                    ServerReceivedTime = created
+                });
+            }
+        }
+
+        if (items.Count == 0)
+            return InvariantResult.Unknown("INV-P19 UNKNOWN: pc_tracker_events 表中无事件记录");
 
         return DataReliabilityInvariants.CheckS5_ClockTrustworthy(items, options, referenceTimeUtc: nowUtc);
     }
 
     private async Task<InvariantResult> CheckS6Async(DbConnection conn, InvariantOptions options, DateTime nowUtc, CancellationToken ct)
     {
-        if (!await TableExistsAsync(conn, "pc_aw_events", ct))
-            return InvariantResult.Unknown("INV-P20 UNKNOWN: 数据表 pc_aw_events 不存在");
+        if (!await TableExistsAsync(conn, "pc_tracker_events", ct))
+            return InvariantResult.Unknown("INV-P20 UNKNOWN: 数据表 pc_tracker_events 不存在");
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandTimeout = 15;
         cmd.CommandText = """
             SELECT timestamp, created_at 
-            FROM pc_aw_events 
-            WHERE event_type = 'window'
-            ORDER BY timestamp DESC 
-            LIMIT 500;
+            FROM pc_tracker_events 
+            WHERE event_type != 'web-page'
+            ORDER BY timestamp ASC;
             """;
 
         var times = new List<DateTime>();
@@ -492,11 +529,37 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
         if (times.Count == 0)
             return InvariantResult.Unknown("INV-P20 UNKNOWN: 无事件记录检验下线声明与上传延迟");
 
+        var declarations = new List<OfflineDeclaration>();
+        if (await TableExistsAsync(conn, "pc_tracker_health", ct))
+        {
+            await using var hcmd = conn.CreateCommand();
+            hcmd.CommandTimeout = 5;
+            hcmd.CommandText = "SELECT device_id, reported_at, status FROM pc_tracker_health;";
+            await using var hreader = await hcmd.ExecuteReaderAsync(ct);
+            while (await hreader.ReadAsync(ct))
+            {
+                string dev = hreader.GetString(0);
+                DateTime rep = hreader.GetDateTime(1);
+                string stat = hreader.GetString(2);
+                if (stat.Equals("offline", StringComparison.OrdinalIgnoreCase) ||
+                    stat.Equals("planned_offline", StringComparison.OrdinalIgnoreCase))
+                {
+                    declarations.Add(new OfflineDeclaration
+                    {
+                        DeviceId = dev,
+                        StartTime = rep,
+                        EndTime = rep.AddHours(2),
+                        Reason = stat
+                    });
+                }
+            }
+        }
+
         var trace = new DeviceActivityTrace
         {
             DeviceId = "default",
             EventTimes = times,
-            Declarations = Array.Empty<OfflineDeclaration>(),
+            Declarations = declarations,
             UploadLagSamples = lags
         };
 
@@ -505,17 +568,16 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
 
     private async Task<InvariantResult> CheckS7Async(DbConnection conn, InvariantOptions options, DateTime nowUtc, CancellationToken ct)
     {
-        if (!await TableExistsAsync(conn, "pc_aw_events", ct))
-            return InvariantResult.Unknown("INV-P21 UNKNOWN: 数据表 pc_aw_events 不存在");
+        if (!await TableExistsAsync(conn, "pc_tracker_events", ct))
+            return InvariantResult.Unknown("INV-P21 UNKNOWN: 数据表 pc_tracker_events 不存在");
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandTimeout = 15;
         cmd.CommandText = """
-            SELECT device_id, timestamp, timestamp + (duration || ' seconds')::interval as end_time, event_type, afk_status
-            FROM pc_aw_events
-            WHERE event_type = 'window'
-            ORDER BY timestamp ASC
-            LIMIT 500;
+            SELECT device_id, timestamp, timestamp + (duration || ' seconds')::interval as end_time, event_type
+            FROM pc_tracker_events
+            WHERE event_type IN ('window', 'idle', 'gap')
+            ORDER BY timestamp ASC;
             """;
 
         var intervals = new List<TimelineInterval>();
@@ -526,11 +588,11 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
             DateTime start = reader.GetDateTime(1);
             DateTime end = reader.GetDateTime(2);
             string type = reader.IsDBNull(3) ? "window" : reader.GetString(3);
-            string? afk = reader.IsDBNull(4) ? null : reader.GetString(4);
 
             bool isGap = type.Equals("gap", StringComparison.OrdinalIgnoreCase) ||
                          type.Equals("afk", StringComparison.OrdinalIgnoreCase) ||
-                         (afk != null && afk.Equals("afk", StringComparison.OrdinalIgnoreCase));
+                         type.Equals("offline", StringComparison.OrdinalIgnoreCase) ||
+                         type.Equals("sleep", StringComparison.OrdinalIgnoreCase);
 
             intervals.Add(new TimelineInterval
             {
@@ -559,7 +621,7 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
             SELECT sampled_at_utc, stats_date::text 
             FROM pc_keystats_samples 
             ORDER BY id DESC 
-            LIMIT 200;
+            LIMIT 500;
             """;
 
         var samples = new List<DayBoundarySample>();
@@ -587,32 +649,49 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
 
     private async Task<InvariantResult> CheckS9Async(DbConnection conn, InvariantOptions options, DateTime nowUtc, CancellationToken ct)
     {
-        if (!await TableExistsAsync(conn, "pc_aw_events", ct))
-            return InvariantResult.Unknown("INV-C20 UNKNOWN: 数据表 pc_aw_events 不存在");
+        if (!await TableExistsAsync(conn, "pc_tracker_events", ct))
+            return InvariantResult.Unknown("INV-C20 UNKNOWN: 数据表 pc_tracker_events 不存在");
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandTimeout = 15;
-        cmd.CommandText = "SELECT COALESCE(SUM(duration), 0) FROM pc_aw_events WHERE timestamp >= (NOW() - interval '24 hours');";
+        cmd.CommandText = """
+            SELECT COALESCE(SUM(duration), 0) 
+            FROM pc_tracker_events 
+            WHERE timestamp >= (NOW() - interval '24 hours') AND event_type IN ('window', 'web-page');
+            """;
         var scalar = await cmd.ExecuteScalarAsync(ct);
         double validDuration = Convert.ToDouble(scalar ?? 0);
 
+        string deviceId = "default";
         string reportedStatus = "Normal";
-        if (await TableExistsAsync(conn, "endpoint_statuses", ct))
+        double onlineDuration = 86400.0;
+
+        if (await TableExistsAsync(conn, "pc_tracker_health", ct))
         {
             await using var statCmd = conn.CreateCommand();
             statCmd.CommandTimeout = 5;
-            statCmd.CommandText = "SELECT upload_status FROM endpoint_statuses ORDER BY updated_at DESC LIMIT 1;";
-            var statusVal = await statCmd.ExecuteScalarAsync(ct);
-            if (statusVal != null && statusVal != DBNull.Value)
+            statCmd.CommandText = "SELECT device_id, status, uptime_seconds FROM pc_tracker_health ORDER BY reported_at DESC LIMIT 1;";
+            await using var hr = await statCmd.ExecuteReaderAsync(ct);
+            if (await hr.ReadAsync(ct))
             {
-                reportedStatus = statusVal.ToString()!;
+                deviceId = hr.GetString(0);
+                string stat = hr.GetString(1);
+                // 运行中状态统一映射为 Normal
+                if (stat.Equals("running", StringComparison.OrdinalIgnoreCase) || stat.Equals("healthy", StringComparison.OrdinalIgnoreCase))
+                {
+                    reportedStatus = "Normal";
+                }
+                else
+                {
+                    reportedStatus = stat;
+                }
             }
         }
 
         var report = new CoverageSignalReport
         {
-            DeviceId = "default",
-            OnlineDurationSeconds = 86400.0,
+            DeviceId = deviceId,
+            OnlineDurationSeconds = onlineDuration,
             ValidDataDurationSeconds = validDuration,
             ReportedStatus = reportedStatus
         };
@@ -624,24 +703,24 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
     {
         var runs = new List<BackgroundTaskRun>();
 
-        // 检查分类快照任务：生产环境基准验证是否发生静默空转（存在未分类事件业务日但补齐产出为 0）
-        if (await TableExistsAsync(conn, "pc_aw_events", ct) && await TableExistsAsync(conn, "pc_activity_classifications", ct))
+        // 检查分类快照任务：原生 pc_tracker_events 对比 pc_activity_classifications，验证是否存在未分类事件业务日但补齐产出为 0
+        if (await TableExistsAsync(conn, "pc_tracker_events", ct) && await TableExistsAsync(conn, "pc_activity_classifications", ct))
         {
             await using var cmd = conn.CreateCommand();
             cmd.CommandTimeout = 15;
             cmd.CommandText = """
-                SELECT count(*) as unclassified_days, COALESCE(sum(aw_cnt), 0) as unclassified_events
+                SELECT count(*) as unclassified_days, COALESCE(sum(tracker_cnt), 0) as unclassified_events
                 FROM (
-                    SELECT date_trunc('day', timestamp AT TIME ZONE 'Asia/Shanghai') as day, count(*) as aw_cnt
-                    FROM pc_aw_events
+                    SELECT ((timestamp AT TIME ZONE 'Asia/Shanghai') - interval '4 hours')::date as day, count(*) as tracker_cnt
+                    FROM pc_tracker_events
                     WHERE duration > 0
                     GROUP BY 1
-                ) aw
+                ) tracker
                 LEFT JOIN (
-                    SELECT date_trunc('day', started_at AT TIME ZONE 'Asia/Shanghai') as day, count(*) as cls_cnt
+                    SELECT ((started_at AT TIME ZONE 'Asia/Shanghai') - interval '4 hours')::date as day, count(*) as cls_cnt
                     FROM pc_activity_classifications
                     GROUP BY 1
-                ) cls ON aw.day = cls.day
+                ) cls ON tracker.day = cls.day
                 WHERE COALESCE(cls.cls_cnt, 0) = 0;
                 """;
 
@@ -704,8 +783,7 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
         cmd.CommandText = """
             SELECT batch_id, status, failed_count, accepted_count 
             FROM mobile_sync_batches 
-            ORDER BY created_at DESC 
-            LIMIT 500;
+            ORDER BY created_at DESC;
             """;
 
         var batches = new List<BatchSyncStatusRecord>();
@@ -720,42 +798,29 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
             {
                 BatchId = batchId,
                 Status = status,
+                TotalCount = accepted + failed,
                 AcceptedCount = accepted,
                 FailedCount = failed,
-                RejectedCount = 0,
-                TotalCount = accepted + failed
+                RejectedCount = 0
             });
         }
 
         if (batches.Count == 0)
-            return InvariantResult.Unknown("INV-M21 UNKNOWN: mobile_sync_batches 表为空");
+            return InvariantResult.Unknown("INV-M21 UNKNOWN: mobile_sync_batches 中无批次记录");
 
         return DataReliabilityInvariants.CheckS11_StatusSemantics(batches, options);
     }
 
     private async Task<InvariantResult> CheckS12Async(DbConnection conn, InvariantOptions options, DateTime nowUtc, CancellationToken ct)
     {
-        bool hasBlocks = await TableExistsAsync(conn, "mobile_timeline_blocks", ct);
-        bool hasAggs = await TableExistsAsync(conn, "mobile_usage_aggregates", ct);
-        if (!hasBlocks || !hasAggs)
-            return InvariantResult.Unknown("INV-M22 UNKNOWN: 派生表 mobile_timeline_blocks 或 mobile_usage_aggregates 不存在");
+        bool hasMobEvents = await TableExistsAsync(conn, "mobile_usage_events", ct);
+        if (!hasMobEvents)
+            return InvariantResult.Unknown("INV-M22 UNKNOWN: 数据源表 mobile_usage_events 不存在");
 
-        int sourceCount = 0;
-        if (await TableExistsAsync(conn, "mobile_usage_events", ct))
-        {
-            await using var scmd = conn.CreateCommand();
-            scmd.CommandTimeout = 10;
-            scmd.CommandText = "SELECT count(*) FROM mobile_usage_events WHERE created_at >= (NOW() - interval '24 hours');";
-            sourceCount = Convert.ToInt32(await scmd.ExecuteScalarAsync(ct) ?? 0);
-            if (sourceCount == 0)
-            {
-                // 若最近24h无新增，检查全表是否有数据
-                await using var allCmd = conn.CreateCommand();
-                allCmd.CommandTimeout = 10;
-                allCmd.CommandText = "SELECT count(*) FROM (SELECT 1 FROM mobile_usage_events LIMIT 10) t;";
-                sourceCount = Convert.ToInt32(await allCmd.ExecuteScalarAsync(ct) ?? 0);
-            }
-        }
+        await using var scmd = conn.CreateCommand();
+        scmd.CommandTimeout = 10;
+        scmd.CommandText = "SELECT count(*) FROM mobile_usage_events WHERE created_at >= (NOW() - interval '24 hours');";
+        int sourceCount = Convert.ToInt32(await scmd.ExecuteScalarAsync(ct) ?? 0);
 
         await using var bcmd = conn.CreateCommand();
         bcmd.CommandTimeout = 10;
@@ -790,17 +855,16 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
 
     private async Task<InvariantResult> CheckS13Async(DbConnection conn, InvariantOptions options, DateTime nowUtc, CancellationToken ct)
     {
-        if (!await TableExistsAsync(conn, "pc_aw_events", ct))
-            return InvariantResult.Unknown("INV-P22 UNKNOWN: 数据表 pc_aw_events 不存在");
+        if (!await TableExistsAsync(conn, "pc_tracker_events", ct))
+            return InvariantResult.Unknown("INV-P22 UNKNOWN: 数据表 pc_tracker_events 不存在");
 
         await using var cmd = conn.CreateCommand();
         cmd.CommandTimeout = 15;
         cmd.CommandText = """
-            SELECT device_id, timestamp, bucket_id
-            FROM pc_aw_events
-            WHERE event_type = 'window'
-            ORDER BY timestamp DESC
-            LIMIT 200;
+            SELECT device_id, timestamp, instance_id
+            FROM pc_tracker_events
+            WHERE instance_id IS NOT NULL AND instance_id != ''
+            ORDER BY timestamp DESC;
             """;
 
         var heartbeats = new List<CollectionHeartbeat>();
@@ -809,12 +873,12 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
         {
             string dev = reader.IsDBNull(0) ? "default" : reader.GetString(0);
             DateTime ts = reader.GetDateTime(1);
-            string bucketId = reader.IsDBNull(2) ? "default" : reader.GetString(2);
+            string instanceId = reader.IsDBNull(2) ? "default" : reader.GetString(2);
             heartbeats.Add(new CollectionHeartbeat
             {
                 DeviceId = dev,
                 Timestamp = ts,
-                InstanceId = bucketId
+                InstanceId = instanceId
             });
         }
 

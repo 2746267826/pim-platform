@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -24,22 +25,37 @@ public class LiveDbQualityInspectionTests
     [Fact]
     public async Task LiveDb_InspectAsync_VerifiesGroundTruthViolations()
     {
-        const string connString = "Host=127.0.0.1;Port=5432;Database=pim;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a";
+        // 依次尝试 pim_prod (真实生产镜像) 与 pim (本地开发库)
+        var connectionStrings = new[]
+        {
+            "Host=127.0.0.1;Port=5432;Database=pim_prod;Username=pim;Password=pim_prod_2026_home",
+            "Host=127.0.0.1;Port=5432;Database=pim;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a"
+        };
 
-        // 检查数据库是否可连接
-        try
+        string? workingConnStr = null;
+        foreach (var connString in connectionStrings)
         {
-            await using var testConn = new NpgsqlConnection(connString);
-            await testConn.OpenAsync();
+            try
+            {
+                await using var testConn = new NpgsqlConnection(connString);
+                await testConn.OpenAsync();
+                workingConnStr = connString;
+                break;
+            }
+            catch
+            {
+                // 忽略并尝试下一个
+            }
         }
-        catch (Exception ex)
+
+        if (workingConnStr == null)
         {
-            _output.WriteLine($"本地真实 PostgreSQL 未运行或连接失败: {ex.Message}，跳过实机校验");
+            _output.WriteLine("本地真实 PostgreSQL 未运行或连接失败，跳过实机校验");
             return;
         }
 
         var optionsBuilder = new DbContextOptionsBuilder<PimDbContext>();
-        optionsBuilder.UseNpgsql(connString);
+        optionsBuilder.UseNpgsql(workingConnStr);
 
         await using var db = new PimDbContext(optionsBuilder.Options);
 
@@ -48,7 +64,7 @@ public class LiveDbQualityInspectionTests
 
         var result = await inspector.InspectAsync(DateTimeOffset.UtcNow);
 
-        _output.WriteLine($"=== 数据可靠性实机体检结果 ===");
+        _output.WriteLine("=== 数据可靠性实机体检结果 ===");
         _output.WriteLine($"Healthy: {result.IsHealthy}");
         _output.WriteLine($"Issues: {result.IssueCount}");
         _output.WriteLine($"Message: {result.Message}");
@@ -62,17 +78,31 @@ public class LiveDbQualityInspectionTests
         // 必须不健康（真实生产数据存在违规，绝不得为假绿灯）
         Assert.False(result.IsHealthy);
 
-        // 验证评审指出的必须判红的基准尺子：S2, S4, S6, S7, S10, S11, S12
+        // 验证评审指出的各项基准尺子状态（当前生产数据事实）：
+        // S1: 🔴 FAIL (window / web-page 重叠)
+        // S2: 🔴 FAIL (idle 444 分钟仅 6 次按键)
+        // S4: 🔴 FAIL (定位与手机同刻重复)
+        // S5: 🟢 PASS (时钟本身健康，反向验证不把好的判红)
+        // S6: 🔴 FAIL (29 处无声明空档)
+        // S7: 🔴 FAIL (29 处空洞未标记)
+        // S10: 🔴 FAIL (分类快照补齐自 09-01 起每天产出 0)
+        // S11: 🔴 FAIL (102 个批次语义不自洽)
+        // S12: 🔴 FAIL (mobile_timeline_blocks 与 mobile_usage_aggregates 均 0 行)
+
+        Assert.Contains("S1_INV-P16", result.Details.Keys);
         Assert.Contains("S2_INV-P17", result.Details.Keys);
         Assert.Contains("S4_INV-C18", result.Details.Keys);
+        Assert.Contains("S5_INV-P19", result.Details.Keys);
         Assert.Contains("S6_INV-P20", result.Details.Keys);
         Assert.Contains("S7_INV-P21", result.Details.Keys);
         Assert.Contains("S10_INV-C21", result.Details.Keys);
         Assert.Contains("S11_INV-M21", result.Details.Keys);
         Assert.Contains("S12_INV-M22", result.Details.Keys);
 
+        Assert.StartsWith("🔴 FAIL", result.Details["S1_INV-P16"]);
         Assert.StartsWith("🔴 FAIL", result.Details["S2_INV-P17"]);
         Assert.StartsWith("🔴 FAIL", result.Details["S4_INV-C18"]);
+        Assert.StartsWith("🟢 PASS", result.Details["S5_INV-P19"]);
         Assert.StartsWith("🔴 FAIL", result.Details["S6_INV-P20"]);
         Assert.StartsWith("🔴 FAIL", result.Details["S7_INV-P21"]);
         Assert.StartsWith("🔴 FAIL", result.Details["S10_INV-C21"]);

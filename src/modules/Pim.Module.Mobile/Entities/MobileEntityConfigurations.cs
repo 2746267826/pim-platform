@@ -180,6 +180,7 @@ public sealed class MobileTimelineBlockEntityConfiguration : IEntityTypeConfigur
 {
     public void Configure(EntityTypeBuilder<MobileTimelineBlockEntity> builder)
     {
+        builder.Property(e => e.BlockId).HasDefaultValue(string.Empty);
         builder.Property(e => e.Timezone).HasDefaultValue(MobileAnalyticsDefaults.DefaultTimezone);
         builder.Property(e => e.LifeCategory).HasDefaultValue(MobileLifeCategories.Uncategorized);
         builder.Property(e => e.TopAppsJson).HasDefaultValue("[]");
@@ -192,6 +193,19 @@ public sealed class MobileTimelineBlockEntityConfiguration : IEntityTypeConfigur
         builder.HasIndex(e => new { e.UserId, e.LifeCategory, e.StartUtc });
         builder.HasIndex(e => new { e.UserId, e.LocalDate });
         builder.HasIndex(e => new { e.UserId, e.IsStale });
+    }
+}
+
+public sealed class MobileAnalyticsMaterializationEntityConfiguration
+    : IEntityTypeConfiguration<MobileAnalyticsMaterializationEntity>
+{
+    public void Configure(EntityTypeBuilder<MobileAnalyticsMaterializationEntity> builder)
+    {
+        builder.Property(e => e.Timezone).HasDefaultValue(MobileAnalyticsDefaults.DefaultTimezone);
+        builder.Property(e => e.GeneratedAt).HasDefaultValueSql("now()");
+        builder.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+        builder.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
+        builder.HasIndex(e => new { e.UserId, e.DeviceId, e.CoveredFromUtc, e.CoveredToUtc }).IsUnique();
     }
 }
 

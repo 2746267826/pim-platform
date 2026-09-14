@@ -30,19 +30,22 @@ public sealed class MobileUsageIngestService
     private readonly MobileSessionInterpreter _sessionInterpreter;
     private readonly TimeProvider _timeProvider;
     private readonly MobileAppCatalogOverrideService? _catalogOverrideService;
+    private readonly MobileAnalyticsMaterializationService? _materializationService;
 
     public MobileUsageIngestService(
         PimDbContext db,
         ICurrentUserService currentUser,
         MobileSessionInterpreter sessionInterpreter,
         TimeProvider timeProvider,
-        MobileAppCatalogOverrideService? catalogOverrideService = null)
+        MobileAppCatalogOverrideService? catalogOverrideService = null,
+        MobileAnalyticsMaterializationService? materializationService = null)
     {
         _db = db;
         _currentUser = currentUser;
         _sessionInterpreter = sessionInterpreter;
         _timeProvider = timeProvider;
         _catalogOverrideService = catalogOverrideService;
+        _materializationService = materializationService;
     }
 
     public async Task<MobileUsageIngestResult> IngestAsync(
@@ -160,13 +163,25 @@ public sealed class MobileUsageIngestService
                     ct);
             }
 
-            // 派生工作（会话重建 / 派生表标记）先跑，成功之后才把批次推进到终态：
+            // 派生工作（会话重建 / 派生表标记 / 物化）先跑，成功之后才把批次推进到终态：
             // 中途失败时批次保持 pending（"上传中断"信号），而不是先宣告完成再回滚（#243）。
             await MarkAffectedAnalyticsStaleAsync(
                 request,
                 request.WindowStartUtc,
                 request.WindowEndUtc,
                 ct);
+
+            // 把该窗口的派生分析数据落库（#247②）：块与聚合不再只存在于请求期间的在线计算里。
+            // 只有本批真的写入了条目（事件/汇总/元数据）时才重算 —— 重复补偿批仍然跳过。
+            if (_materializationService is not null && result.AcceptedCount > 0)
+            {
+                await _materializationService.MaterializeAsync(
+                    userId,
+                    request.DeviceId,
+                    request.WindowStartUtc,
+                    request.WindowEndUtc,
+                    ct);
+            }
 
             // accepted_count 反映该批全部被接受的条目（事件 / 元数据 / 汇总），
             // 而不是只有 usage-event —— 否则 2298 个批次显示 accepted_count = 0（#243）。

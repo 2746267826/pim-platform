@@ -39,6 +39,8 @@ public sealed class DeviceMergeRealDbTests
         "mobile_location_points",
         "mobile_sync_batches",
         "mobile_timeline_blocks",
+        "mobile_usage_aggregates",
+        "mobile_analytics_materializations",
     ];
 
     private const string TargetDeviceId = "android-e2e-target";

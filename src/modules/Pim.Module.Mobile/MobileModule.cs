@@ -44,6 +44,7 @@ public sealed class MobileModule : IModule
         services.AddScoped<MobileUsageGoalService>();
         services.AddScoped<MobileUsageAggregationService>();
         services.AddScoped<MobileTimelineBlockService>();
+        services.AddScoped<MobileAnalyticsMaterializationService>();
         services.AddScoped<DeviceManagementService>();
         services.AddScoped<MobileSyncBacklogInspector>();
         services.AddScoped<IDataQualityInspector, MobileSyncBacklogInspector>();

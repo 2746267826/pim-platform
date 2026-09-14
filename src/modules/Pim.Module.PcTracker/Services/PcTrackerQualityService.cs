@@ -11,6 +11,16 @@ namespace Pim.Module.PcTracker.Services;
 
 public sealed class PcTrackerQualityService
 {
+    /// <summary>
+    /// ActivityWatch (AW) 退役切换基准时间（2026-09-01 Asia/Shanghai）。
+    /// 当查询时间窗口起点 rangeStart >= AwRetirementDate 时，质检全面转向原生采集事件（TrackerEventEntity），
+    /// 不再要求 AW Bucket 和 AW Event 存在，避免报告假阳性告警。跨退役窗口（rangeStart < AwRetirementDate）
+    /// 仍保留对历史 AW 采集组件的检查。
+    /// ActivityWatch retirement cutoff date (2026-09-01 Asia/Shanghai).
+    /// When rangeStart >= AwRetirementDate, quality checks exclusively rely on native tracker events
+    /// without requiring AW buckets or events, preventing false-positive alarms. Windows spanning
+    /// prior to the retirement date (rangeStart < AwRetirementDate) retain checks for legacy AW components.
+    /// </summary>
     public static readonly DateTimeOffset AwRetirementDate = new(2026, 9, 1, 0, 0, 0, TimeSpan.FromHours(8));
     private static readonly TimeSpan StaleBucketAge = TimeSpan.FromHours(24);
     private readonly PimDbContext _db;

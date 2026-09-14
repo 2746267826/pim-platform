@@ -17,39 +17,36 @@ namespace Pim.UnitTests.Harness.RealDb;
 
 public sealed class PcIssues234And238RealDbTests
 {
-    private const string DefaultConnStr = "Host=127.0.0.1;Database=pim;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a;CommandTimeout=30";
-
-    private static string ConnStr =>
-        Environment.GetEnvironmentVariable("PIM_TEST_CONN") ?? DefaultConnStr;
-
-    private static PimDbContext? TryCreateDbContext()
+    private static PimDbContext TryCreateDbContext()
     {
+        var connStr = Environment.GetEnvironmentVariable("PIM_TEST_CONN");
+        Skip.If(string.IsNullOrWhiteSpace(connStr), "RealDb unavailable (PIM_TEST_CONN not set), skipping test.");
+
         try
         {
-            using var conn = new NpgsqlConnection(ConnStr);
+            using var conn = new NpgsqlConnection(connStr);
             conn.Open();
             using var cmd = new NpgsqlCommand("SELECT 1", conn);
             cmd.ExecuteScalar();
         }
-        catch
+        catch (Exception ex)
         {
-            return null;
+            throw new Xunit.SkipException($"RealDb connection failed: {ex.Message}");
         }
 
         PimDbContext.RegisterModuleAssembly(typeof(TrackerEventEntity).Assembly);
         var options = new DbContextOptionsBuilder<PimDbContext>()
-            .UseNpgsql(ConnStr)
+            .UseNpgsql(connStr)
             .Options;
 
         return new PimDbContext(options);
     }
 
-    [Fact]
+    [SkippableFact]
     [Trait("DataSource", "RealDb")]
     public async Task RealDb_Issue238_PostAwDate_QualityCheck_UsesNativeEvents_AndDoesNotRequireAwBuckets()
     {
         await using var db = TryCreateDbContext();
-        if (db == null) return; // Skip if db unavailable
 
         var fixedNow = new DateTimeOffset(2026, 9, 14, 12, 0, 0, TimeSpan.Zero);
         var service = new PcTrackerQualityService(db, new StubTimeProvider { UtcNowValue = fixedNow });
@@ -65,12 +62,11 @@ public sealed class PcIssues234And238RealDbTests
         Assert.DoesNotContain(result.Issues, i => i.Code.StartsWith("missing-aw-", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [SkippableFact]
     [Trait("DataSource", "RealDb")]
-    public async Task RealDb_Issue234_NativeEvents_CanBeLoadedAndClassified()
+    public async Task RealDb_Issue234_PostAwDate_ActivityClassification_UsesNativeEvents()
     {
         await using var db = TryCreateDbContext();
-        if (db == null) return; // Skip if db unavailable
 
         var recomputeService = new ActivityClassificationRecomputeService(
             db,
@@ -79,15 +75,15 @@ public sealed class PcIssues234And238RealDbTests
             new StubCurrentUserService(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")),
             NullLogger<ActivityClassificationRecomputeService>.Instance);
 
-        // Preview classification for rule across 2026-09-10 (where 800+ native tracker events exist)
+        // Preview classification for rule across 2026-09-10 (where 200+ native msedge events exist)
         var rule = new SaveActivityClassificationRuleRequest(
-            RuleName: "Visual Studio Code",
+            RuleName: "Microsoft Edge",
             Scope: "app",
-            CategoryName: "编程",
+            CategoryName: "浏览",
             ProjectTag: null,
-            Color: "#107c41",
+            Color: "#0078d4",
             Priority: 100,
-            ConditionsJson: "{\"all\":[{\"field\":\"appName\",\"op\":\"equals\",\"value\":\"Code.exe\"}]}",
+            ConditionsJson: "{\"all\":[{\"field\":\"appName\",\"op\":\"equals\",\"value\":\"msedge\"}]}",
             Confidence: 1.0,
             Explanation: null);
 
@@ -96,7 +92,8 @@ public sealed class PcIssues234And238RealDbTests
         var preview = await recomputeService.PreviewRuleAsync(rule, range, CancellationToken.None);
 
         Assert.NotNull(preview);
-        Assert.True(preview.AffectedRecordCount >= 0);
+        Assert.True(preview.AffectedRecordCount > 0, $"Expected affected native events on 2026-09-10, got {preview.AffectedRecordCount}");
+        Assert.Contains(preview.Samples, s => s.AppName != null && s.AppName.Equals("msedge", StringComparison.OrdinalIgnoreCase));
     }
 
     private sealed class StubCurrentUserService : ICurrentUserService

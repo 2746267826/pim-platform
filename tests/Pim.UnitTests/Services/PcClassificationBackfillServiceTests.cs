@@ -165,6 +165,34 @@ public class PcClassificationBackfillServiceTests
     }
 
     [Fact]
+    public async Task BackfillAsync_PastDayWithPartialSnapshots_FillsGapsWhenHeadOrTailEventsUncovered()
+    {
+        await using var db = CreateDb();
+        // 1. 中间时段已有快照（10:00 - 10:10）
+        db.Set<TrackerEventEntity>().Add(TrackerEvent("2026-08-10T10:00:00Z", 600, "Code.exe", "Middle.cs"));
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        var initial = await service.BackfillAsync(lookbackDays: 14, CancellationToken.None);
+        Assert.Equal(1, initial.ProcessedDays);
+        Assert.Equal(1, initial.WrittenSnapshots);
+        Assert.Equal(1, await db.Set<ActivityClassificationEntity>().CountAsync());
+
+        // 2. 头部新增未覆盖事件（06:00 < earliestSnapshotStart 10:00）以及尾部新增未覆盖事件（16:00 > latestSnapshotEnd 10:10）
+        db.Set<TrackerEventEntity>().AddRange(
+            TrackerEvent("2026-08-10T06:00:00Z", 600, "Code.exe", "Head.cs"),
+            TrackerEvent("2026-08-10T16:00:00Z", 600, "Code.exe", "Tail.cs"));
+        await db.SaveChangesAsync();
+
+        // 3. 执行 Backfill，断言成功检测到头部与尾部空缺，继续补齐且 WrittenSnapshots == 2
+        var stats = await service.BackfillAsync(lookbackDays: 14, CancellationToken.None);
+
+        Assert.Equal(1, stats.ProcessedDays);
+        Assert.Equal(2, stats.WrittenSnapshots);
+        Assert.Equal(3, await db.Set<ActivityClassificationEntity>().CountAsync());
+    }
+
+    [Fact]
     public async Task RecomputeAsync_ProcessesNativeTrackerEventsWithRulesAndAudit()
     {
         await using var db = CreateDb();
@@ -201,7 +229,7 @@ public class PcClassificationBackfillServiceTests
     public async Task RecomputeAsync_StillWritesAudit()
     {
         await using var db = CreateDb();
-        db.Set<ActivityCategoryRuleEntity>().Add(CodeRule("\u7f16\u7a0b", 1000));
+        db.Set<ActivityCategoryRuleEntity>().Add(CodeRule("编程", 1000));
         db.Set<AwEventEntity>().Add(WindowEvent("2026-05-25T08:00:00Z", 600, "Code.exe", "Program.cs"));
         await db.SaveChangesAsync();
         var recompute = CreateRecomputeService(db);
@@ -230,9 +258,9 @@ public class PcClassificationBackfillServiceTests
 
         var db = new PimDbContext(options);
         db.Set<PcCategoryEntity>().AddRange(
-            new PcCategoryEntity { Id = Guid.NewGuid(), Name = "\u7f16\u7a0b", Color = "#6B5EE4" },
-            new PcCategoryEntity { Id = Guid.NewGuid(), Name = "\u529e\u516c", Color = "#F59E0B" },
-            new PcCategoryEntity { Id = Guid.NewGuid(), Name = "\u6df1\u5ea6\u5de5\u4f5c", Color = "#123456" });
+            new PcCategoryEntity { Id = Guid.NewGuid(), Name = "编程", Color = "#6B5EE4" },
+            new PcCategoryEntity { Id = Guid.NewGuid(), Name = "办公", Color = "#F59E0B" },
+            new PcCategoryEntity { Id = Guid.NewGuid(), Name = "深度工作", Color = "#123456" });
         db.SaveChanges();
         return db;
     }
@@ -292,7 +320,7 @@ public class PcClassificationBackfillServiceTests
             DeviceId = "device-1",
             StartedAt = startedAt,
             EndedAt = startedAt.AddSeconds(600),
-            CategoryName = "\u5176\u4ed6",
+            CategoryName = "其他",
             CategoryColor = "#64748b",
             Confidence = 0.2,
             Source = "fallback"

@@ -170,6 +170,7 @@ public sealed class BatchSyncStatusRecord
 {
     public string BatchId { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public int AcceptedCount { get; set; }
     public int FailedCount { get; set; }
     public int RejectedCount { get; set; }
     public int TotalCount { get; set; }

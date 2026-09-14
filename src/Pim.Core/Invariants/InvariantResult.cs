@@ -4,12 +4,24 @@ using System.Collections.Generic;
 namespace Pim.Core.Invariants;
 
 /// <summary>
+/// 不变量状态四态：绿（通过）、黄（警告/存量欠账）、红（违规/新增）、未知（数据源缺失/未接线）。
+/// </summary>
+public enum InvariantStatus
+{
+    Pass,
+    Warning,
+    Fail,
+    Unknown
+}
+
+/// <summary>
 /// 不变量判定统一返回结果结构。
-/// 同时支持单条判定（(pass, detail) 解构与隐式转换）与设置页/CI体检场景（统计量、样例、时间范围、回退标注）。
+/// 同时支持单条判定（(pass, detail) 解构与隐式转换）与设置页/CI体检场景（统计量、样例、时间范围、回退标注、四态区分）。
 /// </summary>
 public sealed class InvariantResult
 {
     public bool Pass { get; init; } = true;
+    public InvariantStatus Status { get; init; } = InvariantStatus.Pass;
     public string Detail { get; init; } = string.Empty;
     public int TotalViolations { get; init; } = 0;
     public int NewViolations { get; init; } = 0;
@@ -19,6 +31,11 @@ public sealed class InvariantResult
     public DateTime? LatestOccurrence { get; init; }
     public bool ThresholdFallback { get; init; } = false;
     public string? ThresholdNote { get; init; }
+
+    public bool IsPass => Status == InvariantStatus.Pass;
+    public bool IsWarning => Status == InvariantStatus.Warning;
+    public bool IsFail => Status == InvariantStatus.Fail;
+    public bool IsUnknown => Status == InvariantStatus.Unknown;
 
     public void Deconstruct(out bool pass, out string detail)
     {
@@ -31,6 +48,7 @@ public sealed class InvariantResult
     public static implicit operator InvariantResult((bool pass, string detail) tuple) => new()
     {
         Pass = tuple.pass,
+        Status = tuple.pass ? InvariantStatus.Pass : InvariantStatus.Fail,
         Detail = tuple.detail,
         TotalViolations = tuple.pass ? 0 : 1
     };
@@ -38,7 +56,44 @@ public sealed class InvariantResult
     public static InvariantResult Success(string detail, string? thresholdNote = null, bool thresholdFallback = false) => new()
     {
         Pass = true,
+        Status = InvariantStatus.Pass,
         Detail = detail,
+        ThresholdNote = thresholdNote,
+        ThresholdFallback = thresholdFallback
+    };
+
+    public static InvariantResult Warning(
+        string detail,
+        IReadOnlyList<string>? samples = null,
+        string? thresholdNote = null,
+        bool thresholdFallback = false)
+    {
+        string fullDetail = detail;
+        if (samples != null && samples.Count > 0)
+        {
+            fullDetail = $"{detail}. 样本: [{string.Join("; ", samples)}]";
+        }
+
+        return new()
+        {
+            Pass = true,
+            Status = InvariantStatus.Warning,
+            Detail = fullDetail,
+            TotalViolations = 0,
+            NewViolations = 0,
+            HistoricalViolations = samples?.Count ?? 1,
+            Samples = samples ?? Array.Empty<string>(),
+            ThresholdNote = thresholdNote,
+            ThresholdFallback = thresholdFallback
+        };
+    }
+
+    public static InvariantResult Unknown(string detail, string? thresholdNote = null, bool thresholdFallback = false) => new()
+    {
+        Pass = false,
+        Status = InvariantStatus.Unknown,
+        Detail = detail,
+        TotalViolations = 0,
         ThresholdNote = thresholdNote,
         ThresholdFallback = thresholdFallback
     };
@@ -52,7 +107,8 @@ public sealed class InvariantResult
         DateTime? earliestOccurrence = null,
         DateTime? latestOccurrence = null,
         string? thresholdNote = null,
-        bool thresholdFallback = false)
+        bool thresholdFallback = false,
+        bool isWarning = false)
     {
         string fullDetail = detail;
         if (samples != null && samples.Count > 0)
@@ -62,7 +118,8 @@ public sealed class InvariantResult
 
         return new()
         {
-            Pass = false,
+            Pass = !isWarning ? false : false,
+            Status = isWarning ? InvariantStatus.Warning : InvariantStatus.Fail,
             Detail = fullDetail,
             TotalViolations = totalViolations > 0 ? totalViolations : (newViolations + historicalViolations),
             NewViolations = newViolations,

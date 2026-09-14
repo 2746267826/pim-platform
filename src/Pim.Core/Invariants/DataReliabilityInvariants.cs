@@ -36,7 +36,12 @@ public static class DataReliabilityInvariants
         var now = referenceTimeUtc ?? DateTime.UtcNow;
         var cutoff = now.AddHours(-opt.RecentWindowHours);
 
-        var list = events.ToList();
+        var list = events?.ToList() ?? new List<EventTimeSpan>();
+        if (list.Count == 0)
+        {
+            return InvariantResult.Unknown("INV-P16 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
         var groups = list.GroupBy(e => (e.DeviceId, e.EventType));
 
         int totalViolations = 0;
@@ -115,6 +120,12 @@ public static class DataReliabilityInvariants
         var now = referenceTimeUtc ?? DateTime.UtcNow;
         var cutoff = now.AddHours(-opt.RecentWindowHours);
 
+        var list = events?.ToList() ?? new List<LongEventCandidate>();
+        if (list.Count == 0)
+        {
+            return InvariantResult.Unknown("INV-P17 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
         int totalViolations = 0;
         int newViolations = 0;
         int historicalViolations = 0;
@@ -122,7 +133,7 @@ public static class DataReliabilityInvariants
         DateTime? earliest = null;
         DateTime? latest = null;
 
-        foreach (var e in events)
+        foreach (var e in list)
         {
             var durationMinutes = (e.EndTime - e.StartTime).TotalMinutes;
             if (durationMinutes <= opt.LongEventThresholdMinutes)
@@ -171,7 +182,7 @@ public static class DataReliabilityInvariants
         if (totalViolations > 0)
         {
             return InvariantResult.Failure(
-                $"INV-P17 FAIL: 检测到 {totalViolations} 个超长事件疑似未收尾 (新增 {newViolations}, 存量 {historicalViolations})",
+                $"INV-P17 FAIL: 检测到 {totalViolations} 个疑似未收尾超长事件 (新增 {newViolations}, 存量 {historicalViolations})",
                 totalViolations,
                 newViolations,
                 historicalViolations,
@@ -182,14 +193,16 @@ public static class DataReliabilityInvariants
                 fallback);
         }
 
-        return InvariantResult.Success("INV-P17 PASS: 所有超长事件均具备三态证据或明确声明", note, fallback);
+        return InvariantResult.Success("INV-P17 PASS: 所有超长事件均有合规的活动证据或为明确空档", note, fallback);
     }
 
     /// <summary>
     /// S3 (INV-P18): 单日时长有界
-    /// 判据: 单日"活跃合计"（仅三态中的前两态，排除疑似未收尾和空档）&lt;= 清醒窗口 × 90%；硬上限 24h。
-    /// 阈值: 硬上限 24.0h (86400s)；清醒窗口默认 16h → 警告线 14.4h (T5)。
-    /// 为什么是这个阈值: 一天物理上限只有 24 小时，单日超过 24h 必定数据造假或重叠累加；超过清醒窗口 90% 提示不符合人类生理节律。
+    /// 判据: 按 Asia/Shanghai 04:00 起算的单日活跃时长（仅三态前两态）：
+    ///   硬上限: 单日活跃合计 &lt;= 24h
+    ///   警告线: 单日活跃合计 &lt;= 清醒窗口 (默认 16h) × 90%
+    /// 阈值: 硬上限 24.0 小时 (T5)，清醒窗口 16.0 小时，警告比例 0.9 (14.4h)。
+    /// 为什么是这个阈值: 一天物理上只有 24 小时；人类正常作息清醒时间约 16 小时，超过 14.4 小时说明极高强度活跃或存在异常累积。
     /// </summary>
     public static InvariantResult CheckS3_DailyDurationBounded(
         IEnumerable<DailyActiveDuration> dailyDurations,
@@ -199,11 +212,17 @@ public static class DataReliabilityInvariants
         var hardCapSeconds = opt.MaxDailyActiveHours * 3600.0;
         var warningSeconds = opt.AwakeWindowHours * opt.AwakeWindowWarningRatio * 3600.0;
 
+        var list = dailyDurations?.ToList() ?? new List<DailyActiveDuration>();
+        if (list.Count == 0)
+        {
+            return InvariantResult.Unknown("INV-P18 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
         int totalViolations = 0;
         int warningCount = 0;
         var samples = new List<string>();
 
-        foreach (var d in dailyDurations)
+        foreach (var d in list)
         {
             if (d.ActiveDurationSeconds > hardCapSeconds)
             {
@@ -237,11 +256,16 @@ public static class DataReliabilityInvariants
                 fallback);
         }
 
-        string passMsg = warningCount > 0
-            ? $"INV-P18 PASS: 单日时长未超硬上限 (存在 {warningCount} 天超过清醒窗口警告线 {warningSeconds / 3600.0:F1}h)"
-            : "INV-P18 PASS: 单日时长符合生理与物理上限";
+        if (warningCount > 0)
+        {
+            return InvariantResult.Warning(
+                $"INV-P18 WARN: 单日时长未超硬上限，但存在 {warningCount} 天超过清醒窗口警告线 {warningSeconds / 3600.0:F1}h",
+                samples: samples,
+                thresholdNote: note,
+                thresholdFallback: fallback);
+        }
 
-        return InvariantResult.Success(passMsg, note, fallback);
+        return InvariantResult.Success("INV-P18 PASS: 单日时长符合生理与物理上限", note, fallback);
     }
 
     /// <summary>
@@ -262,7 +286,12 @@ public static class DataReliabilityInvariants
         var now = referenceTimeUtc ?? DateTime.UtcNow;
         var cutoff = now.AddHours(-opt.RecentWindowHours);
 
-        var list = records.ToList();
+        var list = records?.ToList() ?? new List<BusinessRecordKey>();
+        if (list.Count == 0)
+        {
+            return InvariantResult.Unknown("INV-C18 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
         var groups = list.GroupBy(r => (r.Domain, r.UniqueKey));
 
         int totalViolations = 0;
@@ -330,6 +359,12 @@ public static class DataReliabilityInvariants
         var cutoff = now.AddHours(-opt.RecentWindowHours);
         var toleranceSeconds = opt.ClockSkewToleranceMinutes * 60.0;
 
+        var list = items?.ToList() ?? new List<ClockEventItem>();
+        if (list.Count == 0)
+        {
+            return InvariantResult.Unknown("INV-P19 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
         int totalViolations = 0;
         int newViolations = 0;
         int historicalViolations = 0;
@@ -337,7 +372,7 @@ public static class DataReliabilityInvariants
         DateTime? earliest = null;
         DateTime? latest = null;
 
-        foreach (var item in items)
+        foreach (var item in list)
         {
             var skewSeconds = (item.EventTime - item.ServerReceivedTime).TotalSeconds;
             if (skewSeconds > toleranceSeconds)
@@ -358,8 +393,9 @@ public static class DataReliabilityInvariants
 
         if (totalViolations > 0)
         {
+            bool isWarning = newViolations == 0 && historicalViolations > 0;
             return InvariantResult.Failure(
-                $"INV-P19 FAIL: 检测到 {totalViolations} 个事件时钟超前 (新增 {newViolations}, 存量 {historicalViolations})",
+                $"INV-P19 {(isWarning ? "WARN" : "FAIL")}: 检测到 {totalViolations} 个事件时钟超前 (新增 {newViolations}, 存量 {historicalViolations})",
                 totalViolations,
                 newViolations,
                 historicalViolations,
@@ -367,7 +403,8 @@ public static class DataReliabilityInvariants
                 earliest,
                 latest,
                 note,
-                fallback);
+                fallback,
+                isWarning: isWarning);
         }
 
         return InvariantResult.Success("INV-P19 PASS: 所有事件时间戳均在合理时钟容差范围内", note, fallback);
@@ -394,6 +431,11 @@ public static class DataReliabilityInvariants
         var gapThresholdMinutes = opt.UndeclaredOfflineGapMinutes;
         var p99LagMinutesThreshold = opt.MaxUploadLagP99Minutes;
 
+        if (trace == null || trace.EventTimes == null || trace.EventTimes.Count == 0)
+        {
+            return InvariantResult.Unknown("INV-P20 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
         int totalViolations = 0;
         var samples = new List<string>();
 
@@ -407,7 +449,7 @@ public static class DataReliabilityInvariants
             if (gapMinutes > gapThresholdMinutes)
             {
                 // 检查是否有下线声明覆盖该空档的大部分或关键区间
-                bool declared = trace.Declarations.Any(d =>
+                bool declared = trace.Declarations != null && trace.Declarations.Any(d =>
                     d.DeviceId == trace.DeviceId &&
                     d.StartTime <= t1.AddMinutes(5) &&
                     d.EndTime >= t2.AddMinutes(-5));
@@ -424,23 +466,23 @@ public static class DataReliabilityInvariants
         }
 
         // 2. 检查上传滞后 p99
-        if (trace.UploadLagSamples.Count > 0)
+        if (trace.UploadLagSamples != null && trace.UploadLagSamples.Count > 0)
         {
             var lags = trace.UploadLagSamples
-                .Select(s => (s.CreatedAt - s.EventTime).TotalMinutes)
-                .OrderBy(l => l)
+                .Select(s => Math.Max(0, (s.CreatedAt - s.EventTime).TotalMinutes))
+                .OrderBy(v => v)
                 .ToList();
 
             int p99Index = (int)Math.Ceiling(lags.Count * 0.99) - 1;
             p99Index = Math.Clamp(p99Index, 0, lags.Count - 1);
-            var p99 = lags[p99Index];
+            double p99Lag = lags[p99Index];
 
-            if (p99 > p99LagMinutesThreshold)
+            if (p99Lag > p99LagMinutesThreshold)
             {
                 totalViolations++;
                 if (samples.Count < opt.MaxSampleCount)
                 {
-                    samples.Add($"Device={trace.DeviceId}: 上传滞后 p99 为 {p99:F1}m > 阈值 {p99LagMinutesThreshold:F1}m");
+                    samples.Add($"Device={trace.DeviceId}: 上传滞后 p99={p99Lag:F1}m 超过阈值 {p99LagMinutesThreshold:F1}m");
                 }
             }
         }
@@ -448,7 +490,7 @@ public static class DataReliabilityInvariants
         if (totalViolations > 0)
         {
             return InvariantResult.Failure(
-                $"INV-P20 FAIL: 设备下线声明或上传延迟存在 {totalViolations} 项违规",
+                $"INV-P20 FAIL: 检测到 {totalViolations} 处无声明空档或上传滞后超标",
                 totalViolations,
                 totalViolations,
                 0,
@@ -475,7 +517,12 @@ public static class DataReliabilityInvariants
         var (opt, fallback, note) = InvariantOptions.Resolve(options);
         var thresholdMinutes = opt.TimelineGapThresholdMinutes;
 
-        var list = intervals.OrderBy(i => i.StartTime).ThenBy(i => i.EndTime).ToList();
+        var list = intervals?.OrderBy(i => i.StartTime).ThenBy(i => i.EndTime).ToList() ?? new List<TimelineInterval>();
+        if (list.Count == 0)
+        {
+            return InvariantResult.Unknown("INV-P21 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
         int totalViolations = 0;
         var samples = new List<string>();
 
@@ -516,7 +563,7 @@ public static class DataReliabilityInvariants
     }
 
     /// <summary>
-    /// S8 (INV-C19): 日界一致（三层）
+    /// S8 (INV-C19): 日界一致（三层口径统一）
     /// 判据: 同一时刻在三处必须归属同一天：
     ///   1. 数据字段的日期桶 (date)
     ///   2. 按日接口的查询窗口 (date=YYYY-MM-DD)
@@ -531,10 +578,16 @@ public static class DataReliabilityInvariants
     {
         var (opt, fallback, note) = InvariantOptions.Resolve(options);
 
+        var list = samples?.ToList() ?? new List<DayBoundarySample>();
+        if (list.Count == 0)
+        {
+            return InvariantResult.Unknown("INV-C19 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
         int totalViolations = 0;
         var violationSamples = new List<string>();
 
-        foreach (var s in samples)
+        foreach (var s in list)
         {
             var expectedBusinessDay = ComputeBusinessDayString(s.EventTimeUtc);
             bool b1 = s.DataFieldDateBucket == expectedBusinessDay;
@@ -569,12 +622,16 @@ public static class DataReliabilityInvariants
     }
 
     /// <summary>
-    /// 计算 UTC 时间在 Asia/Shanghai 04:00 起算的业务日字符串 (YYYY-MM-DD)
+    /// 计算时刻对应的 Asia/Shanghai 04:00 起算的业务日字符串 (YYYY-MM-DD)。
     /// </summary>
     public static string ComputeBusinessDayString(DateTime utcTime)
     {
-        var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcTime, DateTimeKind.Utc), ShanghaiTimeZone);
-        var businessDate = local.Hour < 4 ? local.Date.AddDays(-1) : local.Date;
+        var shanghaiTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utcTime, DateTimeKind.Utc), ShanghaiTimeZone);
+        // 若当前时间小于 04:00，属于前一天
+        var businessDate = shanghaiTime.TimeOfDay < TimeSpan.FromHours(4)
+            ? shanghaiTime.Date.AddDays(-1)
+            : shanghaiTime.Date;
+
         return businessDate.ToString("yyyy-MM-dd");
     }
 
@@ -590,9 +647,12 @@ public static class DataReliabilityInvariants
     {
         var (opt, fallback, note) = InvariantOptions.Resolve(options);
 
-        double ratio = report.OnlineDurationSeconds > 0
-            ? report.ValidDataDurationSeconds / report.OnlineDurationSeconds
-            : 1.0;
+        if (report == null || report.OnlineDurationSeconds <= 0)
+        {
+            return InvariantResult.Unknown("INV-C20 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
+        double ratio = report.ValidDataDurationSeconds / report.OnlineDurationSeconds;
 
         bool isNormal = report.ReportedStatus.Equals("Normal", StringComparison.OrdinalIgnoreCase) ||
                         report.ReportedStatus.Equals("Healthy", StringComparison.OrdinalIgnoreCase) ||
@@ -612,7 +672,8 @@ public static class DataReliabilityInvariants
                     null,
                     null,
                     note,
-                    fallback);
+                    fallback,
+                    isWarning: false);
             }
         }
         else if (ratio < opt.CoverageYellowRatio)
@@ -621,15 +682,16 @@ public static class DataReliabilityInvariants
             if (isNormal)
             {
                 return InvariantResult.Failure(
-                    $"INV-C20 FAIL: 设备 {report.DeviceId} 覆盖率为 {ratio:P1} (< 黄线 {opt.CoverageYellowRatio:P0})，但报告状态为 '{report.ReportedStatus}' (必须报警告/黄线)",
-                    1,
+                    $"INV-C20 WARN: 设备 {report.DeviceId} 覆盖率为 {ratio:P1} (< 黄线 {opt.CoverageYellowRatio:P0})，但报告状态为 '{report.ReportedStatus}' (必须报警告/黄线)",
                     1,
                     0,
+                    1,
                     new[] { $"Device={report.DeviceId}: Coverage={ratio:P1}, ReportedStatus={report.ReportedStatus}" },
                     null,
                     null,
                     note,
-                    fallback);
+                    fallback,
+                    isWarning: true);
             }
         }
 
@@ -652,10 +714,16 @@ public static class DataReliabilityInvariants
     {
         var (opt, fallback, note) = InvariantOptions.Resolve(options);
 
+        var list = runs?.ToList() ?? new List<BackgroundTaskRun>();
+        if (list.Count == 0)
+        {
+            return InvariantResult.Unknown("INV-C21 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
         int totalViolations = 0;
         var samples = new List<string>();
 
-        foreach (var r in runs)
+        foreach (var r in list)
         {
             if (r.AvailableDataCount > 0 && r.OutputCount == 0)
             {
@@ -686,9 +754,11 @@ public static class DataReliabilityInvariants
 
     /// <summary>
     /// S11 (INV-M21): 状态语义自洽
-    /// 判据: failed_count = 0 的批次不得处于"失败"或"completed-with-errors"状态；非 completed 状态必须能解释（有 failed 或明确的 rejected 语义）。
-    /// 阈值: 语义不自洽行数 = 0。
-    /// 为什么是这个阈值: 正常业务去重导致被拒 (rejected) 不属于系统故障，混淆 rejected 和 failed 会导致报警风暴或排障误判。
+    /// 判据: 批次状态与其内部失败/拒绝计数必须逻辑自洽：
+    ///   1. failed_count = 0 的批次不得处于 failed / completed-with-errors 状态
+    ///   2. failed_count &gt; 0 的批次不得处于 completed 状态
+    /// 阈值: 违规批次数 = 0。
+    /// 为什么是这个阈值: 客户端条目级校验拒绝（如零时长过滤）被误当成整批失败，会导致质量面板误报同步失败并引导用户无意义重试。
     /// </summary>
     public static InvariantResult CheckS11_StatusSemantics(
         IEnumerable<BatchSyncStatusRecord> batches,
@@ -696,10 +766,16 @@ public static class DataReliabilityInvariants
     {
         var (opt, fallback, note) = InvariantOptions.Resolve(options);
 
+        var list = batches?.ToList() ?? new List<BatchSyncStatusRecord>();
+        if (list.Count == 0)
+        {
+            return InvariantResult.Unknown("INV-M21 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
         int totalViolations = 0;
         var samples = new List<string>();
 
-        foreach (var b in batches)
+        foreach (var b in list)
         {
             bool isFailedStatus = b.Status.Equals("failed", StringComparison.OrdinalIgnoreCase) ||
                                  b.Status.Equals("completed-with-errors", StringComparison.OrdinalIgnoreCase);
@@ -710,16 +786,25 @@ public static class DataReliabilityInvariants
                 totalViolations++;
                 if (samples.Count < opt.MaxSampleCount)
                 {
-                    samples.Add($"Batch={b.BatchId}: FailedCount=0, RejectedCount={b.RejectedCount} 但状态被标为 '{b.Status}' (应为 completed 或 rejected 语义)");
+                    samples.Add($"Batch={b.BatchId}: FailedCount=0 但状态被标为 '{b.Status}' (应为 completed 或 rejected 语义)");
                 }
             }
-            // 2. 有真正失败却标为 completed
+            // 2. 有失败却标为已完成
             else if (b.FailedCount > 0 && b.Status.Equals("completed", StringComparison.OrdinalIgnoreCase))
             {
                 totalViolations++;
                 if (samples.Count < opt.MaxSampleCount)
                 {
                     samples.Add($"Batch={b.BatchId}: FailedCount={b.FailedCount} > 0 但状态被标为 'completed'");
+                }
+            }
+            // 3. 处理计数全为 0 却标为已完成 (虚假完成 / 空转批次)
+            else if ((b.TotalCount == 0 || (b.AcceptedCount == 0 && b.FailedCount == 0 && b.RejectedCount == 0)) && b.Status.Equals("completed", StringComparison.OrdinalIgnoreCase))
+            {
+                totalViolations++;
+                if (samples.Count < opt.MaxSampleCount)
+                {
+                    samples.Add($"Batch={b.BatchId}: 处理计数为 0 (accepted=0, failed=0) 却被标为 'completed' (虚假完成/空转批次)");
                 }
             }
         }
@@ -742,10 +827,10 @@ public static class DataReliabilityInvariants
     }
 
     /// <summary>
-    /// S12 (INV-M22): 派生表在使用
+    /// S12 (INV-M22): 派生表在正常使用
     /// 判据: 派生表（时间线块、使用聚合）在最近数据上必须非空；若设计为在线计算，则不得保留空表（二选一，不允许含糊）。
     /// 阈值: 最近 24h 有源数据时，派生表行数 &gt; 0（或显式声明在线计算）。
-    /// 为什么是这个阈值: 存在死表或未初始化的空派生表会导致查询落入空表返回空白，或开发者误以为有预聚合而引发性能雪崩。
+    /// 为什么是这个阈值: 存在死表或未初始化的空派生表会导致查询落入空表返回空白，或开发者以为有预聚合而引发性能雪崩。
     /// </summary>
     public static InvariantResult CheckS12_DerivedTableActive(
         IEnumerable<DerivedTableStatus> tables,
@@ -753,10 +838,16 @@ public static class DataReliabilityInvariants
     {
         var (opt, fallback, note) = InvariantOptions.Resolve(options);
 
+        var list = tables?.ToList() ?? new List<DerivedTableStatus>();
+        if (list.Count == 0)
+        {
+            return InvariantResult.Unknown("INV-M22 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
         int totalViolations = 0;
         var samples = new List<string>();
 
-        foreach (var t in tables)
+        foreach (var t in list)
         {
             if (t.SourceDataCountLast24H > 0)
             {
@@ -800,7 +891,12 @@ public static class DataReliabilityInvariants
     {
         var (opt, fallback, note) = InvariantOptions.Resolve(options);
 
-        var list = heartbeats.ToList();
+        var list = heartbeats?.ToList() ?? new List<CollectionHeartbeat>();
+        if (list.Count == 0)
+        {
+            return InvariantResult.Unknown("INV-P22 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
         var groups = list.GroupBy(h => (h.DeviceId, Hour: new DateTime(h.Timestamp.Year, h.Timestamp.Month, h.Timestamp.Day, h.Timestamp.Hour, 0, 0, DateTimeKind.Utc)));
 
         int totalViolations = 0;

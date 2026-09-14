@@ -1,0 +1,123 @@
+{
+  "slot": "A5",
+  "wave": "wave005",
+  "nodes": [
+    {
+      "id": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs",
+      "label": "QuickNotesModule",
+      "path": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs.md",
+      "layer": "module.quicknotes",
+      "kind": "entrypoint"
+    },
+    {
+      "id": "src/modules/Pim.Module.Stats/Services/StatsService.cs",
+      "label": "StatsService",
+      "path": "src/modules/Pim.Module.Stats/Services/StatsService.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Stats/Services/StatsService.cs.md",
+      "layer": "module.stats",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.App/Services/Logger.cs",
+      "label": "Logger",
+      "path": "src/client-windows/Pim.Client.App/Services/Logger.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.App/Services/Logger.cs.md",
+      "layer": "client-windows",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs",
+      "label": "ApiClient",
+      "path": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/ApiClient.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Services/StatusCenterEvaluator.cs",
+      "label": "StatusCenterEvaluator",
+      "path": "src/client-windows/Pim.Client.Core/Services/StatusCenterEvaluator.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/StatusCenterEvaluator.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/api/operations.ts",
+      "label": "operations",
+      "path": "src/client-web/src/api/operations.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/api/operations.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/components/ai/AiRequestLogTable.tsx",
+      "label": "AiRequestLogTable",
+      "path": "src/client-web/src/components/ai/AiRequestLogTable.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/ai/AiRequestLogTable.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/LocationMetricStrip.tsx",
+      "label": "LocationMetricStrip",
+      "path": "src/client-web/src/components/mobile/LocationMetricStrip.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/LocationMetricStrip.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileChartsGrid.tsx",
+      "label": "MobileChartsGrid",
+      "path": "src/client-web/src/components/mobile/MobileChartsGrid.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileChartsGrid.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileUsageBucketDetail.tsx",
+      "label": "MobileUsageBucketDetail",
+      "path": "src/client-web/src/components/mobile/MobileUsageBucketDetail.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileUsageBucketDetail.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    }
+  ],
+  "edges": [
+    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/Pim.Core/Modules/IModule.cs", "type": "implements" },
+    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/MinioQuickNoteObjectStorage.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/NullQuickNoteObjectStorage.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs", "type": "depends_on" },
+    { "from": "src/Pim.Api/ModuleRegistry.cs", "to": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Stats/Services/StatsService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Stats/Services/StatsService.cs", "to": "src/modules/Pim.Module.Stats/Entities/AppUsageEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Stats/Services/StatsService.cs", "to": "src/modules/Pim.Module.Stats/DTOs/StatsDtos.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Stats/StatsModule.cs", "to": "src/modules/Pim.Module.Stats/Services/StatsService.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/Services/Logger.cs", "to": "Serilog", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/App.xaml.cs", "to": "src/client-windows/Pim.Client.App/Services/Logger.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/Startup.cs", "to": "src/client-windows/Pim.Client.App/Services/Logger.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "to": "src/client-windows/Pim.Client.Core/ClientDefaults.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "to": "src/client-windows/Pim.Client.Core/Models/EndpointDtos.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/AuthService.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "to": "System.Net.Http.HttpClient", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/StatusCenterEvaluator.cs", "type": "calls" },
+    { "from": "src/client-web/src/api/operations.ts", "to": "src/client-web/src/api/client.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/api/operations.ts", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/api/operations.ts", "to": "src/Pim.Api/Endpoints/OperationsEndpoints.cs", "type": "http" },
+    { "from": "src/client-web/src/components/ai/AiRequestLogTable.tsx", "to": "src/client-web/src/ui/StatusBadge", "type": "depends_on" },
+    { "from": "src/client-web/src/components/ai/AiRequestLogTable.tsx", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/LocationMetricStrip.tsx", "to": "src/client-web/src/components/mobile/MobileMetricGrid.tsx", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/LocationMetricStrip.tsx", "to": "src/client-web/src/components/mobile/locationFormatting.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/LocationMetricStrip.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileChartsGrid.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileChartsGrid.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileUsageBucketDetail.tsx", "to": "src/client-web/src/components/mobile/mobileHeatmapMatrix.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileUsageBucketDetail.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileUsageHeatmap.tsx", "to": "src/client-web/src/components/mobile/MobileUsageBucketDetail.tsx", "type": "calls" }
+  ]
+}

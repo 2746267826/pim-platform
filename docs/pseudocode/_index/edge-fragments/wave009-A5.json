@@ -1,0 +1,27 @@
+{
+  "slot": "A5",
+  "wave": "wave009",
+  "nodes": [
+    {
+      "id": "tests/Pim.UnitTests/Services/KeystatsDeltaCalculatorTests.cs",
+      "label": "KeystatsDeltaCalculatorTests",
+      "path": "tests/Pim.UnitTests/Services/KeystatsDeltaCalculatorTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/KeystatsDeltaCalculatorTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Today/TodaySectionServiceTests.cs",
+      "label": "TodaySectionServiceTests",
+      "path": "tests/Pim.UnitTests/Today/TodaySectionServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Today/TodaySectionServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "tests/Pim.UnitTests/Services/KeystatsDeltaCalculatorTests.cs", "to": "src/modules/Pim.Module.PcTracker/Services/KeystatsDeltaCalculator.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Today/TodaySectionServiceTests.cs", "to": "src/Pim.Api/Today/TodaySectionService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Today/TodaySectionServiceTests.cs", "to": "src/Pim.Api/Endpoints/TodayEndpoints.cs", "type": "tests" }
+  ]
+}

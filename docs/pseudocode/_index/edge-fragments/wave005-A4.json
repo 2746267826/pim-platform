@@ -1,0 +1,110 @@
+{
+  "slot": "A4",
+  "wave": "wave005",
+  "nodes": [
+    {
+      "id": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntityConfigurations.cs",
+      "label": "QuickNoteEntityConfigurations",
+      "path": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntityConfigurations.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntityConfigurations.cs.md",
+      "layer": "module.quicknotes",
+      "kind": "entity"
+    },
+    {
+      "id": "src/modules/Pim.Module.Stats/Entities/AppUsageEntityConfiguration.cs",
+      "label": "AppUsageEntityConfiguration",
+      "path": "src/modules/Pim.Module.Stats/Entities/AppUsageEntityConfiguration.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Stats/Entities/AppUsageEntityConfiguration.cs.md",
+      "layer": "module.stats",
+      "kind": "entity"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.App/Services/INavigationService.cs",
+      "label": "INavigationService",
+      "path": "src/client-windows/Pim.Client.App/Services/INavigationService.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.App/Services/INavigationService.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Models/KeyStatsHealthModels.cs",
+      "label": "KeyStatsHealthModels",
+      "path": "src/client-windows/Pim.Client.Core/Models/KeyStatsHealthModels.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Models/KeyStatsHealthModels.cs.md",
+      "layer": "client-windows",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Services/NotificationActionRouter.cs",
+      "label": "NotificationActionRouter",
+      "path": "src/client-windows/Pim.Client.Core/Services/NotificationActionRouter.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/NotificationActionRouter.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/api/mobile.ts",
+      "label": "mobile",
+      "path": "src/client-web/src/api/mobile.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/api/mobile.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/components/ai/AiRequestDetailPanel.tsx",
+      "label": "AiRequestDetailPanel",
+      "path": "src/client-web/src/components/ai/AiRequestDetailPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/ai/AiRequestDetailPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/LocationHistoryMap.tsx",
+      "label": "LocationHistoryMap",
+      "path": "src/client-web/src/components/mobile/LocationHistoryMap.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/LocationHistoryMap.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileAppRanking.tsx",
+      "label": "MobileAppRanking",
+      "path": "src/client-web/src/components/mobile/MobileAppRanking.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileAppRanking.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileTimelineBlocks.tsx",
+      "label": "MobileTimelineBlocks",
+      "path": "src/client-web/src/components/mobile/MobileTimelineBlocks.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileTimelineBlocks.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    }
+  ],
+  "edges": [
+    { "from": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntityConfigurations.cs", "to": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntityConfigurations.cs", "to": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntityConfigurations.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Stats/Entities/AppUsageEntityConfiguration.cs", "to": "src/modules/Pim.Module.Stats/Entities/AppUsageEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/modules/Pim.Module.Stats/Entities/AppUsageEntityConfiguration.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/Services/NavigationService.cs", "to": "src/client-windows/Pim.Client.App/Services/INavigationService.cs", "type": "implements" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs", "to": "src/client-windows/Pim.Client.Core/Models/KeyStatsHealthModels.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/KeyStatsProcessManager.cs", "to": "src/client-windows/Pim.Client.Core/Models/KeyStatsHealthModels.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/NotificationActionRouter.cs", "to": "src/client-windows/Pim.Client.Core/Services/NotificationActionRouter.cs", "type": "depends_on" },
+    { "from": "src/client-web/src/api/mobile.ts", "to": "src/client-web/src/api/client.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/api/mobile.ts", "to": "src/client-web/src/components/mobile/mobileAnalyticsCopy.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/api/mobile.ts", "to": "/mobile/*", "type": "http" },
+    { "from": "src/client-web/src/components/ai/AiRequestDetailPanel.tsx", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/components/ai/AiRequestDetailPanel.tsx", "to": "src/client-web/src/ui/MetricCard", "type": "depends_on" },
+    { "from": "src/client-web/src/components/ai/AiRequestDetailPanel.tsx", "to": "src/client-web/src/ui/StatusBadge", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/LocationHistoryMap.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/LocationHistoryMap.tsx", "to": "src/client-web/src/components/mobile/locationFormatting.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/LocationHistoryMap.tsx", "to": "src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/MobileAppRanking.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileAppRanking.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileTimelineBlocks.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileTimelineBlocks.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "depends_on" }
+  ]
+}

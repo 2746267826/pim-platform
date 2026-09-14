@@ -1,0 +1,254 @@
+{
+  "slot": "A9",
+  "wave": "wave006",
+  "nodes": [
+    {
+      "id": "src/client-web/src/components/pc-tracker/DateDimensionBar.tsx",
+      "label": "DateDimensionBar",
+      "path": "src/client-web/src/components/pc-tracker/DateDimensionBar.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/DateDimensionBar.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/quick-notes/QuickNoteEditor.tsx",
+      "label": "QuickNoteEditor",
+      "path": "src/client-web/src/components/quick-notes/QuickNoteEditor.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteEditor.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/schedule/StrictConfirmationPanel.tsx",
+      "label": "StrictConfirmationPanel",
+      "path": "src/client-web/src/components/schedule/StrictConfirmationPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/schedule/StrictConfirmationPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/today/TodaySectionHost.tsx",
+      "label": "TodaySectionHost",
+      "path": "src/client-web/src/components/today/TodaySectionHost.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/today/TodaySectionHost.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/AiSettingsPage.tsx",
+      "label": "AiSettingsPage",
+      "path": "src/client-web/src/pages/AiSettingsPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/AiSettingsPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/HabitsPage.tsx",
+      "label": "HabitsPage",
+      "path": "src/client-web/src/pages/HabitsPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/HabitsPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/SettingsPage.tsx",
+      "label": "SettingsPage",
+      "path": "src/client-web/src/pages/SettingsPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/SettingsPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/ui/EditorDrawer.tsx",
+      "label": "EditorDrawer",
+      "path": "src/client-web/src/ui/EditorDrawer.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/ui/EditorDrawer.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/androidTest/java/com/pim/app/AndroidInstrumentationSmokeTest.kt",
+      "label": "AndroidInstrumentationSmokeTest",
+      "path": "src/client-android/app/src/androidTest/java/com/pim/app/AndroidInstrumentationSmokeTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/androidTest/java/com/pim/app/AndroidInstrumentationSmokeTest.kt.md",
+      "layer": "client-android",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+      "label": "AnonymousProbeClient",
+      "path": "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt.md",
+      "layer": "client-android",
+      "kind": "entrypoint"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt",
+      "label": "AltitudeWaitCoordinator",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/quality/AltitudeWaitCoordinator.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt",
+      "label": "MobileHeartbeatReporter",
+      "path": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileHeartbeatReporter.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/client-web/src/components/pc-tracker/DateDimensionBar.tsx",
+      "to": "src/client-web/src/utils/pcBusinessDay.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/quick-notes/QuickNoteEditor.tsx",
+      "to": "src/client-web/src/api/quickNotes.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/quick-notes/QuickNoteEditor.tsx",
+      "to": "src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/schedule/StrictConfirmationPanel.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodaySectionHost.tsx",
+      "to": "src/client-web/src/api/today.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodaySectionHost.tsx",
+      "to": "src/client-web/src/components/today/TodayClassificationSuggestionsSection.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodaySectionHost.tsx",
+      "to": "src/client-web/src/components/today/TodayHealthSection.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodaySectionHost.tsx",
+      "to": "src/client-web/src/components/today/TodayPcOverview.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodaySectionHost.tsx",
+      "to": "src/client-web/src/components/today/TodayPcQualitySection.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodaySectionHost.tsx",
+      "to": "src/client-web/src/components/today/TodayScheduleList.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodaySectionHost.tsx",
+      "to": "src/client-web/src/components/today/TodayTaskColumn.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodaySectionHost.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodaySectionHost.tsx",
+      "to": "src/client-web/src/ui/EmptyState.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/AiSettingsPage.tsx",
+      "to": "src/client-web/src/api/ai.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/AiSettingsPage.tsx",
+      "to": "src/client-web/src/components/ai/AiRequestDetailPanel.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/AiSettingsPage.tsx",
+      "to": "src/client-web/src/components/ai/AiRequestLogTable.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/AiSettingsPage.tsx",
+      "to": "src/client-web/src/components/ai/AiStatusPanel.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/AiSettingsPage.tsx",
+      "to": "src/client-web/src/components/ai/AiUsageOverview.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/AiSettingsPage.tsx",
+      "to": "src/client-web/src/ui/PageHeader.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/HabitsPage.tsx",
+      "to": "src/client-web/src/api/calendar.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/HabitsPage.tsx",
+      "to": "src/client-web/src/components/schedule/HabitRoutineEditor.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/HabitsPage.tsx",
+      "to": "src/client-web/src/ui/PageHeader.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/HabitsPage.tsx",
+      "to": "src/client-web/src/ui/SegmentedControl.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/SettingsPage.tsx",
+      "to": "src/client-web/src/ui/PageHeader.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/settings/TrackingSettingsStore.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeService.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/di/AppModule.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/status/ConnectionProbeStore.kt",
+      "type": "depends_on"
+    }
+  ]
+}

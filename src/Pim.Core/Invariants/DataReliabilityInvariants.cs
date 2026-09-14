@@ -793,7 +793,7 @@ public static class DataReliabilityInvariants
                 ? string.Join("; ", report.GapBreakdown)
                 : "无细化时段";
 
-            string msg = $"INV-C20 UNKNOWN: 口径近似 / 数据源不足: {report.DenominatorBasisNote ?? "缺失历史心跳序列与离线声明日志，分母无法准确界定设备在线区间"} (若按基准窗口推算覆盖率约为 {rawRatio:P1}: 分子 {report.ValidDataDurationSeconds:F0}s, 分母 {report.OnlineDurationSeconds:F0}s; 缺口时段: {gapDetails})";
+            string msg = $"INV-C20 UNKNOWN: 口径近似 / 数据源不足: {report.DenominatorBasisNote ?? "缺失历史心跳序列与离线声明日志，分母无法准确界定设备在线区间"} (若按基准窗口推算覆盖率约为 {(rawRatio * 100.0):F1}%: 分子 {report.ValidDataDurationSeconds:F0}s, 分母 {report.OnlineDurationSeconds:F0}s; 缺口时段: {gapDetails})";
             return InvariantResult.Unknown(msg, note, fallback);
         }
 

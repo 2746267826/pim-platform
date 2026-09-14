@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Threading.Channels;
 using Pim.Client.Core.Models;
+using Pim.Client.Core.Utils;
 
 namespace Pim.Client.Core.Services;
 
@@ -14,6 +15,7 @@ public sealed class NativeTrackerService : IDisposable
     private readonly IIdleDetector _idleDetector;
     private readonly BrowserBridgeService _bridge;
     private readonly TrackerSessionManager _sessionManager;
+    private readonly TrackerStateManager _stateManager;
     private readonly TrackerLogger _logger;
     private readonly CancellationTokenSource _cts = new();
     private readonly Channel<TrackerWindowInfo> _windowChannel = Channel.CreateUnbounded<TrackerWindowInfo>();
@@ -24,6 +26,7 @@ public sealed class NativeTrackerService : IDisposable
     private long _uploadFailures;
     private string? _lastError;
     private bool _hookActive = true;
+    private bool _running;
     private Task? _pollTask;
     private Task? _hookTask;
     private Task? _uploadTask;
@@ -31,6 +34,7 @@ public sealed class NativeTrackerService : IDisposable
     private Task? _browserTask;
     private DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
     private DateTimeOffset _lastPollTime = DateTimeOffset.UtcNow;
+    private DateTimeOffset _lastEmittedEventEnd = DateTimeOffset.MinValue;
     private TrackerWindowInfo? _lastWindow;
     private IntPtr _hookHandle = IntPtr.Zero;
     private IntPtr _hookHandle2 = IntPtr.Zero;
@@ -63,7 +67,8 @@ public sealed class NativeTrackerService : IDisposable
         IWindowResolver? windowResolver = null,
         IIdleDetector? idleDetector = null,
         BrowserBridgeService? bridge = null,
-        TrackerLogger? logger = null)
+        TrackerLogger? logger = null,
+        TrackerStateManager? stateManager = null)
     {
         _api = api;
         _config = config ?? new TrackerConfig();
@@ -71,20 +76,39 @@ public sealed class NativeTrackerService : IDisposable
         _idleDetector = idleDetector ?? new WindowsIdleDetector();
         _logger = logger ?? new TrackerLogger(_config.LogRetentionDays);
         _bridge = bridge ?? new BrowserBridgeService(_config.BrowserBridgePort, _logger);
+        _stateManager = stateManager ?? new TrackerStateManager();
         _sessionManager = new TrackerSessionManager(_config, _logger);
         _sessionManager.SessionClosed += OnSessionClosed;
     }
 
     public void Start()
     {
-        if (!_config.Enabled)
+        if (!_config.Enabled || _running)
         {
-            _logger.Info("Tracker", "Tracker disabled via config");
+            if (!_config.Enabled) _logger.Info("Tracker", "Tracker disabled via config");
             return;
         }
 
-        _startedAt = DateTimeOffset.UtcNow;
-        _lastPollTime = _startedAt;
+        _running = true;
+        var now = DateTimeOffset.UtcNow;
+        _startedAt = now;
+
+        // Startup gap detection: check if there is an unrecorded offline gap since last daemon exit/shutdown
+        var persisted = _stateManager.LoadState();
+        if (persisted?.LastPollTime is not null)
+        {
+            var offlineDuration = now - persisted.LastPollTime.Value;
+            if (offlineDuration.TotalSeconds > _config.GapThresholdSeconds)
+            {
+                _logger.Info("Tracker", $"Offline gap detected on startup: {offlineDuration.TotalSeconds:F1}s since last exit");
+                _sessionManager.HandleGap(persisted.LastPollTime.Value, now);
+                EnqueueGapChunks(persisted.LastPollTime.Value, now, isStartup: true);
+            }
+        }
+
+        _lastPollTime = now;
+        _stateManager.SaveState(now, now, Environment.MachineName);
+
         _logger.Info("Tracker", $"Starting NativeTrackerService poll={_config.PollIntervalSeconds}s idle={_config.IdleThresholdSeconds}s gap={_config.GapThresholdSeconds}s port={_config.BrowserBridgePort}");
 
         try { _bridge.Start(); _logger.Info("Tracker", "BrowserBridge started"); } catch (Exception ex) { _logger.Error("Tracker", "BrowserBridge failed to start", ex); }
@@ -98,28 +122,200 @@ public sealed class NativeTrackerService : IDisposable
         _logger.Info("Tracker", "NativeTrackerService started");
     }
 
-    public void Stop()
+    public async Task StopAsync(TimeSpan timeout, CancellationToken ct = default)
     {
-        _cts.Cancel();
-        _bridge.Stop();
+        if (!_running) return;
+        _running = false;
+
         var now = DateTimeOffset.UtcNow;
         _sessionManager.CloseCurrent(now);
+        _stateManager.SaveState(now, now, Environment.MachineName);
+
+        try
+        {
+            await FlushQueueAsync(timeout, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn("Tracker", $"Flush on stop failed: {ex.Message}");
+        }
+
+        try { _cts.Cancel(); } catch { }
+        _bridge.Stop();
         _logger.Info("Tracker", "NativeTrackerService stopped");
+    }
+
+    public void Stop()
+    {
+        try
+        {
+            StopAsync(TimeSpan.FromSeconds(3)).GetAwaiter().GetResult();
+        }
+        catch
+        {
+            try { _sessionManager.CloseCurrent(DateTimeOffset.UtcNow); } catch { }
+            try { _cts.Cancel(); } catch { }
+            try { _bridge.Stop(); } catch { }
+        }
+    }
+
+    public void HandleSuspend()
+    {
+        _logger.Info("Tracker", "Suspend signal received, closing current session and flushing");
+        var now = DateTimeOffset.UtcNow;
+        _sessionManager.CloseCurrent(now);
+        _stateManager.SaveState(now, now, Environment.MachineName);
+        try
+        {
+            FlushQueueAsync(TimeSpan.FromSeconds(2)).GetAwaiter().GetResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn("Tracker", $"Suspend flush failed: {ex.Message}");
+        }
+    }
+
+    public void HandleResume()
+    {
+        var now = DateTimeOffset.UtcNow;
+        _logger.Info("Tracker", $"Resume signal received at {now:O}");
+        var persisted = _stateManager.LoadState();
+        if (persisted?.LastPollTime is not null)
+        {
+            var elapsed = now - persisted.LastPollTime.Value;
+            if (elapsed.TotalSeconds > _config.GapThresholdSeconds)
+            {
+                _sessionManager.HandleGap(persisted.LastPollTime.Value, now);
+                EnqueueGapChunks(persisted.LastPollTime.Value, now, isStartup: false);
+            }
+        }
+        _lastPollTime = now;
+        _stateManager.SaveState(now, now, Environment.MachineName);
+    }
+
+    public async Task FlushQueueAsync(TimeSpan timeout, CancellationToken ct = default)
+    {
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        linkedCts.CancelAfter(timeout);
+
+        while (!_uploadQueue.IsEmpty && !linkedCts.IsCancellationRequested)
+        {
+            var batch = new List<TrackerEventForUpload>();
+            while (batch.Count < _config.UploadBatchSize && _uploadQueue.TryDequeue(out var ev))
+            {
+                batch.Add(ev);
+            }
+
+            if (batch.Count == 0) break;
+
+            var req = new TrackerEventsUploadRequest
+            {
+                DeviceId = Environment.MachineName,
+                Events = batch
+            };
+
+            try
+            {
+                var resp = await _api.PostAsync<ApiResponse<int>>("/pc/tracker/upload", req, linkedCts.Token).ConfigureAwait(false);
+                if (resp is not null)
+                {
+                    lock (_statsLock)
+                    {
+                        _eventsUploaded += batch.Count;
+                        _lastError = null;
+                    }
+                }
+                else
+                {
+                    lock (_statsLock)
+                    {
+                        _uploadFailures++;
+                        _lastError = "Flush upload returned null";
+                    }
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                lock (_statsLock)
+                {
+                    _uploadFailures++;
+                    _lastError = ex.Message;
+                }
+                break;
+            }
+        }
     }
 
     private void OnSessionClosed(TrackerSession session)
     {
         var evs = SessionToEvents(session, session.EndedAt ?? DateTimeOffset.UtcNow);
         foreach (var e in evs)
-            _uploadQueue.Enqueue(e);
+        {
+            EnqueueEventSafely(e);
+        }
     }
 
-    private List<TrackerEventForUpload> SessionToEvents(TrackerSession session, DateTimeOffset endedAt)
+    private void EnqueueEventSafely(TrackerEventForUpload ev)
+    {
+        if (DateTimeOffset.TryParse(ev.Timestamp, out var ts))
+        {
+            if (_lastEmittedEventEnd != DateTimeOffset.MinValue && ts < _lastEmittedEventEnd)
+            {
+                var overlap = (_lastEmittedEventEnd - ts).TotalSeconds;
+                if (overlap > 0 && overlap < 0.5)
+                {
+                    ev.Timestamp = _lastEmittedEventEnd.ToString("O");
+                    ev.Duration -= overlap;
+                    if (ev.Duration <= 0) return;
+                }
+            }
+
+            var parsedStart = DateTimeOffset.Parse(ev.Timestamp);
+            var end = parsedStart.AddSeconds(ev.Duration);
+            if (end > _lastEmittedEventEnd)
+            {
+                _lastEmittedEventEnd = end;
+            }
+        }
+        _uploadQueue.Enqueue(ev);
+    }
+
+    private void EnqueueGapChunks(DateTimeOffset gapStart, DateTimeOffset gapEnd, bool isStartup)
+    {
+        var cur = gapStart;
+        while (cur < gapEnd)
+        {
+            var nextDayBoundary = BusinessDayUtils.GetNextBusinessDayStart(cur);
+            var chunkEnd = gapEnd;
+            if (chunkEnd > nextDayBoundary)
+                chunkEnd = nextDayBoundary;
+            if ((chunkEnd - cur).TotalSeconds > 1800)
+                chunkEnd = cur.AddSeconds(1800);
+
+            var segDuration = (chunkEnd - cur).TotalSeconds;
+            if (segDuration > 0)
+            {
+                EnqueueEventSafely(new TrackerEventForUpload
+                {
+                    Timestamp = cur.ToString("O"),
+                    Duration = segDuration,
+                    EventType = "gap",
+                    IsIdle = false,
+                    IsMediaActive = false,
+                    Date = BusinessDayUtils.GetBusinessDateString(cur),
+                    RawJson = new { gapStart = cur, gapEnd = chunkEnd, isStartup }
+                });
+            }
+            cur = chunkEnd;
+        }
+    }
+
+    public List<TrackerEventForUpload> SessionToEvents(TrackerSession session, DateTimeOffset endedAt)
     {
         var duration = session.DurationSecs ?? (endedAt - session.StartedAt).TotalSeconds;
         if (duration <= 0) return new List<TrackerEventForUpload>();
 
-        var eventType = session.IsIdle ? "idle" : "window";
         // Idle sessions are single event
         if (session.IsIdle)
         {
@@ -136,72 +332,136 @@ public sealed class NativeTrackerService : IDisposable
                     WindowTitle = session.WindowTitle,
                     IsIdle = true,
                     IsMediaActive = session.IsMediaActive,
-                    Date = session.Date,
+                    Date = BusinessDayUtils.GetBusinessDateString(session.StartedAt),
                     RawJson = new { sessionId = session.Id, isIdle = true }
                 }
             };
         }
 
-        // Normal window session: may have page visits with URLs
-        // We create one window event covering whole session, plus page_visit info aggregated?
-        // Spec says page_visit_count and page_visit_duration aggregate short visits
-        var pageVisitCount = session.PageVisits.Count;
-        var pageVisitDuration = session.PageVisits.Sum(v => v.DurationSecs ?? 0);
-
-        // Snapshot the latest heartbeat once per batch so all events in this
-        // session share the same browser/instanceId attribution.
         var hbForWindow = _bridge.LastHeartbeat;
-        var list = new List<TrackerEventForUpload>
-        {
-            new TrackerEventForUpload
-            {
-                Timestamp = session.StartedAt.ToString("O"),
-                Duration = duration,
-                EventType = "window",
-                ExePath = session.ExePath,
-                AppName = session.AppName,
-                DisplayName = session.AppName,
-                WindowTitle = session.WindowTitle,
-                CommandLine = null,
-                IsIdle = false,
-                IsMediaActive = session.IsMediaActive,
-                Date = session.Date,
-                RawJson = new { sessionId = session.Id, pageVisits = session.PageVisits },
-                PageVisitCount = pageVisitCount,
-                PageVisitDuration = pageVisitDuration,
-                Browser = hbForWindow?.Browser,
-                InstanceId = hbForWindow?.InstanceId
-            }
-        };
+        var validVisits = session.PageVisits
+            .Where(p => !string.IsNullOrWhiteSpace(p.Url) && (p.DurationSecs ?? 0) > 0)
+            .OrderBy(p => p.StartedAt)
+            .ToList();
 
-        // If session has browser page visits with URLs, emit web-page events per distinct domain visit?
-        // Simplified: each page visit with URL becomes a web-page event
-        foreach (var pv in session.PageVisits.Where(p => !string.IsNullOrWhiteSpace(p.Url)))
+        if (validVisits.Count == 0)
         {
-            var pvDuration = pv.DurationSecs ?? 0;
-            if (pvDuration <= 0) continue;
-            list.Add(new TrackerEventForUpload
+            // Non-browser or browser without recorded page visits: single window event
+            return new List<TrackerEventForUpload>
             {
-                Timestamp = pv.StartedAt.ToString("O"),
-                Duration = pvDuration,
-                EventType = "web-page",
-                ExePath = session.ExePath,
-                AppName = session.AppName,
-                DisplayName = pv.Domain ?? session.AppName,
-                WindowTitle = pv.WindowTitle,
-                Url = pv.Url,
-                Domain = pv.Domain,
-                PagePath = null,
-                Audible = hbForWindow?.Audible,
-                Incognito = hbForWindow?.Incognito,
-                TabCount = hbForWindow?.TabCount,
-                IsIdle = false,
-                IsMediaActive = false,
-                Date = pv.StartedAt.ToString("yyyy-MM-dd"),
-                RawJson = new { sessionId = session.Id, pageVisit = pv },
-                Browser = hbForWindow?.Browser,
-                InstanceId = hbForWindow?.InstanceId
-            });
+                new TrackerEventForUpload
+                {
+                    Timestamp = session.StartedAt.ToString("O"),
+                    Duration = duration,
+                    EventType = "window",
+                    ExePath = session.ExePath,
+                    AppName = session.AppName,
+                    DisplayName = session.AppName,
+                    WindowTitle = session.WindowTitle,
+                    CommandLine = null,
+                    IsIdle = false,
+                    IsMediaActive = session.IsMediaActive,
+                    Date = BusinessDayUtils.GetBusinessDateString(session.StartedAt),
+                    RawJson = new { sessionId = session.Id },
+                    PageVisitCount = 0,
+                    PageVisitDuration = 0,
+                    Browser = hbForWindow?.Browser,
+                    InstanceId = hbForWindow?.InstanceId
+                }
+            };
+        }
+
+        // Decompose browser session into non-overlapping segments (window and web-page)
+        var list = new List<TrackerEventForUpload>();
+        var cur = session.StartedAt;
+
+        foreach (var pv in validVisits)
+        {
+            var pvStart = pv.StartedAt;
+            var pvEnd = pv.EndedAt ?? pvStart.AddSeconds(pv.DurationSecs ?? 0);
+            if (pvEnd > endedAt) pvEnd = endedAt;
+
+            // Gap before this page visit
+            if (pvStart > cur)
+            {
+                var gapDur = (pvStart - cur).TotalSeconds;
+                if (gapDur >= 0.05)
+                {
+                    list.Add(new TrackerEventForUpload
+                    {
+                        Timestamp = cur.ToString("O"),
+                        Duration = gapDur,
+                        EventType = "window",
+                        ExePath = session.ExePath,
+                        AppName = session.AppName,
+                        DisplayName = session.AppName,
+                        WindowTitle = session.WindowTitle,
+                        IsIdle = false,
+                        IsMediaActive = session.IsMediaActive,
+                        Date = BusinessDayUtils.GetBusinessDateString(cur),
+                        RawJson = new { sessionId = session.Id },
+                        Browser = hbForWindow?.Browser,
+                        InstanceId = hbForWindow?.InstanceId
+                    });
+                }
+            }
+
+            // The page visit event itself
+            var visitStart = pvStart > cur ? pvStart : cur;
+            var visitDur = (pvEnd - visitStart).TotalSeconds;
+            if (visitDur >= 0.05)
+            {
+                list.Add(new TrackerEventForUpload
+                {
+                    Timestamp = visitStart.ToString("O"),
+                    Duration = visitDur,
+                    EventType = "web-page",
+                    ExePath = session.ExePath,
+                    AppName = session.AppName,
+                    DisplayName = pv.Domain ?? session.AppName,
+                    WindowTitle = pv.WindowTitle ?? session.WindowTitle,
+                    Url = pv.Url,
+                    Domain = pv.Domain,
+                    PagePath = null,
+                    Audible = hbForWindow?.Audible,
+                    Incognito = hbForWindow?.Incognito,
+                    TabCount = hbForWindow?.TabCount,
+                    IsIdle = false,
+                    IsMediaActive = false,
+                    Date = BusinessDayUtils.GetBusinessDateString(visitStart),
+                    RawJson = new { sessionId = session.Id, pageVisit = pv },
+                    Browser = hbForWindow?.Browser,
+                    InstanceId = hbForWindow?.InstanceId
+                });
+            }
+
+            if (pvEnd > cur)
+                cur = pvEnd;
+        }
+
+        // Tail segment after last page visit
+        if (cur < endedAt)
+        {
+            var tailDur = (endedAt - cur).TotalSeconds;
+            if (tailDur >= 0.05)
+            {
+                list.Add(new TrackerEventForUpload
+                {
+                    Timestamp = cur.ToString("O"),
+                    Duration = tailDur,
+                    EventType = "window",
+                    ExePath = session.ExePath,
+                    AppName = session.AppName,
+                    DisplayName = session.AppName,
+                    WindowTitle = session.WindowTitle,
+                    IsIdle = false,
+                    IsMediaActive = session.IsMediaActive,
+                    Date = BusinessDayUtils.GetBusinessDateString(cur),
+                    RawJson = new { sessionId = session.Id },
+                    Browser = hbForWindow?.Browser,
+                    InstanceId = hbForWindow?.InstanceId
+                });
+            }
         }
 
         return list;
@@ -211,7 +471,7 @@ public sealed class NativeTrackerService : IDisposable
     {
         var interval = TimeSpan.FromSeconds(_config.PollIntervalSeconds);
         using var timer = new PeriodicTimer(interval);
-        // Initial check
+
         await DoPollAsync(ct).ConfigureAwait(false);
 
         while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
@@ -220,7 +480,7 @@ public sealed class NativeTrackerService : IDisposable
         }
     }
 
-    private Task DoPollAsync(CancellationToken ct)
+    public Task DoPollAsync(CancellationToken ct = default)
     {
         try
         {
@@ -231,32 +491,22 @@ public sealed class NativeTrackerService : IDisposable
             {
                 _logger.Info("Tracker", $"Gap detected: {elapsed.TotalSeconds:F1}s since last poll");
                 _sessionManager.HandleGap(_lastPollTime, now);
-                // Emit gap event
-                _uploadQueue.Enqueue(new TrackerEventForUpload
-                {
-                    Timestamp = _lastPollTime.ToString("O"),
-                    Duration = elapsed.TotalSeconds,
-                    EventType = "gap",
-                    IsIdle = false,
-                    IsMediaActive = false,
-                    Date = _lastPollTime.ToString("yyyy-MM-dd"),
-                    RawJson = new { gapStart = _lastPollTime, gapEnd = now }
-                });
+                EnqueueGapChunks(_lastPollTime, now, isStartup: false);
             }
             _lastPollTime = now;
             lock (_statsLock) _pollCount++;
+            _stateManager.SaveState(now, now, Environment.MachineName);
 
-            // Idle detection
-            var idleDuration = _idleDetector.GetIdleDuration();
+            // Screen-off & Idle detection
             var isScreenOff = _idleDetector.IsScreenOff();
+            var idleDuration = _idleDetector.GetIdleDuration();
             if (isScreenOff)
             {
                 if (!_sessionManager.IsIdle)
-                    _sessionManager.HandleIdleStarted(now, idleDuration);
+                    _sessionManager.HandleScreenOff(now);
             }
             else if (idleDuration.TotalSeconds > _config.IdleThresholdSeconds)
             {
-                // Check media active: if browser active + audible, extend threshold x3
                 var effectiveThreshold = _config.IdleThresholdSeconds;
                 if (_sessionManager.IsBrowserMediaActive)
                     effectiveThreshold *= 3;
@@ -267,43 +517,32 @@ public sealed class NativeTrackerService : IDisposable
                         _sessionManager.HandleIdleStarted(now, idleDuration);
                 }
             }
-            else
+            else if (_sessionManager.IsIdle)
             {
-                if (_sessionManager.IsIdle)
-                {
-                    var window = _windowResolver.GetForegroundWindowInfo();
-                    _sessionManager.HandleIdleEnded(now, window);
-                }
+                var win = _windowResolver.GetForegroundWindowInfo();
+                _sessionManager.HandleIdleEnded(now, win);
             }
 
-            // Window tracking (if not idle)
+            // Window resolution: check foreground window and checkpoint if long-running
             if (!_sessionManager.IsIdle)
             {
                 var window = _windowResolver.GetForegroundWindowInfo();
                 if (window is not null)
                 {
-                    // Debounce: if same as last, skip but still check title?
-                    bool shouldProcess = true;
-                    if (_lastWindow is not null && _lastWindow.Hwnd == window.Hwnd && _lastWindow.AppName == window.AppName && _lastWindow.WindowTitle == window.WindowTitle)
-                    {
-                        // No change, avoid noisy duplicate processing polling vs hook
-                        // But we still have Cooldown: don't skip entirely, but mark no change
-                        // To avoid duplicate Hook event handling, we skip if recently processed via hook
-                        // For simplicity allow poll to skip if window unchanged
-                        shouldProcess = false;
-                    }
-
-                    if (shouldProcess)
+                    if (_lastWindow is null
+                        || !string.Equals(_lastWindow.AppName, window.AppName, StringComparison.OrdinalIgnoreCase)
+                        || !string.Equals(_lastWindow.WindowTitle, window.WindowTitle, StringComparison.Ordinal))
                     {
                         _sessionManager.HandleWindowChange(window, now);
                         _lastWindow = window;
                         _logger.Debug("Tracker", $"Poll window: {window.AppName} title={window.WindowTitle}");
                     }
+                    else
+                    {
+                        _sessionManager.CheckpointIfNeeded(now, window);
+                    }
                 }
             }
-
-            // Hook health: if we haven't received hook event in a while, ensure poll covers
-            // (hook loop sets _hookActive separately)
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
@@ -315,7 +554,6 @@ public sealed class NativeTrackerService : IDisposable
 
     private async Task HookLoopAsync(CancellationToken ct)
     {
-        // Hook using SetWinEventHook on Windows; fallback to no-op on other platforms or failure
         if (!OperatingSystem.IsWindows())
         {
             _logger.Warn("Tracker", "Hook not supported on non-Windows, using poll-only mode");
@@ -326,15 +564,9 @@ public sealed class NativeTrackerService : IDisposable
         try
         {
             _logger.Info("Tracker", "Registering Win32 hooks EVENT_SYSTEM_FOREGROUND and EVENT_OBJECT_NAMECHANGE");
-            // P/Invoke setup simplified: use Win32 Hook in separate thread with message loop
-            // For cross-platform testability, we simulate via polling fallback but mark hook active if succeeds
-            // Real implementation would call SetWinEventHook; we abstract via try/catch
-
-            // Hold delegate to prevent GC
             _hookCallback = OnWinEvent;
-            // Attempt to register hook; if fails, fallback
-            var hook1 = Win32Hook.TryRegister(0x0003, 0x0003, _hookCallback); // EVENT_SYSTEM_FOREGROUND
-            var hook2 = Win32Hook.TryRegister(0x800C, 0x800C, _hookCallback); // EVENT_OBJECT_NAMECHANGE
+            var hook1 = Win32Hook.TryRegister(0x0003, 0x0003, _hookCallback);
+            var hook2 = Win32Hook.TryRegister(0x800C, 0x800C, _hookCallback);
 
             if (hook1 == IntPtr.Zero && hook2 == IntPtr.Zero)
             {
@@ -348,12 +580,10 @@ public sealed class NativeTrackerService : IDisposable
             lock (_statsLock) _hookActive = true;
             _logger.Info("Tracker", $"Hook registered successfully h1={hook1} h2={hook2}");
 
-            // Message loop
             while (!ct.IsCancellationRequested)
             {
                 Win32Hook.PumpMessages(100);
                 await Task.Delay(100, ct).ConfigureAwait(false);
-                // Hook health check: if hook lost (Win32Hook.IsLost), log warn and keep polling
             }
         }
         catch (OperationCanceledException) { }
@@ -426,7 +656,6 @@ public sealed class NativeTrackerService : IDisposable
                 {
                     lock (_statsLock) { _uploadFailures++; _lastError = "Upload returned null response"; }
                     _logger.Warn("Tracker", "Upload returned null response");
-                    // Re-queue for retry (simple: push back)
                     foreach (var ev in batch) _uploadQueue.Enqueue(ev);
                     batch = null;
                 }
@@ -452,7 +681,7 @@ public sealed class NativeTrackerService : IDisposable
             catch (Exception ex)
             {
                 lock (_statsLock) { _uploadFailures++; _lastError = ex.Message; }
-                _logger.Error("Tracker", $"Upload error: {ex.Message}", ex);
+                _logger.Error("Tracker", "Upload loop error", ex);
                 if (batch is not null)
                 {
                     foreach (var ev in batch) _uploadQueue.Enqueue(ev);
@@ -466,7 +695,7 @@ public sealed class NativeTrackerService : IDisposable
     {
         var interval = TimeSpan.FromSeconds(_config.HealthReportIntervalSeconds);
         using var timer = new PeriodicTimer(interval);
-        await Task.Delay(interval, ct).ConfigureAwait(false);
+
         while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
         {
             try
@@ -474,7 +703,7 @@ public sealed class NativeTrackerService : IDisposable
                 var req = new TrackerHealthRequest
                 {
                     DeviceId = Environment.MachineName,
-                    Status = _lastError is null ? "running" : "degraded",
+                    Status = "running",
                     UptimeSeconds = (DateTimeOffset.UtcNow - _startedAt).TotalSeconds,
                     HookActive = HookActive,
                     PollCount = PollCount,
@@ -514,13 +743,12 @@ public sealed class NativeTrackerService : IDisposable
 
     public void Dispose()
     {
-        try { _cts.Cancel(); } catch { }
+        try { Stop(); } catch { }
         _cts.Dispose();
         _bridge.Dispose();
         _logger.Dispose();
     }
 
-    // Minimal Win32 hook abstraction for compilation on non-Windows
     private static class Win32Hook
     {
         public static IntPtr TryRegister(uint eventMin, uint eventMax, WinEventProc proc)

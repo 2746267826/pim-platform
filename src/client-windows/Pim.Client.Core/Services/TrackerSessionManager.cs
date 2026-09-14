@@ -1,4 +1,5 @@
 using Pim.Client.Core.Models;
+using Pim.Client.Core.Utils;
 
 namespace Pim.Client.Core.Services;
 
@@ -14,11 +15,14 @@ public enum TrackerEventType
 
 public sealed class TrackerSessionManager
 {
+    public const int MaxContinuousSessionSeconds = 1800; // 30 minutes checkpoint (Rule T1b)
+
     private static long _globalId;
     private readonly TrackerLogger? _logger;
     private TrackerSession? _current;
     private BrowserHeartbeat? _lastHeartbeat;
     private DateTimeOffset _lastHeartbeatTime = DateTimeOffset.MinValue;
+    private DateTimeOffset? _lastEventEndTime;
     private readonly TrackerConfig _config;
     private readonly object _lock = new();
 
@@ -38,10 +42,50 @@ public sealed class TrackerSessionManager
 
     public void UpdateBrowserHeartbeat(BrowserHeartbeat hb)
     {
+        var now = DateTimeOffset.UtcNow;
         lock (_lock)
         {
             _lastHeartbeat = hb;
-            _lastHeartbeatTime = DateTimeOffset.UtcNow;
+            _lastHeartbeatTime = now;
+
+            if (_current != null && !_current.IsIdle && IsBrowserApp(_current.AppName) && !string.IsNullOrWhiteSpace(hb.Url))
+            {
+                if (_current.PageVisits.Count == 0)
+                {
+                    _current.PageVisits.Add(new TrackerPageVisit
+                    {
+                        Id = System.Threading.Interlocked.Increment(ref _globalId),
+                        SessionId = _current.Id,
+                        WindowTitle = hb.Title ?? _current.WindowTitle,
+                        Url = hb.Url,
+                        Domain = hb.Domain,
+                        StartedAt = _current.StartedAt
+                    });
+                }
+                else
+                {
+                    var last = _current.PageVisits[^1];
+                    if (!string.Equals(last.Url, hb.Url, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (last.EndedAt is null)
+                        {
+                            last.EndedAt = now;
+                            last.DurationSecs = (now - last.StartedAt).TotalSeconds;
+                            if (last.DurationSecs < 0) last.DurationSecs = 0;
+                        }
+
+                        _current.PageVisits.Add(new TrackerPageVisit
+                        {
+                            Id = System.Threading.Interlocked.Increment(ref _globalId),
+                            SessionId = _current.Id,
+                            WindowTitle = hb.Title ?? _current.WindowTitle,
+                            Url = hb.Url,
+                            Domain = hb.Domain,
+                            StartedAt = now
+                        });
+                    }
+                }
+            }
         }
         _logger?.Debug("SessionManager", $"Browser heartbeat: {hb.Domain} audible={hb.Audible}");
     }
@@ -111,6 +155,8 @@ public sealed class TrackerSessionManager
 
                 var visit = new TrackerPageVisit
                 {
+                    Id = System.Threading.Interlocked.Increment(ref _globalId),
+                    SessionId = _current.Id,
                     WindowTitle = window.WindowTitle,
                     Url = _lastHeartbeat?.Url,
                     Domain = _lastHeartbeat?.Domain,
@@ -140,6 +186,16 @@ public sealed class TrackerSessionManager
             var grace = TimeSpan.FromSeconds(_config.IdleThresholdSeconds);
             var idleStart = now - grace;
 
+            // Clamp idleStart so it NEVER backtracks into previous events or gaps
+            if (_lastEventEndTime.HasValue && idleStart < _lastEventEndTime.Value)
+            {
+                idleStart = _lastEventEndTime.Value;
+            }
+            if (_current != null && idleStart < _current.StartedAt)
+            {
+                idleStart = _current.StartedAt;
+            }
+
             _isIdle = true;
             closed = CloseCurrentLocked(idleStart);
             _current = new TrackerSession
@@ -154,7 +210,46 @@ public sealed class TrackerSessionManager
                 IsMediaActive = IsBrowserMediaActive
             };
             _sessionsCreated++;
+            _lastEventEndTime = idleStart;
             _logger?.Info("SessionManager", $"Idle started at {idleStart:O} (grace {grace.TotalSeconds}s), duration {idleDuration.TotalSeconds}s");
+        }
+        if (closed is not null) RaiseSessionClosed(closed);
+        return closed;
+    }
+
+    public TrackerSession? HandleScreenOff(DateTimeOffset now)
+    {
+        TrackerSession? closed = null;
+        lock (_lock)
+        {
+            if (_isIdle) return null;
+
+            var idleStart = now;
+            if (_lastEventEndTime.HasValue && idleStart < _lastEventEndTime.Value)
+            {
+                idleStart = _lastEventEndTime.Value;
+            }
+            if (_current != null && idleStart < _current.StartedAt)
+            {
+                idleStart = _current.StartedAt;
+            }
+
+            _isIdle = true;
+            closed = CloseCurrentLocked(idleStart);
+            _current = new TrackerSession
+            {
+                Id = System.Threading.Interlocked.Increment(ref _globalId),
+                DeviceId = Environment.MachineName,
+                ExePath = "__IDLE__",
+                AppName = "__IDLE__",
+                WindowTitle = "ScreenOff",
+                StartedAt = idleStart,
+                IsIdle = true,
+                IsMediaActive = false
+            };
+            _sessionsCreated++;
+            _lastEventEndTime = idleStart;
+            _logger?.Info("SessionManager", $"Screen off detected, idle started at {idleStart:O}");
         }
         if (closed is not null) RaiseSessionClosed(closed);
         return closed;
@@ -184,6 +279,67 @@ public sealed class TrackerSessionManager
         return closed;
     }
 
+    public TrackerSession? CheckpointIfNeeded(DateTimeOffset now, TrackerWindowInfo? currentWindow)
+    {
+        TrackerSession? closed = null;
+        lock (_lock)
+        {
+            if (_current is null) return null;
+
+            var duration = (now - _current.StartedAt).TotalSeconds;
+            var crossedDay = BusinessDayUtils.GetBusinessDate(now) != BusinessDayUtils.GetBusinessDate(_current.StartedAt);
+
+            if (duration >= MaxContinuousSessionSeconds || crossedDay)
+            {
+                var isIdle = _current.IsIdle;
+                var appName = _current.AppName;
+                var exePath = _current.ExePath;
+                var windowTitle = _current.WindowTitle;
+                var isMediaActive = _current.IsMediaActive;
+
+                closed = CloseCurrentLocked(now);
+
+                if (isIdle)
+                {
+                    _current = new TrackerSession
+                    {
+                        Id = System.Threading.Interlocked.Increment(ref _globalId),
+                        DeviceId = Environment.MachineName,
+                        ExePath = exePath,
+                        AppName = appName,
+                        WindowTitle = windowTitle,
+                        StartedAt = now,
+                        IsIdle = true,
+                        IsMediaActive = IsBrowserMediaActive
+                    };
+                }
+                else if (currentWindow is not null)
+                {
+                    _current = CreateSession(currentWindow, now);
+                }
+                else
+                {
+                    _current = new TrackerSession
+                    {
+                        Id = System.Threading.Interlocked.Increment(ref _globalId),
+                        DeviceId = Environment.MachineName,
+                        ExePath = exePath,
+                        AppName = appName,
+                        WindowTitle = windowTitle,
+                        StartedAt = now,
+                        IsIdle = false,
+                        IsMediaActive = isMediaActive
+                    };
+                }
+                _sessionsCreated++;
+                _lastEventEndTime = now;
+                _logger?.Info("SessionManager", $"Session checkpointed at {now:O} for {appName} (dur={duration:F0}s, crossedDay={crossedDay})");
+            }
+        }
+        if (closed is not null) RaiseSessionClosed(closed);
+        return closed;
+    }
+
     public TrackerSession? HandleGap(DateTimeOffset gapStart, DateTimeOffset now)
     {
         TrackerSession? closed = null;
@@ -193,6 +349,7 @@ public sealed class TrackerSessionManager
             closed = CloseCurrentLocked(gapStart);
             _current = null;
             _isIdle = false;
+            _lastEventEndTime = now;
         }
         if (closed is not null) RaiseSessionClosed(closed);
         return closed;
@@ -206,7 +363,7 @@ public sealed class TrackerSessionManager
             closed = CloseCurrentLocked(endedAt);
         }
         if (closed is not null)
-            Task.Run(() => SessionClosed?.Invoke(closed));
+            RaiseSessionClosed(closed);
         return closed;
     }
 
@@ -228,13 +385,21 @@ public sealed class TrackerSessionManager
         if (_current.DurationSecs < 0) _current.DurationSecs = 0;
         var closed = _current;
         _current = null;
+        _lastEventEndTime = endedAt;
         _logger?.Info("SessionManager", $"Session closed: {closed.AppName} duration {closed.DurationSecs:F1}s pageVisits={closed.PageVisits.Count} idle={closed.IsIdle}");
         return closed;
     }
 
     private void RaiseSessionClosed(TrackerSession session)
     {
-        Task.Run(() => SessionClosed?.Invoke(session));
+        try
+        {
+            SessionClosed?.Invoke(session);
+        }
+        catch (Exception ex)
+        {
+            _logger?.Warn("SessionManager", $"SessionClosed invocation error: {ex.Message}");
+        }
     }
 
     public TrackerSession? Flush(DateTimeOffset now)

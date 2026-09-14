@@ -80,16 +80,19 @@ public partial class App : Application
             {
                 // 停心跳并等待在途心跳结束，避免在途心跳在 planned 请求之后到达服务端把标记清掉；Cancel 幂等。
                 StopHeartbeatLoopAndWait();
+                try { Services.GetService<NativeTrackerService>()?.Stop(); } catch { }
                 TryReportPlannedOffline(e.Reason == SessionEndReasons.SystemShutdown ? "shutdown" : "logoff", wait: true);
             };
             SystemEvents.PowerModeChanged += (_, e) =>
             {
                 if (e.Mode == PowerModes.Suspend)
                 {
+                    try { Services.GetService<NativeTrackerService>()?.HandleSuspend(); } catch { }
                     TryReportPlannedOffline("suspend");
                 }
                 else if (e.Mode == PowerModes.Resume)
                 {
+                    try { Services.GetService<NativeTrackerService>()?.HandleResume(); } catch { }
                     // 等待在途 suspend 上报 ≤2s 结束或超时，再重置防重并立即心跳清服务端 planned 标记。
                     lock (_plannedOfflineLock)
                     {

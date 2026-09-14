@@ -95,6 +95,9 @@ public sealed class MobileLocationPointEntityConfiguration : IEntityTypeConfigur
         builder.Property(e => e.Quality).HasDefaultValue("usable");
         builder.Property(e => e.RawJson).HasDefaultValue("{}");
         builder.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+        // 天然键（#246）：同一设备、同一时刻、同一坐标只允许一行。
+        // 否则客户端重试/批量补传会静默叠加重复点，污染停留判定、里程与常去地点。
+        builder.HasIndex(e => new { e.UserId, e.DeviceId, e.RecordedAtUtc, e.Latitude, e.Longitude }).IsUnique();
         builder.HasIndex(e => new { e.UserId, e.DeviceId, e.RecordedAtUtc });
         builder.HasIndex(e => new { e.UserId, e.Quality, e.RecordedAtUtc });
     }

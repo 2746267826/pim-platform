@@ -50,14 +50,18 @@ function SyncBatchPanel({ summary }: { summary?: MobileSummary }) {
                   {statusLabel(batch.status)}
                 </span>
               </div>
-              <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600 sm:grid-cols-4">
+              <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600 sm:grid-cols-5">
                 <div>
-                  <dt className="text-slate-400">接受事件</dt>
+                  <dt className="text-slate-400">已接受条目</dt>
                   <dd>{batch.acceptedEventCount}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-400">跳过事件</dt>
+                  <dt className="text-slate-400">已跳过条目</dt>
                   <dd>{batch.skippedEventCount}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-400">已拒绝条目</dt>
+                  <dd>{batch.rejectedItemCount}</dd>
                 </div>
                 <div>
                   <dt className="text-slate-400">接受定位</dt>

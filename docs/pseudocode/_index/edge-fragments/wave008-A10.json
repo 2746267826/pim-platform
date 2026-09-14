@@ -1,0 +1,203 @@
+{
+    "slot":  "A10",
+    "wave":  "wave008",
+    "nodes":  [
+                  {
+                      "id":  "tests/client-web/pcClassificationTypes.test.ts",
+                      "label":  "pcClassificationTypes.test.ts",
+                      "path":  "tests/client-web/pcClassificationTypes.test.ts",
+                      "doc":  "docs/pseudocode/files/tests/client-web/pcClassificationTypes.test.ts.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/client-web/quickNotesTypes.test.ts",
+                      "label":  "quickNotesTypes.test.ts",
+                      "path":  "tests/client-web/quickNotesTypes.test.ts",
+                      "doc":  "docs/pseudocode/files/tests/client-web/quickNotesTypes.test.ts.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/client-web/scheduleWorkbenchLocalization.test.ts",
+                      "label":  "scheduleWorkbenchLocalization.test.ts",
+                      "path":  "tests/client-web/scheduleWorkbenchLocalization.test.ts",
+                      "doc":  "docs/pseudocode/files/tests/client-web/scheduleWorkbenchLocalization.test.ts.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/Pim.UnitTests/Ai/AiEndpointPathTests.cs",
+                      "label":  "AiEndpointPathTests.cs",
+                      "path":  "tests/Pim.UnitTests/Ai/AiEndpointPathTests.cs",
+                      "doc":  "docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiEndpointPathTests.cs.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/Pim.UnitTests/Api/VersionEndpointTests.cs",
+                      "label":  "VersionEndpointTests.cs",
+                      "path":  "tests/Pim.UnitTests/Api/VersionEndpointTests.cs",
+                      "doc":  "docs/pseudocode/files/tests/Pim.UnitTests/Api/VersionEndpointTests.cs.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/Pim.UnitTests/Calendar/OutlookConflictResolutionTests.cs",
+                      "label":  "OutlookConflictResolutionTests.cs",
+                      "path":  "tests/Pim.UnitTests/Calendar/OutlookConflictResolutionTests.cs",
+                      "doc":  "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookConflictResolutionTests.cs.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/Pim.UnitTests/Calendar/PlanningObjectModelTests.cs",
+                      "label":  "PlanningObjectModelTests.cs",
+                      "path":  "tests/Pim.UnitTests/Calendar/PlanningObjectModelTests.cs",
+                      "doc":  "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/PlanningObjectModelTests.cs.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/Pim.UnitTests/ClientWindows/DaemonHeartbeatReporterTests.cs",
+                      "label":  "DaemonHeartbeatReporterTests.cs",
+                      "path":  "tests/Pim.UnitTests/ClientWindows/DaemonHeartbeatReporterTests.cs",
+                      "doc":  "docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/DaemonHeartbeatReporterTests.cs.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/Pim.UnitTests/Files/FileEndpointPathTests.cs",
+                      "label":  "FileEndpointPathTests.cs",
+                      "path":  "tests/Pim.UnitTests/Files/FileEndpointPathTests.cs",
+                      "doc":  "docs/pseudocode/files/tests/Pim.UnitTests/Files/FileEndpointPathTests.cs.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/Pim.UnitTests/Mobile/MobileAnalyticsQueryServiceTests.cs",
+                      "label":  "MobileAnalyticsQueryServiceTests.cs",
+                      "path":  "tests/Pim.UnitTests/Mobile/MobileAnalyticsQueryServiceTests.cs",
+                      "doc":  "docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileAnalyticsQueryServiceTests.cs.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/Pim.UnitTests/Mobile/MobileModuleProjectReferenceTests.cs",
+                      "label":  "MobileModuleProjectReferenceTests.cs",
+                      "path":  "tests/Pim.UnitTests/Mobile/MobileModuleProjectReferenceTests.cs",
+                      "doc":  "docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileModuleProjectReferenceTests.cs.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/Pim.UnitTests/Operations/AuditAndConfirmationServiceTests.cs",
+                      "label":  "AuditAndConfirmationServiceTests.cs",
+                      "path":  "tests/Pim.UnitTests/Operations/AuditAndConfirmationServiceTests.cs",
+                      "doc":  "docs/pseudocode/files/tests/Pim.UnitTests/Operations/AuditAndConfirmationServiceTests.cs.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/Pim.UnitTests/Operations/ScheduleFactConfirmationPolicyTests.cs",
+                      "label":  "ScheduleFactConfirmationPolicyTests.cs",
+                      "path":  "tests/Pim.UnitTests/Operations/ScheduleFactConfirmationPolicyTests.cs",
+                      "doc":  "docs/pseudocode/files/tests/Pim.UnitTests/Operations/ScheduleFactConfirmationPolicyTests.cs.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/Pim.UnitTests/Services/ActivityClassificationRecomputeServiceTests.cs",
+                      "label":  "ActivityClassificationRecomputeServiceTests.cs",
+                      "path":  "tests/Pim.UnitTests/Services/ActivityClassificationRecomputeServiceTests.cs",
+                      "doc":  "docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivityClassificationRecomputeServiceTests.cs.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  },
+                  {
+                      "id":  "tests/Pim.UnitTests/Services/AppKnowledgeSuggestionServiceTests.cs",
+                      "label":  "AppKnowledgeSuggestionServiceTests.cs",
+                      "path":  "tests/Pim.UnitTests/Services/AppKnowledgeSuggestionServiceTests.cs",
+                      "doc":  "docs/pseudocode/files/tests/Pim.UnitTests/Services/AppKnowledgeSuggestionServiceTests.cs.md",
+                      "layer":  "tests",
+                      "kind":  "test"
+                  }
+              ],
+    "edges":  [
+                  {
+                      "from":  "tests/client-web/pcClassificationTypes.test.ts",
+                      "to":  "src/client-web/src/types/index.ts",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/client-web/quickNotesTypes.test.ts",
+                      "to":  "src/client-web/src/api/quickNotes.ts",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/client-web/scheduleWorkbenchLocalization.test.ts",
+                      "to":  "src/client-web/src/i18n/scheduleWorkbench.zh-CN.ts",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/Pim.UnitTests/Ai/AiEndpointPathTests.cs",
+                      "to":  "src/Pim.Api/Endpoints/AiEndpoints.cs",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/Pim.UnitTests/Api/VersionEndpointTests.cs",
+                      "to":  "src/Pim.Api/Endpoints/VersionEndpoints.cs",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/Pim.UnitTests/Calendar/OutlookConflictResolutionTests.cs",
+                      "to":  "src/Pim.Module.Calendar/Services/OutlookConflictService.cs",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/Pim.UnitTests/Calendar/PlanningObjectModelTests.cs",
+                      "to":  "src/Pim.Module.Calendar/Entities",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/Pim.UnitTests/ClientWindows/DaemonHeartbeatReporterTests.cs",
+                      "to":  "src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/Pim.UnitTests/Files/FileEndpointPathTests.cs",
+                      "to":  "src/Pim.Module.Files",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/Pim.UnitTests/Mobile/MobileAnalyticsQueryServiceTests.cs",
+                      "to":  "src/Pim.Module.Mobile/Services/MobileAnalyticsQueryService.cs",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/Pim.UnitTests/Mobile/MobileModuleProjectReferenceTests.cs",
+                      "to":  "src/modules/Pim.Module.Mobile/Pim.Module.Mobile.csproj",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/Pim.UnitTests/Operations/AuditAndConfirmationServiceTests.cs",
+                      "to":  "src/Pim.Infrastructure/Operations/OperationConfirmationService.cs",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/Pim.UnitTests/Operations/ScheduleFactConfirmationPolicyTests.cs",
+                      "to":  "src/Pim.Module.Calendar/Services/ScheduleFactConfirmationPolicy.cs",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/Pim.UnitTests/Services/ActivityClassificationRecomputeServiceTests.cs",
+                      "to":  "src/Pim.Module.PcTracker/Services/ActivityClassificationRecomputeService.cs",
+                      "type":  "tests"
+                  },
+                  {
+                      "from":  "tests/Pim.UnitTests/Services/AppKnowledgeSuggestionServiceTests.cs",
+                      "to":  "src/Pim.Module.PcTracker/Services/AppKnowledgeSuggestionService.cs",
+                      "type":  "tests"
+                  }
+              ]
+}

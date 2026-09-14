@@ -1,0 +1,239 @@
+{
+  "slot": "A10",
+  "wave": "wave006",
+  "nodes": [
+    {
+      "id": "src/client-web/src/components/pc-tracker/EventTimelineDialog.tsx",
+      "label": "EventTimelineDialog",
+      "path": "src/client-web/src/components/pc-tracker/EventTimelineDialog.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/EventTimelineDialog.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/quick-notes/QuickNoteFloatingButton.tsx",
+      "label": "QuickNoteFloatingButton",
+      "path": "src/client-web/src/components/quick-notes/QuickNoteFloatingButton.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteFloatingButton.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/schedule/TaskHierarchyPanel.tsx",
+      "label": "TaskHierarchyPanel",
+      "path": "src/client-web/src/components/schedule/TaskHierarchyPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/schedule/TaskHierarchyPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/today/TodayTaskColumn.tsx",
+      "label": "TodayTaskColumn",
+      "path": "src/client-web/src/components/today/TodayTaskColumn.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/today/TodayTaskColumn.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+      "label": "AppKnowledgeBasePage",
+      "path": "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/AppKnowledgeBasePage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/HistoricalLocationPage.tsx",
+      "label": "HistoricalLocationPage",
+      "path": "src/client-web/src/pages/HistoricalLocationPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/HistoricalLocationPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/StatusPage.tsx",
+      "label": "StatusPage",
+      "path": "src/client-web/src/pages/StatusPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/StatusPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/ui/EmptyState.tsx",
+      "label": "EmptyState",
+      "path": "src/client-web/src/ui/EmptyState.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/ui/EmptyState.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/daemon/PimDaemonService.kt",
+      "label": "PimDaemonService",
+      "path": "src/client-android/app/src/main/java/com/pim/app/daemon/PimDaemonService.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/daemon/PimDaemonService.kt.md",
+      "layer": "client-android",
+      "kind": "entrypoint"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt",
+      "label": "PimWorkerFactory",
+      "path": "src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/quality/LocationQualityGate.kt",
+      "label": "RawLocationFix",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/quality/LocationQualityGate.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/quality/LocationQualityGate.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+      "label": "MobileSyncState",
+      "path": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/client-web/src/components/pc-tracker/EventTimelineDialog.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/schedule/TaskHierarchyPanel.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayTaskColumn.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayTaskColumn.tsx",
+      "to": "src/client-web/src/ui/EmptyState.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayTaskColumn.tsx",
+      "to": "src/client-web/src/ui/StatusBadge.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+      "to": "src/client-web/src/api/appKnowledge.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+      "to": "src/client-web/src/api/appSignatures.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+      "to": "src/client-web/src/components/app-knowledge/AppKnowledgeContextList.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+      "to": "src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/AppKnowledgeBasePage.tsx",
+      "to": "src/client-web/src/ui/PageHeader.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/HistoricalLocationPage.tsx",
+      "to": "src/client-web/src/api/mobile.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/HistoricalLocationPage.tsx",
+      "to": "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/HistoricalLocationPage.tsx",
+      "to": "src/client-web/src/components/mobile/mobileFormatting.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/StatusPage.tsx",
+      "to": "src/client-web/src/api/mobile.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/StatusPage.tsx",
+      "to": "src/client-web/src/api/pcTracker.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/StatusPage.tsx",
+      "to": "src/client-web/src/api/status.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/StatusPage.tsx",
+      "to": "src/client-web/src/components/pc-tracker/PcQualitySummary.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/StatusPage.tsx",
+      "to": "src/client-web/src/components/status/MobileDiagnosticsPanel.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/StatusPage.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/StatusPage.tsx",
+      "to": "src/client-web/src/ui/PageHeader.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/logs/StructuredLogRepository.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/usage/AppMetadataCollector.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageAccessChecker.kt",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/mobile/usage/UsageEventCollector.kt",
+      "type": "depends_on"
+    }
+  ]
+}

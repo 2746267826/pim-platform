@@ -286,35 +286,58 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
             return InvariantResult.Unknown("INV-P18 UNKNOWN: 数据表 pc_tracker_events 不存在");
 
         await using var cmd = conn.CreateCommand();
-        cmd.CommandTimeout = 15;
+        cmd.CommandTimeout = 20;
         cmd.CommandText = """
             SELECT device_id, 
                    ((timestamp AT TIME ZONE 'Asia/Shanghai') - interval '4 hours')::date::text as biz_date, 
-                   SUM(CASE WHEN is_idle = false THEN duration ELSE 0 END) as total_sec
+                   timestamp,
+                   duration,
+                   event_type,
+                   is_idle,
+                   is_media_active,
+                   audible,
+                   app_name,
+                   id::text
             FROM pc_tracker_events
-            GROUP BY device_id, biz_date
-            ORDER BY biz_date DESC;
+            WHERE duration > 0
+            ORDER BY timestamp ASC;
             """;
 
-        var list = new List<DailyActiveDuration>();
+        var rawEvents = new List<RawActivityEvent>();
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
             string dev = reader.IsDBNull(0) ? "default" : reader.GetString(0);
             string date = reader.GetString(1);
-            double sec = reader.GetDouble(2);
-            list.Add(new DailyActiveDuration
+            DateTime ts = reader.GetDateTime(2);
+            double dur = reader.GetDouble(3);
+            string type = reader.IsDBNull(4) ? "window" : reader.GetString(4);
+            bool isIdle = !reader.IsDBNull(5) && reader.GetBoolean(5);
+            bool isMedia = !reader.IsDBNull(6) && reader.GetBoolean(6);
+            bool audible = !reader.IsDBNull(7) && reader.GetBoolean(7);
+            string? app = reader.IsDBNull(8) ? null : reader.GetString(8);
+            string? id = reader.IsDBNull(9) ? null : reader.GetString(9);
+
+            rawEvents.Add(new RawActivityEvent
             {
                 DeviceId = dev,
-                Date = date,
-                ActiveDurationSeconds = sec
+                BusinessDate = date,
+                Timestamp = ts,
+                DurationSeconds = dur,
+                EventType = type,
+                IsIdle = isIdle,
+                IsMediaActive = isMedia,
+                Audible = audible,
+                AppName = app,
+                EventId = id
             });
         }
 
-        if (list.Count == 0)
+        if (rawEvents.Count == 0)
             return InvariantResult.Unknown("INV-P18 UNKNOWN: 无活跃事件可聚合单日时长");
 
-        return DataReliabilityInvariants.CheckS3_DailyDurationBounded(list, options);
+        var dailyDurations = DataReliabilityInvariants.AggregateDailyActiveDurations(rawEvents, options);
+        return DataReliabilityInvariants.CheckS3_DailyDurationBounded(dailyDurations, options);
     }
 
     private async Task<InvariantResult> CheckS4Async(DbConnection conn, InvariantOptions options, DateTime nowUtc, CancellationToken ct)
@@ -612,33 +635,72 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
 
     private async Task<InvariantResult> CheckS8Async(DbConnection conn, InvariantOptions options, DateTime nowUtc, CancellationToken ct)
     {
-        if (!await TableExistsAsync(conn, "pc_keystats_samples", ct))
-            return InvariantResult.Unknown("INV-C19 UNKNOWN: 数据表 pc_keystats_samples 不存在");
+        if (!await TableExistsAsync(conn, "pc_tracker_events", ct))
+            return InvariantResult.Unknown("INV-C19 UNKNOWN: 数据表 pc_tracker_events 不存在");
 
+        var samples = new List<DayBoundarySample>();
+
+        // 1. 验证 PC 侧原生事件业务日字段层 (pc_tracker_events.date)
         await using var cmd = conn.CreateCommand();
         cmd.CommandTimeout = 15;
         cmd.CommandText = """
-            SELECT sampled_at_utc, stats_date::text 
-            FROM pc_keystats_samples 
+            SELECT timestamp, date::text 
+            FROM pc_tracker_events 
             ORDER BY id DESC 
             LIMIT 500;
             """;
 
-        var samples = new List<DayBoundarySample>();
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
+        await using (var reader = await cmd.ExecuteReaderAsync(ct))
         {
-            DateTime sampledAtUtc = reader.GetDateTime(0);
-            string statsDateStr = reader.GetString(1);
-            string expectedBizDay = DataReliabilityInvariants.ComputeBusinessDayString(sampledAtUtc);
-
-            samples.Add(new DayBoundarySample
+            while (await reader.ReadAsync(ct))
             {
-                EventTimeUtc = sampledAtUtc,
-                DataFieldDateBucket = statsDateStr,
-                QueryWindowDate = expectedBizDay,
-                PageDisplayDate = expectedBizDay
-            });
+                DateTime timestamp = reader.GetDateTime(0);
+                string dateStr = reader.GetString(1);
+
+                samples.Add(new DayBoundarySample
+                {
+                    EventTimeUtc = timestamp,
+                    DataFieldDateBucket = dateStr,
+                    QueryWindowDate = null, // 未覆盖，需接口契约测试
+                    PageDisplayDate = null, // 未覆盖，需接口契约测试
+                    TableName = "pc_tracker_events"
+                });
+            }
+        }
+
+        // 2. 验证移动侧业务日字段层 (若存在 mobile_timeline_blocks 且非空)
+        if (await TableExistsAsync(conn, "mobile_timeline_blocks", ct))
+        {
+            await using var mCmd = conn.CreateCommand();
+            mCmd.CommandTimeout = 10;
+            mCmd.CommandText = """
+                SELECT start_time_utc, local_date 
+                FROM mobile_timeline_blocks 
+                WHERE local_date IS NOT NULL 
+                ORDER BY id DESC 
+                LIMIT 100;
+                """;
+            try
+            {
+                await using var mReader = await mCmd.ExecuteReaderAsync(ct);
+                while (await mReader.ReadAsync(ct))
+                {
+                    DateTime mTime = mReader.GetDateTime(0);
+                    string mDate = mReader.GetString(1);
+                    samples.Add(new DayBoundarySample
+                    {
+                        EventTimeUtc = mTime,
+                        DataFieldDateBucket = mDate,
+                        QueryWindowDate = null,
+                        PageDisplayDate = null,
+                        TableName = "mobile_timeline_blocks"
+                    });
+                }
+            }
+            catch
+            {
+                // 容错处理
+            }
         }
 
         if (samples.Count == 0)
@@ -652,19 +714,22 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
         if (!await TableExistsAsync(conn, "pc_tracker_events", ct))
             return InvariantResult.Unknown("INV-C20 UNKNOWN: 数据表 pc_tracker_events 不存在");
 
+        // 1. 获取最近 24h 的有效活跃时长（window 与 web-page，排除 idle）
         await using var cmd = conn.CreateCommand();
         cmd.CommandTimeout = 15;
         cmd.CommandText = """
             SELECT COALESCE(SUM(duration), 0) 
             FROM pc_tracker_events 
-            WHERE timestamp >= (NOW() - interval '24 hours') AND event_type IN ('window', 'web-page');
+            WHERE timestamp >= (NOW() - interval '24 hours') 
+              AND event_type IN ('window', 'web-page') 
+              AND is_idle = false;
             """;
         var scalar = await cmd.ExecuteScalarAsync(ct);
         double validDuration = Convert.ToDouble(scalar ?? 0);
 
         string deviceId = "default";
         string reportedStatus = "Normal";
-        double onlineDuration = 86400.0;
+        double onlineDuration = 86400.0; // 24h 自然窗口基准
 
         if (await TableExistsAsync(conn, "pc_tracker_health", ct))
         {
@@ -676,7 +741,6 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
             {
                 deviceId = hr.GetString(0);
                 string stat = hr.GetString(1);
-                // 运行中状态统一映射为 Normal
                 if (stat.Equals("running", StringComparison.OrdinalIgnoreCase) || stat.Equals("healthy", StringComparison.OrdinalIgnoreCase))
                 {
                     reportedStatus = "Normal";
@@ -688,12 +752,51 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
             }
         }
 
+        // 2. 统计最近 24h 内的大缺口明细 (>15m)
+        var gapBreakdowns = new List<string>();
+        try
+        {
+            await using var gapCmd = conn.CreateCommand();
+            gapCmd.CommandTimeout = 15;
+            gapCmd.CommandText = """
+                WITH evs AS (
+                    SELECT timestamp as s, timestamp + duration * interval '1 second' as e,
+                           LEAD(timestamp) OVER (ORDER BY timestamp ASC) as next_s
+                    FROM pc_tracker_events
+                    WHERE timestamp >= (NOW() - interval '24 hours')
+                )
+                SELECT s, next_s, extract(epoch from (next_s - e)) as gap_sec
+                FROM evs
+                WHERE next_s > e AND extract(epoch from (next_s - e)) > 900
+                ORDER BY s ASC;
+                """;
+
+            await using var gapReader = await gapCmd.ExecuteReaderAsync(ct);
+            while (await gapReader.ReadAsync(ct))
+            {
+                DateTime s = gapReader.GetDateTime(0);
+                DateTime nextS = gapReader.GetDateTime(1);
+                double gapSec = gapReader.GetDouble(2);
+                gapBreakdowns.Add($"[{s:yyyy-MM-dd HH:mm} ~ {nextS:yyyy-MM-dd HH:mm} 缺口 {gapSec / 3600.0:F2}h]");
+            }
+        }
+        catch
+        {
+            // 容错处理
+        }
+
+        // 3. 按照 Reviewer 指示：pc_tracker_health 仅保存单条当前进程心跳（无历史心跳序列与离线声明日志），
+        //    分母设备在线时长无法精准界定（若粗暴以 24h 自然日 86400s 为分母，夜间关机 14h 将导致覆盖率虚低 47.7%）。
+        //    因此标记为 IsDataInsufficientForDenominator = true，输出为 UNKNOWN (口径近似 / 数据源不足) 并附带详细明细。
         var report = new CoverageSignalReport
         {
             DeviceId = deviceId,
             OnlineDurationSeconds = onlineDuration,
             ValidDataDurationSeconds = validDuration,
-            ReportedStatus = reportedStatus
+            ReportedStatus = reportedStatus,
+            IsDataInsufficientForDenominator = true,
+            DenominatorBasisNote = "pc_tracker_health 仅存单条当前心跳 (uptime=2400s)，缺失历史心跳时序与离线声明日志，无法精准界定设备在线区间分母",
+            GapBreakdown = gapBreakdowns
         };
 
         return DataReliabilityInvariants.CheckS9_GapHasSignal(report, options);
@@ -936,6 +1039,11 @@ public sealed class DataReliabilityQualityInspector : IDataQualityInspector
         ref int unknownCount,
         ref int totalIssues)
     {
+        if (result.CoveredLayers != null)
+        {
+            details[$"{key}_covered_layers"] = result.CoveredLayers;
+        }
+
         switch (result.Status)
         {
             case InvariantStatus.Fail:

@@ -91,22 +91,33 @@ public class LiveDbQualityInspectionTests
 
         Assert.Contains("S1_INV-P16", result.Details.Keys);
         Assert.Contains("S2_INV-P17", result.Details.Keys);
+        Assert.Contains("S3_INV-P18", result.Details.Keys);
         Assert.Contains("S4_INV-C18", result.Details.Keys);
         Assert.Contains("S5_INV-P19", result.Details.Keys);
         Assert.Contains("S6_INV-P20", result.Details.Keys);
         Assert.Contains("S7_INV-P21", result.Details.Keys);
+        Assert.Contains("S8_INV-C19", result.Details.Keys);
+        Assert.Contains("S8_INV-C19_covered_layers", result.Details.Keys);
+        Assert.Contains("S9_INV-C20", result.Details.Keys);
         Assert.Contains("S10_INV-C21", result.Details.Keys);
         Assert.Contains("S11_INV-M21", result.Details.Keys);
         Assert.Contains("S12_INV-M22", result.Details.Keys);
+        Assert.Contains("S13_INV-P22", result.Details.Keys);
 
         Assert.StartsWith("🔴 FAIL", result.Details["S1_INV-P16"]);
         Assert.StartsWith("🔴 FAIL", result.Details["S2_INV-P17"]);
+        Assert.StartsWith("🟢 PASS", result.Details["S3_INV-P18"]);
         Assert.StartsWith("🔴 FAIL", result.Details["S4_INV-C18"]);
         Assert.StartsWith("🟢 PASS", result.Details["S5_INV-P19"]);
         Assert.StartsWith("🔴 FAIL", result.Details["S6_INV-P20"]);
         Assert.StartsWith("🔴 FAIL", result.Details["S7_INV-P21"]);
+        Assert.StartsWith("🟢 PASS", result.Details["S8_INV-C19"]);
+        Assert.Equal("DataField", result.Details["S8_INV-C19_covered_layers"]);
+        Assert.StartsWith("⚪ UNKNOWN", result.Details["S9_INV-C20"]);
         Assert.StartsWith("🔴 FAIL", result.Details["S10_INV-C21"]);
         Assert.StartsWith("🔴 FAIL", result.Details["S11_INV-M21"]);
         Assert.StartsWith("🔴 FAIL", result.Details["S12_INV-M22"]);
+        Assert.StartsWith("🔴 FAIL", result.Details["S13_INV-P22"]);
+        Assert.Equal("9 Red, 0 Yellow, 3 Green, 1 Unknown", result.Details["summary"]);
     }
 }

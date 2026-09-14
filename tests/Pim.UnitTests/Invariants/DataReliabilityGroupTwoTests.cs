@@ -231,6 +231,53 @@ public class DataReliabilityGroupTwoTests
         var result = DataReliabilityInvariants.CheckS8_DayBoundaryConsistent(samples);
 
         Assert.True(result.Pass);
+        Assert.Equal("DataField,QueryWindow,PageDisplay", result.CoveredLayers);
+    }
+
+    [Fact]
+    public void S8_OnlyDataFieldProvided_PassesWithDataFieldCoveredLayer()
+    {
+        // 接口窗口与页面展示层为空时，判据如实输出覆盖层级为数据字段层
+        var eventUtc = new DateTime(2026, 3, 9, 21, 0, 0, DateTimeKind.Utc);
+        var samples = new List<DayBoundarySample>
+        {
+            new()
+            {
+                EventTimeUtc = eventUtc,
+                DataFieldDateBucket = "2026-03-10",
+                QueryWindowDate = null,
+                PageDisplayDate = null
+            }
+        };
+
+        var result = DataReliabilityInvariants.CheckS8_DayBoundaryConsistent(samples);
+
+        Assert.True(result.Pass);
+        Assert.Equal("DataField", result.CoveredLayers);
+        Assert.Contains("覆盖层级: 数据字段层 ✅; 接口窗口层、展示层: 本判据未覆盖 (需接口契约测试)", result.Detail);
+    }
+
+    [Fact]
+    public void S8_OnlyDataFieldProvided_Deviating_Fails()
+    {
+        // 偏离业务日：UTC 21:00 (上海 05:00 属于 10 号)，字段却填了 09 号
+        var eventUtc = new DateTime(2026, 3, 9, 21, 0, 0, DateTimeKind.Utc);
+        var samples = new List<DayBoundarySample>
+        {
+            new()
+            {
+                EventTimeUtc = eventUtc,
+                DataFieldDateBucket = "2026-03-09", // 错误
+                QueryWindowDate = null,
+                PageDisplayDate = null
+            }
+        };
+
+        var result = DataReliabilityInvariants.CheckS8_DayBoundaryConsistent(samples);
+
+        Assert.False(result.Pass);
+        Assert.Equal(1, result.TotalViolations);
+        Assert.Equal("DataField", result.CoveredLayers);
     }
 
     #endregion
@@ -305,6 +352,33 @@ public class DataReliabilityGroupTwoTests
         var result = DataReliabilityInvariants.CheckS9_GapHasSignal(report);
 
         Assert.True(result.Pass);
+    }
+
+    [Fact]
+    public void S9_DataInsufficientForDenominator_ReturnsUnknownWithBreakdown()
+    {
+        var report = new CoverageSignalReport
+        {
+            DeviceId = "DESKTOP-ARJ75IN",
+            OnlineDurationSeconds = 86400,
+            ValidDataDurationSeconds = 41258.85,
+            ReportedStatus = "Normal",
+            IsDataInsufficientForDenominator = true,
+            DenominatorBasisNote = "pc_tracker_health 仅存单条当前心跳 (uptime=2400s)，缺失历史心跳时序与离线声明日志",
+            GapBreakdown = new List<string>
+            {
+                "[2026-09-13 12:56 ~ 2026-09-13 13:45 缺口 0.76h]",
+                "[2026-09-13 14:42 ~ 2026-09-14 04:46 缺口 14.06h]"
+            }
+        };
+
+        var result = DataReliabilityInvariants.CheckS9_GapHasSignal(report);
+
+        Assert.False(result.Pass);
+        Assert.Equal(InvariantStatus.Unknown, result.Status);
+        Assert.Contains("口径近似 / 数据源不足", result.Detail);
+        Assert.Contains("47.8%", result.Detail);
+        Assert.Contains("缺口 14.06h", result.Detail);
     }
 
     #endregion

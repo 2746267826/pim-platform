@@ -228,7 +228,134 @@ public class DataReliabilityGroupOneTests
         var result = DataReliabilityInvariants.CheckS3_DailyDurationBounded(durations);
 
         Assert.True(result.Pass);
-        Assert.DoesNotContain("警告线", result.Detail);
+        Assert.False(result.IsWarning);
+        Assert.DoesNotContain("超过清醒窗口警告线", result.Detail);
+    }
+
+    [Fact]
+    public void S3_AggregateDailyActiveDurations_MergesOverlappingIntervalsAndRemovesOverlap()
+    {
+        // 两个重叠 1 小时的 2 小时活动事件：
+        // 事件 1: 10:00 ~ 12:00 (7200s)
+        // 事件 2: 11:00 ~ 13:00 (7200s)
+        // 合并后区间应为 10:00 ~ 13:00 (3h = 10800s)，去重重叠时长 1h = 3600s
+        var start1 = new DateTime(2026, 9, 9, 10, 0, 0, DateTimeKind.Utc);
+        var start2 = new DateTime(2026, 9, 9, 11, 0, 0, DateTimeKind.Utc);
+
+        var events = new List<RawActivityEvent>
+        {
+            new()
+            {
+                DeviceId = "PC-1",
+                BusinessDate = "2026-09-09",
+                EventType = "window",
+                Timestamp = start1,
+                DurationSeconds = 7200,
+                InputDensityPerMinute = 10
+            },
+            new()
+            {
+                DeviceId = "PC-1",
+                BusinessDate = "2026-09-09",
+                EventType = "web-page",
+                Timestamp = start2,
+                DurationSeconds = 7200,
+                InputDensityPerMinute = 5
+            }
+        };
+
+        var dailyDurations = DataReliabilityInvariants.AggregateDailyActiveDurations(events);
+
+        Assert.Single(dailyDurations);
+        var daily = dailyDurations[0];
+        Assert.Equal("2026-09-09", daily.Date);
+        Assert.Equal(10800, daily.ActiveDurationSeconds);
+        Assert.Equal(10800, daily.MergedActiveSeconds);
+        Assert.Equal(3600, daily.OverlapRemovedSeconds);
+        Assert.Equal(0, daily.IdleSeconds);
+        Assert.Equal(0, daily.GapSeconds);
+        Assert.Equal(0, daily.SuspectedUnclosedSeconds);
+    }
+
+    [Fact]
+    public void S3_AggregateDailyActiveDurations_FiltersThreeStates_ExcludesGapIdleAndUnclosed()
+    {
+        var baseTime = new DateTime(2026, 9, 9, 8, 0, 0, DateTimeKind.Utc);
+
+        var events = new List<RawActivityEvent>
+        {
+            // 1. 活跃操作事件 (2h)
+            new()
+            {
+                DeviceId = "PC-1",
+                BusinessDate = "2026-09-09",
+                EventType = "window",
+                Timestamp = baseTime,
+                DurationSeconds = 7200,
+                InputDensityPerMinute = 20
+            },
+            // 2. 媒体/音频活跃事件 (1h, 虽然无操作输入但有媒体活动，算活跃)
+            new()
+            {
+                DeviceId = "PC-1",
+                BusinessDate = "2026-09-09",
+                EventType = "window",
+                Timestamp = baseTime.AddHours(2),
+                DurationSeconds = 3600,
+                InputDensityPerMinute = 0,
+                IsMediaActive = true
+            },
+            // 3. Gap 空档事件 (9h，必须排除)
+            new()
+            {
+                DeviceId = "PC-1",
+                BusinessDate = "2026-09-09",
+                EventType = "gap",
+                Timestamp = baseTime.AddHours(3),
+                DurationSeconds = 32400
+            },
+            // 4. Idle 闲置事件 (1h，必须排除)
+            new()
+            {
+                DeviceId = "PC-1",
+                BusinessDate = "2026-09-09",
+                EventType = "window",
+                Timestamp = baseTime.AddHours(12),
+                DurationSeconds = 3600,
+                IsIdle = true
+            },
+            // 5. 疑似未收尾事件 (45m > 30m，无操作且无媒体，非明确空档，必须排除)
+            new()
+            {
+                DeviceId = "PC-1",
+                BusinessDate = "2026-09-09",
+                EventType = "window",
+                Timestamp = baseTime.AddHours(13),
+                DurationSeconds = 2700,
+                InputDensityPerMinute = 0,
+                IsMediaActive = false,
+                Audible = false
+            }
+        };
+
+        var dailyDurations = DataReliabilityInvariants.AggregateDailyActiveDurations(events);
+
+        Assert.Single(dailyDurations);
+        var daily = dailyDurations[0];
+        // 活跃仅包含 1 (7200s) 和 2 (3600s) = 10800s (3h)
+        Assert.Equal(10800, daily.ActiveDurationSeconds);
+        Assert.Equal(10800, daily.MergedActiveSeconds);
+        Assert.Equal(32400, daily.GapSeconds);
+        Assert.Equal(3600, daily.IdleSeconds);
+        Assert.Equal(2700, daily.SuspectedUnclosedSeconds);
+
+        // 运行 S3 检查，应正常判绿并包含各态明细
+        var check = DataReliabilityInvariants.CheckS3_DailyDurationBounded(dailyDurations);
+        Assert.True(check.Pass);
+        Assert.Contains("合并活跃=3.00h", check.Detail);
+        Assert.Contains("Gap=9.00h", check.Detail);
+        Assert.Contains("Idle=1.00h", check.Detail);
+        Assert.Contains("剔除疑似未收尾=0.75h", check.Detail);
     }
 
     #endregion

@@ -4,23 +4,23 @@ using System.Collections.Generic;
 namespace Pim.Core.Invariants;
 
 /// <summary>
-/// S1 (INV-P16): 事件区间模型（用于同类型事件不重叠判定）
+/// S1 (INV-P16): 事件时间区间模型
 /// </summary>
 public sealed class EventTimeSpan
 {
+    public string EventId { get; set; } = string.Empty;
     public string DeviceId { get; set; } = string.Empty;
     public string EventType { get; set; } = string.Empty;
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
-    public string? EventId { get; set; }
-    public string? ExtraInfo { get; set; }
 }
 
 /// <summary>
-/// S2 (INV-P17): 超长事件证据模型（用于超长事件三态判定）
+/// S2 (INV-P17): 超长事件活动证据模型（三态判定输入）
 /// </summary>
 public sealed class LongEventCandidate
 {
+    public string? EventId { get; set; }
     public string DeviceId { get; set; } = string.Empty;
     public string EventType { get; set; } = string.Empty;
     public DateTime StartTime { get; set; }
@@ -30,22 +30,44 @@ public sealed class LongEventCandidate
     public bool IsMediaActive { get; set; }
     public bool IsAudible { get; set; }
     public bool IsGapOrOffline { get; set; }
-    public string? EventId { get; set; }
     public string? AppName { get; set; }
 }
 
 /// <summary>
-/// S3 (INV-P18): 单日活跃时长记录（仅包含操作活跃与观看活跃时长）
+/// S3 (INV-P18): 原始活动事件模型（用于聚合计算前的三态过滤与重叠区间合并）
+/// </summary>
+public sealed class RawActivityEvent
+{
+    public string DeviceId { get; set; } = string.Empty;
+    public string BusinessDate { get; set; } = string.Empty; // YYYY-MM-DD
+    public DateTime Timestamp { get; set; }
+    public double DurationSeconds { get; set; }
+    public string EventType { get; set; } = string.Empty; // window, web-page, idle, gap, etc.
+    public bool IsIdle { get; set; }
+    public bool IsMediaActive { get; set; }
+    public bool Audible { get; set; }
+    public double InputDensityPerMinute { get; set; } = 0.0;
+    public string? AppName { get; set; }
+    public string? EventId { get; set; }
+}
+
+/// <summary>
+/// S3 (INV-P18): 单日活跃时长记录（仅包含操作活跃与观看活跃时长，经过区间合并去重与三态过滤）
 /// </summary>
 public sealed class DailyActiveDuration
 {
     public string Date { get; set; } = string.Empty; // YYYY-MM-DD
     public string DeviceId { get; set; } = string.Empty;
     public double ActiveDurationSeconds { get; set; }
+    public double MergedActiveSeconds { get; set; }
+    public double OverlapRemovedSeconds { get; set; }
+    public double IdleSeconds { get; set; }
+    public double GapSeconds { get; set; }
+    public double SuspectedUnclosedSeconds { get; set; }
 }
 
 /// <summary>
-/// S4 (INV-C18): 业务键模型
+/// S4 (INV-C18): 业务去重键记录模型
 /// </summary>
 public sealed class BusinessRecordKey
 {
@@ -53,61 +75,63 @@ public sealed class BusinessRecordKey
     public string DeviceId { get; set; } = string.Empty;
     public string UniqueKey { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; }
-    public string? RecordId { get; set; }
 
-    public static BusinessRecordKey ForLocation(string deviceId, DateTime recordedAt, double lat, double lon, string? recordId = null) => new()
-    {
-        Domain = "Location",
-        DeviceId = deviceId,
-        UniqueKey = $"LOC:{deviceId}:{recordedAt:O}:{lat:F6}:{lon:F6}",
-        Timestamp = recordedAt,
-        RecordId = recordId
-    };
+    public static BusinessRecordKey ForLocation(string deviceId, DateTime timestamp, double lat, double lon) =>
+        new()
+        {
+            Domain = "Location",
+            DeviceId = deviceId,
+            UniqueKey = $"{timestamp:O}:{lat:F6}:{lon:F6}",
+            Timestamp = timestamp
+        };
 
-    public static BusinessRecordKey ForMobile(string deviceId, string packageName, DateTime eventTime, string eventType, string? recordId = null) => new()
-    {
-        Domain = "Mobile",
-        DeviceId = deviceId,
-        UniqueKey = $"MOB:{deviceId}:{packageName}:{eventTime:O}:{eventType}",
-        Timestamp = eventTime,
-        RecordId = recordId
-    };
+    public static BusinessRecordKey ForMobile(string deviceId, string packageName, DateTime timestamp, string eventType) =>
+        new()
+        {
+            Domain = "Mobile",
+            DeviceId = deviceId,
+            UniqueKey = $"{packageName}:{timestamp:O}:{eventType}",
+            Timestamp = timestamp
+        };
 
-    public static BusinessRecordKey ForPc(string deviceId, DateTime timestamp, double duration, string eventType, string? appName, string? browser, string? instanceId, string? recordId = null) => new()
-    {
-        Domain = "Pc",
-        DeviceId = deviceId,
-        UniqueKey = $"PC:{deviceId}:{timestamp:O}:{duration:F1}:{eventType}:{appName ?? string.Empty}:{browser ?? string.Empty}:{instanceId ?? string.Empty}",
-        Timestamp = timestamp,
-        RecordId = recordId
-    };
+    public static BusinessRecordKey ForPc(string deviceId, DateTime timestamp, double duration, string eventType, string? appName, string? browser, string? instanceId) =>
+        new()
+        {
+            Domain = "Pc",
+            DeviceId = deviceId,
+            UniqueKey = $"{timestamp:O}:{duration}:{eventType}:{appName}:{browser}:{instanceId}",
+            Timestamp = timestamp
+        };
 }
 
 /// <summary>
-/// S5 (INV-P19): 时钟校验项
+/// S5 (INV-P19): 事件时钟校验模型
 /// </summary>
 public sealed class ClockEventItem
 {
+    public string EventId { get; set; } = string.Empty;
     public string DeviceId { get; set; } = string.Empty;
     public DateTime EventTime { get; set; }
     public DateTime ServerReceivedTime { get; set; }
-    public string? EventId { get; set; }
 }
 
 /// <summary>
-/// S6 (INV-P20): 下线声明
+/// S6 (INV-P20): 设备下线声明与上传滞后采样
 /// </summary>
 public sealed class OfflineDeclaration
 {
     public string DeviceId { get; set; } = string.Empty;
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
-    public string Reason { get; set; } = string.Empty; // shutdown, sleep, planned-offline
+    public string Reason { get; set; } = string.Empty; // sleep, shutdown, planned_offline
 }
 
-/// <summary>
-/// S6 (INV-P20): 设备链路追踪包
-/// </summary>
+public sealed class UploadLagSample
+{
+    public DateTime EventTime { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
 public sealed class DeviceActivityTrace
 {
     public string DeviceId { get; set; } = string.Empty;
@@ -117,7 +141,7 @@ public sealed class DeviceActivityTrace
 }
 
 /// <summary>
-/// S7 (INV-P21): 时间轴区间
+/// S7 (INV-P21): 时间轴断档检验区间
 /// </summary>
 public sealed class TimelineInterval
 {
@@ -129,19 +153,20 @@ public sealed class TimelineInterval
 }
 
 /// <summary>
-/// S8 (INV-C19): 日界三层样本
+/// S8 (INV-C19): 日界三层样本（支持仅数据字段层、或三层完整验证）
 /// </summary>
 public sealed class DayBoundarySample
 {
     public DateTime EventTimeUtc { get; set; }
-    public string DataFieldDateBucket { get; set; } = string.Empty; // 数据字段的日期桶
-    public string QueryWindowDate { get; set; } = string.Empty;      // 按日接口的查询窗口
-    public string PageDisplayDate { get; set; } = string.Empty;      // 页面展示的业务日
+    public string DataFieldDateBucket { get; set; } = string.Empty; // 数据字段的日期桶 (如 pc_tracker_events.date)
+    public string? QueryWindowDate { get; set; }                   // 按日接口的查询窗口 (若未覆盖可为 null)
+    public string? PageDisplayDate { get; set; }                   // 页面展示的业务日 (若未覆盖可为 null)
     public string? EventId { get; set; }
+    public string? TableName { get; set; }
 }
 
 /// <summary>
-/// S9 (INV-C20): 覆盖率信号检查
+/// S9 (INV-C20): 覆盖率信号检查模型
 /// </summary>
 public sealed class CoverageSignalReport
 {
@@ -149,6 +174,9 @@ public sealed class CoverageSignalReport
     public double OnlineDurationSeconds { get; set; }
     public double ValidDataDurationSeconds { get; set; }
     public string ReportedStatus { get; set; } = string.Empty; // Normal, Healthy, Warning, Error
+    public bool IsDataInsufficientForDenominator { get; set; } = false;
+    public string? DenominatorBasisNote { get; set; }
+    public IReadOnlyList<string> GapBreakdown { get; set; } = Array.Empty<string>();
 }
 
 /// <summary>

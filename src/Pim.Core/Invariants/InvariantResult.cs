@@ -16,7 +16,7 @@ public enum InvariantStatus
 
 /// <summary>
 /// 不变量判定统一返回结果结构。
-/// 同时支持单条判定（(pass, detail) 解构与隐式转换）与设置页/CI体检场景（统计量、样例、时间范围、回退标注、四态区分）。
+/// 同时支持单条判定（(pass, detail) 解构与隐式转换）与设置页/CI体检场景（统计量、样例、时间范围、回退标注、四态区分、覆盖层级）。
 /// </summary>
 public sealed class InvariantResult
 {
@@ -31,6 +31,7 @@ public sealed class InvariantResult
     public DateTime? LatestOccurrence { get; init; }
     public bool ThresholdFallback { get; init; } = false;
     public string? ThresholdNote { get; init; }
+    public string? CoveredLayers { get; init; }
 
     public bool IsPass => Status == InvariantStatus.Pass;
     public bool IsWarning => Status == InvariantStatus.Warning;
@@ -53,20 +54,26 @@ public sealed class InvariantResult
         TotalViolations = tuple.pass ? 0 : 1
     };
 
-    public static InvariantResult Success(string detail, string? thresholdNote = null, bool thresholdFallback = false) => new()
+    public static InvariantResult Success(
+        string detail,
+        string? thresholdNote = null,
+        bool thresholdFallback = false,
+        string? coveredLayers = null) => new()
     {
         Pass = true,
         Status = InvariantStatus.Pass,
         Detail = detail,
         ThresholdNote = thresholdNote,
-        ThresholdFallback = thresholdFallback
+        ThresholdFallback = thresholdFallback,
+        CoveredLayers = coveredLayers
     };
 
     public static InvariantResult Warning(
         string detail,
         IReadOnlyList<string>? samples = null,
         string? thresholdNote = null,
-        bool thresholdFallback = false)
+        bool thresholdFallback = false,
+        string? coveredLayers = null)
     {
         string fullDetail = detail;
         if (samples != null && samples.Count > 0)
@@ -84,18 +91,24 @@ public sealed class InvariantResult
             HistoricalViolations = samples?.Count ?? 1,
             Samples = samples ?? Array.Empty<string>(),
             ThresholdNote = thresholdNote,
-            ThresholdFallback = thresholdFallback
+            ThresholdFallback = thresholdFallback,
+            CoveredLayers = coveredLayers
         };
     }
 
-    public static InvariantResult Unknown(string detail, string? thresholdNote = null, bool thresholdFallback = false) => new()
+    public static InvariantResult Unknown(
+        string detail,
+        string? thresholdNote = null,
+        bool thresholdFallback = false,
+        string? coveredLayers = null) => new()
     {
         Pass = false,
         Status = InvariantStatus.Unknown,
         Detail = detail,
         TotalViolations = 0,
         ThresholdNote = thresholdNote,
-        ThresholdFallback = thresholdFallback
+        ThresholdFallback = thresholdFallback,
+        CoveredLayers = coveredLayers
     };
 
     public static InvariantResult Failure(
@@ -108,7 +121,8 @@ public sealed class InvariantResult
         DateTime? latestOccurrence = null,
         string? thresholdNote = null,
         bool thresholdFallback = false,
-        bool isWarning = false)
+        bool isWarning = false,
+        string? coveredLayers = null)
     {
         string fullDetail = detail;
         if (samples != null && samples.Count > 0)
@@ -118,7 +132,7 @@ public sealed class InvariantResult
 
         return new()
         {
-            Pass = !isWarning ? false : false,
+            Pass = false,
             Status = isWarning ? InvariantStatus.Warning : InvariantStatus.Fail,
             Detail = fullDetail,
             TotalViolations = totalViolations > 0 ? totalViolations : (newViolations + historicalViolations),
@@ -128,7 +142,8 @@ public sealed class InvariantResult
             EarliestOccurrence = earliestOccurrence,
             LatestOccurrence = latestOccurrence,
             ThresholdNote = thresholdNote,
-            ThresholdFallback = thresholdFallback
+            ThresholdFallback = thresholdFallback,
+            CoveredLayers = coveredLayers
         };
     }
 }

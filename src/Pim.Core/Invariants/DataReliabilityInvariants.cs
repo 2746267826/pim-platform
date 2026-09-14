@@ -197,6 +197,110 @@ public static class DataReliabilityInvariants
     }
 
     /// <summary>
+    /// S3 (INV-P18): 原始活动事件聚合：三态过滤与重叠区间合并去重。
+    /// 1. 过滤三态：
+    ///    - Gap/休眠/离线：排除出活跃区间，计入 GapSeconds；
+    ///    - Idle：排除出活跃区间，计入 IdleSeconds；
+    ///    - 疑似未收尾（时长 > 30m 且无输入密度且无媒体/音频）：排除出活跃区间，计入 SuspectedUnclosedSeconds；
+    ///    - 活跃（操作活跃或观看活跃）：进入待合并活跃区间。
+    /// 2. 区间合并去重：
+    ///    - 排序后对重叠区间进行合并（同一时刻只计入一次），杜绝 window 与 web-page 等并发事件时长直接累加。
+    /// </summary>
+    public static List<DailyActiveDuration> AggregateDailyActiveDurations(
+        IEnumerable<RawActivityEvent> events,
+        InvariantOptions? options = null)
+    {
+        var (opt, _, _) = InvariantOptions.Resolve(options);
+        var list = events?.ToList() ?? new List<RawActivityEvent>();
+        var result = new List<DailyActiveDuration>();
+
+        var groups = list.GroupBy(e => (e.DeviceId, e.BusinessDate));
+        foreach (var g in groups)
+        {
+            double gapSec = 0;
+            double idleSec = 0;
+            double unclosedSec = 0;
+            var activeIntervals = new List<(DateTime Start, DateTime End)>();
+
+            foreach (var ev in g)
+            {
+                if (ev.DurationSeconds <= 0) continue;
+
+                bool isGap = ev.EventType.Equals("gap", StringComparison.OrdinalIgnoreCase) ||
+                             ev.EventType.Equals("offline", StringComparison.OrdinalIgnoreCase) ||
+                             ev.EventType.Equals("sleep", StringComparison.OrdinalIgnoreCase);
+
+                if (isGap)
+                {
+                    gapSec += ev.DurationSeconds;
+                }
+                else if (ev.IsIdle)
+                {
+                    idleSec += ev.DurationSeconds;
+                }
+                else
+                {
+                    bool isMedia = ev.IsMediaActive || ev.Audible;
+                    bool isSuspectedUnclosed = ev.DurationSeconds > (opt.LongEventThresholdMinutes * 60.0) &&
+                                               !isMedia &&
+                                               ev.InputDensityPerMinute < 1.0;
+
+                    if (isSuspectedUnclosed)
+                    {
+                        unclosedSec += ev.DurationSeconds;
+                    }
+                    else
+                    {
+                        var start = ev.Timestamp;
+                        var end = ev.Timestamp.AddSeconds(ev.DurationSeconds);
+                        if (end > start)
+                        {
+                            activeIntervals.Add((start, end));
+                        }
+                    }
+                }
+            }
+
+            // 区间合并去重
+            activeIntervals.Sort((a, b) => a.Start.CompareTo(b.Start));
+            var merged = new List<(DateTime Start, DateTime End)>();
+            foreach (var interval in activeIntervals)
+            {
+                if (merged.Count == 0 || interval.Start > merged[^1].End)
+                {
+                    merged.Add(interval);
+                }
+                else
+                {
+                    var last = merged[^1];
+                    if (interval.End > last.End)
+                    {
+                        merged[^1] = (last.Start, interval.End);
+                    }
+                }
+            }
+
+            double rawActiveSec = activeIntervals.Sum(i => (i.End - i.Start).TotalSeconds);
+            double mergedActiveSec = merged.Sum(m => (m.End - m.Start).TotalSeconds);
+            double overlapRemovedSec = Math.Max(0, rawActiveSec - mergedActiveSec);
+
+            result.Add(new DailyActiveDuration
+            {
+                DeviceId = g.Key.DeviceId,
+                Date = g.Key.BusinessDate,
+                ActiveDurationSeconds = mergedActiveSec,
+                MergedActiveSeconds = mergedActiveSec,
+                OverlapRemovedSeconds = overlapRemovedSec,
+                IdleSeconds = idleSec,
+                GapSeconds = gapSec,
+                SuspectedUnclosedSeconds = unclosedSec
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// S3 (INV-P18): 单日时长有界
     /// 判据: 按 Asia/Shanghai 04:00 起算的单日活跃时长（仅三态前两态）：
     ///   硬上限: 单日活跃合计 &lt;= 24h
@@ -222,14 +326,14 @@ public static class DataReliabilityInvariants
         int warningCount = 0;
         var samples = new List<string>();
 
-        foreach (var d in list)
+        foreach (var d in list.OrderByDescending(d => d.ActiveDurationSeconds))
         {
             if (d.ActiveDurationSeconds > hardCapSeconds)
             {
                 totalViolations++;
                 if (samples.Count < opt.MaxSampleCount)
                 {
-                    samples.Add($"Date={d.Date}, Device={d.DeviceId}: ActiveDuration={d.ActiveDurationSeconds / 3600.0:F2}h 超过单日硬上限 {opt.MaxDailyActiveHours:F1}h");
+                    samples.Add($"Date={d.Date}, Device={d.DeviceId}: 合并活跃={d.ActiveDurationSeconds / 3600.0:F2}h (去重重叠 {d.OverlapRemovedSeconds / 3600.0:F2}h), Idle={d.IdleSeconds / 3600.0:F2}h, Gap={d.GapSeconds / 3600.0:F2}h, 剔除疑似未收尾={d.SuspectedUnclosedSeconds / 3600.0:F2}h > 硬上限 {opt.MaxDailyActiveHours:F1}h");
                 }
             }
             else if (d.ActiveDurationSeconds > warningSeconds)
@@ -237,15 +341,19 @@ public static class DataReliabilityInvariants
                 warningCount++;
                 if (samples.Count < opt.MaxSampleCount)
                 {
-                    samples.Add($"[Warning] Date={d.Date}, Device={d.DeviceId}: ActiveDuration={d.ActiveDurationSeconds / 3600.0:F2}h 超过清醒窗口警告线 {warningSeconds / 3600.0:F2}h");
+                    samples.Add($"[Warning] Date={d.Date}, Device={d.DeviceId}: 合并活跃={d.ActiveDurationSeconds / 3600.0:F2}h (去重重叠 {d.OverlapRemovedSeconds / 3600.0:F2}h), Idle={d.IdleSeconds / 3600.0:F2}h, Gap={d.GapSeconds / 3600.0:F2}h, 剔除疑似未收尾={d.SuspectedUnclosedSeconds / 3600.0:F2}h > 警告线 {warningSeconds / 3600.0:F2}h");
                 }
+            }
+            else if (samples.Count < 2 && d.ActiveDurationSeconds > 0)
+            {
+                samples.Add($"Date={d.Date}, Device={d.DeviceId}: 合并活跃={d.ActiveDurationSeconds / 3600.0:F2}h (去重重叠 {d.OverlapRemovedSeconds / 3600.0:F2}h), Idle={d.IdleSeconds / 3600.0:F2}h, Gap={d.GapSeconds / 3600.0:F2}h, 剔除疑似未收尾={d.SuspectedUnclosedSeconds / 3600.0:F2}h");
             }
         }
 
         if (totalViolations > 0)
         {
             return InvariantResult.Failure(
-                $"INV-P18 FAIL: 检测到 {totalViolations} 个单日活跃时长超过硬上限 {opt.MaxDailyActiveHours:F1}h",
+                $"INV-P18 FAIL: 检测到 {totalViolations} 个单日合并活跃时长超过硬上限 {opt.MaxDailyActiveHours:F1}h",
                 totalViolations,
                 totalViolations,
                 0,
@@ -259,13 +367,15 @@ public static class DataReliabilityInvariants
         if (warningCount > 0)
         {
             return InvariantResult.Warning(
-                $"INV-P18 WARN: 单日时长未超硬上限，但存在 {warningCount} 天超过清醒窗口警告线 {warningSeconds / 3600.0:F1}h",
+                $"INV-P18 WARN: 单日合并活跃时长未超硬上限，但存在 {warningCount} 天超过清醒窗口警告线 {warningSeconds / 3600.0:F1}h",
                 samples: samples,
                 thresholdNote: note,
                 thresholdFallback: fallback);
         }
 
-        return InvariantResult.Success("INV-P18 PASS: 单日时长符合生理与物理上限", note, fallback);
+        double maxDayHours = list.Max(d => d.ActiveDurationSeconds) / 3600.0;
+        string detailSuffix = samples.Count > 0 ? $". 明细样例: [{string.Join("; ", samples)}]" : string.Empty;
+        return InvariantResult.Success($"INV-P18 PASS: 单日活跃时长经区间合并去重与三态过滤后符合生理与物理上限 (最大单日 {maxDayHours:F2}h <= 警告线 {opt.AwakeWindowHours * opt.AwakeWindowWarningRatio:F1}h){detailSuffix}", note, fallback);
     }
 
     /// <summary>
@@ -586,28 +696,46 @@ public static class DataReliabilityInvariants
 
         int totalViolations = 0;
         var violationSamples = new List<string>();
+        bool hasQueryWindow = false;
+        bool hasPageDisplay = false;
 
         foreach (var s in list)
         {
             var expectedBusinessDay = ComputeBusinessDayString(s.EventTimeUtc);
             bool b1 = s.DataFieldDateBucket == expectedBusinessDay;
-            bool b2 = s.QueryWindowDate == expectedBusinessDay;
-            bool b3 = s.PageDisplayDate == expectedBusinessDay;
+            bool b2 = string.IsNullOrEmpty(s.QueryWindowDate) || s.QueryWindowDate == expectedBusinessDay;
+            bool b3 = string.IsNullOrEmpty(s.PageDisplayDate) || s.PageDisplayDate == expectedBusinessDay;
+
+            if (!string.IsNullOrEmpty(s.QueryWindowDate)) hasQueryWindow = true;
+            if (!string.IsNullOrEmpty(s.PageDisplayDate)) hasPageDisplay = true;
 
             if (!b1 || !b2 || !b3)
             {
                 totalViolations++;
                 if (violationSamples.Count < opt.MaxSampleCount)
                 {
-                    violationSamples.Add($"EventUtc={s.EventTimeUtc:yyyy-MM-dd HH:mm:ss}, Expected={expectedBusinessDay} | Field={s.DataFieldDateBucket}({b1}), Query={s.QueryWindowDate}({b2}), Page={s.PageDisplayDate}({b3})");
+                    violationSamples.Add($"EventUtc={s.EventTimeUtc:yyyy-MM-dd HH:mm:ss}, Expected={expectedBusinessDay} | Field={s.DataFieldDateBucket}({b1}), Query={s.QueryWindowDate ?? "N/A"}({b2}), Page={s.PageDisplayDate ?? "N/A"}({b3})");
                 }
             }
         }
 
+        bool isAllThreeLayers = hasQueryWindow && hasPageDisplay;
+        string coveredLayers = isAllThreeLayers
+            ? "DataField,QueryWindow,PageDisplay"
+            : (hasQueryWindow ? "DataField,QueryWindow" : "DataField");
+
+        string layerScopeText = isAllThreeLayers
+            ? "覆盖层级: 数据字段层 ✅, 接口窗口层 ✅, 展示层 ✅"
+            : "覆盖层级: 数据字段层 ✅; 接口窗口层、展示层: 本判据未覆盖 (需接口契约测试)";
+
         if (totalViolations > 0)
         {
+            string failMsg = isAllThreeLayers
+                ? $"INV-C19 FAIL: 检测到 {totalViolations} 处日界归属三层不一致 (标准: Asia/Shanghai 04:00 起算) [{layerScopeText}]"
+                : $"INV-C19 FAIL: 检测到 {totalViolations} 处日界归属不一致 (标准: Asia/Shanghai 04:00 起算) [{layerScopeText}]";
+
             return InvariantResult.Failure(
-                $"INV-C19 FAIL: 检测到 {totalViolations} 处日界归属三层不一致 (标准: Asia/Shanghai 04:00 起算)",
+                failMsg,
                 totalViolations,
                 totalViolations,
                 0,
@@ -615,10 +743,16 @@ public static class DataReliabilityInvariants
                 null,
                 null,
                 note,
-                fallback);
+                fallback,
+                isWarning: false,
+                coveredLayers: coveredLayers);
         }
 
-        return InvariantResult.Success("INV-C19 PASS: 数据桶、接口窗口与页面展示三层日界严格一致", note, fallback);
+        string passMsg = isAllThreeLayers
+            ? $"INV-C19 PASS: 数据桶、接口窗口与页面展示三层日界严格一致 [{layerScopeText}]"
+            : $"INV-C19 PASS: 数据字段层日界严格一致 (0 行偏离) [{layerScopeText}]";
+
+        return InvariantResult.Success(passMsg, note, fallback, coveredLayers: coveredLayers);
     }
 
     /// <summary>
@@ -650,6 +784,17 @@ public static class DataReliabilityInvariants
         if (report == null || report.OnlineDurationSeconds <= 0)
         {
             return InvariantResult.Unknown("INV-C20 UNKNOWN: 数据源为空或未接线", note, fallback);
+        }
+
+        if (report.IsDataInsufficientForDenominator)
+        {
+            double rawRatio = report.OnlineDurationSeconds > 0 ? report.ValidDataDurationSeconds / report.OnlineDurationSeconds : 0.0;
+            var gapDetails = report.GapBreakdown != null && report.GapBreakdown.Count > 0
+                ? string.Join("; ", report.GapBreakdown)
+                : "无细化时段";
+
+            string msg = $"INV-C20 UNKNOWN: 口径近似 / 数据源不足: {report.DenominatorBasisNote ?? "缺失历史心跳序列与离线声明日志，分母无法准确界定设备在线区间"} (若按基准窗口推算覆盖率约为 {rawRatio:P1}: 分子 {report.ValidDataDurationSeconds:F0}s, 分母 {report.OnlineDurationSeconds:F0}s; 缺口时段: {gapDetails})";
+            return InvariantResult.Unknown(msg, note, fallback);
         }
 
         double ratio = report.ValidDataDurationSeconds / report.OnlineDurationSeconds;

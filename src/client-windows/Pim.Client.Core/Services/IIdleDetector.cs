@@ -32,9 +32,24 @@ public sealed class WindowsIdleDetector : IIdleDetector
 
     public bool IsScreenOff()
     {
-        // Simple heuristic: if monitor power off via GetSystemPowerStatus? For now return false.
-        // Could check via MonitorFromWindow + GetDevicePowerState
-        return false;
+        if (!OperatingSystem.IsWindows())
+            return false;
+
+        try
+        {
+            var hDesk = Win32.OpenInputDesktop(0, false, 0x0001 /* DESKTOP_READOBJECTS */);
+            if (hDesk == IntPtr.Zero)
+            {
+                // When workstation is locked, screen off, or secure desktop active, OpenInputDesktop fails
+                return true;
+            }
+            Win32.CloseDesktop(hDesk);
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static class Win32
@@ -47,13 +62,17 @@ public sealed class WindowsIdleDetector : IIdleDetector
         }
         [DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
         [DllImport("kernel32.dll")] public static extern uint GetTickCount();
+        [DllImport("user32.dll", SetLastError = true)] public static extern IntPtr OpenInputDesktop(uint dwFlags, bool fInherit, uint dwDesiredAccess);
+        [DllImport("user32.dll", SetLastError = true)] public static extern bool CloseDesktop(IntPtr hDesktop);
     }
 }
 
 public sealed class FallbackIdleDetector : IIdleDetector
 {
     private TimeSpan _idle;
+    private bool _isScreenOff;
     public void SetIdle(TimeSpan idle) => _idle = idle;
+    public void SetScreenOff(bool screenOff) => _isScreenOff = screenOff;
     public TimeSpan GetIdleDuration() => _idle;
-    public bool IsScreenOff() => false;
+    public bool IsScreenOff() => _isScreenOff;
 }

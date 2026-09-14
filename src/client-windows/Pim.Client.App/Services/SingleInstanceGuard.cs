@@ -109,8 +109,8 @@ internal static class SingleInstanceGuard
         }
         catch (Exception ex)
         {
-            BootstrapLog.Write($"Local mutex creation failed ({ex.Message}); continuing without single-instance guard");
-            return true;
+            BootstrapLog.Write($"Local mutex creation failed ({ex.Message}); another instance likely running, failing single-instance guard");
+            return false;
         }
     }
 

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Pim.Client.Core.Utils;
 
 namespace Pim.Client.Core.Models;
 
@@ -75,7 +76,7 @@ public sealed class TrackerSession
     public double? DurationSecs { get; set; }
     public bool IsIdle { get; set; }
     public bool IsMediaActive { get; set; }
-    public string Date => StartedAt.ToString("yyyy-MM-dd");
+    public string Date => BusinessDayUtils.GetBusinessDateString(StartedAt);
     public List<TrackerPageVisit> PageVisits { get; set; } = new();
 }
 
@@ -139,6 +140,7 @@ public sealed class TrackerEventsUploadRequest
     [JsonPropertyName("deviceId")] public string DeviceId { get; set; } = Environment.MachineName;
     [JsonPropertyName("events")] public List<TrackerEventForUpload> Events { get; set; } = new();
 }
+
 
 public sealed class TrackerHealthRequest
 {

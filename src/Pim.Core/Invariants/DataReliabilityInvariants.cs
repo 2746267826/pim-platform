@@ -809,11 +809,11 @@ public static class DataReliabilityInvariants
             if (isNormal)
             {
                 return InvariantResult.Failure(
-                    $"INV-C20 FAIL: 设备 {report.DeviceId} 覆盖率仅为 {ratio:P1} (< 红线 {opt.CoverageRedRatio:P0})，但报告状态却为 '{report.ReportedStatus}' (必须为红/错误)",
+                    $"INV-C20 FAIL: 设备 {report.DeviceId} 覆盖率仅为 {(ratio * 100.0):F1}% (< 红线 {(opt.CoverageRedRatio * 100.0):F0}%)，但报告状态却为 '{report.ReportedStatus}' (必须为红/错误)",
                     1,
                     1,
                     0,
-                    new[] { $"Device={report.DeviceId}: Coverage={ratio:P1}, ReportedStatus={report.ReportedStatus}" },
+                    new[] { $"Device={report.DeviceId}: Coverage={(ratio * 100.0):F1}%, ReportedStatus={report.ReportedStatus}" },
                     null,
                     null,
                     note,
@@ -827,11 +827,11 @@ public static class DataReliabilityInvariants
             if (isNormal)
             {
                 return InvariantResult.Failure(
-                    $"INV-C20 WARN: 设备 {report.DeviceId} 覆盖率为 {ratio:P1} (< 黄线 {opt.CoverageYellowRatio:P0})，但报告状态为 '{report.ReportedStatus}' (必须报警告/黄线)",
+                    $"INV-C20 WARN: 设备 {report.DeviceId} 覆盖率为 {(ratio * 100.0):F1}% (< 黄线 {(opt.CoverageYellowRatio * 100.0):F0}%)，但报告状态为 '{report.ReportedStatus}' (必须报警告/黄线)",
                     1,
                     0,
                     1,
-                    new[] { $"Device={report.DeviceId}: Coverage={ratio:P1}, ReportedStatus={report.ReportedStatus}" },
+                    new[] { $"Device={report.DeviceId}: Coverage={(ratio * 100.0):F1}%, ReportedStatus={report.ReportedStatus}" },
                     null,
                     null,
                     note,
@@ -840,7 +840,7 @@ public static class DataReliabilityInvariants
             }
         }
 
-        return InvariantResult.Success($"INV-C20 PASS: 覆盖率 {ratio:P1} 与健康信号 '{report.ReportedStatus}' 自洽", note, fallback);
+        return InvariantResult.Success($"INV-C20 PASS: 覆盖率 {(ratio * 100.0):F1}% 与健康信号 '{report.ReportedStatus}' 自洽", note, fallback);
     }
 
     #endregion

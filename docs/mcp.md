@@ -1925,12 +1925,12 @@ async def get_classification_settings(-) -> Any: ...
 
 #### `get_mobile_summary` — Mobile summary.
 - **API**: `GET /mobile/summary?date`
-- **参数**: `date,deviceId?,timezone`
+- **参数**: `date,deviceId?`（业务日固定为 Asia/Shanghai 04:00 起算，不接受 `timezone`）
 - **返回**: `MobileUsageSummaryResponse`
 
 **签名 / Signature**
 ```python
-async def get_mobile_summary(date: str, timezone: str = 'Asia/Shanghai') -> Any: ...
+async def get_mobile_summary(date: str, deviceId: str | None = None) -> Any: ...
 ```
 
 **返回示例 / Success**
@@ -1951,12 +1951,12 @@ async def get_mobile_summary(date: str, timezone: str = 'Asia/Shanghai') -> Any:
 
 #### `get_mobile_timeline` — Mobile timeline.
 - **API**: `GET /mobile/timeline?date`
-- **参数**: `date,deviceId?,timezone,redactUrls`
+- **参数**: `date,deviceId?,redactUrls`（业务日固定为 Asia/Shanghai 04:00 起算，不接受 `timezone`）
 - **返回**: `MobileTimelineResponse`
 
 **签名 / Signature**
 ```python
-async def get_mobile_timeline(date: str, timezone: str = 'Asia/Shanghai', redactUrls: bool = True) -> Any: ...
+async def get_mobile_timeline(date: str, deviceId: str | None = None, redactUrls: bool = True) -> Any: ...
 ```
 
 **返回示例 / Success**
@@ -2148,12 +2148,12 @@ async def get_mobile_location_movement_stats(start: str, end: str, timezone: str
 
 #### `get_mobile_quality` — Quality.
 - **API**: `GET /mobile/quality?date`
-- **参数**: `date,deviceId?,timezone`
+- **参数**: `date,deviceId?`（业务日固定为 Asia/Shanghai 04:00 起算，不接受 `timezone`）
 - **返回**: `MobileQualityResponse`
 
 **签名 / Signature**
 ```python
-async def get_mobile_quality(date: str, timezone: str = 'Asia/Shanghai') -> Any: ...
+async def get_mobile_quality(date: str, deviceId: str | None = None) -> Any: ...
 ```
 
 **返回示例 / Success**

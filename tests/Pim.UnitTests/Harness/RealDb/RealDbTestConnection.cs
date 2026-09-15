@@ -47,12 +47,23 @@ internal static class RealDbTestConnection
     }
 
     /// <summary>
-    /// 只有"服务器不可达"（连接被拒 / DNS 失败 / 连接超时）才算环境缺失；
-    /// 其余数据库异常属于配置错误，必须向上抛出。
+    /// 只有"服务器不可达"（连接被拒 / DNS 失败 / 连接超时 / 连接池耗尽）才算环境缺失；
+    /// 其余数据库异常（认证、库不存在、权限、缺表…）属于配置错误，必须向上抛出。
+    ///
+    /// 判定沿 InnerException 链（有界深度）进行：Npgsql/EF 会把网络异常包多层。
+    /// 注意：连接池耗尽表现为 TimeoutException，与"服务器不可达"一样属于环境性失败，
+    /// 因此同样降级为 Skip —— 这是有意为之。
     /// </summary>
-    internal static bool IsServerUnreachable(Exception ex)
-        => ex is SocketException or TimeoutException
-            || ex.InnerException is SocketException or TimeoutException;
+    internal static bool IsServerUnreachable(Exception? ex)
+    {
+        for (var depth = 0; ex is not null && depth < 8; depth++, ex = ex.InnerException)
+        {
+            if (ex is SocketException or TimeoutException)
+                return true;
+        }
+
+        return false;
+    }
 
     /// <summary>校验可用并返回连接串。</summary>
     public static string Require()

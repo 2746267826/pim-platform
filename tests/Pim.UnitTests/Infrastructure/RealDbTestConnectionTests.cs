@@ -15,10 +15,21 @@ public sealed class RealDbTestConnectionTests
     public void IsServerUnreachable_TreatsRefusedConnectionAsEnvironmentGap()
     {
         Assert.True(RealDbTestConnection.IsServerUnreachable(new SocketException(111)));
+        // 连接池耗尽同样表现为 TimeoutException：与"不可达"一样属于环境性失败（文档已说明）
         Assert.True(RealDbTestConnection.IsServerUnreachable(new TimeoutException()));
-        // Npgsql 把底层网络异常包在 InnerException 里
+        // Npgsql 把底层网络异常包在 InnerException 里，且可能有多层包装
         Assert.True(RealDbTestConnection.IsServerUnreachable(
             new NpgsqlException("Failed to connect", new SocketException(111))));
+        Assert.True(RealDbTestConnection.IsServerUnreachable(
+            new InvalidOperationException("outer",
+                new NpgsqlException("middle", new TimeoutException("inner")))));
+    }
+
+    [Fact]
+    public void IsServerUnreachable_HandlesNullAndCycles()
+    {
+        Assert.False(RealDbTestConnection.IsServerUnreachable(null));
+        Assert.False(RealDbTestConnection.IsServerUnreachable(new InvalidOperationException("plain")));
     }
 
     [Theory]

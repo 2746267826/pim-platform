@@ -53,7 +53,9 @@ public sealed class MobileIngestRealDbTests
 
         var firstResult = await service.IngestAsync(first, CancellationToken.None);
         Assert.Equal(1, firstResult.AcceptedCount);
-        var session = await db.Set<MobileUsageSessionEntity>().AsNoTracking().SingleAsync();
+        var session = await db.Set<MobileUsageSessionEntity>()
+            .AsNoTracking()
+            .SingleAsync(row => row.DeviceId == DeviceId);
         Assert.Equal(start.AddMinutes(15), session.EndUtc);
         Assert.Contains("open-ended", session.QualityFlagsJson);
 
@@ -62,14 +64,18 @@ public sealed class MobileIngestRealDbTests
         var compensationResult = await service.IngestAsync(compensation, CancellationToken.None);
         Assert.Equal(0, compensationResult.AcceptedCount);
         Assert.Equal(1, compensationResult.SkippedCount);
-        var afterCompensation = await db.Set<MobileUsageSessionEntity>().AsNoTracking().SingleAsync();
+        var afterCompensation = await db.Set<MobileUsageSessionEntity>()
+            .AsNoTracking()
+            .SingleAsync(row => row.DeviceId == DeviceId);
         Assert.Equal(session.Id, afterCompensation.Id);
         Assert.Equal(start.AddMinutes(15), afterCompensation.EndUtc);
 
         // 窗口变宽：事件仍是重复，但开放会话必须重新封口
         var widened = compensation with { ClientBatchId = "real-batch-3", SourceWindowEndUtc = start.AddHours(4) };
         await service.IngestAsync(widened, CancellationToken.None);
-        var widened_session = await db.Set<MobileUsageSessionEntity>().AsNoTracking().SingleAsync();
+        var widened_session = await db.Set<MobileUsageSessionEntity>()
+            .AsNoTracking()
+            .SingleAsync(row => row.DeviceId == DeviceId);
         Assert.Equal(start.AddHours(4), widened_session.EndUtc);
     }
 
@@ -102,7 +108,7 @@ public sealed class MobileIngestRealDbTests
         var second = await service.SubmitAsync(request, CancellationToken.None);
 
         Assert.Equal(first.Id, second.Id);
-        Assert.Equal(1, await db.Set<MobileLocationPointEntity>().CountAsync());
+        Assert.Equal(1, await db.Set<MobileLocationPointEntity>().CountAsync(row => row.DeviceId == DeviceId));
 
         // 唯一索引确实存在并拦得住重复写入（绕过服务层直接插同一自然键；这是顺序写入，非并发）
         db.ChangeTracker.Clear();
@@ -155,7 +161,10 @@ public sealed class MobileIngestRealDbTests
 
         Assert.True(result.WrittenAggregates > 0);
         Assert.True(result.WrittenBlocks > 0);
-        Assert.NotEmpty(await db.Set<MobileAnalyticsMaterializationEntity>().AsNoTracking().ToListAsync());
+        Assert.NotEmpty(await db.Set<MobileAnalyticsMaterializationEntity>()
+            .AsNoTracking()
+            .Where(row => row.DeviceId == DeviceId)
+            .ToListAsync());
     }
 
     private static MobileAnalyticsMaterializationService CreateMaterialization(PimDbContext db)

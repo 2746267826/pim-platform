@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using Bogus;
 using Pim.Core.Invariants;
+using Pim.UnitTests.Harness.RealDb;
 
 namespace Pim.UnitTests.Harness.Generators;
 
@@ -389,9 +390,9 @@ public static class PcActivityStreamGenerator
             if (sampled != null && sampled.Count > 0)
                 return sampled;
         }
-        catch
+        catch (Exception ex) when (RealDbTestConnection.IsServerUnreachable(ex))
         {
-            // fallback
+            // 只有"服务器不可达"才回退合成数据；配置错误（口令/库/权限）必须可见。
         }
         return Generate(50, seed);
     }

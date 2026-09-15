@@ -96,11 +96,13 @@ public class RealDbCredentialPolicyTests
         // 样本在运行时拼出来，免得本文件自己命中这两条规则。
         var productionName = "pim" + "_prod";
         var mirrorName = "pim" + "_test";
-        Assert.True(ProductionDatabaseReference.IsMatch($"Host=127.0.0.1;Port=5432;Database={productionName};Username=pim"));
-        Assert.True(ProductionDatabaseReference.IsMatch($"psql -h 127.0.0.1 -U pim -d {productionName} --no-owner"));
-        Assert.True(ProductionDatabaseReference.IsMatch($"psql --dbname {productionName} -c \"SELECT 1\""));
-        Assert.False(ProductionDatabaseReference.IsMatch($"Host=127.0.0.1;Port=5432;Database={mirrorName};Username=opencode"));
-        Assert.False(ProductionDatabaseReference.IsMatch($"psql -h 127.0.0.1 -U opencode -d {mirrorName}"));
+        Assert.Matches(ProductionDatabaseReference, $"Host=127.0.0.1;Port=5432;Database={productionName};Username=pim");
+        Assert.Matches(ProductionDatabaseReference, $"psql -h 127.0.0.1 -U pim -d {productionName} --no-owner");
+        Assert.Matches(ProductionDatabaseReference, $"psql --dbname {productionName} -c \"SELECT 1\"");
+        Assert.DoesNotMatch(ProductionDatabaseReference, $"Host=127.0.0.1;Port=5432;Database={mirrorName};Username=opencode");
+        Assert.DoesNotMatch(ProductionDatabaseReference, $"psql -h 127.0.0.1 -U opencode -d {mirrorName}");
+        // 口令字面量里也含 "pim_prod" 前缀，不能被误判成库名。
+        Assert.DoesNotMatch(ProductionDatabaseReference, "PGPASSWORD=pim_prod_2026_home pg_dump -h 127.0.0.1 -U pim");
     }
 
     /// <summary>

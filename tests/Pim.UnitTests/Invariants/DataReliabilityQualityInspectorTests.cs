@@ -86,16 +86,20 @@ public class DataReliabilityQualityInspectorTests
 
         Assert.False(result.IsHealthy);
         Assert.Equal(13, result.IssueCount);
-        Assert.Contains("S1_INV-P16", result.Details.Keys);
-        Assert.Contains("S13_INV-P22", result.Details.Keys);
+
+        // Details 是可空属性：先钉住再取值，后续断言就不会踩空。
+        Assert.NotNull(result.Details);
+        var details = result.Details!;
+        Assert.Contains("S1_INV-P16", details.Keys);
+        Assert.Contains("S13_INV-P22", details.Keys);
 
         // 13 条尺子的结论必须全部是"未知"，绝不亮假绿灯（summary 是聚合行，不参与该断言）。
-        foreach (var kvp in result.Details.Where(entry => entry.Key != "summary"))
+        foreach (var kvp in details.Where(entry => entry.Key != "summary"))
         {
             Assert.StartsWith("⚪ UNKNOWN", kvp.Value);
         }
 
-        Assert.Equal("0 Red, 0 Yellow, 0 Green, 13 Unknown", result.Details["summary"]);
+        Assert.Equal("0 Red, 0 Yellow, 0 Green, 13 Unknown", details["summary"]);
     }
 
     [Fact]
@@ -163,10 +167,11 @@ public class DataReliabilityQualityInspectorTests
         Assert.Contains(executedSqlList, sql => sql.Contains("((timestamp AT TIME ZONE 'Asia/Shanghai') - interval '4 hours')::date"));
 
         // 5. 必须覆盖 S1 到 S13 的所有判据键
+        Assert.NotNull(result.Details);
         for (int i = 1; i <= 13; i++)
         {
             var keyPrefix = $"S{i}_";
-            Assert.Contains(result.Details.Keys, k => k.StartsWith(keyPrefix));
+            Assert.Contains(result.Details!.Keys, k => k.StartsWith(keyPrefix));
         }
     }
 
@@ -359,6 +364,7 @@ public class DataReliabilityQualityInspectorTests
         /// <summary>每条语句执行时已绑定的参数名（用于验证 SQL 里的 @xxx 都真的被绑定了）。</summary>
         public List<IReadOnlyList<string>> ExecutedParameterNames { get; } = new();
 
+        [AllowNull]
         public override string ConnectionString { get; set; } = "Host=mock;Database=mock";
         public override string Database => "mock";
         public override string DataSource => "mock";

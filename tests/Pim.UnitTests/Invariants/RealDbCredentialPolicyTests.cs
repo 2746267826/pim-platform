@@ -57,16 +57,29 @@ public class RealDbCredentialPolicyTests
                 $"{path} 已不存在，请从白名单移除"));
     }
 
+    /// <summary>
+    /// 遗留文件白名单：在本门禁建立之前，这些生成器就通过 <c>docker exec … psql -d pim_prod</c>
+    /// 从生产容器里抽样真实数据来喂生成器。它们不是"连接串误用"，但也确实指向生产库，
+    /// 需要单独立项改造（改为从快照/镜像抽样），在那之前先登记在此，<b>只减不增</b>。
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> LegacyProductionReferenceAllowlist = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["tests/Pim.UnitTests/Harness/Generators/PcActivityStreamGenerator.cs"] = "PC 活动流生成器：抽样生产 pc_aw_events，待改为镜像库抽样",
+        ["tests/Pim.UnitTests/Harness/Generators/FileCorpusGenerator.cs"] = "文件语料生成器：抽样生产 files，待改为镜像库抽样",
+        ["tests/Pim.UnitTests/Harness/Generators/CalendarEventGenerator.cs"] = "日程语料生成器：抽样生产 calendar_events，待改为镜像库抽样"
+    };
+
     [Fact]
     public void NoSourceTargetsTheProductionDatabase()
     {
-        var productionConnection = new Regex(
-            @"(Host|Server)\s*=[^;""]*;[^""]*Database\s*=\s*pim_prod|Database\s*=\s*pim_prod[^_a-zA-Z0-9]",
-            RegexOptions.IgnoreCase);
+        var sources = EnumerateSources().ToList();
 
-        var offenders = EnumerateSources()
-            .Where(file => productionConnection.IsMatch(file.Content))
+        var offenders = sources
+            // 本文件是这条规则的实现，注释里必须举出违规样例才能说明规则，故排除自身。
+            .Where(file => !file.RelativePath.EndsWith("Invariants/RealDbCredentialPolicyTests.cs", StringComparison.OrdinalIgnoreCase))
+            .Where(file => ProductionDatabaseReference.IsMatch(file.Content))
             .Select(file => file.RelativePath)
+            .Where(path => !LegacyProductionReferenceAllowlist.ContainsKey(path))
             .ToList();
 
         Assert.True(
@@ -74,13 +87,32 @@ public class RealDbCredentialPolicyTests
             "AGENTS.md 硬规则：任何代码/测试都不得指向生产库 pim_prod。命中文件："
             + Environment.NewLine + string.Join(Environment.NewLine, offenders));
 
-        // 反向验证：这条规则真的能认出生产库连接串，而不是永远返回空集。
-        // 样本在运行时拼出来，免得本文件自己命中这条规则。
-        var productionSample = "Host=127.0.0.1;Port=5432;Database=" + "pim_prod" + ";Username=pim";
-        var mirrorSample = "Host=127.0.0.1;Port=5432;Database=" + "pim_test" + ";Username=opencode";
-        Assert.True(productionConnection.IsMatch(productionSample));
-        Assert.False(productionConnection.IsMatch(mirrorSample));
+        Assert.All(LegacyProductionReferenceAllowlist.Keys, path =>
+            Assert.True(
+                sources.Any(file => string.Equals(file.RelativePath, path, StringComparison.OrdinalIgnoreCase)),
+                $"{path} 已不存在，请从白名单移除"));
+
+        // 反向验证：这两条规则真的能认出生产库引用，而不是永远返回空集。
+        // 样本在运行时拼出来，免得本文件自己命中这两条规则。
+        var productionName = "pim" + "_prod";
+        var mirrorName = "pim" + "_test";
+        Assert.True(ProductionDatabaseReference.IsMatch($"Host=127.0.0.1;Port=5432;Database={productionName};Username=pim"));
+        Assert.True(ProductionDatabaseReference.IsMatch($"psql -h 127.0.0.1 -U pim -d {productionName} --no-owner"));
+        Assert.True(ProductionDatabaseReference.IsMatch($"psql --dbname {productionName} -c \"SELECT 1\""));
+        Assert.False(ProductionDatabaseReference.IsMatch($"Host=127.0.0.1;Port=5432;Database={mirrorName};Username=opencode"));
+        Assert.False(ProductionDatabaseReference.IsMatch($"psql -h 127.0.0.1 -U opencode -d {mirrorName}"));
     }
+
+    /// <summary>
+    /// 生产库引用识别：既覆盖连接串写法（<c>Database=pim_prod</c>），
+    /// 也覆盖命令行写法（<c>-d pim_prod</c> / <c>--dbname pim_prod</c>）——
+    /// 只盯连接串会让"顺手写条 psql 命令去读生产库"这类绕道悄悄溜过去。
+    /// 匹配时要求 <c>pim</c> 后面不是下划线或字母数字，避免把 <c>pim_prod_2026_home</c> 之类的口令误判成库名。
+    /// </summary>
+    private static readonly Regex ProductionDatabaseReference = new(
+        @"Database\s*=\s*[""']?pim_prod(?![_a-zA-Z0-9])"
+        + @"|(?:-d|--dbname)[\s=""']+pim_prod(?![_a-zA-Z0-9])",
+        RegexOptions.IgnoreCase);
 
     [Fact]
     public void RealDbTestsUseTheSharedEnvironmentBasedConnectionHelper()

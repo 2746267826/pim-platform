@@ -50,6 +50,15 @@ assert.ok(
   '页面是只读的，不得提供任何修复入口'
 );
 
+// 空态与过期态都必须给出可操作的引导，而不是让用户对着一片未知发愣
+assertContains(pagePath, [
+  'isInspectionStale',
+  '本次体检结果已过期',
+  '暂无数据：还没有可用的体检结果',
+  'actions=',
+  '重新体检',
+]);
+
 // 设置页入口与路由
 assertContains(settingsPath, ["to: '/settings/data-reliability'", '数据可信度']);
 assertContains(layoutPath, ['/settings/data-reliability', 'DataReliabilityPage']);

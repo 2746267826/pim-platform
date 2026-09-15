@@ -63,6 +63,24 @@ export function groupRules(
   return ordered;
 }
 
+/**
+ * 体检结果视为"过期"的时长（小时）。与后端 `DataReliabilityGate.DefaultMaxAge`（26 小时）保持一致：
+ * 后台巡检每小时一次，26 小时足够覆盖一次漏跑。
+ */
+export const dataReliabilityStaleAfterHours = 26;
+
+/** 结果是否已过期；无结果或时间非法时返回 false（由"暂无数据"分支单独处理）。 */
+export function isInspectionStale(
+  inspectedAtUtc: string | null | undefined,
+  now: Date,
+  staleAfterHours: number = dataReliabilityStaleAfterHours
+): boolean {
+  if (!inspectedAtUtc) return false;
+  const at = new Date(inspectedAtUtc);
+  if (Number.isNaN(at.getTime())) return false;
+  return now.getTime() - at.getTime() > staleAfterHours * 3600_000;
+}
+
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return '暂无';
   const date = new Date(value);

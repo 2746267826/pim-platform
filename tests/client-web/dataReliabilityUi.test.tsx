@@ -102,8 +102,6 @@ const panel = text(
     React.createElement(DataReliabilityPanel, {
       report,
       now: new Date('2026-09-14T10:03:00Z'),
-      onRefresh: () => {},
-      refreshing: false,
       onSelectRule: () => {},
     })
   )
@@ -148,8 +146,7 @@ assert.ok(panel.includes('明确空档'), 'S2 应说明明确空档不计入活�
 assert.ok(!/一键修复/.test(panel), '面板是只读的，不得提供一键修复');
 assert.ok(!/<button[^>]*>[^<]*修复/.test(panel), '面板不得有任何修复按钮');
 
-// 重新体检按钮
-assert.ok(panel.includes('重新体检'), '面板应提供「重新体检」按钮');
+// 「重新体检」按钮位于页头（不在面板内），空态时也始终可用 —— 由 dataReliabilityResponsive 静态断言守护。
 
 // ---- 下钻弹窗 ----
 const s1 = rules[0];

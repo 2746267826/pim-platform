@@ -148,4 +148,41 @@ public class DataReliabilityRuleCatalogTests
         Assert.Equal(13, DataReliabilityRuleCatalog.All.Select(rule => rule.InvariantCode).Distinct(StringComparer.Ordinal).Count());
         Assert.All(DataReliabilityRuleCatalog.All, rule => Assert.All(rule.RelatedIssues, issue => Assert.True(issue > 0)));
     }
+
+    /// <summary>
+    /// 尺子目录与判据实现的一致性：每条目录项都必须真的对应一个判据方法，而不是"靠注释保持一致"。
+    /// 做法是对每条尺子喂空输入（各判据都会返回 UNKNOWN），断言返回的文案带的就是该目录项的 INV 编号。
+    /// 若将来判据换编号、目录写错编号或漏挂判据，这条断言会立刻变红。
+    /// </summary>
+    [Fact]
+    public void Catalog_EveryRuleIsBackedByItsJudgementMethod()
+    {
+        var judgementDetailByCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["S1"] = DataReliabilityInvariants.CheckS1_NoOverlap(new List<EventTimeSpan>()).Detail,
+            ["S2"] = DataReliabilityInvariants.CheckS2_OverlongEventEvidence(new List<LongEventCandidate>()).Detail,
+            ["S3"] = DataReliabilityInvariants.CheckS3_DailyDurationBounded(new List<DailyActiveDuration>()).Detail,
+            ["S4"] = DataReliabilityInvariants.CheckS4_BusinessKeyUnique(new List<BusinessRecordKey>()).Detail,
+            ["S5"] = DataReliabilityInvariants.CheckS5_ClockTrustworthy(new List<ClockEventItem>()).Detail,
+            ["S6"] = DataReliabilityInvariants.CheckS6_OfflineDeclared(new DeviceActivityTrace()).Detail,
+            ["S7"] = DataReliabilityInvariants.CheckS7_TimelineGapMarked(new List<TimelineInterval>()).Detail,
+            ["S8"] = DataReliabilityInvariants.CheckS8_DayBoundaryConsistent(new List<DayBoundarySample>()).Detail,
+            ["S9"] = DataReliabilityInvariants.CheckS9_GapHasSignal(new CoverageSignalReport { OnlineDurationSeconds = 0 }).Detail,
+            ["S10"] = DataReliabilityInvariants.CheckS10_TaskHasOutput(new List<BackgroundTaskRun>()).Detail,
+            ["S11"] = DataReliabilityInvariants.CheckS11_StatusSemantics(new List<BatchSyncStatusRecord>()).Detail,
+            ["S12"] = DataReliabilityInvariants.CheckS12_DerivedTableActive(new List<DerivedTableStatus>()).Detail,
+            ["S13"] = DataReliabilityInvariants.CheckS13_SingleInstance(new List<CollectionHeartbeat>()).Detail
+        };
+
+        Assert.Equal(13, judgementDetailByCode.Count);
+
+        foreach (var rule in DataReliabilityRuleCatalog.All)
+        {
+            Assert.True(judgementDetailByCode.TryGetValue(rule.Code, out var detail),
+                $"尺子 {rule.Code} 没有对应的判据方法");
+
+            Assert.StartsWith(rule.InvariantCode, detail, StringComparison.Ordinal);
+            Assert.StartsWith(rule.Code, DataReliabilityRuleCatalog.BuildKey(rule), StringComparison.Ordinal);
+        }
+    }
 }

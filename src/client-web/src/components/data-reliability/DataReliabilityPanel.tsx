@@ -6,24 +6,16 @@ import { groupRules } from './dataReliabilityModel';
 interface DataReliabilityPanelProps {
   report: DataReliabilityInspectionReport;
   now: Date;
-  onRefresh: () => void;
-  refreshing: boolean;
   onSelectRule: (rule: DataReliabilityRuleReport) => void;
 }
 
 /** 只读体检面板主体：总览 + 三个分组下的 13 条尺子。 */
-export default function DataReliabilityPanel({
-  report,
-  now,
-  onRefresh,
-  refreshing,
-  onSelectRule,
-}: DataReliabilityPanelProps) {
+export default function DataReliabilityPanel({ report, now, onSelectRule }: DataReliabilityPanelProps) {
   const groups = groupRules(report.rules);
 
   return (
     <div className="space-y-4">
-      <DataReliabilityOverview report={report} now={now} onRefresh={onRefresh} refreshing={refreshing} />
+      <DataReliabilityOverview report={report} now={now} />
 
       {report.totalViolations > 0 && (
         <p className="px-1 text-xs text-slate-500">

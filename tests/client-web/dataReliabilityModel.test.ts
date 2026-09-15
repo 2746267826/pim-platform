@@ -5,6 +5,8 @@ import type {
 } from '../../src/client-web/src/api/dataReliabilityTypes';
 import {
   buildOverviewCounts,
+  dataReliabilityStaleAfterHours,
+  isInspectionStale,
   buildThreeStateBuckets,
   buildViolationExportFileName,
   describeTrend,
@@ -91,6 +93,16 @@ assert.equal(formatFreshness('2026-09-12T12:00:00Z', now), '2 天前');
 assert.equal(formatFreshness('2026-09-14T12:05:00Z', now), '刚刚');
 assert.equal(formatFreshness(null, now), '未知');
 assert.equal(formatFreshness('不是时间', now), '未知');
+
+// ---- 过期判定（与后端 DataReliabilityGate 的 26 小时窗口一致）----
+assert.equal(dataReliabilityStaleAfterHours, 26);
+assert.equal(isInspectionStale('2026-09-14T11:00:00Z', now), false);
+assert.equal(isInspectionStale('2026-09-13T09:00:00Z', now), true);
+assert.equal(isInspectionStale(null, now), false);
+assert.equal(isInspectionStale('不是时间', now), false);
+// 阈值可注入，避免测试依赖真实时钟。
+assert.equal(isInspectionStale('2026-09-14T11:00:00Z', now, 2), false);
+assert.equal(isInspectionStale('2026-09-14T09:00:00Z', now, 2), true);
 
 // ---- 时长与当前值 ----
 assert.equal(formatDurationSeconds(0), '0 分钟');

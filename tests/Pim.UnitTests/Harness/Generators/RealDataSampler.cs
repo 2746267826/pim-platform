@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using Bogus;
 using Pim.Core.Invariants;
+using Pim.UnitTests.Harness.RealDb;
 
 namespace Pim.UnitTests.Harness.Generators;
 
@@ -337,6 +338,10 @@ public static class RealDataSampler
         };
     }
 
+    /// <summary>
+    /// 采样真库数据；未设置 PIM_TEST_CONN 或服务器不可达时返回 null（由调用方回退到合成数据）。
+    /// 其余异常（口令错误、库不存在、权限不足、缺表）原样抛出：配置错误必须可见。
+    /// </summary>
     private static List<SampledSession>? TrySampleFromDb(int count)
     {
         try
@@ -364,7 +369,7 @@ public static class RealDataSampler
             }
             return list.Count > 0 ? list : null;
         }
-        catch
+        catch (Exception ex) when (RealDbTestConnection.IsServerUnreachable(ex))
         {
             return null;
         }

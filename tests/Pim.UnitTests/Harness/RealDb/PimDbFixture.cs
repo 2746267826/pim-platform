@@ -36,11 +36,21 @@ public sealed class PimDbFixture : IAsyncLifetime
             await cmd.ExecuteScalarAsync();
             IsAvailable = true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (RealDbTestConnection.IsServerUnreachable(ex))
         {
+            // 只有"服务器不可达"才是环境缺失：让用例跳过。
             IsAvailable = false;
-            // 不抛异常，让测试 Skip
-            System.Console.WriteLine($"[PimDbFixture] DB unavailable, will Skip RealDb tests: {ex.Message}");
+            System.Console.WriteLine($"[PimDbFixture] DB unreachable, will Skip RealDb tests: {ex.Message}");
+        }
+        // 其余数据库异常（28P01 口令错误、3D000 库不存在、42501 权限不足、缺表…）不捕获：
+        // 配置错误必须让用例失败，不能被伪装成"跳过的回放"（评审第六轮 Important）。
+        finally
+        {
+            if (!IsAvailable && _conn is not null)
+            {
+                await _conn.DisposeAsync();
+                _conn = null;
+            }
         }
     }
 

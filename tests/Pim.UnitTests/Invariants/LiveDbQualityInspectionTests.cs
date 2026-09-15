@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using Pim.Core.Invariants;
+using Pim.UnitTests.Harness.RealDb;
 using Pim.Infrastructure.Data;
 using Pim.Infrastructure.Operations;
 using Xunit;
@@ -48,9 +49,10 @@ public class LiveDbQualityInspectionTests
                 workingConnStr = connString;
                 break;
             }
-            catch
+            catch (Exception ex) when (RealDbTestConnection.IsServerUnreachable(ex))
             {
-                // 忽略并尝试下一个
+                // 只有"不可达"才尝试下一个候选；口令错误/库不存在/权限不足等配置错误原样抛出。
+                _output.WriteLine($"候选连接不可达，尝试下一个：{ex.Message}");
             }
         }
 

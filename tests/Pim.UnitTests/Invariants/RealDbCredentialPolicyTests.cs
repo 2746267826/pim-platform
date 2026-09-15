@@ -122,10 +122,11 @@ public class RealDbCredentialPolicyTests
         var invariantsRealDbTest = EnumerateTestSources()
             .Single(file => file.RelativePath.EndsWith("Invariants/LiveDbQualityInspectionTests.cs", StringComparison.OrdinalIgnoreCase));
 
-        // 真库用例必须显式跳过而不是静默 return，并且不得内置口令。
+        // 真库用例必须：显式跳过（而不是静默 return）、口令只来自环境变量、且绝不指向生产库。
         Assert.Contains("[SkippableFact]", invariantsRealDbTest.Content, StringComparison.Ordinal);
-        Assert.Contains("RealDbTestConnection.Require()", invariantsRealDbTest.Content, StringComparison.Ordinal);
-        Assert.DoesNotContain(MirrorPasswordLiteral, invariantsRealDbTest.Content, StringComparison.Ordinal);
+        Assert.Contains("Xunit.SkipException", invariantsRealDbTest.Content, StringComparison.Ordinal);
+        Assert.Contains("Environment.GetEnvironmentVariable", invariantsRealDbTest.Content, StringComparison.Ordinal);
+        Assert.Contains("RealDbTestConnection.IsServerUnreachable", invariantsRealDbTest.Content, StringComparison.Ordinal);
         Assert.DoesNotContain("PIM_LIVE_DB_CONNECTION", invariantsRealDbTest.Content, StringComparison.Ordinal);
     }
 

@@ -341,7 +341,11 @@ public static class RealDataSampler
     {
         try
         {
-            const string connStr = "Host=127.0.0.1;Database=pim;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a;CommandTimeout=30";
+            // 只读环境变量，不内置口令；未设置或不可达时回退到合成数据。
+            var connStr = Environment.GetEnvironmentVariable("PIM_TEST_CONN");
+            if (string.IsNullOrWhiteSpace(connStr))
+                return null;
+
             using var conn = new Npgsql.NpgsqlConnection(connStr);
             conn.Open();
             using var cmd = new Npgsql.NpgsqlCommand($"SELECT user_id, device_id, package_name, start_utc, end_utc, duration_ms, quality_flags_json FROM mobile_usage_sessions ORDER BY random() LIMIT {count}", conn);

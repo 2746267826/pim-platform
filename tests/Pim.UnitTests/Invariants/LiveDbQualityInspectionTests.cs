@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -22,15 +23,20 @@ public class LiveDbQualityInspectionTests
         _output = output;
     }
 
-    [Fact]
+    [SkippableFact]
+    [Trait("DataSource", "RealDb")]
     public async Task LiveDb_InspectAsync_VerifiesGroundTruthViolations()
     {
-        // 依次尝试 pim_prod (真实生产镜像) 与 pim (本地开发库)
-        var connectionStrings = new[]
-        {
-            "Host=127.0.0.1;Port=5432;Database=pim_prod;Username=pim;Password=pim_prod_2026_home",
-            "Host=127.0.0.1;Port=5432;Database=pim;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a"
-        };
+        // 连接串一律由环境变量提供（源码不内置口令）：真实生产镜像/本地开发库任一可用即可。
+        string?[] candidates =
+        [
+            Environment.GetEnvironmentVariable("PIM_PROD_CONN"),
+            Environment.GetEnvironmentVariable("PIM_TEST_CONN")
+        ];
+        var connectionStrings = candidates
+            .Where(connString => !string.IsNullOrWhiteSpace(connString))
+            .Select(connString => connString!)
+            .ToArray();
 
         string? workingConnStr = null;
         foreach (var connString in connectionStrings)
@@ -50,8 +56,9 @@ public class LiveDbQualityInspectionTests
 
         if (workingConnStr == null)
         {
-            _output.WriteLine("本地真实 PostgreSQL 未运行或连接失败，跳过实机校验");
-            return;
+            // 显式 Skip（而不是静默通过）：报告里要能看出"这台机器没有可用的真实库"。
+            throw new Xunit.SkipException(
+                "未提供可用真库连接（PIM_PROD_CONN / PIM_TEST_CONN），跳过实机校验。");
         }
 
         var optionsBuilder = new DbContextOptionsBuilder<PimDbContext>();

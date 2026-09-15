@@ -12,15 +12,24 @@ namespace Pim.UnitTests.Harness.RealDb;
 /// </summary>
 public sealed class PimDbFixture : IAsyncLifetime
 {
-    private const string ConnStr = "Host=127.0.0.1;Database=pim;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a;CommandTimeout=30";
+    // 只读环境变量，不内置口令；未设置时视为不可用（用例自行跳过）。
+    private static string? ConnStr => Environment.GetEnvironmentVariable("PIM_TEST_CONN");
     private NpgsqlConnection? _conn;
     public bool IsAvailable { get; private set; }
 
     public async Task InitializeAsync()
     {
+        var connStr = ConnStr;
+        if (string.IsNullOrWhiteSpace(connStr))
+        {
+            IsAvailable = false;
+            System.Console.WriteLine("[PimDbFixture] PIM_TEST_CONN 未设置，跳过 RealDb 回放用例。");
+            return;
+        }
+
         try
         {
-            _conn = new NpgsqlConnection(ConnStr);
+            _conn = new NpgsqlConnection(connStr);
             await _conn.OpenAsync();
             // 探活：查 mobile_usage_sessions 至少1条
             await using var cmd = new NpgsqlCommand("SELECT 1 FROM mobile_usage_sessions LIMIT 1", _conn);

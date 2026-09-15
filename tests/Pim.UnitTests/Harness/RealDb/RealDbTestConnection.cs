@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using Npgsql;
 using Xunit;
 
@@ -10,6 +11,9 @@ namespace Pim.UnitTests.Harness.RealDb;
 /// 2. 拿不到可用的库时用 <see cref="Skip"/> **显式跳过**（CI 报告里显示为 Skipped），
 ///    而不是静默 <c>return</c> —— 静默返回会让"什么都没验证"的用例长期以 Passed 计入，
 ///    断言也会退化成恒真式，失去回归防护意义。
+///
+/// 3. 只有"数据库不可达"才跳过；口令错误、库不存在、权限不足等**配置错误必须让用例失败**，
+///    否则错配置会被伪装成绿色 Skip。
 ///
 /// 使用方必须是 <c>[SkippableFact]</c>/<c>[SkippableTheory]</c>，否则 Skip 会被当成失败。
 /// </summary>
@@ -33,11 +37,22 @@ internal static class RealDbTestConnection
             using var command = new NpgsqlCommand("SELECT 1", connection);
             command.ExecuteScalar();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (IsServerUnreachable(ex))
         {
-            throw new Xunit.SkipException($"RealDb connection failed: {ex.Message}");
+            throw new Xunit.SkipException($"RealDb unreachable: {ex.Message}");
         }
+
+        // 其余异常（28P01 口令错误、3D000 库不存在、42501 权限不足…）不在此处捕获：
+        // 配置错误必须让用例失败，不能被伪装成 Skip。
     }
+
+    /// <summary>
+    /// 只有"服务器不可达"（连接被拒 / DNS 失败 / 连接超时）才算环境缺失；
+    /// 其余数据库异常属于配置错误，必须向上抛出。
+    /// </summary>
+    internal static bool IsServerUnreachable(Exception ex)
+        => ex is SocketException or TimeoutException
+            || ex.InnerException is SocketException or TimeoutException;
 
     /// <summary>校验可用并返回连接串。</summary>
     public static string Require()

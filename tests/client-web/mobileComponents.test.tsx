@@ -79,6 +79,7 @@ const syncBatch: MobileSyncBatchSummary = {
   status: 'partial',
   acceptedEventCount: 128,
   skippedEventCount: 2,
+  rejectedItemCount: 3,
   acceptedLocationCount: 9,
   rejectedLocationCount: 1,
   errorMessage: '1 条定位记录因精度过低被拒绝',

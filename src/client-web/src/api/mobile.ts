@@ -204,6 +204,7 @@ export interface MobileSyncBatchSummary {
   status: string;
   acceptedEventCount: number;
   skippedEventCount: number;
+  rejectedItemCount: number;
   acceptedLocationCount: number;
   rejectedLocationCount: number;
   errorMessage: string | null;

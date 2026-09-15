@@ -3670,6 +3670,65 @@ namespace Pim.Infrastructure.Data.Migrations
                     b.ToTable("mcp_clients", (string)null);
                 });
 
+            modelBuilder.Entity("Pim.Module.Mobile.Entities.MobileAnalyticsMaterializationEntity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CoveredFromUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("covered_from_utc");
+
+                    b.Property<DateTimeOffset>("CoveredToUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("covered_to_utc");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("device_id");
+
+                    b.Property<DateTimeOffset>("GeneratedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("generated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("Timezone")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("Asia/Shanghai")
+                        .HasColumnName("timezone");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "DeviceId", "CoveredFromUtc", "CoveredToUtc")
+                        .IsUnique();
+
+                    b.ToTable("mobile_analytics_materializations");
+                });
+
             modelBuilder.Entity("Pim.Module.Mobile.Entities.MobileAppCatalogEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4111,6 +4170,9 @@ namespace Pim.Infrastructure.Data.Migrations
 
                     b.HasIndex("UserId", "Quality", "RecordedAtUtc");
 
+                    b.HasIndex("UserId", "DeviceId", "RecordedAtUtc", "Latitude", "Longitude")
+                        .IsUnique();
+
                     b.ToTable("mobile_location_points");
                 });
 
@@ -4158,6 +4220,14 @@ namespace Pim.Infrastructure.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("failed_count");
 
+                    b.Property<int>("RejectedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("rejected_count");
+
+                    b.Property<int>("SkippedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("skipped_count");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -4198,6 +4268,14 @@ namespace Pim.Infrastructure.Data.Migrations
                     b.Property<int>("AppCount")
                         .HasColumnType("integer")
                         .HasColumnName("app_count");
+
+                    b.Property<string>("BlockId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(8192)
+                        .HasColumnType("character varying(8192)")
+                        .HasDefaultValue("")
+                        .HasColumnName("block_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .ValueGeneratedOnAdd()

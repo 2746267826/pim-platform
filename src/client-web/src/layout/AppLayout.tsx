@@ -20,6 +20,7 @@ import PcDetailQueryPage from '../pages/PcDetailQueryPage';
 import StatusPage from '../pages/StatusPage';
 import AppKnowledgeBasePage from '../pages/AppKnowledgeBasePage';
 import CategoryTreePage from '../pages/CategoryTreePage';
+import DataReliabilityPage from '../pages/DataReliabilityPage';
 import { ErrorBoundary } from '../components/error/ErrorBoundary';
 import NotFoundPage from '../components/error/NotFoundPage';
 
@@ -115,6 +116,7 @@ export default function AppLayout() {
                 <Route path="/devices/:deviceId" element={<DeviceDetailPage />} />
                 <Route path="/status" element={<StatusPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/settings/data-reliability" element={<DataReliabilityPage />} />
                 <Route path="/settings/sync" element={<SyncPage />} />
                 <Route path="/settings/ai" element={<AiSettingsPage />} />
                 <Route path="/settings/mcp" element={<McpSettingsPage />} />

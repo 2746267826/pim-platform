@@ -361,10 +361,13 @@ export function getProductivityRange(start: string, end: string) {
 }
 
 // === Phase 2: 时间线 v2 API ===
+// 业务日固定为 Asia/Shanghai 04:00 起算（服务端决定，不接受 timezone 参数）；
+// start/end 为带 +08:00 偏移的 ISO-8601，块之间互不重叠（#235 / #236 / #237）。
 export interface TimelineV2Item {
   start: string;
   end: string;
   appName: string;
+  appDisplayName?: string | null;
   windowTitle: string | null;
   categoryName: string;
   categoryColor: string | null;

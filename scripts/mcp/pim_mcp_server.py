@@ -1685,15 +1685,14 @@ async def get_pc_timeline(
 @mcp.tool()
 async def get_pc_timeline_v2(
     date: str,
-    timezone: str = DEFAULT_TIMEZONE,
     redactUrls: bool = True,
 ) -> Any:
-    """Get PC timeline v2 (smoothed with classification). Returns TimelineV2Item[]. Preferred over v1."""
+    """Get PC timeline v2 (smoothed with classification). The business day is [D 04:00, D+1 04:00) Asia/Shanghai and is fixed server-side, so no timezone argument is accepted. Blocks are non-overlapping and timestamps carry +08:00 offsets. Returns TimelineV2Item[]. Preferred over v1."""
     try:
         datetime.strptime(date, "%Y-%m-%d")
     except Exception:
         return {"error": "date must be YYYY-MM-DD", "code": 400}
-    params = _clean_params(date=date, timezone=timezone)
+    params = _clean_params(date=date)
     return await _call_api("GET", "/api/v1/pc/timeline/v2", params=params, redact_urls=redactUrls)
 
 
@@ -2019,14 +2018,13 @@ async def get_classification_settings() -> Any:
 async def get_mobile_summary(
     date: str,
     deviceId: Optional[str] = None,
-    timezone: str = DEFAULT_TIMEZONE,
 ) -> Any:
-    """Get mobile usage summary for a day (separate from timeline). Returns MobileUsageSummaryResponse."""
+    """Get mobile usage summary for one business day. The business day is [D 04:00, D+1 04:00) Asia/Shanghai and is fixed server-side, so no timezone argument is accepted. Returns MobileUsageSummaryResponse."""
     try:
         datetime.strptime(date, "%Y-%m-%d")
     except Exception:
         return {"error": "date must be YYYY-MM-DD", "code": 400}
-    params = _clean_params(date=date, deviceId=deviceId, timezone=timezone)
+    params = _clean_params(date=date, deviceId=deviceId)
     return await _call_api("GET", "/api/v1/mobile/summary", params=params)
 
 
@@ -2034,15 +2032,14 @@ async def get_mobile_summary(
 async def get_mobile_timeline(
     date: str,
     deviceId: Optional[str] = None,
-    timezone: str = DEFAULT_TIMEZONE,
     redactUrls: bool = True,
 ) -> Any:
-    """Get mobile timeline for a day (app usage sessions). Returns MobileTimelineResponse."""
+    """Get mobile timeline for one business day (app usage sessions). The business day is [D 04:00, D+1 04:00) Asia/Shanghai and is fixed server-side, so no timezone argument is accepted. Returns MobileTimelineResponse."""
     try:
         datetime.strptime(date, "%Y-%m-%d")
     except Exception:
         return {"error": "date must be YYYY-MM-DD", "code": 400}
-    params = _clean_params(date=date, deviceId=deviceId, timezone=timezone)
+    params = _clean_params(date=date, deviceId=deviceId)
     return await _call_api("GET", "/api/v1/mobile/timeline", params=params, redact_urls=redactUrls)
 
 
@@ -2142,14 +2139,13 @@ async def get_mobile_location_movement_stats(
 async def get_mobile_quality(
     date: str,
     deviceId: Optional[str] = None,
-    timezone: str = DEFAULT_TIMEZONE,
 ) -> Any:
-    """Get mobile collection quality for a day. Returns MobileQualityResponse."""
+    """Get mobile collection quality for one business day. The business day is [D 04:00, D+1 04:00) Asia/Shanghai and is fixed server-side, so no timezone argument is accepted. Returns MobileQualityResponse."""
     try:
         datetime.strptime(date, "%Y-%m-%d")
     except Exception:
         return {"error": "date must be YYYY-MM-DD", "code": 400}
-    params = _clean_params(date=date, deviceId=deviceId, timezone=timezone)
+    params = _clean_params(date=date, deviceId=deviceId)
     return await _call_api("GET", "/api/v1/mobile/quality", params=params)
 
 

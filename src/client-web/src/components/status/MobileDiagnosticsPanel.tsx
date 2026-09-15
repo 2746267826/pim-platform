@@ -56,9 +56,9 @@ const statusLabels: Record<PimHealthStatus, string> = {
 
 const detailLabels: Record<string, string> = {
   androidIdHash: 'Android ID',
-  appMetadataCount: '应用元数据数',
+  appMetadataCount: '应用元数据包数',
   appVersion: '应用版本',
-  acceptedCount: '已接收',
+  acceptedCount: '已接受条目',
   batchCount: '批次数',
   deviceId: '设备',
   displayName: '设备名称',
@@ -67,12 +67,19 @@ const detailLabels: Record<string, string> = {
   lastError: '最近错误',
   lastSuccessfulUploadAt: '最近成功上传',
   lastSyncAt: '最近同步',
+  evaluationEndAt: '评估截止',
+  latestSummaryAt: '最近汇总',
   locationPointCount: '定位点数',
   metadataFreshness: '元数据新鲜度',
-  rejectedCount: '已拒绝',
+  missingAppMetadataCount: '缺元数据包数',
+  missingPackages: '待补包名',
+  rejectedCount: '已拒绝条目',
   receivedAt: '最近心跳',
   staleAppCount: '过期应用数',
+  stalledBatchCount: '未完成批次',
+  summaryLagHours: '汇总滞后（小时）',
   uploadQueueCount: '上传队列',
+  usedPackageCount: '使用包数',
 };
 
 const diagnostics = [

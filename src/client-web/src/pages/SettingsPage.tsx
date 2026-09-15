@@ -5,6 +5,12 @@ import { useAuth } from '../auth/AuthContext';
 
 const settingsLinks = [
   {
+    title: '数据可信度',
+    description: '查看 13 项数据可信度体检结果、违规样例与存量趋势',
+    label: '体检',
+    to: '/settings/data-reliability',
+  },
+  {
     title: '管理日程数据',
     description: '查看、筛选、导入导出全部日程数据',
     label: '日程',

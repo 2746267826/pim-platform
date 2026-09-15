@@ -123,6 +123,38 @@ public sealed class DeviceManagementServiceTests
     }
 
     [Fact]
+    public async Task DeleteAsync_BlocksWhileABatchIsStillBeingProcessedRecently()
+    {
+        await using var ctx = await DeviceManagementTestDb.CreateAsync();
+        var db = ctx.Db;
+        SeedDevice(db, TargetDeviceId, Now);
+        SeedPendingBatch(db, TargetDeviceId, "batch-in-flight", Now.AddMinutes(-5));
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        var ex = await Assert.ThrowsAsync<Pim.Core.Exceptions.DomainException>(
+            () => service.DeleteAsync(TargetDeviceId, CancellationToken.None));
+
+        Assert.Equal(04002, ex.ErrorCode);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_IgnoresAbandonedPendingBatchSoDeviceStaysDeletable()
+    {
+        await using var ctx = await DeviceManagementTestDb.CreateAsync();
+        var db = ctx.Db;
+        SeedDevice(db, TargetDeviceId, Now);
+        // 中断上传留下的 pending 行（#243）：超过"还在动"窗口后不得再阻塞删除
+        SeedPendingBatch(db, TargetDeviceId, "batch-abandoned", Now.AddHours(-3));
+        await db.SaveChangesAsync();
+        var service = CreateService(db);
+
+        await service.DeleteAsync(TargetDeviceId, CancellationToken.None);
+
+        Assert.Empty(await db.Set<MobileDeviceEntity>().Where(d => d.DeviceId == TargetDeviceId).ToListAsync());
+    }
+
+    [Fact]
     public void MergeAndDelete_StartTheirUserTransactionsThroughTheConfiguredExecutionStrategy()
     {
         var source = File.ReadAllText(FindRepositoryFile(
@@ -148,6 +180,8 @@ public sealed class DeviceManagementServiceTests
         SeedLocation(db, SourceDeviceA, Now.AddDays(-60));
         SeedBatch(db, SourceDeviceA, "batch-a", Now.AddDays(-60));
         SeedTimelineBlock(db, SourceDeviceA, Now.AddDays(-60));
+        SeedAggregate(db, SourceDeviceA, Now.AddDays(-60));
+        SeedMaterialization(db, SourceDeviceA, Now.AddDays(-60));
         SeedCatalog(db, SourceDeviceA, "com.old.app", "Old App", "tools", Now.AddDays(-60));
         await db.SaveChangesAsync();
         var service = CreateService(db);
@@ -160,7 +194,12 @@ public sealed class DeviceManagementServiceTests
         Assert.Single(await db.Set<MobileUsageSummaryEntity>().Where(e => e.DeviceId == TargetDeviceId).ToListAsync());
         Assert.Single(await db.Set<MobileLocationPointEntity>().Where(e => e.DeviceId == TargetDeviceId).ToListAsync());
         Assert.Single(await db.Set<MobileSyncBatchEntity>().Where(e => e.DeviceId == TargetDeviceId).ToListAsync());
-        Assert.Single(await db.Set<MobileTimelineBlockEntity>().Where(e => e.DeviceId == TargetDeviceId).ToListAsync());
+        // 派生数据（块 / 聚合 / 物化覆盖）在合并后一律丢弃而不是改写 device_id（#247）：
+        // 两张派生表都有 (user, device, ...) 唯一索引，两台设备同桶的行直接改写会撞唯一索引；
+        // 而且合并后必须重新物化，留着旧行会让读路径拿到混合设备的缓存。
+        Assert.Empty(await db.Set<MobileTimelineBlockEntity>().ToListAsync());
+        Assert.Empty(await db.Set<MobileUsageAggregateEntity>().ToListAsync());
+        Assert.Empty(await db.Set<MobileAnalyticsMaterializationEntity>().ToListAsync());
         var catalog = await db.Set<MobileAppCatalogEntity>().SingleAsync();
         Assert.Equal(TargetDeviceId, catalog.DeviceId);
         Assert.Equal("com.old.app", catalog.PackageName);
@@ -482,6 +521,8 @@ public sealed class DeviceManagementServiceTests
         if (await db.Set<MobileLocationPointEntity>().AnyAsync(e => e.DeviceId == deviceId)) hits.Add("locations");
         if (await db.Set<MobileSyncBatchEntity>().AnyAsync(e => e.DeviceId == deviceId)) hits.Add("batches");
         if (await db.Set<MobileTimelineBlockEntity>().AnyAsync(e => e.DeviceId == deviceId)) hits.Add("timeline");
+        if (await db.Set<MobileUsageAggregateEntity>().AnyAsync(e => e.DeviceId == deviceId)) hits.Add("aggregates");
+        if (await db.Set<MobileAnalyticsMaterializationEntity>().AnyAsync(e => e.DeviceId == deviceId)) hits.Add("materialization");
         if (await db.Set<MobileAppCatalogEntity>().AnyAsync(e => e.DeviceId == deviceId)) hits.Add("catalog");
         return hits;
     }
@@ -499,6 +540,35 @@ public sealed class DeviceManagementServiceTests
             AppVersion = "2026.09.504",
             RegisteredAtUtc = lastSeen,
             LastSeenAtUtc = lastSeen,
+        });
+
+    private static void SeedAggregate(PimDbContext db, string deviceId, DateTimeOffset start)
+        => db.Set<MobileUsageAggregateEntity>().Add(new MobileUsageAggregateEntity
+        {
+            UserId = MobileTestHelpers.UserId,
+            DeviceId = deviceId,
+            Granularity = MobileAnalyticsDefaults.HourGranularity,
+            BucketStartUtc = start,
+            BucketEndUtc = start.AddHours(1),
+            PackageName = "com.old.app",
+            DisplayName = "Old App",
+            LifeCategory = MobileLifeCategories.Uncategorized,
+            ForegroundSeconds = 60,
+            CreatedAt = start,
+            UpdatedAt = start
+        });
+
+    private static void SeedMaterialization(PimDbContext db, string deviceId, DateTimeOffset start)
+        => db.Set<MobileAnalyticsMaterializationEntity>().Add(new MobileAnalyticsMaterializationEntity
+        {
+            UserId = MobileTestHelpers.UserId,
+            DeviceId = deviceId,
+            Timezone = MobileAnalyticsDefaults.DefaultTimezone,
+            CoveredFromUtc = start,
+            CoveredToUtc = start.AddDays(1),
+            GeneratedAt = start,
+            CreatedAt = start,
+            UpdatedAt = start
         });
 
     private static void SeedCatalog(
@@ -578,6 +648,21 @@ public sealed class DeviceManagementServiceTests
             AcceptedCount = 1,
             Status = "completed",
             CompletedAtUtc = windowStart.AddMinutes(15),
+        });
+
+    private static void SeedPendingBatch(PimDbContext db, string deviceId, string batchId, DateTimeOffset createdAt)
+        => db.Set<MobileSyncBatchEntity>().Add(new MobileSyncBatchEntity
+        {
+            UserId = MobileTestHelpers.UserId,
+            DeviceId = deviceId,
+            BatchId = batchId,
+            WindowStartUtc = createdAt.AddMinutes(-15),
+            WindowEndUtc = createdAt,
+            AcceptedCount = 0,
+            Status = MobileSyncBatchStatus.Pending,
+            ErrorJson = "{}",
+            CreatedAt = createdAt,
+            CompletedAtUtc = null,
         });
 
     private static void SeedTimelineBlock(PimDbContext db, string deviceId, DateTimeOffset start)

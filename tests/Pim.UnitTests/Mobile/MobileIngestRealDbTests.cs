@@ -1,7 +1,7 @@
-using System.Net.Sockets;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Pim.Infrastructure.Data;
+using Pim.UnitTests.Harness.RealDb;
 using Pim.Module.Mobile.DTOs;
 using Pim.Module.Mobile.Entities;
 using Pim.Module.Mobile.Services;
@@ -18,25 +18,18 @@ namespace Pim.UnitTests.Mobile;
 /// 2. 定位点幂等依赖 `numeric(10,7)` 落库后的四舍五入与内存值一致；
 /// 3. 定位点唯一索引在真库上确实存在并拦得住重复写入（顺序写入即可验证约束本身）。
 ///
-/// 连不上数据库时跳过而非失败，与仓库既有 RealDb 测试一致。
+/// 无 PostgreSQL（或未设置 <c>PIM_TEST_CONN</c>）时用 <c>Skip.If</c> 显式跳过，报告里显示 Skipped。
 /// </summary>
 [Trait("DataSource", "RealDb")]
 public sealed class MobileIngestRealDbTests
 {
-    private const string DefaultConnStr =
-        "Host=127.0.0.1;Database=pim;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a;CommandTimeout=60";
-
     private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-07-08T10:00:00Z");
     private const string DeviceId = "real-db-device";
 
-    private static string ConnStr =>
-        Environment.GetEnvironmentVariable("PIM_TEST_CONN") ?? DefaultConnStr;
-
-    [Fact]
+    [SkippableFact]
     public async Task IngestAsync_OnPostgres_RebuildsOnlyWhenTheEventSetOrWindowChanges()
     {
-        await using var database = await TempDatabase.TryCreateAsync();
-        if (database is null) return;
+        await using var database = await TempDatabase.CreateAsync();
         await using var db = database.Db;
         var service = CreateIngest(db);
 
@@ -80,11 +73,10 @@ public sealed class MobileIngestRealDbTests
         Assert.Equal(start.AddHours(4), widened_session.EndUtc);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SubmitAsync_OnPostgres_IsIdempotentDespiteNumericRounding()
     {
-        await using var database = await TempDatabase.TryCreateAsync();
-        if (database is null) return;
+        await using var database = await TempDatabase.CreateAsync();
         await using var db = database.Db;
         var service = new MobileLocationService(db, MobileTestHelpers.CurrentUser(), MobileTestHelpers.Time(Now));
 
@@ -131,13 +123,12 @@ public sealed class MobileIngestRealDbTests
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task MaterializeAsync_OnPostgresWithRetryingProvider_WorksWithoutAnAmbientTransaction()
     {
         // 生产 DbContext 开了 EnableRetryOnFailure：自管事务必须走执行策略，
         // 否则 EF 会抛"执行策略不支持用户发起的事务"（评审第三轮 Important）。
-        await using var database = await TempDatabase.TryCreateAsync(enableRetry: true);
-        if (database is null) return;
+        await using var database = await TempDatabase.CreateAsync(enableRetry: true);
         await using var db = database.Db;
 
         var start = DateTimeOffset.Parse("2026-07-06T08:00:00Z");
@@ -213,22 +204,19 @@ public sealed class MobileIngestRealDbTests
 
         public PimDbContext Db { get; }
 
-        /// <summary>CI 没有 PostgreSQL：连不上时返回 null（跳过），其余异常照常抛出。</summary>
-        public static async Task<TempDatabase?> TryCreateAsync(bool enableRetry = false)
+        /// <summary>无 PostgreSQL（未设置 PIM_TEST_CONN 或连不上）时抛 SkipException 跳过。</summary>
+        public static async Task<TempDatabase> CreateAsync(bool enableRetry = false)
         {
+            var connStr = RealDbTestConnection.Require();
             MobileTestHelpers.RegisterMobileModule();
-            var admin = new NpgsqlConnection(ConnStr);
-            if (!await TryOpenAsync(admin))
-            {
-                await admin.DisposeAsync();
-                return null;
-            }
+            var admin = new NpgsqlConnection(connStr);
+            await admin.OpenAsync();
 
             var database = $"test_mobile_ingest_{Guid.NewGuid():N}";
             await using (var create = new NpgsqlCommand($"CREATE DATABASE \"{database}\"", admin))
                 await create.ExecuteNonQueryAsync();
 
-            var connectionString = new NpgsqlConnectionStringBuilder(ConnStr) { Database = database }.ConnectionString;
+            var connectionString = new NpgsqlConnectionStringBuilder(connStr) { Database = database }.ConnectionString;
             var builder = new DbContextOptionsBuilder<PimDbContext>().UseNpgsql(
                 connectionString,
                 npgsql =>
@@ -239,20 +227,6 @@ public sealed class MobileIngestRealDbTests
             var db = new PimDbContext(builder.Options);
             await db.Database.EnsureCreatedAsync();
             return new TempDatabase(database, admin, db);
-        }
-
-        private static async Task<bool> TryOpenAsync(NpgsqlConnection connection)
-        {
-            try
-            {
-                await connection.OpenAsync();
-                return true;
-            }
-            catch (Exception ex) when (ex is SocketException or TimeoutException
-                || ex.InnerException is SocketException or TimeoutException)
-            {
-                return false;
-            }
         }
 
         public async ValueTask DisposeAsync()

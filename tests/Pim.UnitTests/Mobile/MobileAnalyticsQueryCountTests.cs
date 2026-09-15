@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
 using Pim.Infrastructure.Data;
+using Pim.UnitTests.Harness.RealDb;
 using Pim.Module.Mobile.DTOs;
 using Pim.Module.Mobile.Entities;
 using Pim.Module.Mobile.Services;
@@ -14,24 +15,19 @@ namespace Pim.UnitTests.Mobile;
 /// issue #247①：手机端分析接口每包逐次查库 —— 单次 /analytics/charts 实测 686 条 SQL，
 /// 其中绝大多数来自"每个包各查 2~3 次"的分类路径。
 ///
-/// 分析查询用到 DateTimeOffset 比较/排序，SQLite 无法执行，因此查询条数用真库（Postgres）计数；
-/// 连不上数据库时跳过而非失败，与仓库既有 RealDb 测试保持一致。
+/// 分析查询用到 DateTimeOffset 比较/排序，SQLite 无法执行，因此查询条数用真库（Postgres）计数。
+/// 拿不到真库时用例显式 Skip（CI 显示 Skipped），不返回 0 —— 否则 `Assert.True(0 &lt;= 15)`
+/// 这类断言会变成恒真式，"N+1 防护"就成了假象。
 /// </summary>
 [Trait("DataSource", "RealDb")]
 public sealed class MobileAnalyticsQueryCountTests
 {
-    private const string DefaultConnStr =
-        "Host=127.0.0.1;Database=pim;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a;CommandTimeout=60";
-
     private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-07-08T10:00:00Z");
     private static readonly DateTimeOffset RangeStart = DateTimeOffset.Parse("2026-07-06T00:00:00Z");
     private static readonly DateTimeOffset RangeEnd = DateTimeOffset.Parse("2026-07-07T00:00:00Z");
     private const string DeviceId = "analytics-query-count-device";
 
-    private static string ConnStr =>
-        Environment.GetEnvironmentVariable("PIM_TEST_CONN") ?? DefaultConnStr;
-
-    [Fact]
+    [SkippableFact]
     public async Task GetChartsAsync_QueryCountDoesNotGrowWithPackageCount()
     {
         var baseline = await CountChartsQueriesAsync(1);
@@ -42,7 +38,7 @@ public sealed class MobileAnalyticsQueryCountTests
         Assert.True(scaled <= 15, $"分析请求应保持常数级查询条数（实测 {scaled} 条）");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetHeatmapAsync_QueryCountDoesNotGrowWithPackageCount()
     {
         var baseline = await CountHeatmapQueriesAsync(1);
@@ -126,10 +122,11 @@ public sealed class MobileAnalyticsQueryCountTests
         int packageCount,
         Func<MobileUsageAggregationService, CancellationToken, Task> execute)
     {
+        // 无真库时在这里 Skip（不会走到计数与断言）。
+        var connStr = RealDbTestConnection.Require();
         MobileTestHelpers.RegisterMobileModule();
-        await using var admin = new NpgsqlConnection(ConnStr);
-        if (!await TryOpenAsync(admin))
-            return 0;
+        await using var admin = new NpgsqlConnection(connStr);
+        await admin.OpenAsync();
 
         // 每次计数用一次性数据库：EnsureCreated 只有在库内无表时才会建表，
         // 复用它库（如 pim / pim_test）会得到"表不存在"的假失败。
@@ -139,7 +136,7 @@ public sealed class MobileAnalyticsQueryCountTests
             await using (var create = new NpgsqlCommand($"CREATE DATABASE \"{database}\"", admin))
                 await create.ExecuteNonQueryAsync();
 
-            var databaseConn = new NpgsqlConnectionStringBuilder(ConnStr) { Database = database }.ConnectionString;
+            var databaseConn = new NpgsqlConnectionStringBuilder(connStr) { Database = database }.ConnectionString;
             var interceptor = new CountingCommandInterceptor();
             var options = new DbContextOptionsBuilder<PimDbContext>()
                 .UseNpgsql(databaseConn)
@@ -157,7 +154,7 @@ public sealed class MobileAnalyticsQueryCountTests
         }
         finally
         {
-            await using var cleanup = new NpgsqlConnection(ConnStr);
+            await using var cleanup = new NpgsqlConnection(connStr);
             await cleanup.OpenAsync();
             await using var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{database}\" WITH (FORCE)", cleanup);
             await drop.ExecuteNonQueryAsync();
@@ -208,19 +205,6 @@ public sealed class MobileAnalyticsQueryCountTests
             new MobileUsageGoalService(db, currentUser, timeProvider),
             timeProvider,
             new MobileAppClassificationService(db, currentUser));
-    }
-
-    private static async Task<bool> TryOpenAsync(NpgsqlConnection connection)
-    {
-        try
-        {
-            await connection.OpenAsync();
-            return true;
-        }
-        catch (Exception)
-        {
-            return false;
-        }
     }
 
     internal sealed class CountingCommandInterceptor : DbCommandInterceptor

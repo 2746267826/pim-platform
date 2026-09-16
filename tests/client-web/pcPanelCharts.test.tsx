@@ -22,7 +22,6 @@ const requireFromClient = createRequire(path.join(process.cwd(), 'src/client-web
 const React = requireFromClient('react') as typeof import('react');
 const { renderToStaticMarkup } = requireFromClient('react-dom/server') as typeof import('react-dom/server');
 const { QueryClient, QueryClientProvider } = requireFromClient('@tanstack/react-query');
-const { format } = requireFromClient('date-fns') as typeof import('date-fns');
 const reactGlobal = globalThis as typeof globalThis & { React: typeof React };
 reactGlobal.React = React;
 
@@ -295,7 +294,11 @@ test('buildWeeklyTrendOption handles empty daily input', () => {
 
 test('ProductivityDashboard renders descriptive focus dashboard without subjective score words', () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const today = format(new Date(), 'yyyy-MM-dd');
+  // 显式注入业务日期，测试不依赖「跑在什么时刻」：组件在收到 dateStr 时用它作为
+  // query key。此前用 format(new Date())（UTC 当天）当 key，而组件默认走
+  // getPcBusinessDate()（Asia/Shanghai + 04:00 业务日边界），两者只在
+  // CST 04:00-08:00（= UTC 20:00-24:00）相差一天，导致 CI 每天在该窗口失败。
+  const today = '2026-08-15';
   qc.setQueryData(['productivity-dashboard', today], {
     todayScore: 80,
     productiveHours: 4,
@@ -315,6 +318,7 @@ test('ProductivityDashboard renders descriptive focus dashboard without subjecti
         focusBlocks,
         lateNight,
         summaryMetrics: summary.metrics,
+        dateStr: today,
       })
     )
   );

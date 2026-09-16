@@ -232,6 +232,9 @@ export const calendarApiPaths = {
   outlookDiscover() {
     return '/calendar/outlook/calendars/discover';
   },
+  outlookCalendars() {
+    return '/calendar/outlook/calendars';
+  },
   outlookSelection() {
     return '/calendar/outlook/calendars/selection';
   },
@@ -728,6 +731,13 @@ export async function cancelOutlookSync(batchId: string) {
 export async function outlookDiscover() {
   const r = await apiPost<ApiResponse<OutlookCalendarBindingResponse[]>>(
     calendarApiPaths.outlookDiscover()
+  );
+  return r.data;
+}
+
+export async function outlookBindings() {
+  const r = await apiGet<ApiResponse<OutlookCalendarBindingResponse[]>>(
+    calendarApiPaths.outlookCalendars()
   );
   return r.data;
 }

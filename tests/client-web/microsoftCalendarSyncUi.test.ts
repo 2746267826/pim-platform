@@ -307,3 +307,20 @@ assert.match(calendarApiSource, /export async function checkOutlookConnection/);
 // Only one runOutlookSync, no runOutlookSyncWithRequest
 assert.match(calendarApiSource, /export async function runOutlookSync/);
 assert.doesNotMatch(calendarApiSource, /runOutlookSyncWithRequest/);
+
+// --- #272/#273: 缺失 state must be refreshable without a manual 发现日历 ---
+// Automatic sync can flip a binding to remote-missing; the page has to re-read the stored
+// bindings afterwards, otherwise the 缺失 tag never appears unless the user clicks 发现日历.
+assert.match(syncPageSource, /outlookBindings/);
+assert.match(syncPageSource, /async function refreshBindings\(\)/);
+assert.match(syncPageSource, /await outlookBindings\(\)[\s\S]{0,200}setBindings\(data\)/);
+// Refresh is wired into both the sync mutation and the per-calendar retry mutation.
+assert.equal(
+  (syncPageSource.match(/void refreshBindings\(\);/g) ?? []).length,
+  2,
+  'refreshBindings should run after sync and after per-calendar retry',
+);
+// A confirmed-missing calendar must not be presented as a plain retryable failure.
+assert.match(syncPageSource, /=== 'remote-missing' && \(/);
+assert.match(calendarApiSource, /export async function outlookBindings/);
+assert.match(calendarApiSource, /outlookCalendars\(\)/);

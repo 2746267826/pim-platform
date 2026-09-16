@@ -7,6 +7,7 @@ import {
   createOutlookDeviceCode,
   getOutlookSettings,
   getOutlookSyncBatchesPaged,
+  outlookBindings,
   outlookDiscover,
   outlookDisconnect,
   outlookLocalDataDelete,
@@ -168,6 +169,20 @@ export default function SyncPage() {
     },
   });
 
+  /**
+   * Re-reads the stored bindings (read-only; does not call Graph like 发现日历 does) so a
+   * remote_state change made by an automatic sync — most importantly a calendar that just
+   * became 缺失 — shows up in the list below.
+   */
+  async function refreshBindings() {
+    try {
+      const data = await outlookBindings();
+      setBindings(data);
+    } catch {
+      // The list is a convenience view of server state; a failed refresh must not break sync.
+    }
+  }
+
   const selectionMutation = useMutation({
     mutationFn: (ids: string[]) => outlookSelection(ids),
     onSuccess: (data) => {
@@ -192,6 +207,9 @@ export default function SyncPage() {
       for (const queryKey of outlookSyncInvalidationKeys) {
         queryClient.invalidateQueries({ queryKey });
       }
+      // A sync can flip a calendar to 缺失 (or back); refresh the binding list so the
+      // state tag is visible without requiring a manual 发现日历.
+      void refreshBindings();
     },
   });
 
@@ -272,6 +290,8 @@ export default function SyncPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['outlook-sync-batches'] });
+      // A successful retry clears 缺失; reflect that immediately.
+      void refreshBindings();
     },
   });
 
@@ -382,6 +402,11 @@ export default function SyncPage() {
     }
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [bindings]);
+
+  const bindingRemoteStates = useMemo(
+    () => new Map(bindings.map(b => [b.id, b.remoteState])),
+    [bindings],
+  );
 
   function saveSelection() {
     selectionMutation.mutate(selectedBindingIds);
@@ -883,7 +908,14 @@ export default function SyncPage() {
                   <div className="mt-2 space-y-1">
                     {retryableCalendars.map(pc => (
                       <div key={pc.bindingId} className="flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs">
-                        <span className="text-red-700">{pc.calendarName}: {pc.failures[0]?.message ?? '错误'}</span>
+                        <span className="text-red-700">
+                          {pc.calendarName}: {pc.failures[0]?.message ?? '错误'}
+                          {bindingRemoteStates.get(pc.bindingId) === 'remote-missing' && (
+                            <span className="ml-1 text-amber-700">
+                              （该日历在 Outlook 端已不存在，重试无效；请先在 Outlook 恢复它，或重新「发现日历」）
+                            </span>
+                          )}
+                        </span>
                         <button
                           type="button"
                           onClick={() => {
@@ -891,7 +923,11 @@ export default function SyncPage() {
                           }}
                           disabled={retryPerCalendarMutation.isPending}
                           className="font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-60"
-                          title="重试"
+                          title={
+                            bindingRemoteStates.get(pc.bindingId) === 'remote-missing'
+                              ? '重试（该日历在 Outlook 端已不存在）'
+                              : '重试'
+                          }
                           aria-label="重试"
                         >
                           重试

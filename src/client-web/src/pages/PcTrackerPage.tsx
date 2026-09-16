@@ -10,7 +10,6 @@ import {
   getPcFocusBlocks,
   getPcHeatmapGrid,
   getPcLateNight,
-  getPcQuality,
   getPcSummary,
   rejectActivityClassificationSuggestion,
 } from '../api/pcTracker';
@@ -25,7 +24,6 @@ import LabelingQueue from '../components/labeling/LabelingQueue';
 import PcAppDonut from '../components/charts/PcAppDonut';
 import KeyboardHeatmapChart from '../components/charts/KeyboardHeatmap';
 import { useExhibitionData } from '../components/charts/hooks/useExhibitionData';
-import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import PcReviewSummary from '../components/pc-tracker/PcReviewSummary';
 import ContextConfirmationPanel from '../components/pc-tracker/ContextConfirmationPanel';
 import ProductivityDashboardPanel from '../components/pc-tracker/ProductivityDashboard';
@@ -91,12 +89,6 @@ export default function PcTrackerPage() {
   const { data } = useQuery({
     queryKey: ['pc-summary', dateStr],
     queryFn: () => getPcSummary(dateStr),
-    refetchInterval: getDeferredAutoRefreshInterval,
-  });
-
-  const { data: quality, isLoading: qualityLoading, error: qualityError } = useQuery({
-    queryKey: ['pc-quality', dateStr],
-    queryFn: () => getPcQuality({ date: dateStr }),
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
@@ -274,8 +266,6 @@ export default function PcTrackerPage() {
           </div>
         }
       />
-
-      <PcQualitySummary quality={quality} isLoading={qualityLoading} error={qualityError} />
 
       <PcReviewSummary
         summary={data}

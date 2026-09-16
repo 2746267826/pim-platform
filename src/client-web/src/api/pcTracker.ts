@@ -508,3 +508,27 @@ export function getPcTimelineV2(date?: string) {
   const q = date ? `?date=${encodeURIComponent(date)}` : "";
   return apiGet<ApiResponse<import("../types").TimelineV2Item[]>>(`/pc/timeline/v2${q}`).then(r => r.data);
 }
+
+// —— 采集健康（守护进程心跳上报） ——
+export type TrackerHealth = {
+  deviceId: string;
+  status: string;
+  uptimeSeconds: number;
+  hookActive: boolean;
+  pollCount: number;
+  sessionsCreated: number;
+  eventsUploaded: number;
+  uploadFailures: number;
+  lastError: string | null;
+  browserConnected: boolean;
+  browserHeartbeatAgeSeconds: number | null;
+  siteConnected: boolean;
+  siteLastEventAgeSeconds: number | null;
+  siteEventsUploaded: number;
+  siteLastError: string | null;
+  reportedAt: string;
+};
+
+export function getLatestTrackerHealth() {
+  return apiGet<ApiResponse<TrackerHealth>>('/pc/tracker/health/latest').then(r => r.data);
+}

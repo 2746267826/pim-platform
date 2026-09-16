@@ -14,6 +14,7 @@ import type {
 } from '../../src/client-web/src/types';
 import {
   calendarApiPaths,
+  outlookBindings,
   outlookDiscover,
   outlookSelection,
   outlookLocalDataPreview,
@@ -37,6 +38,7 @@ const UUID_SESSION = 'd4e5f6a7-b8c9-0123-defa-234567890123';
 
 // --- Path builders ---
 assert.equal(calendarApiPaths.outlookDiscover(), '/calendar/outlook/calendars/discover');
+assert.equal(calendarApiPaths.outlookCalendars(), '/calendar/outlook/calendars');
 assert.equal(calendarApiPaths.outlookSelection(), '/calendar/outlook/calendars/selection');
 assert.equal(calendarApiPaths.outlookWriteback(), '/calendar/outlook/events/writeback');
 assert.equal(calendarApiPaths.outlookLocalDataPreview(), '/calendar/outlook/local-data/preview');
@@ -422,6 +424,11 @@ async function main() {
   );
   assert.equal(requests[14].url, '/api/v1/calendar/outlook/sync/batches?page=2&pageSize=10');
   assert.equal(requests[14].init?.method, undefined);
+
+  // outlookBindings sends a read-only GET (no discovery, must not hit Graph)
+  await assert.rejects(() => outlookBindings(), requestCaptured);
+  assert.equal(requests[15].url, '/api/v1/calendar/outlook/calendars');
+  assert.equal(requests[15].init?.method, undefined);
 
   if (failures.length > 0) {
     throw new AggregateError(failures, 'API contract assertions failed');

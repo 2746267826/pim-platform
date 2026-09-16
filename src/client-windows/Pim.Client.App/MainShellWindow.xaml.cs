@@ -102,7 +102,7 @@ public partial class MainShellWindow : Window
             ? $"账户状态：{_authService.CurrentUsername} 已登录"
             : "账户状态：未登录";
         var trackerInfo = _tracker is null ? "Tracker 未启动"
-            : $"Tracker: poll={_tracker.PollCount} sessions={_tracker.SessionsCreated} 上传={_tracker.EventsUploaded} 错误={_tracker.LastError ?? "无"} hook={_tracker.HookActive} 浏览器={_tracker.BrowserConnected}";
+            : $"Tracker: poll={_tracker.PollCount} sessions={_tracker.SessionsCreated} 上传={_tracker.EventsUploaded} 错误={_tracker.LastError ?? "无"} hook={_tracker.HookActive} 浏览器={_tracker.BrowserConnected} 站点={_tracker.SiteConnected}({_tracker.SiteEventsUploaded})";
         UploadStateText.Text =
             $"采集上传状态：{trackerInfo}；" +
             $"KeyStats 错误 {_keyStatsCollector.LastUploadError ?? "无"}";

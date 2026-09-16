@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { getMobileDevices, getMobileQuality } from '../api/mobile';
-import { getPcQuality } from '../api/pcTracker';
+import { getPcQuality, getLatestTrackerHealth, type TrackerHealth } from '../api/pcTracker';
 import { getComponentKindLabel, getHealthStatusLabel, getStatusDetail, getDaemonHeartbeats } from '../api/status';
 import PcQualitySummary from '../components/pc-tracker/PcQualitySummary';
 import MobileDiagnosticsPanel, { type MobileQualityDiagnosticsData } from '../components/status/MobileDiagnosticsPanel';
@@ -81,6 +81,75 @@ function ComponentCard({ component }: { component: StatusComponent }) {
             </div>
           ))}
         </dl>
+      )}
+    </section>
+  );
+}
+
+function formatAgeSeconds(age: number | null | undefined): string {
+  if (age === null || age === undefined) return '—';
+  if (age < 60) return `${Math.round(age)} 秒前`;
+  if (age < 3600) return `${Math.round(age / 60)} 分钟前`;
+  return `${Math.round(age / 3600)} 小时前`;
+}
+
+function TrackerHealthCard() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['status-tracker-health'],
+    queryFn: () => getLatestTrackerHealth().catch(() => null),
+    refetchInterval: getDeferredAutoRefreshInterval,
+  });
+
+  const health = data as TrackerHealth | null;
+  const pill = (ok: boolean | undefined, okLabel: string, badLabel: string) => (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
+      ok ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+    }`}>
+      <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+      {ok ? okLabel : badLabel}
+    </span>
+  );
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">电脑记录采集</p>
+          <p className="mt-1 text-sm text-slate-600">
+            {health ? `设备 ${health.deviceId} · 状态 ${health.status}` : '守护进程尚未上报'}
+          </p>
+        </div>
+        {pill(!!health && health.status === 'running', '守护进程运行中', '守护进程离线/异常')}
+      </div>
+      {isLoading && <p className="mt-3 text-xs text-slate-400">加载中...</p>}
+      {health && (
+        <dl className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+            <dt className="text-slate-500">URL 级浏览器插件</dt>
+            <dd className="flex items-center gap-2">
+              {pill(health.browserConnected, '已连接', '未连接')}
+              <span className="text-xs text-slate-400">{formatAgeSeconds(health.browserHeartbeatAgeSeconds)}</span>
+            </dd>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+            <dt className="text-slate-500">站点数据通道（Time Tracker）</dt>
+            <dd className="flex items-center gap-2">
+              {pill(health.siteConnected, '已连接', '未连接')}
+              <span className="text-xs text-slate-400">{formatAgeSeconds(health.siteLastEventAgeSeconds)}</span>
+            </dd>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+            <dt className="text-slate-500">已上传事件</dt>
+            <dd className="text-slate-700">{health.eventsUploaded}</dd>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+            <dt className="text-slate-500">已上传站点数据</dt>
+            <dd className="text-slate-700">{health.siteEventsUploaded}{health.siteLastError ? ` · 错误：${health.siteLastError}` : ''}</dd>
+          </div>
+        </dl>
+      )}
+      {!isLoading && !health && (
+        <p className="mt-3 text-xs text-slate-400">启动 Windows 客户端后，这里会显示 URL 级浏览器插件与站点数据通道的连接状态。</p>
       )}
     </section>
   );
@@ -215,6 +284,8 @@ export default function StatusPage() {
             error={pcQualityError}
             compact
           />
+
+          <TrackerHealthCard />
 
           <MobileDiagnosticsPanel
             quality={mobileQuality as MobileQualityDiagnosticsData | undefined}

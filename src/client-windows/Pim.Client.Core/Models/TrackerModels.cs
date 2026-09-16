@@ -155,4 +155,32 @@ public sealed class TrackerHealthRequest
     [JsonPropertyName("lastError")] public string? LastError { get; set; }
     [JsonPropertyName("browserConnected")] public bool BrowserConnected { get; set; }
     [JsonPropertyName("browserHeartbeatAgeSeconds")] public double? BrowserHeartbeatAgeSeconds { get; set; }
+    [JsonPropertyName("siteConnected")] public bool SiteConnected { get; set; }
+    [JsonPropertyName("siteLastEventAgeSeconds")] public double? SiteLastEventAgeSeconds { get; set; }
+    [JsonPropertyName("siteEventsUploaded")] public long SiteEventsUploaded { get; set; }
+    [JsonPropertyName("siteLastError")] public string? SiteLastError { get; set; }
+}
+
+// —— 站点级浏览数据（Time Tracker fork → 守护进程 → 服务端） ——
+// kind: focus(startMs/endMs) | tick(startMs/durationMs) | visit | run/media(date/durationMs)
+public sealed class SiteEventDto
+{
+    [JsonPropertyName("kind")] public string Kind { get; set; } = string.Empty;
+    [JsonPropertyName("host")] public string Host { get; set; } = string.Empty;
+    [JsonPropertyName("startMs")] public long? StartMs { get; set; }
+    [JsonPropertyName("endMs")] public long? EndMs { get; set; }
+    [JsonPropertyName("durationMs")] public long? DurationMs { get; set; }
+    [JsonPropertyName("date")] public string? Date { get; set; }
+    [JsonPropertyName("at")] public long? At { get; set; }
+}
+
+public sealed class SiteEventsRequest
+{
+    [JsonPropertyName("events")] public List<SiteEventDto> Events { get; set; } = new();
+}
+
+public sealed class SiteEventsUploadRequest
+{
+    [JsonPropertyName("deviceId")] public string DeviceId { get; set; } = Environment.MachineName;
+    [JsonPropertyName("events")] public List<SiteEventDto> Events { get; set; } = new();
 }

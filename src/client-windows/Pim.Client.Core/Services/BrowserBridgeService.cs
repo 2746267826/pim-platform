@@ -19,6 +19,7 @@ public sealed class BrowserBridgeService : IDisposable
 
     private readonly int _port;
     private readonly Channel<BrowserHeartbeat> _channel;
+    private readonly Channel<SiteEventDto> _siteChannel;
     private readonly TrackerLogger? _logger;
     private HttpListener? _listener;
     private CancellationTokenSource? _cts;
@@ -28,15 +29,32 @@ public sealed class BrowserBridgeService : IDisposable
     private readonly object _lastStateLock = new();
     private readonly ConcurrentDictionary<string, BrowserConnection> _connections = new();
     private Timer? _checkTimer;
+    private readonly object _siteStatsLock = new();
+    private long _siteEventsReceived;
+    private long _siteEventsDropped;
 
     public BrowserBridgeService(int port = 15601, TrackerLogger? logger = null)
     {
         _port = port;
         _logger = logger;
         _channel = Channel.CreateUnbounded<BrowserHeartbeat>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
+        _siteChannel = Channel.CreateBounded<SiteEventDto>(new BoundedChannelOptions(100_000)
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.DropOldest,
+        });
     }
 
     public ChannelReader<BrowserHeartbeat> Reader => _channel.Reader;
+    public ChannelReader<SiteEventDto> SiteReader => _siteChannel.Reader;
+    public long SiteEventsReceived { get { lock (_siteStatsLock) return _siteEventsReceived; } }
+    public long SiteEventsDropped { get { lock (_siteStatsLock) return _siteEventsDropped; } }
+    /// <summary>Time of the last accepted site batch; public setter is a test hook.</summary>
+    public DateTimeOffset? SiteLastBatchTime { get; set; }
+    /// <summary>Site channel liveness: a batch within the last 120s.</summary>
+    public bool IsSiteConnected =>
+        SiteLastBatchTime is { } t && (DateTimeOffset.UtcNow - t).TotalSeconds < DisconnectAfterSeconds;
     public IReadOnlyDictionary<string, BrowserConnection> Connections => _connections;
     // Most recently received heartbeat. OnHeartbeat always records it, so it is
     // non-null whenever _connections is non-empty.
@@ -177,8 +195,40 @@ public sealed class BrowserBridgeService : IDisposable
         _logger?.Debug("BrowserBridge", $"Heartbeat {hb.Domain} browser={hb.Browser} instance={instanceId} audible={hb.Audible} tabs={hb.TabCount}");
     }
 
-    private void RebuildDisplayNames(string browserType)
+    /// <summary>
+    /// Accepts a batch of site-level events from the Time Tracker fork:
+    /// invalid ones are dropped and counted, valid ones enter the bounded
+    /// site channel for upload.
+    /// </summary>
+    public void OnSiteEvents(List<SiteEventDto> events)
     {
+        if (events is null || events.Count == 0) return;
+
+        var accepted = 0;
+        lock (_siteStatsLock) _siteEventsReceived += events.Count;
+        foreach (var raw in events)
+        {
+            var normalized = SiteEventNormalizer.Normalize(raw);
+            if (normalized is null || !_siteChannel.Writer.TryWrite(normalized))
+            {
+                lock (_siteStatsLock) _siteEventsDropped++;
+                continue;
+            }
+            accepted++;
+        }
+
+        if (accepted > 0)
+        {
+            SiteLastBatchTime = DateTimeOffset.UtcNow;
+            _logger?.Debug("BrowserBridge", $"Site batch: {accepted}/{events.Count} events queued");
+        }
+        else if (events.Count > 0)
+        {
+            _logger?.Warn("BrowserBridge", $"Site batch rejected: all {events.Count} events invalid");
+        }
+    }
+
+    private void RebuildDisplayNames(string browserType)    {
         var same = _connections.Values.Where(c => c.BrowserType == browserType).ToList();
         var count = same.Count;
         foreach (var c in same)
@@ -397,6 +447,59 @@ public sealed class BrowserBridgeService : IDisposable
                     OnHeartbeat(hb);
                 }
 
+                resp.StatusCode = 204;
+                resp.Close();
+                return;
+            }
+
+            if (req.HttpMethod == "POST" && req.Url?.AbsolutePath == "/browser/site/heartbeat")
+            {
+                // Time Tracker fork batch upload: domain-level events, allow
+                // larger bodies than single heartbeats but still bounded.
+                const int MaxSiteBodyBytes = 512 * 1024;
+                if (req.ContentLength64 > MaxSiteBodyBytes)
+                {
+                    resp.StatusCode = 413;
+                    resp.Close();
+                    _logger?.Warn("BrowserBridge", $"Rejected oversized site batch {req.ContentLength64}");
+                    return;
+                }
+                using var siteMs = new System.IO.MemoryStream();
+                await req.InputStream.CopyToAsync(siteMs).ConfigureAwait(false);
+                if (siteMs.Length > MaxSiteBodyBytes)
+                {
+                    resp.StatusCode = 413;
+                    resp.Close();
+                    _logger?.Warn("BrowserBridge", $"Rejected oversized site batch {siteMs.Length}");
+                    return;
+                }
+                var siteBody = Encoding.UTF8.GetString(siteMs.ToArray());
+                SiteEventsRequest? siteReq;
+                try
+                {
+                    siteReq = JsonSerializer.Deserialize<SiteEventsRequest>(siteBody, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                }
+                catch (Exception ex)
+                {
+                    resp.StatusCode = 400;
+                    resp.Close();
+                    _logger?.Warn("BrowserBridge", $"Invalid site batch JSON: {ex.Message}");
+                    return;
+                }
+                if (siteReq?.Events is not { Count: > 0 })
+                {
+                    resp.StatusCode = 204;
+                    resp.Close();
+                    return;
+                }
+                if (siteReq.Events.Count > 5000)
+                {
+                    resp.StatusCode = 413;
+                    resp.Close();
+                    _logger?.Warn("BrowserBridge", $"Rejected site batch with too many events {siteReq.Events.Count}");
+                    return;
+                }
+                OnSiteEvents(siteReq.Events);
                 resp.StatusCode = 204;
                 resp.Close();
                 return;

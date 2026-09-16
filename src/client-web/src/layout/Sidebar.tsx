@@ -6,9 +6,19 @@ import { useAuth } from '../auth/AuthContext';
 import { useCalendarVisibility } from '../context/CalendarVisibilityContext';
 import SidebarStatusIndicator from '../components/status/SidebarStatusIndicator';
 import ConfirmActionDialog, { type DeleteConfirmationInput } from '../ui/ConfirmActionDialog';
-import { NAV_ITEMS } from './navItems';
+import { NAV_ITEMS, type NavItem } from './navItems';
 
 export const primaryNavItems = NAV_ITEMS;
+
+/** 当前路径命中的导航项里取路径最长的一个（父子级路径如 /pc-tracker 与 /pc-tracker/browser 只高亮子级）。 */
+function activeNavPath(items: NavItem[], pathname: string): string {
+  let best = '';
+  for (const item of items) {
+    const matched = pathname === item.path || pathname.startsWith(`${item.path}/`);
+    if (matched && item.path.length > best.length) best = item.path;
+  }
+  return best;
+}
 
 function CalendarBookSection({
   title,
@@ -330,7 +340,8 @@ export default function Sidebar({ mobileOpen = false, onClose }: SidebarProps = 
         <nav className="flex-1 min-h-0 space-y-1 overflow-y-auto px-3 pb-3">
 
           {primaryNavItems.map(item => {
-            const active = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+            // 嵌套路径（如 /pc-tracker/browser）会同时命中多个前缀，仅高亮最长匹配项
+            const active = item.path === activeNavPath(primaryNavItems, location.pathname);
 
             return (
               <button

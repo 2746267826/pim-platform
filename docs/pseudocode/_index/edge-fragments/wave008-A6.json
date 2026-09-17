@@ -1,0 +1,148 @@
+{
+  "slot": "A6",
+  "wave": "wave008",
+  "nodes": [
+    {
+      "id": "tests/client-web/mobileNavigation.test.tsx",
+      "label": "mobileNavigation.test",
+      "path": "tests/client-web/mobileNavigation.test.tsx",
+      "doc": "docs/pseudocode/files/tests/client-web/mobileNavigation.test.tsx.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/quickNoteFloatingState.test.ts",
+      "label": "quickNoteFloatingState.test",
+      "path": "tests/client-web/quickNoteFloatingState.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/quickNoteFloatingState.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/scheduleWorkbenchE2e.test.ts",
+      "label": "scheduleWorkbenchE2e.test",
+      "path": "tests/client-web/scheduleWorkbenchE2e.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/scheduleWorkbenchE2e.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/todayApiPath.test.ts",
+      "label": "todayApiPath.test",
+      "path": "tests/client-web/todayApiPath.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/todayApiPath.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Ai/AiSchemaValidatorTests.cs",
+      "label": "AiSchemaValidatorTests",
+      "path": "tests/Pim.UnitTests/Ai/AiSchemaValidatorTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Ai/AiSchemaValidatorTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Calendar/CalendarTaskPlanningTests.cs",
+      "label": "CalendarTaskPlanningTests",
+      "path": "tests/Pim.UnitTests/Calendar/CalendarTaskPlanningTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/CalendarTaskPlanningTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Calendar/OutlookIcsCompletionTests.cs",
+      "label": "OutlookIcsCompletionTests",
+      "path": "tests/Pim.UnitTests/Calendar/OutlookIcsCompletionTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/OutlookIcsCompletionTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Calendar/ScheduleWorkbenchModelTests.cs",
+      "label": "ScheduleWorkbenchModelTests",
+      "path": "tests/Pim.UnitTests/Calendar/ScheduleWorkbenchModelTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Calendar/ScheduleWorkbenchModelTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/ClientWindows/WindowsNotificationActionRouterTests.cs",
+      "label": "WindowsNotificationActionRouterTests",
+      "path": "tests/Pim.UnitTests/ClientWindows/WindowsNotificationActionRouterTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/ClientWindows/WindowsNotificationActionRouterTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Files/NextcloudDavXmlParserTests.cs",
+      "label": "NextcloudDavXmlParserTests",
+      "path": "tests/Pim.UnitTests/Files/NextcloudDavXmlParserTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Files/NextcloudDavXmlParserTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Mobile/MobileLocationAggregationServiceTests.cs",
+      "label": "MobileLocationAggregationServiceTests",
+      "path": "tests/Pim.UnitTests/Mobile/MobileLocationAggregationServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileLocationAggregationServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Mobile/MobileUsageGoalServiceTests.cs",
+      "label": "MobileUsageGoalServiceTests",
+      "path": "tests/Pim.UnitTests/Mobile/MobileUsageGoalServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Mobile/MobileUsageGoalServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Operations/PimDbContextModelCacheTests.cs",
+      "label": "PimDbContextModelCacheTests",
+      "path": "tests/Pim.UnitTests/Operations/PimDbContextModelCacheTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Operations/PimDbContextModelCacheTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/QuickNotes/QuickNoteEndpointPathTests.cs",
+      "label": "QuickNoteEndpointPathTests",
+      "path": "tests/Pim.UnitTests/QuickNotes/QuickNoteEndpointPathTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/QuickNotes/QuickNoteEndpointPathTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Services/ActivitySuggestionServiceTests.cs",
+      "label": "ActivitySuggestionServiceTests",
+      "path": "tests/Pim.UnitTests/Services/ActivitySuggestionServiceTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/ActivitySuggestionServiceTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "tests/client-web/mobileNavigation.test.tsx", "to": "src/client-web/src/layout/Sidebar.tsx", "type": "tests" },
+    { "from": "tests/client-web/quickNoteFloatingState.test.ts", "to": "src/client-web/src/components/quick-notes/quickNoteFloatingState.ts", "type": "tests" },
+    { "from": "tests/client-web/scheduleWorkbenchE2e.test.ts", "to": "src/client-web/package.json", "type": "tests" },
+    { "from": "tests/client-web/scheduleWorkbenchE2e.test.ts", "to": "src/client-web/src/layout/AppLayout.tsx", "type": "tests" },
+    { "from": "tests/client-web/scheduleWorkbenchE2e.test.ts", "to": "src/client-web/src/api/client.ts", "type": "tests" },
+    { "from": "tests/client-web/scheduleWorkbenchE2e.test.ts", "to": "src/client-web/src/api/endpoints.ts", "type": "tests" },
+    { "from": "tests/client-web/todayApiPath.test.ts", "to": "src/client-web/src/api/today.ts", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Ai/AiSchemaValidatorTests.cs", "to": "src/Pim.Infrastructure/Ai/AiSchemaValidator.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/CalendarTaskPlanningTests.cs", "to": "src/Pim.Module.Calendar/Services/CalendarService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/OutlookIcsCompletionTests.cs", "to": "src/Pim.Module.Calendar/Services/IcsService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/OutlookIcsCompletionTests.cs", "to": "src/Pim.Module.Calendar/Services/OutlookIcsService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Calendar/ScheduleWorkbenchModelTests.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/ClientWindows/WindowsNotificationActionRouterTests.cs", "to": "src/client-windows/Pim.Client.Core/Services/NotificationActionRouter.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/ClientWindows/WindowsNotificationActionRouterTests.cs", "to": "src/client-windows/Pim.Client.Core/Services/EndpointCollectionBoundaryService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Files/NextcloudDavXmlParserTests.cs", "to": "src/Pim.Module.Files/Providers/NextcloudDavXmlParser.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Mobile/MobileLocationAggregationServiceTests.cs", "to": "src/Pim.Module.Mobile/Services/MobileLocationAggregationService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Mobile/MobileUsageGoalServiceTests.cs", "to": "src/Pim.Module.Mobile/Services/MobileUsageGoalService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Operations/PimDbContextModelCacheTests.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/QuickNotes/QuickNoteEndpointPathTests.cs", "to": "src/Pim.Module.QuickNotes/QuickNotesModule.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Services/ActivitySuggestionServiceTests.cs", "to": "src/Pim.Module.PcTracker/Services/ActivitySuggestionService.cs", "type": "tests" }
+  ]
+}

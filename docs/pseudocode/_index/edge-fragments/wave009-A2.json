@@ -1,0 +1,26 @@
+{
+  "slot": "A2",
+  "wave": "wave009",
+  "nodes": [
+    {
+      "id": "tests/Pim.UnitTests/Services/CalendarServiceUiCreationTests.cs",
+      "label": "CalendarServiceUiCreationTests",
+      "path": "tests/Pim.UnitTests/Services/CalendarServiceUiCreationTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/CalendarServiceUiCreationTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/Pim.UnitTests/Services/SchedulingAlgorithmsTests.cs",
+      "label": "SchedulingAlgorithmsTests",
+      "path": "tests/Pim.UnitTests/Services/SchedulingAlgorithmsTests.cs",
+      "doc": "docs/pseudocode/files/tests/Pim.UnitTests/Services/SchedulingAlgorithmsTests.cs.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "tests/Pim.UnitTests/Services/CalendarServiceUiCreationTests.cs", "to": "src/modules/Pim.Module.Calendar/Services/CalendarService.cs", "type": "tests" },
+    { "from": "tests/Pim.UnitTests/Services/SchedulingAlgorithmsTests.cs", "to": "src/modules/Pim.Module.Calendar/Services/SchedulingAlgorithms.cs", "type": "tests" }
+  ]
+}

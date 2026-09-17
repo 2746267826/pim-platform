@@ -1,0 +1,131 @@
+{
+  "slot": "A10",
+  "nodes": [
+    {
+      "id": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteMarkdownReferences.cs",
+      "label": "QuickNoteMarkdownReferences",
+      "path": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteMarkdownReferences.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/QuickNoteMarkdownReferences.cs.md",
+      "layer": "module.quicknotes",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.App/EmbeddedWebViewHost.cs",
+      "label": "EmbeddedWebViewHost",
+      "path": "src/client-windows/Pim.Client.App/EmbeddedWebViewHost.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.App/EmbeddedWebViewHost.cs.md",
+      "layer": "client-windows",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/ClientDefaults.cs",
+      "label": "ClientDefaults",
+      "path": "src/client-windows/Pim.Client.Core/ClientDefaults.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/ClientDefaults.cs.md",
+      "layer": "client-windows",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Services/EndpointCollectionBoundaryService.cs",
+      "label": "EndpointCollectionBoundaryService",
+      "path": "src/client-windows/Pim.Client.Core/Services/EndpointCollectionBoundaryService.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/EndpointCollectionBoundaryService.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/api/calendar.ts",
+      "label": "calendar",
+      "path": "src/client-web/src/api/calendar.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/api/calendar.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/App.tsx",
+      "label": "App",
+      "path": "src/client-web/src/App.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/App.tsx.md",
+      "layer": "client-web",
+      "kind": "entrypoint"
+    },
+    {
+      "id": "src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx",
+      "label": "AppKnowledgeTabs",
+      "path": "src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/mobileAnalyticsCopy.ts",
+      "label": "mobileAnalyticsCopy",
+      "path": "src/client-web/src/components/mobile/mobileAnalyticsCopy.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/mobileAnalyticsCopy.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileMetricStrip.tsx",
+      "label": "MobileMetricStrip",
+      "path": "src/client-web/src/components/mobile/MobileMetricStrip.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileMetricStrip.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/pc-classification/ClassificationRuleTable.tsx",
+      "label": "ClassificationRuleTable",
+      "path": "src/client-web/src/components/pc-classification/ClassificationRuleTable.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-classification/ClassificationRuleTable.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    }
+  ],
+  "edges": [
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteMarkdownReferences.cs", "type": "calls" },
+
+    { "from": "src/client-windows/Pim.Client.App/EmbeddedWebViewHost.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/EmbeddedWebViewHost.cs", "to": "src/client-windows/Pim.Client.Core/Services/AuthService.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs", "to": "src/client-windows/Pim.Client.App/EmbeddedWebViewHost.cs", "type": "calls" },
+
+    { "from": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "to": "src/client-windows/Pim.Client.Core/ClientDefaults.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/DaemonConfig.cs", "to": "src/client-windows/Pim.Client.Core/ClientDefaults.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/DaemonHeartbeatReporter.cs", "to": "src/client-windows/Pim.Client.Core/ClientDefaults.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/TrayIcon.cs", "to": "src/client-windows/Pim.Client.Core/ClientDefaults.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/ClientDefaults.cs", "type": "depends_on" },
+
+    { "from": "src/client-windows/Pim.Client.App/Startup.cs", "to": "src/client-windows/Pim.Client.Core/Services/EndpointCollectionBoundaryService.cs", "type": "depends_on" },
+
+    { "from": "src/client-web/src/api/calendar.ts", "to": "src/client-web/src/api/client.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/api/calendar.ts", "to": "src/client-web/src/api/client.ts", "type": "calls" },
+    { "from": "src/client-web/src/api/calendar.ts", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/api/calendar.ts", "to": "/calendar/calendars", "type": "http" },
+    { "from": "src/client-web/src/api/calendar.ts", "to": "/calendar/events", "type": "http" },
+    { "from": "src/client-web/src/api/calendar.ts", "to": "/calendar/tasks", "type": "http" },
+    { "from": "src/client-web/src/api/calendar.ts", "to": "/calendar/layers", "type": "http" },
+    { "from": "src/client-web/src/api/calendar.ts", "to": "/calendar/data-center", "type": "http" },
+    { "from": "src/client-web/src/api/calendar.ts", "to": "/calendar/outlook", "type": "http" },
+    { "from": "src/client-web/src/api/calendar.ts", "to": "/calendar/export-ics", "type": "http" },
+    { "from": "src/client-web/src/api/calendar.ts", "to": "/calendar/import-ics", "type": "http" },
+    { "from": "src/client-web/src/pages/CalendarPage.tsx", "to": "src/client-web/src/api/calendar.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/TaskListPage.tsx", "to": "src/client-web/src/api/calendar.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/DataCenterPage.tsx", "to": "src/client-web/src/api/calendar.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/layout/Sidebar.tsx", "to": "src/client-web/src/api/calendar.ts", "type": "depends_on" },
+
+    { "from": "src/client-web/src/App.tsx", "to": "src/client-web/src/auth/AuthContext.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/App.tsx", "to": "src/client-web/src/auth/LoginPage.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/App.tsx", "to": "src/client-web/src/layout/AppLayout.tsx", "type": "depends_on" },
+
+    { "from": "src/client-web/src/pages/AppKnowledgeBasePage.tsx", "to": "src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/CategoryTreePage.tsx", "to": "src/client-web/src/components/app-knowledge/AppKnowledgeTabs.tsx", "type": "depends_on" },
+
+    { "from": "src/client-web/src/api/mobile.ts", "to": "src/client-web/src/components/mobile/mobileAnalyticsCopy.ts", "type": "depends_on" },
+
+    { "from": "src/client-web/src/components/mobile/MobileMetricStrip.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileRecordsDashboard.tsx", "to": "src/client-web/src/components/mobile/MobileMetricStrip.tsx", "type": "depends_on" },
+
+    { "from": "src/client-web/src/pages/PcClassificationPage.tsx", "to": "src/client-web/src/components/pc-classification/ClassificationRuleTable.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/components/pc-classification/ClassificationRuleTable.tsx", "to": "src/client-web/src/types", "type": "depends_on" }
+  ]
+}

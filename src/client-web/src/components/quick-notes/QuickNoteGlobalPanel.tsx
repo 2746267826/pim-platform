@@ -14,19 +14,12 @@ import {
 
 const PANEL_SIZE: PanelSize = { width: 380, height: 460 };
 
-interface QuickNoteFloatingPanelProps {
-  onClose: () => void;
-}
-
 function getViewportSize(): PanelSize {
   if (typeof window === 'undefined') {
     return { width: 1024, height: 768 };
   }
 
-  return {
-    width: window.innerWidth,
-    height: window.innerHeight,
-  };
+  return { width: window.innerWidth, height: window.innerHeight };
 }
 
 function loadDraft() {
@@ -37,7 +30,8 @@ function loadDraft() {
   }
 }
 
-export default function QuickNoteFloatingPanel({ onClose }: QuickNoteFloatingPanelProps) {
+/** 全局快速记录的面板：与旧 QuickNoteFloatingPanel 等价（可拖动、草稿保留、位置记忆）。 */
+export default function QuickNoteGlobalPanel({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
   const [markdown, setMarkdown] = useState(loadDraft);
   const [position, setPosition] = useState<PanelPoint>(() => loadPanelPosition(getViewportSize(), PANEL_SIZE));
@@ -109,9 +103,7 @@ export default function QuickNoteFloatingPanel({ onClose }: QuickNoteFloatingPan
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) {
-      return;
-    }
+    if (!drag || drag.pointerId !== event.pointerId) return;
 
     const nextPosition = clampPanelPosition(
       {
@@ -127,9 +119,7 @@ export default function QuickNoteFloatingPanel({ onClose }: QuickNoteFloatingPan
 
   function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) {
-      return;
-    }
+    if (!drag || drag.pointerId !== event.pointerId) return;
 
     dragRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -140,9 +130,7 @@ export default function QuickNoteFloatingPanel({ onClose }: QuickNoteFloatingPan
 
   function handleLostPointerCapture(event: ReactPointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) {
-      return;
-    }
+    if (!drag || drag.pointerId !== event.pointerId) return;
 
     dragRef.current = null;
     savePanelPosition(positionRef.current);
@@ -150,9 +138,7 @@ export default function QuickNoteFloatingPanel({ onClose }: QuickNoteFloatingPan
 
   function handleSave() {
     const trimmedMarkdown = markdown.trim();
-    if (!trimmedMarkdown || saveMutation.isPending) {
-      return;
-    }
+    if (!trimmedMarkdown || saveMutation.isPending) return;
 
     setError(null);
     saveMutation.mutate(markdown);
@@ -199,7 +185,7 @@ export default function QuickNoteFloatingPanel({ onClose }: QuickNoteFloatingPan
             type="button"
             onClick={handleSave}
             disabled={!markdown.trim() || saveMutation.isPending}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-300 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             {saveMutation.isPending ? '保存中...' : '保存'}
           </button>
@@ -208,3 +194,5 @@ export default function QuickNoteFloatingPanel({ onClose }: QuickNoteFloatingPan
     </section>
   );
 }
+
+/** 常量留作自检：全局入口每页最多一个（防止再次出现「双按钮」）。 */

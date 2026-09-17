@@ -163,12 +163,10 @@ export default function HistoricalLocationLeafletMap({
       <MapClickHandler onBlankClick={handleMapClick} />
       <MapInteractionNotifier />
       <MapRepositioner tracks={tracks} repositionKey={repositionKey} />
-      {/* 瓦片走同域 /tiles 中转（生产由服务器 nginx 反代 tile.openstreetmap.org，
-          本地开发由 Vite proxy 转发），避免直连 OSM 官方瓦片在国内不稳定；
-          BASE_URL 拼接保证子路径部署时路径仍正确。 */}
+      {/* 瓦片由 PIM API 服务端拉取并缓存；BASE_URL 拼接保证子路径部署时路径仍正确。 */}
       <TileLayer
         attribution="&copy; OpenStreetMap contributors"
-        url={`${import.meta.env.BASE_URL}tiles/{z}/{x}/{y}.png`}
+        url={`${import.meta.env.BASE_URL}api/v1/tiles/{z}/{x}/{y}.png`}
       />
       {frequentCircles.map((circle, index) => (
         <Circle

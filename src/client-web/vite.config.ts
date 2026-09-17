@@ -12,12 +12,6 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': { target: 'http://localhost:5858', changeOrigin: true },
-      // 本地开发没有 nginx，把 /tiles 直接转发到 OSM，与生产 nginx 中转行为一致
-      '/tiles': {
-        target: 'https://tile.openstreetmap.org',
-        changeOrigin: true,
-        rewrite: path => path.replace(/^\/tiles/, '')
-      }
     }
   },
   build: {

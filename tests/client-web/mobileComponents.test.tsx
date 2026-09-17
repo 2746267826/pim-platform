@@ -529,8 +529,8 @@ async function main() {
     assert.equal(mapSource.includes('TileLayer'), true);
     assert.equal(mapSource.includes('Marker'), true);
     assert.equal(mapSource.includes('Polyline'), true);
-    assert.equal(mapSource.includes('tiles/{z}/{x}/{y}.png'), true);
-    assert.equal(mapSource.includes('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'), false, 'tiles proxy via same-origin /tiles, no OSM direct URL');
+    assert.equal(mapSource.includes('api/v1/tiles/{z}/{x}/{y}.png'), true);
+    assert.equal(mapSource.includes('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'), false, 'tiles are served by the same-origin PIM API, no OSM direct URL');
   });
 
   test('mobile diagnostics panel accepts canonical and legacy component keys', () => {

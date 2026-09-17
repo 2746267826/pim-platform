@@ -30,7 +30,7 @@ vi.mock('../Sidebar', () => ({
   ),
 }));
 
-vi.mock('../../components/quick-notes/QuickNoteFloatingButton', () => ({
+vi.mock('../../components/quick-notes/QuickNoteFloatingEntry', () => ({
   default: () => <button data-testid="mock-fab">+</button>,
 }));
 

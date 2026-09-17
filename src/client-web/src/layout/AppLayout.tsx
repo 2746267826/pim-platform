@@ -3,7 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useVersionInfo } from '../hooks/useVersionInfo';
 import { useAuth } from '../auth/AuthContext';
 import { CalendarVisibilityProvider } from '../context/CalendarVisibilityContext';
-import QuickNoteFloatingButton from '../components/quick-notes/QuickNoteFloatingButton';
+import QuickNoteFloatingEntry from '../components/quick-notes/QuickNoteFloatingEntry';
 import Sidebar from './Sidebar';
 import { PAGE_TITLE_ITEMS } from './navItems';
 import InboxPanel from '../panels/InboxPanel';
@@ -28,7 +28,6 @@ const QuickNotesPage = lazy(() => import('../pages/QuickNotesPage'));
 const FilesPage = lazy(() => import('../pages/FilesPage'));
 const MobileRecordsPage = lazy(() => import('../pages/MobileRecordsPage'));
 const HistoricalLocationPage = lazy(() => import('../pages/HistoricalLocationPage'));
-const QuickNoteFloatingPanel = lazy(() => import('../components/quick-notes/QuickNoteFloatingPanel'));
 const WorkbenchPage = lazy(() => import('../pages/WorkbenchPage'));
 const SyncPage = lazy(() => import('../pages/SyncPage'));
 const DeviceManagementPage = lazy(() => import('../pages/DeviceManagementPage'));
@@ -51,7 +50,6 @@ function SuspenseFallback() {
 export default function AppLayout() {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
-  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   if (!isAuthenticated) {
@@ -140,12 +138,8 @@ export default function AppLayout() {
           </footer>
         </main>
         {showCalendarInbox && <InboxPanel draggable />}
-        <QuickNoteFloatingButton onClick={() => setQuickNoteOpen(true)} />
-        {quickNoteOpen && (
-          <Suspense fallback={null}>
-            <QuickNoteFloatingPanel onClose={() => setQuickNoteOpen(false)} />
-          </Suspense>
-        )}
+        {/* 全局快速记录入口（#280）：每页有且只有一个；/quick-notes 页有自己的黑色按钮，故不渲染。 */}
+        <QuickNoteFloatingEntry pathname={location.pathname} />
       </div>
     </CalendarVisibilityProvider>
   );

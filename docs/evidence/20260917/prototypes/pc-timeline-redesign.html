@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIM 问题3 原型 · 分类时间线新设计（确认稿）</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+<script>
+tailwind.config = { theme: { extend: { boxShadow: { card: '0 1px 3px rgba(0,0,0,.08)' } } } };
+</script>
+<style> body { font-family: Inter, -apple-system, 'Segoe UI', sans-serif; } </style>
+</head>
+<body class="bg-zinc-100 text-zinc-900">
+
+<div class="border-b border-zinc-200 bg-white px-6 py-4">
+  <div class="mx-auto max-w-6xl">
+    <h1 class="text-lg font-semibold">问题 3 原型 · 「电脑记录」分类时间线新设计 <span class="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">确认稿</span></h1>
+    <p class="mt-1 text-sm text-zinc-600">
+      <b class="text-red-600">现状</b>：横轴 = 全天时间轴、纵轴 = 起始小时行 → 条形沿对角线分布，行标题与时间轴信息重复，右侧大片空白。
+      <b class="text-emerald-700">提案</b>：<b>横轴 = 每小时内的 0–60 分钟、纵轴 = 小时</b> → 每一行就是该小时完整的一条 0–60 分钟轨道，跨小时的段按小时拆开分别画。
+    </p>
+    <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-600">
+      <label class="flex items-center gap-1.5"><input type="checkbox" class="rounded border-zinc-300"> 横轴 0–60 分钟、纵轴小时（每行一条独立轨道）</label>
+      <label class="flex items-center gap-1.5"><input type="checkbox" class="rounded border-zinc-300"> 跨小时段拆分到两行显示（如 13:36–14:02 → 13 行 36′–60′ + 14 行 0′–2′）</label>
+      <label class="flex items-center gap-1.5"><input type="checkbox" class="rounded border-zinc-300"> 保留图例/专注率横条与悬停详情</label>
+      <label class="flex items-center gap-1.5"><input type="checkbox" class="rounded border-zinc-300"> 行顺序、行高如原型（可再调）</label>
+    </div>
+  </div>
+</div>
+
+<div class="mx-auto max-w-6xl space-y-6 p-6">
+
+  <!-- 图例/统计（两图共用，取自真实数据） -->
+  <div id="legendBar" class="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-xs shadow-card"></div>
+
+  <!-- ===== 图 A：现状 ===== -->
+  <section class="rounded-2xl border border-zinc-200 bg-white shadow-card">
+    <div class="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
+      <div>
+        <p class="text-sm font-semibold text-zinc-800">图 A · 现状（全天时间轴 × 起始小时行）<span class="ml-2 text-[11px] font-normal text-red-500">条形沿对角线分布</span></p>
+        <p class="text-xs text-zinc-400">与当前线上版一致：悬停查看详情</p>
+      </div>
+      <span id="statsA" class="text-xs font-semibold text-blue-600"></span>
+    </div>
+    <div id="chartA" class="px-4 pb-3 pt-3" style="height:560px"></div>
+  </section>
+
+  <!-- ===== 图 B：提案 ===== -->
+  <section class="rounded-2xl border border-zinc-200 bg-white shadow-card">
+    <div class="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
+      <div>
+        <p class="text-sm font-semibold text-zinc-800">图 B · 提案（横轴 0–60 分钟 × 小时行）<span class="ml-2 text-[11px] font-normal text-emerald-600">每行一条完整轨道</span></p>
+        <p class="text-xs text-zinc-400">跨小时段已拆分到对应小时行；悬停查看详情</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-1.5 text-xs text-zinc-600">
+          <input id="toggleAllHours" type="checkbox" class="rounded border-zinc-300"> 显示全部 0–23 时（含空行）
+        </label>
+        <span id="statsB" class="text-xs font-semibold text-blue-600"></span>
+      </div>
+    </div>
+    <div id="chartB" class="px-4 pb-3 pt-3" style="height:640px"></div>
+  </section>
+
+  <p id="dataNote" class="pb-4 text-xs text-zinc-500">数据加载中…</p>
+</div>
+
+<script>
+const PRODUCTIVE = ['工作', '编程', '文档', '学习', '邮件', '终端', '办公'];
+let SEGMENTS = [];
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function fmtClock(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+
+async function load() {
+  try {
+    const res = await fetch('pim-timeline-20260917.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    SEGMENTS = await res.json();
+    document.getElementById('dataNote').textContent =
+      '演示数据：2026-09-17 真实时间线记录 ' + SEGMENTS.length + ' 条（含问题 2 提到的重叠记录，不影响版式确认；统计为原始记录快照口径，与线上卡片可能略有差异）。';
+    renderLegend(); renderA(); renderB();
+  } catch (err) {
+    document.getElementById('dataNote').textContent = '数据文件加载失败：' + err.message + '（请从 web.hsww.party 页面打开）';
+  }
+}
+
+function buildLegend() {
+  const map = new Map();
+  let total = 0, prod = 0;
+  SEGMENTS.forEach(s => {
+    const st = new Date(s.s), en = new Date(s.e);
+    if (!(en > st)) return;
+    const dur = (en - st) / 60000;
+    const cur = map.get(s.c) || { color: s.col, min: 0 };
+    cur.min += dur; map.set(s.c, cur);
+    total += dur;
+    if (PRODUCTIVE.some(p => s.c.includes(p))) prod += dur;
+  });
+  return { list: [...map.entries()].sort((a, b) => b[1].min - a[1].min), total, prod };
+}
+function renderLegend() {
+  const { list, total, prod } = buildLegend();
+  const bar = document.getElementById('legendBar');
+  bar.textContent = '';
+  list.forEach(([name, info]) => {
+    const el = document.createElement('span');
+    el.className = 'flex items-center gap-1.5';
+    const dot = document.createElement('span');
+    dot.className = 'h-2.5 w-2.5 rounded-sm';
+    dot.style.background = info.color;
+    el.append(dot, document.createTextNode(name + ' ' + (info.min / 60).toFixed(1) + 'h'));
+    bar.appendChild(el);
+  });
+  const rate = total > 0 ? Math.round(prod / total * 100) : 0;
+  const st = document.createElement('span');
+  st.className = 'ml-auto font-semibold text-blue-600';
+  st.textContent = '专注率 ' + rate + '%（快照口径）· ' + SEGMENTS.length + ' 条';
+  bar.appendChild(st);
+  document.getElementById('statsA').textContent = st.textContent;
+  document.getElementById('statsB').textContent = st.textContent;
+}
+
+const TOOLTIP = {
+  backgroundColor: 'rgba(15,23,42,.92)', textStyle: { color: '#fff', fontSize: 11 },
+  formatter: params => {
+    const seg = params.data && params.data.segment;
+    if (!seg) return '';
+    const st = new Date(seg.s), en = new Date(seg.e);
+    const lines = [seg.c + (seg.app ? ' · ' + seg.app : '')];
+    if (seg.title) lines.push(seg.title);
+    lines.push(fmtClock(st) + ' - ' + fmtClock(en) + ' · ' + Math.round((en - st) / 60000) + ' 分钟');
+    if (params.data.chunked) lines.push('（跨小时段已拆分显示）');
+    return lines.join('\n');
+  },
+};
+
+// ===== 图 A：现状（全天时间轴 × 起始小时行）=====
+function renderA() {
+  const segs = SEGMENTS.map(s => ({ ...s, st: new Date(s.s), en: new Date(s.e) })).filter(x => x.en > x.st);
+  const hours = [...new Set(segs.map(x => pad(x.st.getHours()) + ':00'))].sort();
+  const rowIdx = new Map(hours.map((h, i) => [h, i]));
+  const chart = echarts.init(document.getElementById('chartA'));
+  chart.setOption({
+    tooltip: TOOLTIP,
+    grid: { left: 48, right: 14, top: 10, bottom: 24 },
+    xAxis: { type: 'time', axisLabel: { fontSize: 10, color: '#94a3b8' }, splitLine: { lineStyle: { color: '#f1f5f9' } }, axisLine: { lineStyle: { color: '#e2e8f0' } } },
+    yAxis: { type: 'category', data: hours, axisLabel: { fontSize: 10, color: '#94a3b8' }, axisLine: { lineStyle: { color: '#e2e8f0' } } },
+    series: [{
+      type: 'custom',
+      encode: { x: [0, 1], y: 2 },
+      renderItem: (params, api) => {
+        const startMs = Number(api.value(0));
+        const endMs = Number(api.value(1));
+        const yIdx = Number(api.value(2)) || 0;
+        let x = 0, y = 0, width = 4, rowH = 32;
+        try {
+          const a = api.coord([startMs, yIdx]);
+          const b = api.coord([endMs, yIdx]);
+          rowH = Number(api.size([0, 1])[1]) || 32;
+          x = a[0]; width = Math.max(b[0] - a[0], 2); y = a[1];
+        } catch (e) { /* noop */ }
+        const color = api.visual('color') || '#94a3b8';
+        return { type: 'rect', shape: { x, y: y - rowH * 0.25, width, height: rowH * 0.5, r: 4 }, style: { fill: color, stroke: '#ffffff', lineWidth: 1 } };
+      },
+      data: segs.map(x => ({ value: [x.st.getTime(), x.en.getTime(), rowIdx.get(pad(x.st.getHours()) + ':00') ?? 0], itemStyle: { color: x.col || '#94a3b8' }, segment: x })),
+    }],
+  });
+  window.addEventListener('resize', () => chart.resize());
+}
+
+// ===== 图 B：提案（横轴 0–60 分钟 × 小时行）=====
+let chartB = null;
+function chunksOf(seg) {
+  // 把段按小时拆开：返回 [{hour, m0, m1}]
+  const out = [];
+  const st = new Date(seg.s), en = new Date(seg.e);
+  if (!(en > st)) return out;
+  for (let h = st.getHours(); h <= en.getHours(); h++) {
+    const hs = new Date(st.getFullYear(), st.getMonth(), st.getDate(), h, 0, 0);
+    const he = new Date(hs.getTime() + 3600000);
+    const a = Math.max(st.getTime(), hs.getTime());
+    const b = Math.min(en.getTime(), he.getTime());
+    if (b > a) out.push({ hour: h, m0: (a - hs.getTime()) / 60000, m1: (b - hs.getTime()) / 60000 });
+  }
+  return out;
+}
+function renderB() {
+  const allHours = document.getElementById('toggleAllHours').checked;
+  const segs = SEGMENTS.map(s => ({ ...s, st: new Date(s.s), en: new Date(s.e) })).filter(x => x.en > x.st);
+  // 行集合：全部 0-23 或“有数据的小时”; 升序（早的在下，与现状一致）
+  const hoursTouched = new Set();
+  segs.forEach(s => { for (let h = s.st.getHours(); h <= s.en.getHours(); h++) hoursTouched.add(h); });
+  const rows = allHours ? Array.from({ length: 24 }, (_, i) => i) : [...hoursTouched].sort((a, b) => a - b);
+  const rowLabel = rows.map(h => pad(h) + ':00');
+  const rowIdx = new Map(rows.map((h, i) => [h, i]));
+
+  const data = [];
+  segs.forEach(s => {
+    chunksOf(s).forEach(ch => {
+      data.push({ value: [ch.m0, ch.m1, rowIdx.get(ch.hour)], itemStyle: { color: s.col || '#94a3b8' }, segment: s, chunked: ch.m0 > 0 || ch.m1 < 60 });
+    });
+  });
+
+  if (chartB) chartB.dispose();
+  chartB = echarts.init(document.getElementById('chartB'));
+  chartB.setOption({
+    tooltip: TOOLTIP,
+    grid: { left: 48, right: 14, top: 10, bottom: 24 },
+    xAxis: {
+      type: 'value', min: 0, max: 60, interval: 10,
+      axisLabel: { fontSize: 10, color: '#94a3b8', formatter: '{value}′' },
+      splitLine: { lineStyle: { color: '#f1f5f9' } }, axisLine: { lineStyle: { color: '#e2e8f0' } },
+    },
+    yAxis: { type: 'category', data: rowLabel, axisLabel: { fontSize: 10, color: '#94a3b8' }, axisLine: { lineStyle: { color: '#e2e8f0' } } },
+    series: [{
+      type: 'custom',
+      encode: { x: [0, 1], y: 2 },
+      renderItem: (params, api) => {
+        const m0 = Number(api.value(0));
+        const m1 = Number(api.value(1));
+        const yIdx = Number(api.value(2)) || 0;
+        let x = 0, y = 0, width = 2, rowH = 24;
+        try {
+          const a = api.coord([m0, yIdx]);
+          const b = api.coord([m1, yIdx]);
+          rowH = Number(api.size([0, 1])[1]) || 24;
+          x = a[0]; width = Math.max(b[0] - a[0], 1.5); y = a[1];
+        } catch (e) { /* noop */ }
+        const color = api.visual('color') || '#94a3b8';
+        return { type: 'rect', shape: { x, y: y - rowH * 0.25, width, height: rowH * 0.5, r: 4 }, style: { fill: color, stroke: '#ffffff', lineWidth: 1 } };
+      },
+      data,
+    }],
+  });
+  window.addEventListener('resize', () => chartB.resize());
+}
+document.getElementById('toggleAllHours').addEventListener('change', renderB);
+
+load();
+</script>
+</body>
+</html>

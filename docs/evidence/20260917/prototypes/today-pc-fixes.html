@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PIM 问题2 原型 · 今日 PC 概览数据修正（确认稿）</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+<script>
+tailwind.config = {
+  theme: { extend: {
+    boxShadow: { card: '0 1px 3px rgba(0,0,0,.08)' },
+  } }
+};
+</script>
+<style> body { font-family: Inter, -apple-system, 'Segoe UI', sans-serif; } </style>
+</head>
+<body class="bg-zinc-100 text-zinc-900">
+
+<div class="border-b border-zinc-200 bg-white px-6 py-4">
+  <div class="mx-auto max-w-6xl">
+    <h1 class="text-lg font-semibold">问题 2 原型 · 「今日」PC 概览数据修正 <span class="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">确认稿</span></h1>
+    <p class="mt-1 text-sm text-zinc-600">
+      <b class="text-red-600">现状</b>：分类分布合计 <b>27.0 小时</b>（超过一天）、「游戏」<b>1,189 分钟</b>；「主要应用」出现 <b>100%</b> 占比。
+      两条均为真实数据问题（下方为核实后的账目与修正口径，供确认后写成 issue）。
+    </p>
+  </div>
+</div>
+
+<div class="mx-auto max-w-6xl space-y-6 p-6">
+
+  <!-- ===== Section 1: 主要应用百分比口径 ===== -->
+  <section class="rounded-2xl border border-zinc-200 bg-white p-6 shadow-card">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="text-base font-semibold">① 「主要应用」百分比口径</h2>
+        <p class="mt-0.5 text-xs text-zinc-500">点击下方按钮切换口径，实时对比效果（数字来自 2026-09-17 真实数据）。</p>
+      </div>
+      <div class="flex flex-wrap gap-1.5" id="shareTabs"></div>
+    </div>
+
+    <div class="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
+      <div>
+        <div id="appList" class="space-y-2"></div>
+        <p id="formula" class="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-[11px] font-mono text-zinc-500"></p>
+      </div>
+      <div class="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4 text-sm text-zinc-600">
+        <p class="font-medium text-zinc-800">口径说明</p>
+        <ul class="mt-2 space-y-2 text-[13px] leading-relaxed">
+          <li><b>现状（问题）</b>：份额 = 该应用按键数 ÷ <b>第一名</b>按键数 → 第一名永远是 <b>100%</b>，其他项是“相对第一名的比例”，并非占比。</li>
+          <li><b>A · 按键占比</b>：= 该应用按键数 ÷ 全部按键数（16,621）。各项合计 ≈ 100%。</li>
+          <li><b>C · 按键+点击占比</b>：把鼠标点击也算进去，更接近“操作量”占比。</li>
+          <li><b>B · 活跃时长占比</b>：若有各应用真实活跃时长，这是最直观的口径；<span class="text-amber-700">当前时长数据为空（/pc/app-usage 返回 0 条），选它需先修复时长采集。</span></li>
+        </ul>
+        <div class="mt-3 border-t border-zinc-200 pt-3 text-[12px] space-y-1 text-zinc-500">
+          <label class="flex items-center gap-1.5"><input type="checkbox" class="rounded border-zinc-300"> 选定口径：<b class="text-zinc-700">A 按键占比</b></label>
+          <label class="flex items-center gap-1.5"><input type="checkbox" class="rounded border-zinc-300"> 保留排序：按键+点击 降序（现状排序）</label>
+          <label class="flex items-center gap-1.5"><input type="checkbox" class="rounded border-zinc-300"> 百分比显示到小数点后 1 位（如 90.9%）</label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Section 2: 分类分布 ===== -->
+  <section class="rounded-2xl border border-zinc-200 bg-white p-6 shadow-card">
+    <h2 class="text-base font-semibold">② 「分类分布」分钟数膨胀（核实账目）</h2>
+    <p class="mt-0.5 text-xs text-zinc-500">环图 + 悬停分钟数（现状原样渲染），右侧为 659 条原始记录的核账结果。</p>
+
+    <div class="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[380px_1fr]">
+      <div>
+        <div class="rounded-xl border border-zinc-200 bg-zinc-50/60 p-2">
+          <div id="donut" style="height:280px"></div>
+        </div>
+        <p class="mt-2 text-center text-xs text-zinc-500">合计 <b class="text-red-600">1,622 分钟 ≈ 27.0 小时</b>（一天物理上限 1,440 分钟）</p>
+      </div>
+
+      <div class="space-y-3 text-[13px] leading-relaxed text-zinc-700">
+        <div class="rounded-xl border border-red-100 bg-red-50/60 p-4">
+          <p class="font-semibold text-red-700">核账（23:05 快照 · 当日数据仍在累积）：原始记录 659 条 → 原始合计 1,748 分钟；并集（去重后的真实墙钟）只有 1,140 分钟 → <b>重叠多算 608 分钟（35%）</b>。</p>
+        </div>
+        <div class="rounded-xl border border-zinc-200 p-4">
+          <p class="font-semibold text-zinc-800">三个主要来源（记录类型）：</p>
+          <table class="mt-2 w-full text-[12px]">
+            <thead><tr class="text-left text-zinc-400"><th class="py-1">记录类型</th><th>条数</th><th>合计分钟</th><th>说明</th></tr></thead>
+            <tbody class="text-zinc-700">
+              <tr class="border-t border-zinc-100"><td class="py-1.5 font-mono">gap</td><td>25</td><td class="text-red-600 font-semibold">707</td><td>空档记录（无活动），<b>全部被判为「游戏」</b>，覆盖 04:00–16:42</td></tr>
+              <tr class="border-t border-zinc-100"><td class="py-1.5 font-mono">input-minute</td><td>433</td><td>618</td><td>每分钟输入记录，与下方记录时间互相穿插</td></tr>
+              <tr class="border-t border-zinc-100"><td class="py-1.5 font-mono">window</td><td>122</td><td>282</td><td>窗口记录（同一时段与 input-minute 重叠）</td></tr>
+              <tr class="border-t border-zinc-100"><td class="py-1.5 font-mono">web-page</td><td>87</td><td>99</td><td>网页访问记录（例如 5 分钟的「浏览」记录内部又叠着 4 条 1 分钟的「游戏」）</td></tr>
+              <tr class="border-t border-zinc-100"><td class="py-1.5 font-mono">idle</td><td>6</td><td>55</td><td>空闲记录</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="rounded-xl border border-zinc-200 p-4">
+          <p class="font-semibold text-zinc-800">典型重叠形态：</p>
+          <ul class="mt-1 list-disc space-y-1 pl-4">
+            <li><b>嵌套重复</b>：一条 13:36–16:42 的长记录，内部又同时存着 6 段 30 分钟小块 → 同一段游戏被记两遍（约 185 分钟）。</li>
+            <li><b>并行流</b>：晚间约 60 条/小时的「游戏」微记录（1 分钟内）与「浏览 / 文档 / 编程」记录时间互相穿插 → 同一分钟既算游戏又算浏览。</li>
+            <li><b>空档误标</b>：凌晨到中午的 25 条 gap 记录（707 分钟）全标「游戏」——这部分与真实使用无关。</li>
+          </ul>
+        </div>
+        <div class="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+          <p class="font-semibold text-emerald-800">建议验收口径（确认后写入 issue）：</p>
+          <ul class="mt-1 space-y-1 pl-4 list-disc">
+            <li>任一天所有分类合计 ≤ 24 小时（物理上限断言）；跨午夜正确切分；</li>
+            <li>同一时刻只归属一个分类（重叠记录需去重/定优先级）；</li>
+            <li>gap / idle 不进入分类占比（或单列「未活动」且不计入分母）；</li>
+            <li>修正后「游戏」等多分类分钟数符合真实使用。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Section 3: 同屏其他异常数值 ===== -->
+  <section class="rounded-2xl border border-zinc-200 bg-white p-6 shadow-card">
+    <h2 class="text-base font-semibold">③ 同屏其他异常数值（待确认是否并入本问题）</h2>
+    <div class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 text-center">
+      <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">记录时长</p><p class="mt-1 text-lg font-semibold text-red-600">0m</p></div>
+      <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">会话</p><p class="mt-1 text-lg font-semibold text-red-600">0 次</p></div>
+      <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">应用</p><p class="mt-1 text-lg font-semibold text-red-600">0 个</p></div>
+      <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-3"><p class="text-xs text-zinc-500">最专注</p><p class="mt-1 text-lg font-semibold text-red-600">-</p></div>
+    </div>
+    <p class="mt-2 text-xs text-zinc-500">同一张截图中还有以上 4 个数值疑似异常（有按键 16,621、点击 7,776，但"记录时长 / 会话 / 应用 / 最专注"全为空或 0）。确认：<b>并入问题 2</b> 还是 <b>单独一条</b>？</p>
+  </section>
+
+  <p class="pb-4 text-xs text-zinc-500">数据来源：2026-09-17 生产接口（分类分布 / 按键统计）与生产库分类记录核算；本页为商讨原型。</p>
+</div>
+
+<script>
+  // ===== 数据（2026-09-17 真实值） =====
+  const apps = [
+    { name: 'VALORANT-Win64-Shipping', keys: 15115, clicks: 6591 },
+    { name: 'msedge',                  keys: 273,   clicks: 654 },
+    { name: 'Obsidian',                keys: 741,   clicks: 68 },
+    { name: 'firefox',                 keys: 237,   clicks: 187 },
+    { name: 'Telegram',                keys: 160,   clicks: 25 },
+  ];
+  const TOTAL_KEYS = 16621, TOTAL_CLICKS = 7776;
+  const maxKeys = apps[0].keys;
+
+  const schemes = [
+    {
+      id: 'now', label: '现状（问题）',
+      formula: 'share = 该应用按键数 ÷ 第一名按键数（15,115） → 第一名恒为 100%，其余为“相对第一名”',
+      calc: a => a.keys / maxKeys,
+    },
+    {
+      id: 'a', label: 'A · 按键占比',
+      formula: 'share = 该应用按键数 ÷ 全部按键数（16,621）',
+      calc: a => a.keys / TOTAL_KEYS,
+    },
+    {
+      id: 'c', label: 'C · 按键+点击占比',
+      formula: 'share = (按键+点击) ÷ 全部（按键+点击 = 24,397）',
+      calc: a => (a.keys + a.clicks) / (TOTAL_KEYS + TOTAL_CLICKS),
+    },
+    {
+      id: 'b', label: 'B · 活跃时长占比（暂无数据）', disabled: true,
+      formula: 'share = 该应用活跃时长 ÷ 全部活跃时长 —— 需要先补充时长数据（当前接口为空）',
+      calc: () => null,
+    },
+  ];
+  let current = 'now';
+
+  function renderTabs() {
+    const box = document.getElementById('shareTabs');
+    box.textContent = '';
+    schemes.forEach(s => {
+      const b = document.createElement('button');
+      b.textContent = s.label;
+      b.disabled = !!s.disabled;
+      b.className = 'rounded-full border px-3 py-1.5 text-xs font-medium transition ' +
+        (s.id === current
+          ? 'border-zinc-900 bg-zinc-900 text-white'
+          : s.disabled
+            ? 'border-zinc-200 bg-zinc-50 text-zinc-300 cursor-not-allowed'
+            : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-400');
+      if (!s.disabled) b.onclick = () => { current = s.id; renderTabs(); renderList(); };
+      box.appendChild(b);
+    });
+  }
+
+  function renderList() {
+    const s = schemes.find(x => x.id === current);
+    document.getElementById('formula').textContent = '公式：' + s.formula;
+    const list = document.getElementById('appList');
+    list.textContent = '';
+    apps.forEach(a => {
+      const v = s.calc(a);
+      const pct = v === null ? '—' : (v * 100).toFixed(1) + '%';
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2';
+      const name = document.createElement('span');
+      name.className = 'min-w-0 truncate text-sm text-slate-700';
+      name.textContent = a.name;
+      const right = document.createElement('span');
+      right.className = 'ml-3 flex shrink-0 items-center gap-3';
+      const bar = document.createElement('span');
+      bar.className = 'h-1.5 w-28 overflow-hidden rounded-full bg-zinc-200';
+      const fill = document.createElement('span');
+      fill.className = 'block h-full rounded-full ' + (current === 'now' ? 'bg-red-400' : 'bg-zinc-900');
+      fill.style.width = (v === null ? 0 : Math.min(100, v * 100)) + '%';
+      bar.appendChild(fill);
+      const num = document.createElement('span');
+      num.className = 'w-14 text-right text-xs font-medium ' + (current === 'now' && v === 1 ? 'text-red-600' : 'text-zinc-500');
+      num.textContent = pct;
+      right.append(bar, num);
+      row.append(name, right);
+      list.appendChild(row);
+    });
+  }
+  renderTabs(); renderList();
+
+  // ===== 分类分布环图（现状数据原样） =====
+  const donutData = [
+    { name: '游戏', value: 1189, color: '#F43F5E' },
+    { name: '单机游戏', value: 188, color: '#FB7185' },
+    { name: '浏览', value: 91, color: '#0EA8A0' },
+    { name: '其他', value: 68, color: '#64748b' },
+    { name: '编程/折腾', value: 53, color: '#6B5EE4' },
+    { name: '文档', value: 28, color: '#F59E0B' },
+    { name: '学习', value: 5, color: '#14b8a6' },
+    { name: '沟通', value: 0, color: '#3B82F6' },
+  ];
+  const chart = echarts.init(document.getElementById('donut'));
+  chart.setOption({
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(15,23,42,.92)', textStyle: { color: '#fff', fontSize: 11 },
+      formatter: p => p.name + '：' + p.value + ' 分钟（' + p.percent + '%）',
+    },
+    series: [{
+      type: 'pie', radius: ['52%', '74%'], center: ['50%', '50%'], avoidLabelOverlap: true,
+      label: { formatter: '{b} {d}%', fontSize: 11, color: '#64748b' },
+      labelLine: { length: 10, length2: 8 },
+      data: donutData.map(d => ({ name: d.name, value: d.value, itemStyle: { color: d.color } })),
+    }],
+  });
+  window.addEventListener('resize', () => chart.resize());
+  lucide.createIcons();
+</script>
+</body>
+</html>

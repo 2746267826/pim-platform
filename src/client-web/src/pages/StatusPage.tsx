@@ -10,6 +10,7 @@ import type { MobileQuality } from '../api/mobile';
 import PageHeader from '../ui/PageHeader';
 import StatusBadge from '../ui/StatusBadge';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
+import { buildStatusDeviceModel, formatStatusDeviceCount } from './statusDeviceModel';
 
 const statusStyles: Record<PimHealthStatus, { text: string; bg: string; border: string; dot: string }> = {
   Healthy: {
@@ -226,6 +227,15 @@ export default function StatusPage() {
     return elapsed < 15 * 60 * 1000;
   };
 
+  // #278：以「设备管理」的合并结果为准重建列表 —— 已合并的旧设备不再出现、
+  // 当前设备不重复展示、计数不把安卓守护算作 PC。
+  const deviceModel = useMemo(
+    () => buildStatusDeviceModel(daemons, devices),
+    [daemons, devices],
+  );
+  const pcDaemons = deviceModel.pcDaemons;
+  const mobileDevices = deviceModel.mobileDevices;
+
   const summary = data?.summary;
   const summaryStatus = summary?.status ?? 'Unknown';
 
@@ -293,17 +303,17 @@ export default function StatusPage() {
             error={mobileQualityError}
           />
 
-          {(devices.length > 0 || daemons.length > 0) && (
+          {(pcDaemons.length > 0 || mobileDevices.length > 0) && (
             <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-800">连接设备与工作站 (Multi-Device Status)</h2>
                 <span className="text-xs text-slate-400 font-mono">
-                  {daemons.length} PC · {devices.length} 移动端
+                  {formatStatusDeviceCount(deviceModel.counts)}
                 </span>
               </div>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
                 {/* Windows Workstations */}
-                {daemons.map((daemon) => {
+                {pcDaemons.map((daemon) => {
                   const isPlanned = Boolean(daemon.plannedOfflineAt);
                   const isRecent = isOnline(daemon.receivedAt);
                   return (
@@ -337,9 +347,9 @@ export default function StatusPage() {
                 })}
 
                 {/* Mobile Devices */}
-                {devices.map((device) => {
+                {mobileDevices.map(({ device, daemon }) => {
                   const q = deviceQualityMap.get(device.deviceId) as MobileQuality | undefined;
-                  const online = isOnline(device.lastSeenAt);
+                  const online = isOnline(daemon?.receivedAt ?? device.lastSeenAt);
                   return (
                     <section key={device.deviceId} className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
                       <div className="flex items-start justify-between gap-2">
@@ -356,7 +366,16 @@ export default function StatusPage() {
                       <div className="mt-3 space-y-1 text-xs text-slate-600">
                         <p>{device.brand ? `${device.brand} ` : ''}{device.model || '移动设备'}</p>
                         <p>{device.androidVersion ? `Android ${device.androidVersion}` : '移动端'} · App {device.appVersion || '未知'}</p>
-                        <p>最后心跳：{new Date(device.lastSeenAt).toLocaleString('zh-CN')}</p>
+                        <p>最后活跃：{new Date(device.lastSeenAt).toLocaleString('zh-CN')}</p>
+                        {/* #278：守护心跳并入本卡（原先它自己单独成卡，导致同一设备出现两次） */}
+                        {daemon && (
+                          <div className="mt-2 space-y-1 border-t border-slate-100 pt-2 font-mono text-slate-600">
+                            <p className="truncate">守护版本: <span className="font-sans text-slate-800">{daemon.version || '未知'}</span></p>
+                            <p>守护心跳: <span className={online ? 'font-sans font-medium text-emerald-600' : 'font-sans text-slate-500'}>{new Date(daemon.receivedAt).toLocaleString('zh-CN')}</span></p>
+                            <p className="truncate">Native 追踪: <span className="text-slate-800">{daemon.activityWatchState} / {daemon.keyStatsState}</span></p>
+                            <p>待上传队列: <span className="text-slate-800">{daemon.uploadQueueCount ?? 0} 条</span></p>
+                          </div>
+                        )}
                         {q && (
                           <p className="mt-1">
                             数据质量：<StatusBadge tone={q.overallStatus === 'Healthy' ? 'activity' : q.overallStatus === 'Warning' ? 'warning' : 'danger'}>{q.label}</StatusBadge>

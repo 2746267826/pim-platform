@@ -20,6 +20,11 @@ import HabitCalendarHeatmap from '../components/charts/HabitCalendarHeatmap';
 import { useExhibitionData } from '../components/charts/hooks/useExhibitionData';
 import type { EventResponse, TaskResponse, TodaySectionKind, TodaySectionRegistryItem } from '../types';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
+import {
+  distributeTodaySections,
+  isWideTodaySection,
+  todayColumnCount,
+} from './todaySectionLayout';
 
 type DensityMode = 'standard' | 'dense' | 'focus';
 
@@ -116,11 +121,29 @@ export default function TodayPage() {
 
   const sections = useMemo(() => sortSections(registry?.sections ?? []), [registry?.sections]);
   const compactItemLimit = densityMode === 'dense' ? 2 : 3;
-  const sectionGridClassName = densityMode === 'focus'
-    ? 'grid grid-cols-1 gap-4 xl:grid-cols-3'
+
+  // #285：取消「整块 grid 强制等高」——改为跨列区块独占整行、其余区块按列独立堆叠。
+  // 独立列之间互不拉伸，长板块（任务关注 / 分类建议）在自身组件内独立滚动，
+  // 因此不会再出现「某板块过长 → 同行卡片被撑出成片空白」。
+  const wideSections = useMemo(
+    () => sections.filter(section => isWideTodaySection(section.kind)),
+    [sections],
+  );
+  const columnSections = useMemo(
+    () => sections.filter(section => !isWideTodaySection(section.kind)),
+    [sections],
+  );
+  const sectionColumns = useMemo(
+    () => distributeTodaySections(columnSections, todayColumnCount(densityMode)),
+    [columnSections, densityMode],
+  );
+  // 注意：Tailwind 的类名必须在源码里以字面量出现才会被生成，
+  // 因此这里用静态字面量映射，不能用 `xl:grid-cols-${n}` 这类模板拼接。
+  const columnLayoutClassName = densityMode === 'focus'
+    ? 'gap-4 xl:grid-cols-3'
     : densityMode === 'dense'
-      ? 'grid grid-cols-1 gap-3 xl:grid-cols-4'
-      : 'grid grid-cols-1 gap-4 xl:grid-cols-4';
+      ? 'gap-3 xl:grid-cols-4'
+      : 'gap-4 xl:grid-cols-4';
 
   function openTask(task: TaskResponse) {
     setEditingTask(task);
@@ -267,18 +290,36 @@ export default function TodayPage() {
       {registryLoading ? (
         <EmptyState title="正在加载今日区块" description="今日页面会按区块独立加载数据。" />
       ) : (
-        <div className={sectionGridClassName}>
-          {sections.map(section => (
-            <div key={section.id} className={section.kind === 'pc.activity' ? 'xl:col-span-2' : undefined}>
-              <TodaySectionHost
-                item={section}
-                date={dateStr}
-                todayPrefix={dateStr}
-                onSelectScheduled={openScheduledItem}
-                onSelectTask={openTask}
-              />
-            </div>
+        <div className="space-y-4">
+          {/* 跨列区块独占整行：行内只有它自己，不存在「被同行最高卡片拉伸」的问题 */}
+          {wideSections.map(section => (
+            <TodaySectionHost
+              key={section.id}
+              item={section}
+              date={dateStr}
+              todayPrefix={dateStr}
+              onSelectScheduled={openScheduledItem}
+              onSelectTask={openTask}
+            />
           ))}
+
+          {/* 其余区块按列独立堆叠：列之间互不拉伸（对比修复前的整块等高网格） */}
+          <div className={`grid grid-cols-1 items-start ${columnLayoutClassName}`}>
+            {sectionColumns.map((column, index) => (
+              <div key={`today-column-${index}`} className="flex min-w-0 flex-col gap-4">
+                {column.map(section => (
+                  <TodaySectionHost
+                    key={section.id}
+                    item={section}
+                    date={dateStr}
+                    todayPrefix={dateStr}
+                    onSelectScheduled={openScheduledItem}
+                    onSelectTask={openTask}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

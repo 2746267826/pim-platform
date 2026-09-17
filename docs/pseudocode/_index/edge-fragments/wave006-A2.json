@@ -1,0 +1,113 @@
+{
+  "slot": "A2",
+  "wave": "wave006",
+  "nodes": [
+    {
+      "id": "src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx",
+      "label": "ActivityHeatmap",
+      "path": "src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/pc-tracker/PcDetailQueryPanel.tsx",
+      "label": "PcDetailQueryPanel",
+      "path": "src/client-web/src/components/pc-tracker/PcDetailQueryPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/PcDetailQueryPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/quick-notes/quickNoteFloatingState.ts",
+      "label": "quickNoteFloatingState",
+      "path": "src/client-web/src/components/quick-notes/quickNoteFloatingState.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/quick-notes/quickNoteFloatingState.ts.md",
+      "layer": "client-web",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/components/status/MobileDiagnosticsPanel.tsx",
+      "label": "MobileDiagnosticsPanel",
+      "path": "src/client-web/src/components/status/MobileDiagnosticsPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/status/MobileDiagnosticsPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/dialogs/common.tsx",
+      "label": "dialogs/common",
+      "path": "src/client-web/src/dialogs/common.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/dialogs/common.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/CalendarDataManager.tsx",
+      "label": "CalendarDataManager",
+      "path": "src/client-web/src/pages/CalendarDataManager.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/CalendarDataManager.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/PcClassificationPage.tsx",
+      "label": "PcClassificationPage",
+      "path": "src/client-web/src/pages/PcClassificationPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/PcClassificationPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/TaskListPage.tsx",
+      "label": "TaskListPage",
+      "path": "src/client-web/src/pages/TaskListPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/TaskListPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/ui/OperationResultBanner.tsx",
+      "label": "OperationResultBanner",
+      "path": "src/client-web/src/ui/OperationResultBanner.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/ui/OperationResultBanner.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+      "label": "AppDatabase",
+      "path": "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt",
+      "label": "LocationQueueRepository",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt",
+      "label": "ForegroundLocationRuntimeState",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationRuntimeState.kt.md",
+      "layer": "client-android",
+      "kind": "dto"
+    }
+  ],
+  "edges": [
+    { "from": "src/client-web/src/components/pc-tracker/ActivityHeatmap.tsx", "to": "src/client-web/src/types/index.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/pc-tracker/PcDetailQueryPanel.tsx", "to": "src/client-web/src/api/pcTracker.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/status/MobileDiagnosticsPanel.tsx", "to": "src/client-web/src/ui/StatusBadge.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/CalendarDataManager.tsx", "to": "src/client-web/src/api/calendar.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/PcClassificationPage.tsx", "to": "src/client-web/src/api/pcTracker.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/TaskListPage.tsx", "to": "src/client-web/src/api/calendar.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/TaskListPage.tsx", "to": "src/client-web/src/components/schedule/TaskSegmentEditor.tsx", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt", "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt", "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt", "type": "depends_on" }
+  ]
+}

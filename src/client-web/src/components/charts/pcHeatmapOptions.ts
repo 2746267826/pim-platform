@@ -204,13 +204,23 @@ export function buildCategoryGanttOption(timeline: TimelineItem[]): EChartsOptio
         // value = [startMs, endMs, yIdx]：x 取维度 0-1 的时间区间，y 取维度 2 的行索引，
         // 让 time 轴 min/max 与刻度按真实区间计算
         encode: { x: [0, 1], y: 2 },
-        renderItem: (params: unknown, api: unknown) => {
-          const p = params as { value?: number[]; data?: { itemStyle?: { color?: string } } };
-          const a = api as { coord?: (v: number[]) => number[]; size?: (v: number[]) => number[] };
-          const value = Array.isArray(p.value) ? p.value : [0, 0, 0];
-          const startMs = Number(value[0]);
-          const endMs = Number(value[1]);
-          const yIdx = Number(value[2]) || 0;
+        // params 在真实渲染下不含取值所需字段，故本 renderItem 只使用 api（见下方注释）。
+        renderItem: (_params: unknown, api: unknown) => {
+          // ECharts 真实调用 renderItem 时 params **不含** value / data（只有
+          // dataIndex/dataIndexInside/encode/itemPayload 等），因此必须用 api 取值取色：
+          //   - 取值：api.value(0..2) —— 即 data 里 value 的三个分量；
+          //   - 取色：api.visual('color') —— 即该数据项 itemStyle.color。
+          // 曾因读 params.value / params.data 而走兜底 [0,0,0] / 灰色：坐标落到 1970 年
+          // （x ≈ -1.8e8 px，画布之外），甘特图整块空白（#153 / #186 / #282）。
+          const a = api as {
+            value?: (dim: number) => number;
+            visual?: (key: string) => unknown;
+            coord?: (v: number[]) => number[];
+            size?: (v: number[]) => number[];
+          };
+          const startMs = Number(a.value?.(0));
+          const endMs = Number(a.value?.(1));
+          const yIdx = Number(a.value?.(2)) || 0;
           let x = 0;
           let y = 0;
           let width = 4;
@@ -226,7 +236,8 @@ export function buildCategoryGanttOption(timeline: TimelineItem[]): EChartsOptio
           } catch {
             // 纯函数环境下 api 不可用时返回占位 rect，不影响 option 结构断言
           }
-          const fill = p.data?.itemStyle?.color || '#94a3b8';
+          const visual = a.visual?.('color');
+          const fill = typeof visual === 'string' && visual ? visual : '#94a3b8';
           return {
             type: 'rect',
             shape: { x, y: y - rowH * 0.25, width, height: rowH * 0.5, r: 4 },

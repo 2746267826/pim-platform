@@ -75,14 +75,23 @@ test('buildCategoryGanttOption renders custom rect gantt over deduped hour rows'
   assert.equal(series.data[1].itemStyle.color, '#F59E0B');
   assert.equal(series.data[2].value[2], 2, 'third segment sits on 11:00 row');
 
-  // renderItem returns a rect shape with a real pixel width
+  // renderItem returns a rect shape with a real pixel width.
+  // 注意：ECharts 真实调用 renderItem 时 **不传** value / data，取值取色只能走 api
+  // （#282）。这里的 mock api 必须忠实反映该契约 —— 之前传 { value, data } 的写法
+  // 让取值退化成兜底、取色变成灰色，而断言只检查 width > 0 仍然通过，掩盖了整块空白。
   const rect = series.renderItem(
-    { value: [new Date('2026-08-15T09:00:00').getTime(), new Date('2026-08-15T10:00:00').getTime(), 0], data: series.data[0] },
-    { coord: (v: number[]) => [v[1], v[2]], size: () => [1, 44] }
+    {},
+    {
+      value: (dim: number) => series.data[0].value[dim],
+      visual: () => series.data[0].itemStyle.color,
+      coord: (v: number[]) => [v[1], v[2]],
+      size: () => [1, 44],
+    }
   );
   assert.equal(rect.type, 'rect');
   assert.ok(rect.shape.width > 0, 'rect width derived from start/end pixel coordinates');
   assert.equal(rect.shape.height, 22, 'rect height is half the row band');
+  assert.equal(rect.style.fill, '#6B5EE4', 'colors come from api.visual, not params.data (#282)');
 
   const tooltipText = option.tooltip.formatter({ data: { segment: timeline[0] } });
   assert.ok(tooltipText.includes('Code.exe'), 'tooltip shows app name');

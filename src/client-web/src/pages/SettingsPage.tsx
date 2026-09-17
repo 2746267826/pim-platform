@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import PageHeader from '../ui/PageHeader';
 import AboutPimCard from '../components/AboutPimCard';
 import { useAuth } from '../auth/AuthContext';
+import { SETTINGS_SECTION_ITEMS } from '../layout/navItems';
 
 const settingsLinks = [
   {
@@ -83,6 +84,30 @@ export default function SettingsPage() {
           </span>
         </Link>
       ))}
+      <div className="space-y-3">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">板块入口</h2>
+        {SETTINGS_SECTION_ITEMS.map(section => (
+          <Link
+            key={section.path}
+            to={section.path}
+            className="pim-card flex min-h-[44px] w-full cursor-pointer items-center justify-between gap-4 rounded-lg border p-5 text-left transition-colors hover:border-blue-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          >
+            <div className="flex min-w-0 items-center gap-4">
+              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-sm font-semibold text-blue-700">
+                {section.label}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-base font-semibold text-slate-950">{section.title}</span>
+                <span className="mt-1 block break-words text-sm text-slate-500">{section.description}</span>
+              </span>
+            </div>
+            <span className="shrink-0 text-xl text-slate-300" aria-hidden="true">
+              →
+            </span>
+          </Link>
+        ))}
+      </div>
+
       <AboutPimCard />
     </div>
   );

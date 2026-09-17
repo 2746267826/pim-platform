@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { CalendarVisibilityProvider } from '../context/CalendarVisibilityContext';
 import QuickNoteFloatingButton from '../components/quick-notes/QuickNoteFloatingButton';
 import Sidebar from './Sidebar';
-import { NAV_ITEMS } from './navItems';
+import { PAGE_TITLE_ITEMS } from './navItems';
 import InboxPanel from '../panels/InboxPanel';
 import TodayPage from '../pages/TodayPage';
 import CalendarPage from '../pages/CalendarPage';
@@ -58,7 +58,8 @@ export default function AppLayout() {
     return <Navigate to="/login" replace />;
   }
 
-  const currentNavItem = NAV_ITEMS.find(
+  // 标题查找用 PAGE_TITLE_ITEMS（含已移入设置页的板块），避免这些页面头部退化成默认标题。
+  const currentNavItem = PAGE_TITLE_ITEMS.find(
     (item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
   );
   const pageTitle = currentNavItem?.label ?? '个人中枢';

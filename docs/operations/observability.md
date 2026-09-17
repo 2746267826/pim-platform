@@ -18,12 +18,20 @@ PIM 的可观测性由四部分组成：Prometheus 指标端点、健康检查�
 
 | 指标 | 类型 | 说明 |
 |---|---|---|
-| `http_requests_received_total` / `http_request_duration_seconds` | Counter/Histogram | prometheus-net 自动采集的 HTTP 指标 |
+| `http_requests_received_total` / `http_request_duration_seconds` | Counter/Histogram | prometheus-net 自动采集的 HTTP 指标，`code` 标签为响应真实状态码 |
 | `pim_ai_requests_total{module,status}` | Counter | AI 网关请求（status: Completed/Failed/TimedOut/Blocked） |
 | `pim_ai_request_duration_seconds{module}` | Histogram | AI 网关耗时 |
 | `pim_daemon_heartbeat_freshness_seconds{device,kind}` | Gauge | 距上次守护进程心跳的秒数（30s 刷新） |
 | `pim_hangfire_jobs{state}` | Gauge | Hangfire 队列计数（enqueued/processing/scheduled/failed，30s 刷新） |
 | `aspnetcore_healthcheck_status{name}` | Gauge | 健康检查导出（1=Healthy, 0.5=Degraded, 0=Unhealthy） |
+
+### 状态码口径
+
+- 指标中间件挂在异常处理中间件**外侧**，因此 `code` 标签反映的是异常转换**之后**的真实状态码（500/502 等）。
+  若顺序反过来，异常请求在采样时状态码仍是默认的 200，5xx 将永远不进指标、`PimHttp5xxSpike` 也就永远不触发。
+- **客户端主动断开**（如地图拖动/缩放取消在途瓦片请求）记 **499**（nginx 惯例的 Client Closed Request），
+  既不是 5xx 指标、也不是 Error 级日志 —— 这类中断不是服务端故障，把它算进错误率会掩盖真实故障。
+  反过来说，只有"请求确已断开**且**异常链含取消类异常"才判 499；上游超时/服务端自身取消仍是 500。
 
 ## 2. 健康检查
 

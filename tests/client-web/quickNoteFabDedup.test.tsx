@@ -66,6 +66,7 @@ test('#280 全站布局不再挂载旧蓝色按钮，但仍有且只有一个全
 
 test('#280 全局入口与页面内黑色按钮不会同时出现（真实渲染验证无重叠）', () => {
   const { QuickNoteFloatingEntry, PAGE_FAB_PATHS } = require('../../src/client-web/src/components/quick-notes/QuickNoteFloatingEntry');
+  const { MemoryRouter } = requireFromClient('react-router-dom');
 
   // 页面内已有黑色 FAB 的路径（/quick-notes）不应再渲染全局入口，
   // 否则两个按钮会在右下角重叠 —— 这正是 issue 的现象。
@@ -74,12 +75,17 @@ test('#280 全局入口与页面内黑色按钮不会同时出现（真实渲染
     'PAGE_FAB_PATHS 应导出用于判断「本页已有自己的 FAB」',
   );
 
-  const onQuickNotes = renderToStaticMarkup(
-    React.createElement(QuickNoteFloatingEntry, { pathname: '/quick-notes' }),
+  // #300 起入口内部使用 useNavigate（菜单跳转），静态渲染需要 Router 上下文。
+  const inRouter = (pathname: string) => renderToStaticMarkup(
+    React.createElement(
+      MemoryRouter,
+      { initialEntries: [pathname] },
+      React.createElement(QuickNoteFloatingEntry, { pathname }),
+    ),
   );
-  const onToday = renderToStaticMarkup(
-    React.createElement(QuickNoteFloatingEntry, { pathname: '/today' }),
-  );
+
+  const onQuickNotes = inRouter('/quick-notes');
+  const onToday = inRouter('/today');
 
   const countFab = (html: string) => (html.match(/aria-label="打开快速记录"/g) ?? []).length;
 
@@ -120,15 +126,15 @@ test('#280 迁移不造成功能缺项：草稿保留与位置记忆仍存在', 
   assert.ok(state.includes('QUICK_NOTE_PANEL_POSITION_KEY'), '位置记忆 key 应保留');
   assert.ok(state.includes('clampPanelPosition'), '位置夹取工具应保留');
 
-  // 入口按钮与其面板（懒加载）合计必须保留草稿与位置记忆；面板已拆到独立文件以便代码分割。
-  const entryAndPanel = [
-    read('src/client-web/src/components/quick-notes/QuickNoteFloatingEntry.tsx'),
-    read('src/client-web/src/components/quick-notes/QuickNoteGlobalPanel.tsx'),
-  ].join('\n');
+  // #300：旧面板（QuickNoteGlobalPanel）已删除，全局入口改用「快速记录」页同款编辑卡片
+  // （QuickNoteDialog，懒加载），草稿与位置记忆能力随之迁移到该卡片。
+  const entry = read('src/client-web/src/components/quick-notes/QuickNoteFloatingEntry.tsx');
+  const dialog = read('src/client-web/src/components/quick-notes/QuickNoteDialog.tsx');
+  const entryAndDialog = entry + '\n' + dialog;
 
-  assert.ok(entryAndPanel.includes('QUICK_NOTE_DRAFT_KEY'), '全局入口应保留草稿能力');
-  assert.ok(entryAndPanel.includes('loadPanelPosition'), '全局入口应保留位置记忆能力');
-  assert.ok(entryAndPanel.includes('savePanelPosition'), '全局入口应保留位置持久化能力');
+  assert.ok(entry.includes('QuickNoteDialog'), '全局入口应复用新版编辑卡片');
+  assert.ok(entryAndDialog.includes('loadPanelPosition'), '全局入口应保留位置记忆能力');
+  assert.ok(entryAndDialog.includes('savePanelPosition'), '全局入口应保留位置持久化能力');
 });
 
 test('#280 快速记录页仍有黑色按钮及其菜单（写闪念 / 建任务 / 排日程）', () => {

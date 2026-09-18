@@ -57,9 +57,9 @@ function timelineItem(start: string, end: string, categoryName: string, category
 
 test('buildCategoryGanttOption renders custom rect gantt over deduped hour rows', () => {
   const timeline: TimelineItem[] = [
-    timelineItem('2026-08-15T09:00:00', '2026-08-15T10:00:00', '编程', '#6B5EE4', 'Code.exe'),
-    timelineItem('2026-08-15T10:00:00', '2026-08-15T11:00:00', '文档', '#F59E0B', 'msedge.exe'),
-    timelineItem('2026-08-15T11:00:00', '2026-08-15T11:30:00', '编程', '#6B5EE4', 'Terminal'),
+    timelineItem('2026-08-15T09:00:00+08:00', '2026-08-15T10:00:00+08:00', '编程', '#6B5EE4', 'Code.exe'),
+    timelineItem('2026-08-15T10:00:00+08:00', '2026-08-15T11:00:00+08:00', '文档', '#F59E0B', 'msedge.exe'),
+    timelineItem('2026-08-15T11:00:00+08:00', '2026-08-15T11:30:00+08:00', '编程', '#6B5EE4', 'Terminal'),
   ];
   const option = buildCategoryGanttOption(timeline) as any;
   const series = option.series[0];

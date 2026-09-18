@@ -83,9 +83,9 @@ function renderAndCapture(option: unknown, width = 900, height = 420) {
 }
 
 const threeSegments: TimelineItem[] = [
-  timelineItem('2026-08-15T09:00:00', '2026-08-15T10:00:00', '编程', '#6B5EE4', 'Code.exe'),
-  timelineItem('2026-08-15T10:00:00', '2026-08-15T11:00:00', '文档', '#F59E0B', 'msedge.exe'),
-  timelineItem('2026-08-15T11:00:00', '2026-08-15T11:30:00', '编程', '#6B5EE4', 'Terminal'),
+  timelineItem('2026-08-15T09:00:00+08:00', '2026-08-15T10:00:00+08:00', '编程', '#6B5EE4', 'Code.exe'),
+  timelineItem('2026-08-15T10:00:00+08:00', '2026-08-15T11:00:00+08:00', '文档', '#F59E0B', 'msedge.exe'),
+  timelineItem('2026-08-15T11:00:00+08:00', '2026-08-15T11:30:00+08:00', '编程', '#6B5EE4', 'Terminal'),
 ];
 
 test('#282 renderItem 必须通过 api 取到真实数值（params.value/data 在真实渲染下不存在）', () => {
@@ -138,8 +138,8 @@ test('#282 甘特条使用分类颜色而非灰色兜底', () => {
 
 test('#282 甘特条宽度与时间跨度成正比', () => {
   const { captured } = renderAndCapture(buildCategoryGanttOption([
-    timelineItem('2026-08-15T09:00:00', '2026-08-15T09:30:00', '短', '#111111', 'a.exe'),
-    timelineItem('2026-08-15T09:00:00', '2026-08-15T10:00:00', '长', '#222222', 'b.exe'),
+    timelineItem('2026-08-15T09:00:00+08:00', '2026-08-15T09:30:00+08:00', '短', '#111111', 'a.exe'),
+    timelineItem('2026-08-15T09:00:00+08:00', '2026-08-15T10:00:00+08:00', '长', '#222222', 'b.exe'),
   ]));
 
   assert.equal(captured.length, 2);

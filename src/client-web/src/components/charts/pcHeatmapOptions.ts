@@ -126,9 +126,28 @@ function pad(n: number) {
   return String(n).padStart(2, '0');
 }
 
+/**
+ * PC 模块的墙钟时区固定为 Asia/Shanghai（UTC+8，无夏令时），与后端业务日口径一致
+ * （见 `utils/pcBusinessDay.ts`：前端业务日计算不得使用浏览器时区，否则异地客户端
+ * 会在 04:00 边界错一天）。接口返回的时间戳本身带 +08:00，因此这里按固定偏移换算，
+ * 而不是用 `getHours()` / `new Date(y,m,d,h)` 这类依赖浏览器时区的取值方式。
+ */
+const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/** 墙钟毫秒 → 上海时区的「时:分」。 */
 function formatClock(ms: number): string {
-  const d = new Date(ms);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const shifted = new Date(ms + SHANGHAI_OFFSET_MS);
+  return `${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}`;
+}
+
+/** 墙钟毫秒 → 上海时区的小时（0–23）。 */
+function shanghaiHour(ms: number): number {
+  return new Date(ms + SHANGHAI_OFFSET_MS).getUTCHours();
+}
+
+/** 墙钟毫秒所在上海整点的毫秒时刻。 */
+function shanghaiHourStartMs(ms: number): number {
+  return Math.floor((ms + SHANGHAI_OFFSET_MS) / (60 * 60 * 1000)) * 60 * 60 * 1000 - SHANGHAI_OFFSET_MS;
 }
 
 interface CategoryGanttChunk {
@@ -139,33 +158,35 @@ interface CategoryGanttChunk {
 }
 
 /**
- * 把时间段拆成每小时内的分钟区间。
- * `Date` 的本地 getter 与页面其余电脑记录图保持一致：后端时间带 +08:00，
- * 因此这里刻意使用 getHours/getMinutes，而不是 UTC getter。
+ * 把时间段拆成每小时内的分钟区间（上海墙钟小时）。
+ *
+ * 小时归属与 0–60 分钟坐标都按固定 +08:00 计算：接口时间戳带 +08:00，而 PC 业务日
+ * 口径固定 Asia/Shanghai。若改用浏览器本地时区，非 UTC+8 的用户会看到整体平移的小时行
+ * （例如 UTC 下 13:36 落到 5 点行），在有夏令时的时区还会出现重复或跳过的整点行。
  */
 export function splitCategoryTimelineIntoChunks(timeline: TimelineItem[]): CategoryGanttChunk[] {
   const chunks: CategoryGanttChunk[] = [];
   for (const segment of timeline) {
     if (!segment.start || !segment.end) continue;
-    const start = new Date(segment.start);
-    const end = new Date(segment.end);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) continue;
+    const startMs = new Date(segment.start).getTime();
+    const endMs = new Date(segment.end).getTime();
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) continue;
 
-    // Each iteration covers one local clock hour, including partial first/last hours.
-    let hourStart = new Date(start.getFullYear(), start.getMonth(), start.getDate(), start.getHours(), 0, 0, 0);
-    while (hourStart < end) {
-      const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000);
-      const from = Math.max(start.getTime(), hourStart.getTime());
-      const to = Math.min(end.getTime(), hourEnd.getTime());
+    // 每次迭代覆盖一个上海墙钟整点，含首尾不完整的部分。
+    let hourStartMs = shanghaiHourStartMs(startMs);
+    while (hourStartMs < endMs) {
+      const hourEndMs = hourStartMs + 60 * 60 * 1000;
+      const from = Math.max(startMs, hourStartMs);
+      const to = Math.min(endMs, hourEndMs);
       if (to > from) {
         chunks.push({
-          hour: hourStart.getHours(),
-          minuteStart: (from - hourStart.getTime()) / 60000,
-          minuteEnd: (to - hourStart.getTime()) / 60000,
+          hour: shanghaiHour(hourStartMs),
+          minuteStart: (from - hourStartMs) / 60000,
+          minuteEnd: (to - hourStartMs) / 60000,
           segment,
         });
       }
-      hourStart = hourEnd;
+      hourStartMs = hourEndMs;
     }
   }
   return chunks;

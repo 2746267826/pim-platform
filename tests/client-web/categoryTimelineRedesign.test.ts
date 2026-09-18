@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { buildCategoryGanttOption } from '../../src/client-web/src/components/charts/pcHeatmapOptions';
+import { buildCategoryGanttOption, splitCategoryTimelineIntoChunks } from '../../src/client-web/src/components/charts/pcHeatmapOptions';
 import type { TimelineItem } from '../../src/client-web/src/types';
 
 const requireFromClient = createRequire(path.join(process.cwd(), 'src/client-web/package.json'));
@@ -50,7 +50,7 @@ function renderAndCapture(option: unknown, width = 900, height = 240) {
   return { captured, svg };
 }
 
-const crossing = timelineItem('2026-08-15T13:36:00', '2026-08-15T14:02:00');
+const crossing = timelineItem('2026-08-15T13:36:00+08:00', '2026-08-15T14:02:00+08:00');
 
 test('跨小时段拆成 13:36→60 与 14:00→2，轴为分钟且行升序', () => {
   const option = buildCategoryGanttOption([crossing]) as any;
@@ -63,7 +63,7 @@ test('跨小时段拆成 13:36→60 与 14:00→2，轴为分钟且行升序', (
 });
 
 test('默认只显示有数据的小时，全时段切换显示 0–23 行', () => {
-  const timeline = [crossing, timelineItem('2026-08-15T09:05:00', '2026-08-15T09:10:00', '#F59E0B')];
+  const timeline = [crossing, timelineItem('2026-08-15T09:05:00+08:00', '2026-08-15T09:10:00+08:00', '#F59E0B')];
   const onlyData = buildCategoryGanttOption(timeline) as any;
   assert.deepEqual(onlyData.yAxis[0].data, ['09:00', '13:00', '14:00']);
 
@@ -83,6 +83,37 @@ test('跨小时的两条自定义图形在 SSR 画布内并使用分类色', () 
     assert.equal(rect.fill, '#6B5EE4');
   }
   assert.ok(svg.includes('#6B5EE4'));
+});
+
+// review 发现：切片必须按固定 +08:00 墙钟计算，不能用浏览器本地时区。
+// 非 UTC+8 的用户否则会看到整体平移的小时行（UTC 下 13:36 落到 5 点行），
+// 在有夏令时的时区还会出现重复 / 跳过的整点行。
+// 本用例断言的是「与运行时时区无关」这一性质：同一输入在不同 TZ 下结果一致，
+// 且与 Asia/Shanghai 的墙钟一致。CI 以 TZ=UTC 运行，因此这里也显式断言上海墙钟值。
+test('切片按固定 +08:00 墙钟计算，不随浏览器时区漂移', () => {
+  const chunks = splitCategoryTimelineIntoChunks([crossing]);
+  // crossing = 13:36–14:02 (+08:00)
+  assert.deepEqual(
+    chunks.map(c => [c.hour, c.minuteStart, c.minuteEnd]),
+    [[13, 36, 60], [14, 0, 2]],
+    `在 TZ=${Intl.DateTimeFormat().resolvedOptions().timeZone} 下切片应仍按上海墙钟得到 13/14 行`,
+  );
+});
+
+test('跨午夜与多小时的切片在每个 TZ 下都落在上海墙钟小时上', () => {
+  const overnight = timelineItem('2026-08-15T22:30:00+08:00', '2026-08-16T01:20:00+08:00', '#6B5EE4');
+  const chunks = splitCategoryTimelineIntoChunks([overnight]);
+  assert.deepEqual(
+    chunks.map(c => [c.hour, c.minuteStart, c.minuteEnd]),
+    [[22, 30, 60], [23, 0, 60], [0, 0, 60], [1, 0, 20]],
+  );
+  // 每个 chunk 都必须是合法区间，且时长之和等于原段时长
+  for (const c of chunks) {
+    assert.ok(c.minuteStart >= 0 && c.minuteEnd <= 60 && c.minuteEnd > c.minuteStart,
+      `非法 chunk: ${JSON.stringify(c)}`);
+  }
+  const total = chunks.reduce((sum, c) => sum + (c.minuteEnd - c.minuteStart), 0);
+  assert.equal(total, 170, '切片时长之和应等于原段时长（22:30–01:20 = 170 分钟）');
 });
 
 console.log('categoryTimelineRedesign tests passed');

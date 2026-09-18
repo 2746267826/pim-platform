@@ -134,8 +134,8 @@ function pad(n: number) {
  */
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 
-/** 墙钟毫秒 → 上海时区的「时:分」。 */
-function formatClock(ms: number): string {
+/** 墙钟毫秒 → 上海时区的「时:分」（PC 模块统一口径，勿用浏览器本地 getter）。 */
+export function formatClock(ms: number): string {
   const shifted = new Date(ms + SHANGHAI_OFFSET_MS);
   return `${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}`;
 }
@@ -160,9 +160,11 @@ interface CategoryGanttChunk {
 /**
  * 把时间段拆成每小时内的分钟区间（上海墙钟小时）。
  *
- * 小时归属与 0–60 分钟坐标都按固定 +08:00 计算：接口时间戳带 +08:00，而 PC 业务日
- * 口径固定 Asia/Shanghai。若改用浏览器本地时区，非 UTC+8 的用户会看到整体平移的小时行
- * （例如 UTC 下 13:36 落到 5 点行），在有夏令时的时区还会出现重复或跳过的整点行。
+ * 小时归属与 0–60 分钟坐标都按固定 +08:00 计算。接口返回的是 UTC 形式的时间戳
+ * （`...Z` / `+00:00`，如 `2026-09-13T02:39:24Z` = 北京 10:39），而 PC 业务日口径固定
+ * Asia/Shanghai。换算到固定 +08:00 后，展示的才是用户预期的北京时间；若改用浏览器本地
+ * 时区，非 UTC+8 的用户会看到整体平移的小时行（例如 UTC 下 13:36 落到 5 点行），
+ * 在有夏令时的时区还会出现重复或跳过的整点行。
  */
 export function splitCategoryTimelineIntoChunks(timeline: TimelineItem[]): CategoryGanttChunk[] {
   const chunks: CategoryGanttChunk[] = [];

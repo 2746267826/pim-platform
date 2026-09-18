@@ -50,9 +50,12 @@ function renderAndCapture(option: unknown, width = 900, height = 240) {
   return { captured, svg };
 }
 
-const crossing = timelineItem('2026-08-15T13:36:00+08:00', '2026-08-15T14:02:00+08:00');
+// 真实接口的 wire format 是 UTC（`Z` / `+00:00`），不是 +08:00：
+//   curl '/api/v1/pc/summary?date=...' -> "2026-09-13T02:39:24.5180000Z"
+// 05:36Z == 北京 13:36，因此这里用真实格式作为主夹具，同时断言上海墙钟结果。
+const crossing = timelineItem('2026-08-15T05:36:00Z', '2026-08-15T06:02:00Z');
 
-test('跨小时段拆成 13:36→60 与 14:00→2，轴为分钟且行升序', () => {
+test('跨小时段拆成 13:36→60 与 14:00→2（UTC 入参、上海墙钟出参），轴为分钟且行升序', () => {
   const option = buildCategoryGanttOption([crossing]) as any;
   assert.equal(option.xAxis[0].type, 'value');
   assert.equal(option.xAxis[0].min, 0);

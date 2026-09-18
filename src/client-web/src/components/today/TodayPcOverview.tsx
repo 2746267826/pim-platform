@@ -131,7 +131,8 @@ export default function TodayPcOverview({ section }: { section: TodaySection<PcA
               {summary.appRanking.slice(0, 4).map(app => (
                 <div key={app.appName} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
                   <span className="min-w-0 truncate text-sm text-slate-700">{app.displayName || app.appName}</span>
-                  <span className="text-xs font-medium text-slate-500">{Math.round(app.share * 100)}%</span>
+                  {/* #301：占总量占比，显示 1 位小数（合计 ≈100%） */}
+                  <span className="text-xs font-medium text-slate-500">{(app.share * 100).toFixed(1)}%</span>
                 </div>
               ))}
             </div>

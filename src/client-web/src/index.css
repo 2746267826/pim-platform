@@ -133,6 +133,28 @@ body {
   background: rgba(79, 70, 229, 0.18);
 }
 
+/* 折叠收纳区（今日页「运维与状态」等） */
+.pim-collapsible summary {
+  list-style: none;
+}
+
+.pim-collapsible summary::-webkit-details-marker {
+  display: none;
+}
+
+.pim-collapsible .pim-collapsible-chevron {
+  display: inline-block;
+  transition: transform 150ms ease;
+}
+
+.pim-collapsible[open] .pim-collapsible-chevron {
+  transform: rotate(90deg);
+}
+
+.pim-collapsible summary:hover {
+  background: var(--pim-surface-muted);
+}
+
 button,
 input,
 select,

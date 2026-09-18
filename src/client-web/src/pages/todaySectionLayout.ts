@@ -1,65 +1,38 @@
-import type { TodaySectionKind, TodaySectionRegistryItem } from '../types';
+import type { TodaySectionKind } from '../types';
 
 /**
- * 今日页区块的列分配（#285）。
+ * 今日页分区布局（2026-09-19 信息架构重排 v2）。
  *
- * 背景：原实现把区块放进 `grid xl:grid-cols-4`，CSS Grid 默认 `align-items: stretch`
- * 会把同一行的短卡片拉伸到与该行最高卡片同高，于是「任务关注 / 分类建议」这类长板块
- * 会把同行卡片撑出成片空白，整页被拉得极长（#285，同类问题见 #192）。
+ * 背景：今日页曾是「10+ 个模块无差别平铺」——4 张独立卡（待确认 / 微软同步 /
+ * 提醒队列 / 报告）+ 6 个注册表区块 + 2 张图表嵌入卡，全部堆在首屏之后，
+ * 没有主次、没有分区，用户需要滚动扫视才能找到「今天要干什么」。
  *
- * 做法：按「预估高度权重」把区块贪心分配到若干**独立列**中（每列是独立的纵向堆叠，
- * 列之间互不影响，配合容器 `items-start` 即不再有强制等高拉伸）。
- * 长板块权重高，贪心分配会让它们各自占据一列，短卡片则两两堆叠，避免大片空白。
+ * 重排为三个语义区（自上而下）：
+ *   1. action —— 今天要处理的：日程 / 待办任务 / 分类建议（首屏，最高优先级）
+ *   2. data   —— 数据回顾：PC 记录概览 + 周趋势 / 习惯图表
+ *   3. status —— 运维与状态：系统健康 / 数据质量 / 待确认 / 同步等（折叠收纳）
  *
- * 同时保留 `pc.activity` 的「跨列加宽」语义：它由调用方按 `isWideTodaySection`
- * 渲染为整行（见 TodayPage），行内只有一个区块，同样不会被拉伸。
+ * #285 防拉伸约束在新布局中同样成立：
+ *   - 每个区内部是独立的 grid + items-start，区与区之间互不影响；
+ *   - 长列表板块（任务 / 分类建议）在自身组件内独立滚动。
  */
+export type TodayZone = 'action' | 'data' | 'status';
 
-/** 长板块：内容条数不可控，必须独占一列（并在组件内自带独立滚动）。 */
-const LONG_SECTION_KINDS: readonly TodaySectionKind[] = [
-  'calendar.tasks',
-  'pc.classification_suggestions',
-];
+const ZONE_OF: Record<TodaySectionKind, TodayZone> = {
+  'calendar.schedule': 'action',
+  'calendar.tasks': 'action',
+  'pc.classification_suggestions': 'action',
+  'pc.activity': 'data',
+  'operations.health': 'status',
+  'pc.quality': 'status',
+};
 
-/** 跨列加宽的区块（保持原有视觉权重）。 */
-const WIDE_SECTION_KINDS: readonly TodaySectionKind[] = ['pc.activity'];
-
-function sectionWeight(kind: TodaySectionKind | string): number {
-  if (LONG_SECTION_KINDS.includes(kind as TodaySectionKind)) return 3;
-  if (WIDE_SECTION_KINDS.includes(kind as TodaySectionKind)) return 2;
-  return 1;
+/** 未知 / 未注册的区块统一归入 status（折叠收纳），不占用首屏。 */
+export function todayZoneOf(kind: TodaySectionKind | string): TodayZone {
+  return ZONE_OF[kind as TodaySectionKind] ?? 'status';
 }
 
-/** 该区块是否应按「整行加宽」渲染（自身独占一行，行内无其他卡片可被拉伸）。 */
-export function isWideTodaySection(kind: TodaySectionKind | string): boolean {
-  return WIDE_SECTION_KINDS.includes(kind as TodaySectionKind);
-}
-
-/**
- * 把区块分配到 `columnCount` 个独立列：每次把下一个区块放进当前「预估高度最小」的列，
- * 从而得到高度均衡、且长板块各占一列的结果。输入顺序被保留（今日页区块顺序有意义）。
- */
-export function distributeTodaySections(
-  sections: readonly TodaySectionRegistryItem[],
-  columnCount: number,
-): TodaySectionRegistryItem[][] {
-  const count = Math.max(1, Math.floor(columnCount));
-  const columns: TodaySectionRegistryItem[][] = Array.from({ length: count }, () => []);
-  const heights = new Array<number>(count).fill(0);
-
-  for (const section of sections) {
-    let target = 0;
-    for (let i = 1; i < count; i++) {
-      if (heights[i] < heights[target]) target = i;
-    }
-    columns[target].push(section);
-    heights[target] += sectionWeight(section.kind);
-  }
-
-  return columns;
-}
-
-/** 各密度模式下的列数（与修复前的 xl 断点列数保持一致）。 */
-export function todayColumnCount(densityMode: 'focus' | 'dense' | 'standard'): number {
-  return densityMode === 'focus' ? 3 : 4;
+/** 行动区列数：专注模式 2 列（更大卡片、更聚焦），标准 / 高密度 3 列。 */
+export function todayActionColumnCount(densityMode: 'focus' | 'dense' | 'standard'): number {
+  return densityMode === 'focus' ? 2 : 3;
 }

@@ -131,6 +131,7 @@ export function QuickNoteFloatingEntry({ pathname }: QuickNoteFloatingEntryProps
             noteId={null}
             onClose={() => setDialogOpen(false)}
             onSaved={() => undefined}
+            source="web-floating"
           />
         </Suspense>
       )}

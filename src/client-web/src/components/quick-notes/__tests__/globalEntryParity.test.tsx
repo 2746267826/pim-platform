@@ -31,8 +31,9 @@ import {
 } from '../quickNoteFloatingState';
 
 // 编辑卡片包含 Markdown 编辑器（体积大、懒加载），渲染它需要 API 客户端可用。
+const createQuickNoteMock = vi.fn().mockResolvedValue({ id: 'note-1' });
 vi.mock('../../../api/quickNotes', () => ({
-  createQuickNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
+  createQuickNote: (...args: unknown[]) => createQuickNoteMock(...args),
   getQuickNote: vi.fn().mockResolvedValue(null),
   updateQuickNote: vi.fn().mockResolvedValue({ id: 'note-1' }),
   archiveQuickNote: vi.fn().mockResolvedValue(undefined),
@@ -43,7 +44,10 @@ vi.mock('../../../api/quickNotes', () => ({
   getQuickNotes: vi.fn().mockResolvedValue({ items: [], total: 0 }),
 }));
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  createQuickNoteMock.mockClear();
+});
 
 /** 用 MemoryRouter 提供真实的路由上下文（组件内的菜单用 useNavigate 跳转）。 */
 /** 编辑卡片内部使用 react-query，必须提供 QueryClientProvider。 */
@@ -206,6 +210,23 @@ describe('#300 全局快速记录入口与「快速记录」页行为一致', ()
     // 再切回来：菜单不应「自己弹开」。
     rerender(withProviders(createElement(QuickNoteFloatingEntry, { pathname: '/today' }), '/today'));
     expect(screen.queryByText('写闪念')).toBeNull();
+  });
+
+  // #300：全局悬浮入口创建时必须沿用旧的 web-floating 来源标识，
+  // 否则「悬浮入口创建」与「快速记录页创建」在数据里无法区分（review 发现）。
+  // 说明：MDX 编辑器不接受合成 input 事件，因此这里直接校验组件树传入卡片的
+  // source 属性（渲染断言），而不是伪造一次保存。
+  it('全局入口传给编辑卡片的来源是 web-floating，页面内仍是 web-page', () => {
+    const dir = path.dirname(new URL(import.meta.url).pathname);
+    const entry = readFileSync(path.join(dir, '..', 'QuickNoteFloatingEntry.tsx'), 'utf8');
+
+    // 入口必须显式传入 web-floating（否则会退回卡片的 web-page 默认值）
+    expect(entry).toMatch(/<LazyQuickNoteDialog[\s\S]*?source="web-floating"/);
+
+    // 卡片默认值必须是 web-page（快速记录页沿用），并把 source 传给创建接口
+    const dialog = readFileSync(path.join(dir, '..', 'QuickNoteDialog.tsx'), 'utf8');
+    expect(dialog).toMatch(/source = 'web-page'/);
+    expect(dialog).toMatch(/source,\s*\n\s*attachmentIds/);
   });
 
   it('菜单支持 Escape 关闭，并带有正确的菜单语义', async () => {

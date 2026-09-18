@@ -58,9 +58,15 @@ interface NoteDialogProps {
   onClose: () => void;
   onSaved: () => void;
   initialContent?: string;
+  /**
+   * 落库来源标识（#300）。默认 `web-page`（快速记录页）；全局悬浮入口传入
+   * `web-floating`，以保留被删除的 QuickNoteGlobalPanel 原有的来源区分，
+   * 避免「悬浮入口创建」与「页面创建」在数据里无法区分。
+   */
+  source?: string;
 }
 
-export default function QuickNoteDialog({ open, mode, noteId, onClose, onSaved, initialContent }: NoteDialogProps) {
+export default function QuickNoteDialog({ open, mode, noteId, onClose, onSaved, initialContent, source = 'web-page' }: NoteDialogProps) {
   const queryClient = useQueryClient();
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
@@ -214,7 +220,7 @@ export default function QuickNoteDialog({ open, mode, noteId, onClose, onSaved, 
     mutationFn: (markdown: string) =>
       createQuickNote({
         contentMarkdown: markdown,
-        source: 'web-page',
+        source,
         attachmentIds: attachmentIds.length > 0 ? attachmentIds : undefined,
       }),
     onSuccess: () => {

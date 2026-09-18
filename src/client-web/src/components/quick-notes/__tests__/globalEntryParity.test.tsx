@@ -212,6 +212,32 @@ describe('#300 全局快速记录入口与「快速记录」页行为一致', ()
     expect(screen.queryByText('写闪念')).toBeNull();
   });
 
+  // review 发现：全局入口补齐了菜单语义 / Escape，但「快速记录」页内的菜单没有，
+  // 两个「统一」入口仍不一致。这里断言两侧具备同一套交互契约。
+  it('两个入口的菜单语义与关闭方式一致（role / aria / Escape）', () => {
+    // 本文件位于 src/client-web/src/components/quick-notes/__tests__/
+    // → 上溯三级到 src/，再取 pages/ 与 components/
+    const dir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..');
+    const read = (file: string) => readFileSync(path.join(dir, file), 'utf8');
+    const page = read('pages/QuickNotesPage.tsx');
+    const entry = read('components/quick-notes/QuickNoteFloatingEntry.tsx');
+
+    for (const [name, src] of [['快速记录页', page], ['全局入口', entry]] as const) {
+      expect(src, `${name}菜单容器应有 role="menu"`).toContain('role="menu"');
+      expect(src, `${name}菜单项应有 role="menuitem"`).toContain('role="menuitem"');
+      expect(src, `${name}触发按钮应声明 aria-haspopup`).toContain('aria-haspopup="menu"');
+      expect(src, `${name}触发按钮应暴露 aria-expanded`).toContain('aria-expanded');
+      expect(src, `${name}应支持 Escape 关闭菜单`).toMatch(/key === 'Escape'/);
+      expect(src, `${name}应有可访问名称`).toContain('aria-label="打开快速记录"');
+    }
+
+    // 两侧菜单项集合与顺序一致
+    for (const label of ['写闪念', '建任务', '排日程']) {
+      expect(page).toContain(label);
+      expect(entry).toContain(label);
+    }
+  });
+
   // #300：全局悬浮入口创建时必须沿用旧的 web-floating 来源标识，
   // 否则「悬浮入口创建」与「快速记录页创建」在数据里无法区分（review 发现）。
   // 说明：MDX 编辑器不接受合成 input 事件，因此这里直接校验组件树传入卡片的

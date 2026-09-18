@@ -170,7 +170,7 @@ export default function QuickNotesPage() {
     setDialogNoteId(null);
   }
 
-  // Close FAB menu on outside click
+  // Close FAB menu on outside click or Escape（与全局入口行为一致，#300）。
   useEffect(() => {
     if (!showFabMenu) return;
     function handleClick(e: MouseEvent) {
@@ -178,8 +178,15 @@ export default function QuickNotesPage() {
         setShowFabMenu(false);
       }
     }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setShowFabMenu(false);
+    }
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [showFabMenu]);
 
   return (
@@ -324,9 +331,14 @@ export default function QuickNotesPage() {
       {/* FAB */}
       <div ref={fabRef} className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
         {showFabMenu && (
-          <div className="animate-dialog rounded-xl border border-zinc-200 bg-white p-1 shadow-dialog">
+          <div
+            role="menu"
+            aria-label="快速记录菜单"
+            className="animate-dialog rounded-xl border border-zinc-200 bg-white p-1 shadow-dialog"
+          >
             <button
               type="button"
+              role="menuitem"
               onClick={() => openCreateDialog()}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
             >
@@ -334,6 +346,7 @@ export default function QuickNotesPage() {
             </button>
             <button
               type="button"
+              role="menuitem"
               onClick={() => navigate('/tasks')}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
             >
@@ -341,6 +354,7 @@ export default function QuickNotesPage() {
             </button>
             <button
               type="button"
+              role="menuitem"
               onClick={() => navigate('/calendar')}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
             >
@@ -350,6 +364,10 @@ export default function QuickNotesPage() {
         )}
         <button
           type="button"
+          aria-label="打开快速记录"
+          title="打开快速记录"
+          aria-haspopup="menu"
+          aria-expanded={showFabMenu}
           onClick={() => setShowFabMenu(prev => !prev)}
           className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-900 text-white shadow-lg transition-transform hover:scale-105 hover:bg-zinc-800"
         >

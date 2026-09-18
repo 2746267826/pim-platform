@@ -131,36 +131,58 @@ function formatClock(ms: number): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** 分类时间线甘特：xAxis time、yAxis 段 start 本地小时去重升序行，custom rect（行高一半、白描边、圆角 4）。 */
-export function buildCategoryGanttOption(timeline: TimelineItem[]): EChartsOption {
-  const segments = timeline.filter(item => item.start && item.end);
-  // 第一遍：只收集全部 hourLabel，排序后建 label→index map；
-  // 第二遍按 map 构造 data，避免 push 后 sort 导致已构造 data 的 rowIdx 失同步。
-  const hourLabels = new Set<string>();
-  for (const item of segments) {
-    const start = new Date(item.start);
-    if (Number.isNaN(start.getTime())) continue;
-    hourLabels.add(`${pad(start.getHours())}:00`);
+interface CategoryGanttChunk {
+  hour: number;
+  minuteStart: number;
+  minuteEnd: number;
+  segment: TimelineItem;
+}
+
+/**
+ * 把时间段拆成每小时内的分钟区间。
+ * `Date` 的本地 getter 与页面其余电脑记录图保持一致：后端时间带 +08:00，
+ * 因此这里刻意使用 getHours/getMinutes，而不是 UTC getter。
+ */
+export function splitCategoryTimelineIntoChunks(timeline: TimelineItem[]): CategoryGanttChunk[] {
+  const chunks: CategoryGanttChunk[] = [];
+  for (const segment of timeline) {
+    if (!segment.start || !segment.end) continue;
+    const start = new Date(segment.start);
+    const end = new Date(segment.end);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) continue;
+
+    // Each iteration covers one local clock hour, including partial first/last hours.
+    let hourStart = new Date(start.getFullYear(), start.getMonth(), start.getDate(), start.getHours(), 0, 0, 0);
+    while (hourStart < end) {
+      const hourEnd = new Date(hourStart.getTime() + 60 * 60 * 1000);
+      const from = Math.max(start.getTime(), hourStart.getTime());
+      const to = Math.min(end.getTime(), hourEnd.getTime());
+      if (to > from) {
+        chunks.push({
+          hour: hourStart.getHours(),
+          minuteStart: (from - hourStart.getTime()) / 60000,
+          minuteEnd: (to - hourStart.getTime()) / 60000,
+          segment,
+        });
+      }
+      hourStart = hourEnd;
+    }
   }
-  const rows = [...hourLabels].sort();
-  const rowIndex = new Map(rows.map((label, index) => [label, index]));
-  const data: {
-    value: [number, number, number];
-    itemStyle: { color: string };
-    segment: TimelineItem;
-  }[] = [];
-  for (const item of segments) {
-    const start = new Date(item.start);
-    const end = new Date(item.end);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
-    const hourLabel = `${pad(start.getHours())}:00`;
-    const rowIdx = rowIndex.get(hourLabel) ?? 0;
-    data.push({
-      value: [start.getTime(), end.getTime(), rowIdx],
-      itemStyle: { color: item.categoryColor || '#94a3b8' },
-      segment: item,
-    });
-  }
+  return chunks;
+}
+
+/** 分类时间线甘特：xAxis 为每小时 0–60 分钟，yAxis 为有数据的本地小时行。 */
+export function buildCategoryGanttOption(timeline: TimelineItem[], showAllHours = false): EChartsOption {
+  const chunks = splitCategoryTimelineIntoChunks(timeline);
+  const touchedHours = [...new Set(chunks.map(chunk => chunk.hour))].sort((a, b) => a - b);
+  const rowHours = showAllHours ? Array.from({ length: 24 }, (_, hour) => hour) : touchedHours;
+  const rows = rowHours.map(hour => `${pad(hour)}:00`);
+  const rowIndex = new Map(rowHours.map((hour, index) => [hour, index]));
+  const data = chunks.map(chunk => ({
+    value: [chunk.minuteStart, chunk.minuteEnd, rowIndex.get(chunk.hour) ?? 0] as [number, number, number],
+    itemStyle: { color: chunk.segment.categoryColor || '#94a3b8' },
+    segment: chunk.segment,
+  }));
 
   const option: EChartsOption = {
     tooltip: {
@@ -182,8 +204,11 @@ export function buildCategoryGanttOption(timeline: TimelineItem[]): EChartsOptio
     grid: { left: 40, right: 12, top: 8, bottom: 22 },
     xAxis: [
       {
-        type: 'time',
-        axisLabel: { fontSize: 10, color: chartColors.textMuted },
+        type: 'value',
+        min: 0,
+        max: 60,
+        interval: 10,
+        axisLabel: { fontSize: 10, color: chartColors.textMuted, formatter: '{value}′' },
         axisLine: { lineStyle: { color: chartColors.borderSoft } },
         axisTick: { show: false },
         splitLine: { lineStyle: { color: chartColors.borderSoft } },

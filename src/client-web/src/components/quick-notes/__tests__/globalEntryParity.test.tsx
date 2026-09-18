@@ -229,6 +229,27 @@ describe('#300 全局快速记录入口与「快速记录」页行为一致', ()
     expect(dialog).toMatch(/source,\s*\n\s*attachmentIds/);
   });
 
+  // review 发现的时序风险：恢复与持久化在同一提交内依次执行，
+  // 若持久化先跑会拿到 stale content 并写出空草稿。断言「打开已有草稿时
+  // 草稿键不会被短暂清空」——即打开后立即读取仍是原草稿。
+  it('打开已有草稿时不会把草稿写成空值（恢复前不持久化）', async () => {
+    const draft = '不应被清空的草稿';
+    localStorage.clear();
+    localStorage.setItem('pim.quickNotes.floatingDraft', draft);
+
+    renderEntry('/today');
+    await openMenu();
+    fireEvent.click(screen.getByText('写闪念'));
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy(), { timeout: 20000 });
+    await waitFor(() => {
+      expect(screen.getByRole('dialog').textContent ?? '').toContain(draft);
+    }, { timeout: 20000 });
+
+    // 关键：恢复完成后草稿键仍应存在且等于原值
+    expect(loadQuickNoteDraft()).toBe(draft);
+    localStorage.clear();
+  });
+
   it('菜单支持 Escape 关闭，并带有正确的菜单语义', async () => {
     renderEntry('/today');
     await openMenu();

@@ -70,6 +70,13 @@ export default function QuickNoteDialog({ open, mode, noteId, onClose, onSaved, 
   const queryClient = useQueryClient();
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  /**
+   * 本次打开是否已完成草稿/初始内容的恢复（#300）。
+   * 恢复与持久化两个 effect 在同一次提交内依次执行，若持久化先跑会拿到上一轮的
+   * 旧 content（通常是空串）并写出 `saveQuickNoteDraft('')`，把已有草稿短暂删除
+   * （跨标签页的 storage 监听会观察到）。用一个标志跳过恢复完成前的那一次持久化。
+   */
+  const draftRestoredRef = useRef(false);
 
   // ─── 拖动（#280）：编辑卡片可移动，位置记忆沿用旧面板的存储 key 与夹取规则 ───
   const [position, setPosition] = useState<PanelPoint>(() => loadPanelPosition(getViewportSize(), DIALOG_SIZE));
@@ -198,20 +205,25 @@ export default function QuickNoteDialog({ open, mode, noteId, onClose, onSaved, 
   // Reset state when opening（#300）：显式 initialContent 优先，否则恢复上次未保存的草稿，
   // 与旧 QuickNoteGlobalPanel 的行为一致（入口统一后不得丢失草稿能力）。
   useEffect(() => {
-    if (open && mode === 'create') {
-      const restored = initialContent && initialContent.length > 0 ? initialContent : loadQuickNoteDraft();
-      setContent(restored);
-      setSelectedCategory(extractNoteCategory(restored));
-      setAttachmentIds([]);
-      setLocalAttachments([]);
-      setIsArchived(false);
-      setEditError(null);
+    if (!open || mode !== 'create') {
+      draftRestoredRef.current = false;
+      return;
     }
+
+    const restored = initialContent && initialContent.length > 0 ? initialContent : loadQuickNoteDraft();
+    // 先置位再 setContent：本次提交里的持久化 effect 不应把恢复前的 stale content 写回。
+    draftRestoredRef.current = true;
+    setContent(restored);
+    setSelectedCategory(extractNoteCategory(restored));
+    setAttachmentIds([]);
+    setLocalAttachments([]);
+    setIsArchived(false);
+    setEditError(null);
   }, [open, mode, initialContent]);
 
   // 持续保存草稿（仅在新建模式；编辑模式的内容属于已存在的记录，不应污染草稿）。
   useEffect(() => {
-    if (open && mode === 'create') {
+    if (open && mode === 'create' && draftRestoredRef.current) {
       saveQuickNoteDraft(content);
     }
   }, [open, mode, content]);
@@ -225,6 +237,7 @@ export default function QuickNoteDialog({ open, mode, noteId, onClose, onSaved, 
       }),
     onSuccess: () => {
       // 已提交的内容不再作为草稿恢复（#300）。
+      draftRestoredRef.current = false;
       clearQuickNoteDraft();
       queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
       onSaved();

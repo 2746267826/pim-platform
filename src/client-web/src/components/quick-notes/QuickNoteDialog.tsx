@@ -71,12 +71,13 @@ export default function QuickNoteDialog({ open, mode, noteId, onClose, onSaved, 
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   /**
-   * 本次打开是否已完成草稿/初始内容的恢复（#300）。
-   * 恢复与持久化两个 effect 在同一次提交内依次执行，若持久化先跑会拿到上一轮的
-   * 旧 content（通常是空串）并写出 `saveQuickNoteDraft('')`，把已有草稿短暂删除
-   * （跨标签页的 storage 监听会观察到）。用一个标志跳过恢复完成前的那一次持久化。
+   * 「下一次持久化 effect 应当跳过」的标记（#300）。
+   * 恢复与持久化两个 effect 在同一次提交内依次执行：恢复 effect 先 setContent，
+   * 但本次提交里持久化 effect 仍然会拿着**上一轮的旧 content**（通常是空串）执行，
+   * 写出 `saveQuickNoteDraft('')` 把已有草稿短暂删除（跨标签页 storage 监听可观察到）。
+   * 因此在恢复时置位、由持久化 effect 消费并立即清零，精确跳过那一次陈旧写入。
    */
-  const draftRestoredRef = useRef(false);
+  const skipNextDraftPersistRef = useRef(false);
 
   // ─── 拖动（#280）：编辑卡片可移动，位置记忆沿用旧面板的存储 key 与夹取规则 ───
   const [position, setPosition] = useState<PanelPoint>(() => loadPanelPosition(getViewportSize(), DIALOG_SIZE));
@@ -206,13 +207,14 @@ export default function QuickNoteDialog({ open, mode, noteId, onClose, onSaved, 
   // 与旧 QuickNoteGlobalPanel 的行为一致（入口统一后不得丢失草稿能力）。
   useEffect(() => {
     if (!open || mode !== 'create') {
-      draftRestoredRef.current = false;
       return;
     }
 
     const restored = initialContent && initialContent.length > 0 ? initialContent : loadQuickNoteDraft();
-    // 先置位再 setContent：本次提交里的持久化 effect 不应把恢复前的 stale content 写回。
-    draftRestoredRef.current = true;
+    // 标记「下一次持久化跳过」：本次提交里持久化 effect 拿到的仍是旧 content。
+    skipNextDraftPersistRef.current = true;
+    // 直接把恢复值落库，覆盖「setContent 未触发重渲染」的情况。
+    saveQuickNoteDraft(restored);
     setContent(restored);
     setSelectedCategory(extractNoteCategory(restored));
     setAttachmentIds([]);
@@ -223,9 +225,16 @@ export default function QuickNoteDialog({ open, mode, noteId, onClose, onSaved, 
 
   // 持续保存草稿（仅在新建模式；编辑模式的内容属于已存在的记录，不应污染草稿）。
   useEffect(() => {
-    if (open && mode === 'create' && draftRestoredRef.current) {
-      saveQuickNoteDraft(content);
+    if (!open || mode !== 'create') {
+      skipNextDraftPersistRef.current = false;
+      return;
     }
+    // 消费并清零：跳过紧随恢复之后的那一次陈旧写入。
+    if (skipNextDraftPersistRef.current) {
+      skipNextDraftPersistRef.current = false;
+      return;
+    }
+    saveQuickNoteDraft(content);
   }, [open, mode, content]);
 
   const createMutation = useMutation({
@@ -237,7 +246,7 @@ export default function QuickNoteDialog({ open, mode, noteId, onClose, onSaved, 
       }),
     onSuccess: () => {
       // 已提交的内容不再作为草稿恢复（#300）。
-      draftRestoredRef.current = false;
+      skipNextDraftPersistRef.current = false;
       clearQuickNoteDraft();
       queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
       onSaved();

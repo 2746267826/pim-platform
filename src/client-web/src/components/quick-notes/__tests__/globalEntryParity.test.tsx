@@ -229,27 +229,69 @@ describe('#300 全局快速记录入口与「快速记录」页行为一致', ()
     expect(dialog).toMatch(/source,\s*\n\s*attachmentIds/);
   });
 
-  // review 发现的时序风险：恢复与持久化在同一提交内依次执行，
-  // 若持久化先跑会拿到 stale content 并写出空草稿。断言「打开已有草稿时
-  // 草稿键不会被短暂清空」——即打开后立即读取仍是原草稿。
-  it('打开已有草稿时不会把草稿写成空值（恢复前不持久化）', async () => {
+  // review 发现的时序风险：恢复与持久化在同一提交内依次执行，持久化 effect 会先拿到
+  // 上一轮的旧 content（空串）并调用 saveQuickNoteDraft('')，把已有草稿短暂删除。
+  // 这里**监听写入调用本身**（而不是事后读 localStorage —— 第二轮 effect 会把草稿写回，
+  // 事后读取无法发现瞬时删除，属假阳性）。
+  it('打开已有草稿时从不写出空草稿（监听实际写入调用）', async () => {
     const draft = '不应被清空的草稿';
     localStorage.clear();
     localStorage.setItem('pim.quickNotes.floatingDraft', draft);
 
-    renderEntry('/today');
-    await openMenu();
-    fireEvent.click(screen.getByText('写闪念'));
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy(), { timeout: 20000 });
-    await waitFor(() => {
-      expect(screen.getByRole('dialog').textContent ?? '').toContain(draft);
-    }, { timeout: 20000 });
+    // 记录本用例期间对草稿键的每一次写入 / 删除
+    const writes: Array<{ op: string; value: string | null }> = [];
+    const originalSet = Storage.prototype.setItem;
+    const originalRemove = Storage.prototype.removeItem;
+    Storage.prototype.setItem = function patchedSet(key: string, value: string) {
+      if (key === 'pim.quickNotes.floatingDraft') writes.push({ op: 'set', value });
+      return originalSet.call(this, key, value);
+    };
+    Storage.prototype.removeItem = function patchedRemove(key: string) {
+      if (key === 'pim.quickNotes.floatingDraft') writes.push({ op: 'remove', value: null });
+      return originalRemove.call(this, key);
+    };
 
-    // 关键：恢复完成后草稿键仍应存在且等于原值
+    try {
+      renderEntry('/today');
+      await openMenu();
+      fireEvent.click(screen.getByText('写闪念'));
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy(), { timeout: 20000 });
+      await waitFor(() => {
+        expect(screen.getByRole('dialog').textContent ?? '').toContain(draft);
+      }, { timeout: 20000 });
+    } finally {
+      Storage.prototype.setItem = originalSet;
+      Storage.prototype.removeItem = originalRemove;
+    }
+
+    // 关键断言：整个打开过程中从未把草稿写成空值或删除
+    const destructive = writes.filter(w => w.op === 'remove' || w.value === '' || w.value === null);
+    expect(destructive).toEqual([]);
+    // 且草稿最终仍是原值
     expect(loadQuickNoteDraft()).toBe(draft);
     localStorage.clear();
   });
 
+  // #300：全局悬浮入口创建时必须沿用旧的 web-floating 来源标识，
+  // 否则「悬浮入口创建」与「快速记录页创建」在数据里无法区分（review 发现）。
+  // 说明：MDX 编辑器不接受合成 input 事件，因此这里直接校验组件树传入卡片的
+  // source 属性（渲染断言），而不是伪造一次保存。
+  it('全局入口传给编辑卡片的来源是 web-floating，页面内仍是 web-page', () => {
+    const dir = path.dirname(new URL(import.meta.url).pathname);
+    const entry = readFileSync(path.join(dir, '..', 'QuickNoteFloatingEntry.tsx'), 'utf8');
+
+    // 入口必须显式传入 web-floating（否则会退回卡片的 web-page 默认值）
+    expect(entry).toMatch(/<LazyQuickNoteDialog[\s\S]*?source="web-floating"/);
+
+    // 卡片默认值必须是 web-page（快速记录页沿用），并把 source 传给创建接口
+    const dialog = readFileSync(path.join(dir, '..', 'QuickNoteDialog.tsx'), 'utf8');
+    expect(dialog).toMatch(/source = 'web-page'/);
+    expect(dialog).toMatch(/source,\s*\n\s*attachmentIds/);
+  });
+
+  // review 发现的时序风险：恢复与持久化在同一提交内依次执行，
+  // 若持久化先跑会拿到 stale content 并写出空草稿。断言「打开已有草稿时
+  // 草稿键不会被短暂清空」——即打开后立即读取仍是原草稿。
   it('菜单支持 Escape 关闭，并带有正确的菜单语义', async () => {
     renderEntry('/today');
     await openMenu();

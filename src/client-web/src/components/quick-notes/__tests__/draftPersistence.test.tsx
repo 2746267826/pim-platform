@@ -169,6 +169,8 @@ describe('#300 草稿持久化时序', () => {
       spy.restore();
     }
 
+    // 编辑模式的内容属于已存在的记录：既不应改动草稿值，也不应发生任何写入。
+    expect(spy.writes).toEqual([]);
     expect(loadQuickNoteDraft()).toBe('应保持不变');
   });
 });

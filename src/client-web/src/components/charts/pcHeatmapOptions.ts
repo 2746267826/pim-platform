@@ -126,41 +126,86 @@ function pad(n: number) {
   return String(n).padStart(2, '0');
 }
 
-function formatClock(ms: number): string {
-  const d = new Date(ms);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+/**
+ * PC 模块的墙钟时区固定为 Asia/Shanghai（UTC+8，无夏令时），与后端业务日口径一致
+ * （见 `utils/pcBusinessDay.ts`：前端业务日计算不得使用浏览器时区，否则异地客户端
+ * 会在 04:00 边界错一天）。接口返回的时间戳本身带 +08:00，因此这里按固定偏移换算，
+ * 而不是用 `getHours()` / `new Date(y,m,d,h)` 这类依赖浏览器时区的取值方式。
+ */
+const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/** 墙钟毫秒 → 上海时区的「时:分」（PC 模块统一口径，勿用浏览器本地 getter）。 */
+export function formatClock(ms: number): string {
+  const shifted = new Date(ms + SHANGHAI_OFFSET_MS);
+  return `${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}`;
 }
 
-/** 分类时间线甘特：xAxis time、yAxis 段 start 本地小时去重升序行，custom rect（行高一半、白描边、圆角 4）。 */
-export function buildCategoryGanttOption(timeline: TimelineItem[]): EChartsOption {
-  const segments = timeline.filter(item => item.start && item.end);
-  // 第一遍：只收集全部 hourLabel，排序后建 label→index map；
-  // 第二遍按 map 构造 data，避免 push 后 sort 导致已构造 data 的 rowIdx 失同步。
-  const hourLabels = new Set<string>();
-  for (const item of segments) {
-    const start = new Date(item.start);
-    if (Number.isNaN(start.getTime())) continue;
-    hourLabels.add(`${pad(start.getHours())}:00`);
+/** 墙钟毫秒 → 上海时区的小时（0–23）。 */
+function shanghaiHour(ms: number): number {
+  return new Date(ms + SHANGHAI_OFFSET_MS).getUTCHours();
+}
+
+/** 墙钟毫秒所在上海整点的毫秒时刻。 */
+function shanghaiHourStartMs(ms: number): number {
+  return Math.floor((ms + SHANGHAI_OFFSET_MS) / (60 * 60 * 1000)) * 60 * 60 * 1000 - SHANGHAI_OFFSET_MS;
+}
+
+interface CategoryGanttChunk {
+  hour: number;
+  minuteStart: number;
+  minuteEnd: number;
+  segment: TimelineItem;
+}
+
+/**
+ * 把时间段拆成每小时内的分钟区间（上海墙钟小时）。
+ *
+ * 小时归属与 0–60 分钟坐标都按固定 +08:00 计算。接口返回的是 UTC 形式的时间戳
+ * （`...Z` / `+00:00`，如 `2026-09-13T02:39:24Z` = 北京 10:39），而 PC 业务日口径固定
+ * Asia/Shanghai。换算到固定 +08:00 后，展示的才是用户预期的北京时间；若改用浏览器本地
+ * 时区，非 UTC+8 的用户会看到整体平移的小时行（例如 UTC 下 13:36 落到 5 点行），
+ * 在有夏令时的时区还会出现重复或跳过的整点行。
+ */
+export function splitCategoryTimelineIntoChunks(timeline: TimelineItem[]): CategoryGanttChunk[] {
+  const chunks: CategoryGanttChunk[] = [];
+  for (const segment of timeline) {
+    if (!segment.start || !segment.end) continue;
+    const startMs = new Date(segment.start).getTime();
+    const endMs = new Date(segment.end).getTime();
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) continue;
+
+    // 每次迭代覆盖一个上海墙钟整点，含首尾不完整的部分。
+    let hourStartMs = shanghaiHourStartMs(startMs);
+    while (hourStartMs < endMs) {
+      const hourEndMs = hourStartMs + 60 * 60 * 1000;
+      const from = Math.max(startMs, hourStartMs);
+      const to = Math.min(endMs, hourEndMs);
+      if (to > from) {
+        chunks.push({
+          hour: shanghaiHour(hourStartMs),
+          minuteStart: (from - hourStartMs) / 60000,
+          minuteEnd: (to - hourStartMs) / 60000,
+          segment,
+        });
+      }
+      hourStartMs = hourEndMs;
+    }
   }
-  const rows = [...hourLabels].sort();
-  const rowIndex = new Map(rows.map((label, index) => [label, index]));
-  const data: {
-    value: [number, number, number];
-    itemStyle: { color: string };
-    segment: TimelineItem;
-  }[] = [];
-  for (const item of segments) {
-    const start = new Date(item.start);
-    const end = new Date(item.end);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
-    const hourLabel = `${pad(start.getHours())}:00`;
-    const rowIdx = rowIndex.get(hourLabel) ?? 0;
-    data.push({
-      value: [start.getTime(), end.getTime(), rowIdx],
-      itemStyle: { color: item.categoryColor || '#94a3b8' },
-      segment: item,
-    });
-  }
+  return chunks;
+}
+
+/** 分类时间线甘特：xAxis 为每小时 0–60 分钟，yAxis 为有数据的本地小时行。 */
+export function buildCategoryGanttOption(timeline: TimelineItem[], showAllHours = false): EChartsOption {
+  const chunks = splitCategoryTimelineIntoChunks(timeline);
+  const touchedHours = [...new Set(chunks.map(chunk => chunk.hour))].sort((a, b) => a - b);
+  const rowHours = showAllHours ? Array.from({ length: 24 }, (_, hour) => hour) : touchedHours;
+  const rows = rowHours.map(hour => `${pad(hour)}:00`);
+  const rowIndex = new Map(rowHours.map((hour, index) => [hour, index]));
+  const data = chunks.map(chunk => ({
+    value: [chunk.minuteStart, chunk.minuteEnd, rowIndex.get(chunk.hour) ?? 0] as [number, number, number],
+    itemStyle: { color: chunk.segment.categoryColor || '#94a3b8' },
+    segment: chunk.segment,
+  }));
 
   const option: EChartsOption = {
     tooltip: {
@@ -182,8 +227,11 @@ export function buildCategoryGanttOption(timeline: TimelineItem[]): EChartsOptio
     grid: { left: 40, right: 12, top: 8, bottom: 22 },
     xAxis: [
       {
-        type: 'time',
-        axisLabel: { fontSize: 10, color: chartColors.textMuted },
+        type: 'value',
+        min: 0,
+        max: 60,
+        interval: 10,
+        axisLabel: { fontSize: 10, color: chartColors.textMuted, formatter: '{value}′' },
         axisLine: { lineStyle: { color: chartColors.borderSoft } },
         axisTick: { show: false },
         splitLine: { lineStyle: { color: chartColors.borderSoft } },

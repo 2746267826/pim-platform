@@ -69,3 +69,50 @@ export function savePanelPosition(point: PanelPoint) {
     // Panel position persistence is best-effort.
   }
 }
+
+/**
+ * 读取上次未保存的快速记录草稿（#300）。
+ * 旧 QuickNoteGlobalPanel 有该能力，入口统一到 QuickNoteDialog 后必须保留，
+ * 否则关闭 / 刷新会丢失未保存内容。
+ */
+export function loadQuickNoteDraft(): string {
+  if (typeof localStorage === 'undefined') {
+    return '';
+  }
+
+  try {
+    return localStorage.getItem(QUICK_NOTE_DRAFT_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+/** 保存草稿；内容为空时清除键，避免留下空草稿把编辑框占成空串。 */
+export function saveQuickNoteDraft(markdown: string) {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
+
+  try {
+    if (markdown) {
+      localStorage.setItem(QUICK_NOTE_DRAFT_KEY, markdown);
+    } else {
+      localStorage.removeItem(QUICK_NOTE_DRAFT_KEY);
+    }
+  } catch {
+    // Draft persistence is best-effort.
+  }
+}
+
+/** 保存成功后清除草稿，避免下次打开又恢复已提交的内容。 */
+export function clearQuickNoteDraft() {
+  if (typeof localStorage === 'undefined') {
+    return;
+  }
+
+  try {
+    localStorage.removeItem(QUICK_NOTE_DRAFT_KEY);
+  } catch {
+    // Clearing the draft is best-effort.
+  }
+}

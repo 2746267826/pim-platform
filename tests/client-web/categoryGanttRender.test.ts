@@ -83,9 +83,9 @@ function renderAndCapture(option: unknown, width = 900, height = 420) {
 }
 
 const threeSegments: TimelineItem[] = [
-  timelineItem('2026-08-15T09:00:00', '2026-08-15T10:00:00', '编程', '#6B5EE4', 'Code.exe'),
-  timelineItem('2026-08-15T10:00:00', '2026-08-15T11:00:00', '文档', '#F59E0B', 'msedge.exe'),
-  timelineItem('2026-08-15T11:00:00', '2026-08-15T11:30:00', '编程', '#6B5EE4', 'Terminal'),
+  timelineItem('2026-08-15T09:00:00+08:00', '2026-08-15T10:00:00+08:00', '编程', '#6B5EE4', 'Code.exe'),
+  timelineItem('2026-08-15T10:00:00+08:00', '2026-08-15T11:00:00+08:00', '文档', '#F59E0B', 'msedge.exe'),
+  timelineItem('2026-08-15T11:00:00+08:00', '2026-08-15T11:30:00+08:00', '编程', '#6B5EE4', 'Terminal'),
 ];
 
 test('#282 renderItem 必须通过 api 取到真实数值（params.value/data 在真实渲染下不存在）', () => {
@@ -96,11 +96,11 @@ test('#282 renderItem 必须通过 api 取到真实数值（params.value/data �
     // 记录事实：ECharts 真实传入的 params 里没有 value / data（旧代码正是踩了这个坑）。
     assert.equal(rect.paramKeys.includes('value'), false, 'params 不应包含 value');
     assert.equal(rect.paramKeys.includes('data'), false, 'params 不应包含 data');
-    // 因此必须走 api：api.value(0) 是真实起始毫秒时间戳（2026 年量级），不是兜底的 0。
+    // 因此必须走 api：api.value(0) 是真实分钟起点（0..60），不是兜底的 0。
     assert.equal(typeof rect.apiValue0, 'number', 'api.value(0) 应是数值');
     assert.ok(
-      (rect.apiValue0 as number) > 1_600_000_000_000,
-      `api.value(0) 应是 2026 年的时间戳，实际 ${String(rect.apiValue0)}`,
+      (rect.apiValue0 as number) >= 0 && (rect.apiValue0 as number) <= 60,
+      `api.value(0) 应是 0..60 分钟值，实际 ${String(rect.apiValue0)}`,
     );
   }
 });
@@ -118,7 +118,7 @@ test('#282 甘特条落在画布内（不是 1970 年坐标）', () => {
     assert.ok(rect.width > 2, `甘特条宽度应大于 2px 兜底值，实际 ${rect.width}`);
   }
 
-  assert.equal(svg.includes('-184730'), false, 'SVG 不应出现 1970 年量级的负坐标');
+  assert.equal(svg.includes('-184730'), false, 'SVG 不应出现异常负坐标');
 });
 
 test('#282 甘特条使用分类颜色而非灰色兜底', () => {
@@ -138,15 +138,15 @@ test('#282 甘特条使用分类颜色而非灰色兜底', () => {
 
 test('#282 甘特条宽度与时间跨度成正比', () => {
   const { captured } = renderAndCapture(buildCategoryGanttOption([
-    timelineItem('2026-08-15T09:00:00', '2026-08-15T09:30:00', '短', '#111111', 'a.exe'),
-    timelineItem('2026-08-15T10:00:00', '2026-08-15T12:00:00', '长', '#222222', 'b.exe'),
+    timelineItem('2026-08-15T09:00:00+08:00', '2026-08-15T09:30:00+08:00', '短', '#111111', 'a.exe'),
+    timelineItem('2026-08-15T09:00:00+08:00', '2026-08-15T10:00:00+08:00', '长', '#222222', 'b.exe'),
   ]));
 
   assert.equal(captured.length, 2);
   const [shortBar, longBar] = captured;
   assert.ok(
-    longBar.width > shortBar.width * 3,
-    `120 分钟的条应约为 30 分钟条的 4 倍宽，实际 ${shortBar.width} vs ${longBar.width}`,
+    longBar.width > shortBar.width * 1.5,
+    `60 分钟的条应约为 30 分钟条的 2 倍宽，实际 ${shortBar.width} vs ${longBar.width}`,
   );
 });
 

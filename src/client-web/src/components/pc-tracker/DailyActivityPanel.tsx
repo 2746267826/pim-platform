@@ -37,7 +37,6 @@ export default function DailyActivityPanel({
 
   const top5Categories = categories.slice(0, 5);
   const top5Apps = appRanking.slice(0, 5);
-  const totalInput = top5Apps.reduce((sum, app) => sum + app.keyPresses + app.totalClicks, 0) || 1;
 
   return (
     <div className="space-y-4">
@@ -103,8 +102,11 @@ export default function DailyActivityPanel({
             {top5Apps.length === 0 ? (
               <p className="py-3 text-center text-xs text-slate-400">暂无应用数据</p>
             ) : top5Apps.map(app => {
-              const inputCount = app.keyPresses + app.totalClicks;
-              const share = Math.round((inputCount / totalInput) * 100);
+              // #301：直接使用接口返回的 share —— 它已是「占全部应用（按键+点击）」的占比。
+              // 若在此按前五名重新归一，被截掉的第 6+ 名不会进入分母，显示会重新变成
+              // 「Top 5 内部占比」，与口径不符（review 发现）。
+              // #301：占总量占比，显示 1 位小数。
+              const share = (app.share * 100).toFixed(1);
               return (
                 <button
                   key={app.appName}

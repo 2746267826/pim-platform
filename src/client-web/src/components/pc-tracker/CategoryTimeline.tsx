@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import EChartBox from '../charts/EChartBox';
-import { buildCategoryGanttOption } from '../charts/pcHeatmapOptions';
+import { buildCategoryGanttOption, formatClock } from '../charts/pcHeatmapOptions';
 import type { TimelineItem } from '../../types';
 
 interface Props {
@@ -8,7 +8,8 @@ interface Props {
 }
 
 export default function CategoryTimeline({ timeline }: Props) {
-  const ganttOption = useMemo(() => buildCategoryGanttOption(timeline), [timeline]);
+  const [showAllHours, setShowAllHours] = useState(false);
+  const ganttOption = useMemo(() => buildCategoryGanttOption(timeline, showAllHours), [timeline, showAllHours]);
   const ganttDataLength = (ganttOption as unknown as { series?: Array<{ data?: unknown[] }> })?.series?.[0]?.data?.length ?? 0;
   const hasValidSegments = useMemo(() => timeline.some(item => {
     if (!item.start || !item.end) return false;
@@ -17,16 +18,15 @@ export default function CategoryTimeline({ timeline }: Props) {
     return Number.isFinite(s) && Number.isFinite(e) && e > s;
   }), [timeline]);
 
-  const { hourRange, stats, legend } = useMemo(() => {
+  const { stats, legend } = useMemo(() => {
     if (!timeline.length) {
-      return { hourRange: { min: 6, max: 23 }, stats: null, legend: [] };
+      return { stats: null, legend: [] };
     }
 
-    // Parse events into per-hour segments for stats/legend/hour range
+    // Parse events for the preserved stats and category legend.
     const categoryMap = new Map<string, { color: string; totalMin: number }>();
     let totalMin = 0;
     let prodMin = 0;
-    let minHour = 23, maxHour = 0;
 
     const productiveCats = ['工作', '编程', '文档', '学习', '邮件', '终端', '办公'];
 
@@ -38,13 +38,9 @@ export default function CategoryTimeline({ timeline }: Props) {
         return Number.isFinite(s) && Number.isFinite(e) && e > s;
       })
       .forEach(item => {
-        const start = new Date(item.start);
-        const end = new Date(item.end);
-        const sMin = start.getHours() * 60 + start.getMinutes();
-        const eMin = end.getHours() * 60 + end.getMinutes();
         const catName = item.categoryName || '其他';
         const catColor = item.categoryColor || '#94a3b8';
-        const dur = item.durationMinutes || (end.getTime() - start.getTime()) / 60000;
+        const dur = item.durationMinutes || (new Date(item.end).getTime() - new Date(item.start).getTime()) / 60000;
 
         if (!categoryMap.has(catName)) {
           categoryMap.set(catName, { color: catColor, totalMin: 0 });
@@ -52,17 +48,6 @@ export default function CategoryTimeline({ timeline }: Props) {
         categoryMap.get(catName)!.totalMin += dur;
         totalMin += dur;
         if (productiveCats.some(c => catName.includes(c))) prodMin += dur;
-
-        for (let h = start.getHours(); h <= end.getHours(); h++) {
-          const hourStart = h * 60;
-          const hourEnd = hourStart + 60;
-          const segS = Math.max(sMin, hourStart);
-          const segE = Math.min(eMin, hourEnd);
-          if (segS < segE) {
-            minHour = Math.min(minHour, h);
-            maxHour = Math.max(maxHour, h);
-          }
-        }
       });
 
     const sortedCats = [...categoryMap.entries()]
@@ -80,14 +65,10 @@ export default function CategoryTimeline({ timeline }: Props) {
       eventCount: timeline.length,
     };
 
-    return { hourRange: { min: minHour, max: maxHour }, stats, legend };
+    return { stats, legend };
   }, [timeline]);
 
-  const hours = useMemo(() => {
-    const arr: number[] = [];
-    for (let h = hourRange.min; h <= hourRange.max; h++) arr.push(h);
-    return arr;
-  }, [hourRange]);
+  const rowCount = ((ganttOption as unknown as { yAxis?: Array<{ data?: unknown[] }> })?.yAxis?.[0]?.data?.length ?? 0);
 
   const rowHeight = 44;
   const hasSegments = hasValidSegments;
@@ -107,6 +88,15 @@ export default function CategoryTimeline({ timeline }: Props) {
           <span className="ml-auto font-semibold text-blue-600">
             专注率 {stats.productivePercent}% · {stats.eventCount} 条
           </span>
+          <label className="flex items-center gap-1.5 text-slate-500">
+            <input
+              type="checkbox"
+              checked={showAllHours}
+              onChange={event => setShowAllHours(event.target.checked)}
+              className="rounded border-slate-300"
+            />
+            显示全部 0–23 时（含空行）
+          </label>
         </div>
       )}
 
@@ -121,8 +111,9 @@ export default function CategoryTimeline({ timeline }: Props) {
               {timeline.slice(0, 50).map((item, idx) => {
                 const s = new Date(item.start);
                 const e = new Date(item.end);
-                const label = Number.isFinite(s.getTime()) ? `${String(s.getHours()).padStart(2,'0')}:${String(s.getMinutes()).padStart(2,'0')}` : item.start.slice(11,16);
-                const endLabel = Number.isFinite(e.getTime()) ? `${String(e.getHours()).padStart(2,'0')}:${String(e.getMinutes()).padStart(2,'0')}` : item.end.slice(11,16);
+                // 复用图表同一套上海墙钟格式化，避免浏览器时区导致列表里的时刻与图表不一致。
+                const label = Number.isFinite(s.getTime()) ? formatClock(s.getTime()) : item.start.slice(11,16);
+                const endLabel = Number.isFinite(e.getTime()) ? formatClock(e.getTime()) : item.end.slice(11,16);
                 return (
                   <div key={idx} className="flex items-center gap-2 border-b border-slate-50 px-3 py-2 text-xs">
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.categoryColor || '#94a3b8' }} />
@@ -138,7 +129,7 @@ export default function CategoryTimeline({ timeline }: Props) {
         ) : (
           <EChartBox
             option={ganttOption}
-            height={Math.max(hours.length * rowHeight + 24, 140)}
+            height={Math.max(rowCount * rowHeight + 24, 140)}
             ariaLabel="分类时间线"
           />
         )}

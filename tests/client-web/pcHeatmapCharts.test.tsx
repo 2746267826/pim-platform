@@ -57,20 +57,22 @@ function timelineItem(start: string, end: string, categoryName: string, category
 
 test('buildCategoryGanttOption renders custom rect gantt over deduped hour rows', () => {
   const timeline: TimelineItem[] = [
-    timelineItem('2026-08-15T09:00:00', '2026-08-15T10:00:00', '编程', '#6B5EE4', 'Code.exe'),
-    timelineItem('2026-08-15T10:00:00', '2026-08-15T11:00:00', '文档', '#F59E0B', 'msedge.exe'),
-    timelineItem('2026-08-15T11:00:00', '2026-08-15T11:30:00', '编程', '#6B5EE4', 'Terminal'),
+    timelineItem('2026-08-15T09:00:00+08:00', '2026-08-15T10:00:00+08:00', '编程', '#6B5EE4', 'Code.exe'),
+    timelineItem('2026-08-15T10:00:00+08:00', '2026-08-15T11:00:00+08:00', '文档', '#F59E0B', 'msedge.exe'),
+    timelineItem('2026-08-15T11:00:00+08:00', '2026-08-15T11:30:00+08:00', '编程', '#6B5EE4', 'Terminal'),
   ];
   const option = buildCategoryGanttOption(timeline) as any;
   const series = option.series[0];
   assert.equal(series.type, 'custom');
   assert.equal(typeof series.renderItem, 'function', 'renderItem must be a function');
-  assert.equal(option.xAxis[0].type, 'time');
-  assert.deepEqual(series.encode, { x: [0, 1], y: 2 }, 'time dims first: axis extent from real timestamps (#186)');
+  assert.equal(option.xAxis[0].type, 'value');
+  assert.equal(option.xAxis[0].min, 0);
+  assert.equal(option.xAxis[0].max, 60);
+  assert.deepEqual(series.encode, { x: [0, 1], y: 2 }, 'minute interval dimensions map to the fixed 0..60 axis');
   assert.deepEqual(option.yAxis[0].data, ['09:00', '10:00', '11:00'], 'hour rows from segment start hours, deduped ascending');
 
   assert.equal(series.data.length, 3);
-  assert.deepEqual(series.data[0].value, [new Date('2026-08-15T09:00:00').getTime(), new Date('2026-08-15T10:00:00').getTime(), 0]);
+  assert.deepEqual(series.data[0].value, [0, 60, 0]);
   assert.equal(series.data[0].itemStyle.color, '#6B5EE4');
   assert.equal(series.data[1].itemStyle.color, '#F59E0B');
   assert.equal(series.data[2].value[2], 2, 'third segment sits on 11:00 row');

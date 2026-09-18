@@ -31,8 +31,9 @@ export function QuickNoteFloatingEntry({ pathname }: QuickNoteFloatingEntryProps
   const [dialogOpen, setDialogOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const currentPath = pathname ?? (typeof window === 'undefined' ? '' : window.location.pathname);
+  const hidden = PAGE_FAB_PATHS.includes(currentPath);
 
-  // 与「快速记录」页一致：点击菜单外部关闭菜单。
+  // 与「快速记录」页一致：点击菜单外部关闭菜单；Escape 也能关闭。
   useEffect(() => {
     if (!menuOpen) return;
     function handleClick(event: MouseEvent) {
@@ -40,11 +41,28 @@ export function QuickNoteFloatingEntry({ pathname }: QuickNoteFloatingEntryProps
         setMenuOpen(false);
       }
     }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setMenuOpen(false);
+    }
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [menuOpen]);
 
-  if (PAGE_FAB_PATHS.includes(currentPath)) {
+  // 本页已有自己的 FAB 时必须收起全局菜单/卡片（review 发现）：
+  // 组件不会卸载，若只 return null，menuOpen 会残留为 true，
+  // 离开该页时菜单会「自己弹开」。
+  useEffect(() => {
+    if (hidden) {
+      setMenuOpen(false);
+      setDialogOpen(false);
+    }
+  }, [hidden]);
+
+  if (hidden) {
     return null;
   }
 
@@ -62,9 +80,14 @@ export function QuickNoteFloatingEntry({ pathname }: QuickNoteFloatingEntryProps
     <>
       <div ref={containerRef} className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
         {menuOpen && (
-          <div className="animate-dialog rounded-xl border border-zinc-200 bg-white p-1 shadow-dialog">
+          <div
+            role="menu"
+            aria-label="快速记录菜单"
+            className="animate-dialog rounded-xl border border-zinc-200 bg-white p-1 shadow-dialog"
+          >
             <button
               type="button"
+              role="menuitem"
               onClick={openDialog}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
             >
@@ -72,6 +95,7 @@ export function QuickNoteFloatingEntry({ pathname }: QuickNoteFloatingEntryProps
             </button>
             <button
               type="button"
+              role="menuitem"
               onClick={() => goTo('/tasks')}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
             >
@@ -79,6 +103,7 @@ export function QuickNoteFloatingEntry({ pathname }: QuickNoteFloatingEntryProps
             </button>
             <button
               type="button"
+              role="menuitem"
               onClick={() => goTo('/calendar')}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
             >

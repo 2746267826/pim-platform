@@ -24,6 +24,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement, Fragment, type ReactNode } from 'react';
 
 import { QuickNoteFloatingEntry } from '../QuickNoteFloatingEntry';
+import {
+  clearQuickNoteDraft,
+  loadQuickNoteDraft,
+  saveQuickNoteDraft,
+} from '../quickNoteFloatingState';
 
 // 编辑卡片包含 Markdown 编辑器（体积大、懒加载），渲染它需要 API 客户端可用。
 vi.mock('../../../api/quickNotes', () => ({
@@ -140,13 +145,10 @@ describe('#300 全局快速记录入口与「快速记录」页行为一致', ()
     expect(onToday.container.querySelectorAll('[aria-label="打开快速记录"]').length).toBe(1);
   });
 
-  it('迁移不造成功能缺项：草稿保留与位置记忆仍在', () => {
+  it('迁移不造成功能缺项：位置记忆仍在，且全局入口复用新编辑卡片', () => {
     // 相对本测试文件定位，避免依赖运行时的 cwd（tsx / vitest 的 cwd 不同）。
     const dir = path.dirname(new URL(import.meta.url).pathname);
     const read = (file: string) => readFileSync(path.join(dir, '..', file), 'utf8');
-
-    expect(read('quickNoteFloatingState.ts')).toContain('QUICK_NOTE_DRAFT_KEY');
-    expect(read('quickNoteFloatingState.ts')).toContain('QUICK_NOTE_PANEL_POSITION_KEY');
 
     const dialog = read('QuickNoteDialog.tsx');
     expect(dialog).toContain('loadPanelPosition');
@@ -154,5 +156,67 @@ describe('#300 全局快速记录入口与「快速记录」页行为一致', ()
 
     // 全局入口复用「快速记录」页同款编辑卡片（而不是旧面板）。
     expect(read('QuickNoteFloatingEntry.tsx')).toContain('QuickNoteDialog');
+  });
+
+  // #300 需求 4「不造成功能缺项」：草稿必须真正保留。
+  // 仅断言常量存在是不够的（review 发现旧面板删除后草稿能力实际丢失，
+  // 而字符串断言仍通过 —— 假阳性）。这里验证真实恢复路径。
+  it('重新打开卡片时恢复上次未保存的草稿（草稿能力真实生效）', async () => {
+    const draft = '睡前想到的一个点子';
+    localStorage.clear();
+    localStorage.setItem('pim.quickNotes.floatingDraft', draft);
+
+    renderEntry('/today');
+    await openMenu();
+    fireEvent.click(screen.getByText('写闪念'));
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy(), { timeout: 20000 });
+
+    // 草稿内容必须出现在编辑卡片里（旧 QuickNoteGlobalPanel 有该行为，统一入口后不得丢失）。
+    await waitFor(() => {
+      expect(screen.getByRole('dialog').textContent ?? '').toContain(draft);
+    }, { timeout: 20000 });
+
+    localStorage.clear();
+  });
+
+  it('草稿读写工具按约定工作：空内容清除草稿，提交后草稿不再恢复', () => {
+    localStorage.clear();
+    saveQuickNoteDraft('abc');
+    expect(loadQuickNoteDraft()).toBe('abc');
+    // 空内容 -> 清除键（避免用空草稿覆盖已有内容）
+    saveQuickNoteDraft('');
+    expect(loadQuickNoteDraft()).toBe('');
+    saveQuickNoteDraft('def');
+    clearQuickNoteDraft();
+    expect(loadQuickNoteDraft()).toBe('');
+    expect(localStorage.getItem('pim.quickNotes.floatingDraft')).toBeNull();
+  });
+
+  it('进入 /quick-notes 时收起全局菜单，离开后不会残留为打开状态', async () => {
+    localStorage.clear();
+    const { rerender } = render(
+      withProviders(createElement(QuickNoteFloatingEntry, { pathname: '/today' }), '/today'),
+    );
+    await openMenu();
+
+    // 切到排除路径：组件返回 null，但状态必须被重置（review 发现）。
+    rerender(withProviders(createElement(QuickNoteFloatingEntry, { pathname: '/quick-notes' }), '/quick-notes'));
+    expect(screen.queryByText('写闪念')).toBeNull();
+
+    // 再切回来：菜单不应「自己弹开」。
+    rerender(withProviders(createElement(QuickNoteFloatingEntry, { pathname: '/today' }), '/today'));
+    expect(screen.queryByText('写闪念')).toBeNull();
+  });
+
+  it('菜单支持 Escape 关闭，并带有正确的菜单语义', async () => {
+    renderEntry('/today');
+    await openMenu();
+
+    // 语义：容器是 menu，各项是 menuitem。
+    expect(screen.getByRole('menu')).toBeTruthy();
+    expect(screen.getAllByRole('menuitem').length).toBe(3);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByText('写闪念')).toBeNull());
   });
 }, 30000);

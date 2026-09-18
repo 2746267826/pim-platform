@@ -15,8 +15,11 @@ import {
 import QuickNoteEditor from './QuickNoteEditor';
 import {
   clampPanelPosition,
+  clearQuickNoteDraft,
   loadPanelPosition,
+  loadQuickNoteDraft,
   savePanelPosition,
+  saveQuickNoteDraft,
   type PanelPoint,
   type PanelSize,
 } from './quickNoteFloatingState';
@@ -186,17 +189,26 @@ export default function QuickNoteDialog({ open, mode, noteId, onClose, onSaved, 
     }
   }, [mode, selected]);
 
-  // Reset state when opening
+  // Reset state when opening（#300）：显式 initialContent 优先，否则恢复上次未保存的草稿，
+  // 与旧 QuickNoteGlobalPanel 的行为一致（入口统一后不得丢失草稿能力）。
   useEffect(() => {
     if (open && mode === 'create') {
-      setContent(initialContent ?? '');
-      setSelectedCategory(extractNoteCategory(initialContent));
+      const restored = initialContent && initialContent.length > 0 ? initialContent : loadQuickNoteDraft();
+      setContent(restored);
+      setSelectedCategory(extractNoteCategory(restored));
       setAttachmentIds([]);
       setLocalAttachments([]);
       setIsArchived(false);
       setEditError(null);
     }
   }, [open, mode, initialContent]);
+
+  // 持续保存草稿（仅在新建模式；编辑模式的内容属于已存在的记录，不应污染草稿）。
+  useEffect(() => {
+    if (open && mode === 'create') {
+      saveQuickNoteDraft(content);
+    }
+  }, [open, mode, content]);
 
   const createMutation = useMutation({
     mutationFn: (markdown: string) =>
@@ -206,6 +218,8 @@ export default function QuickNoteDialog({ open, mode, noteId, onClose, onSaved, 
         attachmentIds: attachmentIds.length > 0 ? attachmentIds : undefined,
       }),
     onSuccess: () => {
+      // 已提交的内容不再作为草稿恢复（#300）。
+      clearQuickNoteDraft();
       queryClient.invalidateQueries({ queryKey: ['quick-notes'] });
       onSaved();
       onClose();

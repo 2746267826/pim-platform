@@ -331,11 +331,11 @@ export default function TodayPage() {
 function TodayExhibitionEmbed({ dateStr }: { dateStr: string }) {
   const q2 = useExhibitionData(2, { real: true, date: dateStr });
   return (
-    <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <section className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <div className="pim-card p-4">
-        <h3 className="text-sm font-semibold text-slate-900">周趋势 · 折线图</h3>
-        <p className="mt-1 text-xs text-slate-500">近 4 周使用时长走势 · {q2.isReal ? '🔗真实数据' : '🔮模拟数据'}</p>
-        <div className="mt-3">{q2.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q2.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <WeekTrendLine data={q2.data as never} />}</div>
+        <h3 className="text-sm font-semibold text-slate-900">近 7 天使用时长</h3>
+        <p className="mt-1 text-xs text-slate-500">每日手机使用时长（小时）· {q2.isReal ? '🔗真实数据' : '🔮模拟数据'}</p>
+        <div className="mt-3">{q2.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q2.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <WeekTrendLine data={q2.data as never} unitLabel="小时" />}</div>
       </div>
       <HabitCalendarHeatmap />
     </section>

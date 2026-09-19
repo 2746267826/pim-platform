@@ -20,29 +20,31 @@ export function useExhibitionData(dtId: number, opts: { real: boolean; date?: st
     } catch (e) { console.warn('[exhibition] q1 fallback to fakeData', e); return getFakeData(1); }
   }});
   const q2 = useQuery({ queryKey: ['exh', 2, date, enabled], enabled: enabled && dtId === 2, queryFn: async () => {
+    // 2026-09-19 修复（数据可信度）：
+    // 旧实现逐日发 7 次请求，并把「所有图表（category-share / top-apps / daily-total /
+    // hour-distribution / category-trend / switch-trend）所有点的 value 全部相加」当作当日总量——
+    // 同一份秒数被重复计 4~5 次、还混入切换次数，再被当作「分钟」展示，单日数值虚高到 10 万+。
+    // 现改为：一次请求取 daily-total（每日总时长，单位秒）→ 换算为小时；失败返回空数组，不再回退假数据。
     try {
-      const points: { date: string; total: number; byCategory: Record<string,number> }[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(date); d.setDate(d.getDate() - i);
-        const ds = d.toISOString().slice(0, 10);
-        try {
-          const charts = await getMobileAnalyticsCharts({ rangeStartUtc: `${ds}T00:00:00Z`, rangeEndUtc: `${ds}T23:59:59Z` });
-          const total = charts.reduce((s, c) => s + c.points.reduce((a, p) => a + p.value, 0), 0);
-          // 将总量按比例拆为 4 类，保持与 fakeData/genType2 一致的分布
-          const ratios: Record<string,number> = { "聊天":0.32, "视频":0.26, "工具":0.22, "社交":0.20 };
-          const byCategory: Record<string,number> = {};
-          let remain = total;
-          const cats = Object.keys(ratios);
-          cats.forEach((c, idx) => {
-            if (idx === cats.length-1) byCategory[c]=remain;
-            else { const v = Math.round(total * ratios[c]); byCategory[c]=v; remain-=v; }
-          });
-          points.push({ date: ds, total, byCategory });
-        } catch { points.push({ date: ds, total: 0, byCategory: { "聊天":0, "视频":0, "工具":0, "社交":0 } }); }
-      }
-      // 兼容组件对 {date,total,byCategory} 的期望；若 total 为 0 仍返回带 byCategory 的结构，避免 undefined 读取
-      return points;
-    } catch (e) { console.warn('[exhibition] q2 fallback to fakeData', e); return getFakeData(2); }
+      const endLocal = new Date(`${date}T23:59:59`);
+      const startLocal = new Date(`${date}T00:00:00`);
+      startLocal.setDate(startLocal.getDate() - 6);
+      const toUtc = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+      const charts = await getMobileAnalyticsCharts({
+        rangeStartUtc: toUtc(startLocal),
+        rangeEndUtc: toUtc(endLocal),
+      });
+      const daily = charts.find((c) => c.chartType === 'daily-total');
+      return (daily?.points ?? [])
+        .filter((p) => p.localDate || p.key)
+        .map((p) => ({
+          date: String(p.localDate ?? p.key).slice(5),
+          total: Math.round(((p.value ?? 0) / 3600) * 100) / 100,
+        }));
+    } catch (e) {
+      console.warn('[exhibition] q2 failed', e);
+      return [];
+    }
   }});
   const q3 = useQuery({ queryKey: ['exh', 3, date, enabled], enabled: enabled && dtId === 3, queryFn: async () => {
     try {

@@ -108,8 +108,9 @@ function PreviewBodyInner({
   office: boolean;
   onToast?: (message: string) => void;
 }) {
-  const [mode, setMode] = useState<'preview' | 'edit'>(editable ? 'preview' : 'preview');
-  const image = useAuthedContentBlob(item ? `/files/items/${item.id}/content` : null, isImage);
+  const [mode, setMode] = useState<'preview' | 'edit'>('preview');
+  // 图片走缩略图端点（§8）：原图可能几十 MB，缩略图由 Graph 生成
+  const image = useAuthedContentBlob(item ? `/files/items/${item.id}/thumbnail?size=large` : null, isImage);
   const pdf = useAuthedContentBlob(item ? `/files/items/${item.id}/content` : null, isPdf && mode === 'preview');
 
   return (
@@ -152,7 +153,7 @@ function PreviewBodyInner({
                   a.href = url;
                   a.download = item.name;
                   a.click();
-                  URL.revokeObjectURL(url);
+                  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
                 })
                 .catch((err: unknown) => onToast?.(err instanceof Error ? err.message : '下载失败'));
             }}

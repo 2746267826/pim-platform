@@ -45,6 +45,8 @@ export default function OneDriveBindDialog({ onClose, onConnected }: OneDriveBin
   useEffect(() => {
     if (phase !== 'awaiting') return;
     let cancelled = false;
+    let intervalMs = POLL_INTERVAL_MS;
+    let timer = 0;
     const poll = async () => {
       const providerId = providerIdRef.current;
       if (!providerId) return;
@@ -56,6 +58,10 @@ export default function OneDriveBindDialog({ onClose, onConnected }: OneDriveBin
           connectedRef.current = true;
           onConnected();
         }
+        if (next.pollIntervalSeconds && next.pollIntervalSeconds * 1000 > intervalMs) {
+          // RFC 8628 slow_down：按服务端提示降低轮询频率
+          intervalMs = next.pollIntervalSeconds * 1000;
+        }
         if (next.status === 'expired' || next.status === 'denied') {
           setPhase('failed');
           setError(next.status === 'denied' ? '授权被拒绝' : '设备码已过期，请重新绑定');
@@ -64,11 +70,17 @@ export default function OneDriveBindDialog({ onClose, onConnected }: OneDriveBin
         // 网络抖动：等待下一轮
       }
     };
+    const schedule = () => {
+      timer = window.setTimeout(async () => {
+        await poll();
+        if (!cancelled) schedule();
+      }, intervalMs);
+    };
     poll();
-    const timer = window.setInterval(poll, POLL_INTERVAL_MS);
+    schedule();
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
   }, [phase, onConnected]);
 

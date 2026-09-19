@@ -76,6 +76,7 @@ export default function FilesPage() {
   const handleExpandFolder = useCallback((path: string) => {
     setCurrentPath(path);
     setSelectedItem(null);
+    setMobilePreviewOpen(false);
     setLoadedPaths(prev => (prev.includes(path) ? prev : [...prev, path]));
   }, []);
 
@@ -131,6 +132,19 @@ export default function FilesPage() {
 
   const currentChildren = childrenByPath[currentPath] ?? EMPTY_CHILDREN;
 
+  // 同步后元数据可能变化：按 id 从全部已加载目录里取最新对象派生
+  const selectedItemLive = useMemo(() => {
+    if (!selectedItem) return null;
+    for (const children of Object.values(childrenByPath)) {
+      const fresh = children.find(child => child.id === selectedItem.id);
+      if (fresh) return fresh;
+    }
+    return selectedItem;
+  }, [selectedItem, childrenByPath]);
+
+  const currentLoading =
+    pathQueries.find((_, index) => loadedPaths[index] === currentPath)?.isLoading ?? false;
+
   return (
     <div className="flex h-full flex-col">
       <PageHeader
@@ -165,7 +179,11 @@ export default function FilesPage() {
                     if (item.itemType === 'folder') {
                       handleExpandFolder(item.path);
                     } else {
-                      setSelectedItem(item);
+                      // 树回传的是精简行，从缓存解析出真实 FileItem（元数据完整）
+                      const real = Object.values(childrenByPath)
+                        .flat()
+                        .find(child => child.id === item.id);
+                      setSelectedItem(real ?? item);
                       setMobilePreviewOpen(true);
                     }
                   }}
@@ -201,12 +219,13 @@ export default function FilesPage() {
               </div>
               <OneDriveFileList
                 items={currentChildren}
+                loading={currentLoading}
                 breadcrumb={`OneDrive / ${currentPath === '/' ? '' : currentPath.slice(1)}`}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 view={view}
                 onViewChange={setView}
-                selectedItem={selectedItem}
+                selectedItem={selectedItemLive}
                 onSelect={item => {
                   setSelectedItem(item);
                   setMobilePreviewOpen(true);
@@ -216,7 +235,13 @@ export default function FilesPage() {
             </div>
 
             {/* 右栏：预览（窄屏为浮层） */}
-            <div className={mobilePreviewOpen && selectedItem ? 'fixed inset-0 z-40 bg-[var(--pim-surface)] md:hidden' : 'hidden md:flex'}>
+            <div
+              className={
+                mobilePreviewOpen && selectedItem
+                  ? 'fixed inset-0 z-40 overflow-auto bg-[var(--pim-surface)] md:static md:z-auto md:flex md:overflow-visible md:bg-transparent'
+                  : 'hidden md:flex'
+              }
+            >
               <div className="flex h-full w-full flex-col">
                 <button
                   type="button"
@@ -226,7 +251,7 @@ export default function FilesPage() {
                   ← 返回列表
                 </button>
                 <div className="min-h-0 flex-1 md:flex">
-                  <OneDrivePreviewPane item={selectedItem} onToast={message => toast(message)} />
+                  <OneDrivePreviewPane item={selectedItemLive} onToast={message => toast(message)} />
                 </div>
               </div>
             </div>

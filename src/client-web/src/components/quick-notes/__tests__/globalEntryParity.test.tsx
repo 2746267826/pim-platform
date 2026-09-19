@@ -17,6 +17,7 @@
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
@@ -151,7 +152,7 @@ describe('#300 全局快速记录入口与「快速记录」页行为一致', ()
 
   it('迁移不造成功能缺项：位置记忆仍在，且全局入口复用新编辑卡片', () => {
     // 相对本测试文件定位，避免依赖运行时的 cwd（tsx / vitest 的 cwd 不同）。
-    const dir = path.dirname(new URL(import.meta.url).pathname);
+    const dir = path.dirname(fileURLToPath(import.meta.url));
     const read = (file: string) => readFileSync(path.join(dir, '..', file), 'utf8');
 
     const dialog = read('QuickNoteDialog.tsx');
@@ -217,7 +218,7 @@ describe('#300 全局快速记录入口与「快速记录」页行为一致', ()
   it('两个入口的菜单语义与关闭方式一致（role / aria / Escape）', () => {
     // 本文件位于 src/client-web/src/components/quick-notes/__tests__/
     // → 上溯三级到 src/，再取 pages/ 与 components/
-    const dir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..');
+    const dir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
     const read = (file: string) => readFileSync(path.join(dir, file), 'utf8');
     const page = read('pages/QuickNotesPage.tsx');
     const entry = read('components/quick-notes/QuickNoteFloatingEntry.tsx');
@@ -243,7 +244,7 @@ describe('#300 全局快速记录入口与「快速记录」页行为一致', ()
   // 说明：MDX 编辑器不接受合成 input 事件，因此这里直接校验组件树传入卡片的
   // source 属性（渲染断言），而不是伪造一次保存。
   it('全局入口传给编辑卡片的来源是 web-floating，页面内仍是 web-page', () => {
-    const dir = path.dirname(new URL(import.meta.url).pathname);
+    const dir = path.dirname(fileURLToPath(import.meta.url));
     const entry = readFileSync(path.join(dir, '..', 'QuickNoteFloatingEntry.tsx'), 'utf8');
 
     // 入口必须显式传入 web-floating（否则会退回卡片的 web-page 默认值）
@@ -303,7 +304,7 @@ describe('#300 全局快速记录入口与「快速记录」页行为一致', ()
   // 说明：MDX 编辑器不接受合成 input 事件，因此这里直接校验组件树传入卡片的
   // source 属性（渲染断言），而不是伪造一次保存。
   it('全局入口传给编辑卡片的来源是 web-floating，页面内仍是 web-page', () => {
-    const dir = path.dirname(new URL(import.meta.url).pathname);
+    const dir = path.dirname(fileURLToPath(import.meta.url));
     const entry = readFileSync(path.join(dir, '..', 'QuickNoteFloatingEntry.tsx'), 'utf8');
 
     // 入口必须显式传入 web-floating（否则会退回卡片的 web-page 默认值）

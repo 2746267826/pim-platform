@@ -1373,6 +1373,59 @@ export interface FileProvider {
   lastError: string | null;
   createdAt: string;
   updatedAt: string;
+  clientId?: string | null;
+  driveId?: string | null;
+  accountId?: string | null;
+  accountName?: string | null;
+  syncStatus?: string;
+  syncedItemCount?: number;
+  deltaResetAt?: string | null;
+  tokenExpiresAt?: string | null;
+}
+
+export interface OneDriveBindingStart {
+  providerId: string;
+  userCode: string;
+  verificationUri: string;
+  expiresIn: number;
+}
+
+export interface OneDriveBindingStatus {
+  status: 'pending' | 'connected' | 'expired' | 'denied';
+  driveId: string | null;
+  accountId: string | null;
+  accountName: string | null;
+  userCode: string | null;
+  verificationUri: string | null;
+  deviceCodeExpiresAt: string | null;
+}
+
+export interface OneDriveSyncResult {
+  pagesProcessed: number;
+  itemsApplied: number;
+  itemsDeleted: number;
+  fullRecrawl: boolean;
+}
+
+export interface OneDriveLink {
+  url: string;
+}
+
+export interface OneDriveTextContent {
+  content: string;
+  mimeType: string | null;
+  size: number;
+  truncated: boolean;
+}
+
+export interface FileTextSnapshot {
+  id: string;
+  path: string;
+  name: string;
+  content: string;
+  byteSize: number;
+  reason: string;
+  createdAt: string;
 }
 
 export interface BindNextcloudProviderRequest {

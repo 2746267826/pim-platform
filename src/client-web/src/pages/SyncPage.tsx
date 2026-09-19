@@ -171,8 +171,9 @@ export default function SyncPage() {
 
   /**
    * Re-reads the stored bindings (read-only; does not call Graph like 发现日历 does) so a
-   * remote_state change made by an automatic sync — most importantly a calendar that just
-   * became 缺失 — shows up in the list below.
+   * change made by an automatic sync shows up in the list below. Since #309 the common case
+   * is a calendar disappearing entirely: once its absence is confirmed the calendar is
+   * mirror-deleted and its binding row is gone, so the list must be re-read to drop the entry.
    */
   async function refreshBindings() {
     try {
@@ -207,8 +208,8 @@ export default function SyncPage() {
       for (const queryKey of outlookSyncInvalidationKeys) {
         queryClient.invalidateQueries({ queryKey });
       }
-      // A sync can flip a calendar to 缺失 (or back); refresh the binding list so the
-      // state tag is visible without requiring a manual 发现日历.
+      // A sync can remove a calendar (mirror-delete) or change its remote state; refresh
+      // the binding list so the「日历选择」stays accurate without a manual 发现日历.
       void refreshBindings();
     },
   });
@@ -290,7 +291,7 @@ export default function SyncPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['outlook-sync-batches'] });
-      // A successful retry clears 缺失; reflect that immediately.
+      // A successful retry clears the remote state; reflect that immediately.
       void refreshBindings();
     },
   });
@@ -402,11 +403,6 @@ export default function SyncPage() {
     }
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [bindings]);
-
-  const bindingRemoteStates = useMemo(
-    () => new Map(bindings.map(b => [b.id, b.remoteState])),
-    [bindings],
-  );
 
   function saveSelection() {
     selectionMutation.mutate(selectedBindingIds);
@@ -880,6 +876,14 @@ export default function SyncPage() {
               const retryableCalendars = perCalendar.filter(
                 pc => pc.status === 'failed' || pc.status === 'partial',
               );
+              // #309：远端已删除的日历会被跟随删除（移入回收站）。这是"同步成功"
+              // 的结果而非错误，所以单独列出，避免用户以为数据丢了。
+              const mirrorDeletedSteps = (batch.steps ?? []).filter(
+                step => step.status === 'mirror-deleted',
+              );
+              const mirrorDeletedEventTotal = perCalendar
+                .filter(pc => pc.mirrorDeleted)
+                .reduce((sum, pc) => sum + pc.deletedCount, 0);
 
               return (
                 <article key={batch.id} className="rounded-lg border border-slate-200 bg-white p-3">
@@ -900,6 +904,23 @@ export default function SyncPage() {
                   </div>
                 </div>
 
+                {mirrorDeletedSteps.length > 0 && (
+                  <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    <p className="font-semibold">
+                      已在 Outlook 端删除 {mirrorDeletedSteps.length} 个日历，PIM 已跟随删除并移入回收站
+                      {mirrorDeletedEventTotal > 0 ? `（含 ${mirrorDeletedEventTotal} 条日程）` : ''}。
+                    </p>
+                    <ul className="mt-1 space-y-0.5 text-xs text-amber-700">
+                      {mirrorDeletedSteps.map(step => (
+                        <li key={step.name}>{step.detail}</li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 text-xs text-amber-700">
+                      如需保留这些数据，可到「回收站」恢复；恢复后它们会作为 PIM 本地日历使用，不再与 Outlook 关联。
+                    </p>
+                  </div>
+                )}
+
                 {batch.errorSummary && (
                   <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{batch.errorSummary}</p>
                 )}
@@ -910,11 +931,6 @@ export default function SyncPage() {
                       <div key={pc.bindingId} className="flex items-center justify-between gap-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs">
                         <span className="text-red-700">
                           {pc.calendarName}: {pc.failures[0]?.message ?? '错误'}
-                          {bindingRemoteStates.get(pc.bindingId) === 'remote-missing' && (
-                            <span className="ml-1 text-amber-700">
-                              （该日历在 Outlook 端已不存在，重试无效；请先在 Outlook 恢复它，或重新「发现日历」）
-                            </span>
-                          )}
                         </span>
                         <button
                           type="button"
@@ -923,11 +939,7 @@ export default function SyncPage() {
                           }}
                           disabled={retryPerCalendarMutation.isPending}
                           className="font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-60"
-                          title={
-                            bindingRemoteStates.get(pc.bindingId) === 'remote-missing'
-                              ? '重试（该日历在 Outlook 端已不存在）'
-                              : '重试'
-                          }
+                          title="重试"
                           aria-label="重试"
                         >
                           重试

@@ -363,7 +363,15 @@ public sealed class NativeTrackerService : IDisposable
         }
 
         var hbForWindow = _bridge.LastHeartbeat;
-        var validVisits = session.PageVisits
+
+        // #310：非浏览器会话永远不该产出页面（web-page）记录。会话管理已从源头拒绝
+        // 归属，这里再兜一道——历史上已写盘/已入队的会话（旧版本产出的数据）同样要被
+        // 拦住，否则升级后仍会继续上传假页面记录。
+        var visitsSource = TrackerSessionManager.IsBrowserApp(session.AppName)
+            ? session.PageVisits
+            : new List<TrackerPageVisit>();
+
+        var validVisits = visitsSource
             .Where(p => !string.IsNullOrWhiteSpace(p.Url) && (p.DurationSecs ?? 0) > 0)
             .OrderBy(p => p.StartedAt)
             .ToList();

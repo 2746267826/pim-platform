@@ -36,10 +36,10 @@ const FALLBACK: WeekTrendPoint[] = [
 export default function WeekTrendLine({ data, loading, error, height=180 }: WeekTrendLineProps){
   const pts = data && data.length ? data : FALLBACK;
   const option = useMemo<EChartsOption>(()=>({
-    tooltip:{trigger:'axis'},
-    grid:{left:32,right:10,top:10,bottom:22},
+    tooltip:{trigger:'axis', valueFormatter: (value: unknown) => `${value} 分钟`},
+    grid:{left:38,right:10,top:20,bottom:22},
     xAxis:{type:'category', data: pts.map(p=>p.date), boundaryGap:false, axisLabel:{fontSize:9,color:chartColors.textMuted}, axisTick:{show:false}, axisLine:{lineStyle:{color:chartColors.borderSoft}}},
-    yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+    yAxis:{type:'value', name:'分钟', nameTextStyle:{fontSize:9,color:'#94a3b8',align:'left'}, nameGap:8, splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
     series:[{type:'line', data: pts.map(p=>p.total), smooth:true, symbol:'circle', symbolSize:5, lineStyle:{width:2,color:chartColors.primary}, itemStyle:{color:chartColors.primary}, areaStyle:undefined}],
   } as EChartsOption),[pts]);
   if (loading) return <Skeleton height={height} />;

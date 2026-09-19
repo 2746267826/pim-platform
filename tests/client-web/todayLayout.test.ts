@@ -1,5 +1,5 @@
 /**
- * 今日页布局回归护栏（v2：三层分区）。
+ * 今日页布局回归护栏（v3：三层分区 + 顶部精简 + 未知区块过滤）。
  *
  * 信息架构（2026-09-19 重排）：
  *   action（首屏，行动）→ data（数据回顾）→ status（运维与状态，折叠收纳）。
@@ -8,14 +8,15 @@
  *   1. 每个区的容器必须显式 items-start（取消 CSS Grid 强制等高拉伸）；
  *   2. 长列表板块（任务关注 / 分类建议）必须自带独立滚动容器；
  *   3. 区块种类不得缩水；运营卡只做收纳、不得删除。
+ *
+ * v3 变更（用户拍板）：
+ *   - 移除顶部「新建任务」按钮与密度切换器（只保留默认布局）；
+ *   - 未注册区块被过滤，不再渲染「未知区块」占位。
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import {
-  todayActionColumnCount,
-  todayZoneOf,
-} from '../../src/client-web/src/pages/todaySectionLayout';
+import { todayZoneOf } from '../../src/client-web/src/pages/todaySectionLayout';
 
 function test(name: string, run: () => void) { run(); }
 
@@ -45,10 +46,16 @@ test('#285 长列表板块拥有独立滚动容器', () => {
   );
 });
 
-test('密度模式影响行动区列数（专注更聚焦）', () => {
-  assert.equal(todayActionColumnCount('focus'), 2);
-  assert.equal(todayActionColumnCount('standard'), 3);
-  assert.equal(todayActionColumnCount('dense'), 3);
+test('未注册区块被过滤（不再渲染「未知区块」占位）', () => {
+  assert.ok(
+    /\.filter\(section => isKnownTodaySectionKind\(section\.kind\)\)/.test(todayPage),
+    'TodayPage 应过滤未注册的区块（防止「未知区块」占用页面）',
+  );
+});
+
+test('顶部工具区已精简（移除新建任务按钮与密度切换）', () => {
+  assert.ok(!todayPage.includes('densityMode'), '不应再使用密度切换状态');
+  assert.ok(!todayPage.includes('SegmentedControl'), '不应再渲染密度切换器');
 });
 
 test('三个分区在页面中都有渲染', () => {
@@ -82,7 +89,7 @@ test('运营卡只做收纳、不得删除', () => {
 });
 
 test('其他既有能力未被破坏', () => {
-  for (const kept of ['日程任务工作台', 'densityMode', '高密度', '专注']) {
+  for (const kept of ['日程任务工作台']) {
     assert.ok(todayPage.includes(kept), `今日页应保留「${kept}」`);
   }
 });

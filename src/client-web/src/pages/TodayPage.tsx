@@ -9,7 +9,6 @@ import TaskEditorDialog from '../dialogs/TaskEditorDialog';
 import PageHeader from '../ui/PageHeader';
 import MobilePageHeader from '../ui/MobilePageHeader';
 import EmptyState from '../ui/EmptyState';
-import SegmentedControl from '../ui/SegmentedControl';
 import TodaySectionHost, {
   isKnownTodaySectionKind,
   todaySectionOrder,
@@ -21,14 +20,6 @@ import { useExhibitionData } from '../components/charts/hooks/useExhibitionData'
 import type { EventResponse, TaskResponse, TodaySectionKind, TodaySectionRegistryItem } from '../types';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
 import { todayZoneOf } from './todaySectionLayout';
-
-type DensityMode = 'standard' | 'dense' | 'focus';
-
-const densityModeOptions: Array<{ value: DensityMode; label: string }> = [
-  { value: 'standard', label: '标准' },
-  { value: 'dense', label: '高密度' },
-  { value: 'focus', label: '专注' },
-];
 
 function useTodayDate() {
   const [today, setToday] = useState(() => new Date());
@@ -91,7 +82,6 @@ export default function TodayPage() {
   const [editingTask, setEditingTask] = useState<TaskResponse | undefined>();
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventResponse | undefined>();
-  const [densityMode, setDensityMode] = useState<DensityMode>('standard');
 
   const {
     data: registry,
@@ -115,8 +105,13 @@ export default function TodayPage() {
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
-  const sections = useMemo(() => sortSections(registry?.sections ?? []), [registry?.sections]);
-  const compactItemLimit = densityMode === 'dense' ? 2 : 3;
+  // 只渲染 Web 端已注册的区块：服务端注册表包含尚未在 Web 实现的模块（如 sync.outlook、
+  // reports.available 等），未注册的一律静默忽略，不再渲染「未知区块」占位。
+  const sections = useMemo(
+    () => sortSections((registry?.sections ?? []).filter(section => isKnownTodaySectionKind(section.kind))),
+    [registry?.sections],
+  );
+  const compactItemLimit = 3;
 
   // 三层分区（v2 信息架构重排）：行动（首屏）/ 数据（回顾）/ 状态（折叠收纳）。
   // 每个区内部是独立 grid + items-start，区与区之间互不拉伸；
@@ -133,13 +128,6 @@ export default function TodayPage() {
     () => sections.filter(section => todayZoneOf(section.kind) === 'status'),
     [sections],
   );
-  // 注意：Tailwind 的类名必须在源码里以字面量出现才会被生成，
-  // 因此这里用静态字面量映射，不能用 `xl:grid-cols-${n}` 这类模板拼接。
-  const actionGridClassName = densityMode === 'focus'
-    ? 'gap-4 md:grid-cols-2'
-    : densityMode === 'dense'
-      ? 'gap-3 md:grid-cols-2 xl:grid-cols-3'
-      : 'gap-4 md:grid-cols-2 xl:grid-cols-3';
 
   function openTask(task: TaskResponse) {
     setEditingTask(task);
@@ -168,27 +156,7 @@ export default function TodayPage() {
       <MobilePageHeader title="今日" action={<span className="md:hidden text-xs text-slate-500">{dateStr}</span>} />
       <PageHeader
         title="日程任务工作台"
-        subtitle={`${dateStr} · 日程承诺、任务执行、提醒队列与报告`}
-        beforeActions={
-          <SegmentedControl
-            value={densityMode}
-            options={densityModeOptions}
-            onChange={setDensityMode}
-            ariaLabel="今日密度"
-          />
-        }
-        actions={
-          <button
-            type="button"
-            onClick={() => {
-              setEditingTask(undefined);
-              setTaskEditorOpen(true);
-            }}
-            className="pim-button-primary px-4 py-2 text-sm"
-          >
-            新建任务
-          </button>
-        }
+        subtitle={`${dateStr} · 日程承诺、任务执行与报告`}
       />
 
       <RegistryErrorPanel error={registryError} />
@@ -198,7 +166,7 @@ export default function TodayPage() {
       ) : (
         <div className="space-y-4">
           {/* 行动区：今天要处理的（日程 / 待办任务 / 分类建议）——首屏最高优先级 */}
-          <div className={`grid grid-cols-1 items-start ${actionGridClassName}`}>
+          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
             {actionSections.map(section => (
               <TodaySectionHost
                 key={section.id}
@@ -266,7 +234,7 @@ export default function TodayPage() {
                   <p className="mt-1 text-xs text-slate-500">{pendingConfirmations.length} 个操作等待复核</p>
                 </div>
                 <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                  {densityMode}
+                  复核
                 </span>
               </div>
               <div className="mt-3 space-y-2">
@@ -276,9 +244,7 @@ export default function TodayPage() {
                       <p className="min-w-0 truncate text-sm font-medium text-slate-800">{item.summary}</p>
                       <span className="shrink-0 text-[11px] font-semibold text-slate-500">{item.riskLevel}</span>
                     </div>
-                    {densityMode !== 'focus' && (
-                      <p className="mt-1 truncate text-xs text-slate-500">{item.source} / {item.operationType}</p>
-                    )}
+                    <p className="mt-1 truncate text-xs text-slate-500">{item.source} / {item.operationType}</p>
                   </div>
                 ))}
                 {pendingConfirmations.length === 0 && (
@@ -306,11 +272,9 @@ export default function TodayPage() {
                         {batch.failureCount} 个错误
                       </span>
                     </div>
-                    {densityMode !== 'focus' && (
-                      <p className="mt-1 truncate text-xs text-slate-500">
-                        {batch.provider} / 读取 {batch.readCount} / 确认 {batch.confirmationCount} / {formatDateTime(batch.startedAt)}
-                      </p>
-                    )}
+                    <p className="mt-1 truncate text-xs text-slate-500">
+                      {batch.provider} / 读取 {batch.readCount} / 确认 {batch.confirmationCount} / {formatDateTime(batch.startedAt)}
+                    </p>
                   </div>
                 ))}
                 {outlookSyncBatches.length === 0 && (
@@ -366,19 +330,14 @@ export default function TodayPage() {
 
 function TodayExhibitionEmbed({ dateStr }: { dateStr: string }) {
   const q2 = useExhibitionData(2, { real: true, date: dateStr });
-  const q11 = useExhibitionData(11, { real: true, date: dateStr });
   return (
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <div className="pim-card p-4">
-        <h3 className="text-sm font-semibold text-slate-900">周趋势 · 折线图（真实）</h3>
-        <p className="mt-1 text-xs text-slate-500">周一/五双峰，周末-20% · {q2.isReal ? '🔗真实' : '🔮模拟'}</p>
+        <h3 className="text-sm font-semibold text-slate-900">周趋势 · 折线图</h3>
+        <p className="mt-1 text-xs text-slate-500">近 4 周使用时长走势 · {q2.isReal ? '🔗真实数据' : '🔮模拟数据'}</p>
         <div className="mt-3">{q2.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q2.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <WeekTrendLine data={q2.data as never} />}</div>
       </div>
-      <div className="pim-card p-4">
-        <h3 className="text-sm font-semibold text-slate-900">习惯打卡 · 日历热力（真实）</h3>
-        <p className="mt-1 text-xs text-slate-500">5习惯×30天 · {q11.isReal ? '🔗真实' : '🔮模拟'}</p>
-        <div className="mt-3">{q11.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q11.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <HabitCalendarHeatmap />}</div>
-      </div>
+      <HabitCalendarHeatmap />
     </section>
   );
 }

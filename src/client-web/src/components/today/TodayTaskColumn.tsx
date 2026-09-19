@@ -80,7 +80,8 @@ export default function TodayTaskColumn({
         <EmptyState title="没有未完成任务" description="可以新建任务，或打开日历安排今天要推进的工作。" />
       ) : (
         // #285：长任务列表用独立滚动容器，内容再多也不撑大整页视口。
-        <div className="max-h-[26rem] space-y-2 overflow-y-auto pr-1">
+        // 高度按「同屏尽量多显示」调大（38rem ≈ 7~8 条），避免列表又矮又要频繁滚动。
+        <div className="max-h-[38rem] space-y-2 overflow-y-auto pr-1">
           {incompleteTasks.map(task => (
             <button
               key={task.id}

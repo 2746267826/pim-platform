@@ -31,8 +31,3 @@ const ZONE_OF: Record<TodaySectionKind, TodayZone> = {
 export function todayZoneOf(kind: TodaySectionKind | string): TodayZone {
   return ZONE_OF[kind as TodaySectionKind] ?? 'status';
 }
-
-/** 行动区列数：专注模式 2 列（更大卡片、更聚焦），标准 / 高密度 3 列。 */
-export function todayActionColumnCount(densityMode: 'focus' | 'dense' | 'standard'): number {
-  return densityMode === 'focus' ? 2 : 3;
-}

@@ -2,7 +2,17 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const source = readFileSync(resolve('src/client-web/src/pages/FilesPage.tsx'), 'utf8');
+const sourceFiles = [
+  'src/client-web/src/pages/FilesPage.tsx',
+  'src/client-web/src/components/files/OneDriveBindDialog.tsx',
+  'src/client-web/src/components/files/OneDriveFileList.tsx',
+  'src/client-web/src/components/files/OneDrivePreviewPane.tsx',
+  'src/client-web/src/components/files/OneDriveFileTree.tsx',
+];
+const source = sourceFiles
+  .map(file => readFileSync(resolve(file), 'utf8'))
+  .join('
+');
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -87,30 +97,35 @@ for (const text of forbiddenVisibleText) {
 }
 
 const requiredChineseText = [
-  '文件来源',
-  '正在加载文件来源...',
-  '尚未连接文件来源。',
-  '绑定 Nextcloud',
-  '内部访问地址',
-  '用户名',
-  '应用密码',
-  '文件夹树',
-  '回收站',
+  '文件',
+  'OneDrive 个人版',
+  '内容留在云端',
+  '绑定 OneDrive',
+  '还没有绑定 OneDrive',
+  'Azure 应用注册的 Client ID',
+  '获取设备码',
+  '输入设备代码',
+  '立即同步',
+  '尚未同步',
+  '正在同步',
+  '同步出错',
+  '断开',
+  '已断开 OneDrive 绑定',
+  '搜索当前文件夹',
+  '此文件夹为空',
+  '没有匹配的文件',
+  '选择一个文件查看预览',
+  '下载',
+  '编辑文本',
+  '保存到 OneDrive',
+  '历史版本',
+  '恢复',
+  '加载缩略图',
+  '列表视图',
+  '网格视图',
   '文件列表',
-  '搜索文件',
-  '混合',
-  '关键词',
-  '语义',
-  '名称',
   '大小',
   '修改时间',
-  '详细信息',
-  '主要方式打开',
-  '单独编辑',
-  '下载',
-  '在 Nextcloud 中打开',
-  '版本',
-  '建议',
 ];
 
 for (const text of requiredChineseText) {

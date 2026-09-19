@@ -1,7 +1,15 @@
-import { apiDelete, apiDownloadBlob, apiGet, apiPost, apiUpload } from './client';
+import { apiDelete, apiDownloadBlob, apiGet, apiPost, apiPut, apiUpload } from './client';
+
+export { apiDownloadBlob };
 import type {
   ApiResponse,
   BindNextcloudProviderRequest,
+  FileTextSnapshot,
+  OneDriveBindingStart,
+  OneDriveBindingStatus,
+  OneDriveLink,
+  OneDriveSyncResult,
+  OneDriveTextContent,
   FileIndexJob,
   FileItem,
   FileListResponse,
@@ -22,6 +30,15 @@ import type {
 export const fileApiPaths = {
   providers: () => '/files/providers',
   bindNextcloud: () => '/files/providers/nextcloud',
+  bindOneDrive: () => '/files/providers/onedrive',
+  oneDriveBindingStatus: (id: string) => `/files/providers/${id}/binding-status`,
+  itemContent: (id: string) => `/files/items/${id}/content`,
+  itemThumbnail: (id: string, size = 'medium') => `/files/items/${id}/thumbnail?size=${encodeURIComponent(size)}`,
+  itemPreviewUrl: (id: string) => `/files/items/${id}/preview-url`,
+  itemText: (id: string) => `/files/items/${id}/text`,
+  itemSnapshots: (id: string) => `/files/items/${id}/snapshots`,
+  itemSnapshotRestore: (id: string, snapshotId: string) => `/files/items/${id}/snapshots/${snapshotId}/restore`,
+  provider: (id: string) => `/files/providers/${id}`,
   providerTest: (id: string) => `/files/providers/${id}/test`,
   providerSync: (id: string) => `/files/providers/${id}/sync`,
   items: (path = '/', page?: number, pageSize?: number) => {
@@ -144,4 +161,51 @@ export function acceptFileSuggestion(id: string) {
 
 export function getFileOpenLink(id: string, mode: FileOpenLinkMode) {
   return apiGet<ApiResponse<FileOpenLink>>(fileApiPaths.openLink(id, mode)).then(r => r.data);
+}
+
+// ---- OneDrive（文件模块 v2，见 designs/onedrive-files-v2.md）----
+
+export function startOneDriveBinding(clientId: string) {
+  return apiPost<ApiResponse<OneDriveBindingStart>>(fileApiPaths.bindOneDrive(), { clientId }).then(r => r.data);
+}
+
+export function getOneDriveBindingStatus(providerId: string) {
+  return apiGet<ApiResponse<OneDriveBindingStatus>>(fileApiPaths.oneDriveBindingStatus(providerId)).then(r => r.data);
+}
+
+export function disconnectFileProvider(id: string) {
+  return apiDelete<ApiResponse<string>>(fileApiPaths.provider(id)).then(r => r.data);
+}
+
+export function getOneDriveSyncResult(id: string) {
+  return apiPost<ApiResponse<OneDriveSyncResult>>(fileApiPaths.providerSync(id), {}).then(r => r.data);
+}
+
+/** 直链与缩略图端点是 302；页面用带鉴权的 fetch 跟随得到内容，或直接引用相对 URL。 */
+export function oneDriveContentUrl(id: string) {
+  return fileApiPaths.itemContent(id);
+}
+
+export function oneDriveThumbnailUrl(id: string, size = 'medium') {
+  return fileApiPaths.itemThumbnail(id, size);
+}
+
+export function getOneDrivePreviewUrl(id: string) {
+  return apiGet<ApiResponse<OneDriveLink>>(fileApiPaths.itemPreviewUrl(id)).then(r => r.data.url);
+}
+
+export function getOneDriveText(id: string) {
+  return apiGet<ApiResponse<OneDriveTextContent>>(fileApiPaths.itemText(id)).then(r => r.data);
+}
+
+export function saveOneDriveText(id: string, content: string) {
+  return apiPut<ApiResponse<string>>(fileApiPaths.itemText(id), { content }).then(r => r.data);
+}
+
+export function getOneDriveSnapshots(id: string) {
+  return apiGet<ApiResponse<FileTextSnapshot[]>>(fileApiPaths.itemSnapshots(id)).then(r => r.data);
+}
+
+export function restoreOneDriveSnapshot(id: string, snapshotId: string) {
+  return apiPost<ApiResponse<string>>(fileApiPaths.itemSnapshotRestore(id, snapshotId), {}).then(r => r.data);
 }

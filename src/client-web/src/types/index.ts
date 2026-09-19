@@ -565,6 +565,12 @@ export interface OutlookPerCalendarResult {
   bindingId: string;
   calendarName: string;
   status: string;
+  /**
+   * #309：该日历在 Outlook 端已确认删除，PIM 已跟随删除并移入回收站。
+   * 此时 status 是 'completed'（对用户来说这是成功结果），因此需要这个独立标志
+   * 才能把它与普通同步结果区分开。
+   */
+  mirrorDeleted?: boolean;
   readCount: number;
   createdCount: number;
   updatedCount: number;

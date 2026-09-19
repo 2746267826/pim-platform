@@ -308,9 +308,10 @@ assert.match(calendarApiSource, /export async function checkOutlookConnection/);
 assert.match(calendarApiSource, /export async function runOutlookSync/);
 assert.doesNotMatch(calendarApiSource, /runOutlookSyncWithRequest/);
 
-// --- #272/#273: 缺失 state must be refreshable without a manual 发现日历 ---
-// Automatic sync can flip a binding to remote-missing; the page has to re-read the stored
-// bindings afterwards, otherwise the 缺失 tag never appears unless the user clicks 发现日历.
+// --- #272/#273/#309: binding state changes must be visible without a manual 发现日历 ---
+// Automatic sync can change remote_state, and since #309 it can remove a calendar entirely
+// (mirror-delete). Either way the page has to re-read the stored bindings afterwards,
+// otherwise the「日历选择」list goes stale until the user clicks 发现日历.
 assert.match(syncPageSource, /outlookBindings/);
 assert.match(syncPageSource, /async function refreshBindings\(\)/);
 assert.match(syncPageSource, /await outlookBindings\(\)[\s\S]{0,200}setBindings\(data\)/);
@@ -320,7 +321,9 @@ assert.equal(
   2,
   'refreshBindings should run after sync and after per-calendar retry',
 );
-// A confirmed-missing calendar must not be presented as a plain retryable failure.
-assert.match(syncPageSource, /=== 'remote-missing' && \(/);
+// Since #309 a confirmed-missing calendar is mirror-deleted, so the sync history — not the
+// binding list — is what explains the disappearance to the user.
+assert.match(syncPageSource, /step\.status === 'mirror-deleted'/);
+assert.match(syncPageSource, /移入回收站/);
 assert.match(calendarApiSource, /export async function outlookBindings/);
 assert.match(calendarApiSource, /outlookCalendars\(\)/);

@@ -1188,7 +1188,15 @@ export type TodaySectionKind =
   | 'pc.activity'
   | 'pc.quality'
   | 'operations.health'
-  | 'pc.classification_suggestions';
+  | 'pc.classification_suggestions'
+  | 'operations.confirmations'
+  | 'sync.outlook'
+  | 'reminders.queue'
+  | 'reports.available'
+  | 'endpoints.status'
+  | 'calendar.availability'
+  | 'calendar.habits'
+  | 'calendar.ai_placeholders';
 
 export interface CalendarScheduleTodayData {
   events: EventResponse[];

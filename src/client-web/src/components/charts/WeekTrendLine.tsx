@@ -23,6 +23,8 @@ function ErrorCard({ message, height }: { message: string; height: number }) {
 export interface WeekTrendPoint { date: string; total: number; }
 export interface WeekTrendLineProps { data?: WeekTrendPoint[]; loading?: boolean;
   error?: string | null; height?: number;
+  /** 数值单位（用于 y 轴名称与 tooltip 文案），默认「分钟」 */
+  unitLabel?: string;
   onSelect?: (item: unknown) => void;
   className?: string; }
 
@@ -33,15 +35,15 @@ const FALLBACK: WeekTrendPoint[] = [
   {date:"W4", total:1680},
 ];
 
-export default function WeekTrendLine({ data, loading, error, height=180 }: WeekTrendLineProps){
+export default function WeekTrendLine({ data, loading, error, height=180, unitLabel='分钟' }: WeekTrendLineProps){
   const pts = data && data.length ? data : FALLBACK;
   const option = useMemo<EChartsOption>(()=>({
-    tooltip:{trigger:'axis'},
-    grid:{left:32,right:10,top:10,bottom:22},
+    tooltip:{trigger:'axis', valueFormatter: (value: unknown) => `${value} ${unitLabel}`},
+    grid:{left:38,right:10,top:20,bottom:22},
     xAxis:{type:'category', data: pts.map(p=>p.date), boundaryGap:false, axisLabel:{fontSize:9,color:chartColors.textMuted}, axisTick:{show:false}, axisLine:{lineStyle:{color:chartColors.borderSoft}}},
-    yAxis:{type:'value', splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
+    yAxis:{type:'value', name:unitLabel, nameTextStyle:{fontSize:9,color:'#94a3b8',align:'left'}, nameGap:8, splitLine:{lineStyle:{color:'#f1f5f9'}}, axisLabel:{fontSize:9,color:'#94a3b8'}},
     series:[{type:'line', data: pts.map(p=>p.total), smooth:true, symbol:'circle', symbolSize:5, lineStyle:{width:2,color:chartColors.primary}, itemStyle:{color:chartColors.primary}, areaStyle:undefined}],
-  } as EChartsOption),[pts]);
+  } as EChartsOption),[pts, unitLabel]);
   if (loading) return <Skeleton height={height} />;
   if (error) return <ErrorCard message={error} height={height} />;
   if (data && data.length===0) return <Empty height={height} />;

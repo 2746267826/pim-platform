@@ -1,27 +1,91 @@
 @import "tailwindcss";
 
+/* ============================================================
+   PIM 基调 v1（2026-09-19 · lab）
+   方向：浅色清爽数据系（参照 Plausible / shadcn / Tremor）
+   - 灰阶：去蓝调 → 中性冷灰（更精致、更耐看）
+   - 主色：标准蓝 → 靛蓝（indigo，更高级的工程气质）
+   - 全站在 Tailwind 主题层一步换肤，无需逐文件改类名
+   ============================================================ */
+@theme {
+  /* 灰阶（slate 重定义：中性微冷） */
+  --color-slate-50: #f8f9fb;
+  --color-slate-100: #f1f2f6;
+  --color-slate-200: #e6e8ee;
+  --color-slate-300: #d4d7df;
+  --color-slate-400: #9fa3b0;
+  --color-slate-500: #717581;
+  --color-slate-600: #585b66;
+  --color-slate-700: #41434d;
+  --color-slate-800: #2a2c34;
+  --color-slate-900: #1a1b21;
+  --color-slate-950: #0f1014;
+
+  /* 主色（blue 重定义 → 靛蓝 indigo） */
+  --color-blue-50: #eef2ff;
+  --color-blue-100: #e0e7ff;
+  --color-blue-200: #c7d2fe;
+  --color-blue-300: #a5b4fc;
+  --color-blue-400: #818cf8;
+  --color-blue-500: #6366f1;
+  --color-blue-600: #4f46e5;
+  --color-blue-700: #4338ca;
+  --color-blue-800: #3730a3;
+  --color-blue-900: #312e81;
+  --color-blue-950: #1e1b4b;
+}
+
 :root {
   color-scheme: light;
-  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
-  --pim-bg: #f6f8fb;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* 表面 */
+  --pim-bg: #f7f8fa;
   --pim-surface: #ffffff;
-  --pim-surface-muted: #f8fafc;
-  --pim-border: #dfe7f1;
-  --pim-border-soft: #e2e8f0;
-  --pim-text: #0f172a;
-  --pim-text-muted: #64748b;
-  --pim-primary: #2563eb;
-  --pim-primary-soft: #dbeafe;
-  --pim-activity: #14b8a6;
+  --pim-surface-muted: #f4f5f7;
+  --pim-border: #e6e8ee;
+  --pim-border-soft: #edeff3;
+  --pim-text: #1a1b21;
+  --pim-text-muted: #717581;
+
+  /* 主色 */
+  --pim-primary: #4f46e5;
+  --pim-primary-hover: #4338ca;
+  --pim-primary-soft: #eef2ff;
+
+  /* 语义色 */
+  --pim-activity: #0d9488;
   --pim-activity-soft: #ccfbf1;
-  --pim-warning: #f59e0b;
+  --pim-success: #16a34a;
+  --pim-success-soft: #dcfce7;
+  --pim-warning: #d97706;
   --pim-warning-soft: #fef3c7;
-  --pim-danger: #ef4444;
+  --pim-danger: #dc2626;
   --pim-danger-soft: #fee2e2;
+  --pim-info: #0ea5e9;
+  --pim-info-soft: #e0f2fe;
+
+  /* 圆角 / 阴影 */
   --pim-radius-sm: 8px;
   --pim-radius-md: 12px;
-  --pim-radius-lg: 16px;
-  --pim-shadow-soft: 0 18px 42px rgba(15, 23, 42, 0.1);
+  --pim-radius-lg: 14px;
+  --pim-shadow-card: 0 1px 2px rgba(16, 17, 22, 0.04);
+  --pim-shadow-soft: 0 12px 32px rgba(16, 17, 22, 0.1);
+  --pim-shadow-pop: 0 16px 40px rgba(16, 17, 22, 0.14);
+
+  /* 图表色板（10 色） */
+  --pim-chart-1: #4f46e5;
+  --pim-chart-2: #0ea5e9;
+  --pim-chart-3: #10b981;
+  --pim-chart-4: #f59e0b;
+  --pim-chart-5: #ef4444;
+  --pim-chart-6: #8b5cf6;
+  --pim-chart-7: #14b8a6;
+  --pim-chart-8: #f97316;
+  --pim-chart-9: #64748b;
+  --pim-chart-10: #ec4899;
 }
 
 html,
@@ -35,6 +99,60 @@ body {
   margin: 0;
   background: var(--pim-bg);
   color: var(--pim-text);
+}
+
+/* 滚动条（精致化） */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d4d7df transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d7df;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b3b7c2;
+  background-clip: padding-box;
+}
+
+/* 选区 */
+::selection {
+  background: rgba(79, 70, 229, 0.18);
+}
+
+/* 折叠收纳区（今日页「运维与状态」等） */
+.pim-collapsible summary {
+  list-style: none;
+}
+
+.pim-collapsible summary::-webkit-details-marker {
+  display: none;
+}
+
+.pim-collapsible .pim-collapsible-chevron {
+  display: inline-block;
+  transition: transform 150ms ease;
+}
+
+.pim-collapsible[open] .pim-collapsible-chevron {
+  transform: rotate(90deg);
+}
+
+.pim-collapsible summary:hover {
+  background: var(--pim-surface-muted);
 }
 
 button,
@@ -88,7 +206,7 @@ textarea {
 }
 
 .pim-button-primary:hover {
-  background: #1d4ed8;
+  background: #4338ca;
 }
 
 .pim-button-secondary {
@@ -107,8 +225,8 @@ textarea {
 }
 
 .pim-button-secondary:hover {
-  border-color: #bfdbfe;
-  background: #f8fafc;
+  border-color: #c7d2fe;
+  background: var(--pim-surface-muted);
 }
 
 .pim-drop-target {
@@ -123,7 +241,7 @@ textarea {
 
 .fc {
   --fc-border-color: var(--pim-border-soft);
-  --fc-today-bg-color: rgba(37, 99, 235, 0.08);
+  --fc-today-bg-color: rgba(79, 70, 229, 0.08);
   --fc-neutral-bg-color: #f8fafc;
   font-family: inherit;
 }
@@ -141,10 +259,10 @@ textarea {
 
 .fc .fc-event {
   border-radius: 10px;
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
   color: var(--pim-text);
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 10px 24px rgba(79, 70, 229, 0.10);
 }
 
 .calendar-board {
@@ -155,7 +273,7 @@ textarea {
 
 .calendar-board .fc {
   --fc-border-color: rgba(148, 163, 184, 0.22);
-  --fc-today-bg-color: rgba(37, 99, 235, 0.08);
+  --fc-today-bg-color: rgba(79, 70, 229, 0.08);
   --fc-neutral-bg-color: transparent;
   color: var(--pim-text);
 }
@@ -204,7 +322,7 @@ textarea {
 
 .calendar-board .fc-day-today .fc-daygrid-day-frame,
 .calendar-board .fc-timegrid-col.fc-day-today {
-  background: linear-gradient(180deg, rgba(219, 234, 254, 0.65), rgba(240, 253, 250, 0.38));
+  background: linear-gradient(180deg, rgba(224, 231, 255, 0.65), rgba(240, 253, 250, 0.38));
 }
 
 .calendar-board .fc-daygrid-day-number {
@@ -216,7 +334,7 @@ textarea {
 }
 
 .calendar-board .fc-day-today .fc-daygrid-day-number {
-  background: #2563eb;
+  background: #4f46e5;
   color: white;
   padding: 0.2rem 0.45rem;
 }
@@ -270,8 +388,8 @@ textarea {
 }
 
 .calendar-event--primary {
-  background: linear-gradient(135deg, #dbeafe, #eff6ff);
-  color: #1d4ed8;
+  background: linear-gradient(135deg, #e0e7ff, #eef2ff);
+  color: #4338ca;
 }
 
 .calendar-event--warning {
@@ -295,8 +413,8 @@ textarea {
   height: 14px;
   border: 3px solid #ffffff;
   border-radius: 999px;
-  background: #2563eb;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  background: #4f46e5;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
 
 .pim-location-marker-selected span {
@@ -337,8 +455,8 @@ textarea {
 
 
 .calendar-event-card[data-calendar-event-card] {
-  background: color-mix(in srgb, var(--calendar-accent, #2563eb) 15%, transparent);
-  border-left: 3px solid var(--calendar-accent, #2563eb);
+  background: color-mix(in srgb, var(--calendar-accent, #4f46e5) 15%, transparent);
+  border-left: 3px solid var(--calendar-accent, #4f46e5);
   border-radius: 4px;
   box-shadow: none;
 }

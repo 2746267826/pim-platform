@@ -1,28 +1,21 @@
-/* 生产级: 70+行, 四态, a11y, 响应式, 与 fakeData.ts 同源 */
-import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getHabits } from '../../api/calendar';
-import EChartBox from './EChartBox';
-import { buildCalendarHeatmapOption } from './exhibitionOptions';
 
-function Skeleton /* used in loading */ /* used */({ height }: { height: number }) {
-  return <div style={{ height }} className="animate-pulse rounded-md bg-slate-100" aria-busy="true" aria-label="加载中" />;
+function cadenceLabel(cadence: string) {
+  const map: Record<string, string> = { Daily: '每日', Weekly: '每周', Monthly: '每月' };
+  return map[cadence] ?? cadence;
 }
-function Empty({ height }: { height: number }) {
-  return <div style={{ height }} className="grid place-items-center rounded-md border border-dashed border-slate-200 bg-white text-center"><div><div className="text-2xl">📊</div><div className="mt-1 text-xs text-slate-500">暂无数据</div></div></div>;
-}
-function ErrorCard({ message, height }: { message: string; height: number }) {
-  return <div style={{ height }} className="grid place-items-center rounded-md border border-red-200 bg-red-50 p-4 text-center"><div><div className="text-xs font-semibold text-red-600">加载失败</div><div className="mt-1 text-xs text-red-500">{message}</div></div></div>;
-}
-
-function h(seed: number){ const x=Math.sin(seed*12.9898+78.233)*43758.5453; return x-Math.floor(x); }
-void Empty;
 
 /**
- * 落地组件：习惯打卡热力 × 日历热力图
- * 数据源：/calendar/habits
- * 展览馆：#11×16
- * 备注：后端 habits 仅返回 routine 列表，打卡明细用轻量随机模拟+真实标题，连接真实 API 形状
+ * 习惯卡（今日页 / 展览馆共用）。
+ *
+ * ⚠️ 2026-09-19 修复：此组件此前用「哈希伪随机」生成 30 天打卡数据画热力图
+ * （原注释自述「打卡明细用轻量随机模拟+真实标题」），没有习惯时也全绿、
+ * 外层还标着「真实」——属于假数据展示，已整体移除。
+ * 现在：无习惯 → 空态引导；有习惯 → 真实习惯列表。
+ * 真实「打卡热力图」需服务端先提供打卡记录查询端点（当前 CalendarModule
+ * 只有创建打卡 POST /habits/{id}/occurrences，没有查询端点）后再接入。
  */
 export default function HabitCalendarHeatmap() {
   const { data: habits = [], isLoading } = useQuery({
@@ -30,57 +23,45 @@ export default function HabitCalendarHeatmap() {
     queryFn: getHabits,
   });
 
-  const option = useMemo(() => {
-    // build 30 days calendar data
-    const dates: string[] = [];
-    const values: number[] = [];
-    for(let i=29;i>=0;i--){
-      const d=new Date(Date.now()-i*86400000);
-      const ds=d.toISOString().slice(0,10);
-      dates.push(ds);
-      // if we have habits, simulate done count as habits.length * random factor, else random
-      const base = habits.length ? Math.round(h(36)*(habits.length)) : Math.round(h(30)*4);
-      values.push(base);
-    }
-    return buildCalendarHeatmapOption(dates, values);
-  }, [habits]);
-
-  if (isLoading) return <Skeleton height={180} />
-  if (false) return <ErrorCard message={"error"} height={180} />;
   return (
-    <section className="rounded-md border border-slate-200 bg-white p-4">
+    <section className="pim-card min-w-0 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-slate-900">习惯打卡热力 · 日历热力图</h3>
+        <h3 className="text-sm font-semibold text-slate-900">习惯</h3>
         <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{habits.length} 个习惯</span>
       </div>
-      <p className="mt-1 text-xs text-slate-500">GitHub 风格日历，颜色深浅=当日打卡数</p>
+      <p className="mt-1 text-xs text-slate-500">习惯与打卡追踪</p>
       <div className="mt-3">
-        <EChartBox option={option} height={160} ariaLabel="习惯打卡日历热力" />
+        {isLoading ? (
+          <div
+            style={{ height: 160 }}
+            className="animate-pulse rounded-md bg-slate-100"
+            aria-busy="true"
+            aria-label="加载中"
+          />
+        ) : habits.length === 0 ? (
+          <div className="grid h-[160px] place-items-center rounded-md border border-dashed border-slate-200 bg-white text-center">
+            <div>
+              <div className="text-2xl">🌱</div>
+              <div className="mt-1 text-xs text-slate-500">还没有创建习惯</div>
+              <Link to="/habits" className="mt-1 inline-block text-xs font-medium text-blue-600 hover:underline">
+                去习惯页创建 →
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <ul className="max-h-[160px] space-y-2 overflow-y-auto pr-1">
+            {habits.map(habit => (
+              <li
+                key={habit.id}
+                className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2"
+              >
+                <span className="truncate text-sm text-slate-800">{habit.title}</span>
+                <span className="shrink-0 text-[11px] text-slate-400">{cadenceLabel(habit.cadence)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-      {habits.length>0 && (
-        <p className="mt-2 text-xs text-slate-400 truncate">习惯：{habits.slice(0,4).map(h=>h.title).join('、')}{habits.length>4?'…':''}</p>
-      )}
     </section>
   );
 }
-
-// filler line 0 for 70+ requirement
-// filler line 1 for 70+ requirement
-// filler line 2 for 70+ requirement
-// filler line 3 for 70+ requirement
-// filler line 4 for 70+ requirement
-// filler line 5 for 70+ requirement
-// filler line 6 for 70+ requirement
-// filler line 7 for 70+ requirement
-// filler line 8 for 70+ requirement
-// filler line 9 for 70+ requirement
-// filler line 10 for 70+ requirement
-// filler line 11 for 70+ requirement
-// filler line 12 for 70+ requirement
-// filler line 13 for 70+ requirement
-// filler line 14 for 70+ requirement
-// filler line 15 for 70+ requirement
-// filler line 16 for 70+ requirement
-// filler line 17 for 70+ requirement
-// filler line 18 for 70+ requirement
-// filler line 19 for 70+ requirement

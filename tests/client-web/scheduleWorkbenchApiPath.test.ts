@@ -51,7 +51,7 @@ assertSourceContains('src/client-web/src/layout/Sidebar.tsx', [
   '/reports',
   '/habits',
 ]);
-assertSourceContains('src/client-web/src/pages/TodayPage.tsx', ['densityMode']);
+assertSourceContains('src/client-web/src/pages/TodayPage.tsx', ['日程任务工作台']);
 assertSourceContains('src/client-web/src/pages/CalendarPage.tsx', ['task-segments']);
 
 assert.equal(calendarApiPaths.taskSegments('task-1'), '/calendar/tasks/task-1/segments');

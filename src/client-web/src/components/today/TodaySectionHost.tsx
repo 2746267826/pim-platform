@@ -16,6 +16,16 @@ import type {
 } from '../../types';
 import TodayClassificationSuggestionsSection from './TodayClassificationSuggestionsSection';
 import TodayHealthSection from './TodayHealthSection';
+import {
+  TodayAiPlaceholdersSection,
+  TodayAvailabilitySection,
+  TodayConfirmationsSection,
+  TodayEndpointsSection,
+  TodayHabitsSection,
+  TodayRemindersSection,
+  TodayReportsSection,
+  TodaySyncOutlookSection,
+} from './TodayOpsSections';
 import TodayPcOverview from './TodayPcOverview';
 import TodayPcQualitySection from './TodayPcQualitySection';
 import TodayScheduleList from './TodayScheduleList';
@@ -29,6 +39,15 @@ export const todaySectionOrder: TodaySectionKind[] = [
   'operations.health',
   'pc.quality',
   'pc.classification_suggestions',
+  // 2026-09-19 全量接入：此前「未在 Web 端注册」的 8 个模块（A 类 5 个 + B 类 3 个）。
+  'operations.confirmations',
+  'sync.outlook',
+  'reminders.queue',
+  'reports.available',
+  'endpoints.status',
+  'calendar.availability',
+  'calendar.habits',
+  'calendar.ai_placeholders',
 ];
 
 const todaySectionTitles: Record<TodaySectionKind, string> = {
@@ -38,6 +57,14 @@ const todaySectionTitles: Record<TodaySectionKind, string> = {
   'pc.quality': 'PC 数据质量',
   'operations.health': '系统健康',
   'pc.classification_suggestions': '分类建议',
+  'operations.confirmations': '待确认',
+  'sync.outlook': '微软同步',
+  'reminders.queue': '提醒队列',
+  'reports.available': '报告',
+  'endpoints.status': '设备端点',
+  'calendar.availability': '空闲窗口',
+  'calendar.habits': '习惯',
+  'calendar.ai_placeholders': 'AI 占位',
 };
 
 export function getTodaySectionTitle(kind: TodaySectionKind | string) {
@@ -149,6 +176,23 @@ export default function TodaySectionHost({
           section={data as TodaySection<ClassificationSuggestionsTodayData>}
         />
       );
+    // 运营与状态（2026-09-19 全量接入）：A 类走独立 API / section 数据；B 类待服务端修复后自动出数。
+    case 'operations.confirmations':
+      return <TodayConfirmationsSection />;
+    case 'sync.outlook':
+      return <TodaySyncOutlookSection />;
+    case 'reminders.queue':
+      return <TodayRemindersSection />;
+    case 'reports.available':
+      return <TodayReportsSection />;
+    case 'endpoints.status':
+      return <TodayEndpointsSection section={data as TodaySection<unknown>} />;
+    case 'calendar.availability':
+      return <TodayAvailabilitySection section={data as TodaySection<unknown>} />;
+    case 'calendar.habits':
+      return <TodayHabitsSection section={data as TodaySection<unknown>} />;
+    case 'calendar.ai_placeholders':
+      return <TodayAiPlaceholdersSection section={data as TodaySection<unknown>} />;
     default:
       return <EmptyState title="未知区块" description={`${data.kind} 暂未在 Web 端注册。`} />;
   }

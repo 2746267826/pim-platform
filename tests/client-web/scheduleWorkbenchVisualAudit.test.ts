@@ -1682,7 +1682,8 @@ async function runScenarioN(browser: Browser, baseUrl: string) {
         `N3: summary font-size must be 0.75rem at ${width}px (got ${summaryStyle.fontSize})`);
       assert.equal(summaryStyle.fontWeight, '400',
         `N3: summary must be normal-weight at ${width}px (got ${summaryStyle.fontWeight})`);
-      assert.equal(summaryStyle.color, 'rgb(100, 116, 139)',
+      // 2026-09-19 视觉基调 v1：muted 色随新色板更新（--pim-text-muted #64748b → #717581）
+      assert.equal(summaryStyle.color, 'rgb(113, 117, 129)',
         `N3: summary must be muted at ${width}px (got ${summaryStyle.color})`);
       assert.equal(summaryStyle.whiteSpace, 'nowrap',
         `N3: summary must be single-line at ${width}px`);

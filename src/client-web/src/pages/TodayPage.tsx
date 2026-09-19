@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { getOutlookSyncBatches } from '../api/calendar';
 import { getPendingConfirmations } from '../api/operations';
 import { getTodaySectionRegistry } from '../api/today';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
@@ -9,7 +8,6 @@ import TaskEditorDialog from '../dialogs/TaskEditorDialog';
 import PageHeader from '../ui/PageHeader';
 import MobilePageHeader from '../ui/MobilePageHeader';
 import EmptyState from '../ui/EmptyState';
-import SegmentedControl from '../ui/SegmentedControl';
 import TodaySectionHost, {
   isKnownTodaySectionKind,
   todaySectionOrder,
@@ -20,19 +18,7 @@ import HabitCalendarHeatmap from '../components/charts/HabitCalendarHeatmap';
 import { useExhibitionData } from '../components/charts/hooks/useExhibitionData';
 import type { EventResponse, TaskResponse, TodaySectionKind, TodaySectionRegistryItem } from '../types';
 import { getDeferredAutoRefreshInterval } from '../lib/autoRefresh';
-import {
-  distributeTodaySections,
-  isWideTodaySection,
-  todayColumnCount,
-} from './todaySectionLayout';
-
-type DensityMode = 'standard' | 'dense' | 'focus';
-
-const densityModeOptions: Array<{ value: DensityMode; label: string }> = [
-  { value: 'standard', label: '标准' },
-  { value: 'dense', label: '高密度' },
-  { value: 'focus', label: '专注' },
-];
+import { todayZoneOf } from './todaySectionLayout';
 
 function useTodayDate() {
   const [today, setToday] = useState(() => new Date());
@@ -51,13 +37,6 @@ function useTodayDate() {
 
 function errorMessage(error: Error | null) {
   return error?.message || '请稍后重试。';
-}
-
-function formatDateTime(value?: string | null) {
-  if (!value) return 'Not available';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
 }
 
 function RegistryErrorPanel({ error }: { error: Error | null }) {
@@ -95,7 +74,6 @@ export default function TodayPage() {
   const [editingTask, setEditingTask] = useState<TaskResponse | undefined>();
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventResponse | undefined>();
-  const [densityMode, setDensityMode] = useState<DensityMode>('standard');
 
   const {
     data: registry,
@@ -107,43 +85,34 @@ export default function TodayPage() {
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
+  // 折叠区摘要用（区块本体由 TodayConfirmationsSection 渲染，queryKey 共享同一份缓存）。
   const { data: pendingConfirmations = [] } = useQuery({
     queryKey: ['today-pending-confirmations'],
     queryFn: getPendingConfirmations,
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
-  const { data: outlookSyncBatches = [] } = useQuery({
-    queryKey: ['today-outlook-sync-batches'],
-    queryFn: getOutlookSyncBatches,
-    refetchInterval: getDeferredAutoRefreshInterval,
-  });
+  // 只渲染 Web 端已注册的区块；未注册的新模块（未来服务端可能新增）仍被过滤。
+  const sections = useMemo(
+    () => sortSections((registry?.sections ?? []).filter(section => isKnownTodaySectionKind(section.kind))),
+    [registry?.sections],
+  );
 
-  const sections = useMemo(() => sortSections(registry?.sections ?? []), [registry?.sections]);
-  const compactItemLimit = densityMode === 'dense' ? 2 : 3;
-
-  // #285：取消「整块 grid 强制等高」——改为跨列区块独占整行、其余区块按列独立堆叠。
-  // 独立列之间互不拉伸，长板块（任务关注 / 分类建议）在自身组件内独立滚动，
-  // 因此不会再出现「某板块过长 → 同行卡片被撑出成片空白」。
-  const wideSections = useMemo(
-    () => sections.filter(section => isWideTodaySection(section.kind)),
+  // 三层分区（v2 信息架构重排）：行动（首屏）/ 数据（回顾）/ 状态（折叠收纳）。
+  // 每个区内部是独立 grid + items-start，区与区之间互不拉伸；
+  // 长列表板块（任务 / 分类建议）在自身组件内独立滚动（#285 约束在新布局下同样成立）。
+  const actionSections = useMemo(
+    () => sections.filter(section => todayZoneOf(section.kind) === 'action'),
     [sections],
   );
-  const columnSections = useMemo(
-    () => sections.filter(section => !isWideTodaySection(section.kind)),
+  const dataSections = useMemo(
+    () => sections.filter(section => todayZoneOf(section.kind) === 'data'),
     [sections],
   );
-  const sectionColumns = useMemo(
-    () => distributeTodaySections(columnSections, todayColumnCount(densityMode)),
-    [columnSections, densityMode],
+  const statusSections = useMemo(
+    () => sections.filter(section => todayZoneOf(section.kind) === 'status'),
+    [sections],
   );
-  // 注意：Tailwind 的类名必须在源码里以字面量出现才会被生成，
-  // 因此这里用静态字面量映射，不能用 `xl:grid-cols-${n}` 这类模板拼接。
-  const columnLayoutClassName = densityMode === 'focus'
-    ? 'gap-4 xl:grid-cols-3'
-    : densityMode === 'dense'
-      ? 'gap-3 xl:grid-cols-4'
-      : 'gap-4 xl:grid-cols-4';
 
   function openTask(task: TaskResponse) {
     setEditingTask(task);
@@ -172,127 +141,31 @@ export default function TodayPage() {
       <MobilePageHeader title="今日" action={<span className="md:hidden text-xs text-slate-500">{dateStr}</span>} />
       <PageHeader
         title="日程任务工作台"
-        subtitle={`${dateStr} · 日程承诺、任务执行、提醒队列与报告`}
-        beforeActions={
-          <SegmentedControl
-            value={densityMode}
-            options={densityModeOptions}
-            onChange={setDensityMode}
-            ariaLabel="今日密度"
-          />
-        }
-        actions={
-          <button
-            type="button"
-            onClick={() => {
-              setEditingTask(undefined);
-              setTaskEditorOpen(true);
-            }}
-            className="pim-button-primary px-4 py-2 text-sm"
-          >
-            新建任务
-          </button>
-        }
+        subtitle={`${dateStr} · 日程承诺、任务执行与报告`}
       />
 
       <RegistryErrorPanel error={registryError} />
-
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-4">
-        <section className="pim-panel min-w-0 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-950">待确认</h2>
-              <p className="mt-1 text-xs text-slate-500">{pendingConfirmations.length} 个操作等待复核</p>
-            </div>
-            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-              {densityMode}
-            </span>
-          </div>
-          <div className="mt-3 space-y-2">
-            {pendingConfirmations.slice(0, compactItemLimit).map(item => (
-              <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 truncate text-sm font-medium text-slate-800">{item.summary}</p>
-                  <span className="shrink-0 text-[11px] font-semibold text-slate-500">{item.riskLevel}</span>
-                </div>
-                {densityMode !== 'focus' && (
-                  <p className="mt-1 truncate text-xs text-slate-500">{item.source} / {item.operationType}</p>
-                )}
-              </div>
-            ))}
-            {pendingConfirmations.length === 0 && (
-              <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-500">
-                暂无待确认操作。
-              </p>
-            )}
-          </div>
-        </section>
-
-        <section className="pim-panel min-w-0 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-950">微软同步</h2>
-              <p className="mt-1 text-xs text-slate-500">{outlookSyncBatches.length} 个最近批次</p>
-            </div>
-            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">同步</span>
-          </div>
-          <div className="mt-3 space-y-2">
-            {outlookSyncBatches.slice(0, compactItemLimit).map(batch => (
-              <div key={batch.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 truncate text-sm font-medium text-slate-800">{batch.status}</p>
-                  <span className="shrink-0 text-[11px] font-semibold text-slate-500">
-                    {batch.failureCount} 个错误
-                  </span>
-                </div>
-                {densityMode !== 'focus' && (
-                  <p className="mt-1 truncate text-xs text-slate-500">
-                    {batch.provider} / 读取 {batch.readCount} / 确认 {batch.confirmationCount} / {formatDateTime(batch.startedAt)}
-                  </p>
-                )}
-              </div>
-            ))}
-            {outlookSyncBatches.length === 0 && (
-              <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-500">
-                暂无微软同步批次。
-              </p>
-            )}
-          </div>
-        </section>
-
-        <section className="pim-panel min-w-0 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-950">提醒队列</h2>
-              <p className="mt-1 text-xs text-slate-500">展示即将触发、已暂停与需升级的提醒。</p>
-            </div>
-            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">提醒</span>
-          </div>
-          <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-500">
-            提醒区块会从今日注册表加载，支持低风险直接处理与高风险打开详情。
-          </p>
-        </section>
-
-        <section className="pim-panel min-w-0 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-950">报告</h2>
-              <p className="mt-1 text-xs text-slate-500">日报、周报、月报与项目报告可在此进入。</p>
-            </div>
-            <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">报告</span>
-          </div>
-          <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-500">
-            报告建议不会直接改动事实，后续动作会进入确认中心。
-          </p>
-        </section>
-      </div>
 
       {registryLoading ? (
         <EmptyState title="正在加载今日区块" description="今日页面会按区块独立加载数据。" />
       ) : (
         <div className="space-y-4">
-          {/* 跨列区块独占整行：行内只有它自己，不存在「被同行最高卡片拉伸」的问题 */}
-          {wideSections.map(section => (
+          {/* 行动区：今天要处理的（日程 / 待办任务 / 分类建议）——首屏最高优先级 */}
+          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {actionSections.map(section => (
+              <TodaySectionHost
+                key={section.id}
+                item={section}
+                date={dateStr}
+                todayPrefix={dateStr}
+                onSelectScheduled={openScheduledItem}
+                onSelectTask={openTask}
+              />
+            ))}
+          </div>
+
+          {/* 数据区：PC 记录概览（整行，行内只有它自己，不存在同行拉伸） */}
+          {dataSections.map(section => (
             <TodaySectionHost
               key={section.id}
               item={section}
@@ -302,29 +175,43 @@ export default function TodayPage() {
               onSelectTask={openTask}
             />
           ))}
-
-          {/* 其余区块按列独立堆叠：列之间互不拉伸（对比修复前的整块等高网格） */}
-          <div className={`grid grid-cols-1 items-start ${columnLayoutClassName}`}>
-            {sectionColumns.map((column, index) => (
-              <div key={`today-column-${index}`} className="flex min-w-0 flex-col gap-4">
-                {column.map(section => (
-                  <TodaySectionHost
-                    key={section.id}
-                    item={section}
-                    date={dateStr}
-                    todayPrefix={dateStr}
-                    onSelectScheduled={openScheduledItem}
-                    onSelectTask={openTask}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
-      {/* 展览馆嵌入：周趋势 + 习惯打卡（真实数据 via useExhibitionData） */}
+      {/* 数据区（续）：周趋势 + 习惯打卡（真实数据 via useExhibitionData） */}
       <TodayExhibitionEmbed dateStr={dateStr} />
+
+      {/* 运维与状态：默认折叠收纳。2026-09-19 起 14 个注册模块全部由此管线渲染——
+          原先临时硬编码的运营卡（待确认/微软同步/提醒队列/报告）已并入注册表系统。 */}
+      <details className="pim-collapsible pim-panel min-w-0">
+        <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-950">运维与状态</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              系统健康、数据质量、待确认操作与同步记录
+              {pendingConfirmations.length > 0 ? ` · ${pendingConfirmations.length} 个待确认` : ''}
+            </p>
+          </div>
+          <span className="pim-collapsible-chevron text-slate-400" aria-hidden="true">▸</span>
+        </summary>
+
+        <div className="space-y-4 px-4 pb-4">
+          {statusSections.length > 0 && (
+            <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {statusSections.map(section => (
+                <TodaySectionHost
+                  key={section.id}
+                  item={section}
+                  date={dateStr}
+                  todayPrefix={dateStr}
+                  onSelectScheduled={openScheduledItem}
+                  onSelectTask={openTask}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </details>
 
       <TaskEditorDialog
         open={taskEditorOpen}
@@ -342,19 +229,14 @@ export default function TodayPage() {
 
 function TodayExhibitionEmbed({ dateStr }: { dateStr: string }) {
   const q2 = useExhibitionData(2, { real: true, date: dateStr });
-  const q11 = useExhibitionData(11, { real: true, date: dateStr });
   return (
-    <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <section className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
       <div className="pim-card p-4">
-        <h3 className="text-sm font-semibold text-slate-900">周趋势 · 折线图（真实）</h3>
-        <p className="mt-1 text-xs text-slate-500">周一/五双峰，周末-20% · {q2.isReal ? '🔗真实' : '🔮模拟'}</p>
-        <div className="mt-3">{q2.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q2.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <WeekTrendLine data={q2.data as never} />}</div>
+        <h3 className="text-sm font-semibold text-slate-900">近 7 天使用时长</h3>
+        <p className="mt-1 text-xs text-slate-500">每日手机使用时长（小时）· {q2.isReal ? '🔗真实数据' : '🔮模拟数据'}</p>
+        <div className="mt-3">{q2.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q2.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <WeekTrendLine data={q2.data as never} unitLabel="小时" />}</div>
       </div>
-      <div className="pim-card p-4">
-        <h3 className="text-sm font-semibold text-slate-900">习惯打卡 · 日历热力（真实）</h3>
-        <p className="mt-1 text-xs text-slate-500">5习惯×30天 · {q11.isReal ? '🔗真实' : '🔮模拟'}</p>
-        <div className="mt-3">{q11.loading ? <div className="h-[168px] animate-pulse rounded-md bg-slate-100" /> : q11.error ? <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-600">加载失败</div> : <HabitCalendarHeatmap />}</div>
-      </div>
+      <HabitCalendarHeatmap />
     </section>
   );
 }

@@ -220,18 +220,23 @@ GET /api/v1/files/items/{id}/thumbnail?size=    # 缩略图（302 → 新鲜缩�
 
 ## 14. OneDrive 个人版 API 事实验证清单
 
-实现前用项目主人账号做一次连通性小实验（device-code 登录 + 临时脚本），全部半天内可定案：
+**已验证（2026-09-19，项目主人授权的 device-code 只读会话；全程无任何写操作，探测脚本与原始输出存于会话工作区，不入库）。**
 
-| # | 能力 | 预期 | 验证方法 | 兜底方案（已内置设计） |
+| # | 能力 | 结果 | 实测记录 | 对设计的影响 |
 |---|---|---|---|---|
-| V1 | delta 同步 | 个人版支持 | 首页全量 + 二次增量跑通 | —（基本无风险） |
-| V2 | 缩略图 API | 支持 | 对图片项取 thumbnails | 直链 `<img>` 兜底 |
-| V3 | `/preview` / embed iframe | 支持面不确定 | 实测 docx/pptx 预览 | 新标签页深链打开 |
-| V4 | 版本 API `/versions` | 支持面不确定 | 实测列出 / 恢复 | PIM 侧文本快照（§8）；Office 编辑靠 OneDrive 原生历史 |
-| V5 | 回收站 API | 个人版**预期没有** | 文档 + 实测 | PIM 软删 + 回收站表为主（现有）；Graph 删除后 OneDrive 网页端仍可救 |
-| V6 | CORS：直链能否被浏览器直接 fetch | 不确定 | 浏览器实测 `fetch(downloadUrl)` | 文本小文件走 `content` 端点代理（§8）；img/iframe 不受 CORS 影响 |
-| V7 | 上传会话 CORS（浏览器直传可行性） | 不确定 | 实测 PUT 上传会话 URL | 上传统一走 PIM 流转发（本期默认） |
-| V8 | 429 限流行为 | Retry-After | 低阈值压力探测 | 统一退避 + 抖动 |
+| V1 | delta 同步 | ✅ 支持 | `GET /me/drive/root/delta` 200，首页 50 条可翻页（未到 deltaLink，符合预期） | P1 delta 方案成立；注意首次全量规模（见附录） |
+| V2 | 缩略图 API | ✅ 支持 | 图片项 thumbnails 200 | 预览矩阵按原设计 |
+| V3 | `/preview` | ✅ 支持 | POST preview 200 且返回 `getUrl` | Office 预览走 `/preview` iframe，无需新标签页兜底 |
+| V4 | 版本 API `/versions` | ✅ 列表可用 | 图片项 versions 200（count=1）；**恢复未测**（只读约束） | P2 可接线版本列表；恢复操作待 P2 实测再定，文本快照兜底保留 |
+| V5 | 回收站 API | ❌ 不存在（符合预期） | `GET /me/drive/deletedItems` 返回 400 | 个人版无 Graph 回收站端点——PIM 侧软删 + 回收站表为主的设计确认 |
+| V6 | downloadUrl 预授权 | ✅ 可用 | 无 `Authorization` 头 + Range 请求返回 206、读到 1KB；`cors_header` 为 null（探测未带 Origin 头，不能据此断言 CORS） | 直链 302 方案成立；浏览器 CORS 行为留待 P2 真实页面实测，文本预览默认走 PIM content 端点代理（≤2MB），不受影响 |
+| V7 | 上传会话 CORS | ⏸ 推迟 | PUT 需要写权限，与「严禁影响文件」约束冲突 | 不阻塞：设计默认上传走 PIM 服务器转发，浏览器直传仅作为将来优化 |
+| V8 | 429 限流 | ⏸ 不做压力探测 | 避免对真实账号制造限流 | 退避 + `Retry-After` 处理由 fake handler 单测覆盖 |
+
+### 验证附录
+
+- 账号与盘：`driveType = "personal"`，配额已用 378.92 GB / 1104.88 GB（个人版确认）。**已用量大，首次全量 delta 爬取可能达数万项**——P1 必须完整分页、同步进度可见、对首次同步耗时给出预期管理；验收标准「几分钟内可见」指增量场景，首次全量单独说明。
+- **scope 披露**：device-code 实际返回的 token scope 比申请的宽（含 `Files.ReadWrite.All` 等）——原因是该应用注册此前已为 Outlook 同步 consent 过这些权限，AAD 返回已授权集合。本次脚本仅执行 GET 与无副作用的 preview，token 未落盘未打印，进程退出即失效。**对 P1 的意义：无需新建应用注册、无需新增 consent 流程，现有 Client ID 即可支撑读写实现**；实现中仍须在代码层遵循最小权限，只调用所需操作。
 
 ---
 

@@ -1,5 +1,5 @@
 /**
- * 今日页布局回归护栏（v3：三层分区 + 顶部精简 + 未知区块过滤）。
+ * 今日页布局回归护栏（v4：三层分区 + 14 模块全量接入）。
  *
  * 信息架构（2026-09-19 重排）：
  *   action（首屏，行动）→ data（数据回顾）→ status（运维与状态，折叠收纳）。
@@ -7,11 +7,14 @@
  * #285 的历史约束在新布局下依然要守住：
  *   1. 每个区的容器必须显式 items-start（取消 CSS Grid 强制等高拉伸）；
  *   2. 长列表板块（任务关注 / 分类建议）必须自带独立滚动容器；
- *   3. 区块种类不得缩水；运营卡只做收纳、不得删除。
+ *   3. 区块种类不得缩水；运营模块只做收纳、不得删除。
  *
  * v3 变更（用户拍板）：
  *   - 移除顶部「新建任务」按钮与密度切换器（只保留默认布局）；
  *   - 未注册区块被过滤，不再渲染「未知区块」占位。
+ * v4 变更（2026-09-19 用户拍板「AB 类都放出来」）：
+ *   - 8 个此前未接入的注册模块全量放出来（A 类：服务端就绪；B 类：待服务端修复）；
+ *   - 临时硬编码的运营卡删除，统一由注册表渲染管线接管（同一功能一条路径）。
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -30,6 +33,19 @@ test('三层分区映射：行动 / 数据 / 状态', () => {
   assert.equal(todayZoneOf('pc.activity'), 'data');
   assert.equal(todayZoneOf('operations.health'), 'status');
   assert.equal(todayZoneOf('pc.quality'), 'status');
+  // v4：全量接入的 8 个模块统一收纳在折叠区
+  for (const kind of [
+    'operations.confirmations',
+    'sync.outlook',
+    'reminders.queue',
+    'reports.available',
+    'endpoints.status',
+    'calendar.availability',
+    'calendar.habits',
+    'calendar.ai_placeholders',
+  ]) {
+    assert.equal(todayZoneOf(kind), 'status', `${kind} 应归入 status`);
+  }
   // 未知区块归入 status（折叠收纳），不占首屏
   assert.equal(todayZoneOf('unknown.section'), 'status');
 });
@@ -82,9 +98,28 @@ test('展示的区块种类未缩水', () => {
   }
 });
 
-test('运营卡只做收纳、不得删除', () => {
+test('运营模块只做收纳、不得删除（v4：由注册表系统接管渲染）', () => {
+  const host = read('src/client-web/src/components/today/TodaySectionHost.tsx');
   for (const kept of ['待确认', '微软同步', '提醒队列', '报告']) {
-    assert.ok(todayPage.includes(kept), `运营卡「${kept}」应保留在页面中（收纳而非删除）`);
+    assert.ok(host.includes(kept), `运营模块「${kept}」应保留（注册表渲染管线）`);
+  }
+});
+
+test('v4：8 个新模块已进入注册表渲染管线与折叠区', () => {
+  const host = read('src/client-web/src/components/today/TodaySectionHost.tsx');
+  const layout = read('src/client-web/src/pages/todaySectionLayout.ts');
+  for (const kind of [
+    'operations.confirmations',
+    'sync.outlook',
+    'reminders.queue',
+    'reports.available',
+    'endpoints.status',
+    'calendar.availability',
+    'calendar.habits',
+    'calendar.ai_placeholders',
+  ]) {
+    assert.ok(host.includes(kind), `区块 ${kind} 应出现在 TodaySectionHost`);
+    assert.ok(layout.includes(kind), `区块 ${kind} 应出现在 todaySectionLayout`);
   }
 });
 

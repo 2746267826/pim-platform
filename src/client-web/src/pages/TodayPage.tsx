@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { getOutlookSyncBatches } from '../api/calendar';
 import { getPendingConfirmations } from '../api/operations';
 import { getTodaySectionRegistry } from '../api/today';
 import EventEditorDialog from '../dialogs/EventEditorDialog';
@@ -38,13 +37,6 @@ function useTodayDate() {
 
 function errorMessage(error: Error | null) {
   return error?.message || '请稍后重试。';
-}
-
-function formatDateTime(value?: string | null) {
-  if (!value) return 'Not available';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
 }
 
 function RegistryErrorPanel({ error }: { error: Error | null }) {
@@ -93,25 +85,18 @@ export default function TodayPage() {
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
+  // 折叠区摘要用（区块本体由 TodayConfirmationsSection 渲染，queryKey 共享同一份缓存）。
   const { data: pendingConfirmations = [] } = useQuery({
     queryKey: ['today-pending-confirmations'],
     queryFn: getPendingConfirmations,
     refetchInterval: getDeferredAutoRefreshInterval,
   });
 
-  const { data: outlookSyncBatches = [] } = useQuery({
-    queryKey: ['today-outlook-sync-batches'],
-    queryFn: () => getOutlookSyncBatches(),
-    refetchInterval: getDeferredAutoRefreshInterval,
-  });
-
-  // 只渲染 Web 端已注册的区块：服务端注册表包含尚未在 Web 实现的模块（如 sync.outlook、
-  // reports.available 等），未注册的一律静默忽略，不再渲染「未知区块」占位。
+  // 只渲染 Web 端已注册的区块；未注册的新模块（未来服务端可能新增）仍被过滤。
   const sections = useMemo(
     () => sortSections((registry?.sections ?? []).filter(section => isKnownTodaySectionKind(section.kind))),
     [registry?.sections],
   );
-  const compactItemLimit = 3;
 
   // 三层分区（v2 信息架构重排）：行动（首屏）/ 数据（回顾）/ 状态（折叠收纳）。
   // 每个区内部是独立 grid + items-start，区与区之间互不拉伸；
@@ -196,7 +181,8 @@ export default function TodayPage() {
       {/* 数据区（续）：周趋势 + 习惯打卡（真实数据 via useExhibitionData） */}
       <TodayExhibitionEmbed dateStr={dateStr} />
 
-      {/* 运维与状态：默认折叠收纳——系统健康 / 数据质量 / 待确认 / 同步等，不占首屏 */}
+      {/* 运维与状态：默认折叠收纳。2026-09-19 起 14 个注册模块全部由此管线渲染——
+          原先临时硬编码的运营卡（待确认/微软同步/提醒队列/报告）已并入注册表系统。 */}
       <details className="pim-collapsible pim-panel min-w-0">
         <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
           <div>
@@ -224,93 +210,6 @@ export default function TodayPage() {
               ))}
             </div>
           )}
-
-          {/* 运营信息卡（待确认 / 微软同步 / 提醒队列 / 报告）——收纳保留，未删除 */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <section className="pim-panel min-w-0 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-950">待确认</h2>
-                  <p className="mt-1 text-xs text-slate-500">{pendingConfirmations.length} 个操作等待复核</p>
-                </div>
-                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
-                  复核
-                </span>
-              </div>
-              <div className="mt-3 space-y-2">
-                {pendingConfirmations.slice(0, compactItemLimit).map(item => (
-                  <div key={item.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 truncate text-sm font-medium text-slate-800">{item.summary}</p>
-                      <span className="shrink-0 text-[11px] font-semibold text-slate-500">{item.riskLevel}</span>
-                    </div>
-                    <p className="mt-1 truncate text-xs text-slate-500">{item.source} / {item.operationType}</p>
-                  </div>
-                ))}
-                {pendingConfirmations.length === 0 && (
-                  <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-500">
-                    暂无待确认操作。
-                  </p>
-                )}
-              </div>
-            </section>
-
-            <section className="pim-panel min-w-0 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-950">微软同步</h2>
-                  <p className="mt-1 text-xs text-slate-500">{outlookSyncBatches.length} 个最近批次</p>
-                </div>
-                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">同步</span>
-              </div>
-              <div className="mt-3 space-y-2">
-                {outlookSyncBatches.slice(0, compactItemLimit).map(batch => (
-                  <div key={batch.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="min-w-0 truncate text-sm font-medium text-slate-800">{batch.status}</p>
-                      <span className="shrink-0 text-[11px] font-semibold text-slate-500">
-                        {batch.failureCount} 个错误
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-xs text-slate-500">
-                      {batch.provider} / 读取 {batch.readCount} / 确认 {batch.confirmationCount} / {formatDateTime(batch.startedAt)}
-                    </p>
-                  </div>
-                ))}
-                {outlookSyncBatches.length === 0 && (
-                  <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-500">
-                    暂无微软同步批次。
-                  </p>
-                )}
-              </div>
-            </section>
-
-            <section className="pim-panel min-w-0 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-950">提醒队列</h2>
-                  <p className="mt-1 text-xs text-slate-500">展示即将触发、已暂停与需升级的提醒。</p>
-                </div>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">提醒</span>
-              </div>
-              <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-500">
-                提醒区块会从今日注册表加载，支持低风险直接处理与高风险打开详情。
-              </p>
-            </section>
-
-            <section className="pim-panel min-w-0 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-950">报告</h2>
-                  <p className="mt-1 text-xs text-slate-500">日报、周报、月报与项目报告可在此进入。</p>
-                </div>
-                <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">报告</span>
-              </div>
-              <p className="mt-3 rounded-lg border border-dashed border-slate-200 px-3 py-4 text-sm text-slate-500">
-                报告建议不会直接改动事实，后续动作会进入确认中心。
-              </p>
-            </section>
-          </div>
         </div>
       </details>
 

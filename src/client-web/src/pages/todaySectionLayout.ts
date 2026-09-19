@@ -25,6 +25,16 @@ const ZONE_OF: Record<TodaySectionKind, TodayZone> = {
   'pc.activity': 'data',
   'operations.health': 'status',
   'pc.quality': 'status',
+  // 2026-09-19 全量接入的 8 个模块：统一收纳在「运维与状态」折叠区。
+  // （A 类：服务端就绪、此前前端未接；B 类：服务端 provider 待修复，修复后自动出数。）
+  'operations.confirmations': 'status',
+  'sync.outlook': 'status',
+  'reminders.queue': 'status',
+  'reports.available': 'status',
+  'endpoints.status': 'status',
+  'calendar.availability': 'status',
+  'calendar.habits': 'status',
+  'calendar.ai_placeholders': 'status',
 };
 
 /** 未知 / 未注册的区块统一归入 status（折叠收纳），不占用首屏。 */

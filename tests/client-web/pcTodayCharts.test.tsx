@@ -116,8 +116,10 @@ test('TodayPcOverview renders static area chart and loading aggregation cards', 
   );
   assert.ok(html.includes('分类分布'), 'should render 分类分布 card title');
   assert.ok(html.includes('专注段'), 'should render 专注段 card title');
+  // 2026-09-19 紧凑化：无数据/加载态下分类图不再画「空圆环」，改为文字态；
+  // 面积图占位（role="img"）始终渲染。
   const imgCount = (html.match(/role="img"/g) || []).length;
-  assert.ok(imgCount >= 2, `should render at least 2 role="img" placeholders, got ${imgCount}`);
+  assert.ok(imgCount >= 1, `should render at least 1 role="img" placeholder (area chart), got ${imgCount}`);
   assert.ok(html.includes('今日 24 小时 PC 活跃面积图'), 'area chart aria label should exist');
   assert.ok(html.includes('加载中') || html.includes('暂无数据'), 'aggregation cards should show loading/empty state under SSR');
 });

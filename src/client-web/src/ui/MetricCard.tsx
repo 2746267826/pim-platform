@@ -15,17 +15,20 @@ export default function MetricCard({
   value,
   helper,
   tone = 'neutral',
+  dense = false,
 }: {
   label: string;
   value: ReactNode;
   helper?: ReactNode;
   tone?: MetricTone;
+  /** 紧凑模式：更小的内边距与字号（用于高密度信息区，如 PC 记录概览）。 */
+  dense?: boolean;
 }) {
   return (
-    <section className="pim-card p-4 min-w-0">
-      <p className="text-xs text-slate-500 mb-2 truncate">{label}</p>
-      <div className={`min-w-0 break-words text-xl font-semibold ${valueClass[tone]}`}>{value}</div>
-      {helper && <p className="text-xs text-slate-400 mt-2 truncate">{helper}</p>}
+    <section className={`pim-card min-w-0 ${dense ? 'p-3' : 'p-4'}`}>
+      <p className={`text-xs text-slate-500 truncate ${dense ? 'mb-1' : 'mb-2'}`}>{label}</p>
+      <div className={`min-w-0 break-words font-semibold ${dense ? 'text-lg' : 'text-xl'} ${valueClass[tone]}`}>{value}</div>
+      {helper && <p className={`text-xs text-slate-400 truncate ${dense ? 'mt-1' : 'mt-2'}`}>{helper}</p>}
     </section>
   );
 }

@@ -13,6 +13,20 @@ public enum TrackerEventType
     BrowserHeartbeat
 }
 
+/// <summary>
+/// 会话/页面归属管理器。
+///
+/// 已知架构限制（#310 评审确认，非本 issue 引入、也不在本次范围内）：
+/// 这里只保存**一份**「最近心跳」（<c>_lastHeartbeat</c>），不带 instanceId / HWND /
+/// 进程身份。因此同一台机器上开两个浏览器或两个浏览器实例交替心跳时，URL 与
+/// <c>Browser</c>/<c>InstanceId</c> 等元数据都可能来自另一个实例；两个同名浏览器窗口
+/// 之间切换也不会形成会话边界（只比较 AppName + WindowTitle）。
+///
+/// 本次修复把归属收紧到「前台应用是浏览器 + 心跳新鲜 + 标题同源」，消除了 issue #310
+/// 记录的全部假页面形态（非浏览器应用、浏览器原生窗口/对话框、静默后的陈旧心跳）。
+/// 要彻底解决多实例归属，需要把心跳按 instanceId 分桶、并把产生页面访问时的元数据
+/// 快照进 <c>TrackerPageVisit</c>；那是独立的结构性改动。
+/// </summary>
 public sealed class TrackerSessionManager
 {
     public const int MaxContinuousSessionSeconds = 1800; // 30 minutes checkpoint (Rule T1b)
@@ -30,6 +44,12 @@ public sealed class TrackerSessionManager
     /// 因此比对只取有界前缀，避免长标题永远比对不上。
     /// </summary>
     private const int TitleMatchPrefixLength = 32;
+
+    /// <summary>
+    /// 低于这个长度的标题必须全等才能归属：短标题的前缀比较没有区分度，
+    /// 会把「新标签页」和「新标签页 - Google Chrome」之外的无关窗口也误判成同源。
+    /// </summary>
+    private const int MinTitleMatchLength = 8;
 
     private static long _globalId;
     private readonly TrackerLogger? _logger;
@@ -131,8 +151,17 @@ public sealed class TrackerSessionManager
     /// （附加组件管理器、文件选择对话框…）或另一个应用。这类窗口的标题与标签页
     /// 无关，绝不能借心跳把浏览器标签的 URL 挂上去——#310 的假页面记录正来源于此。
     ///
-    /// 比对采用「有界前缀」而非全等：Windows 会截断过长的窗口标题，全等会让长标题
-    /// 永远匹配不上；而插件上报的 title 正是标签页标题，与窗口标题同源。
+    /// 比对规则：
+    /// - 两边都非空，且都不是纯空白；
+    /// - 短标题（不足 <see cref="MinTitleMatchLength"/> 字符）必须**全等**：
+    ///   否则一两个字符的标题（"新"、"a"）会跟任何同前缀的标题撞上，把无关窗口
+    ///   错认成同一个标签页；
+    /// - 否则按有界前缀比较：Windows 会截断过长的窗口标题（尾部加省略号），
+    ///   全等会让长标题永远匹配不上；而插件上报的 title 与窗口标题同源。
+    ///
+    /// 注意：这里只能做到「标题同源」这一层证据。真正的多实例/多窗口精确关联需要
+    /// 按 instanceId + HWND 分别保存心跳，属于既有架构限制（本 issue 未要求），
+    /// 见 TrackerSessionManager 顶部关于心跳来源的说明。
     /// </summary>
     public static bool HeartbeatMatchesWindowTitle(BrowserHeartbeat hb, string? windowTitle)
     {
@@ -142,11 +171,13 @@ public sealed class TrackerSessionManager
         var heartbeatTitle = hb.Title.Trim();
         var title = windowTitle.Trim();
 
+        // 短标题走全等：前缀比较在短字符串上没有区分度。
+        if (heartbeatTitle.Length < MinTitleMatchLength || title.Length < MinTitleMatchLength)
+            return string.Equals(heartbeatTitle, title, StringComparison.OrdinalIgnoreCase);
+
         var prefixLength = Math.Min(
             Math.Min(heartbeatTitle.Length, title.Length),
             TitleMatchPrefixLength);
-        if (prefixLength == 0)
-            return false;
 
         return string.Equals(
             heartbeatTitle[..prefixLength],

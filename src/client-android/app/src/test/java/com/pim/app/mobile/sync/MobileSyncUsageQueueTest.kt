@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -55,6 +56,16 @@ class MobileSyncUsageQueueTest {
         assertTrue(allIds.contains(e2))
         assertEquals(2, batch.events.size)
         assertEquals(0, batch.summaries.size)
+    }
+
+    // --- 空载缺口窗口跳过上传（EPIC #254 S11） ---
+
+    @Test
+    fun `isEmptyGapWindowUpload is true only when events summaries and apps are all empty`() {
+        assertTrue(isEmptyGapWindowUpload(emptyList<Any>(), emptyList<Any>(), emptyList<Any>()))
+        assertFalse(isEmptyGapWindowUpload(listOf(Any()), emptyList<Any>(), emptyList<Any>()))
+        assertFalse(isEmptyGapWindowUpload(emptyList<Any>(), listOf(Any()), emptyList<Any>()))
+        assertFalse(isEmptyGapWindowUpload(emptyList<Any>(), emptyList<Any>(), listOf(Any())))
     }
 
     @Test

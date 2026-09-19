@@ -335,6 +335,17 @@ class MobileSyncCoordinator @Inject constructor(
                 if (appMetadata.isNotEmpty()) {
                     mobileDataDao.upsertAppMetadata(appMetadata)
                 }
+                if (isEmptyGapWindowUpload(collection.events, collection.summaries, appMetadata)) {
+                    logs.info(
+                        "mobile-sync",
+                        "缺口窗口未采集到任何条目，跳过上传（不产生空载批次，窗口保持真实缺口状态）。",
+                        mapOf(
+                            "windowStartUtc" to windowStartUtc,
+                            "windowEndUtc" to windowEndUtc
+                        )
+                    )
+                    continue
+                }
 
                 current = current.copy(
                     phase = "uploading",
@@ -1090,6 +1101,19 @@ private fun clampGapWindow(
         null
     }
 }
+
+/**
+ * 空载判定：缺口窗口没有采集到任何条目（事件 / 汇总 / 应用元数据）时不上传。
+ * 服务端不为空载请求创建批次行（EPIC #254 S11 空转批次），空窗口也不再被记为"已覆盖"；
+ * 此时上传空批次只会白白消耗一次网络往返，真实的无数据窗口应由缺口服务如实回报。
+ * 客户端每次同步都按滚动 14 天窗口向服务器要缺口（无本地游标），
+ * 若靠空批次"填坑"，服务端停止为空载建行后同一窗口会被每次同步重复扫描上传——因此必须在源头跳过。
+ */
+internal fun isEmptyGapWindowUpload(
+    events: Collection<*>,
+    summaries: Collection<*>,
+    apps: Collection<*>
+): Boolean = events.isEmpty() && summaries.isEmpty() && apps.isEmpty()
 
 fun splitGapWindowForUpload(
     windowStartUtc: Long,

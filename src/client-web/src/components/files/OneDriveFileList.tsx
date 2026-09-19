@@ -3,6 +3,7 @@ import type { FileItem } from '../../types';
 
 export interface OneDriveFileListProps {
   items: FileItem[];
+  loading?: boolean;
   breadcrumb: string;
   searchQuery: string;
   onSearchChange: (value: string) => void;
@@ -43,6 +44,7 @@ export function typeBadge(item: FileItem): { label: string; className: string } 
 /** 方案 A 中栏：工具条（搜索/视图切换）+ 列表/网格。 */
 export default function OneDriveFileList({
   items,
+  loading = false,
   breadcrumb,
   searchQuery,
   onSearchChange,
@@ -136,7 +138,7 @@ export default function OneDriveFileList({
               {visible.length === 0 && (
                 <tr>
                   <td colSpan={3} className="px-3 py-8 text-center text-sm text-[var(--pim-text-muted)]">
-                    {keyword ? '没有匹配的文件' : '此文件夹为空'}
+                    {loading ? '加载中…' : keyword ? '没有匹配的文件' : '此文件夹为空'}
                   </td>
                 </tr>
               )}
@@ -169,7 +171,7 @@ export default function OneDriveFileList({
           })}
           {visible.length === 0 && (
             <div className="col-span-full py-8 text-center text-sm text-[var(--pim-text-muted)]">
-              {keyword ? '没有匹配的文件' : '此文件夹为空'}
+              {loading ? '加载中…' : keyword ? '没有匹配的文件' : '此文件夹为空'}
             </div>
           )}
         </div>

@@ -1404,6 +1404,7 @@ export interface OneDriveBindingStatus {
   userCode: string | null;
   verificationUri: string | null;
   deviceCodeExpiresAt: string | null;
+  pollIntervalSeconds?: number | null;
 }
 
 export interface OneDriveSyncResult {

@@ -5,18 +5,19 @@ import type { OneDriveBindingStatus } from '../../types';
 interface OneDriveBindDialogProps {
   onClose: () => void;
   onConnected: () => void;
+  initialClientId?: string;
 }
 
 type BindPhase = 'input' | 'awaiting' | 'failed';
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 5000;
 
 /**
  * OneDrive 绑定流程：输入 Azure 应用 Client ID → 设备码登录 → 轮询状态 → connected。
  */
-export default function OneDriveBindDialog({ onClose, onConnected }: OneDriveBindDialogProps) {
+export default function OneDriveBindDialog({ onClose, onConnected, initialClientId = '' }: OneDriveBindDialogProps) {
   const [phase, setPhase] = useState<BindPhase>('input');
-  const [clientId, setClientId] = useState('');
+  const [clientId, setClientId] = useState(initialClientId);
   const [error, setError] = useState<string | null>(null);
   const [userCode, setUserCode] = useState<string | null>(null);
   const [verificationUri, setVerificationUri] = useState<string | null>(null);
@@ -119,7 +120,7 @@ export default function OneDriveBindDialog({ onClose, onConnected }: OneDriveBin
               {userCode}
             </p>
             <p className="text-xs text-[var(--pim-text-muted)]">
-              {status?.status === 'pending' ? '等待你在微软页面完成登录…（每 2 秒自动检测）' : '正在确认授权…'}
+              {status?.status === 'pending' ? '等待你在微软页面完成登录…（自动检测）' : '正在确认授权…'}
             </p>
             <div className="flex justify-end pt-2">
               <button type="button" className="pim-button-secondary px-3" onClick={onClose}>关闭</button>

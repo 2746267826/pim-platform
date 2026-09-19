@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -122,6 +122,12 @@ export default function FilesPage() {
     if (status === 'syncing') return { dot: 'bg-amber-500', text: '正在同步…' };
     if (status === 'error') return { dot: 'bg-red-500', text: '同步出错' };
     if (oneDriveProvider.lastSyncAt) {
+      // 刻意读取墙钟判断同步新鲜度；memo 依赖 lastSyncAt 变化时刷新
+      // eslint-disable-next-line react-hooks/purity
+      const ageMs = Date.now() - new Date(oneDriveProvider.lastSyncAt).getTime();
+      if (ageMs > 45 * 60 * 1000) {
+        return { dot: 'bg-amber-500', text: '同步落后（超过 45 分钟）' };
+      }
       return {
         dot: 'bg-green-500',
         text: `增量同步 ${new Date(oneDriveProvider.lastSyncAt).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`,
@@ -238,7 +244,7 @@ export default function FilesPage() {
             <div
               className={
                 mobilePreviewOpen && selectedItem
-                  ? 'fixed inset-0 z-40 overflow-auto bg-[var(--pim-surface)] md:static md:z-auto md:flex md:overflow-visible md:bg-transparent'
+                  ? 'fixed inset-0 z-40 overflow-auto bg-[var(--pim-surface)] md:static md:z-auto md:flex md:overflow-y-auto md:bg-transparent'
                   : 'hidden md:flex'
               }
             >
@@ -263,6 +269,7 @@ export default function FilesPage() {
         <OneDriveBindDialog
           onClose={() => setBindDialogOpen(false)}
           onConnected={handleConnected}
+          initialClientId={oneDriveProvider?.clientId ?? ''}
         />
       )}
     </div>
@@ -270,6 +277,10 @@ export default function FilesPage() {
 }
 
 function EmptyBindingState({ loading, hasPending, onBind }: { loading: boolean; hasPending: boolean; onBind: () => void }) {
+  useEffect(() => {
+    // 绑定未完成（pending/expired/denied）时自动弹出对话框，免去手动点击
+    if (hasPending) onBind();
+  }, [hasPending, onBind]);
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center p-16 text-sm text-[var(--pim-text-muted)]" data-testid="files-loading">

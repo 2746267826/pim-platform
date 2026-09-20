@@ -3211,7 +3211,7 @@ async def get_version(-) -> Any: ...
 | `move_file` | `POST /api/v1/files/items/{id}/move` | destinationPath |
 | `rename_file` | `POST /api/v1/files/items/{id}/rename` | name |
 | `delete_file` | `DELETE /api/v1/files/items/{id}` | — |
-| `restore_file` | `POST /api/v1/files/trash/{id}/restore` | query trashId（必填） |
+| `restore_file` | `POST /api/v1/files/items/{id}/restore` | —（仅当文件仍在 OneDrive 时可恢复） |
 | `index_file` | `POST /api/v1/files/items/{id}/index` | — |
 
 **PcTracker 分类 4**

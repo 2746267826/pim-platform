@@ -1,7 +1,7 @@
 # MCP Server 使用文档 / MCP Server Guide
 
-> PIM MCP v3 — 101 只读 + 50 写入工具（HTTP 多客户端 + 工具级权限），给自家可信 AI Agent 专用。
-> PIM MCP v3 — 101 read-only + 50 write tools (HTTP multi-client + tool-level permissions), for trusted internal AI Agent.
+> PIM MCP v3 — 100 只读 + 49 写入工具（HTTP 多客户端 + 工具级权限），给自家可信 AI Agent 专用。
+> PIM MCP v3 — 100 read-only + 49 write tools (HTTP multi-client + tool-level permissions), for trusted internal AI Agent.
 
 ## 目录 / Table of Contents
 - [1. 概览 / Overview](#1-概览--overview)
@@ -15,7 +15,7 @@
   - [5.4 QuickNotes 3](#54-quicknotes-3)
   - [5.5 Files 8](#55-files-8)
   - [5.6 Core/Infra 14](#56-coreinfra-14)
-  - [5.7 写入工具 50 / Write Tools 50](#57-写入工具-50--write-tools-50)
+  - [5.7 写入工具 49 / Write Tools 49](#57-写入工具-49--write-tools-49)
 - [6. HTTP 接入与 Token / HTTP Access & Tokens](#6-http-接入与-token--http-access--tokens)
 - [7. 典型调用流 / Recipes](#7-典型调用流--recipes)
 - [8. 脱敏与隐私 / Redaction](#8-脱敏与隐私--redaction)
@@ -28,7 +28,7 @@
 ### 是什么 / What it is
 - Python `FastMCP` 服务，地址 `scripts/mcp/pim_mcp_server.py`。
 - 双传输：`stdio`（默认，兼容 v2）+ `Streamable HTTP`（Phase 3，多客户端远程并发）。
-- 151 工具 = 读取 `101`（Calendar 31 + PcTracker 27 + Mobile 18 + QuickNotes 3 + Files 8 + Core/Infra 14）+ 写入 `50`（Calendar 30 + QuickNotes 8 + Files 6 + PcTracker 4 + Mobile 2）。
+- 149 工具 = 读取 `100`（Calendar 31 + PcTracker 27 + Mobile 18 + QuickNotes 3 + Files 8 + Core/Infra 13）+ 写入 `49`（Calendar 30 + QuickNotes 8 + Files 5 + PcTracker 4 + Mobile 2）。
 - Python `FastMCP` service at `scripts/mcp/pim_mcp_server.py`. stdio (default) + Streamable HTTP.
 
 ### 能做什么 / What it can do
@@ -44,7 +44,7 @@
 
 ### 架构 / Architecture
 ```
-AI Agent --(MCP stdio 或 HTTP + Bearer)--> Pim.Api 进程内 MCP Server (.NET 8, ModelContextProtocol SDK) --> 内部业务服务 --> PostgreSQL/MinIO
+AI Agent --(MCP stdio 或 HTTP + Bearer)--> Pim.Api 进程内 MCP Server (.NET 8, ModelContextProtocol SDK) --> 内部业务服务 --> PostgreSQL（+ Microsoft Graph / OneDrive 文件）
 ```
 > v4（2026-09-01）：MCP Server 已**集成进 Pim.Api 进程内**（`/mcp` Streamable HTTP 端点 +
 > stdio），Python 独立进程（`scripts/mcp/pim_mcp_server.py`）退役（源码保留，仅作行为基准）。
@@ -81,7 +81,7 @@ dotnet src/Pim.Api.dll --urls http://127.0.0.1:5858
 PIM_ACCESS_TOKEN=<jwt> dotnet src/Pim.Api.dll --mcp-stdio
 ```
 - `--mcp-stdio` 模式下 stdout 只承载 MCP 协议，日志走 stderr 与文件。
-- 自检：`dotnet test tests/Pim.UnitTests` 的 `Mcp*` 用例覆盖 151 工具契约等价性。
+- 自检：`dotnet test tests/Pim.UnitTests` 的 `Mcp*` 用例覆盖 149 工具契约等价性。
 - 生产部署（HTTP 模式）：见 §6「生产部署 / Production deployment」——Pim.Api 单容器直接对外。
 
 ### 客户端配置 / Client configs
@@ -186,7 +186,7 @@ Content-Type: application/json
 
 ## 5. 工具全表 / Tools
 
-**总览 101**：`Calendar 31 | PcTracker 27 | Mobile 18 | QuickNotes 3 | Files 8 | Core 14`。
+**总览 100**：`Calendar 31 | PcTracker 27 | Mobile 18 | QuickNotes 3 | Files 8 | Core 13`。
 
 | 模块 | 工具数 | 常用 20 选 |
 |---|---|---|
@@ -2614,64 +2614,7 @@ async def get_file(id) -> Any: ...
 }
 ```
 
-#### `get_file_versions` — Versions.
-- **API**: `GET /files/items/{id}/versions`
-- **参数**: `id`
-- **返回**: `FileVersion[]`
 
-**签名 / Signature**
-```python
-async def get_file_versions(id) -> Any: ...
-```
-
-**返回示例 / Success**
-```json
-{
-  "code": 0,
-  "data": "<FileVersion[] example - see DTO>"
-}
-```
-
-**错误示例 / Error**
-```json
-{
-  "error": "missing bearer token: call MCP with Authorization: Bearer <PIM JWT>",
-  "code": 401
-}
-```
-
-#### `get_file_trash` — Trash.
-- **API**: `GET /files/trash`
-- **参数**: `page/pageSize`
-- **返回**: `ProviderTrashItem[]`
-
-**签名 / Signature**
-```python
-async def get_file_trash(page: int = 1, pageSize: int = 20) -> Any: ...
-```
-
-**返回示例 / Success**
-```json
-{
-  "code": 0,
-  "data": "<ProviderTrashItem[] example - see DTO>",
-  "page": 1,
-  "pageSize": 20,
-  "total": 123
-}
-```
-
-**错误示例 / Error**
-```json
-{
-  "error": "HTTP 400: pageSize must be between 1 and 100",
-  "details": {
-    "code": 400,
-    "message": "pageSize must be between 1 and 100"
-  },
-  "code": 400
-}
-```
 
 #### `search_files` — Search files (RAG core).
 - **API**: `GET /files/search?q&page&pageSize`
@@ -2703,6 +2646,42 @@ async def search_files(page: int = 1, pageSize: int = 20, q: str) -> Any: ...
     "message": "pageSize must be between 1 and 100"
   },
   "code": 400
+}
+```
+
+#### `read_file_text` — Read file content as text.
+- **API**: `GET /files/items/{id}/extracted-text?maxBytes`
+- **参数**: `id, maxBytes`（默认 65536，封顶 1048576）
+- **返回**: `OneDriveTextDto`（`content` / `mimeType` / `size` / `truncated`）
+
+服务端**瞬态下载**后按类型抽取：文本直读 UTF-8；docx / pptx 走内置 zip+XML；
+pdf 等在配置 Tika 时增强，未配置返回明确的「不支持」错误。
+内容不落盘、不入库、不建索引。敏感路径（`/Secrets/*`、`/Passwords/*`）直接拒绝；
+每用户每分钟 30 次限流；调用写审计（只记 item id 与字节数）。
+
+**签名 / Signature**
+```python
+async def read_file_text(file_id: str, maxBytes: int = 65536) -> Any: ...
+```
+
+**返回示例 / Success**
+```json
+{
+  "code": 0,
+  "data": {
+    "content": "第一段\n第二段",
+    "mimeType": "text/plain",
+    "size": 2048,
+    "truncated": false
+  }
+}
+```
+
+**错误示例 / Error**
+```json
+{
+  "error": "HTTP 403: 敏感路径受保护，不允许该操作",
+  "code": 403
 }
 ```
 
@@ -3141,7 +3120,7 @@ async def get_version(-) -> Any: ...
 }
 ```
 
-## 5.7 写入工具 50 / Write Tools 50
+## 5.7 写入工具 49 / Write Tools 49
 
 > 全部写入工具走 HTTP MCP（Phase 3）。每次调用需对应 `write` 权限；关闭时返回 `{"error":"permission denied: <tool>","code":403}`。请求体字段为 JSON；`import_ics`/`upload_*` 为 multipart。
 
@@ -3222,7 +3201,6 @@ async def get_version(-) -> Any: ...
 | `rename_file` | `POST /api/v1/files/items/{id}/rename` | name |
 | `delete_file` | `DELETE /api/v1/files/items/{id}` | — |
 | `restore_file` | `POST /api/v1/files/items/{id}/restore` | —（仅当文件仍在 OneDrive 时可恢复） |
-| `index_file` | `POST /api/v1/files/items/{id}/index` | — |
 
 **PcTracker 分类 4**
 
@@ -3572,6 +3550,7 @@ A: 所有聚合按 `timezone` 切天，默认为 `Asia/Shanghai`。传入 `timez
 | v3.0 | 2026-09-01 | 新增写入 50 工具 + HTTP（Streamable HTTP）多客户端 + 客户端级 Token 鉴权 + 工具级权限（读 101/写 50）+ WebUI MCP 管理页；stdio 模式兼容 v2 |
 | v4.0 | 2026-09-01 | MCP Server 集成进 Pim.Api（.NET 8）进程内：`/mcp` Streamable HTTP + `--mcp-stdio`，151 工具契约与 Python 版等价；Python 独立服务退役（源码保留作行为基准） |
 | v3.1 | 2026-09-01 | 修复 mcp>=2.0 兼容（构造参数/HTTP app/请求头获取适配，--check/stdio/HTTP 三种模式可用，issue #179）+ 生产部署模板（systemd + OpenResty `/mcp` 反代，issue #178）|
+| v5.0 | 2026-09-20 | 文件模块 v2（P4）：新增 `read_file_text`（元数据搜索之外的内容级读取，交 Hermes 现取现抽）；退役 `get_file_versions`/`get_file_trash`/`index_file`（WebDAV 与内容索引线随 OneDrive 切换取消）→ 149 工具（读 100 / 写 49）；Python 参考服务同步 |
 
 ---
 

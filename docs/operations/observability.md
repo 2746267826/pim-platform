@@ -39,7 +39,7 @@ PIM 的可观测性由四部分组成：Prometheus 指标端点、健康检查�
 |---|---|
 | `/health` | 原有存活探针（保持兼容，容器 healthcheck 使用） |
 | `/health/live` | Liveness：进程存活即 200 |
-| `/health/ready` | Readiness：JSON 明细。`database` 失败 → 503（Unhealthy）；`hangfire`/`minio`/`tika`/`qdrant`/`litellm` 为可选依赖，失败或未配置仅 Degraded（整体仍 200） |
+| `/health/ready` | Readiness：JSON 明细。`database` 失败 → 503（Unhealthy）；`hangfire`/`tika`/`litellm` 为可选依赖，失败或未配置仅 Degraded（整体仍 200） |
 
 ## 3. 告警规则
 

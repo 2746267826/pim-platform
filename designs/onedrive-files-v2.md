@@ -209,12 +209,13 @@ GET /api/v1/files/items/{id}/thumbnail?size=    # 缩略图（302 → 新鲜缩�
 
 ## 13. 安全与隐私清单
 
-- [ ] token 只存加密 token 缓存；日志 / 审计 / 异常消息零 token。
-- [ ] downloadUrl / 缩略图 URL 不写日志、不进审计、不进前端持久化（localStorage / 组件状态仅会话期）。
-- [ ] 敏感路径规则（`/Secrets/*`、`/Passwords/*` 等）在直链端点、`read_file_text`、搜索结果三处一致生效。
-- [ ] 稳定端点强制登录 + item 归属校验（防越权 302）。
-- [ ] MCP files 工具沿用 Scoped Token 权限 + 审计。
-- [ ] `read_file_text` 有并发/频次上限（防滥用瞬态下载），超限明确报错。
+- [x] token 只存加密 token 缓存；日志 / 审计 / 异常消息零 token。（P1；P4 复审再次核对）
+- [x] downloadUrl / 缩略图 URL 不写日志、不进审计、不进前端持久化（localStorage / 组件状态仅会话期）。（P2）
+- [x] 敏感路径规则（`/Secrets/*`、`/Passwords/*` 等）在直链端点、`read_file_text`、搜索结果三处一致生效；
+      另覆盖缩略图、预览、网页地址（open-link）与文本读写——P4 复审补上了 open-link 的缺口。（P4）
+- [x] 稳定端点强制登录 + item 归属校验（防越权 302）。（P1/P2；P4 复核跨用户 404）
+- [x] MCP files 工具沿用 Scoped Token 权限 + 审计。（P4a）
+- [x] `read_file_text` 有并发/频次上限（防滥用瞬态下载），超限明确报错（每用户每分钟 30 次，5341）。（P4a）
 
 ---
 
@@ -261,7 +262,7 @@ GET /api/v1/files/items/{id}/thumbnail?size=    # 缩略图（302 → 新鲜缩�
 | **P1 同步地基** | OneDrive 绑定（MSAL + 加密缓存）+ delta 增量同步 + Hangfire 定时 + 手动同步端点 + 文件树数据模型重塑 + V1/V2 验证 | 「文件放进 OneDrive，几分钟内 PIM 里能看到（含子文件夹）；改名/删除也能跟着变」 |
 | **P2 预览与直链** | 稳定直链端点 + 缩略图 + 预览矩阵（V3/V6 定案落地）+ 文本小编辑器与快照 | 「网页上能看缩略图、点开 PDF 和 Office 文档；文本能改，改完 OneDrive 里是新内容」 |
 | **P3 UI 三栏页** | 方案 A 浅色文件页（树 / 列表·网格 / 预览）+ 搜索框（元数据）+ 移动端折叠 | 「打开文件页和演示稿一个样子；搜文件名能搜到；手机上也好用」 |
-| **P4 附件 + MCP + 退役** | QuickNotes 附件上 OneDrive + `read_file_text` + Nextcloud/Tika/Qdrant/MinIO 退役 + 文档更新 | 「Hermes 能说出一篇文档里写了什么；快速记录的附件能传能看；compose 里不再有 Nextcloud」 |
+| **P4 附件 + MCP + 退役** ✅ | QuickNotes 附件上 OneDrive + `read_file_text` + Nextcloud/Tika/Qdrant/MinIO 退役 + 文档更新（P4a=#328 已合并；P4b=附件+退役） | 「Hermes 能说出一篇文档里写了什么；快速记录的附件能传能看；compose 里不再有 Nextcloud」 |
 
 每阶段独立 PR；阶段边界处跑 `dotnet test Pim.sln` 与 `npm --prefix src/client-web run build`。
 

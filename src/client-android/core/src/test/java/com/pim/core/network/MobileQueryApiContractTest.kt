@@ -23,6 +23,20 @@ class MobileQueryApiContractTest {
     }
 
     @Test
+    fun mobileTimelineSupportsPaginationAndTruncationMarkers() {
+        // #330：单日会话可达数千条，服务端分页返回；客户端必须能请求指定页
+        // 并识别 hasMore/truncated，否则只能显示一天的前一段。
+        val api = repoFile("src", "main", "java", "com", "pim", "core", "network", "ApiService.kt").readText()
+        val models = repoFile("src", "main", "java", "com", "pim", "core", "models", "MobileModels.kt").readText()
+
+        assertTrue(api.contains("@Query(\"page\") page: Int? = null"))
+        assertTrue(api.contains("@Query(\"pageSize\") pageSize: Int? = null"))
+        assertTrue(models.contains("val totalCount: Int = 0"))
+        assertTrue(models.contains("val hasMore: Boolean = false"))
+        assertTrue(models.contains("val truncated: Boolean = false"))
+    }
+
+    @Test
     fun mobileModelsContainQueryDtosUsedByAndroidV2() {
         val models = repoFile("src", "main", "java", "com", "pim", "core", "models", "MobileModels.kt").readText()
 

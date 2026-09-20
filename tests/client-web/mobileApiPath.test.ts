@@ -44,6 +44,15 @@ assert.equal(
   mobileApiPaths.timeline(day, deviceId),
   '/mobile/timeline?date=2026-07-06&deviceId=phone%2Fmain',
 );
+// #330：不传分页参数时 URL 不带 page/pageSize（服务端默认页），传了就按页请求。
+assert.equal(
+  mobileApiPaths.timeline(day, undefined, 2, 500),
+  '/mobile/timeline?date=2026-07-06&page=2&pageSize=500',
+);
+assert.equal(
+  mobileApiPaths.timeline(day, deviceId, 1),
+  '/mobile/timeline?date=2026-07-06&deviceId=phone%2Fmain&page=1',
+);
 assert.equal(
   mobileApiPaths.locations(start, end),
   '/mobile/location/history?start=2026-07-06T00%3A00%3A00Z&end=2026-07-06T23%3A59%3A59Z&maxAccuracyMeters=50',

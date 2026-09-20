@@ -104,10 +104,12 @@ export const mobileApiPaths = {
       ['date', date],
       ['deviceId', deviceId],
     ]),
-  timeline: (date: string, deviceId?: string) =>
+  timeline: (date: string, deviceId?: string, page?: number, pageSize?: number) =>
     withQuery('/mobile/timeline', [
       ['date', date],
       ['deviceId', deviceId],
+      ['page', page],
+      ['pageSize', pageSize],
     ]),
   locations: (start: string, end: string, deviceId?: string, maxAccuracyMeters = 50) =>
     withQuery('/mobile/location/history', [
@@ -256,6 +258,15 @@ export interface MobileTimeline {
   sessions: MobileTimelineSession[];
   fallbackSummaries: MobileTimelineFallback[];
   items: MobileTimelineItem[];
+  // #330：单日会话可达数千条，服务端分页返回。hasMore/truncated 为 true 时
+  // sessions/items 只是当前页，必须继续翻页才能拿到全天数据。
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  sessionTotalCount: number;
+  fallbackTotalCount: number;
+  hasMore: boolean;
+  truncated: boolean;
 }
 
 export type MobileLocationQuality = 'high' | 'usable' | 'rejected' | string;
@@ -648,8 +659,13 @@ export function getMobileSummary(date: string, deviceId?: string): Promise<Mobil
   return apiGet<ApiResponse<MobileSummary>>(mobileApiPaths.summary(date, deviceId)).then(r => r.data);
 }
 
-export function getMobileTimeline(date: string, deviceId?: string): Promise<MobileTimeline> {
-  return apiGet<ApiResponse<MobileTimeline>>(mobileApiPaths.timeline(date, deviceId)).then(r => r.data);
+export function getMobileTimeline(
+  date: string,
+  deviceId?: string,
+  page?: number,
+  pageSize?: number,
+): Promise<MobileTimeline> {
+  return apiGet<ApiResponse<MobileTimeline>>(mobileApiPaths.timeline(date, deviceId, page, pageSize)).then(r => r.data);
 }
 
 export function getMobileLocationHistory(params: MobileLocationHistoryParams): Promise<MobileLocationHistory> {

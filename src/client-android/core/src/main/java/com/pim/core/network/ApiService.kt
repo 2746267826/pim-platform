@@ -110,7 +110,9 @@ interface ApiService {
     @GET("mobile/timeline")
     suspend fun getMobileTimeline(
         @Query("date") date: String? = null,
-        @Query("deviceId") deviceId: String? = null
+        @Query("deviceId") deviceId: String? = null,
+        @Query("page") page: Int? = null,
+        @Query("pageSize") pageSize: Int? = null
     ): ApiResponse<MobileTimelineResponse>
 
     @GET("mobile/quality")

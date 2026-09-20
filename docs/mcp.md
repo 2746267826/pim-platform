@@ -1951,12 +1951,22 @@ async def get_mobile_summary(date: str, deviceId: str | None = None) -> Any: ...
 
 #### `get_mobile_timeline` — Mobile timeline.
 - **API**: `GET /mobile/timeline?date`
-- **参数**: `date,deviceId?,redactUrls`（业务日固定为 Asia/Shanghai 04:00 起算，不接受 `timezone`）
+- **参数**: `date,deviceId?,page?,pageSize?,redactUrls`（业务日固定为 Asia/Shanghai 04:00 起算，不接受 `timezone`）
 - **返回**: `MobileTimelineResponse`
+- **分页**: 单日会话可达数千条，响应为分页结果。`hasMore` / `truncated` 为 true 时
+  `sessions` / `items` 只是当前页，需带 `page` 继续翻页才能读完整天；
+  `totalCount` 是会话与汇总合并后的总条数，`sessionTotalCount` / `fallbackTotalCount` 为各来源总数。
+  `pageSize` 遵循 MCP 全局限定 1–100（省略时由服务端取默认页大小）。
 
 **签名 / Signature**
 ```python
-async def get_mobile_timeline(date: str, deviceId: str | None = None, redactUrls: bool = True) -> Any: ...
+async def get_mobile_timeline(
+    date: str,
+    deviceId: str | None = None,
+    page: int | None = None,
+    pageSize: int | None = None,
+    redactUrls: bool = True,
+) -> Any: ...
 ```
 
 **返回示例 / Success**

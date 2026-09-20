@@ -235,7 +235,16 @@ data class MobileTimelineResponse(
     val generatedAt: String,
     val sessions: List<MobileTimelineItemDto> = emptyList(),
     val fallbackSummaries: List<MobileTimelineItemDto> = emptyList(),
-    val items: List<MobileTimelineItemDto> = emptyList()
+    val items: List<MobileTimelineItemDto> = emptyList(),
+    // #330：单日会话可达数千条，服务端分页返回；hasMore/truncated 为 true 时
+    // sessions/items 只是当前页，需继续翻页才能读到全天数据。
+    val page: Int = 1,
+    val pageSize: Int = 5000,
+    val totalCount: Int = 0,
+    val sessionTotalCount: Int = 0,
+    val fallbackTotalCount: Int = 0,
+    val hasMore: Boolean = false,
+    val truncated: Boolean = false
 )
 
 @Serializable

@@ -241,6 +241,7 @@ data class MobileTimelineResponse(
     val page: Int = 1,
     val pageSize: Int = 5000,
     val totalCount: Int = 0,
+    val sessionTotalCount: Int = 0,
     val fallbackTotalCount: Int = 0,
     val hasMore: Boolean = false,
     val truncated: Boolean = false

@@ -263,6 +263,7 @@ export interface MobileTimeline {
   page: number;
   pageSize: number;
   totalCount: number;
+  sessionTotalCount: number;
   fallbackTotalCount: number;
   hasMore: boolean;
   truncated: boolean;

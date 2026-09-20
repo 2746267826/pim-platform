@@ -14,7 +14,7 @@
   - [5.3 Mobile 18](#53-mobile-18)
   - [5.4 QuickNotes 3](#54-quicknotes-3)
   - [5.5 Files 8](#55-files-8)
-  - [5.6 Core/Infra 14](#56-coreinfra-14)
+  - [5.6 Core/Infra 13](#56-coreinfra-13)
   - [5.7 写入工具 49 / Write Tools 49](#57-写入工具-49--write-tools-49)
 - [6. HTTP 接入与 Token / HTTP Access & Tokens](#6-http-接入与-token--http-access--tokens)
 - [7. 典型调用流 / Recipes](#7-典型调用流--recipes)
@@ -2744,7 +2744,7 @@ async def get_file_open_link(id) -> Any: ...
 }
 ```
 
-### 5.6 Core/Infra 14
+### 5.6 Core/Infra 13
 
 #### `get_today_sections` — Today registry.
 - **API**: `GET /today/sections?date`
@@ -3225,7 +3225,7 @@ async def get_version(-) -> Any: ...
 ### 权限模型 / Permissions
 - 按**客户端连接**授权：一个客户端 = 一把 Token = 一套权限。
 - 默认模板：新建客户端「读取全开 / 写入全关」。
-- 粒度：读取 101 项 + 写入 50 项均可独立开关（WebUI 设置 → MCP 管理）。
+- 粒度：读取 100 项 + 写入 49 项均可独立开关（WebUI 设置 → MCP 管理）。
 - 保存即生效（每次调用实时经 `/verify` 校验，无需重启 MCP server）。
 - **写越权防护**：`/verify` 签发的短时 JWT（2 分钟）带 `mcp_tool` 声明，Pim.Api 中间件按工具端点限定用途：
   - 写工具 JWT 只能调用该工具对应的 REST 端点；
@@ -3292,7 +3292,7 @@ async def get_version(-) -> Any: ...
      -H "Authorization: Bearer pim_mcp_<token>" \
      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"verify","version":"1.0"}}}'
    ```
-   期望：`jsonrpc/result/serverInfo` 的 JSON-RPC 响应；`tools/list` 返回 151 个工具。
+   期望：`jsonrpc/result/serverInfo` 的 JSON-RPC 响应；`tools/list` 返回 149 个工具。
 
 ### 管理 API / Management API
 | 端点 | 方法 | 说明 |
@@ -3302,7 +3302,7 @@ async def get_version(-) -> Any: ...
 | `/api/v1/mcp/clients/{id}` | PUT | 改名/改权限 |
 | `/api/v1/mcp/clients/{id}/revoke` | POST | 吊销 Token |
 | `/api/v1/mcp/clients/{id}` | DELETE | 删除客户端 |
-| `/api/v1/mcp/catalog` | GET | 工具目录（读 101 + 写 50，供权限页渲染） |
+| `/api/v1/mcp/catalog` | GET | 工具目录（读 100 + 写 49，供权限页渲染） |
 | `/api/v1/mcp/verify` | POST | 内部：Token 校验 + 权限鉴权 + 发短时 JWT（仅 MCP server 内网调用） |
 
 ## 7. 典型调用流 / Recipes

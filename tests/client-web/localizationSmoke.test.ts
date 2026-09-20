@@ -20,7 +20,7 @@ const files = [
   'src/Pim.Core/Ai/AiDtos.cs',
   'src/Pim.Infrastructure/Ai/AiGateway.cs',
   'src/modules/Pim.Module.Files/FilesModule.cs',
-  'src/modules/Pim.Module.Files/Services/FileIndexingService.cs',
+  'src/modules/Pim.Module.Files/Services/FileSearchService.cs',
   'src/modules/Pim.Module.Files/Services/FileOperationService.cs',
   'src/modules/Pim.Module.Files/Services/FileProviderBindingService.cs',
   'src/modules/Pim.Module.Calendar/CalendarModule.cs',

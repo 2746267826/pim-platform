@@ -1,7 +1,7 @@
 # Session 1：后端API全量回放测试 汇总
 
 > 生成时间：2026-08-24 03:00 UTC  
-> 测试库：`pim_test`（`opencode` @ `127.0.0.1:5432`，源库 `pim_prod` @ `pim` `Host=pim_prod_2026_home`）  
+> 测试库：`pim_test`（`opencode` @ `127.0.0.1:5432`，源库 `pim_prod` @ `pim` `Host=${PIM_PROD_DB_PASSWORD}`）  
 > API：`Pim.Api` @ `ASPNETCORE_ENVIRONMENT=Test` `http://127.0.0.1:15733` `/health 200`（见 `evidence/api/session1/health.json`），旧实例 `http://127.0.0.1:5860` 仍存活  
 > 分支：`master`（未改业务代码，仅新增 `docs/qa-catalog/evidence/api/PIM-043~046` 与 `PASS-043~046` 及本汇总）  
 > 脏数据：`≥20重叠会话（40行）+10跨天+3跨上海04:00+5 null EndUtc+5零窗口`，均落在 `session1-device-A/s1userA (e1c1b0c4-...)`，对照 `session1-device-B/s1userB (3f22a020-...)` 5条隔离样本，`pc_aw_events 27行` 含 `20重叠+3跨天+5零时长`，`mobile_location_points 3 baseline`（见 `evidence/api/session1/db_snapshot.txt`）
@@ -54,7 +54,7 @@ curl -s -X POST http://127.0.0.1:15733/api/v1/mobile/usage/events -H "Authorizat
 curl -s -X POST http://127.0.0.1:15733/api/v1/mobile/location/points -H "Authorization: Bearer $TOKEN_A" -H "Content-Type: application/json" -d '{"deviceId":"session1-device-A","recordedAtUtc":"2026-09-21T11:00:00Z","latitude":39.9,"longitude":116.4,"horizontalAccuracyMeters":10,"provider":"gps","sourceKind":"manual","rawJson":"{}"}'
 # 第一次 {"data":{"id":"adb79f61-0cef-4f1a-b812-c720e9563dcd",...}}
 # 第二次 {"data":{"id":"db6b77f4-242f-402e-af68-6cc58ebd244f",...}} 新id
-PGPASSWORD=62f0a50bb963bb648f8e400399def95a psql -h 127.0.0.1 -p 5432 -U opencode -d pim_test -c "SELECT count(*) FROM mobile_location_points WHERE recorded_at_utc='2026-09-21T11:00:00Z';"
+PGPASSWORD=${PIM_TEST_DB_PASSWORD} psql -h 127.0.0.1 -p 5432 -U opencode -d pim_test -c "SELECT count(*) FROM mobile_location_points WHERE recorded_at_utc='2026-09-21T11:00:00Z';"
 # 2 -> 并发后 4
 
 # #3 一致性
@@ -72,7 +72,7 @@ python3 -c "import json,collections; buckets=json.load(open('/tmp/heatmap.json')
 # 86400
 
 # #6 时序
-PGPASSWORD=62f0a50bb963bb648f8e400399def95a psql -h 127.0.0.1 -p 5432 -U opencode -d pim_test -c "SELECT count(*) FROM mobile_usage_sessions WHERE end_utc IS NULL; SELECT count(*) FROM mobile_usage_sessions WHERE start_utc>=end_utc AND end_utc IS NOT NULL;"
+PGPASSWORD=${PIM_TEST_DB_PASSWORD} psql -h 127.0.0.1 -p 5432 -U opencode -d pim_test -c "SELECT count(*) FROM mobile_usage_sessions WHERE end_utc IS NULL; SELECT count(*) FROM mobile_usage_sessions WHERE start_utc>=end_utc AND end_utc IS NOT NULL;"
 # 5 ; 284
 
 # #7 隔离
@@ -86,7 +86,7 @@ curl -s "http://127.0.0.1:15733/api/v1/mobile/analytics/overview?rangeStartUtc=2
 
 ## 环境
 
-- PG：`127.0.0.1:5432` 源库 `pim_prod (pim/pim_prod_2026_home)` 71表，测试库 `pim_test (opencode/62f0a50bb963bb648f8e400399def95a)` 71表，`pg_dump` 版本不匹配未重做全量克隆，沿用存量 `pim_test`（含 `mobile_usage_sessions 121k/121424, pc_aw_events 217k`）仅注入脏数据，未改业务代码。
+- PG：`127.0.0.1:5432` 源库 `pim_prod (pim/${PIM_PROD_DB_PASSWORD})` 71表，测试库 `pim_test (opencode/${PIM_TEST_DB_PASSWORD})` 71表，`pg_dump` 版本不匹配未重做全量克隆，沿用存量 `pim_test`（含 `mobile_usage_sessions 121k/121424, pc_aw_events 217k`）仅注入脏数据，未改业务代码。
 - API 拉起：`15733`（`ASPNETCORE_ENVIRONMENT=Test`，显式 `ConnectionStrings__DefaultConnection`/`Jwt__PrivateKeyPath=/tmp/pim_test_jwt_private.pem`/`DataProtection__KeysPath=/tmp/pim_test_keys`/`PIM_OPS_KEY`/`PIM_OPS_RO_CONNECTION`），日志 `/tmp/api_session1_15733.log`；`5860` 旧实例并存。
 - 账号：`s1userA/e1c1b0c4-...` `session1-device-A`、`s1userB/3f22a020-...` `session1-device-B`（`POST /auth/register` 新建，`devices/register` 注册）。
 - 脏数据 SQL：`/tmp/inject_dirty.py` + `inject_dirty2.py`，满足 `≥20重叠/10跨天/5 null/5零窗口`。

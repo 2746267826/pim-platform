@@ -31,7 +31,7 @@
 - **描述**：`POST /api/v1/auth/register` 未传 `email` 时抛 `23502 not-null` 未做校验，返回 500。
 - **复现步骤**：
   ```bash
-  ASPNETCORE_ENVIRONMENT=Test ConnectionStrings__DefaultConnection="Host=127.0.0.1;Port=5432;Database=pim_test;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a" Jwt__PrivateKeyPath=/tmp/pim_test_jwt_private.pem DataProtection__KeysPath=/tmp/pim_test_keys PIM_OPS_KEY=o9hQO38Telv1dcoJLS5YjNeEdVxf6Qq8 PIM_OPS_RO_CONNECTION="Host=127.0.0.1;Port=5432;Database=pim_test;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a;CommandTimeout=10" ASPNETCORE_URLS=http://127.0.0.1:5239 dotnet /workspace/pim-platform/src/Pim.Api/bin/Release/net8.0/Pim.Api.dll &
+  ASPNETCORE_ENVIRONMENT=Test ConnectionStrings__DefaultConnection="Host=127.0.0.1;Port=5432;Database=pim_test;Username=opencode;Password=${PIM_TEST_DB_PASSWORD}" Jwt__PrivateKeyPath=/tmp/pim_test_jwt_private.pem DataProtection__KeysPath=/tmp/pim_test_keys PIM_OPS_KEY=${PIM_OPS_KEY} PIM_OPS_RO_CONNECTION="Host=127.0.0.1;Port=5432;Database=pim_test;Username=opencode;Password=${PIM_TEST_DB_PASSWORD};CommandTimeout=10" ASPNETCORE_URLS=http://127.0.0.1:5239 dotnet /workspace/pim-platform/src/Pim.Api/bin/Release/net8.0/Pim.Api.dll &
   curl -s -X POST http://127.0.0.1:5239/api/v1/auth/register -H "Content-Type: application/json" -d '{"username":"qa_test_x","password":"Test1234!Abcd","displayName":"QA"}'
   ```
 - **预期 vs 实际**：预期 `400 ApiResponse` 提示 `email required`；实际 `500 {"Code":1001,"Message":"内部服务器错误"}`，服务端日志 `null value in column "email" violates not-null constraint`（`users.email`）。
@@ -82,7 +82,7 @@
 ### PIM-006 | Pim.Api | 一般 | Ops 日志/DB 接口缺鉴权分级
 
 - **描述**：`OpsLogsEndpoints`/`OpsDbEndpoints` 仅依赖 `OpsKeyMiddleware`，`PIM_OPS_KEY` 与业务 `Jwt` 共用同一 `DataProtection` 路径但未分级，`PIM_OPS_RO_CONNECTION` 指向 `pim_test` 时可 `POST /ops/db/query` 读全库。
-- **复现步骤**：`curl -H "X-Ops-Key: o9hQO38Telv1dcoJLS5YjNeEdVxf6Qq8" http://127.0.0.1:5239/ops/db/tables` 返回 `71` 张表。
+- **复现步骤**：`curl -H "X-Ops-Key: ${PIM_OPS_KEY}" http://127.0.0.1:5239/ops/db/tables` 返回 `71` 张表。
 - **预期 vs 实际**：预期 Ops 只读且受 `PIM_OPS_KEY` + 审计；实际与任务书“全部测试流量打测试库，不碰生产库”叠加时，Ops 误用仍可触及生产库（若配置错误）。
 - **证据**：`evidence/ops-tables.json`。
 - **文档依据**：`docs/ops-readonly-api.md`。
@@ -441,15 +441,15 @@ dotnet build src/client-windows/Pim.Client.Windows.slnx -c Debug
 
 # API 拉起（测试库）
 ASPNETCORE_ENVIRONMENT=Test \
-ConnectionStrings__DefaultConnection="Host=127.0.0.1;Port=5432;Database=pim_test;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a" \
+ConnectionStrings__DefaultConnection="Host=127.0.0.1;Port=5432;Database=pim_test;Username=opencode;Password=${PIM_TEST_DB_PASSWORD}" \
 Jwt__PrivateKeyPath=/tmp/pim_test_jwt_private.pem DataProtection__KeysPath=/tmp/pim_test_keys \
-PIM_OPS_KEY=o9hQO38Telv1dcoJLS5YjNeEdVxf6Qq8 \
-PIM_OPS_RO_CONNECTION="Host=127.0.0.1;Port=5432;Database=pim_test;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a;CommandTimeout=10" \
+PIM_OPS_KEY=${PIM_OPS_KEY} \
+PIM_OPS_RO_CONNECTION="Host=127.0.0.1;Port=5432;Database=pim_test;Username=opencode;Password=${PIM_TEST_DB_PASSWORD};CommandTimeout=10" \
 ASPNETCORE_URLS=http://127.0.0.1:5239 dotnet /workspace/pim-platform/src/Pim.Api/bin/Release/net8.0/Pim.Api.dll
 curl http://127.0.0.1:5239/health # 200
 curl -X POST http://127.0.0.1:5239/api/v1/auth/register # 500（缺 email）
 curl http://127.0.0.1:5239/api/v1/pc/categories # 200 匿名
-curl -H "X-Ops-Key: o9hQO38Telv1dcoJLS5YjNeEdVxf6Qq8" http://127.0.0.1:5239/ops/db/tables # 71
+curl -H "X-Ops-Key: ${PIM_OPS_KEY}" http://127.0.0.1:5239/ops/db/tables # 71
 
 # pnpm
 corepack pnpm --version # Cannot find matching keyid SHA256:DhQ8wR5A…

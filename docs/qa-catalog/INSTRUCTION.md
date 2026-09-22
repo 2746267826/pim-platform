@@ -12,13 +12,19 @@
 - 文档对齐：对照 docs 下文档、AGENTS.md、API 契约，Code vs Doc 不一致记为问题
 
 ## 环境与连接
+
+> **凭据说明（2026-09-22 起）**：本任务书不内嵌任何明文口令，上文/下文的 `${PIM_*}` 均为环境变量占位符。
+> 运行前请在受控环境注入以下变量（宿主机会话可 `source /root/.pim-qa-env`，该文件仅 root 可读）：
+> `PIM_PROD_DB_PASSWORD`、`PIM_TEST_DB_PASSWORD`、`PIM_REDIS_PASSWORD`、`PIM_OPS_KEY`。
+> 仓库内任何文件出现明文口令都会被 `tests/Pim.UnitTests/Invariants/RealDbCredentialPolicyTests.cs` 拦截。
+
 - 项目根目录：/workspace/pim-platform（亦可通过 /root/projects/pim-platform 访问）
 - 数据库：PostgreSQL 127.0.0.1:5432
-  - 源库：Database=pim_prod，Username=pim，Password=pim_prod_2026_home
-  - 测试库：Database=pim_test，Username=opencode，Password=62f0a50bb963bb648f8e400399def95a（具备 CREATEDB 权限，可创建测试库）
-  - 连接示例：Host=127.0.0.1;Port=5432;Database=pim_test;Username=opencode;Password=62f0a50bb963bb648f8e400399def95a
-  - 克隆方式：`PGPASSWORD=pim_prod_2026_home pg_dump -h 127.0.0.1 -p 5432 -U pim -d pim_prod --no-owner --no-privileges | PGPASSWORD=62f0a50bb963bb648f8e400399def95a psql -h 127.0.0.1 -p 5432 -U opencode -d pim_test`
-- 缓存：Redis 127.0.0.1:6379，Password=redis_rMG4Jc
+  - 源库：Database=pim_prod，Username=pim，Password=${PIM_PROD_DB_PASSWORD}
+  - 测试库：Database=pim_test，Username=opencode，Password=${PIM_TEST_DB_PASSWORD}（具备 CREATEDB 权限，可创建测试库）
+  - 连接示例：Host=127.0.0.1;Port=5432;Database=pim_test;Username=opencode;Password=${PIM_TEST_DB_PASSWORD}
+  - 克隆方式：`PGPASSWORD=${PIM_PROD_DB_PASSWORD} pg_dump -h 127.0.0.1 -p 5432 -U pim -d pim_prod --no-owner --no-privileges | PGPASSWORD=${PIM_TEST_DB_PASSWORD} psql -h 127.0.0.1 -p 5432 -U opencode -d pim_test`
+- 缓存：Redis 127.0.0.1:6379，Password=${PIM_REDIS_PASSWORD}
 - Android：SDK 位于 /opt/android-sdk，adb 37.0.1，emulator 37.2.4
   - AVD：test_avd / test_avd_36 / test_avd_361 / test_avd_361ps，推荐 test_avd_36
   - 启动：`emulator -avd test_avd_36 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -memory 2048 &`

@@ -10,7 +10,7 @@
   JSON
   curl -s -X POST $API/api/v1/mobile/usage/events -H "Authorization: Bearer $TOKEN_A" -H "Content-Type: application/json" -d @/tmp/payload_pass.json > /tmp/p1.json
   curl -s -X POST $API/api/v1/mobile/usage/events -H "Authorization: Bearer $TOKEN_A" -H "Content-Type: application/json" -d @/tmp/payload_pass.json > /tmp/p2.json
-  PGPASSWORD=62f0a50bb963bb648f8e400399def95a psql -h 127.0.0.1 -p 5432 -U opencode -d pim_test -c "SELECT count(*) FROM mobile_usage_events WHERE package_name='com.final.v1c'; SELECT count(*) FROM mobile_sync_batches WHERE batch_id='final-v1-batch-2';"
+  PGPASSWORD=${PIM_TEST_DB_PASSWORD} psql -h 127.0.0.1 -p 5432 -U opencode -d pim_test -c "SELECT count(*) FROM mobile_usage_events WHERE package_name='com.final.v1c'; SELECT count(*) FROM mobile_sync_batches WHERE batch_id='final-v1-batch-2';"
   # 顺序执行：events 2→2，batches 1，p1与p2 JSON 完全一致（3×accepted）
   ```
 - 预期：`count events=2, batches=1, p1==p2`。

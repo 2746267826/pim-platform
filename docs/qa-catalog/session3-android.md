@@ -116,7 +116,7 @@ adb shell dumpsys package com.pim.app | grep -A5 "runtime permissions"
 
 # 数据同步与 DB
 curl http://127.0.0.1:5858/health  # {"status":"healthy"}
-PGPASSWORD=62f0a50bb963bb648f8e400399def95a psql -h 127.0.0.1 -p 5432 -U opencode -d pim_test -c "SELECT count(*) FROM mobile_location_points;"  # 6224
+PGPASSWORD=${PIM_TEST_DB_PASSWORD} psql -h 127.0.0.1 -p 5432 -U opencode -d pim_test -c "SELECT count(*) FROM mobile_location_points;"  # 6224
 adb shell run-as com.pim.app cat /data/data/com.pim.app/shared_prefs/pim_mobile_sync_state.xml  # phase=server-missing BLOCKED
 adb shell dumpsys dbinfo | grep pim.db
 ```

@@ -12,7 +12,7 @@
   # {"code":0,"data":{"totalForegroundSeconds":9000,"appCount":5,...}}
   curl -s "$API/api/v1/mobile/devices" -H "Authorization: Bearer $TOKEN_A" # 仅 session1-device-A
   curl -s "$API/api/v1/mobile/devices" -H "Authorization: Bearer $TOKEN_B" # 仅 session1-device-B
-  PGPASSWORD=62f0a50bb963bb648f8e400399def95a psql -h 127.0.0.1 -p 5432 -U opencode -d pim_test -c "SELECT device_id, user_id FROM mobile_devices WHERE device_id IN ('session1-device-A','session1-device-B');"
+  PGPASSWORD=${PIM_TEST_DB_PASSWORD} psql -h 127.0.0.1 -p 5432 -U opencode -d pim_test -c "SELECT device_id, user_id FROM mobile_devices WHERE device_id IN ('session1-device-A','session1-device-B');"
   ```
 - 预期：`A查B` 返回 `total 0 / 空列表`（404或空），无越权泄露。
 - 实际：`A查B overview 0`、`timeline-blocks 0`、`location/history 0`、`devices` 仅自身1条，符合预期。

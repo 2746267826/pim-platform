@@ -147,6 +147,27 @@ interface ForensicEventDao {
     suspend fun droppedReasonCounts(fromUtc: Long): List<DroppedReasonCountOnly>
 
     /**
+     * 丢弃明细的**键集分页**（REQ-9 / AC-9.2）。
+     *
+     * 统计走这里逐页扫描而不是「一次扫描 + 条数上限」：本地不设条数上限（R4-P3），
+     * 明细分多少页都不影响最终计数，因此服务端统计不会被任何固定行数截断。
+     */
+    @Query(
+        """
+        SELECT id AS id, reason AS reason, recorded_at_utc AS recordedAtUtc
+        FROM mobile_location_dropped_diagnostics
+        WHERE recorded_at_utc >= :fromUtc AND id > :afterId
+        ORDER BY id ASC
+        LIMIT :pageSize
+        """
+    )
+    suspend fun droppedDiagnosticPage(
+        fromUtc: Long,
+        afterId: Long,
+        pageSize: Int
+    ): List<DroppedReasonRow>
+
+    /**
      * 按**设备本地日**聚合丢弃原因（REQ-9 / AC-9.2）。本地日由调用方给出的日界换算成 UTC 毫秒区间，
      * 避免把设备时区直接写进 SQL。
      */
@@ -192,6 +213,13 @@ interface ForensicEventDao {
 data class DroppedReasonCountOnly(
     @ColumnInfo(name = "reason") val reason: String,
     @ColumnInfo(name = "count") val count: Int
+)
+
+/** 统计扫描用的最小投影（自增 id + 原因 + 时刻）。 */
+data class DroppedReasonRow(
+    @ColumnInfo(name = "id") val id: Long,
+    @ColumnInfo(name = "reason") val reason: String,
+    @ColumnInfo(name = "recordedAtUtc") val recordedAtUtc: Long
 )
 
 /** 丢弃明细的导出行（REQ-9 / AC-9.1）。 */

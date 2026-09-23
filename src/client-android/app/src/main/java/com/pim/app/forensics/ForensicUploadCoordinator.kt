@@ -163,6 +163,10 @@ class ForensicUploadCoordinator internal constructor(
     /**
      * 按「设备本地日 + 原因」生成统计快照（REQ-9 / AC-9.2）。
      *
+     * 逐页扫描明细并**按设备时区**归日，因此：
+     * - 本地日与 Android 上报口径完全一致，设备时区不是 UTC+8 也不会错位；
+     * - 本地不设条数上限（R4-P3），分页扫描没有固定行数上限，计数不会被截断。
+     *
      * 覆盖窗口内的**全部**本地日（缺的填 0），因此设备端删掉明细后服务端也会归零，
      * 不会留下一份越用越偏的陈旧统计；同一份快照重复上报是覆盖写，不会翻倍（幂等）。
      */
@@ -171,8 +175,19 @@ class ForensicUploadCoordinator internal constructor(
         val now = nowUtcMillis()
         val windowStart = now - WINDOW_DAYS * DAY_MILLIS
 
-        val detailRows = try {
-            dao.recentDroppedDiagnosticsInWindow(windowStart, DROPPED_DETAIL_SCAN_LIMIT)
+        val byDayAndReason = mutableMapOf<Pair<String, String>, Int>()
+        var afterId = 0L
+        try {
+            while (true) {
+                val page = dao.droppedDiagnosticPage(windowStart, afterId, PAGE_SIZE)
+                if (page.isEmpty()) break
+                for (row in page) {
+                    afterId = row.id
+                    val key = localDate(row.recordedAtUtc, zone) to row.reason
+                    byDayAndReason[key] = (byDayAndReason[key] ?: 0) + 1
+                }
+                if (page.size < PAGE_SIZE) break
+            }
         } catch (ex: CancellationException) {
             throw ex
         } catch (ex: Exception) {
@@ -180,26 +195,27 @@ class ForensicUploadCoordinator internal constructor(
             return emptyList()
         }
 
-        val reasons = detailRows.map { it.reason }.distinct().sorted()
-        if (reasons.isEmpty()) return emptyList()
+        if (byDayAndReason.isEmpty()) return emptyList()
 
-        val byDayAndReason = detailRows.groupingBy { row ->
-            localDate(row.recordedAtUtc, zone) to row.reason
-        }.eachCount()
+        // 原因集合取窗口内出现过的全部原因；窗口内的每一天都要出现（缺的填 0）。
+        val reasons = byDayAndReason.keys.map { it.second }.distinct().sorted()
 
-        val days = (0 until WINDOW_DAYS).map { offset ->
-            localDate(now - offset * DAY_MILLIS, zone)
-        }.distinct()
-
-        return days.flatMap { day ->
-            reasons.map { reason ->
-                MobileDroppedReasonSummaryDto(
-                    localDate = day,
-                    reason = reason,
-                    count = byDayAndReason[day to reason] ?: 0
-                )
+        return (0 until WINDOW_DAYS)
+            .map { offset ->
+                Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+                    .minusDays(offset.toLong()).toString()
             }
-        }
+            .distinct()
+            .sorted()
+            .flatMap { day ->
+                reasons.map { reason ->
+                    MobileDroppedReasonSummaryDto(
+                        localDate = day,
+                        reason = reason,
+                        count = byDayAndReason[day to reason] ?: 0
+                    )
+                }
+            }
     }
 
     /** 最近 20 条丢弃明细（REQ-9：应用内「丢弃原因」页）。 */
@@ -231,7 +247,10 @@ class ForensicUploadCoordinator internal constructor(
 
         private const val DAY_MILLIS = 24L * 60L * 60L * 1000L
 
-        /** 统计取数时扫描的明细上限（只是取数保护，不是"条数上限"策略）。 */
-        const val DROPPED_DETAIL_SCAN_LIMIT = 200_000
+        /**
+         * 统计扫描的分页大小。这只是**每次查询的行数**，不是明细条数上限：
+         * 扫描会一直翻页到窗口内没有更多明细为止（R4-P3 不设条数上限）。
+         */
+        const val PAGE_SIZE = 1_000
     }
 }

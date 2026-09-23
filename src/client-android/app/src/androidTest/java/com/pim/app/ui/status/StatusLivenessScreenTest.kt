@@ -56,8 +56,10 @@ class StatusLivenessScreenTest {
             coverageByExpectedHeartbeatText = CoverageFormatting.formatByExpectedHeartbeat(summary),
             coverageByHourDefinition = LivenessRules.COVERAGE_BY_HOUR_DEFINITION,
             coverageByExpectedHeartbeatDefinition = LivenessRules.COVERAGE_BY_EXPECTED_HEARTBEAT_DEFINITION,
-            latestCauseLabel = null,
-            latestCauseInference = null,
+            // AC-1.3：即使"没有死亡记录"也要显示未知 + 推断依据，不给"无异常"式结论。
+            latestCauseLabel = "未知",
+            latestCauseInference = "本次区间内没有读到进程退出记录；这只说明系统没有留下记录，" +
+                "不能据此判定设备没有异常。",
             staleNote = null,
             exitReasonSupported = true,
             exitReasonUnavailableReason = null
@@ -149,7 +151,12 @@ class StatusLivenessScreenTest {
         composeTestRule.onNodeWithTag("status-liveness-coverage-heartbeat")
             .assertIsDisplayed()
             .assertTextContains(empty.coverageByExpectedHeartbeatText)
-        composeTestRule.onNodeWithText("无死亡记录").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("status-liveness-last-cause")
+            .assertIsDisplayed()
+            .assertTextContains("未知")
+        composeTestRule.onNodeWithTag("status-liveness-cause-inference")
+            .assertIsDisplayed()
+            .assertTextContains("不能据此判定设备没有异常")
     }
 
     @Test

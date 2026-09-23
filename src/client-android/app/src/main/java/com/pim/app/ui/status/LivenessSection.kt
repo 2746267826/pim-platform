@@ -87,7 +87,8 @@ internal fun LivenessSection(
 
             LivenessFact(
                 label = "最近死因",
-                value = snapshot.latestCauseLabel ?: "无死亡记录",
+                // AC-1.3：没有读到退出记录时显示"未知"并紧跟推断依据，绝不给"无异常"式结论。
+                value = snapshot.latestCauseLabel ?: "未知",
                 tag = "status-liveness-last-cause"
             )
             snapshot.latestCauseInference?.let { inference ->
@@ -107,9 +108,9 @@ internal fun LivenessSection(
                 )
             }
 
-            if (!snapshot.exitReasonSupported) {
+            snapshot.exitReasonUnavailableReason?.let { reason ->
                 Text(
-                    snapshot.exitReasonUnavailableReason ?: "当前系统不提供进程退出记录。",
+                    reason,
                     modifier = Modifier.testTag("status-liveness-exit-unsupported"),
                     style = MaterialTheme.typography.bodySmall
                 )

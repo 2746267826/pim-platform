@@ -70,6 +70,9 @@ class ForensicLivenessRepository internal constructor(
             emptyList()
         }
 
+        // AC-1.3：系统不支持 / 读取失败时，页面必须能说明"为什么是未知"，而不是给"无异常"。
+        val exitProbe = runCatching { exitReasonSource.read(1) }.getOrNull()
+
         val heartbeats = events
             .filter { it.eventType == ForensicEventTypes.HEARTBEAT }
             .map { it.occurredAtUtc }
@@ -81,7 +84,16 @@ class ForensicLivenessRepository internal constructor(
             }
             .maxByOrNull { it.occurredAtUtc }
 
-        val causeLabel = latestCause?.let { describeCause(it.eventType, it.payloadJson) }
+        // AC-1.3 / AC-8.2：没有死亡记录 ≠ 一切正常。系统不提供退出记录（或读取失败）时，
+        // 页面必须显示"未知"并给出可推断线索，而不是报平安式的"无死亡记录"。
+        val causeLabel: Pair<String, String?>? = when {
+            latestCause != null -> describeCause(latestCause.eventType, latestCause.payloadJson)
+            exitProbe?.supported == false -> "未知" to (
+                exitProbe.failureReason ?: "当前系统版本不提供进程退出记录。"
+                )
+            exitProbe?.failureReason != null -> "未知" to exitProbe.failureReason
+            else -> "未知" to NO_EXIT_RECORD_HINT
+        }
 
         val summary = LivenessSummaryCalculator.summarize(
             heartbeatTimestampsUtcMillis = heartbeats,
@@ -101,9 +113,6 @@ class ForensicLivenessRepository internal constructor(
         } else {
             null
         }
-
-        // AC-1.3：系统不支持 / 读取失败时，页面必须能说明"为什么是未知"，而不是给"无异常"。
-        val exitProbe = runCatching { exitReasonSource.read(1) }.getOrNull()
 
         return LivenessUiSnapshot(
             hasData = summary.hasData,
@@ -170,6 +179,10 @@ class ForensicLivenessRepository internal constructor(
     private fun hasData(summary: DeviceLivenessSummary): Boolean = summary.hasData
 
     companion object {
+        /** AC-1.3 的可推断线索：没有任何退出记录时，说明这只代表"没读到"，不代表"没发生"。 */
+        const val NO_EXIT_RECORD_HINT =
+            "本次区间内没有读到进程退出记录；这只说明系统没有留下记录，不能据此判定设备没有异常。"
+
         const val DEFAULT_WINDOW_DAYS = 7
         const val DROPPED_DETAIL_LIMIT = 20
         private const val DAY_MILLIS = 24L * 60L * 60L * 1000L

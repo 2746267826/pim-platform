@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.pim.app.mobile.diagnostics.DiagnosticExportException
 import com.pim.app.mobile.diagnostics.DiagnosticExportResult
 import com.pim.app.mobile.diagnostics.DiagnosticOperations
+import com.pim.app.forensics.DroppedReasonUiState
+import com.pim.app.forensics.ForensicLivenessRepository
+import com.pim.app.forensics.LivenessUiSnapshot
 import com.pim.app.mobile.sync.MobileSyncScheduler
 import com.pim.app.settings.TrackingSettingsStore
 import com.pim.app.status.ConnectionProbeService
@@ -190,8 +193,54 @@ class StatusCenterViewModel @Inject constructor(
     private val connectionProbeStore: ConnectionProbeStore,
     private val acceptedSignal: StatusAcceptedSignal,
     private val diagnosticOperations: DiagnosticOperations,
-    private val trackingSettingsStore: TrackingSettingsStore
+    private val trackingSettingsStore: TrackingSettingsStore,
+    private val forensicLivenessRepository: ForensicLivenessRepository
 ) : ViewModel() {
+
+    /** 状态页顶部存活区块（REQ-8）。 */
+    private val _liveness = MutableStateFlow<LivenessUiSnapshot?>(null)
+    val liveness: StateFlow<LivenessUiSnapshot?> = _liveness.asStateFlow()
+
+    /** 「丢弃原因」页（REQ-9）：打开/关闭与数据都挂在状态页同域。 */
+    private val _droppedReasons = MutableStateFlow<DroppedReasonUiState?>(null)
+    val droppedReasons: StateFlow<DroppedReasonUiState?> = _droppedReasons.asStateFlow()
+
+    private val _showDroppedReasons = MutableStateFlow(false)
+    val showDroppedReasons: StateFlow<Boolean> = _showDroppedReasons.asStateFlow()
+
+    init {
+        refreshLiveness()
+    }
+
+    /** 读取本地取证台账并刷新存活区块；不依赖网络（AC-8.2 离线也要给出本地结论）。 */
+    fun refreshLiveness() {
+        viewModelScope.launch {
+            _liveness.value = try {
+                forensicLivenessRepository.snapshot()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
+
+    fun openDroppedReasons() {
+        _showDroppedReasons.value = true
+        viewModelScope.launch {
+            _droppedReasons.value = try {
+                forensicLivenessRepository.droppedReasons()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
+
+    fun closeDroppedReasons() {
+        _showDroppedReasons.value = false
+    }
     val state: StateFlow<StatusCenterState> = repository.observe()
         .stateIn(
             scope = viewModelScope,
@@ -275,6 +324,7 @@ class StatusCenterViewModel @Inject constructor(
 
     fun onIssueAction(issue: StatusIssue): StatusActionTarget {
         repository.requestRefresh()
+        refreshLiveness()
         return issue.target
     }
 

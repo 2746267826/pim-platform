@@ -16,6 +16,7 @@ import com.pim.app.data.MobileDeviceProfileEntity
 import com.pim.app.data.MobileSyncStatus
 import com.pim.app.data.MobileUsageEventEntity
 import com.pim.app.data.MobileUsageSummaryEntity
+import com.pim.app.forensics.ForensicUploadCoordinator
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.usage.AppMetadataCollector
 import com.pim.app.mobile.usage.UsageAccessChecker
@@ -78,6 +79,12 @@ internal const val MAX_USAGE_BATCHES_PER_RUN = 10
 internal const val MAX_USAGE_BATCH_DURATION_MS = 120_000L
 internal const val USAGE_BATCH_LIMIT = 500
 
+/**
+ * 单次同步最多补传多少批取证事件。这只是「单次运行的工作量上界」，
+ * **不是**取证事件的本地条数上限（R4-P3 明确不设条数上限，靠 30 天时间清理兜底）。
+ */
+internal const val MAX_FORENSICS_BATCHES_PER_RUN = 10
+
 @Singleton
 class MobileSyncCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -91,6 +98,7 @@ class MobileSyncCoordinator @Inject constructor(
     private val heartbeatReporter: MobileHeartbeatReporter,
     private val serverSettingsStore: ServerSettingsStore,
     private val locationUploadCoordinator: LocationUploadCoordinator,
+    private val forensicUploadCoordinator: ForensicUploadCoordinator,
     private val syncScheduler: Provider<MobileSyncScheduler>
 ) {
     private val mobileDataDao = database.mobileDataDao()
@@ -171,6 +179,8 @@ class MobileSyncCoordinator @Inject constructor(
             )
             persistState(missingPermissionState)
             val locationState = uploadQueuedLocations(missingPermissionState, attemptedAt)
+            // AC-5.3：取证上报与使用记录权限无关，缺权限时也照常补传，且失败不影响定位补传。
+            uploadForensics()
             sendHeartbeat(deviceIdentity.deviceId, serverUrl, false, locationState)
             return locationState
         }
@@ -404,6 +414,10 @@ class MobileSyncCoordinator @Inject constructor(
 
             current = uploadQueuedLocations(current, attemptedAt)
 
+            // 取证事件与丢弃原因统计顺带在既有同步周期内上传（REQ-5 / REQ-9 AC-9.2）。
+            // 它有自己的失败出口（本地留存 + 结构化日志），不会把既有同步判成失败（AC-5.3）。
+            uploadForensics()
+
             val completed = current.copy(
                 phase = if (current.failedCount == 0) "completed" else "completed-with-errors",
                 progressText = if (current.failedCount == 0) {
@@ -455,6 +469,43 @@ class MobileSyncCoordinator @Inject constructor(
             persistState(failed)
             sendHeartbeat(deviceIdentity.deviceId, serverUrl, true, failed)
             failed
+        }
+    }
+
+    /**
+     * 把本地待传的取证事件与丢弃原因统计补齐上报（REQ-5 / REQ-9）。
+     *
+     * 循环直到队列排空（或达到单次运行的批次数上限），因此断网期间积压的事件会在恢复联网后的
+     * 第一个同步周期内全部到达，满足 AC-5.1 的"三个周期内全部到达"。
+     * 任何异常都在 [ForensicUploadCoordinator] 内部收敛：这里只记日志，绝不把同步判成失败（AC-5.3）。
+     */
+    private suspend fun uploadForensics() {
+        var uploaded = 0
+        var batches = 0
+        while (batches < MAX_FORENSICS_BATCHES_PER_RUN) {
+            currentCoroutineContext().ensureActive()
+            batches++
+            val count = try {
+                forensicUploadCoordinator.uploadPending()
+            } catch (ex: CancellationException) {
+                throw ex
+            } catch (ex: Exception) {
+                logs.warn(
+                    "forensics-sync",
+                    "取证数据上报异常（已本地留存，下个周期重试）：${ex.message ?: ""}"
+                )
+                return
+            }
+            uploaded += count
+            if (count == 0) break
+        }
+
+        if (uploaded > 0) {
+            val remaining = forensicUploadCoordinator.pendingCount()
+            logs.info(
+                "forensics-sync",
+                "本轮取证数据上报 $uploaded 条，剩余待传 $remaining 条。"
+            )
         }
     }
 

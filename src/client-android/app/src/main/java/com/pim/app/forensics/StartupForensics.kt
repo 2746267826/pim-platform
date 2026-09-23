@@ -100,38 +100,37 @@ class StartupForensics internal constructor(
         }
 
         val lastAliveAt = previousState.lastAliveAtUtcMillis
-        val verdict = ForceStopDetector.detect(
-            state = previousState,
-            input = ForceStopDetectionInput(
-                nowUtcMillis = now,
-                nowBootElapsedMillis = bootElapsed,
-                sentinelPresent = sentinelPresent,
-                exitRecordAfterLastAlive = lastAliveAt != null &&
-                    exitRecorder.hasExitRecordAfter(lastAliveAt, readResult.records),
-                exitRecordSaysUserRequested = lastAliveAt != null &&
-                    exitRecorder.hasUserRequestedExitAfter(lastAliveAt, readResult.records),
-                permissionChangeAfterArmed = previousState.armedAtUtcMillis?.let { armedAt ->
-                    exitRecorder.hasPermissionChangeAfter(armedAt, readResult.records)
-                } ?: false
-            )
+        val detectionInput = ForceStopDetectionInput(
+            nowUtcMillis = now,
+            nowBootElapsedMillis = bootElapsed,
+            sentinelPresent = sentinelPresent,
+            exitRecordAfterLastAlive = lastAliveAt != null &&
+                exitRecorder.hasExitRecordAfter(lastAliveAt, readResult.records),
+            exitRecordSaysUserRequested = lastAliveAt != null &&
+                exitRecorder.hasUserRequestedExitAfter(lastAliveAt, readResult.records),
+            permissionChangeAfterArmed = previousState.armedAtUtcMillis?.let { armedAt ->
+                exitRecorder.hasPermissionChangeAfter(armedAt, readResult.records)
+            } ?: false
         )
+        val verdict = ForceStopDetector.detect(previousState, detectionInput)
 
         var recorded = false
         val kind = ForceStopDetector.kindOf(verdict)
         if (kind != null) {
+            val evidence = ForceStopDetector.evidenceOf(verdict, detectionInput)
             recorded = ledger.recordForceStop(
                 occurredAtUtcMillis = now,
                 kind = kind,
                 payloadJson = ForensicPayloads.forceStop(
                     kind = kind,
-                    evidence = ForceStopDetector.evidenceOf(verdict),
-                    inference = inferenceFor(verdict),
+                    evidence = evidence,
+                    inference = ForceStopDetector.inferenceOf(verdict, detectionInput),
                     context = safeContext()
                 )
             )
             logs.warn(
                 "forensics",
-                "启动取证结论：${ForceStopDetector.labelOf(kind)}（依据 ${ForceStopDetector.evidenceOf(verdict)}）"
+                "启动取证结论：${ForceStopDetector.labelOf(kind)}（依据 $evidence）"
             )
         }
 
@@ -207,15 +206,6 @@ class StartupForensics internal constructor(
         throw ex
     } catch (_: Exception) {
         false
-    }
-
-    private fun inferenceFor(verdict: ForceStopVerdict): String? = when (verdict) {
-        ForceStopVerdict.ForceStop ->
-            "哨兵（周期同步作业）已消失，且设备未重启、系统也没有留下该次进程退出的记录。"
-        ForceStopVerdict.SentinelClearedByPermissionChange ->
-            "哨兵消失的同时存在权限变更记录，因此记为哨兵被清空，不计为强停。"
-        ForceStopVerdict.Reboot -> "开机时长较上次存活时回退，判定为设备重启。"
-        ForceStopVerdict.None -> null
     }
 
     private var lastHeartbeatBootElapsed: Long? = null

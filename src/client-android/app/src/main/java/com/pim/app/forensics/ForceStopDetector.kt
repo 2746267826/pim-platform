@@ -111,11 +111,36 @@ object ForceStopDetector {
         else -> "未知"
     }
 
-    /** 结论依据（写进负载，便于事后复核）。 */
-    fun evidenceOf(verdict: ForceStopVerdict): String = when (verdict) {
-        ForceStopVerdict.Reboot -> "boot-elapsed-decreased"
-        ForceStopVerdict.ForceStop -> "sentinel-missing"
-        ForceStopVerdict.SentinelClearedByPermissionChange -> "permission-change"
-        ForceStopVerdict.None -> "none"
-    }
+    /**
+     * 结论依据（写进负载，便于事后复核）。
+     *
+     * 需要 [input] 才能区分两条会得到同一个 [ForceStopVerdict.ForceStop] 的路径：
+     * "系统记成用户请求停止"（最直接）与"哨兵消失且无任何退出记录"。
+     * 写错依据会让事后核对得出相反的解释。
+     */
+    fun evidenceOf(verdict: ForceStopVerdict, input: ForceStopDetectionInput? = null): String =
+        when (verdict) {
+            ForceStopVerdict.Reboot -> "boot-elapsed-decreased"
+            ForceStopVerdict.ForceStop ->
+                if (input?.exitRecordSaysUserRequested == true) "user-requested-exit-record"
+                else "sentinel-missing"
+            ForceStopVerdict.SentinelClearedByPermissionChange -> "permission-change"
+            ForceStopVerdict.None -> "none"
+        }
+
+    /** 与 [evidenceOf] 匹配的中文推断依据；与依据不一致的文案会把事后核对引向错误结论。 */
+    fun inferenceOf(verdict: ForceStopVerdict, input: ForceStopDetectionInput? = null): String? =
+        when (verdict) {
+            ForceStopVerdict.ForceStop ->
+                if (input?.exitRecordSaysUserRequested == true) {
+                    "系统把这次停机记为「用户请求停止」（REASON_USER_REQUESTED / REASON_USER_STOPPED），" +
+                        "与手动强行停止一致。"
+                } else {
+                    "哨兵（周期同步作业）已消失，且设备未重启、系统也没有留下该次进程退出的记录。"
+                }
+            ForceStopVerdict.SentinelClearedByPermissionChange ->
+                "哨兵消失的同时存在权限变更记录，因此记为哨兵被清空，不计为强停。"
+            ForceStopVerdict.Reboot -> "开机时长较上次存活时回退，判定为设备重启。"
+            ForceStopVerdict.None -> null
+        }
 }

@@ -175,11 +175,47 @@ class ForceStopDetectorTest {
         )
         assertEquals(
             "sentinel-missing",
-            ForceStopDetector.evidenceOf(ForceStopVerdict.ForceStop)
+            ForceStopDetector.evidenceOf(ForceStopVerdict.ForceStop, input())
         )
         assertEquals(
             "permission-change",
             ForceStopDetector.evidenceOf(ForceStopVerdict.SentinelClearedByPermissionChange)
         )
+    }
+
+    @Test
+    fun `evidence and inference distinguish the two force stop paths`() {
+        // 同一个结论有两条路径，依据与文案必须各自匹配；写错会把事后核对引向相反的解释。
+        val byExitRecord = input(exitRecordAfterLastAlive = true, exitRecordSaysUserRequested = true)
+        assertEquals(
+            "user-requested-exit-record",
+            ForceStopDetector.evidenceOf(ForceStopVerdict.ForceStop, byExitRecord)
+        )
+        assertTrue(
+            ForceStopDetector.inferenceOf(ForceStopVerdict.ForceStop, byExitRecord)!!
+                .contains("用户请求停止")
+        )
+
+        val bySentinel = input(sentinelPresent = false)
+        assertEquals(
+            "sentinel-missing",
+            ForceStopDetector.evidenceOf(ForceStopVerdict.ForceStop, bySentinel)
+        )
+        assertTrue(
+            ForceStopDetector.inferenceOf(ForceStopVerdict.ForceStop, bySentinel)!!
+                .contains("哨兵")
+        )
+    }
+
+    @Test
+    fun `inference for permission change and reboot matches their evidence`() {
+        assertTrue(
+            ForceStopDetector.inferenceOf(ForceStopVerdict.SentinelClearedByPermissionChange)!!
+                .contains("权限变更")
+        )
+        assertTrue(
+            ForceStopDetector.inferenceOf(ForceStopVerdict.Reboot)!!.contains("重启")
+        )
+        assertEquals(null, ForceStopDetector.inferenceOf(ForceStopVerdict.None))
     }
 }

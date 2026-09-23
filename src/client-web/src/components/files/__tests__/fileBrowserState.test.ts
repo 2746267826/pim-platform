@@ -3,6 +3,7 @@ import {
   DEFAULT_FILE_BROWSER_MEMORY,
   breadcrumbSegments,
   displayParentPath,
+  isRestorablePath,
   normalizeDirPath,
   pageCountLabel,
   parentDirPath,
@@ -122,6 +123,29 @@ describe('fileBrowserState', () => {
       expect(pageCountLabel(1, 0, 0)).toBe('共 0 项');
       // 页码越界时收敛到有效范围，不显示「第 900/85 页」
       expect(pageCountLabel(900, 85, 8465)).toBe('共 8465 项 · 第 85/85 页');
+    });
+
+    it('AC-1.2 记忆目录仍存在才可恢复；已改名/删除则回退根目录', () => {
+      const tree = {
+        '/': [{ path: '/main' }],
+        '/main': [{ path: '/main/SAVE' }],
+        '/main/SAVE': [],
+      };
+
+      expect(isRestorablePath('/', tree)).toBe(true);
+      expect(isRestorablePath('/main/SAVE', tree)).toBe(true);
+      // 父目录已加载，但里面没有这一项 -> 目录已被改名/删除
+      expect(isRestorablePath('/main/GONE', tree)).toBe(false);
+      expect(isRestorablePath('/deleted-top-level', tree)).toBe(false);
+    });
+
+    it('AC-1.2 父目录尚未加载时不误判为失效（否则刚进深目录就被弹回根）', () => {
+      const tree = { '/': [{ path: '/main' }] };
+
+      // /main 的子项还没回来：无法判定 != 失效
+      expect(isRestorablePath('/main/SAVE/archives', tree)).toBe(true);
+      // 完全空的树同理
+      expect(isRestorablePath('/main/SAVE', {})).toBe(true);
     });
 
     it('AC-8.1 全局搜索结果展示所在目录', () => {

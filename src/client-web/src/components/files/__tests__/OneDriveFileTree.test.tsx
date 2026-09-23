@@ -40,9 +40,10 @@ const main = folder('id-main', '/main', 'main');
 const save = folder('id-save', '/main/SAVE', 'SAVE');
 const archives = folder('id-archives', '/main/SAVE/archives', 'archives');
 const pics = folder('id-pics', '/图片', '图片');
+const note = { ...folder('id-note', '/readme.md', 'readme.md'), itemType: 'file', mimeType: 'text/markdown' };
 
 const TREE: Record<string, FileItem[]> = {
-  '/': [main, pics],
+  '/': [main, pics, note],
   '/main': [save],
   '/main/SAVE': [archives],
   '/main/SAVE/archives': [],
@@ -61,10 +62,31 @@ function renderTree(overrides: Partial<React.ComponentProps<typeof OneDriveFileT
 }
 
 describe('OneDriveFileTree 导航模型', () => {
-  it('树只承载目录（REQ-4）：给定目录集合时渲染出这些目录', () => {
+  it('AC-4.1 树与列表同源：目录与文件都渲染（子项集合与列表一致）', () => {
     renderTree();
     expect(screen.getByText('main')).toBeTruthy();
     expect(screen.getByText('图片')).toBeTruthy();
+    expect(screen.getByText('readme.md')).toBeTruthy();
+  });
+
+  it('AC-5.1 单击文件只选中预览，既不进入也不切换展开态', () => {
+    const onSelectFile = vi.fn();
+    const props = renderTree({ onSelectFile });
+
+    act(() => fireEvent.click(screen.getByText('readme.md')));
+
+    expect(onSelectFile).toHaveBeenCalledTimes(1);
+    expect(onSelectFile.mock.calls[0][0]).toMatchObject({ path: '/readme.md', itemType: 'file' });
+    expect(props.onEnterFolder).not.toHaveBeenCalled();
+    expect(props.onToggleFolder).not.toHaveBeenCalled();
+  });
+
+  it('AC-5.1 双击文件不进入目录', () => {
+    const props = renderTree({ onSelectFile: vi.fn() });
+
+    act(() => fireEvent.doubleClick(screen.getByText('readme.md')));
+
+    expect(props.onEnterFolder).not.toHaveBeenCalled();
   });
 
   it('AC-5.1 单击目录只展开/收起，不进入（中间列表不变）', () => {

@@ -273,7 +273,13 @@ export default function OneDriveFileList({
                     className={`cursor-pointer border-b border-[var(--pim-border-soft)] ${
                       selectedItem?.id === item.id ? 'bg-[var(--pim-primary-soft)]' : 'hover:bg-[var(--pim-surface-muted)]'
                     }`}
-                    onClick={() => (item.itemType === 'folder' ? onOpenFolder(item.path) : onSelect(item))}
+                    onClick={() => {
+                      // 全局搜索结果：点整行即跳到它所在目录（AC-8.1）；
+                      // 普通浏览：文件夹进入、文件只选中预览。
+                      if (showFullPath) onNavigate(displayParentPath(item.path));
+                      else if (item.itemType === 'folder') onOpenFolder(item.path);
+                      else onSelect(item);
+                    }}
                   >
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2.5">
@@ -346,7 +352,11 @@ export default function OneDriveFileList({
                     ? 'border-[var(--pim-primary)] bg-[var(--pim-primary-soft)]'
                     : 'border-[var(--pim-border)] bg-white hover:-translate-y-px hover:shadow-sm'
                 }`}
-                onClick={() => (item.itemType === 'folder' ? onOpenFolder(item.path) : onSelect(item))}
+                onClick={() => {
+                  if (showFullPath) onNavigate(displayParentPath(item.path));
+                  else if (item.itemType === 'folder') onOpenFolder(item.path);
+                  else onSelect(item);
+                }}
               >
                 <div className="flex h-20 items-center justify-center bg-[var(--pim-surface-muted)] text-2xl">
                   {item.itemType === 'folder' ? (
@@ -365,7 +375,22 @@ export default function OneDriveFileList({
           })}
           {items.length === 0 && !loading && (
             <div className="col-span-full py-10 text-center text-sm text-[var(--pim-text-muted)]">
-              {keyword ? '没有匹配的文件' : '此文件夹为空'}
+              {keyword && searchScope === 'folder' ? (
+                <span className="inline-flex flex-col items-center gap-2">
+                  <span>本文件夹无匹配，试试全盘搜索</span>
+                  <button
+                    type="button"
+                    className="pim-button-secondary px-3 py-1 text-xs"
+                    onClick={() => onSearchScopeChange('global')}
+                  >
+                    去全盘搜索
+                  </button>
+                </span>
+              ) : keyword ? (
+                '没有匹配的文件'
+              ) : (
+                '此文件夹为空'
+              )}
             </div>
           )}
         </div>

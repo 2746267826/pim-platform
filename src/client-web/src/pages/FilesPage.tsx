@@ -11,6 +11,7 @@ import { loadFolderTree } from '../components/files/loadFolderTree';
 import {
   FILE_PAGE_SIZE,
   breadcrumbSegments,
+  isRestorablePath,
   normalizeDirPath,
   readFileBrowserMemory,
   writeFileBrowserMemory,
@@ -26,6 +27,9 @@ import {
 import type { FileItem, FileSearchScope, FileSortKey, FileSortOrder } from '../types';
 
 const EMPTY_ITEMS: FileItem[] = [];
+
+/** 树数据保留窗口：超出后淘汰最早展开的目录（见 expandedPaths 注释）。 */
+const MAX_REMEMBERED_EXPANDED = 64;
 
 /**
  * 文件页（REQ-1 ~ REQ-10）：左栏目录树 ｜ 中栏列表/网格 + 搜索 + 分页 ｜ 右栏预览。
@@ -52,7 +56,11 @@ export default function FilesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  /** 曾经展开过（或需要为其准备数据）的目录集合；只增不减，收起后不重新拉取。 */
+  /**
+   * 已展开（或需要为其准备数据）的目录集合。收起后不立即丢弃以获得「展开过的目录不再重新拉取」
+   * 的体验，但保留一个**有界窗口**：超过 {@link MAX_REMEMBERED_EXPANDED} 个时淘汰最早的那些，
+   * 避免长时间浏览大量目录后 useQueries 无界增长（复审 Minor）。
+   */
   const [expandedPaths, setExpandedPaths] = useState<string[]>(['/']);
 
   const providersQuery = useQuery({
@@ -122,6 +130,20 @@ export default function FilesPage() {
   }, [page, totalPages]);
 
   // ---- 左栏数据：目录树（只取目录，按目录懒加载）----
+  const rememberExpanded = useCallback((path: string) => {
+    setExpandedPaths(prev => {
+      if (prev.includes(path)) return prev;
+      const next = [...prev, path];
+      // 淘汰最早的条目，但始终保留根目录与当前目录的祖先链
+      while (next.length > MAX_REMEMBERED_EXPANDED) {
+        const removable = next.findIndex(candidate => candidate !== '/' && candidate !== path);
+        if (removable < 0) break;
+        next.splice(removable, 1);
+      }
+      return next;
+    });
+  }, []);
+
   const foldersToLoad = useMemo(() => {
     const wanted = new Set<string>(['/']);
     for (const segment of breadcrumbSegments(currentPath)) wanted.add(segment.path);
@@ -162,6 +184,28 @@ export default function FilesPage() {
   }, [folderQueries, foldersToLoad]);
 
   const currentTruncation = folderTruncation[currentPath] ?? null;
+  const rootState = folderStates['/'] ?? 'loading';
+  // 只把「已成功加载」的目录纳入记忆有效性判定（见 isRestorablePath 注释）
+  const loadedChildrenByPath = useMemo(() => {
+    const loaded: Record<string, FileItem[]> = {};
+    for (const [path, state] of Object.entries(folderStates)) {
+      if (state === 'loaded') loaded[path] = foldersByPath[path] ?? [];
+    }
+    return loaded;
+  }, [folderStates, foldersByPath]);
+  const rootTruncation = folderTruncation['/'] ?? null;
+
+  // AC-1.2 后半句：记忆里的目录若已被改名/删除，安全回退根目录。
+  // 只在根目录数据已加载完成时才判定，避免把「暂时没加载完」误判成「目录没了」。
+  useEffect(() => {
+    if (rootState !== 'loaded') return;
+    if (currentPath === '/') return;
+    if (isRestorablePath(currentPath, loadedChildrenByPath)) return;
+    setCurrentPath('/');
+    setPage(1);
+    setSelectedItem(null);
+    updateMemory({ path: '/' });
+  }, [currentPath, loadedChildrenByPath, rootState, updateMemory]);
 
   // ---- 导航 ----
   const navigateTo = useCallback(
@@ -179,15 +223,18 @@ export default function FilesPage() {
   const handleOpenFolder = useCallback(
     (path: string) => {
       navigateTo(path);
-      setExpandedPaths(prev => (prev.includes(path) ? prev : [...prev, path]));
+      rememberExpanded(path);
     },
-    [navigateTo],
+    [navigateTo, rememberExpanded],
   );
 
   /** 树：单击只展开/收起（数据按需加载），不改变中栏（AC-5.1）。 */
-  const handleToggleFolder = useCallback((path: string) => {
-    setExpandedPaths(prev => (prev.includes(path) ? prev : [...prev, path]));
-  }, []);
+  const handleToggleFolder = useCallback(
+    (path: string) => {
+      rememberExpanded(path);
+    },
+    [rememberExpanded],
+  );
 
   /** 手机抽屉：点一下直接进入并收起抽屉（AC-5.3）。 */
   const handleEnterFolderFromDrawer = useCallback(
@@ -292,6 +339,11 @@ export default function FilesPage() {
     return { dot: 'bg-zinc-400', text: '尚未同步' };
   }, [oneDriveProvider]);
 
+  const handleSelectFileFromTree = useCallback((item: FileItem) => {
+    setSelectedItem(item);
+    setMobilePreviewOpen(true);
+  }, []);
+
   const tree = (
     <OneDriveFileTree
       foldersByPath={foldersByPath}
@@ -299,6 +351,7 @@ export default function FilesPage() {
       currentPath={currentPath}
       onToggleFolder={handleToggleFolder}
       onEnterFolder={handleOpenFolder}
+      onSelectFile={handleSelectFileFromTree}
       onRetryFolder={path => {
         void queryClient.invalidateQueries({ queryKey: ['files', 'folders', oneDriveProvider?.id ?? 'none', path] });
       }}
@@ -310,9 +363,13 @@ export default function FilesPage() {
       foldersByPath={foldersByPath}
       folderStates={folderStates}
       currentPath={currentPath}
-      // 手机抽屉：点一下 = 直接进入（AC-5.3）
+      // 手机抽屉：点一下目录 = 直接进入（AC-5.3）；文件仍是选中预览
       onToggleFolder={handleEnterFolderFromDrawer}
       onEnterFolder={handleEnterFolderFromDrawer}
+      onSelectFile={item => {
+        handleSelectFileFromTree(item);
+        setDrawerOpen(false);
+      }}
       onRetryFolder={path => {
         void queryClient.invalidateQueries({ queryKey: ['files', 'folders', oneDriveProvider?.id ?? 'none', path] });
       }}
@@ -347,9 +404,25 @@ export default function FilesPage() {
                 </button>
               </div>
               <div className="min-h-0 flex-1 overflow-auto">{tree}</div>
-              {currentTruncation && (
+              {rootState === 'error' && (
+                <div
+                  className="flex items-center gap-2 border-t border-[var(--pim-border)] bg-[var(--pim-danger-soft)] px-3 py-1.5 text-[11px] text-[var(--pim-danger)]"
+                  role="alert"
+                  data-testid="tree-root-error"
+                >
+                  <span className="min-w-0 flex-1">目录树加载失败</span>
+                  <button
+                    type="button"
+                    className="rounded border border-[var(--pim-border)] px-1 text-[10px]"
+                    onClick={() => void queryClient.invalidateQueries({ queryKey: ['files', 'folders'] })}
+                  >
+                    重试
+                  </button>
+                </div>
+              )}
+              {(currentTruncation ?? rootTruncation) && (
                 <div className="border-t border-[var(--pim-border)] px-3 py-1.5 text-[11px] text-[var(--pim-warning)]" data-testid="tree-truncated">
-                  已加载 {currentTruncation.loaded} / 共 {currentTruncation.total} 个文件夹
+                  已加载 {(currentTruncation ?? rootTruncation)!.loaded} / 共 {(currentTruncation ?? rootTruncation)!.total} 个文件夹
                 </div>
               )}
             </aside>

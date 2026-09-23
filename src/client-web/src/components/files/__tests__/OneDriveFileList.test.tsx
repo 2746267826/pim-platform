@@ -142,6 +142,29 @@ describe('OneDriveFileList 搜索（REQ-8）', () => {
     expect(screen.getByText('/main/SAVE/a')).toBeTruthy();
   });
 
+  it('AC-8.1 全盘搜索模式点整行即跳到该条所在目录', () => {
+    const props = renderList({
+      items: [makeItem({ id: 'g-2', path: '/main/SAVE/a/x.jpg', name: 'x.jpg' })],
+      searchScope: 'global',
+      query: 'x',
+      showFullPath: true,
+      currentPath: '/',
+    });
+
+    fireEvent.click(within(screen.getByRole('table')).getByText('x.jpg'));
+
+    expect(props.onNavigate).toHaveBeenCalledWith('/main/SAVE/a');
+    expect(props.onSelect).not.toHaveBeenCalled();
+  });
+
+  it('AC-8.2 网格视图无匹配时同样给出全盘搜索引导', () => {
+    const props = renderList({ items: [], totalCount: 0, totalPages: 0, query: '不存在', view: 'grid' });
+
+    expect(screen.getByText(/本文件夹无匹配/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /全盘搜索/ }));
+    expect(props.onSearchScopeChange).toHaveBeenCalledWith('global');
+  });
+
   it('搜索框输入回调（不直接过滤已加载条目）', () => {
     const props = renderList();
     fireEvent.change(screen.getByLabelText('搜索文件名'), { target: { value: '租赁' } });

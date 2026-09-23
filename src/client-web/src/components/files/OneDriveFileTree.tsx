@@ -1,14 +1,19 @@
 import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import { Tree, type NodeApi, type TreeApi } from 'react-arborist';
-import { ChevronDown, ChevronRight, Folder, FolderOpen, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Loader2 } from 'lucide-react';
 import type { FileItem } from '../../types';
 import { breadcrumbSegments } from './fileBrowserState';
 
 /** 目录数据加载状态（用于 AC-4.2：加载中/失败时另一区域不得显示成「空目录」）。 */
 export type FolderLoadState = 'loading' | 'loaded' | 'error';
 
+/** 传入树数据前必须带上 itemType：树据此区分「可展开的目录」与「叶子文件」。 */
+
 export interface OneDriveFileTreeProps {
-  /** 目录路径 → 该目录的**子目录**。树只承载目录（REQ-4/REQ-5）。 */
+  /**
+   * 目录路径 → 该目录的子项（目录与文件，与中栏列表同源同序）。
+   * 目录节点可展开/进入，文件节点用于选中预览（REQ-4 / REQ-5）。
+   */
   foldersByPath: Record<string, FileItem[]>;
   /** 每个目录的加载状态（可选）。 */
   folderStates?: Record<string, FolderLoadState>;
@@ -18,6 +23,8 @@ export interface OneDriveFileTreeProps {
   onToggleFolder: (path: string) => void;
   /** 双击目录 = 进入（桌面）；手机抽屉由上层把单击也接到这里（AC-5.1 / AC-5.3）。 */
   onEnterFolder: (path: string) => void;
+  /** 选中文件（仅更新预览面板，不改变当前目录，AC-5.1）。 */
+  onSelectFile?: (item: FileItem) => void;
   /** 目录加载失败后的重试入口。 */
   onRetryFolder?: (path: string) => void;
 }
@@ -26,6 +33,8 @@ interface TreeDataNode {
   id: string;
   name: string;
   path: string;
+  itemType: string;
+  mimeType: string | null;
   children: TreeDataNode[];
 }
 
@@ -58,6 +67,7 @@ export default function OneDriveFileTree({
   currentPath,
   onToggleFolder,
   onEnterFolder,
+  onSelectFile,
   onRetryFolder,
 }: OneDriveFileTreeProps) {
   const treeRef = useRef<TreeApi<TreeDataNode> | null>(null);
@@ -68,12 +78,16 @@ export default function OneDriveFileTree({
       const children = foldersByPath[path] ?? [];
       return children.map(child => {
         if (!ids.has(child.path)) ids.set(child.path, child.id);
+        const isFolder = child.itemType === 'folder';
         const loaded = Object.prototype.hasOwnProperty.call(foldersByPath, child.path);
         return {
           id: child.id,
           name: child.name,
           path: child.path,
-          children: loaded && depth < 24 ? build(child.path, depth + 1) : [],
+          itemType: child.itemType,
+          mimeType: child.mimeType,
+          // 只有目录会有子项；文件恒为叶子
+          children: isFolder && loaded && depth < 24 ? build(child.path, depth + 1) : [],
         };
       });
     };
@@ -113,8 +127,13 @@ export default function OneDriveFileTree({
           onSelect={nodes => {
             const node = nodes[0];
             if (!node) return;
+            if (node.data.itemType !== 'folder') {
+              // 文件：只更新预览面板，不改变当前目录（AC-5.1）
+              onSelectFile?.(node.data as unknown as FileItem);
+              return;
+            }
             const api = treeRef.current;
-            // 单击 = 展开/收起：旧实现只切中间列表、不切展开态，用户感知为「点了没反应」
+            // 单击 = 展开/收起：旧实现只切中间菜单、不切展开态，用户感知为「点了没反应」
             if (node.isOpen) api?.close(node.id);
             else api?.open(node.id);
             onToggleFolder(node.data.path);
@@ -134,9 +153,10 @@ export default function OneDriveFileTree({
 function NodeRenderer({ node, style }: { node: NodeApi<TreeDataNode>; style: React.CSSProperties }) {
   const { currentPath, onRetryFolder, states, onEnterFolder } = useContext(TreeContext);
   const path = node.data.path;
-  const state = states[path];
+  const isFolder = node.data.itemType === 'folder';
+  const state = isFolder ? states[path] : undefined;
   // 高亮跟随「当前目录」而不是 arborist 的选择态：单击只负责展开/收起，不能把高亮带走
-  const isSelected = path === currentPath;
+  const isSelected = isFolder && path === currentPath;
 
   return (
     <div
@@ -147,17 +167,17 @@ function NodeRenderer({ node, style }: { node: NodeApi<TreeDataNode>; style: Rea
       // 依赖它自己的双击判定在真实浏览器里不稳定（实测首次点击后 dblclick 不再到达）。
       onDoubleClick={event => {
         event.stopPropagation();
-        onEnterFolder(path);
+        if (isFolder) onEnterFolder(path);
       }}
       className={`flex h-full cursor-pointer items-center gap-1.5 pr-2 text-[13px] ${
         isSelected ? 'bg-[var(--pim-primary-soft)] text-[var(--pim-primary)]' : 'hover:bg-[var(--pim-surface-muted)]'
       }`}
     >
       <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[var(--pim-text-muted)]">
-        {node.isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        {isFolder ? node.isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} /> : null}
       </span>
       <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[var(--pim-text-muted)]">
-        {node.isOpen ? <FolderOpen size={14} /> : <Folder size={14} />}
+        {isFolder ? node.isOpen ? <FolderOpen size={14} /> : <Folder size={14} /> : <FileText size={14} />}
       </span>
       <span className="truncate" title={path}>
         {node.data.name}

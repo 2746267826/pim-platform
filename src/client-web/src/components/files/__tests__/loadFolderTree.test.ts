@@ -3,10 +3,10 @@ import type { FileItem } from '../../../types';
 import { loadFolderTree } from '../loadFolderTree';
 
 /**
- * REQ-4：树的数据源。树只承载**目录**，并如实报告是否因上限被截断。
+ * REQ-4 / AC-4.1：树的数据源必须与中栏列表**同源同序**，否则「树中展开某目录」
+ * 与「列表中该目录」的条目集合会不一致（这正是现状-3 里两套导航打架的成因之一）。
  *
- * 旧实现把整棵子树拉回内存再筛，单目录 8465 项时列表被静默截断到 2000 项（现状-2）；
- * 这里锁定「目录数据来自服务端的类型过滤 + 分页」以及「截断必须显式暴露」（AC-3.2 / AC-4.2）。
+ * 同时锁定：逐页取全、且因页数上限被截断时必须显式暴露（AC-3.2 / AC-4.2），不得静默缺项。
  */
 function folder(id: string, path: string, name: string): FileItem {
   return {
@@ -39,7 +39,7 @@ function page(items: FileItem[], totalCount: number, totalPages: number) {
 }
 
 describe('loadFolderTree', () => {
-  it('只请求目录（type=folder），并按 100/页 逐页取全', async () => {
+  it('与列表同源同序地取回子项（含文件），并按 100/页 逐页取全', async () => {
     const first = Array.from({ length: 100 }, (_, i) => folder(`a${i}`, `/x/a${i}`, `a${i}`));
     const second = [folder('z', '/x/z', 'z')];
     const getItems = vi
@@ -49,8 +49,10 @@ describe('loadFolderTree', () => {
 
     const listing = await loadFolderTree('/x', getItems);
 
-    expect(getItems).toHaveBeenNthCalledWith(1, expect.objectContaining({ path: '/x', type: 'folder', page: 1 }));
-    expect(getItems).toHaveBeenNthCalledWith(2, expect.objectContaining({ path: '/x', type: 'folder', page: 2 }));
+    // 不带 type 过滤：树拿到的是与列表完全相同的子项集合（目录 + 文件）
+    expect(getItems).toHaveBeenNthCalledWith(1, expect.objectContaining({ path: '/x', page: 1, pageSize: 100 }));
+    expect(getItems).toHaveBeenNthCalledWith(2, expect.objectContaining({ path: '/x', page: 2, pageSize: 100 }));
+    expect(getItems.mock.calls[0][0]).not.toHaveProperty('type');
     expect(listing.items).toHaveLength(101);
     expect(listing.totalCount).toBe(101);
     expect(listing.truncated).toBe(false);

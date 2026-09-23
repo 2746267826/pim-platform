@@ -132,6 +132,31 @@ export function pageCountLabel(page: number, totalPages: number, totalCount: num
   return `共 ${totalCount} 项 · 第 ${safePage}/${totalPages} 页`;
 }
 
+/**
+ * AC-1.2 后半句：「记忆损坏/失效时安全回退根目录」。
+ *
+ * 「失效」不只是 JSON 坏掉——上次离开的目录可能已被改名或删除。判定方式：
+ * 取该路径的**父目录已加载的子项集合**，若父目录已加载完而其中没有这一项，则记忆失效。
+ *
+ * 关键：父目录尚未加载时一律返回 <c>true</c>（无法判定 ≠ 失效）。
+ * 否则刚进入一个深层目录、树的查询还没回来时，会被误判成「目录已不存在」而把用户弹回根目录。
+ */
+export function isRestorablePath(path: string, childrenByPath: Record<string, unknown[] | undefined>): boolean {
+  const normalized = normalizeDirPath(path);
+  if (normalized === '/') return true;
+
+  const parent = parentDirPath(normalized);
+  if (parent === null) return true;
+
+  const siblings = childrenByPath[parent];
+  if (!siblings) return true;
+
+  return siblings.some(item => {
+    const siblingPath = (item as { path?: unknown })?.path;
+    return typeof siblingPath === 'string' && normalizeDirPath(siblingPath) === normalized;
+  });
+}
+
 /** 全局搜索结果条目的展示路径（REQ-8：结果必须带完整路径）。 */
 export function displayParentPath(itemPath: string): string {
   const normalized = normalizeDirPath(itemPath);

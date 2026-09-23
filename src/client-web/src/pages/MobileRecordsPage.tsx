@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import {
   getMobileAnalyticsCharts,
   getMobileAnalyticsHeatmap,
   getMobileAnalyticsOverview,
   getMobileAnalyticsTimelineBlocks,
   getMobileDevices,
+  getMobileLivenessOverview,
   getMobileSessionEvents,
   getMobileTimelineBlockSessions,
   MOBILE_DEFAULT_TIMEZONE,
@@ -19,6 +21,7 @@ import MobileChartsGrid from '../components/mobile/MobileChartsGrid';
 import MobileInsightStrip from '../components/mobile/MobileInsightStrip';
 import MobileTimelineBlocks from '../components/mobile/MobileTimelineBlocks';
 import MobileUsageBucketDetail from '../components/mobile/MobileUsageBucketDetail';
+import DeviceLivenessPanel from '../components/mobile/DeviceLivenessPanel';
 import MobileUsageHeatmap, { type MobileHeatmapGranularity } from '../components/mobile/MobileUsageHeatmap';
 import { buildHeatmapMatrix } from '../components/mobile/mobileHeatmapMatrix';
 import MobileCategoryDonut from '../components/charts/MobileCategoryDonut';
@@ -37,6 +40,8 @@ function errorMessage(error: unknown) {
 }
 
 export default function MobileRecordsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeView = searchParams.get('view') === 'liveness' ? 'liveness' : 'usage';
   const forceRef = useRef(false);
   const refreshSeq = useRef(0);
   const defaultRange = useMemo(() => buildMobileAnalyticsDateRange('7d'), []);
@@ -58,6 +63,15 @@ export default function MobileRecordsPage() {
     () => toMobileAnalyticsUtcRange({ startDate: rangeStartDate, endDate: rangeEndDate }),
     [rangeStartDate, rangeEndDate],
   );
+
+  const livenessQuery = useQuery({
+    queryKey: ['mobile-liveness-overview', utcRange.rangeStartUtc, utcRange.rangeEndUtc],
+    queryFn: () => getMobileLivenessOverview({
+      rangeStartUtc: utcRange.rangeStartUtc,
+      rangeEndUtc: utcRange.rangeEndUtc,
+    }),
+    enabled: activeView === 'liveness',
+  });
 
   const analyticsQuery = useMemo<MobileAnalyticsQuery>(() => ({
     rangeStartUtc: utcRange.rangeStartUtc,
@@ -251,6 +265,45 @@ export default function MobileRecordsPage() {
 
   return (
     <div className="min-h-full bg-slate-50 pb-20 md:pb-4">
+      <div className="border-b border-slate-200 bg-white px-4 sm:px-6">
+        <nav className="mx-auto flex max-w-[1500px] gap-1" aria-label="手机记录子页面">
+          {([
+            { key: 'usage', label: '使用记录' },
+            { key: 'liveness', label: '设备存活' },
+          ] as const).map(view => <button
+            key={view.key}
+            type="button"
+            aria-current={activeView === view.key ? 'page' : undefined}
+            onClick={() => {
+              const next = new URLSearchParams(searchParams);
+              if (view.key === 'liveness') next.set('view', 'liveness');
+              else next.delete('view');
+              setSearchParams(next);
+            }}
+            className={`border-b-2 px-3 py-3 text-sm font-medium ${activeView === view.key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+          >{view.label}</button>)}
+        </nav>
+      </div>
+      {activeView === 'liveness' ? <>
+        <section className="border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
+          <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3">
+            <div><h1 className="text-xl font-semibold text-slate-950">设备存活</h1><p className="mt-1 text-sm text-slate-500">设备心跳覆盖与静默情况</p></div>
+            <div className="flex items-center gap-2" aria-label="日期快捷范围">
+              {(['today', '7d', '30d'] as const).map(shortcut => <button
+                key={shortcut}
+                type="button"
+                aria-pressed={rangeShortcut === shortcut}
+                onClick={() => handleShortcutChange(shortcut)}
+                className={`rounded-md border px-3 py-1.5 text-sm ${rangeShortcut === shortcut ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
+              >{shortcut === 'today' ? '今天' : shortcut === '7d' ? '7天' : '30天'}</button>)}
+              <button type="button" onClick={() => void livenessQuery.refetch()} className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700">刷新</button>
+            </div>
+          </div>
+        </section>
+        <main className="mx-auto max-w-[1500px] space-y-4 px-4 py-4 sm:px-6">
+          <DeviceLivenessPanel overview={livenessQuery.data} isLoading={livenessQuery.isLoading} error={livenessQuery.error} onRetry={() => void livenessQuery.refetch()} />
+        </main>
+      </> : <>
       <MobileAnalyticsHeader
         rangeShortcut={rangeShortcut}
         rangeStartDate={rangeStartDate}
@@ -326,6 +379,7 @@ export default function MobileRecordsPage() {
         {/* 展览馆嵌入：日使用环形 + 24h热力（真实 via useExhibitionData） */}
         <MobileExhibitionEmbed />
       </main>
+      </>}
     </div>
   );
 }

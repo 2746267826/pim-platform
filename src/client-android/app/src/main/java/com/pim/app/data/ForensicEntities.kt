@@ -186,8 +186,6 @@ interface ForensicEventDao {
         limit: Int
     ): List<DroppedDiagnosticExportRow>
 
-    @Query("SELECT COUNT(*) FROM mobile_location_dropped_diagnostics")
-    suspend fun droppedDiagnosticCount(): Int
 }
 
 /** 按原因聚合的丢弃计数。 */

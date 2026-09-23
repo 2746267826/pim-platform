@@ -380,4 +380,14 @@ interface MobileDataDao {
 
     @Query("DELETE FROM mobile_location_policy_transitions")
     suspend fun deleteAllMobileLocationPolicyTransitions(): Int
+
+    /**
+     * 丢弃原因明细的时间清理（REQ-9 / AC-9.3）：超过 30 天的明细移除，
+     * **不设条数上限**（上限只由时间决定，R4-P3）。
+     */
+    @Query("DELETE FROM mobile_location_dropped_diagnostics WHERE recorded_at_utc < :cutoffUtc")
+    suspend fun deleteDroppedDiagnosticsOlderThan(cutoffUtc: Long): Int
+
+    @Query("SELECT COUNT(*) FROM mobile_location_dropped_diagnostics")
+    suspend fun droppedDiagnosticCount(): Int
 }

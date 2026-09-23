@@ -38,6 +38,7 @@ class StartupForensics internal constructor(
     private val sentinelProbe: SentinelProbe,
     private val contextReader: ForensicContextSource,
     private val heartbeatReader: AndroidHeartbeatSnapshotReader,
+    private val retention: ForensicRetention,
     private val logs: StructuredLogRepository,
     private val syncScheduler: Provider<MobileSyncScheduler>,
     private val nowUtcMillis: () -> Long,
@@ -52,6 +53,7 @@ class StartupForensics internal constructor(
         sentinelProbe: SentinelProbe,
         contextReader: ForensicContextSource,
         heartbeatReader: AndroidHeartbeatSnapshotReader,
+        retention: ForensicRetention,
         logs: StructuredLogRepository,
         syncScheduler: Provider<MobileSyncScheduler>
     ) : this(
@@ -61,6 +63,7 @@ class StartupForensics internal constructor(
         sentinelProbe,
         contextReader,
         heartbeatReader,
+        retention,
         logs,
         syncScheduler,
         nowUtcMillis = System::currentTimeMillis,
@@ -135,13 +138,13 @@ class StartupForensics internal constructor(
         // 3) 存活心跳（REQ-3 / REQ-4）。
         val heartbeatRecorded = recordHeartbeat(now, bootElapsed)
 
-        // 4) 30 天时间清理（AC-6.2）。
+        // 4) 30 天时间清理：取证台账（AC-6.2）与丢弃原因明细（AC-9.3）都按同一条时间线兜底。
         try {
-            ledger.purgeExpired(now)
+            retention.purgeExpired(now)
         } catch (ex: CancellationException) {
             throw ex
         } catch (ex: Exception) {
-            logs.warn("forensics", "取证台账清理失败：${ex.message ?: ""}")
+            logs.warn("forensics", "本地取证数据清理失败：${ex.message ?: ""}")
         }
 
         // 5) 刷新"最近存活"基线，并确保哨兵已登记（周期同步作业入队）。

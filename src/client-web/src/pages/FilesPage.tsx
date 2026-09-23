@@ -583,8 +583,11 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-/** 根目录树的状态条：失败时可读原因 + 重试，截断时如实说明（AC-10.3 / AC-3.2）。 */
-function TreeStatusBanner({
+/**
+ * 目录树的状态条：失败时可读原因 + 重试，截断时如实说明（AC-10.3 / AC-3.2）。
+ * 导出以便直接断言文案口径（桌面左栏与手机抽屉共用同一个实例）。
+ */
+export function TreeStatusBanner({
   state,
   truncation,
   onRetry,

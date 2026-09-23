@@ -353,6 +353,10 @@ export default function FilesPage() {
     setMobilePreviewOpen(true);
   }, []);
 
+  const retryFolderTree = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['files', 'folders'] });
+  }, [queryClient]);
+
   const tree = (
     <OneDriveFileTree
       foldersByPath={foldersByPath}
@@ -413,27 +417,12 @@ export default function FilesPage() {
                 </button>
               </div>
               <div className="min-h-0 flex-1 overflow-auto">{tree}</div>
-              {rootState === 'error' && (
-                <div
-                  className="flex items-center gap-2 border-t border-[var(--pim-border)] bg-[var(--pim-danger-soft)] px-3 py-1.5 text-[11px] text-[var(--pim-danger)]"
-                  role="alert"
-                  data-testid="tree-root-error"
-                >
-                  <span className="min-w-0 flex-1">目录树加载失败</span>
-                  <button
-                    type="button"
-                    className="rounded border border-[var(--pim-border)] px-1 text-[10px]"
-                    onClick={() => void queryClient.invalidateQueries({ queryKey: ['files', 'folders'] })}
-                  >
-                    重试
-                  </button>
-                </div>
-              )}
-              {(currentTruncation ?? rootTruncation) && (
-                <div className="border-t border-[var(--pim-border)] px-3 py-1.5 text-[11px] text-[var(--pim-warning)]" data-testid="tree-truncated">
-                  已加载 {(currentTruncation ?? rootTruncation)!.loaded} / 共 {(currentTruncation ?? rootTruncation)!.total} 个文件夹
-                </div>
-              )}
+              <TreeStatusBanner
+                state={rootState}
+                truncation={currentTruncation ?? rootTruncation}
+                onRetry={retryFolderTree}
+                testIdPrefix="desktop"
+              />
             </aside>
 
             {/* 中栏 */}
@@ -545,6 +534,12 @@ export default function FilesPage() {
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto">{treeDrawerTree}</div>
+            <TreeStatusBanner
+              state={rootState}
+              truncation={rootTruncation}
+              onRetry={retryFolderTree}
+              testIdPrefix="drawer"
+            />
           </div>
           <button
             type="button"
@@ -586,6 +581,49 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   }, [value, delayMs]);
 
   return debounced;
+}
+
+/** 根目录树的状态条：失败时可读原因 + 重试，截断时如实说明（AC-10.3 / AC-3.2）。 */
+function TreeStatusBanner({
+  state,
+  truncation,
+  onRetry,
+  testIdPrefix,
+}: {
+  state: FolderLoadState;
+  truncation: { loaded: number; total: number } | null;
+  onRetry: () => void;
+  testIdPrefix: string;
+}) {
+  if (state === 'error') {
+    return (
+      <div
+        className="flex items-center gap-2 border-t border-[var(--pim-border)] bg-[var(--pim-danger-soft)] px-3 py-1.5 text-[11px] text-[var(--pim-danger)]"
+        role="alert"
+        data-testid={`${testIdPrefix}-tree-root-error`}
+      >
+        <span className="min-w-0 flex-1">目录树加载失败</span>
+        <button
+          type="button"
+          className="rounded border border-[var(--pim-border)] px-1 text-[10px]"
+          onClick={onRetry}
+        >
+          重试
+        </button>
+      </div>
+    );
+  }
+
+  if (!truncation) return null;
+
+  return (
+    <div
+      className="border-t border-[var(--pim-border)] px-3 py-1.5 text-[11px] text-[var(--pim-warning)]"
+      data-testid={`${testIdPrefix}-tree-truncated`}
+    >
+      已加载 {truncation.loaded} / 共 {truncation.total} 个文件夹
+    </div>
+  );
 }
 
 function EmptyBindingState({ loading, hasPending, onBind }: { loading: boolean; hasPending: boolean; onBind: () => void }) {

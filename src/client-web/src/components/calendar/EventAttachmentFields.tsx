@@ -23,7 +23,7 @@ export default function EventAttachmentFields({
 
   const { data: fileItems, isLoading: filesLoading, isError: filesError } = useQuery({
     queryKey: ['files', 'items', '/'],
-    queryFn: () => getFileItems('/'),
+    queryFn: () => getFileItems({ path: '/' }),
     enabled: !disabled && !providerReadOnly,
   });
 

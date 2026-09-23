@@ -190,11 +190,15 @@ object LivenessSummaryCalculator {
         }
     }
 
+    /**
+     * 区间覆盖多少个整点小时桶（左闭右开）。
+     * 用 `end - 1ms` 取最后一桶，避免"终点正好落在整点"时把区间之外的那个小时也算进分母。
+     */
     private fun countHourBuckets(rangeStartUtcMillis: Long, rangeEndUtcMillis: Long): Int {
-        val start = floorToHour(rangeStartUtcMillis)
-        val end = floorToHour(rangeEndUtcMillis)
-        var hours = kotlin.math.ceil((end - start).toDouble() / 3_600_000.0).toInt()
-        if (rangeEndUtcMillis == end && hours > 0) hours--
+        if (rangeEndUtcMillis <= rangeStartUtcMillis) return 1
+        val firstBucket = floorToHour(rangeStartUtcMillis)
+        val lastBucket = floorToHour(rangeEndUtcMillis - 1L)
+        val hours = ((lastBucket - firstBucket) / 3_600_000L).toInt() + 1
         return maxOf(1, hours)
     }
 

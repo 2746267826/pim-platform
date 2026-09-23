@@ -3,6 +3,7 @@ package com.pim.app.forensics
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -43,7 +44,7 @@ interface ExitReasonSource {
  */
 @Singleton
 class AndroidExitReasonReader @Inject constructor(
-    private val context: Context
+    @ApplicationContext private val context: Context
 ) : ExitReasonSource {
 
     override fun read(limit: Int): ExitReasonReadResult {
@@ -108,9 +109,9 @@ class AndroidExitReasonReader @Inject constructor(
 class ExitReasonRecorder @Inject constructor(
     private val source: ExitReasonSource,
     private val ledger: ForensicLedger,
-    private val contextReader: ForensicContextSource,
-    private val nowUtcMillis: () -> Long = System::currentTimeMillis
+    private val contextReader: ForensicContextSource
 ) {
+
     /** 已记录的幂等键；避免重复读同一批历史时反复查库。 */
     private val recordedKeys = mutableSetOf<String>()
 

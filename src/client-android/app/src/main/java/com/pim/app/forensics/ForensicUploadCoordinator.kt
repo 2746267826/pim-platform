@@ -29,14 +29,23 @@ import kotlinx.coroutines.CancellationException
  * - 幂等由设备端 `clientItemKey` 与服务端唯一键共同保证（AC-5.2）。
  */
 @Singleton
-class ForensicUploadCoordinator @Inject constructor(
+class ForensicUploadCoordinator internal constructor(
     @ApplicationContext private val context: Context,
     private val api: ApiService,
     private val dao: ForensicEventDao,
     private val logs: StructuredLogRepository,
     private val sentinelStore: ForensicSentinelStore,
-    private val nowUtcMillis: () -> Long = System::currentTimeMillis
+    private val nowUtcMillis: () -> Long
 ) {
+    @Inject
+    constructor(
+        @ApplicationContext context: Context,
+        api: ApiService,
+        dao: ForensicEventDao,
+        logs: StructuredLogRepository,
+        sentinelStore: ForensicSentinelStore
+    ) : this(context, api, dao, logs, sentinelStore, System::currentTimeMillis)
+
     /** 单批上限与服务端一致，避免整批被拒。 */
     val batchLimit: Int = BATCH_LIMIT
 

@@ -31,7 +31,7 @@ data class StartupForensicsResult(
  * 不阻断定位采集与既有同步（AC-1.4 / AC-3.3）。
  */
 @Singleton
-class StartupForensics @Inject constructor(
+class StartupForensics internal constructor(
     private val exitRecorder: ExitReasonRecorder,
     private val ledger: ForensicLedger,
     private val sentinelStore: ForensicSentinelStore,
@@ -40,11 +40,33 @@ class StartupForensics @Inject constructor(
     private val heartbeatReader: AndroidHeartbeatSnapshotReader,
     private val logs: StructuredLogRepository,
     private val syncScheduler: Provider<MobileSyncScheduler>,
-    private val nowUtcMillis: () -> Long = System::currentTimeMillis,
-    private val bootElapsedMillis: () -> Long = BootElapsedClock::now,
-    private val serviceRunning: () -> Boolean = { ForegroundLocationService.isRunning() },
-    private val exitRecordLimit: Int = AndroidExitReasonReader.MAX_RECORDS
+    private val nowUtcMillis: () -> Long,
+    private val bootElapsedMillis: () -> Long,
+    private val serviceRunning: () -> Boolean
 ) {
+    @Inject
+    constructor(
+        exitRecorder: ExitReasonRecorder,
+        ledger: ForensicLedger,
+        sentinelStore: ForensicSentinelStore,
+        sentinelProbe: SentinelProbe,
+        contextReader: ForensicContextSource,
+        heartbeatReader: AndroidHeartbeatSnapshotReader,
+        logs: StructuredLogRepository,
+        syncScheduler: Provider<MobileSyncScheduler>
+    ) : this(
+        exitRecorder,
+        ledger,
+        sentinelStore,
+        sentinelProbe,
+        contextReader,
+        heartbeatReader,
+        logs,
+        syncScheduler,
+        nowUtcMillis = System::currentTimeMillis,
+        bootElapsedMillis = BootElapsedClock::now,
+        serviceRunning = { ForegroundLocationService.isRunning() }
+    )
 
     suspend fun recordOnStartup(): StartupForensicsResult {
         val now = nowUtcMillis()
@@ -53,7 +75,7 @@ class StartupForensics @Inject constructor(
 
         // 1) 进程退出原因台账（REQ-1）。读取失败不影响后续步骤（AC-1.4）。
         val readResult = try {
-            exitRecorder.recordNewExits(exitRecordLimit)
+            exitRecorder.recordNewExits()
         } catch (ex: CancellationException) {
             throw ex
         } catch (ex: Exception) {

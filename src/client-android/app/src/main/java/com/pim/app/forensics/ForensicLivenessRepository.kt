@@ -40,12 +40,19 @@ data class DroppedReasonCountOnly(val reason: String, val count: Int)
  * 离线且本地无数据时明确显示"无数据/未上报"，绝不报平安（AC-8.2）。
  */
 @Singleton
-class ForensicLivenessRepository @Inject constructor(
+class ForensicLivenessRepository internal constructor(
     private val dao: ForensicEventDao,
     private val exitReasonSource: ExitReasonSource,
     private val logs: StructuredLogRepository,
-    private val nowUtcMillis: () -> Long = System::currentTimeMillis
+    private val nowUtcMillis: () -> Long
 ) {
+    @Inject
+    constructor(
+        dao: ForensicEventDao,
+        exitReasonSource: ExitReasonSource,
+        logs: StructuredLogRepository
+    ) : this(dao, exitReasonSource, logs, System::currentTimeMillis)
+
 
     /** 窗口：最近 7 天，与 Web「设备存活」页默认区间一致（AC-7.1）。 */
     val windowDays: Int = DEFAULT_WINDOW_DAYS

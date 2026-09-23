@@ -1159,6 +1159,7 @@ class SettingsServerMutationTest {
             override suspend fun registerMobileDevice(request: com.pim.core.models.MobileDeviceRegisterRequest) = error("not used")
             override suspend fun getMobileGaps(request: com.pim.core.models.MobileGapRequest) = error("not used")
             override suspend fun uploadMobileUsage(request: com.pim.core.models.MobileUsageEventsUploadRequest) = error("not used")
+            override suspend fun uploadMobileForensics(request: com.pim.core.models.MobileForensicsUploadRequest) = error("not used")
             override suspend fun uploadMobileLocation(request: com.pim.core.models.MobileLocationPointRequest) = error("not used")
             override suspend fun getMobileSummary(date: String?, deviceId: String?) = error("not used")
             override suspend fun getMobileTimeline(date: String?, deviceId: String?, page: Int?, pageSize: Int?) = error("not used")

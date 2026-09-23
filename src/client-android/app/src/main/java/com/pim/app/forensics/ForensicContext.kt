@@ -2,6 +2,9 @@ package com.pim.app.forensics
 
 import android.app.ActivityManager
 import android.app.usage.UsageStatsManager
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
@@ -36,9 +39,10 @@ data class ForensicContext(
  * 真实实现。所有读取都做了异常隔离：任何一项读不到只记进 [ForensicContext.unavailableFields]，
  * 不影响心搏/退出记录本身的写入。
  */
-class AndroidForensicContextSource(
-    private val context: Context,
-    private val foregroundAppReader: () -> Pair<String?, String?> = { null to null }
+@Singleton
+class AndroidForensicContextSource @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val foregroundApp: ForegroundAppSource
 ) : ForensicContextSource {
 
     override fun read(): ForensicContext {
@@ -82,7 +86,9 @@ class AndroidForensicContextSource(
         }
         if (batteryPercent == null) unavailable += "电量百分比"
 
-        val (packageName, label) = runCatching { foregroundAppReader() }.getOrElse { null to null }
+        val foreground = runCatching { foregroundApp.read() }.getOrNull()
+        val packageName = foreground?.first
+        val label = foreground?.second
         if (packageName == null) unavailable += "前台应用"
 
         return ForensicContext(
@@ -113,7 +119,10 @@ data class HeartbeatSnapshot(
 /**
  * 采集心跳快照。所有系统查询都做异常隔离：读不到就留空（AC-4.2），不阻断心搏写入（AC-3.3）。
  */
-class AndroidHeartbeatSnapshotReader(private val context: Context) {
+@Singleton
+class AndroidHeartbeatSnapshotReader @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
 
     fun read(
         nowElapsedMillis: Long,
@@ -196,6 +205,61 @@ class AndroidHeartbeatSnapshotReader(private val context: Context) {
 
         /** `UsageStatsManager.STANDBY_BUCKET_NEVER`（隐藏常量）。 */
         const val STANDBY_BUCKET_NEVER = 50
+    }
+}
+
+/**
+ * 当时的前台应用读取（REQ-4 / AC-4.2）。
+ *
+ * 只返回**包名与应用名**，绝不读取任何应用使用内容（开屏页面、标题、输入内容）。
+ * 缺少"应用使用情况"权限时返回 null，由调用方标注"不可用"，不填猜测值。
+ */
+interface ForegroundAppSource {
+    fun read(): Pair<String, String?>?
+}
+
+/** 基于 `UsageStatsManager` 的最近前台应用读取（需要已授予"应用使用情况"权限）。 */
+@Singleton
+class AndroidForegroundAppSource @Inject constructor(
+    @ApplicationContext private val context: Context
+) : ForegroundAppSource {
+
+    override fun read(): Pair<String, String?>? {
+        val usageStatsManager =
+            context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+                ?: return null
+
+        val now = System.currentTimeMillis()
+        val events = usageStatsManager.queryEvents(now - LOOKBACK_MILLIS, now) ?: return null
+
+        var latestPackage: String? = null
+        var latestTimestamp = Long.MIN_VALUE
+        val event = android.app.usage.UsageEvents.Event()
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            if (event.eventType != android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED &&
+                event.eventType != android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND
+            ) {
+                continue
+            }
+            if (event.timeStamp > latestTimestamp) {
+                latestTimestamp = event.timeStamp
+                latestPackage = event.packageName
+            }
+        }
+
+        val packageName = latestPackage?.takeIf { it.isNotBlank() } ?: return null
+        val label = runCatching {
+            val info = context.packageManager.getApplicationInfo(packageName, 0)
+            context.packageManager.getApplicationLabel(info).toString()
+        }.getOrNull()
+
+        return packageName to label
+    }
+
+    companion object {
+        /** 只回看最近 10 分钟：更早的前台应用不代表"当时"的前台应用。 */
+        private const val LOOKBACK_MILLIS = 10L * 60L * 1000L
     }
 }
 

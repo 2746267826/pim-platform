@@ -70,7 +70,13 @@ class AndroidV2NotificationRoutingTest {
         val pimApp = repoFile("src", "main", "java", "com", "pim", "app", "PimApp.kt").readText()
         assertTrue("must cancelStaleNotification before start", pimApp.contains("cancelStaleNotification()"))
         assertTrue("must contain start(scope)", pimApp.contains("start(scope)"))
-        assertTrue("cancelStaleNotification must appear before start", pimApp.indexOf("cancelStaleNotification") < pimApp.indexOf("start"))
+        // 断言"取消陈旧通知"必须早于"启动发布器"这两次具体调用。
+        // 不能再用裸的 indexOf("start")：它会命中同文件里无关的标识符（例如 startupForensics），
+        // 从而在改动无关代码时给出假失败。
+        val cancelIndex = pimApp.indexOf("liveUpdatePublisher.cancelStaleNotification()")
+        val startIndex = pimApp.indexOf("liveUpdatePublisher.start(scope)")
+        assertTrue("PimApp must call cancelStaleNotification() and start(scope)", cancelIndex >= 0 && startIndex >= 0)
+        assertTrue("cancelStaleNotification must appear before start", cancelIndex < startIndex)
     }
 
     private fun repoFile(vararg parts: String): File {

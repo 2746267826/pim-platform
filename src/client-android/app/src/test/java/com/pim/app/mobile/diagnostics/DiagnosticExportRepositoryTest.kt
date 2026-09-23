@@ -69,7 +69,9 @@ class DiagnosticExportRepositoryTest {
     private val logNamePattern = Regex("""^logs/mobile-\d{4}-\d{2}-\d{2}\.jsonl$""")
     private val coreEntries = setOf(
         "manifest.json", "status.json", "settings.json",
-        "database-counts.json", "sync-history.json"
+        "database-counts.json", "sync-history.json",
+        // 阶段一新增：丢弃明细（REQ-9 AC-9.1）与取证台账（REQ-1~REQ-4）。
+        "dropped-locations.jsonl", "forensics.jsonl"
     )
 
     @Before
@@ -521,7 +523,8 @@ class DiagnosticExportRepositoryTest {
             assertTrue(dbCounts.has("appUsageRowCount"))
             assertTrue(dbCounts.has("mobileLogsRowCount"))
             assertTrue(dbCounts.has("mobileLocationPointsRowCount"))
-            assertEquals(10, dbCounts.length())
+            assertTrue(dbCounts.has("mobileForensicEventsRowCount"))
+            assertEquals(11, dbCounts.length())
             assertFalse(dbCounts.has("rawJson"))
         }
     }

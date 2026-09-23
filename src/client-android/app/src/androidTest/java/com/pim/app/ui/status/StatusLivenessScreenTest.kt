@@ -154,9 +154,10 @@ class StatusLivenessScreenTest {
         composeTestRule.onNodeWithTag("status-liveness-last-cause")
             .assertIsDisplayed()
             .assertTextContains("未知")
+        // 推断依据整行是"推断依据：…"，因此按子串断言（assertTextContains 默认是整段相等）。
         composeTestRule.onNodeWithTag("status-liveness-cause-inference")
             .assertIsDisplayed()
-            .assertTextContains("不能据此判定设备没有异常")
+            .assertTextContains("不能据此判定设备没有异常", substring = true)
     }
 
     @Test

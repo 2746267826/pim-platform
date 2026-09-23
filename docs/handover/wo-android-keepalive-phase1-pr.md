@@ -331,7 +331,7 @@ npm --prefix src/client-web run build
 | AC-31.1 | 后端 `dotnet test` + Web 构建 + Android 连接门禁 | 见"测试"章节 1/5/7 | PASS | 5325 通过；`✓ built`；`connectedDebugAndroidTest BUILD SUCCESSFUL` |
 | AC-31.2 | 本 PR 含双语"如何体验 / How to try it"与"测试 / Tests" | 本 PR 正文 | PASS | 见上 |
 | AC-31.3 | 本 PR 含逐条 AC 映射表，证据绑定 head SHA | 本 PR 正文 | PASS | 本表，head `ecfbf601` |
-| AC-31.4 | 结果状态取值合法、无未覆盖 AC | 本 PR 正文 | PASS | 仅使用五种状态；阶段一 + 跨阶段 54 条 AC 逐条列出 |
+| AC-31.4 | 结果状态取值合法、无未覆盖 AC | 本 PR 正文 | PASS | 仅使用五种状态；本 PR 范围内（REQ-1~REQ-13 + REQ-26~REQ-31）共 **57 条 AC** 逐条列出，其中 `PASS` 50 条、`NOT-VERIFIED` 7 条（AC-2.2、AC-2.3、AC-3.1、AC-3.2、AC-9.1、AC-11.3、AC-28.2），无 `FAIL` / `BLOCKED` / `APPROVED-EXCEPTION` |
 
 ---
 

@@ -58,6 +58,21 @@ describe('loadFolderTree', () => {
     expect(listing.truncated).toBe(false);
   });
 
+  it('AC-3.2 截断计数是「子项」总数（含文件与目录），不是目录数', async () => {
+    // 混合 100 个文件 + 100 个目录：totalCount 是子项数，提示文案必须按「项」而非「文件夹」表述
+    const mixed = [
+      ...Array.from({ length: 100 }, (_, i) => folder(`d${i}`, `/mix/d${i}`, `d${i}`)),
+      ...Array.from({ length: 100 }, (_, i) => ({ ...folder(`f${i}`, `/mix/f${i}.txt`, `f${i}.txt`), itemType: 'file' })),
+    ];
+    const getItems = vi.fn().mockResolvedValue(page(mixed, 200, 1));
+
+    const listing = await loadFolderTree('/mix', getItems);
+
+    expect(listing.totalCount).toBe(200);
+    expect(listing.items).toHaveLength(200);
+    expect(listing.truncated).toBe(false);
+  });
+
   it('AC-3.2 超过上限时如实标记截断，不假装已加载全部', async () => {
     // 上限 20 页 = 2000 个目录；造 5000 个 -> 必须 truncated=true 且给出真实总数
     const getItems = vi.fn(async ({ page: pageNumber }: { page?: number }) =>

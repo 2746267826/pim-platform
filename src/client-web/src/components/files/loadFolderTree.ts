@@ -3,8 +3,8 @@ import { getFileItems, type FileListParams } from '../../api/files';
 import { FILE_PAGE_SIZE } from './fileBrowserState';
 
 /**
- * 树每个目录最多翻多少页（100/页）。超过时由调用方显式提示「已加载 X / 共 N」，
- * 不做静默截断（AC-3.2）。
+ * 树每个目录最多翻多少页（100/页）。超过时调用方必须显式提示「已加载 X / 共 N 项」，
+ * 不做静默截断（AC-3.2）。注意计数是**子项**（含文件与目录）数，提示文案不得写成「个文件夹」。
  */
 export const MAX_FOLDER_PAGES = 20;
 
@@ -13,7 +13,7 @@ export interface FolderListing {
   totalCount: number;
   /** 是否因页数上限而只加载了部分目录（AC-3.2：截断必须显式暴露）。 */
   truncated: boolean;
-  /** 该目录下未加载完的目录数（truncated 时为 totalCount - items.length）。 */
+  /** 该目录下未加载完的子项数（truncated 时为 totalCount - items.length）。 */
   missingCount: number;
 }
 

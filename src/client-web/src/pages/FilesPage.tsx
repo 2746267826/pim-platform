@@ -621,7 +621,8 @@ function TreeStatusBanner({
       className="border-t border-[var(--pim-border)] px-3 py-1.5 text-[11px] text-[var(--pim-warning)]"
       data-testid={`${testIdPrefix}-tree-truncated`}
     >
-      已加载 {truncation.loaded} / 共 {truncation.total} 个文件夹
+      {/* 这是**子项**总数（含文件与目录），不是目录数——措辞必须与口径一致，不谎报 */}
+      已加载 {truncation.loaded} / 共 {truncation.total} 项（超出部分未在树中展开）
     </div>
   );
 }

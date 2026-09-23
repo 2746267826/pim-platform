@@ -1,6 +1,6 @@
 # WO-ANDROID-KEEPALIVE-20260923 · 阶段一（死因取证）交付说明
 
-> 本文件是阶段一 PR 的描述，用于让 PR 正文保持可复核。**证据绑定 head `4d678158ee88258b6c876d3372975e93ba60c5a4`**。
+> 本文件是阶段一 PR 的描述，用于让 PR 正文保持可复核。**证据绑定 head `ecfbf601f4976e1ae2bd03190dfb83e5878969e9`**（该提交相对 `4d678158` **只改动了本说明文档**，代码与测试一字未动，因此所有代码/测试证据对两个 head 同样成立）。
 > 阶段二（REQ-14 ~ REQ-25 精准闹钟）**未实施**，符合工单"两个 PR"的交付节奏。
 
 ---
@@ -103,7 +103,7 @@ bash scripts/qa/android-forensics-emulator.sh
 
 ## 测试 / Tests
 
-所有命令均在本机执行，结果取自 head `4d678158ee88258b6c876d3372975e93ba60c5a4`。
+所有命令均在本机执行，结果取自 head `ecfbf601f4976e1ae2bd03190dfb83e5878969e9`（代码与测试与 `4d678158` 完全一致）。
 
 ### 环境
 
@@ -256,7 +256,7 @@ npm --prefix src/client-web run build
 - **第 2 轮（Codex）**：判定 `BLOCK`，但理由是"安卓取证超出阶段一范围"——该理由**不成立**（工单 §3 的 REQ-1 ~ REQ-13 正是安卓取证本身）。其余 4 项复判见第 3 轮。
 - **第 3 轮（Codex）**：确认范围判断错误，确认第 2 轮的"范围越界"是误判；提出**一条真实的 Important 缺陷**：`ForceStopDetector` 在哨兵仍在时也会判为"哨兵被清空（权限变更）"，与 REQ-2 / AC-2.3 的"因权限变更导致哨兵失效"不符。**已修复**（提交 `a4690ac5`）。
 - **第 4 轮（Codex）**：对该修复的最终确认，结论见下方"独立 review 最终结论"。
-- **CI（GitHub Actions，head `4d678158`）**：`build-api` / `build-web` / `build-android` / `build-docker` / `CI Gate` 全绿。
+- **CI（GitHub Actions，head `ecfbf601`）**：`build-api` / `build-web` / `build-android` / `build-docker` / `CI Gate` 全绿。
   首次 CI（head `4ff7cdfd`）抓到一处真实缺口：`DeviceMergeRealDbTests` 的 `DeviceScopedTables` 没把新增的取证两张表克隆进临时 schema，导致合并路径报 `42P01 relation "mobile_forensic_events" does not exist`。
   已在 `4d678158` 补上，CI 随之转绿——**这正是"本地全绿不等于 CI 全绿"的实例**。
 
@@ -264,7 +264,7 @@ npm --prefix src/client-web run build
 
 ## 需求与验收映射 / Requirement & Acceptance Mapping
 
-证据均绑定 head `4d678158ee88258b6c876d3372975e93ba60c5a4`。结果状态只用 `PASS` / `FAIL` / `BLOCKED` / `NOT-VERIFIED` / `APPROVED-EXCEPTION`。
+证据均绑定 head `ecfbf601f4976e1ae2bd03190dfb83e5878969e9`。结果状态只用 `PASS` / `FAIL` / `BLOCKED` / `NOT-VERIFIED` / `APPROVED-EXCEPTION`。
 
 ### REQ-1 ~ REQ-13（阶段一）
 
@@ -330,7 +330,7 @@ npm --prefix src/client-web run build
 | AC-30.2 | 旧客户端未知字段不导致服务端报错 | 单元：`Ingest_MalformedPayload_DoesNotFailTheBatch`；DTO 默认 JSON 绑定 | PASS | 未知事件类型显式计入 rejected（不静默丢弃），畸形负载不拖垮整批；新表未改动既有端点契约 |
 | AC-31.1 | 后端 `dotnet test` + Web 构建 + Android 连接门禁 | 见"测试"章节 1/5/7 | PASS | 5325 通过；`✓ built`；`connectedDebugAndroidTest BUILD SUCCESSFUL` |
 | AC-31.2 | 本 PR 含双语"如何体验 / How to try it"与"测试 / Tests" | 本 PR 正文 | PASS | 见上 |
-| AC-31.3 | 本 PR 含逐条 AC 映射表，证据绑定 head SHA | 本 PR 正文 | PASS | 本表，head `4d678158` |
+| AC-31.3 | 本 PR 含逐条 AC 映射表，证据绑定 head SHA | 本 PR 正文 | PASS | 本表，head `ecfbf601` |
 | AC-31.4 | 结果状态取值合法、无未覆盖 AC | 本 PR 正文 | PASS | 仅使用五种状态；阶段一 + 跨阶段 54 条 AC 逐条列出 |
 
 ---
@@ -367,7 +367,7 @@ npm --prefix src/client-web run build
 
 ## CI 状态 / CI status
 
-head `4d678158ee88258b6c876d3372975e93ba60c5a4`：
+head `ecfbf601f4976e1ae2bd03190dfb83e5878969e9`：
 
 | Check | 结果 |
 |---|---|

@@ -236,6 +236,19 @@ class ExitReasonRecorderTest {
     }
 
     @Test
+    fun `user requested exits are recognised as force stop evidence`() = runTest {
+        val recorder = recorder(FakeSource(ExitReasonReadResult(true, emptyList())))
+        val records = listOf(
+            record(1_000L, ProcessExitReasons.USER_REQUESTED),
+            record(2_000L, ProcessExitReasons.USER_STOPPED),
+            record(3_000L, ProcessExitReasons.LOW_MEMORY)
+        )
+
+        assertTrue(recorder.hasUserRequestedExitAfter(500L, records))
+        assertFalse(recorder.hasUserRequestedExitAfter(2_500L, records))
+    }
+
+    @Test
     fun `exit record detection only counts records after the last alive marker`() = runTest {
         val recorder = recorder(FakeSource(ExitReasonReadResult(true, emptyList())))
         val records = listOf(record(5_000L, ProcessExitReasons.ANR))

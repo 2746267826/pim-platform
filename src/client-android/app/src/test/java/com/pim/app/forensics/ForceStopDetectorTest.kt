@@ -31,12 +31,14 @@ class ForceStopDetectorTest {
         nowBootElapsed: Long = 900_000L,
         sentinelPresent: Boolean = true,
         exitRecordAfterLastAlive: Boolean = false,
+        exitRecordSaysUserRequested: Boolean = false,
         permissionChangeAfterArmed: Boolean = false
     ) = ForceStopDetectionInput(
         nowUtcMillis = 1_200_000L,
         nowBootElapsedMillis = nowBootElapsed,
         sentinelPresent = sentinelPresent,
         exitRecordAfterLastAlive = exitRecordAfterLastAlive,
+        exitRecordSaysUserRequested = exitRecordSaysUserRequested,
         permissionChangeAfterArmed = permissionChangeAfterArmed
     )
 
@@ -92,6 +94,51 @@ class ForceStopDetectorTest {
 
         assertEquals(ForceStopVerdict.None, verdict)
         assertEquals(null, ForceStopDetector.kindOf(verdict))
+    }
+
+    @Test
+    fun `REASON_USER_REQUESTED is itself force stop evidence even though the system recorded an exit`() {
+        // 实测（API 36 模拟器，2026-09-23）：`adb shell am force-stop com.pim.app`
+        // 之后重新打开应用，系统留下一条 REASON_USER_REQUESTED 退出记录。
+        // 若把它当成"系统已解释死因"就会漏报强停，因此这条记录必须直接判为强停。
+        val verdict = ForceStopDetector.detect(
+            state(),
+            input(
+                sentinelPresent = false,
+                exitRecordAfterLastAlive = true,
+                exitRecordSaysUserRequested = true
+            )
+        )
+
+        assertEquals(ForceStopVerdict.ForceStop, verdict)
+        assertEquals(ForceStopKinds.FORCE_STOP, ForceStopDetector.kindOf(verdict))
+    }
+
+    @Test
+    fun `permission change wins over a user requested looking record`() {
+        // AC-2.3：权限变更会同时让哨兵消失并留下退出记录，必须记成"哨兵被清空（权限变更）"。
+        val verdict = ForceStopDetector.detect(
+            state(),
+            input(
+                sentinelPresent = false,
+                exitRecordAfterLastAlive = true,
+                exitRecordSaysUserRequested = true,
+                permissionChangeAfterArmed = true
+            )
+        )
+
+        assertEquals(ForceStopVerdict.SentinelClearedByPermissionChange, verdict)
+    }
+
+    @Test
+    fun `a package update is not reported as a force stop`() {
+        // 实测：`adb install -r` 之后系统留下 REASON_PACKAGE_UPDATED —— 既不是强停也不是重启。
+        val verdict = ForceStopDetector.detect(
+            state(),
+            input(sentinelPresent = true, exitRecordAfterLastAlive = true)
+        )
+
+        assertEquals(ForceStopVerdict.None, verdict)
     }
 
     @Test

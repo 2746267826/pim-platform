@@ -105,6 +105,8 @@ class StartupForensics internal constructor(
                 sentinelPresent = sentinelPresent,
                 exitRecordAfterLastAlive = lastAliveAt != null &&
                     exitRecorder.hasExitRecordAfter(lastAliveAt, readResult.records),
+                exitRecordSaysUserRequested = lastAliveAt != null &&
+                    exitRecorder.hasUserRequestedExitAfter(lastAliveAt, readResult.records),
                 permissionChangeAfterArmed = previousState.armedAtUtcMillis?.let { armedAt ->
                     exitRecorder.hasPermissionChangeAfter(armedAt, readResult.records)
                 } ?: false

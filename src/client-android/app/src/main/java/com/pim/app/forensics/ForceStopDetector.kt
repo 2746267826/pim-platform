@@ -25,8 +25,16 @@ data class ForceStopDetectionInput(
     val nowBootElapsedMillis: Long,
     /** 哨兵是否仍然存在（例如周期作业仍处于 ENQUEUED）。 */
     val sentinelPresent: Boolean,
-    /** 是否存在晚于"最近一次存活"的进程退出记录（系统留下了死因 ⇒ 不是强停）。 */
+    /** 是否存在晚于"最近一次存活"的进程退出记录（系统留下了死因 ⇒ 通常不是强停）。 */
     val exitRecordAfterLastAlive: Boolean,
+    /**
+     * 该退出记录是否就是"用户强停"（`REASON_USER_REQUESTED` / `REASON_USER_STOPPED`）。
+     *
+     * 实测（API 36 模拟器）：`am force-stop` 会留下一条 `REASON_USER_REQUESTED` 记录，
+     * 用户从系统设置强停同理；因此这种情况**本身就是强停证据**，不能被
+     * [exitRecordAfterLastAlive] 当成"系统已解释死因"而放过。
+     */
+    val exitRecordSaysUserRequested: Boolean,
     /** 是否存在晚于哨兵登记时刻的 `REASON_PERMISSION_CHANGE` 退出记录。 */
     val permissionChangeAfterArmed: Boolean
 )
@@ -62,14 +70,21 @@ object ForceStopDetector {
             return ForceStopVerdict.Reboot
         }
 
-        // 系统留下了这期间的进程退出记录 ⇒ 进程是被"有记录地"结束的，不是强停。
-        if (input.exitRecordAfterLastAlive) {
-            return ForceStopVerdict.None
-        }
-
         // 哨兵被清空且同期有权限变更 ⇒ 记为"哨兵被清空（权限变更）"，不得计为强停（AC-2.3）。
+        // 这一条必须排在"用户强停"之前：权限变更同样会让哨兵消失。
         if (input.permissionChangeAfterArmed) {
             return ForceStopVerdict.SentinelClearedByPermissionChange
+        }
+
+        // 系统把这次停机记成"用户请求停止" ⇒ 就是强停（AC-2.1）。
+        // 实测 Android 16（API 36）模拟器上 `am force-stop` 留下的正是 REASON_USER_REQUESTED。
+        if (input.exitRecordSaysUserRequested) {
+            return ForceStopVerdict.ForceStop
+        }
+
+        // 系统留下了其它退出记录 ⇒ 进程是被"有原因地"结束的（低内存/崩溃/被信号杀…），不是强停。
+        if (input.exitRecordAfterLastAlive) {
+            return ForceStopVerdict.None
         }
 
         // 哨兵消失、设备没重启、系统也没留下退出记录 ⇒ 疑似强停（AC-2.1）。

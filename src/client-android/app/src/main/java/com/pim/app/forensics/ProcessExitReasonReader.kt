@@ -161,6 +161,20 @@ class ExitReasonRecorder @Inject constructor(
     fun hasExitRecordAfter(millis: Long, records: List<HistoricalExitRecord>): Boolean =
         records.any { it.timestampMillis > millis }
 
+    /**
+     * 该批退出记录里，晚于 [millis] 的"用户主动停止"记录（`REASON_USER_REQUESTED` /
+     * `REASON_USER_STOPPED`）。
+     *
+     * 实测（API 36 模拟器）`am force-stop` 与系统设置里的"强行停止"都会留下这条记录，
+     * 因此它是强停最直接的证据，比"哨兵消失"更可靠。
+     */
+    fun hasUserRequestedExitAfter(millis: Long, records: List<HistoricalExitRecord>): Boolean =
+        records.any {
+            it.timestampMillis > millis &&
+                (it.reason == ProcessExitReasons.USER_REQUESTED ||
+                    it.reason == ProcessExitReasons.USER_STOPPED)
+        }
+
     /** 供 AC-2.3 使用：哨兵登记之后是否出现过权限变更导致的退出。 */
     fun hasPermissionChangeAfter(millis: Long, records: List<HistoricalExitRecord>): Boolean =
         records.any {

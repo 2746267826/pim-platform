@@ -71,8 +71,12 @@ object ForceStopDetector {
         }
 
         // 哨兵被清空且同期有权限变更 ⇒ 记为"哨兵被清空（权限变更）"，不得计为强停（AC-2.3）。
-        // 这一条必须排在"用户强停"之前：权限变更同样会让哨兵消失。
-        if (input.permissionChangeAfterArmed) {
+        //
+        // 两个条件缺一不可：REQ-2 的语义是"**因权限变更导致哨兵失效**"。
+        // 若哨兵仍在（sentinelPresent == true），权限变更只是让进程被系统结束了一次，
+        // 哨兵并没有被清空——这时把它记成"哨兵被清空（权限变更）"是凭空捏造的死因。
+        // 这一条也必须排在"用户强停"之前：权限变更同样会让哨兵消失。
+        if (!input.sentinelPresent && input.permissionChangeAfterArmed) {
             return ForceStopVerdict.SentinelClearedByPermissionChange
         }
 

@@ -115,6 +115,36 @@ class ForceStopDetectorTest {
     }
 
     @Test
+    fun `AC-2_3 a permission change with the sentinel still present is not a cleared sentinel`() {
+        // REQ-2 的条件是"因权限变更导致**哨兵失效**"。哨兵还在时，权限变更只是让进程
+        // 被系统结束了一次；把它记成"哨兵被清空（权限变更）"是凭空捏造的死因。
+        val verdict = ForceStopDetector.detect(
+            state(),
+            input(
+                sentinelPresent = true,
+                exitRecordAfterLastAlive = true,
+                permissionChangeAfterArmed = true
+            )
+        )
+
+        assertEquals(ForceStopVerdict.None, verdict)
+    }
+
+    @Test
+    fun `AC-2_3 a permission change with the sentinel gone is a cleared sentinel`() {
+        val verdict = ForceStopDetector.detect(
+            state(),
+            input(
+                sentinelPresent = false,
+                exitRecordAfterLastAlive = true,
+                permissionChangeAfterArmed = true
+            )
+        )
+
+        assertEquals(ForceStopVerdict.SentinelClearedByPermissionChange, verdict)
+    }
+
+    @Test
     fun `permission change wins over a user requested looking record`() {
         // AC-2.3：权限变更会同时让哨兵消失并留下退出记录，必须记成"哨兵被清空（权限变更）"。
         val verdict = ForceStopDetector.detect(

@@ -155,9 +155,11 @@ describe('OneDriveFileList 搜索（REQ-8）', () => {
 
     fireEvent.click(within(screen.getByRole('table')).getByText('x.jpg'));
 
-    // 必须走 reveal（上层据此清掉关键词、退出搜索态），只导航会留下搜索态
-    expect(onRevealInFolder).toHaveBeenCalledWith('/main/SAVE/a');
-    expect(props.onSelect).not.toHaveBeenCalled();
+    // 必须走 reveal（上层据此清掉关键词、退出搜索态），并带上被点的条目以便预览；
+    // 只导航会留下搜索态，且用户刚点的那一条会丢。
+    expect(onRevealInFolder).toHaveBeenCalledTimes(1);
+    expect(onRevealInFolder.mock.calls[0][0]).toBe('/main/SAVE/a');
+    expect(onRevealInFolder.mock.calls[0][1]).toMatchObject({ name: 'x.jpg' });
   });
 
   it('AC-8.1 没有 reveal 回调时退回纯导航（不静默无反应）', () => {

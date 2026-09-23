@@ -141,20 +141,38 @@ export function pageCountLabel(page: number, totalPages: number, totalCount: num
  * 关键：父目录尚未加载时一律返回 <c>true</c>（无法判定 ≠ 失效）。
  * 否则刚进入一个深层目录、树的查询还没回来时，会被误判成「目录已不存在」而把用户弹回根目录。
  */
-export function isRestorablePath(path: string, childrenByPath: Record<string, unknown[] | undefined>): boolean {
+export interface ParentListing {
+  items: unknown[];
+  /**
+   * 该目录的**真实**子项总数。用于区分「目录确实不在」与「目录排在树加载上限之后」：
+   * 树每个目录最多加载 {@link MAX_FOLDER_PAGES} 页，超过时集合是子集，
+   * 此时不能据此判定记忆路径已失效（复审 Important：会把真实目录误判成已删除、把用户弹回根）。
+   */
+  totalCount?: number;
+}
+
+export function isRestorablePath(path: string, childrenByPath: Record<string, ParentListing | undefined>): boolean {
   const normalized = normalizeDirPath(path);
   if (normalized === '/') return true;
 
   const parent = parentDirPath(normalized);
   if (parent === null) return true;
 
-  const siblings = childrenByPath[parent];
-  if (!siblings) return true;
+  const listing = childrenByPath[parent];
+  if (!listing) return true;
 
-  return siblings.some(item => {
+  const found = listing.items.some(item => {
     const siblingPath = (item as { path?: unknown })?.path;
     return typeof siblingPath === 'string' && normalizeDirPath(siblingPath) === normalized;
   });
+  if (found) return true;
+
+  // 没找到：只有当父目录的子项**确实已全部加载**（items 数 == 真实总数）时，
+  // 才能判定该路径已失效；否则它可能只是被截断在加载上限之外。
+  const total = listing.totalCount;
+  if (typeof total !== 'number' || total > listing.items.length) return true;
+
+  return false;
 }
 
 /** 全局搜索结果条目的展示路径（REQ-8：结果必须带完整路径）。 */

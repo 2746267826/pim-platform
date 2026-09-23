@@ -159,10 +159,11 @@ export default function FilesPage() {
     })),
   });
 
-  const { foldersByPath, folderStates, folderTruncation } = useMemo(() => {
+  const { foldersByPath, folderStates, folderTruncation, folderTotals } = useMemo(() => {
     const byPath: Record<string, FileItem[]> = {};
     const states: Record<string, FolderLoadState> = {};
     const truncation: Record<string, { loaded: number; total: number }> = {};
+    const totals: Record<string, number> = {};
 
     foldersToLoad.forEach((path, index) => {
       const query = folderQueries[index];
@@ -170,6 +171,7 @@ export default function FilesPage() {
       if (query.data) {
         byPath[path] = query.data.items;
         states[path] = 'loaded';
+        totals[path] = query.data.totalCount;
         if (query.data.truncated) truncation[path] = { loaded: query.data.items.length, total: query.data.totalCount };
       } else if (query.isError) {
         // 失败时不能把该目录当成空目录：给出明确的失败态（AC-4.2）
@@ -180,19 +182,24 @@ export default function FilesPage() {
       }
     });
 
-    return { foldersByPath: byPath, folderStates: states, folderTruncation: truncation };
+    return { foldersByPath: byPath, folderStates: states, folderTruncation: truncation, folderTotals: totals };
   }, [folderQueries, foldersToLoad]);
 
   const currentTruncation = folderTruncation[currentPath] ?? null;
   const rootState = folderStates['/'] ?? 'loading';
-  // 只把「已成功加载」的目录纳入记忆有效性判定（见 isRestorablePath 注释）
+  // 只把「已成功加载」的目录纳入记忆有效性判定（见 isRestorablePath 注释）；
+  // 同时带上真实总数，避免把「排在树加载上限之后」的真实目录误判成已删除。
   const loadedChildrenByPath = useMemo(() => {
-    const loaded: Record<string, FileItem[]> = {};
+    const loaded: Record<string, { items: FileItem[]; totalCount: number }> = {};
     for (const [path, state] of Object.entries(folderStates)) {
-      if (state === 'loaded') loaded[path] = foldersByPath[path] ?? [];
+      if (state !== 'loaded') continue;
+      loaded[path] = {
+        items: foldersByPath[path] ?? [],
+        totalCount: folderTotals[path] ?? foldersByPath[path]?.length ?? 0,
+      };
     }
     return loaded;
-  }, [folderStates, foldersByPath]);
+  }, [folderStates, foldersByPath, folderTotals]);
   const rootTruncation = folderTruncation['/'] ?? null;
 
   // AC-1.2 后半句：记忆里的目录若已被改名/删除，安全回退根目录。
@@ -263,13 +270,15 @@ export default function FilesPage() {
 
   /** 全盘搜索命中某条 → 跳到它所在目录（AC-8.1）；跳出搜索态，避免中栏继续显示旧结果。 */
   const handleRevealInFolder = useCallback(
-    (path: string) => {
+    (path: string, item?: FileItem) => {
       setQueryInput('');
       updateMemory({ searchScope: 'folder', path: normalizeDirPath(path) });
       setCurrentPath(normalizeDirPath(path));
       setPage(1);
-      setSelectedItem(null);
-      setMobilePreviewOpen(false);
+      // 保留被点条目为选中项：搜索结果点一下应当能直接进预览（复审 Important），
+      // 而不是把用户刚点的那一条丢掉。
+      setSelectedItem(item ?? null);
+      setMobilePreviewOpen(Boolean(item));
     },
     [updateMemory],
   );

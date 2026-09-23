@@ -127,33 +127,37 @@ describe('fileBrowserState', () => {
 
     it('AC-1.2 记忆目录仍存在才可恢复；已改名/删除则回退根目录', () => {
       const tree = {
-        '/': [{ path: '/main' }],
-        '/main': [{ path: '/main/SAVE' }],
-        '/main/SAVE': [],
+        '/': { items: [{ path: '/main' }], totalCount: 1 },
+        '/main': { items: [{ path: '/main/SAVE' }], totalCount: 1 },
+        '/main/SAVE': { items: [], totalCount: 0 },
       };
 
       expect(isRestorablePath('/', tree)).toBe(true);
       expect(isRestorablePath('/main/SAVE', tree)).toBe(true);
-      // 父目录已加载，但里面没有这一项 -> 目录已被改名/删除
+      // 父目录已全部加载，但里面没有这一项 -> 目录已被改名/删除
       expect(isRestorablePath('/main/GONE', tree)).toBe(false);
       expect(isRestorablePath('/deleted-top-level', tree)).toBe(false);
     });
 
     it('AC-1.2 父目录尚未加载时不误判为失效（否则刚进深目录就被弹回根）', () => {
-      const tree = { '/': [{ path: '/main' }] };
+      const tree = { '/': { items: [{ path: '/main' }], totalCount: 1 } };
 
-      // /main 的子项还没回来：无法判定 != 失效
+      // 直接父目录 /main/SAVE 的子项还没回来：无法判定 != 失效
       expect(isRestorablePath('/main/SAVE/archives', tree)).toBe(true);
+      expect(isRestorablePath('/main/SAVE/archives', { '/': { items: [{ path: '/main' }], totalCount: 1 }, '/main': { items: [], totalCount: 0 } })).toBe(true);
       // 完全空的树同理
       expect(isRestorablePath('/main/SAVE', {})).toBe(true);
     });
 
-    it('AC-1.2 中间父目录加载失败时不误判（否则会把用户从好目录上赶走）', () => {
-      // 直接父目录 /main/SAVE 的子项还没成功加载（例如请求失败）：保留用户落点
-      expect(isRestorablePath('/main/SAVE/archives', { '/': [{ path: '/main' }] })).toBe(true);
-      expect(isRestorablePath('/main/SAVE/archives', { '/': [{ path: '/main' }], '/main': [] })).toBe(true);
-      // 只有**直接父目录**成功加载且确实没有这一项时，才判定记忆失效
-      expect(isRestorablePath('/main/SAVE/archives', { '/main/SAVE': [] })).toBe(false);
+    it('AC-1.2 被树加载上限截断的真实目录不得被误判为已删除（复审 Important）', () => {
+      // 父目录真实有 5000 个子项，树只加载了前 2000 个（截断），
+      // 记忆里的目录排在 2000 名之后 —— 此时**不能**判失效，否则会把用户弹回根目录。
+      const truncated = { '/big': { items: [{ path: '/big/a' }], totalCount: 5000 } };
+      expect(isRestorablePath('/big/zzz-not-in-first-page', truncated)).toBe(true);
+
+      // 只有「已全部加载且确实没有」才判失效
+      const complete = { '/big': { items: [{ path: '/big/a' }], totalCount: 1 } };
+      expect(isRestorablePath('/big/zzz-not-in-first-page', complete)).toBe(false);
     });
 
     it('AC-8.1 全局搜索结果展示所在目录', () => {

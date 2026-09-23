@@ -114,6 +114,15 @@ export default function OneDriveFileList({
 
   const toggleOrder = () => onSortChange(sort, order === 'asc' ? 'desc' : 'asc');
 
+  /**
+   * 跳到条目所在目录。优先用 onRevealInFolder（上层会清掉搜索关键词、退出搜索态，
+   * 从而真正展示该目录的内容）；没有该回调时退回纯导航。
+   */
+  const revealInFolder = (path: string) => {
+    if (onRevealInFolder) onRevealInFolder(path);
+    else onNavigate(path);
+  };
+
   return (
     <section className="flex min-w-0 flex-1 flex-col" aria-label="文件列表">
       {/* 导航行：面包屑（逐级可点）+ 上一级 */}
@@ -274,9 +283,10 @@ export default function OneDriveFileList({
                       selectedItem?.id === item.id ? 'bg-[var(--pim-primary-soft)]' : 'hover:bg-[var(--pim-surface-muted)]'
                     }`}
                     onClick={() => {
-                      // 全局搜索结果：点整行即跳到它所在目录（AC-8.1）；
-                      // 普通浏览：文件夹进入、文件只选中预览。
-                      if (showFullPath) onNavigate(displayParentPath(item.path));
+                      // 全局搜索结果：点整行即**跳到它所在目录**（AC-8.1）。
+                      // 这里必须走 onRevealInFolder（会退出搜索态并重新加载该目录），
+                      // 只调 onNavigate 会留下搜索态、用户看不到目标目录的内容。
+                      if (showFullPath) revealInFolder(displayParentPath(item.path));
                       else if (item.itemType === 'folder') onOpenFolder(item.path);
                       else onSelect(item);
                     }}
@@ -300,8 +310,7 @@ export default function OneDriveFileList({
                           title={displayParentPath(item.path)}
                           onClick={event => {
                             event.stopPropagation();
-                            if (onRevealInFolder) onRevealInFolder(displayParentPath(item.path));
-                            else onNavigate(displayParentPath(item.path));
+                            revealInFolder(displayParentPath(item.path));
                           }}
                         >
                           {displayParentPath(item.path)}
@@ -353,7 +362,7 @@ export default function OneDriveFileList({
                     : 'border-[var(--pim-border)] bg-white hover:-translate-y-px hover:shadow-sm'
                 }`}
                 onClick={() => {
-                  if (showFullPath) onNavigate(displayParentPath(item.path));
+                  if (showFullPath) revealInFolder(displayParentPath(item.path));
                   else if (item.itemType === 'folder') onOpenFolder(item.path);
                   else onSelect(item);
                 }}

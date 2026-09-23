@@ -148,6 +148,14 @@ describe('fileBrowserState', () => {
       expect(isRestorablePath('/main/SAVE', {})).toBe(true);
     });
 
+    it('AC-1.2 中间父目录加载失败时不误判（否则会把用户从好目录上赶走）', () => {
+      // 直接父目录 /main/SAVE 的子项还没成功加载（例如请求失败）：保留用户落点
+      expect(isRestorablePath('/main/SAVE/archives', { '/': [{ path: '/main' }] })).toBe(true);
+      expect(isRestorablePath('/main/SAVE/archives', { '/': [{ path: '/main' }], '/main': [] })).toBe(true);
+      // 只有**直接父目录**成功加载且确实没有这一项时，才判定记忆失效
+      expect(isRestorablePath('/main/SAVE/archives', { '/main/SAVE': [] })).toBe(false);
+    });
+
     it('AC-8.1 全局搜索结果展示所在目录', () => {
       expect(displayParentPath('/main/SAVE/a/x.jpg')).toBe('/main/SAVE/a');
       expect(displayParentPath('/x.jpg')).toBe('/');

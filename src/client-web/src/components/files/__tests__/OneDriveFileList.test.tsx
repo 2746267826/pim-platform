@@ -142,19 +142,36 @@ describe('OneDriveFileList 搜索（REQ-8）', () => {
     expect(screen.getByText('/main/SAVE/a')).toBeTruthy();
   });
 
-  it('AC-8.1 全盘搜索模式点整行即跳到该条所在目录', () => {
+  it('AC-8.1 全盘搜索模式点整行即跳到该条所在目录（并退出搜索态）', () => {
+    const onRevealInFolder = vi.fn();
     const props = renderList({
       items: [makeItem({ id: 'g-2', path: '/main/SAVE/a/x.jpg', name: 'x.jpg' })],
       searchScope: 'global',
       query: 'x',
       showFullPath: true,
       currentPath: '/',
+      onRevealInFolder,
     });
 
     fireEvent.click(within(screen.getByRole('table')).getByText('x.jpg'));
 
-    expect(props.onNavigate).toHaveBeenCalledWith('/main/SAVE/a');
+    // 必须走 reveal（上层据此清掉关键词、退出搜索态），只导航会留下搜索态
+    expect(onRevealInFolder).toHaveBeenCalledWith('/main/SAVE/a');
     expect(props.onSelect).not.toHaveBeenCalled();
+  });
+
+  it('AC-8.1 没有 reveal 回调时退回纯导航（不静默无反应）', () => {
+    const props = renderList({
+      items: [makeItem({ id: 'g-3', path: '/main/SAVE/a/y.jpg', name: 'y.jpg' })],
+      searchScope: 'global',
+      query: 'y',
+      showFullPath: true,
+      currentPath: '/',
+    });
+
+    fireEvent.click(within(screen.getByRole('table')).getByText('y.jpg'));
+
+    expect(props.onNavigate).toHaveBeenCalledWith('/main/SAVE/a');
   });
 
   it('AC-8.2 网格视图无匹配时同样给出全盘搜索引导', () => {

@@ -14,7 +14,7 @@
     "test:auto-refresh": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/autoRefreshInterval.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/locationRefreshSelection.test.tsx",
     "test:today": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/todayApiPath.test.ts && npm --prefix src/client-web exec tsc -- -p tests/client-web/tsconfig.today.json && npm --prefix src/client-web exec tsx -- tests/client-web/todayTypes.test.ts",
     "test:files": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/filesApiPath.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/oneDriveFilesApiPath.test.ts && npm --prefix src/client-web exec tsc -- -p tests/client-web/tsconfig.files.json && npm --prefix src/client-web exec tsx -- tests/client-web/filesTypes.test.ts && npm --prefix src/client-web exec tsx -- tests/client-web/filesLocalization.test.ts && npm --prefix src/client-web run test:files-vitest",
-    "test:files-vitest": "vitest run src/components/files/__tests__ src/pages/__tests__",
+    "test:files-vitest": "vitest run src/components/files/__tests__ src/pages/__tests__ src/components/files/upload/__tests__",
     "test:mcp": "cd ../.. && npm --prefix src/client-web exec tsx -- tests/client-web/mcpApiPath.test.ts && npm --prefix src/client-web exec tsc -- -p tests/client-web/tsconfig.mcp.json && npm --prefix src/client-web exec tsx -- tests/client-web/mcpTypes.test.ts && npm --prefix src/client-web run test:mcp-vitest",
     "test:mcp-vitest": "vitest run src/components/mcp/__tests__",
     "test:quick-notes-vitest": "vitest run src/components/quick-notes/__tests__",

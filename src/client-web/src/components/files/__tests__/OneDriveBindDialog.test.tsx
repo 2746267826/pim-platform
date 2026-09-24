@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import OneDriveBindDialog from '../OneDriveBindDialog';
 import * as filesApi from '../../../api/files';
@@ -14,6 +14,23 @@ const mockedStatus = vi.mocked(filesApi.getOneDriveBindingStatus);
 describe('OneDriveBindDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  /**
+   * 用例失败放最后执行：react-query 的 `retryDelay` 默认是**指数退避的真实定时器**
+   * （已在 src/main.tsx 的 defaultOptions 里设定）。用例里失败一次就会留下一个
+   * 几千毫秒的真实 setTimeout；若其后紧跟 `vi.useFakeTimers()` 的用例，
+   * 假定时器会接管/捕获这些真实定时器，使轮询推进失效、`findBy*` 也永远等不到。
+   *
+   * 该顺序依赖曾在 CI 上表现为「轮询到 connected 时回调 onConnected 0 次调用」
+   * 与「denied 状态展示失败并可重新绑定 5s 超时」两条随机失败（本地 -t 单跑必过）。
+   *
+   * 这里显式收口：用例结束时恢复真实定时器并清掉所有挂起的定时器，
+   * 不让任何残留定时器跨用例传染。
+   */
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it('未填 Client ID 时提示错误而不发请求', async () => {
@@ -72,7 +89,6 @@ describe('OneDriveBindDialog', () => {
 
     expect(mockedStatus).toHaveBeenCalled();
     expect(onConnected).toHaveBeenCalledTimes(1);
-    vi.useRealTimers();
   });
 
   it('denied 状态展示失败并可重新绑定', async () => {

@@ -17,8 +17,11 @@ import type {
   FileOpenLinkMode,
   FileProvider,
   FileProviderTest,
+  FileItemTypeFilter,
   FileSearchMode,
   FileSearchResult,
+  FileSortKey,
+  FileSortOrder,
   FileSuggestion,
   FileTrashItem,
   FileVersion,
@@ -26,6 +29,18 @@ import type {
   RenameFileRequest,
   VersionRestorePreview,
 } from '../types';
+
+/** 当前文件夹列表的查询参数（REQ-2/3/8/9）。 */
+export interface FileListParams {
+  path?: string;
+  page?: number;
+  pageSize?: number;
+  /** 当前文件夹内的名称过滤（大小写不敏感，服务端执行）。 */
+  q?: string;
+  sort?: FileSortKey;
+  order?: FileSortOrder;
+  type?: FileItemTypeFilter;
+}
 
 export const fileApiPaths = {
   providers: () => '/files/providers',
@@ -41,11 +56,15 @@ export const fileApiPaths = {
   provider: (id: string) => `/files/providers/${id}`,
   providerTest: (id: string) => `/files/providers/${id}/test`,
   providerSync: (id: string) => `/files/providers/${id}/sync`,
-  items: (path = '/', page?: number, pageSize?: number) => {
-    const params: Record<string, string> = { path };
-    if (page !== undefined) params.page = String(page);
-    if (pageSize !== undefined) params.pageSize = String(pageSize);
-    return `/files/items?${new URLSearchParams(params).toString()}`;
+  items: (params: FileListParams = {}) => {
+    const search: Record<string, string> = { path: params.path ?? '/' };
+    if (params.page !== undefined) search.page = String(params.page);
+    if (params.pageSize !== undefined) search.pageSize = String(params.pageSize);
+    if (params.q) search.q = params.q;
+    if (params.sort) search.sort = params.sort;
+    if (params.order) search.order = params.order;
+    if (params.type) search.type = params.type;
+    return `/files/items?${new URLSearchParams(search).toString()}`;
   },
   item: (id: string) => `/files/items/${id}`,
   upload: () => '/files/items/upload',
@@ -59,7 +78,12 @@ export const fileApiPaths = {
   versionRestorePreview: (id: string, versionId: string) => `/files/items/${id}/versions/${versionId}/restore-preview`,
   versionRestore: (id: string, versionId: string) => `/files/items/${id}/versions/${versionId}/restore`,
   index: (id: string) => `/files/items/${id}/index`,
-  search: (q: string, mode: FileSearchMode) => `/files/search?${new URLSearchParams({ q, mode }).toString()}`,
+  search: (q: string, mode: FileSearchMode, page?: number, pageSize?: number) => {
+    const params: Record<string, string> = { q, mode };
+    if (page !== undefined) params.page = String(page);
+    if (pageSize !== undefined) params.pageSize = String(pageSize);
+    return `/files/search?${new URLSearchParams(params).toString()}`;
+  },
   suggestions: () => '/files/suggestions',
   dismissSuggestion: (id: string) => `/files/suggestions/${id}/dismiss`,
   acceptSuggestion: (id: string) => `/files/suggestions/${id}/accept`,
@@ -82,8 +106,8 @@ export function syncFileProvider(id: string) {
   return apiPost<ApiResponse<FileItem[]>>(fileApiPaths.providerSync(id), {}).then(r => r.data);
 }
 
-export function getFileItems(path = '/', page?: number, pageSize?: number) {
-  return apiGet<ApiResponse<FileListResponse>>(fileApiPaths.items(path, page, pageSize)).then(r => r.data);
+export function getFileItems(params: FileListParams = {}) {
+  return apiGet<ApiResponse<FileListResponse>>(fileApiPaths.items(params)).then(r => r.data);
 }
 
 export function getFileItem(id: string) {
@@ -143,8 +167,8 @@ export function indexFile(id: string) {
   return apiPost<ApiResponse<FileIndexJob>>(fileApiPaths.index(id), {}).then(r => r.data);
 }
 
-export function searchFiles(q: string, mode: FileSearchMode) {
-  return apiGet<ApiResponse<FileSearchResult>>(fileApiPaths.search(q, mode)).then(r => r.data);
+export function searchFiles(q: string, mode: FileSearchMode, page?: number, pageSize?: number) {
+  return apiGet<ApiResponse<FileSearchResult>>(fileApiPaths.search(q, mode, page, pageSize)).then(r => r.data);
 }
 
 export function getFileSuggestions() {

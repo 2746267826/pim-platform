@@ -1516,11 +1516,28 @@ export interface FileListResponse {
   result: PagedResult<FileItem>;
 }
 
+/** 列表排序键（REQ-9）；默认 name（文件夹恒在前）。 */
+export type FileSortKey = 'name' | 'modified' | 'size';
+export type FileSortOrder = 'asc' | 'desc';
+
+/** 列表条目类型过滤（REQ-4：树只用 folder）。 */
+export type FileItemTypeFilter = 'folder' | 'file';
+
+/**
+ * 搜索模式（REQ-8）：folder = 只过滤当前文件夹（服务端过滤）；
+ * global = 全盘搜索（/files/search，结果带完整路径）。
+ */
+export type FileSearchScope = 'folder' | 'global';
+
+/** 兼容旧的元数据搜索模式取值（MCP search_files 沿用）。 */
 export type FileSearchMode = 'keyword' | 'semantic' | 'hybrid';
 
 export interface FileSearchResult {
   items: FileItem[];
   chunks: FileChunkSearchHit[];
+  /** 命中总数（PR-1 新增，用于「共 N 项 · 第 X/Y 页」与翻页）。 */
+  totalCount: number;
+  totalPages: number;
 }
 
 export interface FileChunkSearchHit {

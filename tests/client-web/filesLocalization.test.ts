@@ -11,8 +11,7 @@ const sourceFiles = [
 ];
 const source = sourceFiles
   .map(file => readFileSync(resolve(file), 'utf8'))
-  .join('
-');
+  .join('\n');
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

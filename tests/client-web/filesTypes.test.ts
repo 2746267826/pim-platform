@@ -193,6 +193,9 @@ const chunk: FileChunkSearchHit = {
 const searchResult: FileSearchResult = {
   items: [item],
   chunks: [chunk],
+  // REQ-8 / P7：全盘搜索结果必须能表达「共 N 项 · 第 X/Y 页」
+  totalCount: 1,
+  totalPages: 1,
 };
 
 const trashItem: FileTrashItem = {

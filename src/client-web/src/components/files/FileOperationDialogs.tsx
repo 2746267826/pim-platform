@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AlertTriangle, Link2, Loader2 } from 'lucide-react';
 import type { FileItem, FileShare } from '../../types';
 import { deleteConfirmationMessage, formatBytes, validateEntryName } from './fileActions';

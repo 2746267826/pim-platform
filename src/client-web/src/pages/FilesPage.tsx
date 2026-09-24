@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderTree, Loader2, RefreshCw, X } from 'lucide-react';
+import { FolderPlus, FolderTree, Loader2, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '../ui/PageHeader';
 import OneDriveBindDialog from '../components/files/OneDriveBindDialog';
@@ -18,15 +18,41 @@ import {
   type FileBrowserMemory,
 } from '../components/files/fileBrowserState';
 import {
+  createFolder,
+  createShare,
+  deleteFile,
   disconnectFileProvider,
   getFileItems,
   getFileProviders,
-  getOneDriveSyncResult,
+  getItemShares,
+  getFileOpenLink,
+  getOneDriveSyncStatus,
+  moveFile,
+  renameFile,
+  revokeShare,
   searchFiles,
+  startOneDriveSync,
 } from '../api/files';
+import SyncBanner from '../components/files/SyncBanner';
+import TransferPanel, { dispatchFilesForUpload, extractFiles, hasActiveTransfers, type TransferTask } from '../components/files/upload/TransferPanel';
+import RowMenu from '../components/files/RowMenu';
+import { DeleteDialog, MoveDialog, NameDialog, ShareDialog } from '../components/files/FileOperationDialogs';
+import { summarizeBatchResults, describeBatchOutcome, resolveSelectedItems, formatBytes, requiresDownloadConfirmation } from '../components/files/fileActions';
+import type { RowAction } from '../components/files/fileActions';
+import type { FileShare, OneDriveSyncStatus } from '../types';
 import type { FileItem, FileSearchScope, FileSortKey, FileSortOrder } from '../types';
 
 const EMPTY_ITEMS: FileItem[] = [];
+
+/** 下载直链请求需要鉴权头（与 api/client.ts 同源）。 */
+function authorizationHeader(): Record<string, string> {
+  try {
+    const token = window.localStorage.getItem('accessToken');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
 
 /** 树数据保留窗口：超出后淘汰最早展开的目录（见 expandedPaths 注释）。 */
 const MAX_REMEMBERED_EXPANDED = 64;
@@ -55,7 +81,22 @@ export default function FilesPage() {
   const [selectedItem, setSelectedItem] = useState<FileItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  /** 手动同步刚入队时的本地乐观态（服务器状态到达前的即时反馈）。 */
+  const [syncPending, setSyncPending] = useState(false);
+  const [syncStarting, setSyncStarting] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [transferOpen, setTransferOpen] = useState(false);
+  /** 传输任务的活跃状态（用于在工具条上显示入口；由面板通过回调上报）。 */
+  const [transferTasks, setTransferTasks] = useState<TransferTask[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [renameTarget, setRenameTarget] = useState<FileItem | null>(null);
+  const [moveTarget, setMoveTarget] = useState<FileItem | null>(null);
+  const [deleteTargets, setDeleteTargets] = useState<FileItem[] | null>(null);
+  const [shareTarget, setShareTarget] = useState<FileItem | null>(null);
+  const [shareExisting, setShareExisting] = useState<FileShare[]>([]);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [downloadConfirm, setDownloadConfirm] = useState<FileItem | null>(null);
   /**
    * 已展开（或需要为其准备数据）的目录集合。收起后不立即丢弃以获得「展开过的目录不再重新拉取」
    * 的体验，但保留一个**有界窗口**：超过 {@link MAX_REMEMBERED_EXPANDED} 个时淘汰最早的那些，
@@ -291,21 +332,41 @@ export default function FilesPage() {
     void activeQuery.refetch();
   }, [activeQuery]);
 
+  // REQ-25：同步状态轮询（横幅数据源）。仅在同步进行中或刚触发时轮询，避免无谓请求。
+  const statusQuery = useQuery({
+    queryKey: ['files', 'sync-status', oneDriveProvider?.id ?? 'none'],
+    queryFn: () => getOneDriveSyncStatus(oneDriveProvider!.id),
+    enabled: connected && Boolean(oneDriveProvider),
+    refetchInterval: query => {
+      const current = query.state.data as OneDriveSyncStatus | undefined;
+      return current?.syncStatus === 'syncing' ? 2000 : false;
+    },
+  });
+
+  /**
+   * REQ-25 / AC-25.1：手动同步**后台化**——点击后立即反馈「已开始」，不阻塞页面。
+   * 完成后由状态轮询把结果反映到横幅，并刷新列表。
+   */
   const handleSync = useCallback(async () => {
     if (!oneDriveProvider) return;
-    setSyncing(true);
+    setSyncStarting(true);
+    setSyncError(null);
     try {
-      const result = await getOneDriveSyncResult(oneDriveProvider.id);
-      toast.success(
-        `同步完成：${result.pagesProcessed} 页，应用 ${result.itemsApplied} 项${result.fullRecrawl ? '（全量重扫）' : ''}`,
-      );
+      const started = await startOneDriveSync(oneDriveProvider.id);
+      toast.success(started.message || '已开始同步，可继续浏览');
+      // 乐观态：横幅立刻显示「同步中」（AC-25.1 立即反馈）
+      setSyncPending(true);
+      await statusQuery.refetch();
       await queryClient.invalidateQueries({ queryKey: ['files'] });
     } catch (e) {
-      toast.error(describeError(e));
+      const message = describeError(e);
+      setSyncError(message);
+      toast.error(message);
     } finally {
-      setSyncing(false);
+      setSyncStarting(false);
+      setSyncPending(false);
     }
-  }, [oneDriveProvider, queryClient]);
+  }, [oneDriveProvider, queryClient, statusQuery]);
 
   const handleDisconnect = useCallback(async () => {
     if (!oneDriveProvider) return;
@@ -320,6 +381,126 @@ export default function FilesPage() {
     }
   }, [navigateTo, oneDriveProvider, queryClient]);
 
+  // 横幅状态直接从查询派生：不再用 effect 往 state 里搬（避免级联渲染）
+  const syncStatus: OneDriveSyncStatus | null = statusQuery.data ?? null;
+
+  /** 刷新当前视图与树（任何写操作后调用，保证列表/树同步，AC-16.1）。 */
+  const refreshAll = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['files'] });
+  }, [queryClient]);
+
+  /** REQ-20：下载走微软直链、**新窗口触发**，不把整文件读进页面内存（AC-20.1）。 */
+  const startDownload = useCallback((item: FileItem) => {
+    // 302 端点需要 Authorization，浏览器直接开新页会丢 token；
+    // 因此用一次带鉴权的 HEAD/GET 拿到微软直链后在新窗口打开——内容仍由微软域提供。
+    void (async () => {
+      try {
+        const response = await fetch(`/api/v1/files/items/${item.id}/download`, {
+          method: 'GET',
+          headers: authorizationHeader(),
+          redirect: 'follow',
+        });
+        if (!response.ok) throw new Error(`下载失败（HTTP ${response.status}）`);
+        // 跟随到微软域后 response.url 即直链；在新窗口打开，字节不经过页面内存
+        const url = response.url;
+        if (url && url !== window.location.href) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        } else {
+          window.open(`/api/v1/files/items/${item.id}/download`, '_blank', 'noopener');
+        }
+      } catch (e) {
+        toast.error(describeError(e));
+      }
+    })();
+  }, []);
+
+  const handleDownload = useCallback(
+    (item: FileItem) => {
+      // AC-20.2：超过 100MB 先确认（显示大小）
+      if (requiresDownloadConfirmation(item.size)) {
+        setDownloadConfirm(item);
+        return;
+      }
+      startDownload(item);
+    },
+    [startDownload],
+  );
+
+  const handleRowAction = useCallback(
+    async (action: RowAction, item: FileItem) => {
+      switch (action) {
+        case 'open':
+          handleOpenFolder(item.path);
+          break;
+        case 'download':
+          handleDownload(item);
+          break;
+        case 'rename':
+          setRenameTarget(item);
+          break;
+        case 'move':
+          setMoveTarget(item);
+          break;
+        case 'delete':
+          setDeleteTargets([item]);
+          break;
+        case 'share':
+          setShareTarget(item);
+          try {
+            setShareExisting(await getItemShares(item.id));
+          } catch {
+            setShareExisting([]);
+          }
+          break;
+        case 'open-in-onedrive':
+          // REQ-22：必须是微软域页面（AC-22.2），敏感路径由后端拒绝
+          try {
+            const link = await getFileOpenLink(item.id, 'view');
+            window.open(link.url, '_blank', 'noopener,noreferrer');
+          } catch (e) {
+            toast.error(describeError(e));
+          }
+          break;
+        default:
+          break;
+      }
+    },
+    [handleDownload, handleOpenFolder],
+  );
+
+  /** REQ-18：批量操作逐项执行并逐项报告（AC-18.1），失败项列出原因。 */
+  const runBatch = useCallback(
+    async (action: 'delete' | 'move' | 'download', targets: FileItem[], destination?: string) => {
+      const results: { item: FileItem; error?: string | null }[] = [];
+      for (const item of targets) {
+        try {
+          if (action === 'delete') {
+            await deleteFile(item.id);
+          } else if (action === 'move' && destination) {
+            await moveFile(item.id, { destinationPath: destination });
+          } else if (action === 'download') {
+            handleDownload(item);
+          }
+          results.push({ item });
+        } catch (e) {
+          results.push({ item, error: describeError(e) });
+        }
+      }
+
+      const outcome = summarizeBatchResults(results);
+      const summary = describeBatchOutcome(outcome, action === 'delete' ? '删除' : action === 'move' ? '移动' : '下载');
+      if (outcome.failed.length > 0) {
+        toast.error(summary);
+      } else {
+        toast.success(summary);
+      }
+      // AC-18.2：操作后选择态清零
+      setSelectedIds(new Set());
+      await refreshAll();
+    },
+    [handleDownload, refreshAll],
+  );
+
   const handleConnected = useCallback(() => {
     setBindDialogOpen(false);
     toast.success('OneDrive 绑定成功');
@@ -331,26 +512,6 @@ export default function FilesPage() {
     if (!selectedItem) return null;
     return items.find(item => item.id === selectedItem.id) ?? selectedItem;
   }, [selectedItem, items]);
-
-  const syncChip = useMemo(() => {
-    if (!oneDriveProvider) return null;
-    const status = oneDriveProvider.syncStatus ?? 'idle';
-    if (status === 'syncing') return { dot: 'bg-amber-500', text: '正在同步…' };
-    if (status === 'error') return { dot: 'bg-red-500', text: '同步出错' };
-    if (oneDriveProvider.lastSyncAt) {
-      // 刻意读取墙钟判断同步新鲜度；memo 依赖 lastSyncAt 变化时刷新
-      // eslint-disable-next-line react-hooks/purity
-      const ageMs = Date.now() - new Date(oneDriveProvider.lastSyncAt).getTime();
-      if (ageMs > 45 * 60 * 1000) {
-        return { dot: 'bg-amber-500', text: '同步落后（超过 45 分钟）' };
-      }
-      return {
-        dot: 'bg-green-500',
-        text: `增量同步 ${new Date(oneDriveProvider.lastSyncAt).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`,
-      };
-    }
-    return { dot: 'bg-zinc-400', text: '尚未同步' };
-  }, [oneDriveProvider]);
 
   const handleSelectFileFromTree = useCallback((item: FileItem) => {
     setSelectedItem(item);
@@ -429,8 +590,34 @@ export default function FilesPage() {
               />
             </aside>
 
-            {/* 中栏 */}
-            <div className="flex min-w-0 flex-1 flex-col">
+            {/* 中栏（REQ-11：桌面拖拽到列表 = 上传到当前目录；Ctrl+V 粘贴同样入口） */}
+            <div
+              className={`flex min-w-0 flex-1 flex-col ${dragging ? 'ring-2 ring-inset ring-[var(--pim-primary)]' : ''}`}
+              data-testid="drop-zone"
+              onDragOver={event => {
+                if (event.dataTransfer?.types?.includes('Files')) {
+                  event.preventDefault();
+                  setDragging(true);
+                }
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={event => {
+                const files = extractFiles(event.dataTransfer);
+                if (files.length === 0) return;
+                event.preventDefault();
+                setDragging(false);
+                dispatchFilesForUpload(files, currentPath);
+                setTransferOpen(true);
+              }}
+              onPaste={event => {
+                // 剪贴板粘贴（截图/复制的文件）同样是上传入口
+                const files = extractFiles(event.clipboardData);
+                if (files.length === 0) return;
+                dispatchFilesForUpload(files, currentPath);
+                setTransferOpen(true);
+              }}
+              tabIndex={-1}
+            >
               <div className="flex items-center gap-2 border-b border-[var(--pim-border)] px-3 py-2">
                 <button
                   type="button"
@@ -440,24 +627,54 @@ export default function FilesPage() {
                 >
                   <FolderTree size={14} /> 目录
                 </button>
-                {syncChip && (
-                  <span
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[var(--pim-border)] px-2.5 py-1 text-xs text-[var(--pim-text-muted)]"
-                    data-testid="sync-chip"
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${syncChip.dot}`} />
-                    {syncChip.text}
-                  </span>
-                )}
+                <div className="min-w-0 flex-1">
+                  <SyncBanner
+                    status={syncStatus}
+                    starting={syncStarting || syncPending}
+                    onSync={() => void handleSync()}
+                    error={syncError}
+                  />
+                </div>
+                {/* REQ-11：上传按钮入口（桌面拖拽与剪贴板粘贴见列表区域） */}
+                <label className="pim-button-secondary inline-flex cursor-pointer items-center gap-1.5 px-3 text-sm">
+                  <Upload size={14} />
+                  上传
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    aria-label="上传文件"
+                    data-testid="upload-input"
+                    onChange={event => {
+                      const files = Array.from(event.target.files ?? []);
+                      if (files.length > 0) {
+                        dispatchFilesForUpload(files, currentPath);
+                        setTransferOpen(true);
+                      }
+                      event.target.value = '';
+                    }}
+                  />
+                </label>
                 <button
                   type="button"
-                  className="pim-button-secondary ml-auto inline-flex items-center gap-1.5 px-3 text-sm"
-                  onClick={handleSync}
-                  disabled={syncing}
+                  className="pim-button-secondary inline-flex items-center gap-1.5 px-3 text-sm"
+                  data-testid="new-folder-button"
+                  onClick={() => setNewFolderOpen(true)}
                 >
-                  {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                  立即同步
+                  <FolderPlus size={14} />
+                  新建文件夹
                 </button>
+                {hasActiveTransfers(transferTasks) && (
+                  <button
+                    type="button"
+                    className="pim-button-secondary inline-flex items-center gap-1.5 px-3 text-sm"
+                    data-testid="transfer-toggle"
+                    onClick={() => setTransferOpen(open => !open)}
+                  >
+                    <Upload size={14} />
+                    传输任务
+                  </button>
+                )}
               </div>
               <OneDriveFileList
                 items={items}
@@ -490,6 +707,29 @@ export default function FilesPage() {
                   setMobilePreviewOpen(true);
                 }}
                 onOpenFolder={handleOpenFolder}
+                selectedIds={selectedIds}
+                onToggleSelected={id =>
+                  setSelectedIds(current => {
+                    const next = new Set(current);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                  })
+                }
+                onToggleAll={ids => {
+                  setSelectedIds(current => {
+                    const allSelected = ids.length > 0 && ids.every(id => current.has(id));
+                    return allSelected ? new Set() : new Set(ids);
+                  });
+                }}
+                onClearSelection={() => setSelectedIds(new Set())}
+                onBatch={action => {
+                  const targets = resolveSelectedItems(items, selectedIds);
+                  if (targets.length === 0) return;
+                  if (action === 'delete') setDeleteTargets(targets);
+                  else void runBatch(action, targets);
+                }}
+                rowMenu={item => <RowMenu item={item} onAction={(action, target) => void handleRowAction(action, target)} />}
               />
             </div>
 
@@ -551,6 +791,130 @@ export default function FilesPage() {
             aria-label="关闭目录抽屉遮罩"
             onClick={() => setDrawerOpen(false)}
           />
+        </div>
+      )}
+
+      {/* 传输任务面板（REQ-13） */}
+      {connected && (
+        <TransferPanel
+          target={{ path: currentPath, providerId: oneDriveProvider?.id ?? '' }}
+          open={transferOpen}
+          onClose={() => setTransferOpen(false)}
+          onFinished={() => void refreshAll()}
+          onTasksChange={setTransferTasks}
+        />
+      )}
+
+      {/* REQ-15：新建文件夹 */}
+      {newFolderOpen && (
+        <NameDialog
+          title="新建文件夹"
+          initialValue="新建文件夹"
+          submitLabel="创建"
+          testId="new-folder-dialog"
+          onCancel={() => setNewFolderOpen(false)}
+          onSubmit={async name => {
+            await createFolder(`${currentPath === '/' ? '' : currentPath}/${name}`);
+            toast.success(`已创建「${name}」`);
+            setNewFolderOpen(false);
+            await refreshAll();
+          }}
+        />
+      )}
+
+      {/* REQ-15：重命名 */}
+      {renameTarget && (
+        <NameDialog
+          title={`重命名「${renameTarget.name}」`}
+          initialValue={renameTarget.name}
+          submitLabel="保存"
+          testId="rename-dialog"
+          onCancel={() => setRenameTarget(null)}
+          onSubmit={async name => {
+            await renameFile(renameTarget.id, { name });
+            toast.success('已重命名');
+            setRenameTarget(null);
+            await refreshAll();
+          }}
+        />
+      )}
+
+      {/* REQ-16：移动 */}
+      {moveTarget && (
+        <MoveDialog
+          item={moveTarget}
+          folders={Object.keys(foldersByPath).map(path => ({ path, name: path }))}
+          onCancel={() => setMoveTarget(null)}
+          onMove={async destination => {
+            await moveFile(moveTarget.id, { destinationPath: destination });
+            toast.success('已移动');
+            setMoveTarget(null);
+            await refreshAll();
+          }}
+        />
+      )}
+
+      {/* REQ-17：删除二次确认（含还原指引） */}
+      {deleteTargets && (
+        <DeleteDialog
+          items={deleteTargets}
+          onCancel={() => setDeleteTargets(null)}
+          onConfirm={async () => {
+            await runBatch('delete', deleteTargets);
+            setDeleteTargets(null);
+          }}
+        />
+      )}
+
+      {/* REQ-21：分享 */}
+      {shareTarget && (
+        <ShareDialog
+          item={shareTarget}
+          existing={shareExisting}
+          // V2/V3 未用真实账号验证：明确告知可能不支持有效期，不假装支持
+          expirationSupported={false}
+          onCancel={() => setShareTarget(null)}
+          onCreate={(permissionType, expiresInDays) =>
+            createShare(shareTarget.id, permissionType, expiresInDays || null)
+          }
+          onRevoke={async permissionId => {
+            await revokeShare(shareTarget.id, permissionId);
+            toast.success('已撤销该分享链接');
+          }}
+        />
+      )}
+
+      {/* REQ-20：超过 100MB 先确认（显示大小） */}
+      {downloadConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4" data-testid="download-confirm">
+          <div role="dialog" aria-modal="true" aria-label="确认下载" className="w-full max-w-sm rounded-xl border border-[var(--pim-border)] bg-[var(--pim-surface)] p-4">
+            <h2 className="mb-2 text-sm font-medium">确认下载</h2>
+            <p className="text-xs text-[var(--pim-text-muted)]" data-testid="download-confirm-message">
+              「{downloadConfirm.name}」大小为 {formatBytes(downloadConfirm.size)}，确定要下载吗？
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="pim-button-secondary px-3 py-1.5 text-sm"
+                data-testid="download-confirm-cancel"
+                onClick={() => setDownloadConfirm(null)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="pim-button-primary px-3 py-1.5 text-sm"
+                data-testid="download-confirm-ok"
+                onClick={() => {
+                  const item = downloadConfirm;
+                  setDownloadConfirm(null);
+                  startDownload(item);
+                }}
+              >
+                下载
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

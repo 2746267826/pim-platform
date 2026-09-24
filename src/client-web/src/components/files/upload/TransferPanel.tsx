@@ -44,9 +44,11 @@ export interface TransferPanelProps {
   onClose: () => void;
   /** 任务完成后刷新列表（新文件出现在目标目录）。 */
   onFinished?: () => void;
+  /** 上报任务状态，供页面在工具条上显示/隐藏入口。 */
+  onTasksChange?: (tasks: TransferTask[]) => void;
 }
 
-export default function TransferPanel({ target, open, onClose, onFinished }: TransferPanelProps) {
+export default function TransferPanel({ target, open, onClose, onFinished, onTasksChange }: TransferPanelProps) {
   const [tasks, setTasks] = useState<TransferTask[]>(() => restoreHistory());
   const pending = useRef<File[]>([]);
   const running = useRef(false);
@@ -60,7 +62,8 @@ export default function TransferPanel({ target, open, onClose, onFinished }: Tra
   // 在里面写 localStorage 会产生重复副作用。
   useEffect(() => {
     writeHistory(tasks);
-  }, [tasks]);
+    onTasksChange?.(tasks);
+  }, [onTasksChange, tasks]);
 
   const runQueue = useCallback(async () => {
     if (running.current) return;
@@ -146,8 +149,11 @@ export default function TransferPanel({ target, open, onClose, onFinished }: Tra
     [],
   );
 
+  // 在 effect 里同步 ref（渲染期写 ref 会让并发渲染读到不一致的值）
   const enqueueRef = useRef(enqueue);
-  enqueueRef.current = enqueue;
+  useEffect(() => {
+    enqueueRef.current = enqueue;
+  }, [enqueue]);
 
   useEffect(() => {
     const onAdded = (file: UppyFile<Record<string, unknown>, Record<string, unknown>> | undefined) => {

@@ -28,14 +28,17 @@ export default function FileThumbnail({ item, size = 'medium', className }: File
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
 
-  // 懒加载：进入视口才把 visible 置真，之后不再回退（避免滚动抖动导致反复请求）
+  // 懒加载：进入视口才把 visible 置真，之后不再回退（避免滚动抖动导致反复请求）。
+  // setState 只发生在 IntersectionObserver 的**回调**里（外部系统事件），
+  // 不在 effect 体内同步调用——后者会触发级联渲染。
   useEffect(() => {
     const node = containerRef.current;
     if (!node || visible) return;
 
     if (typeof IntersectionObserver === 'undefined') {
-      setVisible(true);
-      return;
+      // 无 Observer（极老环境）时退化为「立即加载」，用微任务避免同步 setState
+      const handle = window.setTimeout(() => setVisible(true), 0);
+      return () => window.clearTimeout(handle);
     }
 
     const observer = new IntersectionObserver(
@@ -57,7 +60,8 @@ export default function FileThumbnail({ item, size = 'medium', className }: File
     let created: string | null = null;
     const controller = new AbortController();
 
-    setState('loading');
+    // 状态置为 loading 放在微任务里：effect 体内同步 setState 会触发级联渲染
+    const loadingHandle = window.setTimeout(() => setState('loading'), 0);
     (async () => {
       try {
         const response = await fetch(oneDriveThumbnailUrl(item.id, size), {
@@ -77,6 +81,7 @@ export default function FileThumbnail({ item, size = 'medium', className }: File
     })();
 
     return () => {
+      window.clearTimeout(loadingHandle);
       cancelled = true;
       controller.abort();
       if (created) URL.revokeObjectURL(created);

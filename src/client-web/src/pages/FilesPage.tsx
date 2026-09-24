@@ -222,6 +222,10 @@ export default function FilesPage() {
       setPage(1);
       setSelectedItem(null);
       setMobilePreviewOpen(false);
+      // 切换目录时清空关键词：当前文件夹过滤是**针对某个目录**的，
+      // 带着上一个目录的词进入新目录，看到的往往是「本文件夹无匹配」的空列表，
+      // 用户会以为新目录是空的（独立验收 Minor）。宁可清空，行为可预期。
+      setQueryInput('');
       updateMemory({ path: normalized });
     },
     [updateMemory],

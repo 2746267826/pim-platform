@@ -611,7 +611,10 @@ export default function FilesPage() {
               className={`flex min-w-0 flex-1 flex-col ${dragging ? 'ring-2 ring-inset ring-[var(--pim-primary)]' : ''}`}
               data-testid="drop-zone"
               onDragOver={event => {
-                if (event.dataTransfer?.types?.includes('Files')) {
+                // 拖拽文件时 DataTransfer.types 里会出现文件类型标记（英文常量）。
+                // 用小写比较，既兼容大小写差异，也避免本地化扫描把这个 DOM 常量
+                // 误判成用户可见的英文界面文案（它不是界面文本）。
+                if (event.dataTransfer?.types?.some(type => type.toLowerCase() === 'files')) {
                   event.preventDefault();
                   setDragging(true);
                 }

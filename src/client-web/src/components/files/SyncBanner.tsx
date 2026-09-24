@@ -32,7 +32,7 @@ export default function SyncBanner({ status, starting = false, onSync, error }: 
 
   const text = (() => {
     if (error) return error;
-    if (syncState === 'error') return status?.lastError?.trim() || '同步失败，请稍后重试';
+    if (syncState === 'error') return status?.lastError?.trim() || '同步出错，请稍后重试';
     if (starting) return '已开始同步，可继续浏览…';
     if (syncState === 'syncing') {
       return status && status.syncedItemCount > 0

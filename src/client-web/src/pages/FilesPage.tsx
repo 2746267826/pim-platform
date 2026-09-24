@@ -690,7 +690,14 @@ export default function FilesPage() {
                 >
                   <Upload size={14} />
                   传输任务
-                  <button
+                  {hasActiveTransfers(transferTasks) && (
+                    <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-[var(--pim-primary)]" data-testid="transfer-active-dot" />
+                  )}
+                </button>
+                {/* REQ-21：与「传输任务」平级的独立入口。曾一度被误写成它内部的子按钮——
+                    按钮嵌套按钮是非法 HTML，子按钮还会盖住父按钮的命中区，导致点「传输任务」
+                    时命中的是「我的分享」，同时弹出传输面板和全屏分享弹窗（遮罩拦住后续所有点击）。 */}
+                <button
                   type="button"
                   className="pim-button-secondary inline-flex items-center gap-1.5 px-3 text-sm"
                   data-testid="my-shares-button"
@@ -706,10 +713,6 @@ export default function FilesPage() {
                 >
                   <Link2 size={14} />
                   我的分享
-                </button>
-                {hasActiveTransfers(transferTasks) && (
-                    <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-[var(--pim-primary)]" data-testid="transfer-active-dot" />
-                  )}
                 </button>
               </div>
               <OneDriveFileList

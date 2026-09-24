@@ -1,5 +1,6 @@
-import { AlertCircle, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, FileText, Folder, LayoutGrid, List, Loader2, RefreshCw, Search } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Folder, LayoutGrid, List, Loader2, RefreshCw, Search } from 'lucide-react';
 import type { FileItem, FileSearchScope, FileSortKey, FileSortOrder } from '../../types';
+import ImageGrid from './ImageGrid';
 import { breadcrumbSegments, displayParentPath, pageCountLabel, parentDirPath } from './fileBrowserState';
 
 export interface OneDriveFileListProps {
@@ -409,62 +410,32 @@ export default function OneDriveFileList({
             </tbody>
           </table>
         </div>
-      ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(150px,1fr))] content-start gap-3 overflow-auto p-4">
-          {items.map(item => {
-            const badge = typeBadge(item);
-            return (
+      ) : items.length === 0 && !loading ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center py-10 text-center text-sm text-[var(--pim-text-muted)]">
+          {keyword && searchScope === 'folder' ? (
+            <span className="inline-flex flex-col items-center gap-2">
+              <span>本文件夹无匹配，试试全盘搜索</span>
               <button
-                key={item.id}
                 type="button"
-                data-testid="file-card"
-                className={`overflow-hidden rounded-xl border text-left transition ${
-                  selectedItem?.id === item.id
-                    ? 'border-[var(--pim-primary)] bg-[var(--pim-primary-soft)]'
-                    : 'border-[var(--pim-border)] bg-white hover:-translate-y-px hover:shadow-sm'
-                }`}
-                onClick={() => {
-                  if (showFullPath) revealInFolder(displayParentPath(item.path), item);
-                  else if (item.itemType === 'folder') onOpenFolder(item.path);
-                  else onSelect(item);
-                }}
+                className="pim-button-secondary px-3 py-1 text-xs"
+                onClick={() => onSearchScopeChange('global')}
               >
-                <div className="flex h-20 items-center justify-center bg-[var(--pim-surface-muted)] text-2xl">
-                  {item.itemType === 'folder' ? (
-                    <Folder size={26} className="text-[var(--pim-text-muted)]" />
-                  ) : (
-                    <FileText size={26} className="text-[var(--pim-text-muted)]" />
-                  )}
-                </div>
-                <div className="truncate px-2.5 py-2 text-xs text-[var(--pim-text-muted)]">{item.name}</div>
-                {showFullPath && (
-                  <div className="truncate px-2.5 text-[10px] text-[var(--pim-text-muted)]">{displayParentPath(item.path)}</div>
-                )}
-                <div className={`mx-2.5 mb-2.5 inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${badge.className}`}>{badge.label}</div>
+                去全盘搜索
               </button>
-            );
-          })}
-          {items.length === 0 && !loading && (
-            <div className="col-span-full py-10 text-center text-sm text-[var(--pim-text-muted)]">
-              {keyword && searchScope === 'folder' ? (
-                <span className="inline-flex flex-col items-center gap-2">
-                  <span>本文件夹无匹配，试试全盘搜索</span>
-                  <button
-                    type="button"
-                    className="pim-button-secondary px-3 py-1 text-xs"
-                    onClick={() => onSearchScopeChange('global')}
-                  >
-                    去全盘搜索
-                  </button>
-                </span>
-              ) : keyword ? (
-                '没有匹配的文件'
-              ) : (
-                '此文件夹为空'
-              )}
-            </div>
+            </span>
+          ) : keyword ? (
+            '没有匹配的文件'
+          ) : (
+            '此文件夹为空'
           )}
         </div>
+      ) : (
+        /* REQ-23：网格视图用 ImageGrid（真缩略图懒加载 + 灯箱左右翻） */
+        <ImageGrid
+          items={items}
+          selectedItem={selectedItem}
+          onSelect={onSelect}
+        />
       )}
 
       {canPage && (

@@ -431,4 +431,99 @@ export function ShareDialog({
   );
 }
 
+export interface MySharesDialogProps {
+  shares: FileShare[];
+  loading?: boolean;
+  error?: string | null;
+  onRevoke: (share: FileShare) => Promise<void>;
+  onClose: () => void;
+  /** 打开某条分享所在目录。 */
+  onReveal: (share: FileShare) => void;
+}
+
+/**
+ * 「我的分享」列表（REQ-21 / AC-21.3）。
+ *
+ * 口径说明（必须如实告诉用户）：OneDrive 个人版**没有**「列出我的全部分享」的接口，
+ * 只能按条目查询；因此这里展示的是**最近同步的候选条目中查到的分享**，
+ * 并明确标注范围，而不是假装能列全。
+ */
+export function MySharesDialog({ shares, loading, error, onRevoke, onClose, onReveal }: MySharesDialogProps) {
+  const [busy, setBusy] = useState<string | null>(null);
+
+  return (
+    <DialogShell title="我的分享" onClose={onClose} testId="my-shares-dialog">
+      <p className="mb-2 text-[11px] text-[var(--pim-text-muted)]" data-testid="my-shares-scope">
+        个人版没有「列出全部分享」的接口，这里显示的是最近同步的条目中查到的分享（最多 50 条）。
+      </p>
+
+      {loading && (
+        <p className="py-3 text-center text-xs text-[var(--pim-text-muted)]" data-testid="my-shares-loading">
+          加载中…
+        </p>
+      )}
+      {error && (
+        <p className="text-xs text-[var(--pim-danger)]" role="alert" data-testid="my-shares-error">
+          {error}
+        </p>
+      )}
+
+      {!loading && shares.length === 0 && (
+        <p className="py-3 text-center text-xs text-[var(--pim-text-muted)]" data-testid="my-shares-empty">
+          这个范围内还没有分享链接
+        </p>
+      )}
+
+      <ul className="max-h-72 space-y-1 overflow-auto text-xs">
+        {shares.map(share => (
+          <li
+            key={`${share.itemId}-${share.permissionId ?? share.webUrl}`}
+            className="flex items-center gap-2 border-b border-[var(--pim-border-soft)] py-1.5"
+            data-testid="my-share-row"
+            data-file={share.itemName}
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate" title={share.itemName}>{share.itemName}</span>
+              <span className="block truncate text-[11px] text-[var(--pim-text-muted)]" title={share.path}>
+                {share.path} · {share.permissionType === 'edit' ? '可编辑' : '可看'}
+                {share.expiresAt ? ` · 至 ${new Date(share.expiresAt).toLocaleDateString('zh-CN')}` : ''}
+              </span>
+            </span>
+            <button
+              type="button"
+              className="shrink-0 text-[11px] text-[var(--pim-primary)] underline"
+              data-testid={`my-share-reveal-${share.itemId}`}
+              onClick={() => onReveal(share)}
+            >
+              所在目录
+            </button>
+            <button
+              type="button"
+              className="shrink-0 text-[11px] text-[var(--pim-danger)] underline"
+              data-testid={`my-share-revoke-${share.permissionId ?? share.itemId}`}
+              disabled={busy === share.permissionId}
+              onClick={async () => {
+                setBusy(share.permissionId);
+                try {
+                  await onRevoke(share);
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            >
+              撤销
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-4 flex justify-end">
+        <button type="button" className="pim-button-secondary px-3 py-1.5 text-sm" onClick={onClose}>
+          关闭
+        </button>
+      </div>
+    </DialogShell>
+  );
+}
+
 export { formatBytes };

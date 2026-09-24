@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderPlus, FolderTree, Loader2, Upload, X } from 'lucide-react';
+import { FolderPlus, FolderTree, Link2, Loader2, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '../ui/PageHeader';
 import OneDriveBindDialog from '../components/files/OneDriveBindDialog';
@@ -24,6 +24,7 @@ import {
   disconnectFileProvider,
   getFileItems,
   getFileProviders,
+  getAllShares,
   getItemShares,
   getFileOpenLink,
   getOneDriveSyncStatus,
@@ -36,7 +37,7 @@ import {
 import SyncBanner from '../components/files/SyncBanner';
 import TransferPanel, { dispatchFilesForUpload, extractFiles, hasActiveTransfers, type TransferTask } from '../components/files/upload/TransferPanel';
 import RowMenu from '../components/files/RowMenu';
-import { DeleteDialog, MoveDialog, NameDialog, ShareDialog } from '../components/files/FileOperationDialogs';
+import { DeleteDialog, MoveDialog, MySharesDialog, NameDialog, ShareDialog } from '../components/files/FileOperationDialogs';
 import { summarizeBatchResults, describeBatchOutcome, resolveSelectedItems, formatBytes, requiresDownloadConfirmation } from '../components/files/fileActions';
 import type { RowAction } from '../components/files/fileActions';
 import type { FileShare, OneDriveSyncStatus } from '../types';
@@ -92,6 +93,11 @@ export default function FilesPage() {
   const [renameTarget, setRenameTarget] = useState<FileItem | null>(null);
   const [moveTarget, setMoveTarget] = useState<FileItem | null>(null);
   const [deleteTargets, setDeleteTargets] = useState<FileItem[] | null>(null);
+  const [batchMoveTargets, setBatchMoveTargets] = useState<FileItem[] | null>(null);
+  const [sharesOpen, setSharesOpen] = useState(false);
+  const [allShares, setAllShares] = useState<FileShare[]>([]);
+  const [sharesLoading, setSharesLoading] = useState(false);
+  const [sharesError, setSharesError] = useState<string | null>(null);
   const [shareTarget, setShareTarget] = useState<FileItem | null>(null);
   const [shareExisting, setShareExisting] = useState<FileShare[]>([]);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -684,7 +690,24 @@ export default function FilesPage() {
                 >
                   <Upload size={14} />
                   传输任务
-                  {hasActiveTransfers(transferTasks) && (
+                  <button
+                  type="button"
+                  className="pim-button-secondary inline-flex items-center gap-1.5 px-3 text-sm"
+                  data-testid="my-shares-button"
+                  onClick={() => {
+                    setSharesOpen(true);
+                    setSharesLoading(true);
+                    setSharesError(null);
+                    void getAllShares(50)
+                      .then(setAllShares)
+                      .catch(e => setSharesError(describeError(e)))
+                      .finally(() => setSharesLoading(false));
+                  }}
+                >
+                  <Link2 size={14} />
+                  我的分享
+                </button>
+                {hasActiveTransfers(transferTasks) && (
                     <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-[var(--pim-primary)]" data-testid="transfer-active-dot" />
                   )}
                 </button>
@@ -739,8 +762,15 @@ export default function FilesPage() {
                 onBatch={action => {
                   const targets = resolveSelectedItems(items, selectedIds);
                   if (targets.length === 0) return;
-                  if (action === 'delete') setDeleteTargets(targets);
-                  else void runBatch(action, targets);
+                  if (action === 'delete') {
+                    setDeleteTargets(targets);
+                  } else if (action === 'move') {
+                    // 批量移动需要先选目标目录：用一个虚拟条目驱动同一个移动弹窗，
+                    // 确认后对**全部勾选项**执行（AC-18.1）
+                    setBatchMoveTargets(targets);
+                  } else {
+                    void runBatch(action, targets);
+                  }
                 }}
                 rowMenu={item => <RowMenu item={item} onAction={(action, target) => void handleRowAction(action, target)} />}
               />
@@ -863,6 +893,44 @@ export default function FilesPage() {
             toast.success('已移动');
             setMoveTarget(null);
             await refreshAll();
+          }}
+        />
+      )}
+
+      {/* REQ-21 / AC-21.3：我的分享列表 + 就地撤销 */}
+      {sharesOpen && (
+        <MySharesDialog
+          shares={allShares}
+          loading={sharesLoading}
+          error={sharesError}
+          onClose={() => setSharesOpen(false)}
+          onReveal={share => {
+            setSharesOpen(false);
+            handleRevealInFolder(share.path.replace(/\/[^/]*$/, '') || '/');
+          }}
+          onRevoke={async share => {
+            if (!share.permissionId) return;
+            try {
+              await revokeShare(share.itemId, share.permissionId);
+              setAllShares(current => current.filter(item => item.permissionId !== share.permissionId));
+              toast.success('已撤销该分享链接');
+            } catch (e) {
+              setSharesError(describeError(e));
+            }
+          }}
+        />
+      )}
+
+      {/* REQ-18：批量移动（逐项执行并逐项报告，AC-18.1） */}
+      {batchMoveTargets && batchMoveTargets.length > 0 && (
+        <MoveDialog
+          item={{ ...batchMoveTargets[0], name: `已选 ${batchMoveTargets.length} 项` }}
+          folders={Object.keys(foldersByPath).map(path => ({ path, name: path }))}
+          onCancel={() => setBatchMoveTargets(null)}
+          onMove={async destination => {
+            const targets = batchMoveTargets;
+            setBatchMoveTargets(null);
+            await runBatch('move', targets, destination);
           }}
         />
       )}

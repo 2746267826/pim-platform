@@ -50,7 +50,7 @@ export interface TransferPanelProps {
 
 export default function TransferPanel({ target, open, onClose, onFinished, onTasksChange }: TransferPanelProps) {
   const [tasks, setTasks] = useState<TransferTask[]>(() => restoreHistory());
-  const pending = useRef<File[]>([]);
+  const pending = useRef<{ file: File; taskId: string }[]>([]);
   const running = useRef(false);
 
   // 用函数式更新：并发完成多个任务时不会互相覆盖。
@@ -70,29 +70,23 @@ export default function TransferPanel({ target, open, onClose, onFinished, onTas
     running.current = true;
     try {
       while (pending.current.length > 0) {
-        const file = pending.current.shift()!;
-        const id = `${file.name}-${file.size}-${Date.now()}`;
+        const { file, taskId: id } = pending.current.shift()!;
 
         if (exceedsUploadLimit(file.size)) {
-          persist((current) => [
-            ...current,
-            {
-              id,
-              fileName: file.name,
-              size: file.size,
-              progress: 0,
-              state: 'failed',
-              error: '文件超过 2GB，请改用 OneDrive 客户端上传',
-              path: target.path,
-            },
-          ]);
+          persist(current =>
+            current.map(task =>
+              task.id === id
+                ? { ...task, state: 'failed', error: '文件超过 2GB，请改用 OneDrive 客户端上传' }
+                : task,
+            ),
+          );
           continue;
         }
 
-        persist((current) => [
-          ...current,
-          { id, fileName: file.name, size: file.size, progress: 0, state: 'uploading', path: target.path },
-        ]);
+        // 从「排队中」翻成「上传中」（任务在入队时已建立）
+        persist(current =>
+          current.map(task => (task.id === id ? { ...task, state: 'uploading', error: undefined } : task)),
+        );
 
         const result = await uploadFile(
           file,
@@ -129,12 +123,33 @@ export default function TransferPanel({ target, open, onClose, onFinished, onTas
     }
   }, [onFinished, persist, target.path, target.providerId]);
 
+  /**
+   * 入队：**立即**为每个文件建立任务（state=queued）并显示在面板上。
+   *
+   * 此前只有「开始处理」时才建任务，导致排在后面的文件在面板里完全不可见——
+   * 用户一次拖 10 个文件只看到 1 个，会以为其余的丢了（AC-13.1 要求进行中任务可见）。
+   */
   const enqueue = useCallback(
     (files: File[]) => {
-      pending.current.push(...files);
+      const now = Date.now();
+      const queued: TransferTask[] = files.map((file, index) => ({
+        id: `${file.name}-${file.size}-${now}-${index}`,
+        fileName: file.name,
+        size: file.size,
+        progress: 0,
+        state: 'queued',
+        path: target.path,
+      }));
+
+      // 把任务与文件按同一顺序配对，处理时按 id 找到对应任务
+      for (let index = 0; index < files.length; index += 1) {
+        pending.current.push({ file: files[index], taskId: queued[index].id });
+      }
+
+      persist(current => [...current, ...queued]);
       void runQueue();
     },
-    [runQueue],
+    [persist, runQueue, target.path],
   );
 
   // Uppy 作为队列/状态承载（REQ-29）：这里用它的核心实例登记文件并驱动同一套上传逻辑

@@ -384,6 +384,22 @@ export default function FilesPage() {
   // 横幅状态直接从查询派生：不再用 effect 往 state 里搬（避免级联渲染）
   const syncStatus: OneDriveSyncStatus | null = statusQuery.data ?? null;
 
+  /**
+   * REQ-11 剪贴板入口：挂在 document 上而不是某个容器上。
+   * 挂在容器上的话必须先点进该容器再按 Ctrl+V，用户按了没反应会以为功能不存在；
+   * 页面级监听才是「复制一个文件 → 在文件页粘贴」的真实预期行为。
+   */
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      const files = extractFiles(event.clipboardData);
+      if (files.length === 0) return;
+      dispatchFilesForUpload(files, currentPath);
+      setTransferOpen(true);
+    };
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [currentPath]);
+
   /** 刷新当前视图与树（任何写操作后调用，保证列表/树同步，AC-16.1）。 */
   const refreshAll = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['files'] });
@@ -609,14 +625,6 @@ export default function FilesPage() {
                 dispatchFilesForUpload(files, currentPath);
                 setTransferOpen(true);
               }}
-              onPaste={event => {
-                // 剪贴板粘贴（截图/复制的文件）同样是上传入口
-                const files = extractFiles(event.clipboardData);
-                if (files.length === 0) return;
-                dispatchFilesForUpload(files, currentPath);
-                setTransferOpen(true);
-              }}
-              tabIndex={-1}
             >
               <div className="flex items-center gap-2 border-b border-[var(--pim-border)] px-3 py-2">
                 <button
@@ -664,17 +672,19 @@ export default function FilesPage() {
                   <FolderPlus size={14} />
                   新建文件夹
                 </button>
-                {hasActiveTransfers(transferTasks) && (
-                  <button
-                    type="button"
-                    className="pim-button-secondary inline-flex items-center gap-1.5 px-3 text-sm"
-                    data-testid="transfer-toggle"
-                    onClick={() => setTransferOpen(open => !open)}
-                  >
-                    <Upload size={14} />
-                    传输任务
-                  </button>
-                )}
+                {/* 常驻：只有历史记录时也要能打开面板查看结果与失败原因（AC-13.3） */}
+                <button
+                  type="button"
+                  className="pim-button-secondary inline-flex items-center gap-1.5 px-3 text-sm"
+                  data-testid="transfer-toggle"
+                  onClick={() => setTransferOpen(open => !open)}
+                >
+                  <Upload size={14} />
+                  传输任务
+                  {hasActiveTransfers(transferTasks) && (
+                    <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-[var(--pim-primary)]" data-testid="transfer-active-dot" />
+                  )}
+                </button>
               </div>
               <OneDriveFileList
                 items={items}

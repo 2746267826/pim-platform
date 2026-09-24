@@ -1512,6 +1512,41 @@ export interface FileSuggestion {
   updatedAt: string;
 }
 
+/** REQ-25：手动同步已入队的即时反馈。 */
+export interface OneDriveSyncStarted {
+  started: boolean;
+  message: string;
+}
+
+/** REQ-25：顶部横幅读取的同步状态。 */
+export interface OneDriveSyncStatus {
+  syncStatus: string;
+  lastError: string | null;
+  lastSyncAt: string | null;
+  syncedItemCount: number;
+}
+
+/** REQ-21：分享链接。 */
+export interface FileShare {
+  itemId: string;
+  itemName: string;
+  path: string;
+  permissionType: string;
+  permissionId: string | null;
+  webUrl: string;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
+/** REQ-14：上传会话（uploadUrl 已预授权，分片 PUT 不得带 Authorization）。 */
+export interface OneDriveUploadSessionInfo {
+  uploadUrl: string;
+  expirationDateTime: string | null;
+  /** 记录创建会话时用的路径，便于上传完成后登记元数据 */
+  path: string;
+  fileName: string;
+}
+
 export interface FileListResponse {
   result: PagedResult<FileItem>;
 }

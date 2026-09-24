@@ -3,6 +3,10 @@ import { apiDelete, apiDownloadBlob, apiGet, apiPost, apiPut, apiUpload } from '
 export { apiDownloadBlob };
 import type {
   ApiResponse,
+  FileShare,
+  OneDriveSyncStarted,
+  OneDriveSyncStatus,
+  OneDriveUploadSessionInfo,
   BindNextcloudProviderRequest,
   FileTextSnapshot,
   OneDriveBindingStart,
@@ -88,6 +92,18 @@ export const fileApiPaths = {
   dismissSuggestion: (id: string) => `/files/suggestions/${id}/dismiss`,
   acceptSuggestion: (id: string) => `/files/suggestions/${id}/accept`,
   openLink: (id: string, mode: FileOpenLinkMode) => `/files/items/${id}/open-link?${new URLSearchParams({ mode }).toString()}`,
+  // ---- PR-2（REQ-11 ~ REQ-25）----
+  createFolder: () => '/files/folders',
+  share: (id: string) => `/files/items/${id}/share`,
+  shares: (id: string) => `/files/items/${id}/shares`,
+  shareRevoke: (id: string, permissionId: string) =>
+    `/files/items/${id}/shares/${encodeURIComponent(permissionId)}`,
+  allShares: (limit?: number) => `/files/shares${limit ? `?limit=${limit}` : ''}`,
+  syncStatus: (id: string) => `/files/providers/${id}/sync-status`,
+  /** REQ-14：创建上传会话（返回预授权 uploadUrl，浏览器直接向微软分片上传）。 */
+  uploadSession: () => '/files/items/upload-session',
+  /** REQ-14：上传完成后登记元数据（字节不经服务器，只登记结果）。 */
+  uploadSessionComplete: () => '/files/items/upload-session/complete',
 } as const;
 
 export function getFileProviders() {
@@ -203,6 +219,53 @@ export function disconnectFileProvider(id: string) {
 
 export function getOneDriveSyncResult(id: string) {
   return apiPost<ApiResponse<OneDriveSyncResult>>(fileApiPaths.providerSync(id), {}).then(r => r.data);
+}
+
+// ---- PR-2（REQ-11 ~ REQ-25）----
+
+/** REQ-25：手动同步现在立即返回「已开始」（后台执行）。 */
+export function startOneDriveSync(id: string) {
+  return apiPost<ApiResponse<OneDriveSyncStarted>>(fileApiPaths.providerSync(id), {}).then(r => r.data);
+}
+
+/** REQ-25：同步状态（顶部横幅）。 */
+export function getOneDriveSyncStatus(id: string) {
+  return apiGet<ApiResponse<OneDriveSyncStatus>>(fileApiPaths.syncStatus(id)).then(r => r.data);
+}
+
+/** REQ-15：新建文件夹。 */
+export function createFolder(path: string) {
+  return apiPost<ApiResponse<FileItem>>(fileApiPaths.createFolder(), { path }).then(r => r.data);
+}
+
+/** REQ-21：生成分享链接。 */
+export function createShare(id: string, permissionType: 'view' | 'edit', expiresInDays?: number | null) {
+  return apiPost<ApiResponse<FileShare>>(fileApiPaths.share(id), { permissionType, expiresInDays }).then(r => r.data);
+}
+
+/** REQ-21：列出某条目的分享（预览面板就地撤销）。 */
+export function getItemShares(id: string) {
+  return apiGet<ApiResponse<FileShare[]>>(fileApiPaths.shares(id)).then(r => r.data);
+}
+
+/** REQ-21：撤销分享。 */
+export function revokeShare(id: string, permissionId: string) {
+  return apiDelete<ApiResponse<boolean>>(fileApiPaths.shareRevoke(id, permissionId)).then(r => r.data);
+}
+
+/** REQ-21：我的分享。 */
+export function getAllShares(limit?: number) {
+  return apiGet<ApiResponse<FileShare[]>>(fileApiPaths.allShares(limit)).then(r => r.data);
+}
+
+/** REQ-14：创建上传会话。服务器只创建会话与校验归属，不搬字节。 */
+export function createUploadSession(path: string, fileName: string) {
+  return apiPost<ApiResponse<OneDriveUploadSessionInfo>>(fileApiPaths.uploadSession(), { path, fileName }).then(r => r.data);
+}
+
+/** REQ-14：上传完成后登记元数据（内容已在微软侧，服务器只登记结果）。 */
+export function completeUploadSession(path: string, fileName: string) {
+  return apiPost<ApiResponse<FileItem>>(fileApiPaths.uploadSessionComplete(), { path, fileName }).then(r => r.data);
 }
 
 /** 直链与缩略图端点是 302；页面用带鉴权的 fetch 跟随得到内容，或直接引用相对 URL。 */

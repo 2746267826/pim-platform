@@ -133,7 +133,29 @@ describe('uploadEngine / REQ-14 浏览器直传', () => {
 
     await uploadFile(makeFile('big.bin', UPLOAD_CHUNK_SIZE), { path: '/文档', providerId: 'p1' }, api, undefined, { sendChunk: sender });
 
-    expect(api.completeSession).toHaveBeenCalledWith('/文档', 'big.bin');
+    // 第 3 个参数是服务端返回的真实条目 id（本例 201 未带 body，故为 undefined）
+    expect(api.completeSession).toHaveBeenCalledWith('/文档', 'big.bin', undefined);
+  });
+
+  it('AC-12.1 重名改名后按**服务端返回的真实 id**登记，而不是原路径', async () => {
+    const api = makeApi();
+    // 上传完成（201）时 Graph 返回最终条目：名字已被改成「报告 (1).pdf」
+    const sender: ChunkSender = async () => ({
+      status: 201,
+      body: { id: 'renamed-item-9', name: '报告 (1).pdf' },
+    });
+
+    const result = await uploadFile(
+      makeFile('报告.pdf', UPLOAD_CHUNK_SIZE),
+      { path: '/文档', providerId: 'p1' },
+      api,
+      undefined,
+      { sendChunk: sender },
+    );
+
+    expect(result.ok).toBe(true);
+    // 必须把服务端 id 传给登记接口，否则会按原路径读到已存在的旧文件
+    expect(api.completeSession).toHaveBeenCalledWith('/文档', '报告.pdf', 'renamed-item-9');
   });
 
   it('AC-13.2 分片持续失败时如实返回失败与可重试原因（不假成功）', async () => {

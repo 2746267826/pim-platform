@@ -28,7 +28,12 @@ export interface UploadTarget {
 
 export interface UploadSessionApi {
   createSession(path: string, fileName: string): Promise<{ uploadUrl: string; expirationDateTime: string | null }>;
-  completeSession(path: string, fileName: string): Promise<unknown>;
+  /**
+   * 完成后登记元数据。
+   * <paramref name="uploadedItemId"/> 是 Graph 在上传完成响应里给出的**真实条目 id**：
+   * 重名时 Graph 会自动改名，仅凭原路径回读会读到**已存在的旧文件**并登记错误元数据（AC-12.1）。
+   */
+  completeSession(path: string, fileName: string, uploadedItemId?: string): Promise<unknown>;
   simpleUpload(providerId: string, path: string, file: File): Promise<unknown>;
 }
 
@@ -52,20 +57,23 @@ export type ChunkSender = (
   url: string,
   body: Blob,
   headers: Record<string, string>,
-) => Promise<{ status: number; nextExpectedRanges?: unknown }>;
+) => Promise<{ status: number; nextExpectedRanges?: unknown; body?: unknown }>;
 
 const defaultChunkSender: ChunkSender = async (url, body, headers) => {
   const response = await fetch(url, { method: 'PUT', body, headers });
-  let nextExpectedRanges: unknown;
-  if (response.status === 202) {
-    const text = await response.text().catch(() => '');
-    try {
-      nextExpectedRanges = (JSON.parse(text) as { nextExpectedRanges?: unknown }).nextExpectedRanges;
-    } catch {
-      nextExpectedRanges = undefined;
-    }
+  // 202 = 还需要更多分片；201 = 上传完成，响应体是**最终条目**（含真实 id/name）。
+  // 必须把 201 的响应体带回去：重名时 Graph 会把文件改名成「名称 (1).ext」，
+  // 只有用它返回的 id/name 才能确定最终落到的是哪一个条目。
+  const text = await response.text().catch(() => '');
+  let parsed: unknown;
+  try {
+    parsed = text ? JSON.parse(text) : undefined;
+  } catch {
+    parsed = undefined;
   }
-  return { status: response.status, nextExpectedRanges };
+  const nextExpectedRanges =
+    response.status === 202 ? (parsed as { nextExpectedRanges?: unknown } | undefined)?.nextExpectedRanges : undefined;
+  return { status: response.status, nextExpectedRanges, body: parsed };
 };
 
 export interface UploadEngineOptions {
@@ -129,6 +137,8 @@ async function uploadViaSession(
   const total = file.size;
   const chunks = planUploadChunks(total);
   let uploaded = 0;
+  /** 上传完成响应里的最终条目（重名时名字由服务端决定）。 */
+  let finalItem: { id?: string; name?: string } | undefined;
 
   for (let index = 0; index < chunks.length; index += 1) {
     const chunk = chunks[index];
@@ -143,6 +153,9 @@ async function uploadViaSession(
       });
 
       if (response.status === 202 || response.status === 201) {
+        if (response.status === 201 && response.body && typeof response.body === 'object') {
+          finalItem = response.body as { id?: string; name?: string };
+        }
         break;
       }
 
@@ -168,8 +181,9 @@ async function uploadViaSession(
     onProgress?.({ fileName: file.name, ratio: uploaded / total, uploadedBytes: uploaded, totalBytes: total });
   }
 
-  // 内容已在微软侧，这里只登记元数据（服务器不搬字节）
-  await api.completeSession(target.path, file.name);
+  // 内容已在微软侧，这里只登记元数据（服务器不搬字节）。
+  // 带上服务端返回的真实条目 id，避免重名改名后登记成别的文件。
+  await api.completeSession(target.path, file.name, finalItem?.id);
   onProgress?.({ fileName: file.name, ratio: 1, uploadedBytes: total, totalBytes: total });
   return { fileName: file.name, ok: true };
 }

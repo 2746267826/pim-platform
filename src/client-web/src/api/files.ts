@@ -264,8 +264,12 @@ export function createUploadSession(path: string, fileName: string) {
 }
 
 /** REQ-14：上传完成后登记元数据（内容已在微软侧，服务器只登记结果）。 */
-export function completeUploadSession(path: string, fileName: string) {
-  return apiPost<ApiResponse<FileItem>>(fileApiPaths.uploadSessionComplete(), { path, fileName }).then(r => r.data);
+export function completeUploadSession(path: string, fileName: string, uploadedItemId?: string) {
+  return apiPost<ApiResponse<FileItem>>(fileApiPaths.uploadSessionComplete(), {
+    path,
+    fileName,
+    uploadedItemId,
+  }).then(r => r.data);
 }
 
 /** 直链与缩略图端点是 302；页面用带鉴权的 fetch 跟随得到内容，或直接引用相对 URL。 */

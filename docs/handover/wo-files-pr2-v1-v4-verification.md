@@ -89,6 +89,29 @@
 | V3 | **档位实现 PASS / 真实可用性 NOT-VERIFIED** | view/edit 已实现并有单测；无痕窗口与对方可编辑需真实账号 |
 | V4 | **PASS** | 320KiB 倍数 / ≤60MiB / 顺序 / Content-Range / 断点续传全部验证 |
 
+## 端到端过程中发现并修复的真实缺陷（b124d26b）
+
+浏览器端到端脚本在「刷新后传输历史」之后**卡死**，现象是一个全屏遮罩
+（`data-testid="my-shares-dialog"`，`fixed inset-0 z-[60]`）拦住后续所有点击。
+
+用真实浏览器探针定位到根因，**不是脚本不稳，而是产品缺陷**：
+工具条上「我的分享」被写成了「传输任务」按钮**内部的子按钮**。按钮嵌套按钮是非法 HTML
+（React 也会打印 `In HTML, <button> cannot be a descendant of <button>`），
+且子按钮覆盖了父按钮的命中区，实测：
+
+- `elementFromPoint(transfer-toggle 中心)` 返回 `BUTTON[my-shares-button] 「我的分享」`；
+- 点「传输任务」→ 命中的是「我的分享」→ 点击又冒泡到父按钮，
+  于是**同时**打开传输面板和「我的分享」全屏遮罩；
+- 遮罩出现后拦掉页面上所有点击，端到端流程死锁。
+
+修复：两者改为平级兄弟节点（同一个 flex 容器内）。回归测试
+`src/client-web/src/pages/__tests__/FilesToolbar.test.tsx`（4 项，已接入 CI 既有入口
+`test:files` → `test:files-vitest`）守两件事：四个入口互不嵌套；点谁只触发谁。
+该测试先 RED、修复后 GREEN，并做了故障对照（把子按钮塞回父按钮内部）确认重新变红。
+
+诚实边界：jsdom **不做命中测试**，因此它只能证明「非法嵌套」与「点击冒泡串台」，
+不能证明真实布局下的遮挡；遮挡证据来自 Chromium 探针（`elementFromPoint`）与端到端脚本。
+
 ### 需要现场（真实账号）补验的事项
 
 1. 真实浏览器对微软上传端点的 CORS 直传（V1 端到端）；

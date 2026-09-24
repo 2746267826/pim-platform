@@ -10,7 +10,8 @@ data class DiagnosticDatabaseCounts(
     val mobileLocationPolicyTransitionsRowCount: Long,
     val mobileSyncBatchesRowCount: Long,
     val mobileLogsRowCount: Long,
-    val mobileDeviceProfileRowCount: Long
+    val mobileDeviceProfileRowCount: Long,
+    val mobileForensicEventsRowCount: Long
 )
 
 data class DiagnosticSyncHistoryRow(
@@ -36,4 +37,13 @@ data class DiagnosticLocationRow(
     val scheduleLowFrequency: Boolean,
     val motionState: String?,
     val syncStatus: String
+)
+
+/** 丢弃原因明细的导出行（REQ-9 / AC-9.1）：时刻 / 原因 / 准确度 / provider / 策略档。 */
+data class DiagnosticDroppedDetailRow(
+    val recordedAtUtc: Long,
+    val reason: String,
+    val accuracyMeters: Float?,
+    val provider: String?,
+    val policyMode: String
 )

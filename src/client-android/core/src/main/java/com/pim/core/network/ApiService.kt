@@ -98,6 +98,12 @@ interface ApiService {
     @POST("mobile/usage/events")
     suspend fun uploadMobileUsage(@Body request: MobileUsageEventsUploadRequest): ApiResponse<MobileIngestResponse>
 
+    /** 阶段一取证事件上报（REQ-5）：与使用记录走独立通道。 */
+    @POST("mobile/forensics/events")
+    suspend fun uploadMobileForensics(
+        @Body request: MobileForensicsUploadRequest
+    ): ApiResponse<MobileForensicsIngestResponse>
+
     @POST("mobile/location/points")
     suspend fun uploadMobileLocation(@Body request: MobileLocationPointRequest): ApiResponse<MobileLocationPointDto>
 

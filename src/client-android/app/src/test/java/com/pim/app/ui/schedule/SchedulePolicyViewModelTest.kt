@@ -609,6 +609,7 @@ class SchedulePolicyViewModelTest {
         override suspend fun registerMobileDevice(body: com.pim.core.models.MobileDeviceRegisterRequest) = error("not mocked")
         override suspend fun getMobileGaps(body: com.pim.core.models.MobileGapRequest) = error("not mocked")
         override suspend fun uploadMobileUsage(body: com.pim.core.models.MobileUsageEventsUploadRequest) = error("not mocked")
+        override suspend fun uploadMobileForensics(body: com.pim.core.models.MobileForensicsUploadRequest) = error("not mocked")
         override suspend fun uploadMobileLocation(body: com.pim.core.models.MobileLocationPointRequest) = error("not mocked")
         override suspend fun getMobileSummary(date: String?, deviceId: String?) = error("not mocked")
         override suspend fun getMobileTimeline(date: String?, deviceId: String?, page: Int?, pageSize: Int?) = error("not mocked")

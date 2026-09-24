@@ -14,12 +14,14 @@ import androidx.room.RoomDatabase
         MobileLocationPolicyTransitionEntity::class,
         MobileSyncBatchEntity::class,
         MobileLogEntity::class,
-        MobileDeviceProfileEntity::class
+        MobileDeviceProfileEntity::class,
+        ForensicEventEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun appUsageDao(): AppUsageDao
     abstract fun mobileDataDao(): MobileDataDao
+    abstract fun forensicEventDao(): ForensicEventDao
 }

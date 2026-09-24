@@ -56,6 +56,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pim.app.forensics.LivenessUiSnapshot
 import com.pim.app.status.ConnectionProbeResult
 import com.pim.app.status.DiagnosticSnapshot
 import com.pim.app.status.NetworkAvailability
@@ -94,12 +95,26 @@ fun StatusCenterScreen(
         }
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val liveness by viewModel.liveness.collectAsStateWithLifecycle()
+    val droppedReasons by viewModel.droppedReasons.collectAsStateWithLifecycle()
+    val showDroppedReasons by viewModel.showDroppedReasons.collectAsStateWithLifecycle()
     val feedback by viewModel.feedback.collectAsStateWithLifecycle()
     val exportState by viewModel.exportState.collectAsStateWithLifecycle()
     val showMeteredSyncConfirmation by viewModel.showMeteredSyncConfirmation.collectAsStateWithLifecycle()
+    if (showDroppedReasons) {
+        DroppedReasonScreen(
+            state = droppedReasons,
+            onBack = { viewModel.closeDroppedReasons() },
+            modifier = modifier
+        )
+        return
+    }
+
     StatusCenterContent(
         state = state,
         feedback = feedback,
+        liveness = liveness,
+        onOpenDroppedReasons = { viewModel.openDroppedReasons() },
         modifier = modifier,
         onIssueAction = { issue ->
             when (StatusActionRouter.route(viewModel.onIssueAction(issue))) {
@@ -133,6 +148,8 @@ fun StatusCenterScreen(
 internal fun StatusCenterContent(
     state: StatusCenterState,
     feedback: StatusActionFeedback? = null,
+    liveness: LivenessUiSnapshot? = null,
+    onOpenDroppedReasons: () -> Unit = {},
     modifier: Modifier = Modifier,
     onIssueAction: (StatusIssue) -> Unit = {},
     onSyncNow: () -> Unit = {},
@@ -161,6 +178,12 @@ internal fun StatusCenterContent(
         )
 
         OverallStatusSurface(state)
+
+        // 存活区块放在最顶部（REQ-8）：先回答"设备活没活"，再回答既有权限/同步状态。
+        LivenessSection(
+            snapshot = liveness,
+            onOpenDroppedReasons = onOpenDroppedReasons
+        )
 
         feedback?.let {
             FeedbackRow(it)

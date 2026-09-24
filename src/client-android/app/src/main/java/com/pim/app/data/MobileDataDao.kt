@@ -326,7 +326,8 @@ interface MobileDataDao {
             COALESCE((SELECT COUNT(*) FROM mobile_location_policy_transitions), 0) AS mobileLocationPolicyTransitionsRowCount,
             COALESCE((SELECT COUNT(*) FROM mobile_sync_batches), 0) AS mobileSyncBatchesRowCount,
             COALESCE((SELECT COUNT(*) FROM mobile_logs), 0) AS mobileLogsRowCount,
-            COALESCE((SELECT COUNT(*) FROM mobile_device_profile), 0) AS mobileDeviceProfileRowCount
+            COALESCE((SELECT COUNT(*) FROM mobile_device_profile), 0) AS mobileDeviceProfileRowCount,
+            COALESCE((SELECT COUNT(*) FROM mobile_forensic_events), 0) AS mobileForensicEventsRowCount
         """
     )
     suspend fun diagnosticDatabaseCounts(): DiagnosticDatabaseCounts
@@ -357,6 +358,20 @@ interface MobileDataDao {
     )
     suspend fun diagnosticLocations(from: Long, to: Long): List<DiagnosticLocationRow>
 
+    /**
+     * 丢弃原因明细（REQ-9 / AC-9.1）：时刻 / 原因 / 准确度 / provider / 策略档。
+     * 不设条数上限，条数由 30 天时间清理决定（AC-9.3）。
+     */
+    @Query(
+        """
+        SELECT recorded_at_utc AS recordedAtUtc, reason, accuracy_meters AS accuracyMeters,
+               provider, policy_mode AS policyMode
+        FROM mobile_location_dropped_diagnostics
+        ORDER BY recorded_at_utc ASC
+        """
+    )
+    suspend fun diagnosticDroppedDetailRows(): List<DiagnosticDroppedDetailRow>
+
     @Query("DELETE FROM mobile_logs")
     suspend fun deleteAllMobileLogs(): Int
 
@@ -365,4 +380,14 @@ interface MobileDataDao {
 
     @Query("DELETE FROM mobile_location_policy_transitions")
     suspend fun deleteAllMobileLocationPolicyTransitions(): Int
+
+    /**
+     * 丢弃原因明细的时间清理（REQ-9 / AC-9.3）：超过 30 天的明细移除，
+     * **不设条数上限**（上限只由时间决定，R4-P3）。
+     */
+    @Query("DELETE FROM mobile_location_dropped_diagnostics WHERE recorded_at_utc < :cutoffUtc")
+    suspend fun deleteDroppedDiagnosticsOlderThan(cutoffUtc: Long): Int
+
+    @Query("SELECT COUNT(*) FROM mobile_location_dropped_diagnostics")
+    suspend fun droppedDiagnosticCount(): Int
 }

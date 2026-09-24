@@ -45,6 +45,101 @@ export interface MobileAnalyticsQuery {
   force?: boolean;
 }
 
+export interface MobileLivenessQuery {
+  rangeStartUtc?: string | null;
+  rangeEndUtc?: string | null;
+}
+
+export interface MobileLivenessEventsQuery extends MobileLivenessQuery {
+  page?: number | null;
+  pageSize?: number | null;
+}
+
+export type MobileLivenessDeviceKind = 'phone' | 'tablet' | 'unknown';
+export type MobileLivenessSeverity = 'none' | 'warning' | 'critical';
+
+export interface MobileLivenessSilence {
+  startUtc: string;
+  endUtc: string;
+  minutes: number;
+  severity: MobileLivenessSeverity;
+  severityLabel: string;
+}
+
+export interface MobileLivenessCause {
+  cause: string;
+  label: string;
+  count: number;
+  inference: string | null;
+}
+
+export interface MobileLivenessDeviceBlock {
+  deviceId: string;
+  displayName: string;
+  deviceKind: MobileLivenessDeviceKind;
+  deviceKindLabel: string;
+  hasData: boolean;
+  conclusion: string;
+  coverageByHour: number | null;
+  coverageByExpectedHeartbeat: number | null;
+  observedHours: number;
+  totalHours: number;
+  observedHeartbeats: number;
+  expectedHeartbeats: number;
+  expectedHeartbeatIntervalMinutes: number;
+  longestSilenceMinutes: number;
+  longestSilenceStartUtc: string | null;
+  longestSilenceEndUtc: string | null;
+  longestSilenceSeverity: MobileLivenessSeverity;
+  hasSilenceOverOneHour: boolean;
+  silences: MobileLivenessSilence[];
+  causes: MobileLivenessCause[];
+  lastEventAtUtc: string | null;
+  coverageByHourDefinition: string;
+  coverageByExpectedHeartbeatDefinition: string;
+}
+
+export interface MobileLivenessOverview {
+  rangeStartUtc: string;
+  rangeEndUtc: string;
+  expectedHeartbeatIntervalMinutes: number;
+  phones: MobileLivenessDeviceBlock[];
+  tablets: MobileLivenessDeviceBlock[];
+  unclassified: MobileLivenessDeviceBlock[];
+}
+
+export interface MobileLivenessEvent {
+  id: string;
+  eventType: string;
+  eventTypeLabel: string;
+  occurredAtUtc: string;
+  reason: string | null;
+  reasonLabel: string | null;
+  inference: string | null;
+  importance: number | null;
+  pssKb: number | null;
+  rssKb: number | null;
+  description: string | null;
+  payloadJson: string;
+}
+
+export interface MobileLivenessEventPage {
+  items: MobileLivenessEvent[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+function withLivenessQuery(path: string, query: MobileLivenessQuery | MobileLivenessEventsQuery = {}) {
+  return withQuery(path, [
+    ['rangeStartUtc', query.rangeStartUtc],
+    ['rangeEndUtc', query.rangeEndUtc],
+    ['page', 'page' in query ? query.page : undefined],
+    ['pageSize', 'pageSize' in query ? query.pageSize : undefined],
+  ]);
+}
+
 function withAnalyticsQuery(path: string, query: MobileAnalyticsQuery = {}) {
   return withQuery(path, [
     ['rangeStartUtc', query.rangeStartUtc],
@@ -161,6 +256,10 @@ export const mobileApiPaths = {
   appCategoryRule: (id: string) => `/mobile/apps/category-rules/${pathSegment(id)}`,
   usageGoals: () => '/mobile/analytics/goals',
   usageGoal: (id: string) => `/mobile/analytics/goals/${pathSegment(id)}`,
+  livenessOverview: (query: MobileLivenessQuery = {}) =>
+    withLivenessQuery('/mobile/liveness/overview', query),
+  livenessEvents: (deviceId: string, query: MobileLivenessEventsQuery = {}) =>
+    withLivenessQuery(`/mobile/devices/${pathSegment(deviceId)}/liveness/events`, query),
 } as const;
 
 export interface MobileDevice {
@@ -752,6 +851,19 @@ export function getMobileTimelineBlockSessions(
 
 export function getMobileSessionEvents(sessionId: string): Promise<MobileSessionEvent[]> {
   return apiGet<ApiResponse<MobileSessionEvent[]>>(mobileApiPaths.sessionEvents(sessionId)).then(r => r.data);
+}
+
+export function getMobileLivenessOverview(query: MobileLivenessQuery = {}): Promise<MobileLivenessOverview> {
+  return apiGet<ApiResponse<MobileLivenessOverview>>(mobileApiPaths.livenessOverview(query)).then(r => r.data);
+}
+
+export function getMobileLivenessEvents(
+  deviceId: string,
+  query: MobileLivenessEventsQuery = {},
+): Promise<MobileLivenessEventPage> {
+  return apiGet<ApiResponse<MobileLivenessEventPage>>(
+    mobileApiPaths.livenessEvents(deviceId, query),
+  ).then(r => r.data);
 }
 
 export function getMobileAppCatalogOverrides(): Promise<MobileAppCatalogOverride[]> {

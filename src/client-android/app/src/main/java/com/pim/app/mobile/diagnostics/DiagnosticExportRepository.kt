@@ -133,6 +133,11 @@ class DiagnosticExportRepository internal constructor(
                 entries["settings.json"] = buildSettings().toString()
                 entries["database-counts.json"] = buildDatabaseCounts(dao).toString()
                 entries["sync-history.json"] = buildSyncHistory(dao).toString()
+                // REQ-9 / AC-9.1：丢弃原因明细进诊断包（时刻 / 原因 / 准确度 / provider / 策略档）。
+                // 明细不设条数上限（R4-P3），条数由 30 天时间清理决定，因此清理后导出包只会变小（AC-9.3）。
+                entries["dropped-locations.jsonl"] = buildDroppedLocationDetails().toString()
+                // REQ-1 ~ REQ-4：进程退出原因台账与存活心跳，供需求方在真机上核对死因。
+                entries["forensics.jsonl"] = buildForensicEvents(exportNow).toString()
 
                 val logEntryNames = mutableListOf<String>()
                 val logSnapshots = structuredLogRepository.snapshotFiles()
@@ -352,7 +357,9 @@ class DiagnosticExportRepository internal constructor(
         private val EXPORT_FILE_PATTERN = Regex("""^pim-diagnostics-\d+\.zip(?:\.tmp)?$""")
         private val CORE_ENTRIES = setOf(
             "manifest.json", "status.json", "settings.json",
-            "database-counts.json", "sync-history.json"
+            "database-counts.json", "sync-history.json",
+            // REQ-9 / REQ-1~REQ-4：取证两件套随包导出（丢弃明细 + 死因台账）。
+            "dropped-locations.jsonl", "forensics.jsonl"
         )
 
         private fun buildExpectedEntrySet(
@@ -444,6 +451,46 @@ class DiagnosticExportRepository internal constructor(
         }
     }
 
+    /**
+     * 丢弃原因明细（REQ-9 / AC-9.1）：时刻 / 原因 / 准确度 / provider / 策略档。
+     * 不设条数上限，条数由 30 天时间清理决定（AC-9.3）。
+     */
+    private suspend fun buildDroppedLocationDetails(): String {
+        val rows = db.mobileDataDao().diagnosticDroppedDetailRows()
+        return rows.joinToString("\n") { row ->
+            JSONObject()
+                .put("recordedAtUtc", row.recordedAtUtc)
+                .put("reason", row.reason)
+                .put("accuracyMeters", row.accuracyMeters?.toDouble() ?: JSONObject.NULL)
+                .put("provider", row.provider ?: JSONObject.NULL)
+                .put("policyMode", row.policyMode)
+                .toString()
+        }
+    }
+
+    /**
+     * 进程退出原因台账与存活心跳（REQ-1 ~ REQ-4）。
+     * 负载本身已在写入时脱敏（不含经纬度/令牌/账号），这里原样带出以便核对死因。
+     */
+    private suspend fun buildForensicEvents(exportNow: Long): String {
+        val rows = db.forensicEventDao().eventsInRange(0L, exportNow)
+        return rows.joinToString("\n") { row ->
+            JSONObject()
+                .put("eventType", row.eventType)
+                .put("occurredAtUtc", row.occurredAtUtc)
+                .put("clientItemKey", row.clientItemKey)
+                .put("syncStatus", row.syncStatus)
+                .put("payload", payloadOf(row.payloadJson))
+                .toString()
+        }
+    }
+
+    private fun payloadOf(json: String): Any = try {
+        JSONObject(json)
+    } catch (_: Exception) {
+        json
+    }
+
     private fun buildSettings(): JSONObject {
         val s = trackingSettingsStore.read()
         val verboseEnabled = s.verboseLoggingUntilUtcMillis != null &&
@@ -480,6 +527,7 @@ class DiagnosticExportRepository internal constructor(
             .put("mobileSyncBatchesRowCount", c.mobileSyncBatchesRowCount)
             .put("mobileLogsRowCount", c.mobileLogsRowCount)
             .put("mobileDeviceProfileRowCount", c.mobileDeviceProfileRowCount)
+            .put("mobileForensicEventsRowCount", c.mobileForensicEventsRowCount)
     }
 
     private suspend fun buildSyncHistory(

@@ -14,4 +14,10 @@ object MobileDataModule {
     fun provideMobileDataDao(database: AppDatabase): MobileDataDao {
         return database.mobileDataDao()
     }
+
+    @Provides
+    @Singleton
+    fun provideForensicEventDao(database: AppDatabase): ForensicEventDao {
+        return database.forensicEventDao()
+    }
 }

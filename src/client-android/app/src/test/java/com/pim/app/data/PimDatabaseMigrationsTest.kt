@@ -117,7 +117,7 @@ class PimDatabaseMigrationsTest {
     }
 
     @Test
-    fun currentV3Schema_hasVersion3And10Tables() {
+    fun currentV4Schema_hasVersion4And11TablesIncludingForensicEvents() {
         val roomDatabase = Room.databaseBuilder(context, AppDatabase::class.java, currentDbName)
             .addMigrations(*PimDatabaseMigrations.ALL)
             .allowMainThreadQueries()
@@ -127,7 +127,7 @@ class PimDatabaseMigrationsTest {
             var cursor = db.query("PRAGMA user_version")
             cursor.use {
                 it.moveToFirst()
-                assertEquals(3L, it.getLong(0))
+                assertEquals(4L, it.getLong(0))
             }
             cursor = db.query(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'room%' AND name NOT LIKE 'sqlite%' AND name NOT LIKE 'android%'"
@@ -136,17 +136,69 @@ class PimDatabaseMigrationsTest {
             cursor.use {
                 while (it.moveToNext()) { tables.add(it.getString(0)) }
             }
-            assertEquals(10, tables.size)
+            assertEquals(11, tables.size)
             assertTrue(tables.containsAll(
                 listOf(
                     "app_usage", "mobile_usage_events", "mobile_usage_summaries",
                     "mobile_app_metadata", "mobile_location_points",
                     "mobile_location_dropped_diagnostics", "mobile_location_policy_transitions",
-                    "mobile_sync_batches", "mobile_logs", "mobile_device_profile"
+                    "mobile_sync_batches", "mobile_logs", "mobile_device_profile",
+                    // 阶段一取证（REQ-1 ~ REQ-6）：只新增这一张表。
+                    "mobile_forensic_events"
                 )
             ))
         } finally {
             roomDatabase.close()
+        }
+    }
+
+    @Test
+    fun migrateFrom3To4_addsForensicTableAndKeepsExistingTablesUntouched() {
+        // 升级路径：v3 已有设备上的既有数据必须原样保留，新表可写可查。
+        helper.createDatabase(dbName, 3).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO mobile_location_dropped_diagnostics
+                    (recorded_at_utc, provider, accuracy_meters, policy_mode, reason, created_at_utc)
+                VALUES (1000000, 'gps', 55.0, 'PowerSavingNormal', 'horizontal-accuracy-too-low', 1000000)
+                """.trimIndent()
+            )
+        }
+
+        helper.runMigrationsAndValidate(dbName, 4, true, PimDatabaseMigrations.MIGRATION_3_4).use { db ->
+            var cursor = db.query("SELECT COUNT(*) FROM mobile_location_dropped_diagnostics")
+            cursor.use {
+                it.moveToFirst()
+                assertEquals(1L, it.getLong(0))
+            }
+
+            db.execSQL(
+                """
+                INSERT INTO mobile_forensic_events
+                    (event_type, occurred_at_utc, client_item_key, payload_json, sync_status, last_error, created_at_utc)
+                VALUES ('heartbeat', 1000000, 'heartbeat-1000', '{}', 'pending', null, 1000000)
+                """.trimIndent()
+            )
+            cursor = db.query(
+                "SELECT event_type, sync_status FROM mobile_forensic_events WHERE client_item_key = 'heartbeat-1000'"
+            )
+            cursor.use {
+                it.moveToFirst()
+                assertEquals("heartbeat", it.getString(0))
+                assertEquals("pending", it.getString(1))
+            }
+
+            // 幂等键必须是唯一索引，否则 AC-3.3 / AC-5.2 的去重无处落地。
+            val duplicate = runCatching {
+                db.execSQL(
+                    """
+                    INSERT INTO mobile_forensic_events
+                        (event_type, occurred_at_utc, client_item_key, payload_json, sync_status, last_error, created_at_utc)
+                    VALUES ('heartbeat', 1000001, 'heartbeat-1000', '{}', 'pending', null, 1000001)
+                    """.trimIndent()
+                )
+            }
+            assertTrue(duplicate.isFailure)
         }
     }
 }

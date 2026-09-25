@@ -1,6 +1,5 @@
 package com.pim.app.forensics
 
-import com.pim.app.location.service.ForegroundLocationService
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.sync.MobileSyncScheduler
 import javax.inject.Inject
@@ -37,13 +36,12 @@ class StartupForensics internal constructor(
     private val sentinelStore: ForensicSentinelStore,
     private val sentinelProbe: SentinelProbe,
     private val contextReader: ForensicContextSource,
-    private val heartbeatReader: AndroidHeartbeatSnapshotReader,
+    private val heartbeatRecorder: WakeHeartbeatRecorder,
     private val retention: ForensicRetention,
     private val logs: StructuredLogRepository,
     private val syncScheduler: Provider<MobileSyncScheduler>,
     private val nowUtcMillis: () -> Long,
-    private val bootElapsedMillis: () -> Long,
-    private val serviceRunning: () -> Boolean
+    private val bootElapsedMillis: () -> Long
 ) {
     @Inject
     constructor(
@@ -52,7 +50,7 @@ class StartupForensics internal constructor(
         sentinelStore: ForensicSentinelStore,
         sentinelProbe: SentinelProbe,
         contextReader: ForensicContextSource,
-        heartbeatReader: AndroidHeartbeatSnapshotReader,
+        heartbeatRecorder: WakeHeartbeatRecorder,
         retention: ForensicRetention,
         logs: StructuredLogRepository,
         syncScheduler: Provider<MobileSyncScheduler>
@@ -62,13 +60,12 @@ class StartupForensics internal constructor(
         sentinelStore,
         sentinelProbe,
         contextReader,
-        heartbeatReader,
+        heartbeatRecorder,
         retention,
         logs,
         syncScheduler,
         nowUtcMillis = System::currentTimeMillis,
-        bootElapsedMillis = BootElapsedClock::now,
-        serviceRunning = { ForegroundLocationService.isRunning() }
+        bootElapsedMillis = BootElapsedClock::now
     )
 
     suspend fun recordOnStartup(): StartupForensicsResult {
@@ -166,31 +163,14 @@ class StartupForensics internal constructor(
         )
     }
 
-    /** 写一条带完整上下文的心跳；写失败不影响采集（AC-3.3）。 */
-    suspend fun recordHeartbeat(nowUtcMillis: Long, bootElapsedMillis: Long): Boolean {
-        return try {
-            val context = safeContext()
-            val snapshot = heartbeatReader.read(
-                nowElapsedMillis = bootElapsedMillis,
-                lastHeartbeatElapsedMillis = lastHeartbeatBootElapsed,
-                foregroundServiceRunning = safeServiceRunning(),
-                forensicContext = context
-            )
-            val written = ledger.recordHeartbeat(
-                occurredAtUtcMillis = nowUtcMillis,
-                payloadJson = ForensicPayloads.heartbeat(snapshot)
-            )
-            if (written) {
-                lastHeartbeatBootElapsed = bootElapsedMillis
-            }
-            written
-        } catch (ex: CancellationException) {
-            throw ex
-        } catch (ex: Exception) {
-            logs.error("forensics", "写入存活心跳失败：${ex.message ?: ""}", ex)
-            false
-        }
-    }
+    /**
+     * 写一条带完整上下文的心跳；写失败不影响采集（AC-3.3）。
+     *
+     * 实现已收敛到 [WakeHeartbeatRecorder]（缺陷 #345）：周期同步等其它唤醒路径写的是同一个入口，
+     * 这里保留同名方法是为了让阶段一的调用点与语义保持不变。
+     */
+    suspend fun recordHeartbeat(nowUtcMillis: Long, bootElapsedMillis: Long): Boolean =
+        heartbeatRecorder.record(nowUtcMillis, bootElapsedMillis)
 
     private fun safeContext(): ForensicContext = try {
         contextReader.read()
@@ -199,14 +179,4 @@ class StartupForensics internal constructor(
     } catch (_: Exception) {
         ForensicContext(unavailableFields = listOf("屏幕状态", "解锁状态", "前台应用", "充电状态", "电量百分比"))
     }
-
-    private fun safeServiceRunning(): Boolean = try {
-        serviceRunning()
-    } catch (ex: CancellationException) {
-        throw ex
-    } catch (_: Exception) {
-        false
-    }
-
-    private var lastHeartbeatBootElapsed: Long? = null
 }

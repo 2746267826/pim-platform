@@ -17,6 +17,7 @@ import com.pim.app.data.MobileSyncStatus
 import com.pim.app.data.MobileUsageEventEntity
 import com.pim.app.data.MobileUsageSummaryEntity
 import com.pim.app.forensics.ForensicUploadCoordinator
+import com.pim.app.forensics.WakeHeartbeatRecorder
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.usage.AppMetadataCollector
 import com.pim.app.mobile.usage.UsageAccessChecker
@@ -99,6 +100,7 @@ class MobileSyncCoordinator @Inject constructor(
     private val serverSettingsStore: ServerSettingsStore,
     private val locationUploadCoordinator: LocationUploadCoordinator,
     private val forensicUploadCoordinator: ForensicUploadCoordinator,
+    private val wakeHeartbeatRecorder: WakeHeartbeatRecorder,
     private val syncScheduler: Provider<MobileSyncScheduler>
 ) {
     private val mobileDataDao = database.mobileDataDao()
@@ -108,6 +110,13 @@ class MobileSyncCoordinator @Inject constructor(
     val currentState: StateFlow<MobileSyncState> = _state.asStateFlow()
 
     suspend fun syncOnOpen(): MobileSyncState {
+        // REQ-3 / 缺陷 #345：周期同步也是一次唤醒，必须写一条心搏。
+        // 放在乐观锁**之前**，是因为"唤醒发生了"与"本次同步是否真的跑起来"是两件事：
+        // 排队等锁而被跳过的那次唤醒同样是真实唤醒，也要被记下来。
+        // 所有同步结局（未配置服务器、缺令牌、缺权限、正常同步、同步失败）都覆盖到。
+        // 同一秒内重复唤醒由台账去重（AC-3.3）；写心搏失败只记日志，绝不改变同步结果（AC-3.3）。
+        recordWakeHeartbeat()
+
         if (!syncMutex.tryLock()) {
             val running = _state.value.copy(
                 isInProgress = true,
@@ -128,6 +137,20 @@ class MobileSyncCoordinator @Inject constructor(
         }
 
         return resultState
+    }
+
+    /**
+     * 记录一次同步唤醒。**不新增任何轮询或闹钟**（AC-29.1）：这里只被既有的周期同步作业
+     * 与用户触发的立即同步调用，自身不调度任何东西。
+     */
+    private suspend fun recordWakeHeartbeat() {
+        try {
+            wakeHeartbeatRecorder.record()
+        } catch (ex: CancellationException) {
+            throw ex
+        } catch (ex: Exception) {
+            logs.warn("forensics", "同步唤醒写心搏失败：${ex.message ?: ""}")
+        }
     }
 
     fun refreshPersistedState() {

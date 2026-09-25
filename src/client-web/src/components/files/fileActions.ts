@@ -48,10 +48,11 @@ export function validateEntryName(name: string | null | undefined): string | nul
 }
 
 /**
- * 预测重名时的最终名称（REQ-12：`名称 (1).ext`，绝不覆盖）。
+ * 预测重名时的最终名称（REQ-12：绝不覆盖）。
  *
- * 仅用于**提前告知用户**会发生什么；最终名称以服务端返回为准
- * （Graph 才是权威，重名时它自己改名，我们回读它的结果）。
+ * 格式按**真实账号实测**：Graph 的 `conflictBehavior=rename` 用的是
+ * `名称 1.ext`（空格 + 序号，**没有括号**），此前按 `名称 (1).ext` 预测与实测不符。
+ * 仅用于**提前告知用户**会发生什么；最终名称仍以服务端回读结果为准（Graph 才是权威）。
  */
 export function predictRenamedName(name: string, existingNames: readonly string[]): string {
   const taken = new Set(existingNames.map(n => n.toLowerCase()));
@@ -62,10 +63,10 @@ export function predictRenamedName(name: string, existingNames: readonly string[
   const extension = dot > 0 ? name.slice(dot) : '';
 
   for (let index = 1; index < 1000; index += 1) {
-    const candidate = `${stem} (${index})${extension}`;
+    const candidate = `${stem} ${index}${extension}`;
     if (!taken.has(candidate.toLowerCase())) return candidate;
   }
-  return `${stem} (${Date.now()})${extension}`;
+  return `${stem} ${Date.now()}${extension}`;
 }
 
 /** AC-20.2：超过阈值先确认（显示大小）。 */

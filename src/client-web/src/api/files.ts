@@ -54,6 +54,7 @@ export const fileApiPaths = {
   itemContent: (id: string) => `/files/items/${id}/content`,
   itemThumbnail: (id: string, size = 'medium') => `/files/items/${id}/thumbnail?size=${encodeURIComponent(size)}`,
   itemPreviewUrl: (id: string) => `/files/items/${id}/preview-url`,
+  itemDownloadUrl: (id: string) => `/files/items/${id}/download-url`,
   itemText: (id: string) => `/files/items/${id}/text`,
   itemSnapshots: (id: string) => `/files/items/${id}/snapshots`,
   itemSnapshotRestore: (id: string, snapshotId: string) => `/files/items/${id}/snapshots/${snapshotId}/restore`,
@@ -283,6 +284,16 @@ export function oneDriveThumbnailUrl(id: string, size = 'medium') {
 
 export function getOneDrivePreviewUrl(id: string) {
   return apiGet<ApiResponse<OneDriveLink>>(fileApiPaths.itemPreviewUrl(id)).then(r => r.data.url);
+}
+
+/**
+ * REQ-20 / AC-20.1：下载直链（JSON 形态）。
+ *
+ * 不走 302 端点再 fetch 跟随——那样页面会真的把文件体拉一遍（验收 F-3）。
+ * 这里只取一个 URL 字符串，内容由浏览器直接从微软域加载。
+ */
+export function getDownloadUrl(id: string) {
+  return apiGet<ApiResponse<OneDriveLink>>(fileApiPaths.itemDownloadUrl(id)).then(r => r.data.url);
 }
 
 export function getOneDriveText(id: string) {

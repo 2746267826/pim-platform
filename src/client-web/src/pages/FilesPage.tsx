@@ -27,6 +27,7 @@ import {
   getAllShares,
   getItemShares,
   getFileOpenLink,
+  getDownloadUrl,
   getOneDriveSyncStatus,
   moveFile,
   renameFile,
@@ -44,16 +45,6 @@ import type { FileShare, OneDriveSyncStatus } from '../types';
 import type { FileItem, FileSearchScope, FileSortKey, FileSortOrder } from '../types';
 
 const EMPTY_ITEMS: FileItem[] = [];
-
-/** 下载直链请求需要鉴权头（与 api/client.ts 同源）。 */
-function authorizationHeader(): Record<string, string> {
-  try {
-    const token = window.localStorage.getItem('accessToken');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  } catch {
-    return {};
-  }
-}
 
 /** 树数据保留窗口：超出后淘汰最早展开的目录（见 expandedPaths 注释）。 */
 const MAX_REMEMBERED_EXPANDED = 64;
@@ -413,23 +404,16 @@ export default function FilesPage() {
 
   /** REQ-20：下载走微软直链、**新窗口触发**，不把整文件读进页面内存（AC-20.1）。 */
   const startDownload = useCallback((item: FileItem) => {
-    // 302 端点需要 Authorization，浏览器直接开新页会丢 token；
-    // 因此用一次带鉴权的 HEAD/GET 拿到微软直链后在新窗口打开——内容仍由微软域提供。
+    // REQ-20 / AC-20.1：先向 PIM 取 JSON 形态的直链，再 window.open 由浏览器直接从微软域下载。
+    //
+    // 这里**刻意不用** 302 端点 + fetch 跟随去读 response.url：那样虽然只想要一个 URL，
+    // 浏览器却会顺着 302 真发一次文件请求并下载响应体（验收 F-3：额外传输一次文件体，
+    // 大文件风险最高）。JSON 端点只返回链接字符串，服务器与页面都不搬字节。
     void (async () => {
       try {
-        const response = await fetch(`/api/v1/files/items/${item.id}/download`, {
-          method: 'GET',
-          headers: authorizationHeader(),
-          redirect: 'follow',
-        });
-        if (!response.ok) throw new Error(`下载失败（HTTP ${response.status}）`);
-        // 跟随到微软域后 response.url 即直链；在新窗口打开，字节不经过页面内存
-        const url = response.url;
-        if (url && url !== window.location.href) {
-          window.open(url, '_blank', 'noopener,noreferrer');
-        } else {
-          window.open(`/api/v1/files/items/${item.id}/download`, '_blank', 'noopener');
-        }
+        const url = await getDownloadUrl(item.id);
+        if (!url) throw new Error('未取到下载直链');
+        window.open(url, '_blank', 'noopener,noreferrer');
       } catch (e) {
         toast.error(describeError(e));
       }
@@ -955,8 +939,9 @@ export default function FilesPage() {
         <ShareDialog
           item={shareTarget}
           existing={shareExisting}
-          // V2/V3 未用真实账号验证：明确告知可能不支持有效期，不假装支持
-          expirationSupported={false}
+          // V2 已由验收方用真实账号现场实测：个人版支持有效期（edit + 7 天 → 201）。
+          // 因此按「支持」呈现；若将来某账号不支持，后端的档位校验会如实报错而不是假装成功。
+          expirationSupported
           onCancel={() => setShareTarget(null)}
           onCreate={(permissionType, expiresInDays) =>
             createShare(shareTarget.id, permissionType, expiresInDays || null)

@@ -93,20 +93,22 @@ describe('fileActions / REQ-12 重名自动改名', () => {
     expect(predictRenamedName('报告.pdf', ['别的.pdf'])).toBe('报告.pdf');
   });
 
-  it('AC-12.1 重名时生成「名称 (1).ext」，且保留扩展名', () => {
-    expect(predictRenamedName('报告.pdf', ['报告.pdf'])).toBe('报告 (1).pdf');
+  // 格式按真实账号实测：Graph 用「名称 1.ext」（空格 + 序号，无括号）。
+  // 此前按「名称 (1).ext」预测，与实测不符（验收备注项）。
+  it('AC-12.1 重名时生成「名称 1.ext」，且保留扩展名', () => {
+    expect(predictRenamedName('报告.pdf', ['报告.pdf'])).toBe('报告 1.pdf');
   });
 
   it('连续重名时递增序号', () => {
-    expect(predictRenamedName('报告.pdf', ['报告.pdf', '报告 (1).pdf'])).toBe('报告 (2).pdf');
+    expect(predictRenamedName('报告.pdf', ['报告.pdf', '报告 1.pdf'])).toBe('报告 2.pdf');
   });
 
   it('大小写不敏感地判重（OneDrive 行为）', () => {
-    expect(predictRenamedName('Report.PDF', ['report.pdf'])).toBe('Report (1).PDF');
+    expect(predictRenamedName('Report.PDF', ['report.pdf'])).toBe('Report 1.PDF');
   });
 
   it('无扩展名的文件也能改名', () => {
-    expect(predictRenamedName('README', ['README'])).toBe('README (1)');
+    expect(predictRenamedName('README', ['README'])).toBe('README 1');
   });
 });
 

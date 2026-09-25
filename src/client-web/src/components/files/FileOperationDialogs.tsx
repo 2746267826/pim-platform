@@ -352,6 +352,11 @@ export function ShareDialog({
               个人版可能不支持有效期：若平台忽略该设置，链接将长期有效，请随时用下方「撤销」手动失效。
             </p>
           )}
+          {expirationSupported === true && (
+            <p className="mt-1 text-[11px] text-[var(--pim-text-muted)]" data-testid="share-expiration-note">
+              有效期在个人版已实测可用（创建时返回 201）。到期后链接自动失效，也可随时用下方「撤销」提前失效。
+            </p>
+          )}
         </div>
 
         {!link && (

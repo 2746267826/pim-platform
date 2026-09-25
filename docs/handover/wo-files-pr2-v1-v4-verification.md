@@ -21,6 +21,64 @@
 
 ---
 
+## 验收打回项（F-1 / F-2 / F-3）的修复与证据
+
+第一轮验收（head `af41aa39`）给出 1 Critical + 2 Important，本文件记录修复方式与守住手段。
+
+### F-1（Critical）新建文件夹端点形态错误 → 真实账号必然失败
+
+打回证据（验收方真实账号对照实验）：`POST /drive/root:/{parent}`（缺 `:/children`）→
+**400 invalidRequest**；`POST /drive/root:/{parent}:/children` → 201。
+
+**为什么之前全绿也发现不了**：`FakeGraphServer` 当时**根本没有建文件夹分支**，
+POST 落到「默认：条目元数据」分支返回 200，端点形态错了照样绿。
+这不只是漏测一条路径——是**假服务比真服务宽松**，属于 B5/测试有效性纪律问题。
+
+修复：端点改为 `/drive/root/children`（根目录）与
+`/drive/root:/{parent}:/children`（子目录）；请求体的冲突行为改用正式
+instance attribute `@microsoft.graph.conflictBehavior`（与验收实测通过的形态一致）。
+假服务**复刻真实行为**：非 `:/children` 形态一律回 400、缺 `rename` 的重名回 409。
+
+守住手段：`tests/Pim.UnitTests/Files/OneDriveCreateFolderRealHttpTests.cs`（5 项，真实 HTTP），
+其中含**故障对照**用例（直接打错误形态，断言被拒 400）。反向对照：把端点改回错误形态，
+4 项立刻变红。
+
+### F-2（Important）文件夹登记沿用「输入名」
+
+重名时 Graph 自动改名为「报告 1」，本地却登记成输入名「报告」，与 OneDrive 不一致
+（不满足 AC-15.1「刷新后仍正确」）。
+
+修复：创建后用**服务端返回的 id 回读**，以回读到的真实名称与父路径登记，回读不到则
+如实报错（5300）而不是沿用输入名假装成功——与 `RegisterUploadedFileAsync` 同一模式。
+
+守住手段：`OneDriveWriteServiceTests.CreateFolder_*`（3 项）。反向对照：改回「以输入名登记」，
+`CreateFolder_DuplicateName_RegistersServerSideNameAndPath` 立即变红。
+
+### F-3（Important）下载取直链额外传输一次文件体
+
+`startDownload` 曾用 `fetch('/items/{id}/download', { redirect: 'follow' })` 只为读 `response.url`，
+浏览器会顺着 302 真发一次文件请求并下载响应体——为拿一个链接把整个文件多传一遍
+（大文件风险最高），与 AC-20.1「不把整文件读入页面内存」相悖。
+
+修复：新增 JSON 直链端点 `GET /files/items/{id}/download-url`（与既有 `preview-url` 同模式），
+页面拿到 URL 字符串后 `window.open`，不再跟随 302。服务器与页面都不搬字节。
+
+守住手段：
+- 组件级 `src/pages/__tests__/FilesDownloadNoBodyFetch.test.tsx`：用**真实 fetch 计数**
+  断言下载全程没有对 `/download`、`/content` 发起过请求（stub 的形状按真实 302 结果构造，
+  否则会「因为 stub 太假而失败」，证明不了问题）；
+- 端到端：E2E 真点下载并记录真实网络请求，得到
+  `requests=["GET .../download-url"] contentFetches=0 bodyBytes=0`。
+
+### 备注项（不阻塞）处理
+
+- **重名文案**：预测格式按实测改为「名称 1.ext」（空格 + 序号，无括号），与真实账号一致。
+- **V2 有效期**：验收现场实测个人版**支持** `expirationDateTime`（edit + 7 天 → 201），
+  文案已从「可能不支持」改为「已实测可用」，并由 E2E 断言守住（不得再写「可能不支持」）。
+- **撤销最终页**：按验收建议保留人工无痕复核，仍记为待人工确认项。
+
+---
+
 ## V1｜浏览器直传上传会话的 CORS 可用性
 
 **结论：机制已用真实 HTTP 验证；真实账号下的浏览器直传 = NOT-VERIFIED。**

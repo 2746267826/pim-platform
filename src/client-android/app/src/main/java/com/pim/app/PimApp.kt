@@ -29,6 +29,9 @@ class PimApp : Application(), Configuration.Provider {
     lateinit var startupForensics: StartupForensics
 
     @Inject
+    lateinit var keepAliveCoordinator: com.pim.app.keepalive.KeepAliveCoordinator
+
+    @Inject
     lateinit var logs: com.pim.app.mobile.logs.StructuredLogRepository
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -51,6 +54,19 @@ class PimApp : Application(), Configuration.Provider {
         }
         scope.launch {
             runningStateRestorer.ensureRunningState()
+        }
+        // REQ-15 / REQ-22：每次打开应用都对账一次保活闹钟——补上被系统清空的登记
+        // （AC-21.1）、在权限恢复后重新登记（AC-14.3）、在总开关打开后立即生效（AC-22.3）。
+        scope.launch {
+            try {
+                val outcome = keepAliveCoordinator.reconcile("app-start")
+                logs.info("keepalive", "启动时保活对账：$outcome")
+            } catch (ex: kotlinx.coroutines.CancellationException) {
+                throw ex
+            } catch (ex: Exception) {
+                // REQ-28：不能静默失败。
+                logs.error("keepalive", "启动时保活对账失败：${ex.message ?: ex::class.java.simpleName}", ex)
+            }
         }
     }
 

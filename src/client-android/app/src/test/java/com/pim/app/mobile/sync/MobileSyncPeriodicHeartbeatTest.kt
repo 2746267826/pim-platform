@@ -15,6 +15,7 @@ import com.pim.app.forensics.ForensicEventTypes
 import com.pim.app.forensics.ForensicLedger
 import com.pim.app.forensics.ForensicSentinelStore
 import com.pim.app.forensics.ForensicUploadCoordinator
+import com.pim.app.forensics.HeartbeatSnapshot
 import com.pim.app.forensics.WakeHeartbeatRecorder
 import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.mobile.usage.AppMetadataCollector
@@ -27,6 +28,8 @@ import com.pim.core.models.ApiResponse
 import com.pim.core.network.ApiService
 import com.pim.core.settings.ServerSettingsStore
 import java.lang.reflect.Proxy
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -142,17 +145,40 @@ class MobileSyncPeriodicHeartbeatTest {
 
     @Test
     fun `issue345 the sync-wake heartbeat carries the REQ-3 fields`() = runTest {
-        coordinator().syncOnOpen()
+        val trackPrefs = context.getSharedPreferences("heartbeat-sync-test", Context.MODE_PRIVATE)
+        val logs = StructuredLogRepository(context, TrackingSettingsStore(trackPrefs)) { FIXED_NOW }
+        val recorder = WakeHeartbeatRecorder(
+            ledger = ForensicLedger(db.forensicEventDao(), logs),
+            contextReader = FixedForensicContextSource(ForensicContext()),
+            snapshotReader = snapshotSource(context),
+            logs = logs,
+            nowUtcMillis = { FIXED_NOW },
+            bootElapsedMillis = { FIXED_BOOT_ELAPSED },
+            serviceRunning = { false }
+        )
 
-        val payload = heartbeats().single().payloadJson
-        // REQ-3 要求字段：时刻（台账列）、开机时长、距上次心搏间隔、待机桶、电池优化、Doze/省电、前台服务。
-        assertTrue("缺少 bootElapsedMs：$payload", payload.contains("bootElapsedMs"))
-        assertTrue("缺少 sinceLastHeartbeatMs：$payload", payload.contains("sinceLastHeartbeatMs"))
-        assertTrue("缺少 standbyBucket：$payload", payload.contains("standbyBucket"))
-        assertTrue("缺少 ignoringBatteryOptimizations：$payload", payload.contains("ignoringBatteryOptimizations"))
-        assertTrue("缺少 dozeMode：$payload", payload.contains("dozeMode"))
-        assertTrue("缺少 powerSaveMode：$payload", payload.contains("powerSaveMode"))
-        assertTrue("缺少 foregroundServiceRunning：$payload", payload.contains("foregroundServiceRunning"))
+        assertTrue(recorder.record())
+
+        // 解析 JSON 并断言**取值与类型**，而不是只查子串：
+        // 只查 "contains" 的话，字段恒为 null 也照样能过（独立 review 的 Minor 发现）。
+        val json = org.json.JSONObject(heartbeats().single().payloadJson)
+
+        // 时刻：由台账列承载，必须等于注入的时钟。
+        assertEquals(FIXED_NOW, heartbeats().single().occurredAtUtc)
+        // 开机时长：必须是注入值（Long），不是 null。
+        assertEquals(FIXED_BOOT_ELAPSED, json.getLong("bootElapsedMs"))
+        // 距上次心搏间隔：本进程首跳应为显式 null（而不是缺字段或被猜成 0）。
+        assertTrue(json.has("sinceLastHeartbeatMs"))
+        assertTrue(json.isNull("sinceLastHeartbeatMs"))
+        // 待机桶：桶号与中文标签都必须存在；标签不得落到"未知"以外的猜测值。
+        assertTrue(json.has("standbyBucket"))
+        assertTrue(json.getString("standbyBucketLabel").isNotBlank())
+        // 三个布尔/可空诊断字段：键必须存在（值为 null 或布尔，取决于设备读数是否可用）。
+        assertTrue(json.has("ignoringBatteryOptimizations"))
+        assertTrue(json.has("dozeMode"))
+        assertTrue(json.has("powerSaveMode"))
+        // 前台采集服务：注入 false，必须如实写 false。
+        assertFalse(json.getBoolean("foregroundServiceRunning"))
     }
 
     @Test
@@ -166,7 +192,7 @@ class MobileSyncPeriodicHeartbeatTest {
         val recorder = WakeHeartbeatRecorder(
             ledger = ForensicLedger(db.forensicEventDao(), logs),
             contextReader = FixedForensicContextSource(ForensicContext()),
-            snapshotReader = AndroidHeartbeatSnapshotReader(context),
+            snapshotReader = snapshotSource(context),
             logs = logs,
             nowUtcMillis = { now },
             bootElapsedMillis = { FIXED_BOOT_ELAPSED },
@@ -183,30 +209,32 @@ class MobileSyncPeriodicHeartbeatTest {
 
     @Test
     fun `AC-3_3 a failing ledger write does not break the sync run`() = runTest {
-        // 让"写台账"确定性地失败：包一层 DAO，每次插入都抛。
-        // 这比关数据库更可靠——关库后 Room 在 Robolectric 下有时仍会复用已打开的连接，
-        // 断言就可能变成"其实写成功了，只是没读回来"。
+        // 让"写台账"确定性地失败：包一层 DAO，每次插入都抛，并**计数**插入尝试。
+        // 计数是关键：只断言 phase=="server-missing" 的话，即使协调器根本没调用写心搏
+        // 也照样能过（独立 review 的 Minor 发现），因此必须证明"确实尝试写、且失败了"。
         val trackPrefs = context.getSharedPreferences("heartbeat-sync-test", Context.MODE_PRIVATE)
         val logs = StructuredLogRepository(context, TrackingSettingsStore(trackPrefs)) { FIXED_NOW }
-        val failingDao = FailingInsertForensicDao(db.forensicEventDao())
+        val insertAttempts = java.util.concurrent.atomic.AtomicInteger(0)
+        val failingDao = FailingInsertForensicDao(db.forensicEventDao(), insertAttempts)
         val recorder = WakeHeartbeatRecorder(
             ledger = ForensicLedger(failingDao, logs),
             contextReader = FixedForensicContextSource(ForensicContext()),
-            snapshotReader = AndroidHeartbeatSnapshotReader(context),
+            snapshotReader = snapshotSource(context),
             logs = logs,
             nowUtcMillis = { FIXED_NOW },
             bootElapsedMillis = { FIXED_BOOT_ELAPSED },
             serviceRunning = { false }
         )
 
-        // 先证明"失败"是真的：心搏写入确实返回 false（而不是默默成功、让同步测试空过）。
-        assertFalse("台账写入失败时 record() 必须返回 false", recorder.record())
-        assertEquals("写入失败不得落任何心搏行", 0, heartbeats().size)
-
+        // 同步跑完（服务器未配置 → 有序结束），过程中协调器确实尝试写过心搏且失败了。
         val state = coordinator(recorder).syncOnOpen()
 
-        // 服务器未配置 → 同步本身有序地结束在 "server-missing"，而不是因为写心搏失败而异常。
         assertEquals("server-missing", state.phase)
+        assertTrue(
+            "协调器必须真的尝试写过心搏（否则本测试是空过的）",
+            insertAttempts.get() >= 1
+        )
+        assertEquals("写入失败不得落任何心搏行", 0, heartbeats().size)
     }
 
     @Test
@@ -221,7 +249,7 @@ class MobileSyncPeriodicHeartbeatTest {
         val recorder = WakeHeartbeatRecorder(
             ledger = ForensicLedger(db.forensicEventDao(), logs),
             contextReader = FixedForensicContextSource(ForensicContext()),
-            snapshotReader = AndroidHeartbeatSnapshotReader(context),
+            snapshotReader = snapshotSource(context),
             logs = logs,
             nowUtcMillis = { now },
             bootElapsedMillis = { FIXED_BOOT_ELAPSED },
@@ -257,7 +285,7 @@ class MobileSyncPeriodicHeartbeatTest {
         val recorder = WakeHeartbeatRecorder(
             ledger = ForensicLedger(db.forensicEventDao(), logs),
             contextReader = FixedForensicContextSource(ForensicContext()),
-            snapshotReader = AndroidHeartbeatSnapshotReader(context),
+            snapshotReader = snapshotSource(context),
             logs = logs,
             nowUtcMillis = { now },
             bootElapsedMillis = { boot },
@@ -279,6 +307,55 @@ class MobileSyncPeriodicHeartbeatTest {
         assertEquals(15 * 60_000L, second.getLong("sinceLastHeartbeatMs"))
     }
 
+    /**
+     * 并发唤醒下「距上次心搏间隔」仍然可信。
+     *
+     * 这条测试来自独立 review 的 Important 发现：心搏入口改成单例后，启动取证与周期同步
+     * 可能同时进来，而"读基线 → 造负载 → 写台账 → 更新基线"不是原子的。
+     * 这里用真实并发（不是顺序调用）：两个不同秒的唤醒同时在飞，完成顺序被**刻意反转**
+     * ——后发生的唤醒（boot 更大）先完成，先发生的后完成。
+     * 正确实现下，每一跳的间隔都等于它与"紧邻的上一跳"之差，且永不为负。
+     */
+    @Test
+    fun `concurrent wakes never produce a wrong or negative time-since-last-heartbeat`() = runTest {
+        val trackPrefs = context.getSharedPreferences("heartbeat-sync-test", Context.MODE_PRIVATE)
+        val logs = StructuredLogRepository(context, TrackingSettingsStore(trackPrefs)) { FIXED_NOW }
+        // 用一个闸门让两次唤醒真正交错：第一次进入后卡住，第二次先跑完。
+        val firstInside = CompletableDeferred<Unit>()
+        val releaseFirst = CompletableDeferred<Unit>()
+        val recorder = WakeHeartbeatRecorder(
+            ledger = ForensicLedger(db.forensicEventDao(), logs),
+            contextReader = FixedForensicContextSource(ForensicContext()),
+            snapshotReader = SlowFirstSnapshotReader(
+                delegate = AndroidHeartbeatSnapshotReader(context),
+                onFirstCall = {
+                    firstInside.complete(Unit)
+                },
+                waitBeforeReturning = { releaseFirst.await() }
+            ),
+            logs = logs,
+            nowUtcMillis = { FIXED_NOW },
+            bootElapsedMillis = { FIXED_BOOT_ELAPSED },
+            serviceRunning = { false }
+        )
+
+        val earlier = async { recorder.record(FIXED_NOW, FIXED_BOOT_ELAPSED) }
+        firstInside.await()                       // earlier 已进入临界区
+        val later = async { recorder.record(FIXED_NOW + 600_000L, FIXED_BOOT_ELAPSED + 600_000L) }
+        releaseFirst.complete(Unit)               // 放行 earlier
+        earlier.await()
+        later.await()
+
+        val sorted = heartbeats().sortedBy { it.occurredAtUtc }
+        assertEquals(2, sorted.size)
+        val intervals = sorted.map {
+            org.json.JSONObject(it.payloadJson).opt("sinceLastHeartbeatMs")
+        }
+        // 首跳无基线；第二跳的间隔必须是两跳之差，且不得为负。
+        assertTrue("首跳应为 null，实际 ${intervals[0]}", intervals[0] == null || intervals[0] == org.json.JSONObject.NULL)
+        assertEquals(600_000L, org.json.JSONObject(sorted[1].payloadJson).getLong("sinceLastHeartbeatMs"))
+    }
+
     private companion object {
         /** AC-3.3 的同一秒内：毫秒只在同一秒里抖动。 */
         const val FIXED_NOW = 1_790_300_000_000L
@@ -295,15 +372,22 @@ private class TestSecurePreferencesFactory(
 
 /**
  * 只让 `insertIgnore` 失败的 DAO 代理（其余方法原样转发给真实 DAO）。
- * 用动态代理而不是"关掉数据库"，是为了让"写入失败"这件事确定性地发生。
+ * 用动态代理而不是"关掉数据库"，是为了让"写入失败"确定性地发生；
+ * [attempts] 记录插入尝试次数，用来证明调用方**确实尝试过**写心搏。
  */
-private fun FailingInsertForensicDao(delegate: ForensicEventDao): ForensicEventDao =
+private fun FailingInsertForensicDao(
+    delegate: ForensicEventDao,
+    attempts: java.util.concurrent.atomic.AtomicInteger
+): ForensicEventDao =
     Proxy.newProxyInstance(
         ForensicEventDao::class.java.classLoader,
         arrayOf(ForensicEventDao::class.java)
     ) { _, method, args ->
         when (method.name) {
-            "insertIgnore" -> throw android.database.sqlite.SQLiteException("disk I/O error (injected)")
+            "insertIgnore" -> {
+                attempts.incrementAndGet()
+                throw android.database.sqlite.SQLiteException("disk I/O error (injected)")
+            }
             "toString" -> "FailingInsertForensicDao"
             "hashCode" -> System.identityHashCode(delegate)
             "equals" -> false
@@ -316,4 +400,47 @@ private class FixedForensicContextSource(
     private val value: ForensicContext
 ) : ForensicContextSource {
     override fun read(): ForensicContext = value
+}
+
+/** 把真实快照读取器适配成 [HeartbeatSnapshotSource]（生产构造函数接受的就是它）。 */
+private fun snapshotSource(context: Context): com.pim.app.forensics.HeartbeatSnapshotSource {
+    val reader = AndroidHeartbeatSnapshotReader(context)
+    return com.pim.app.forensics.HeartbeatSnapshotSource { now, last, running, ctx ->
+        reader.read(
+            nowElapsedMillis = now,
+            lastHeartbeatElapsedMillis = last,
+            foregroundServiceRunning = running,
+            forensicContext = ctx
+        )
+    }
+}
+
+/**
+ * 可控闸门的快照读取器：`read()` 是 [WakeHeartbeatRecorder.record] 临界区里的第一件事，
+ * 在这里卡住第一次调用，就能让第二次唤醒真正并发地插进来。
+ */
+private class SlowFirstSnapshotReader(
+    private val delegate: AndroidHeartbeatSnapshotReader,
+    private val onFirstCall: suspend () -> Unit,
+    private val waitBeforeReturning: suspend () -> Unit
+) : com.pim.app.forensics.HeartbeatSnapshotSource {
+    private val calls = java.util.concurrent.atomic.AtomicInteger(0)
+
+    override suspend fun read(
+        nowElapsedMillis: Long,
+        lastHeartbeatElapsedMillis: Long?,
+        foregroundServiceRunning: Boolean,
+        forensicContext: ForensicContext
+    ): HeartbeatSnapshot {
+        if (calls.incrementAndGet() == 1) {
+            onFirstCall()
+            waitBeforeReturning()
+        }
+        return delegate.read(
+            nowElapsedMillis = nowElapsedMillis,
+            lastHeartbeatElapsedMillis = lastHeartbeatElapsedMillis,
+            foregroundServiceRunning = foregroundServiceRunning,
+            forensicContext = forensicContext
+        )
+    }
 }

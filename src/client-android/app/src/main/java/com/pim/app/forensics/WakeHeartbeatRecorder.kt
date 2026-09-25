@@ -5,6 +5,8 @@ import com.pim.app.mobile.logs.StructuredLogRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * 存活心搏（REQ-3）的**唯一写入口**。
@@ -24,7 +26,7 @@ import kotlinx.coroutines.CancellationException
 class WakeHeartbeatRecorder internal constructor(
     private val ledger: ForensicLedger,
     private val contextReader: ForensicContextSource,
-    private val snapshotReader: AndroidHeartbeatSnapshotReader,
+    private val snapshotReader: HeartbeatSnapshotSource,
     private val logs: StructuredLogRepository,
     private val nowUtcMillis: () -> Long,
     private val bootElapsedMillis: () -> Long,
@@ -39,7 +41,14 @@ class WakeHeartbeatRecorder internal constructor(
     ) : this(
         ledger = ledger,
         contextReader = contextReader,
-        snapshotReader = snapshotReader,
+        snapshotReader = { now, last, running, context ->
+            snapshotReader.read(
+                nowElapsedMillis = now,
+                lastHeartbeatElapsedMillis = last,
+                foregroundServiceRunning = running,
+                forensicContext = context
+            )
+        },
         logs = logs,
         nowUtcMillis = System::currentTimeMillis,
         bootElapsedMillis = BootElapsedClock::now,
@@ -59,18 +68,22 @@ class WakeHeartbeatRecorder internal constructor(
      */
     suspend fun record(nowUtcMillis: Long, bootElapsedMillis: Long): Boolean {
         return try {
-            val snapshot = snapshotReader.read(
-                nowElapsedMillis = bootElapsedMillis,
-                lastHeartbeatElapsedMillis = lastHeartbeatBootElapsed,
-                foregroundServiceRunning = safeServiceRunning(),
-                forensicContext = safeContext()
-            )
-            val written = ledger.recordHeartbeat(
-                occurredAtUtcMillis = nowUtcMillis,
-                payloadJson = ForensicPayloads.heartbeat(snapshot)
-            )
-            if (written) {
-                lastHeartbeatBootElapsed = bootElapsedMillis
+            // 「读基线 → 造负载 → 写台账 → 更新基线」必须整体串行（见 [baselineLock]）。
+            val written = baselineLock.withLock {
+                val snapshot = snapshotReader.read(
+                    nowElapsedMillis = bootElapsedMillis,
+                    lastHeartbeatElapsedMillis = lastHeartbeatBootElapsed,
+                    foregroundServiceRunning = safeServiceRunning(),
+                    forensicContext = safeContext()
+                )
+                val inserted = ledger.recordHeartbeat(
+                    occurredAtUtcMillis = nowUtcMillis,
+                    payloadJson = ForensicPayloads.heartbeat(snapshot)
+                )
+                if (inserted) {
+                    lastHeartbeatBootElapsed = bootElapsedMillis
+                }
+                inserted
             }
             written
         } catch (ex: CancellationException) {
@@ -100,13 +113,37 @@ class WakeHeartbeatRecorder internal constructor(
     }
 
     /**
+     * 保护「读基线 → 造负载 → 写台账 → 更新基线」这段读改写序列。
+     *
+     * 本类是单例，会被**启动取证**与**周期同步**两条唤醒路径并发调用（周期作业可能与
+     * 进程启动取证几乎同时跑）。若不加锁，两次唤醒可能同时读到同一个旧基线、或把基线
+     * 乱序写回，从而让后一次心搏记下错误、甚至为负的「距上次心搏间隔」。
+     *
+     * 只包住这一个入口，不改变同步与采集的任何时序：锁内只有一次系统读数、一次序列化
+     * 与一次本地插入，且不涉及网络。
+     */
+    private val baselineLock = Mutex()
+
+    /**
      * 上一次成功写入心搏时的开机时长，用于算「距上次心搏间隔」。
      *
-     * 本类是单例，且现在被启动取证与周期同步两条路径并发调用（周期作业可能与进程启动
-     * 取证几乎同时跑），因此这个可变基线必须是 `@Volatile`：否则可能出现可见性问题，
-     * 让后一次心搏读到过期的基线、算出一个不该有的间隔。
+     * 只在 [baselineLock] 内读写，因此不需要 `@Volatile`：串行化本身已经给出了可见性与原子性。
      * 注意：**去重不依赖它**（去重只按壁钟秒级幂等键），所以它最多影响这一个诊断字段。
      */
-    @Volatile
     private var lastHeartbeatBootElapsed: Long? = null
+}
+
+/**
+ * 心跳快照读取的函数式别名。
+ *
+ * 存在的原因：`WakeHeartbeatRecorder` 要能在测试里把「读快照」这一步卡住，
+ * 从而构造出真实的并发交错（否则并发缺陷无法被断言）。
+ */
+internal fun interface HeartbeatSnapshotSource {
+    suspend fun read(
+        nowElapsedMillis: Long,
+        lastHeartbeatElapsedMillis: Long?,
+        foregroundServiceRunning: Boolean,
+        forensicContext: ForensicContext
+    ): HeartbeatSnapshot
 }

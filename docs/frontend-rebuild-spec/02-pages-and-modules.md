@@ -67,7 +67,7 @@
 | 任务层级树 | 左侧树（项目/任务本分组，可选中） | GET /api/v1/calendar/task-books | — |
 | 任务卡列表 | 任务行列表：复选多选、优先级标记条+徽标组（优先级/状态/截止/已排期/收件箱）、内联"标记完成"开关、时间段按钮、行点击开编辑弹窗 | GET /api/v1/calendar/tasks?inbox&search&calendarId&status&priority&plannedFrom&plannedTo&dueFrom&dueTo&page&pageSize=100；PUT /api/v1/calendar/tasks/{id}（完成切换/内联编辑） | 服务端过滤+分页 |
 | 分段编辑面板 | 选中任务的多次执行时间段编辑面板 | GET/POST /api/v1/calendar/tasks/{id}/segments；DELETE /api/v1/calendar/tasks/{taskId}/segments/{segmentId} | — |
-| 任务编辑弹窗 | 表单弹窗（属性+清单） | POST /api/v1/calendar/tasks；PUT/DELETE /api/v1/calendar/tasks/{id}；GET/POST /api/v1/calendar/tasks/{id}/checklist；PUT/DELETE /api/v1/calendar/tasks/{id}/checklist/{itemId} | — |
+| 任务编辑弹窗 | 表单弹窗（属性+清单） | POST /api/v1/calendar/tasks；PUT/DELETE /api/v1/calendar/tasks/{id}；POST /api/v1/calendar/tasks/{id}/checklist；PUT/DELETE /api/v1/calendar/tasks/{id}/checklist/{itemId} | — |
 | 空状态 | 统一空态组件 | — | — |
 
 ## /confirmations 确认中心
@@ -313,7 +313,7 @@
 
 | 模块 | 形式 | 调用接口 | 前端处理 |
 |---|---|---|---|
-| 头工具条 | 返回链接；导入目标日历下拉；导入 ICS（文件选择）；导出选中/导出全部（ICS 下载）；删除选中 | POST /api/v1/calendar/import-ics（multipart file+calendarId）；POST /api/v1/calendar/export-ics（Blob 下载 pim-events.ics；方法前后端不一致，见 calendar.md 备注）；POST /api/v1/calendar/events/batch-delete | — |
+| 头工具条 | 返回链接；导入目标日历下拉；导入 ICS（文件选择）；导出选中/导出全部（ICS 下载）；删除选中 | POST /api/v1/calendar/import-ics（multipart file+calendarId）；GET /api/v1/calendar/export-ics（Blob 下载 pim-events.ics）；POST /api/v1/calendar/events/batch-delete | — |
 | 筛选栏 | 标题搜索、日历下拉、日期范围（全部/7 天/30 天/本月/自定义两输入）、总数 | — | — |
 | 事件数据表格 | 全选/行复选、标题、日历色点+名称、起止、重复规则标签、详情操作 | GET /api/v1/calendar/events?search&calendarId&start&end&page&pageSize | 服务端分页 |
 | 数字分页条 | 带省略号的页码分页 | — | — |

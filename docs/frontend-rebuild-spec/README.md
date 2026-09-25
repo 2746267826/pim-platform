@@ -54,6 +54,7 @@
 
 - 文中接口一律写完整路径，含 `/api/v1` 前缀。
 - "响应 data"均指统一封装 `{ code, message, data, timestamp }` 中的 `data` 字段。
+- 分页封装 `PagedResult<T>` 的实际序列化字段为 `{ items[], totalCount, page, pageSize, totalPages }`（注意是 `totalCount`；个别端点另有包装，见对应域说明）。
 - "前端是否使用"以后端端点为单位标注；后端存在但 Web 前端未用的端点**仍然全部列出**（可能被 Android 客户端、Windows 守护进程或 MCP 客户端消费）。
 
 ## 现状备注（重建时可据此取舍）

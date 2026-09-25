@@ -12,7 +12,7 @@
 
 - 统一封装 `ApiResponse<T>`：`{ code, message, data, timestamp }`；`code=0` 表示成功；下文"响应 data"均指 `data` 字段。
 - JSON 为 camelCase。
-- 列表端点返回 `PagedResult<T>`：`{ items[], total, page, pageSize, totalPages }`。
+- 列表端点返回 `PagedResult<T>`：`{ items[], totalCount, page, pageSize, totalPages }`（`Pim.Core/Common/PagedResult.cs`）。
 - 错误：业务错误按 HTTP 状态码 + 封装返回（例如 OneDrive Graph 失败 → 404/429/502 code 5390；参数错误 → 400 code 40000；未处理异常 → 500 code 01001；客户端中止 → 499）。**不是** ProblemDetails。
 - 未匹配的 `/api/*` 路径返回 **JSON 404** `{code:404, message:"接口不存在: …"}`（先于 SPA fallback）。
 - 截断类响应：`206 Partial Content` + `X-Truncated: true`（运维日志/SQL 查询端点）。

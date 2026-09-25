@@ -9,7 +9,7 @@
 
 ## 设备管理与详情
 
-### GET /mobile/devices
+### GET /api/v1/mobile/devices
 - 用途：列出当前用户的全部 Android 设备（客户端设备库视图，含注册信息与最近活跃时间）。
 - 认证：JWT
 - Web 前端使用：是（状态页 StatusPage、使用分析页 MobileRecordsPage、历史位置页 HistoricalLocationPage）
@@ -37,7 +37,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:64`；前端 `src/client-web/src/api/mobile.ts:753`（路径常量 mobile.ts:196）
 - 备注：record 别名只读属性 `deviceHash`（=androidIdHash）、`osVersion`（=androidVersion）、`apiLevel`（=sdkInt）也会一并序列化输出（MobileDtos.cs:74-76），前端类型 `MobileDevice`（mobile.ts:265-282）未声明。列表按 lastSeenAtUtc 降序。
 
-### GET /mobile/devices/manage
+### GET /api/v1/mobile/devices/manage
 - 用途：设备管理页列表，附带每台设备的数据量统计、存储估算与健康状态。
 - 认证：JWT
 - Web 前端使用：是（设备管理页 DeviceManagementPage）
@@ -70,7 +70,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:69`、`src/modules/Pim.Module.Mobile/Services/DeviceManagementService.cs:24`；前端 `src/client-web/src/api/mobile.ts:926`
 - 备注：前端类型 `DeviceListItem`（mobile.ts:919-925）与后端一一对应。
 
-### GET /mobile/devices/{deviceId}/detail
+### GET /api/v1/mobile/devices/{deviceId}/detail
 - 用途：单设备详情（设备全量注册信息 + 数据量统计 + 最近 10 条同步批次 + 7 天在线时间线）。
 - 认证：JWT
 - Web 前端使用：是（设备详情页 DeviceDetailPage）
@@ -113,7 +113,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:71`、`Services/DeviceManagementService.cs:66`；前端 `src/client-web/src/api/mobile.ts:942`
 - 备注：设备不存在时 DomainException 04004 → HTTP 404（"设备不存在"）。healthTimeline 只有"当天有活跃"一天为 online（DeviceManagementService.cs:517），其余 6 天恒 offline——是简化推断而非真实历史。前端类型为 `any`。
 
-### POST /mobile/devices/{deviceId}/rename
+### POST /api/v1/mobile/devices/{deviceId}/rename
 - 用途：重命名设备别名。
 - 认证：JWT
 - Web 前端使用：是（设备管理页 DeviceManagementPage）
@@ -131,7 +131,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:73`、`Services/DeviceManagementService.cs:77`；前端 `src/client-web/src/api/mobile.ts:929`
 - 备注：设备不存在 → 04004 → HTTP 404。前端丢弃响应体（`.then(() => {})`）。
 
-### POST /mobile/devices/merge/preview
+### POST /api/v1/mobile/devices/merge/preview
 - 用途：合并设备前的预览：每台设备（源+目标）的数据条数与总条数。
 - 认证：JWT
 - Web 前端使用：是（设备管理页 DeviceManagementPage，合并对话框）
@@ -150,7 +150,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:75`、`Services/DeviceManagementService.cs:89`；前端 `src/client-web/src/api/mobile.ts:932`
 - 备注：部分设备不存在或不属于当前用户 → 04004 → HTTP 404。前端返回类型 `any`。
 
-### POST /mobile/devices/merge
+### POST /api/v1/mobile/devices/merge
 - 用途：执行设备合并：源设备数据迁入目标设备后删除源设备。
 - 认证：JWT
 - Web 前端使用：是（设备管理页 DeviceManagementPage，合并对话框）
@@ -164,7 +164,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:77`、`Services/DeviceManagementService.cs:114`；前端 `src/client-web/src/api/mobile.ts:935`
 - 备注：合并规则——events/summaries/sync_batches/取证事件按唯一键去重（目标已有行优先），其余整行迁移；丢弃原因按天按原因**相加**；App 名称库按新鲜度取舍保留一行；派生数据（timeline blocks / aggregates / materialization）双端全部删除待重新物化（DeviceManagementService.cs:137-245）。
 
-### GET /mobile/devices/{deviceId}/delete-preview
+### GET /api/v1/mobile/devices/{deviceId}/delete-preview
 - 用途：删除设备前的预览：将级联删除的各类数据条数。
 - 认证：JWT
 - Web 前端使用：是（设备管理页 DeviceManagementPage，删除确认框）
@@ -184,7 +184,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:82`、`Services/DeviceManagementService.cs:408`；前端 `src/client-web/src/api/mobile.ts:938`
 - 备注：设备不存在 → 04004 → HTTP 404。前端返回类型 `any`。
 
-### DELETE /mobile/devices/{deviceId}
+### DELETE /api/v1/mobile/devices/{deviceId}
 - 用途：删除设备及其全部移动端数据（事件/会话/汇总/定位/批次/块/聚合/物化/App 目录/取证事件/丢弃统计）。
 - 认证：JWT
 - Web 前端使用：是（设备管理页 DeviceManagementPage）
@@ -197,7 +197,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:84`、`Services/DeviceManagementService.cs:417`；前端 `src/client-web/src/api/mobile.ts:941`
 - 备注：设备不存在 → 04004 → HTTP 404；最近 30 分钟内仍有 pending/processing/syncing 批次 → 04002 → HTTP 400（"设备正在同步，禁止删除"，DeviceManagementService.cs:438-448）。
 
-### GET /mobile/devices/{deviceId}/export
+### GET /api/v1/mobile/devices/{deviceId}/export
 - 用途：导出单设备数据为 JSON 文件下载（各表最新 5000 条 + truncated 标记）。
 - 认证：JWT
 - Web 前端使用：是（设备管理页 DeviceManagementPage；因需 Authorization 下载二进制，前端用原生 fetch→blob 而非 apiGet）
@@ -217,7 +217,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:89`、`Services/DeviceManagementService.cs:467`；前端 `src/client-web/src/api/mobile.ts:943`
 - 备注：设备不存在 → 04004 → HTTP 404。前端从 `localStorage.accessToken`（回退 `pim_token`）取 token 放入 `Authorization` 头（mobile.ts:943）。
 
-### POST /mobile/devices/register
+### POST /api/v1/mobile/devices/register
 - 用途：Android 客户端设备注册（存在则更新注册信息并刷新 lastSeenAt）。
 - 认证：JWT
 - Web 前端使用：否（调用方：Android 客户端）
@@ -243,7 +243,7 @@
 
 ## 设备上报（Android 客户端）
 
-### POST /mobile/sync/gaps
+### POST /api/v1/mobile/sync/gaps
 - 用途：客户端查询指定窗口内服务端还缺哪些数据段，用于断点补传。
 - 认证：JWT
 - Web 前端使用：否（调用方：Android 客户端）
@@ -266,7 +266,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:101`、`Services/MobileGapService.cs:37`；前端 `src/client-web/src/api/mobile.ts` 无封装
 - 备注：覆盖判据 = 非fallback汇总窗口 + 无失败条目的 completed/completed-with-errors 批次窗口 + 事件源窗口（MobileGapService.cs:56-76）。
 
-### POST /mobile/usage/events
+### POST /api/v1/mobile/usage/events
 - 用途：使用事件 + 应用元数据 + fallback 汇总的批量上报主通道（写入 mobile_sync_batches 并逐条入库）。
 - 认证：JWT
 - Web 前端使用：否（调用方：Android 客户端）
@@ -323,7 +323,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:107`、`Services/MobileUsageIngestService.cs`（校验码 :626-664，计数 :507-510）；前端 `src/client-web/src/api/mobile.ts` 无封装
 - 备注：幂等键 = (user, device, clientItemKey)，重复提交命中唯一约束按 skipped 处理。
 
-### POST /mobile/forensics/events
+### POST /api/v1/mobile/forensics/events
 - 用途：取证事件批量上报（进程退出原因/强停/心跳等存活取证 + 按天按原因的定位丢弃统计）。
 - 认证：JWT
 - Web 前端使用：否（调用方：Android 客户端）
@@ -355,7 +355,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:114`、`Services/MobileForensicIngestService.cs`；前端 `src/client-web/src/api/mobile.ts` 无封装
 - 备注：幂等键 = (user, device, clientItemKey)（MobileEntityConfigurations.cs:25-26）；设备合并时取证事件随之迁移（DeviceManagementService.cs:226-231）。
 
-### POST /mobile/location/points
+### POST /api/v1/mobile/location/points
 - 用途：单个定位点上报。
 - 认证：JWT
 - Web 前端使用：否（调用方：Android 客户端）
@@ -382,7 +382,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:164`、`Services/MobileLocationService.cs:44`；前端 `src/client-web/src/api/mobile.ts` 无封装
 - 备注：坐标非法 → 条目级 `rejected`（`invalid-coordinates`）；同自然键已存在则按重复/精度升级处理。
 
-### POST /mobile/location/points/batch
+### POST /api/v1/mobile/location/points/batch
 - 用途：定位点批量补传（客户端积压时一次上传多点，逐条返回结果）。
 - 认证：JWT
 - Web 前端使用：否（调用方：Android 客户端）
@@ -404,7 +404,7 @@
 
 ## 使用摘要与时间线
 
-### GET /mobile/summary
+### GET /api/v1/mobile/summary
 - 用途：按业务日（或任意 UTC 窗口）返回使用时长总览、应用排行与同步批次摘要。
 - 认证：JWT
 - Web 前端使用：是（Android 今日嵌入页 AndroidTodayEmbedPage）
@@ -455,7 +455,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:177`、`Services/MobileUsageQueryService.cs:23`；前端 `src/client-web/src/api/mobile.ts:757`（路径构造 mobile.ts:197-201）
 - 备注：汇总行先按 (设备, 包名小写, 本地小时) 去重保留最大值（MobileUsageQueryService.cs:465-477）。
 
-### GET /mobile/timeline
+### GET /api/v1/mobile/timeline
 - 用途：按业务日返回会话与 fallback 汇总交织的合并时间线（服务端分页，避免单日数千条静默截断）。
 - 认证：JWT
 - Web 前端使用：否（mobile.ts 已封装 getMobileTimeline 但当前无页面调用；数据消费方曾为使用分析时间线，现由 timeline-blocks 端点替代）
@@ -501,7 +501,7 @@
 
 ## 位置分析
 
-### GET /mobile/location/history
+### GET /api/v1/mobile/location/history
 - 用途：原始定位点历史查询（地图描线用），按最大精度过滤并剔除 rejected 点。
 - 认证：JWT
 - Web 前端使用：否（mobile.ts 已封装 getMobileLocationHistory / mobileApiPaths.locations 但当前无页面调用；历史位置页走 location/analytics 端点）
@@ -542,7 +542,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:211`、`Services/MobileLocationService.cs:320`；前端 `src/client-web/src/api/mobile.ts:770`（路径构造 mobile.ts:209-222）
 - 备注：points[].source（=sourceKind）别名属性也会序列化输出（MobileDtos.cs:272）。前端类型含 `'high'` 质量枚举值（mobile.ts:371），但后端从未写入该值，属前端遗留。
 
-### GET /mobile/location/analytics/overview
+### GET /api/v1/mobile/location/analytics/overview
 - 用途：位置数据总览指标（点数/可用率/里程/停留/精度/质量旗标），走聚合缓存。
 - 认证：JWT
 - Web 前端使用：是（历史位置页 HistoricalLocationPage、Android 今日嵌入页 AndroidTodayEmbedPage）
@@ -581,7 +581,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:238`、`Services/MobileLocationAggregationService.cs:38`；前端 `src/client-web/src/api/mobile.ts:774`（路径构造 mobile.ts:223-224）
 - 备注：缓存键为完整请求 URL（AggregateResultCacheKeys.Build）；force=true 时不读缓存并回写。
 
-### GET /mobile/location/analytics/tracks
+### GET /api/v1/mobile/location/analytics/tracks
 - 用途：轨迹列表：每条轨迹含 move/stay 分段与路径点（DBSCAN 聚合产物）。
 - 认证：JWT
 - Web 前端使用：是（历史位置页 HistoricalLocationPage、Android 今日嵌入页 AndroidTodayEmbedPage）
@@ -625,7 +625,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:251`、`Services/MobileLocationAggregationService.cs:70`；前端 `src/client-web/src/api/mobile.ts:782`（路径构造 mobile.ts:225-226）
 - 备注：move 段同时被 movement-stats 复用计算里程（MobileFrequentPlaceDtos.cs:15-20）。
 
-### GET /mobile/location/analytics/frequent-places
+### GET /api/v1/mobile/location/analytics/frequent-places
 - 用途：常去地点（DBSCAN 聚类 + 家判定：夜间点最多的簇）。
 - 认证：JWT
 - Web 前端使用：是（历史位置页 HistoricalLocationPage）
@@ -645,7 +645,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:283`、`Services/MobileFrequentPlaceService.cs:37`；前端 `src/client-web/src/api/mobile.ts:801`（路径构造 mobile.ts:231-232）
 - 备注：家=夜间点最多的簇（平局取点数多），无夜间点时退化为点数最多的簇（MobileFrequentPlaceService.cs:122-127）。前端会把 home 合并进 places 并按坐标去重（HistoricalLocationPage.tsx:155-166）。
 
-### GET /mobile/location/analytics/movement-stats
+### GET /api/v1/mobile/location/analytics/movement-stats
 - 用途：出行统计（以"家"为锚：外出次数/时长/单次明细/总里程/最高速度/逐日汇总）。
 - 认证：JWT
 - Web 前端使用：是（历史位置页 HistoricalLocationPage）
@@ -671,7 +671,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:296`、`Services/MobileMovementStatsService.cs:45`；前端 `src/client-web/src/api/mobile.ts:809`（路径构造 mobile.ts:233-234）
 - 备注：无家地点时仍返回 distanceMeters 与 perDay（移动统计不依赖家）。
 
-### GET /mobile/location/analytics/segments/{segmentId}
+### GET /api/v1/mobile/location/analytics/segments/{segmentId}
 - 用途：单个分段详情（从 tracks 的聚合结果中按 ID 查找）。
 - 认证：JWT
 - Web 前端使用：否（mobile.ts 已封装 getMobileLocationAnalyticsSegment 但当前无页面调用；历史位置页直接消费 tracks 内嵌的 segments）
@@ -684,7 +684,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:264`、`Services/MobileLocationAggregationService.cs:99`；前端 `src/client-web/src/api/mobile.ts:788`（路径构造 mobile.ts:227-228）
 - 备注：找不到分段返回 HTTP 404（"Location segment not found."，MobileModule.cs:278-280）。
 
-### GET /mobile/location/analytics/segments/{segmentId}/points
+### GET /api/v1/mobile/location/analytics/segments/{segmentId}/points
 - 用途：分段的原始定位点游标分页（长分段按页取点）。
 - 认证：JWT
 - Web 前端使用：是（历史位置页 HistoricalLocationPage，原始点表分页）
@@ -713,7 +713,7 @@
 
 ## 使用分析
 
-### GET /mobile/quality
+### GET /api/v1/mobile/quality
 - 用途：移动端采集质量体检（心跳/使用覆盖/同步/定位/应用元数据/数据可信度六组件 + 问题清单）。
 - 认证：JWT
 - Web 前端使用：是（状态页 StatusPage）
@@ -747,7 +747,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:331`、`Services/MobileQualityService.cs`；前端 `src/client-web/src/api/mobile.ts:817`（路径构造 mobile.ts:235-239）
 - 备注：清单中的 `dateFrom/dateTo` 参数在**后端实际未注册**，真实参数为 rangeStartUtc/rangeEndUtc（MobileModule.cs:331-337）。
 
-### GET /mobile/analytics/overview
+### GET /api/v1/mobile/analytics/overview
 - 用途：使用分析总览（总时长/日均/分类峰值/App 数/切换数/完整度/质量摘要/目标进度/异常/建议）。
 - 认证：JWT
 - Web 前端使用：是（使用分析页 MobileRecordsPage、Android 今日嵌入页 AndroidTodayEmbedPage）
@@ -810,7 +810,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:347`、`Services/MobileUsageAggregationService.cs:36`；前端 `src/client-web/src/api/mobile.ts:821`（路径构造 mobile.ts:240-241）
 - 备注：totalSeconds 为 0 时 completeness 为 0。
 
-### GET /mobile/analytics/heatmap
+### GET /api/v1/mobile/analytics/heatmap
 - 用途：使用热力图桶（本地日 × 本地小时 × 分类的前台秒数），小时/日粒度按桶真实长度封顶。
 - 认证：JWT
 - Web 前端使用：是（使用分析页 MobileRecordsPage）
@@ -829,7 +829,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:360`、`Services/MobileUsageAggregationService.cs:105`；前端 `src/client-web/src/api/mobile.ts:827`（路径构造 mobile.ts:242-243）
 - 备注：行按物化表 mobile_usage_aggregates 的 hour 粒度读取再重切桶（MobileUsageAggregationService.cs:529-616）。
 
-### GET /mobile/analytics/charts
+### GET /api/v1/mobile/analytics/charts
 - 用途：一次返回 8 张预设图表（分类占比/Top App/每日趋势/小时分布/分类趋势/切换趋势/周期对比/目标进度）。
 - 认证：JWT
 - Web 前端使用：是（使用分析页 MobileRecordsPage）
@@ -854,7 +854,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:373`、`Services/MobileUsageAggregationService.cs:255`；前端 `src/client-web/src/api/mobile.ts:833`（路径构造 mobile.ts:244-245）
 - 备注：图表顺序固定为上表 key 顺序。
 
-### GET /mobile/analytics/timeline-blocks
+### GET /api/v1/mobile/analytics/timeline-blocks
 - 用途：聚合时间块分页（把连续同类使用会话折叠成"块"），支持页码分页与 cursor 分页双模式。
 - 认证：JWT
 - Web 前端使用：是（使用分析页 MobileRecordsPage，时间线块视图）
@@ -887,7 +887,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:386`、`Services/MobileTimelineBlockService.cs:36`；前端 `src/client-web/src/api/mobile.ts:837`（路径构造 mobile.ts:246-247）
 - 备注：cursor 模式——传 cursor 时忽略 page 偏移，按 (startUtc,id) 键续读；不传 cursor 时按 page 跳页。两种模式互斥，nextCursor 始终可用于下一页。
 
-### GET /mobile/analytics/timeline-blocks/{blockId}/sessions
+### GET /api/v1/mobile/analytics/timeline-blocks/{blockId}/sessions
 - 用途：展开一个时间块内的使用会话明细。
 - 认证：JWT
 - Web 前端使用：是（使用分析页 MobileRecordsPage，块展开）
@@ -912,7 +912,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:399`、`Services/MobileTimelineBlockService.cs:76`；前端 `src/client-web/src/api/mobile.ts:843`（路径构造 mobile.ts:248-249）
 - 备注：blockId 无法从当前查询重建时回退解码其内嵌载荷取会话 ID 集（MobileTimelineBlockService.cs:92-100）。
 
-### GET /mobile/analytics/sessions/{sessionId}/events
+### GET /api/v1/mobile/analytics/sessions/{sessionId}/events
 - 用途：单个会话的原始使用事件明细。
 - 认证：JWT
 - Web 前端使用：是（使用分析页 MobileRecordsPage，会话事件抽屉）
@@ -938,7 +938,7 @@
 
 ## 存活检测
 
-### GET /mobile/liveness/overview
+### GET /api/v1/mobile/liveness/overview
 - 用途：Web「设备存活」子页首屏：全部设备按机型（手机/平板/未分类）分块的存活摘要。
 - 认证：JWT
 - Web 前端使用：是（使用分析页 MobileRecordsPage 的设备存活面板）
@@ -986,7 +986,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:121`、`Services/MobileLivenessService.cs:72`；前端 `src/client-web/src/api/mobile.ts:856`（路径构造 mobile.ts:259-260）
 - 备注：从未上报的设备也出现并标"无数据/未上报"（以设备表为准）；机型判定优先 metadataJson.deviceKind，回退 smallestScreenWidthDp ≥600。
 
-### GET /mobile/devices/{deviceId}/liveness
+### GET /api/v1/mobile/devices/{deviceId}/liveness
 - 用途：单设备存活摘要块（与 overview 同一口径的独立入口）。
 - 认证：JWT
 - Web 前端使用：否（无前端调用；Web 存活页统一走 /mobile/liveness/overview）
@@ -1001,7 +1001,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:129`、`Services/MobileLivenessService.cs:111`；前端 `src/client-web/src/api/mobile.ts` 无封装
 - 备注：无数据设备返回 200 + hasData=false（空态，不返回 0%）；设备根本不存在才返回 HTTP 404（"设备不存在。"，MobileModule.cs:137-142）。
 
-### GET /mobile/devices/{deviceId}/liveness/events
+### GET /api/v1/mobile/devices/{deviceId}/liveness/events
 - 用途：单设备存活事件（取证事件）分页明细，可查看原始 JSON。
 - 认证：JWT
 - Web 前端使用：是（使用分析页的设备存活面板组件 DeviceLivenessPanel）
@@ -1036,7 +1036,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:144`、`Services/MobileLivenessService.cs:126`；前端 `src/client-web/src/api/mobile.ts:860`（路径构造 mobile.ts:261-262）
 - 备注：无。
 
-### GET /mobile/devices/{deviceId}/dropped-reasons
+### GET /api/v1/mobile/devices/{deviceId}/dropped-reasons
 - 用途：单设备"定位点被丢弃原因"的按天统计（REQ-9）。
 - 认证：JWT
 - Web 前端使用：否（无前端调用；数据由 Android 端上报、服务端聚合）
@@ -1063,7 +1063,7 @@
 
 ## 目录与规则
 
-### GET /mobile/apps/catalog-overrides
+### GET /api/v1/mobile/apps/catalog-overrides
 - 用途：列出 App 目录人工覆盖（显示名/分类/系统噪音/短事件隐藏）。
 - 认证：JWT
 - Web 前端使用：否（mobile.ts 已封装 getMobileAppCatalogOverrides 但当前无页面调用）
@@ -1081,7 +1081,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:439`、`Services/MobileAppCatalogOverrideService.cs`；前端 `src/client-web/src/api/mobile.ts:869`（路径构造 mobile.ts:252）
 - 备注：无。
 
-### PUT /mobile/apps/catalog-overrides
+### PUT /api/v1/mobile/apps/catalog-overrides
 - 用途：按 Body 中 packageName 新建或更新覆盖（保存入口）。
 - 认证：JWT
 - Web 前端使用：否（封装 saveMobileAppCatalogOverride 走本端点，当前无页面调用）
@@ -1098,7 +1098,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:444`、`Services/MobileAppCatalogOverrideService.cs`；前端 `src/client-web/src/api/mobile.ts:873`
 - 备注：**清单中的 `POST /mobile/apps/catalog-overrides` 后端未注册，调用将 404**——本域统一用 PUT 表达"新建或更新"（MobileModule.cs:444-465），前端亦只用 PUT（mobile.ts:873-880）。写后清空 `/api/v1/mobile/` 前缀聚合缓存。
 
-### PUT /mobile/apps/catalog-overrides/{packageName}
+### PUT /api/v1/mobile/apps/catalog-overrides/{packageName}
 - 用途：按路径 packageName 新建或更新覆盖（Body 的 packageName 以路径为准）。
 - 认证：JWT
 - Web 前端使用：否（同上）
@@ -1111,7 +1111,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:455`；前端 `src/client-web/src/api/mobile.ts:873`（saveMobileAppCatalogOverride 实际调用此路径，mobile.ts:253-254）
 - 备注：同集合版 PUT。
 
-### DELETE /mobile/apps/catalog-overrides/{packageName}
+### DELETE /api/v1/mobile/apps/catalog-overrides/{packageName}
 - 用途：删除一条覆盖。
 - 认证：JWT
 - Web 前端使用：否（封装存在，无页面调用）
@@ -1124,7 +1124,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:467`；前端 `src/client-web/src/api/mobile.ts:882`（路径构造 mobile.ts:253-254）
 - 备注：写后清空聚合缓存。
 
-### GET /mobile/apps/category-rules
+### GET /api/v1/mobile/apps/category-rules
 - 用途：列出 App 分类规则（按规则类型匹配包名，决定生活分类）。
 - 认证：JWT
 - Web 前端使用：否（封装存在，无页面调用）
@@ -1145,7 +1145,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:478`、`Services/MobileAppCatalogOverrideService.cs`；前端 `src/client-web/src/api/mobile.ts:886`（路径构造 mobile.ts:255）
 - 备注：无。
 
-### POST /mobile/apps/category-rules
+### POST /api/v1/mobile/apps/category-rules
 - 用途：新建分类规则。
 - 认证：JWT
 - Web 前端使用：否（封装存在，无页面调用）
@@ -1164,7 +1164,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:483`、`Services/MobileAppCatalogOverrideService.cs`；前端 `src/client-web/src/api/mobile.ts:890`（路径构造 mobile.ts:255）
 - 备注：写后清空聚合缓存。
 
-### PUT /mobile/apps/category-rules/{ruleId}
+### PUT /api/v1/mobile/apps/category-rules/{ruleId}
 - 用途：更新分类规则。
 - 认证：JWT
 - Web 前端使用：否（封装存在，无页面调用）
@@ -1177,7 +1177,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:494`；前端 `src/client-web/src/api/mobile.ts:896`（路径构造 mobile.ts:256）
 - 备注：无。
 
-### DELETE /mobile/apps/category-rules/{ruleId}
+### DELETE /api/v1/mobile/apps/category-rules/{ruleId}
 - 用途：删除分类规则。
 - 认证：JWT
 - Web 前端使用：否（封装存在，无页面调用）
@@ -1190,7 +1190,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:506`；前端 `src/client-web/src/api/mobile.ts:903`（路径构造 mobile.ts:256）
 - 备注：写后清空聚合缓存。
 
-### GET /mobile/analytics/goals
+### GET /api/v1/mobile/analytics/goals
 - 用途：列出使用目标（总时长/分类/包名的每日限额）。
 - 认证：JWT
 - Web 前端使用：否（封装存在，无页面调用）
@@ -1210,7 +1210,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:412`、`Services/MobileUsageGoalService.cs`；前端 `src/client-web/src/api/mobile.ts:907`（路径构造 mobile.ts:257）
 - 备注：scope 取值为前端类型推断（mobile.ts:730），服务端按字符串保存与解释。
 
-### POST /mobile/analytics/goals
+### POST /api/v1/mobile/analytics/goals
 - 用途：新建或保存使用目标。
 - 认证：JWT
 - Web 前端使用：否（封装存在，无页面调用）
@@ -1228,7 +1228,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:417`、`Services/MobileUsageGoalService.cs`；前端 `src/client-web/src/api/mobile.ts:911`（路径构造 mobile.ts:257）
 - 备注：写后清空 `/api/v1/mobile/` 前缀聚合缓存（MobileModule.cs:424）。
 
-### DELETE /mobile/analytics/goals/{goalId}
+### DELETE /api/v1/mobile/analytics/goals/{goalId}
 - 用途：删除使用目标。
 - 认证：JWT
 - Web 前端使用：否（封装存在，无页面调用）
@@ -1241,7 +1241,7 @@
 - 来源：后端 `src/modules/Pim.Module.Mobile/MobileModule.cs:428`；前端 `src/client-web/src/api/mobile.ts:915`（路径构造 mobile.ts:258）
 - 备注：写后清空聚合缓存。
 
-### GET /mobile/apps/missing-metadata
+### GET /api/v1/mobile/apps/missing-metadata
 - 用途：列出"使用过但缺应用元数据"的待补包清单（供回填任务定向补数）。
 - 认证：JWT
 - Web 前端使用：否（无前端调用；质量面板文案提示调用该端点补数）

@@ -1,5 +1,5 @@
 # 文件域接口规格（/api/v1/files，OneDrive）
-> 基地址 `/api/v1`；响应封装 `ApiResponse<T>` = `{ code, message, data, timestamp }`（`code=0` 成功）；下文"响应 data"均指 `data` 字段内容；列表分页封装 `PagedResult<T>` = `{ items[], total, page, pageSize, totalPages }`。
+> 基地址 `/api/v1`；响应封装 `ApiResponse<T>` = `{ code, message, data, timestamp }`（`code=0` 成功）；下文"响应 data"均指 `data` 字段内容；列表分页封装 `PagedResult<T>` = `{ items[], totalCount, page, pageSize, totalPages }`。
 > 认证图例：JWT = `Authorization: Bearer <accessToken>`；匿名 = 无需认证；Admin = JWT 且 role=admin；OpsKey = 请求头 `X-PIM-Ops-Key`。
 > 本域路由组整体要求 JWT。
 
@@ -13,7 +13,7 @@
 
 ## 提供程序绑定
 
-### GET /files/providers
+### GET /api/v1/files/providers
 - 用途：列出当前用户的文件提供程序绑定（v2 恒为 0 或 1 条 OneDrive 绑定）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage）
@@ -41,7 +41,7 @@
   | tokenExpiresAt | string\|null | 访问令牌过期时间 |
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:88-91`；DTO `src/modules/Pim.Module.Files/DTOs/FileDtos.cs:5-23`；前端 `src/client-web/src/api/files.ts:50,110-112`
 
-### POST /files/providers/onedrive
+### POST /api/v1/files/providers/onedrive
 - 用途：发起 OneDrive 设备码授权（OAuth Device Code Flow）起点，创建或复用绑定记录。
 - 认证：JWT
 - Web 前端使用：是（OneDrive 绑定对话框 OneDriveBindDialog）
@@ -60,7 +60,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:93,239-245`；DTO `src/modules/Pim.Module.Files/DTOs/OneDriveDtos.cs:5-11`；服务 `src/modules/Pim.Module.Files/Services/OneDriveBindingService.cs:51-98`；前端 `src/client-web/src/api/files.ts:52,209-211`
 - 备注：每用户仅允许一条 onedrive 绑定；重复发起会复用同一条记录并作废旧凭据/游标（OneDriveBindingService.cs:79-84）。并发双击撞唯一索引时返回 5326。
 
-### GET /files/providers/{id}/binding-status
+### GET /api/v1/files/providers/{id}/binding-status
 - 用途：查询设备码授权进度；在 pending 期间服务端代为轮询 Graph，完成时写入凭据。
 - 认证：JWT
 - Web 前端使用：是（OneDrive 绑定对话框 OneDriveBindDialog，5 秒轮询直到 connected）
@@ -82,7 +82,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:94,247-253`；DTO `src/modules/Pim.Module.Files/DTOs/OneDriveDtos.cs:13-25`；服务 `src/modules/Pim.Module.Files/Services/OneDriveBindingService.cs:100-209`；前端 `src/client-web/src/api/files.ts:53,213-215`；轮询间隔 `src/client-web/src/components/files/OneDriveBindDialog.tsx:13`（`POLL_INTERVAL_MS = 5000`）
 - 备注：绑定不存在/非本人返回 5320。Graph 返回 `slow_down` 时服务端内部把轮询节奏提为 7 秒（OneDriveBindingService.cs:182-188），但该提示未进入 DTO——前端类型里的 `pollIntervalSeconds?`（`src/client-web/src/types/index.ts:1407`）后端从不返回，属前后端差异。`authorization_pending` 时维持 pending 原样返回。
 
-### DELETE /files/providers/{id}
+### DELETE /api/v1/files/providers/{id}
 - 用途：断开（解绑）OneDrive 提供程序。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage）
@@ -98,7 +98,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:95,255-265`；服务 `src/modules/Pim.Module.Files/Services/OneDriveBindingService.cs:211-226`；前端 `src/client-web/src/api/files.ts:61,217-219`
 - 备注：级联删除该绑定的全部本地文件元数据并使令牌缓存失效（FilesModule.cs:262-264）；不会删除 OneDrive 云端内容。非 OneDrive 来源返回 5323。
 
-### POST /files/providers/{id}/test
+### POST /api/v1/files/providers/{id}/test
 - 用途：（遗留声明）测试提供程序连通性。**后端 v2 未注册该路由，调用会 404**。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:62,118-120` 声明 `testFileProvider`，无任何组件调用）
@@ -117,7 +117,7 @@
 - 来源：后端 unknown（源码中未定位路由注册；仅有路径常量 `src/modules/Pim.Module.Files/FilesModule.cs:627` 与 DTO `src/modules/Pim.Module.Files/DTOs/FileDtos.cs:31`）；前端 `src/client-web/src/api/files.ts:62,118-120`
 - 备注：v1 Nextcloud 时代端点；文件模块 v2（OneDrive Graph 直链版）重写时移除，前端 API 封装为遗留残留。
 
-### POST /files/providers/{id}/sync
+### POST /api/v1/files/providers/{id}/sync
 - 用途：触发一次手动 OneDrive 同步（REQ-25：后台化，立即返回"已开始"）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage）
@@ -144,7 +144,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:97,270-320`；DTO `src/modules/Pim.Module.Files/DTOs/OneDriveDtos.cs:27-31`、`src/modules/Pim.Module.Files/DTOs/FileDtos.cs:136`；前端 `src/client-web/src/api/files.ts:63,228-230`（另有遗留封装 `getOneDriveSyncResult`/`syncFileProvider`，`files.ts:122-124,221-223`，无组件调用）
 - 备注：provider 不存在返回 5104；非 onedrive 来源返回 5334（已退役）。进度与结果经 `GET /providers/{id}/sync-status` 轮询（AC-25.1/AC-25.3）。另有每 20 分钟的 Hangfire 周期任务（FilesModule.cs:175-178）。
 
-### GET /files/providers/{id}/sync-status
+### GET /api/v1/files/providers/{id}/sync-status
 - 用途：查询手动/周期同步的状态与进度（文件页顶部横幅数据源）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage）
@@ -162,7 +162,7 @@
   | syncedItemCount | integer | 已同步条目数 |
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:98,323-347`；DTO `src/modules/Pim.Module.Files/DTOs/FileDtos.cs:139-143`；前端 `src/client-web/src/api/files.ts:103,233-235`
 
-### POST /files/providers/nextcloud（清单外发现）
+### POST /api/v1/files/providers/nextcloud（清单外发现）
 - 用途：（遗留声明）绑定 Nextcloud 提供程序。**后端 v2 未注册该路由，调用会 404**。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:51,114-116` 声明 `bindNextcloudProvider`，无任何组件调用）
@@ -179,7 +179,7 @@
 
 ## 目录与条目
 
-### GET /files/items
+### GET /api/v1/files/items
 - 用途：列出指定目录的直属子项（服务端分页/过滤/排序；文件页目录浏览、目录树、日程附件选择器的数据源）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage、目录树 loadFolderTree、上传传输面板 TransferPanel、日程附件选择器 EventAttachmentFields）
@@ -230,7 +230,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:99,349-366`；服务 `src/modules/Pim.Module.Files/Services/FileOperationService.cs:43-86`；前端 `src/client-web/src/api/files.ts:64-73,126-128`；调用方 `src/client-web/src/pages/FilesPage.tsx:130-143`、`src/client-web/src/components/files/loadFolderTree.ts`、`src/client-web/src/components/files/upload/TransferPanel.tsx`、`src/client-web/src/components/calendar/EventAttachmentFields.tsx:26`（固定 `path=/` 作日程附件选择）
 - 备注：排序恒"文件夹在前 + Id 兜底"保证全序翻页（FileOperationService.cs:142-159）；路径前缀判定大小写敏感（与 OneDrive 事实源一致，FileOperationService.cs:106-112 注释）。
 
-### GET /files/items/{id}
+### GET /api/v1/files/items/{id}
 - 用途：取单个文件条目的元数据。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:74,130-132` 声明 `getFileItem`，无组件调用）
@@ -245,7 +245,7 @@
 
 ## 上传
 
-### POST /files/items/upload
+### POST /api/v1/files/items/upload
 - 用途：小文件 multipart 直传（服务器经 Graph 写入 OneDrive 并收敛本地元数据）。
 - 认证：JWT
 - Web 前端使用：是（上传引擎 uploadEngine、上传传输面板 TransferPanel；仅 ≤4MB 使用）
@@ -260,7 +260,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:101,374-414`；服务 `src/modules/Pim.Module.Files/Services/OneDriveWriteService.cs:318-382`（4MB 上限 `OneDriveContentService.cs:36`）；前端 `src/client-web/src/api/files.ts:75,134-141`；调用方 `src/client-web/src/components/files/upload/uploadEngine.ts`、`src/client-web/src/components/files/upload/TransferPanel.tsx`
 - 备注：4MB 阈值来自 Graph 单请求 PUT 限制（`SIMPLE_UPLOAD_LIMIT = 4 * 1024 * 1024`，`src/client-web/src/components/files/upload/uploadChunkPlan.ts:24`）；边读边计数防超大请求吃内存（OneDriveWriteService.cs:330-343）。
 
-### POST /files/items/upload-session
+### POST /api/v1/files/items/upload-session
 - 用途：创建 OneDrive 上传会话（REQ-14：服务器只向 Graph 要一个预授权 uploadUrl，不接收字节）。
 - 认证：JWT
 - Web 前端使用：是（上传分片计划 uploadChunkPlan、上传引擎 uploadEngine、上传传输面板 TransferPanel；>4MB 使用，2GB 上限）
@@ -280,7 +280,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:128,534-545`；DTO `src/modules/Pim.Module.Files/DTOs/FileDtos.cs:122-130`；服务 `src/modules/Pim.Module.Files/Services/OneDriveWriteService.cs:388-400`；前端 `src/client-web/src/api/files.ts:105,263-265`
 - 备注：前端 `MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024`（2GB 上限，uploadChunkPlan.ts:67）；推荐分片 10MiB（`UPLOAD_CHUNK_SIZE`，uploadChunkPlan.ts:21），单块硬上限 60MiB（:18），非末块须 320KiB 对齐（:15,76-77）。
 
-### POST /files/items/upload-session/complete
+### POST /api/v1/files/items/upload-session/complete
 - 用途：分片上传完成后登记元数据（内容已在微软侧，服务器只回读并收敛本地元数据）。
 - 认证：JWT
 - Web 前端使用：是（上传传输面板 TransferPanel）
@@ -297,7 +297,7 @@
 
 ## 下载与预览
 
-### GET /files/items/{id}/download
+### GET /api/v1/files/items/{id}/download
 - 用途：稳定下载直链：302 重定向到 Graph 预授权下载 URL。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:76,143-145` 声明 `downloadFileBlob`，无组件调用；前端实际下载走 `download-url` 端点）
@@ -310,7 +310,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:102,439-444`；服务 `src/modules/Pim.Module.Files/Services/OneDriveContentService.cs:78-86`；前端 `src/client-web/src/api/files.ts:76,143-145`
 - 备注：统一过"登录 → 归属 → 敏感路径"三道闸；文件夹返回 5332；Graph 未返回直链返回 5333。前端改用 `download-url`（REQ-20/AC-20.1：避免 fetch 跟随 302 把整个文件体拉进内存）。
 
-### GET /files/items/{id}/download-url
+### GET /api/v1/files/items/{id}/download-url
 - 用途：以 JSON 形态返回下载直链（页面 `window.open`，由浏览器直接从微软域下载）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage、OneDrive 预览面板 OneDrivePreviewPane）
@@ -326,7 +326,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:106,450-454`；DTO `src/modules/Pim.Module.Files/DTOs/OneDriveDtos.cs:33`；前端 `src/client-web/src/api/files.ts:57,295-297`；调用方 `src/client-web/src/pages/FilesPage.tsx:414-416`、`src/client-web/src/components/files/OneDrivePreviewPane.tsx`
 - 备注：>100MB 下载前先弹确认框（`DOWNLOAD_CONFIRM_THRESHOLD_BYTES = 100 * 1024 * 1024`，`src/client-web/src/components/files/fileActions.ts:10`；FilesPage.tsx:425）；错误口径同 `download`（5332/5333/40303）。
 
-### GET /files/items/{id}/content
+### GET /api/v1/files/items/{id}/content
 - 用途：内容直链：302 重定向到 Graph 预授权内容 URL。
 - 认证：JWT
 - Web 前端使用：是（图片网格 ImageGrid，作为图片加载地址）
@@ -339,7 +339,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:110,188-192`；服务 `src/modules/Pim.Module.Files/Services/OneDriveContentService.cs:78-86`；前端 `src/client-web/src/api/files.ts:54,277-279`；调用方 `src/client-web/src/components/files/ImageGrid.tsx:46,131`
 - 备注：前端用带 `Authorization` 的 `fetch` 跟随 302 取图片内容（跨域重定向后浏览器自动丢弃凭据头，Graph 预授权 URL 本身免鉴权）；文件夹 5332；敏感路径 40303。
 
-### GET /files/items/{id}/thumbnail
+### GET /api/v1/files/items/{id}/thumbnail
 - 用途：缩略图直链：302 重定向到 Graph 缩略图 URL。
 - 认证：JWT
 - Web 前端使用：是（文件缩略图 FileThumbnail）
@@ -356,7 +356,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:111,194-199`；服务 `src/modules/Pim.Module.Files/Services/OneDriveContentService.cs:88-95`；前端 `src/client-web/src/api/files.ts:55,281-283`；调用方 `src/client-web/src/components/files/FileThumbnail.tsx:71-78`
 - 备注：`<img src>` 无法携带 `Authorization` 头，因此前端用带鉴权 `fetch` → `blob` → `URL.createObjectURL` 渲染，用完即 revoke（FileThumbnail.tsx:22-23,71-78）；该文件不支持缩略图返回 5332；敏感路径 40303。
 
-### GET /files/items/{id}/preview-url
+### GET /api/v1/files/items/{id}/preview-url
 - 用途：返回微软域预览页地址（JSON，不重定向）。
 - 认证：JWT
 - Web 前端使用：是（OneDrive 预览面板 OneDrivePreviewPane）
@@ -374,7 +374,7 @@
 
 ## 搜索
 
-### GET /files/search
+### GET /api/v1/files/search
 - 用途：全盘元数据搜索（只搜 name/path/mimeType 的 PostgreSQL ILIKE，v2 不做内容/向量检索）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage，全局搜索模式；输入 250ms 防抖）
@@ -400,7 +400,7 @@
 
 ## 整理操作
 
-### POST /files/folders
+### POST /api/v1/files/folders
 - 用途：在当前目录新建文件夹（REQ-15）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage、上传传输面板 TransferPanel）
@@ -413,7 +413,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:126,523-532`；DTO `src/modules/Pim.Module.Files/DTOs/FileDtos.cs:119`；服务 `src/modules/Pim.Module.Files/Services/OneDriveWriteService.cs:484-531`；前端 `src/client-web/src/api/files.ts:97,238-240`
 - 备注：重名时 Graph 以 `conflictBehavior=rename` 自动改名（如"报告 1"），响应以服务端回读的**真实名称**为准，不是输入名（OneDriveWriteService.cs:479-500）；父目录不存在 5304。
 
-### POST /files/items/{id}/move
+### POST /api/v1/files/items/{id}/move
 - 用途：移动条目到目标文件夹（经 Graph PATCH + 本地元数据收敛，含子孙路径改写）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage，经移动对话框 MoveDialog）
@@ -430,7 +430,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:107,456-466`；DTO `src/modules/Pim.Module.Files/DTOs/FileDtos.cs:118`；服务 `src/modules/Pim.Module.Files/Services/OneDriveWriteService.cs:54-90`；前端 `src/client-web/src/api/files.ts:77,147-149`
 - 备注：移动根目录 / 移入自身 / 移入自己的子目录均返回 5337（Graph 调用前拦截，防子孙路径错乱）；目标文件夹不存在 5304。
 
-### POST /files/items/{id}/rename
+### POST /api/v1/files/items/{id}/rename
 - 用途：重命名条目（经 Graph PATCH + 本地元数据收敛，目录改名会改写子孙路径）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage）
@@ -447,7 +447,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:108,468-478`；DTO `src/modules/Pim.Module.Files/DTOs/FileDtos.cs:144`；服务 `src/modules/Pim.Module.Files/Services/OneDriveWriteService.cs:92-120`；前端 `src/client-web/src/api/files.ts:78,151-153`
 - 备注：根目录（`path = "/"`）不可重命名，返回 5338。
 
-### DELETE /files/items/{id}
+### DELETE /api/v1/files/items/{id}
 - 用途：删除条目（Graph DELETE 移入 OneDrive 自身回收站 + 本地软删）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage）
@@ -465,7 +465,7 @@
 
 ## 分享
 
-### POST /files/items/{id}/share
+### POST /api/v1/files/items/{id}/share
 - 用途：为条目生成 OneDrive 分享链接（REQ-21）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage，经分享对话框 ShareDialog）
@@ -493,7 +493,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:131,559-565`；DTO `src/modules/Pim.Module.Files/DTOs/FileDtos.cs:120`、`src/modules/Pim.Module.Files/Services/OneDriveShareService.cs:12-20`；前端 `src/client-web/src/api/files.ts:98,243-245`
 - 备注：敏感路径禁止分享（40303，AC-21.4）；webUrl 只在响应里返回，不写日志/审计（OneDriveShareService.cs:25-31）。
 
-### GET /files/items/{id}/shares
+### GET /api/v1/files/items/{id}/shares
 - 用途：列出某条目当前的全部分享权限（预览面板就地撤销用）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage，经分享对话框 ShareDialog）
@@ -506,7 +506,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:132,567-571`；服务 `src/modules/Pim.Module.Files/Services/OneDriveShareService.cs:106-123`；前端 `src/client-web/src/api/files.ts:99,248-250`
 - 备注：实时查询 Graph 权限列表，非本地缓存。
 
-### DELETE /files/items/{id}/shares/{permissionId}
+### DELETE /api/v1/files/items/{id}/shares/{permissionId}
 - 用途：撤销某个分享权限（撤销后链接失效，AC-21.1）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage，经分享对话框 ShareDialog）
@@ -523,7 +523,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:133,573-581`；服务 `src/modules/Pim.Module.Files/Services/OneDriveShareService.cs:83-103`；前端 `src/client-web/src/api/files.ts:100-101,253-255`
 - 备注：permissionId 空白返回 5300；敏感路径条目不可操作（40303）。
 
-### GET /files/shares
+### GET /api/v1/files/shares
 - 用途："我的分享"列表（按最近修改的文件逐个查询分享权限聚合）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage）
@@ -539,7 +539,7 @@
 
 ## 文本与快照
 
-### GET /files/items/{id}/text
+### GET /api/v1/files/items/{id}/text
 - 用途：读取小文本文件内容（编辑器载入）。
 - 认证：JWT
 - Web 前端使用：是（OneDrive 预览面板 OneDrivePreviewPane）
@@ -558,7 +558,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:113,207-211`；DTO `src/modules/Pim.Module.Files/DTOs/OneDriveDtos.cs:35-39`；服务 `src/modules/Pim.Module.Files/Services/OneDriveContentService.cs:172-186`；前端 `src/client-web/src/api/files.ts:58,299-301`
 - 备注：仅文本类型可读——MIME 以 `text/` 开头或含 `json`/`xml`/`yaml`，或扩展名为 `.txt`/`.md`/`.markdown`/`.json`/`.csv`/`.log`/`.yml`/`.yaml`/`.xml`（OneDriveContentService.cs:276-294），否则 5332；读取上限 4MB（`MaxSaveBytes`，OneDriveContentService.cs:36,179-180 注释）；文件夹 5332；敏感路径 40303。
 
-### PUT /files/items/{id}/text
+### PUT /api/v1/files/items/{id}/text
 - 用途：保存小文本文件内容（先快照当前内容再经 Graph 覆写）。
 - 认证：JWT
 - Web 前端使用：是（OneDrive 预览面板 OneDrivePreviewPane）
@@ -578,7 +578,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:114,213-221`；DTO `src/modules/Pim.Module.Files/DTOs/OneDriveDtos.cs:41`；服务 `src/modules/Pim.Module.Files/Services/OneDriveContentService.cs:188-214`；前端 `src/client-web/src/api/files.ts:58,303-305`
 - 备注：内容 >4MB 返回 5331；保存前先把当前内容存为快照（`reason = "pre-edit"`），每文件只保留最近 10 份快照（`KeepSnapshotsPerItem`，OneDriveContentService.cs:39,202-210）。
 
-### GET /files/items/{id}/snapshots
+### GET /api/v1/files/items/{id}/snapshots
 - 用途：列出该文件的文本编辑快照（恢复入口）。
 - 认证：JWT
 - Web 前端使用：是（OneDrive 预览面板 OneDrivePreviewPane）
@@ -600,7 +600,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:115,223-227`；DTO `src/modules/Pim.Module.Files/Services/OneDriveContentService.cs:16-23`；服务 `src/modules/Pim.Module.Files/Services/OneDriveContentService.cs:216-229`；前端 `src/client-web/src/api/files.ts:59,307-309`
 - 备注：列表中的 `content` 是截断预览；恢复动作使用数据库中的完整内容（OneDriveContentService.cs:243）。敏感路径同样拦截（40303）。
 
-### POST /files/items/{id}/snapshots/{snapshotId}/restore
+### POST /api/v1/files/items/{id}/snapshots/{snapshotId}/restore
 - 用途：把文件内容恢复到指定快照。
 - 认证：JWT
 - Web 前端使用：是（OneDrive 预览面板 OneDrivePreviewPane）
@@ -617,7 +617,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:116,229-237`；服务 `src/modules/Pim.Module.Files/Services/OneDriveContentService.cs:231-248`；前端 `src/client-web/src/api/files.ts:60,311-313`
 - 备注：恢复前先把**当前**内容存为快照（`reason = "pre-restore"`，可再撤销回来）；快照不存在返回 5104；恢复后同样执行 10 份快照裁剪。
 
-### GET /files/items/{id}/extracted-text
+### GET /api/v1/files/items/{id}/extracted-text
 - 用途：文本抽取读取（docx/pptx/PDF 等经 Tika 抽取；面向 MCP `read_file_text` 与 agent 的高频读取，带限流与审计）。
 - 认证：JWT
 - Web 前端使用：否（前端无调用方，服务 MCP 工具 read_file_text）
@@ -640,7 +640,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:118,600-608`；服务 `src/modules/Pim.Module.Files/Services/OneDriveContentService.cs:112-133`、`src/modules/Pim.Module.Files/Services/OneDriveTextExtractor.cs:25-26`；前端无（`src/client-web/src/api/files.ts` 中无对应封装）
 - 备注：文件夹返回 5332；源文件超过处理上限返回 5331；敏感路径 40303；有瞬态限流（`OneDriveTransientRateLimiter`）。
 
-### POST /files/items/{id}/restore
+### POST /api/v1/files/items/{id}/restore
 - 用途：本地恢复软删条目（仅"本地软删但远端仍在"的短暂窗口可用）。
 - 认证：JWT
 - Web 前端使用：否（前端无调用方）
@@ -659,7 +659,7 @@
 
 ## 其他
 
-### GET /files/items/{id}/open-link
+### GET /api/v1/files/items/{id}/open-link
 - 用途：获取 OneDrive 网页版地址（在新标签打开云端页面）。
 - 认证：JWT
 - Web 前端使用：是（文件页 FilesPage）
@@ -680,7 +680,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:124,590-597`；DTO `src/modules/Pim.Module.Files/DTOs/FileDtos.cs:145`；服务 `src/modules/Pim.Module.Files/Services/OneDriveWriteService.cs:534-543`；前端 `src/client-web/src/api/files.ts:95,203-205`
 - 备注（前后端差异）：前端发送 `mode` 查询参数，后端处理器签名（FilesModule.cs:590-593）没有对应 `[FromQuery]` 入参，`mode` 被忽略；响应 `mode` 恒为 `onedrive-web`。webUrl 是内容出口，敏感路径同样拦截（40303，OneDriveWriteService.cs:536-539）；无 webUrl 返回 5333。
 
-### GET /files/items/{id}/versions
+### GET /api/v1/files/items/{id}/versions
 - 用途：（遗留声明）列出条目历史版本。**后端 v2 未注册该路由，调用会 404**。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:81,167-169` 声明 `getFileVersions`，无组件调用）
@@ -704,7 +704,7 @@
 - 来源：后端 unknown（源码中未定位路由注册；DTO 见 `src/modules/Pim.Module.Files/DTOs/FileDtos.cs:56-65`）；前端 `src/client-web/src/api/files.ts:81,167-169`
 - 备注：个人版 OneDrive 版本 API 不确定是 v2 移除版本端点的原因（编辑改用文本快照机制，见"文本与快照"组）。
 
-### GET /files/items/{id}/versions/{versionId}/download
+### GET /api/v1/files/items/{id}/versions/{versionId}/download
 - 用途：（遗留声明）下载历史版本内容。**后端 v2 未注册该路由，调用会 404**。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:82,171-173` 声明 `downloadFileVersionBlob`，无组件调用）
@@ -718,7 +718,7 @@
 - 来源：后端 unknown（源码中未定位路由注册）；前端 `src/client-web/src/api/files.ts:82,171-173`
 - 备注：v1 遗留端点。
 
-### POST /files/items/{id}/index
+### POST /api/v1/files/items/{id}/index
 - 用途：（遗留声明）手动触发条目 AI 索引。**后端 v2 未注册该路由，调用会 404**。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:85,183-185` 声明 `indexFile`，无组件调用）
@@ -741,7 +741,7 @@
 - 来源：后端 unknown（源码中未定位路由注册；DTO 见 `src/modules/Pim.Module.Files/DTOs/FileDtos.cs:147`）；前端 `src/client-web/src/api/files.ts:85,183-185`
 - 备注：v2 只保留 `indexStatus` 元数据字段（FileItemDto），无手动索引入口。
 
-### GET /files/trash
+### GET /api/v1/files/trash
 - 用途：（遗留声明）列出本地回收站。**后端 v2 未注册该路由，调用会 404**。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:79,159-161` 声明 `getFileTrash`，无组件调用）
@@ -758,7 +758,7 @@
 - 来源：后端 unknown（源码中未定位路由注册）；前端 `src/client-web/src/api/files.ts:79,159-161`；类型 `src/client-web/src/types/index.ts:1624-1631`
 - 备注：v1 本地回收站语义已退役；v2 删除直接进 OneDrive 回收站（见 `DELETE /files/items/{id}` 备注）。
 
-### POST /files/trash/{providerId}/restore
+### POST /api/v1/files/trash/{providerId}/restore
 - 用途：（遗留声明）从本地回收站恢复。**后端 v2 未注册该路由，调用会 404**。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:80,163-165` 声明 `restoreFileTrash`，无组件调用）
@@ -775,7 +775,7 @@
 - 来源：后端 unknown（源码中未定位路由注册）；前端 `src/client-web/src/api/files.ts:80,163-165`
 - 备注：v1 遗留端点；v2 的对应能力是 `POST /files/items/{id}/restore`（仅短暂窗口可用，见该节备注）。
 
-### GET /files/suggestions
+### GET /api/v1/files/suggestions
 - 用途：列出当前用户的文件整理建议（AI 产生的移动/归类建议）。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:92,191-193` 声明 `getFileSuggestions`，无组件调用）
@@ -796,7 +796,7 @@
   | updatedAt | string | 更新时间 |
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:121,506-509`；DTO `src/modules/Pim.Module.Files/DTOs/FileDtos.cs:80-91`；服务 `src/modules/Pim.Module.Files/Services/FileOperationService.cs:190-203`；前端 `src/client-web/src/api/files.ts:92,191-193`
 
-### POST /files/suggestions/{id}/dismiss
+### POST /api/v1/files/suggestions/{id}/dismiss
 - 用途：忽略（驳回）一条文件建议。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:93,195-197` 声明 `dismissFileSuggestion`，无组件调用）
@@ -809,7 +809,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:122,511-515`；服务 `src/modules/Pim.Module.Files/Services/FileOperationService.cs:205-215`；前端 `src/client-web/src/api/files.ts:93,195-197`
 - 备注：建议不存在返回 5305；写审计 `files.suggestion_dismiss`。
 
-### POST /files/suggestions/{id}/accept
+### POST /api/v1/files/suggestions/{id}/accept
 - 用途：接受一条文件建议。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:94,199-201` 声明 `acceptFileSuggestion`，无组件调用）
@@ -822,7 +822,7 @@
 - 来源：后端 `src/modules/Pim.Module.Files/FilesModule.cs:123,517-521`；服务 `src/modules/Pim.Module.Files/Services/FileOperationService.cs:217-227`；前端 `src/client-web/src/api/files.ts:94,199-201`
 - 备注：建议不存在返回 5305；写审计 `files.suggestion_accept`。
 
-### POST /files/items/{id}/versions/{versionId}/restore（清单外发现）
+### POST /api/v1/files/items/{id}/versions/{versionId}/restore（清单外发现）
 - 用途：（遗留声明）恢复到历史版本。**后端 v2 未注册该路由，调用会 404**。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:84,179-181` 声明 `restoreFileVersion`，无组件调用）
@@ -836,7 +836,7 @@
 - 来源：后端 unknown（源码中未定位路由注册；仅路径辅助常量 `src/modules/Pim.Module.Files/FilesModule.cs:631`）
 - 备注：v1 遗留端点；v2 对应能力为文本快照恢复。
 
-### POST /files/items/{id}/versions/{versionId}/restore-preview（清单外发现）
+### POST /api/v1/files/items/{id}/versions/{versionId}/restore-preview（清单外发现）
 - 用途：（遗留声明）预览版本恢复将产生的变化。**后端 v2 未注册该路由，调用会 404**。
 - 认证：JWT
 - Web 前端使用：否（仅 `src/client-web/src/api/files.ts:83,175-177` 声明 `restoreFileVersionPreview`，无组件调用）

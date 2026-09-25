@@ -599,6 +599,25 @@
 - 来源：后端 `src/Pim.Api/Modules/ClientShell/ClientShellModule.cs:56-59`；前端 `src/client-web/src/api/version.ts:6`
 - 备注：快照有效性判定——任一组件有 URL 才采用快照（防止只有版本号没有下载地址，ClientShellModule.cs:23）；本端点不经 ApiResponse 封装。
 
+## 统计上报（Stats，旧版 Android）
+
+### POST /api/v1/stats/upload
+- 用途：旧版应用使用统计批量上报（Android 客户端使用）。
+- 认证：JWT（StatsModule.cs:29 `RequireAuthorization`）
+- Web 前端使用：否（消费方为 Android 客户端）
+- Body：
+  | 字段 | 类型 | 必填 | 说明 |
+  | deviceId | string | 是 | 设备标识 |
+  | entries[] | AppUsageEntry[] | 是 | 使用条目批量（空数组直接返回 0） |
+  | entries[].packageName | string | 是 | 应用包名 |
+  | entries[].startTime | long | 是 | 起始时间戳 |
+  | entries[].endTime | long | 是 | 结束时间戳 |
+  | entries[].durationMs | long | 是 | 使用时长（毫秒） |
+  | entries[].lastTimeUsed | long | 是 | 最近使用时间戳 |
+- 响应 data：`int` —— 入库条目数
+- 来源：后端 `src/modules/Pim.Module.Stats/StatsModule.cs:31-45`、`src/modules/Pim.Module.Stats/DTOs/StatsDtos.cs`
+- 备注：批量整体入库（StatsService.IngestBatchAsync）。
+
 ## 健康检查与指标（Health / Metrics）
 
 ### GET /health

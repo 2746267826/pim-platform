@@ -15,7 +15,7 @@
 | 单分区加载器 | 按需数据获取 | GET /api/v1/today/sections/{sectionId}?date= | 仅 `kind` 前缀为 `pc.`/`operations.` 的分区轮询 |
 | 今日日程 | 列表（日程+已排任务合并、按时间排序、优先级标记条） | 来自分区数据 | 点击打开日程/任务编辑弹窗 |
 | 今日任务 | 列表（按截止排序） | 来自分区数据 | 点击打开任务编辑弹窗 |
-| 今日 PC 概览 | 统计卡片 + 迷你列表 | 来自 `pc.` 分区 | — |
+| 今日 PC 概览 | 统计卡片 + 概要列表 | 来自 `pc.` 分区 | — |
 | PC 数据质量 | 状态列表 | 来自 `pc.` 分区 | — |
 | 系统健康 | 状态列表 | 来自 `operations.` 分区 | — |
 | 分类建议 | 列表（待处理建议） | 来自 `pc.` 分区 | — |
@@ -35,7 +35,7 @@
 | 图层过滤条 | chips 切换组：日程 / 任务时间段 / 习惯 / 可用时间 / 智能占位 + 仅 Outlook 开关 | — | 显隐状态存 Context（含侧边栏日历本显隐联动） |
 | 日历网格 | 完整日历网格（时间轴=单日时间格；月视图=月网格）；事件卡带徽标位：已取消、闲忙、地点、来源日历本、描述摘要、重复、重要、提醒 | GET /api/v1/calendar/events?start&end&page=1&pageSize=100；GET /api/v1/calendar/calendars?kind=calendar；GET /api/v1/calendar/layers?start&end&layers=…&outlookOnly | 延迟轮询；events 有 pageSize 上限并在截断时提示；拖选空白时段→预填日程编辑弹窗；从收件箱侧板拖入任务到时间槽→POST 排期 |
 | 拖放排期 | 拖放调度 | POST /api/v1/calendar/tasks/{id}/plan | Body `{plannedStart, plannedEnd, estimatedDuration}`；失败显示告警条 |
-| 收件箱侧板 | 右侧停靠任务卡列表（全局模块，见 01 §5） | GET /api/v1/calendar/tasks?inbox=true | 客户端过滤（收件箱或未排期）；标准轮询；"一键重排"按钮 |
+| 收件箱侧板 | 右侧停靠任务卡列表（全局模块，见 01 §5） | GET /api/v1/calendar/tasks（无参数） | 客户端过滤（收件箱或未排期）；标准轮询；"一键重排"按钮 |
 | 任务编辑弹窗 | 表单弹窗 | 见 /tasks 弹窗 | — |
 | 日程编辑弹窗 | 表单弹窗 | POST /api/v1/calendar/events；PUT/DELETE /api/v1/calendar/events/{id}?scope&recurrenceId&originalEventId | 重复事件按 scope（单次/本次及以后/全部）编辑删除；Outlook 镜像事件走回写接口（409/412 驱动冲突 UI）；只读日历禁用表单并显示横幅 |
 
@@ -51,7 +51,7 @@
 | AI 智能排程建议 | 建议卡片网格：来源徽标（AI 规则/规则引擎）、时段、理由，每卡采纳/忽略按钮；地平线选择器（3/7/14 天）+ 一键生成按钮（toast 反馈） | POST /api/v1/calendar/ai-placeholders/generate（Body horizonDays）；GET /api/v1/calendar/ai-placeholders?status=Suggested；POST /api/v1/calendar/ai-placeholders/{id}/confirm；POST …/{id}/dismiss | 采纳会创建操作确认单 |
 | 待确认操作卡 | 列表卡（前三条 + 链接到确认中心） | GET /api/v1/operations/confirmations/pending | — |
 | Outlook 同步状态卡 | 状态卡：最近同步、提供方、令牌健康、错误、配置链接 | GET /api/v1/calendar/outlook/settings；GET /api/v1/calendar/outlook/sync/batches?page&pageSize | — |
-| PC 记录概览卡 | 3 个迷你统计瓦片 | GET /api/v1/pc/summary?date= | — |
+| PC 记录概览卡 | 3 个统计瓦片 | GET /api/v1/pc/summary?date= | — |
 | 待办任务列表 | 独立滚动容器内的任务行列表：完成切换圆点、优先级/任务本徽标、截止日；点击开编辑弹窗；"添加任务"按钮 | GET /api/v1/calendar/tasks?…&page&pageSize=50；PUT /api/v1/calendar/tasks/{id}（完成切换） | — |
 | 端点与状态链接面板 | 4 个 URL 信息瓦片 | — | 静态链接 |
 
@@ -66,7 +66,7 @@
 | 多选工具条 | 计数徽标 + 全选当前结果/取消全选 + 删除选中（确认对话框） | POST /api/v1/calendar/tasks/batch-delete | 先确认（受影响数+样例）再执行 |
 | 任务层级树 | 左侧树（项目/任务本分组，可选中） | GET /api/v1/calendar/task-books | — |
 | 任务卡列表 | 任务行列表：复选多选、优先级标记条+徽标组（优先级/状态/截止/已排期/收件箱）、内联"标记完成"开关、时间段按钮、行点击开编辑弹窗 | GET /api/v1/calendar/tasks?inbox&search&calendarId&status&priority&plannedFrom&plannedTo&dueFrom&dueTo&page&pageSize=100；PUT /api/v1/calendar/tasks/{id}（完成切换/内联编辑） | 服务端过滤+分页 |
-| 分段编辑面板 | 选中任务的多次执行时间段编辑面板 | GET/POST /api/v1/calendar/tasks/{id}/segments；DELETE /api/v1/calendar/tasks/{taskId}/segments/{segmentId} | — |
+| 分段编辑面板 | 选中任务的多次执行时间段编辑面板 | GET/POST /api/v1/calendar/tasks/{id}/segments | 删除时间段的端点（DELETE …/segments/{segmentId}）前端未调用 |
 | 任务编辑弹窗 | 表单弹窗（属性+清单） | POST /api/v1/calendar/tasks；PUT/DELETE /api/v1/calendar/tasks/{id}；POST /api/v1/calendar/tasks/{id}/checklist；PUT/DELETE /api/v1/calendar/tasks/{id}/checklist/{itemId} | — |
 | 空状态 | 统一空态组件 | — | — |
 
@@ -112,7 +112,7 @@
 |---|---|---|---|
 | 报告类型标签页 | 标签组：日报/周报/月报/项目报告 + 生成报告按钮 + 筛选栏（日期输入+状态：草稿/已发布/归档） | GET /api/v1/calendar/reports；POST /api/v1/calendar/reports/generate | — |
 | 统计卡行 | 3 张指标卡：报告数、建议数、待跟进确认 | — | — |
-| 报告内容面板 | 报告头（标题/风险/状态/生成时间）+ 等宽文本正文 | — | — |
+| 报告内容面板 | 报告头（标题/风险/状态/生成时间）+ 文本正文 | — | — |
 | 指标面板 | 键值行（最多 8 条） | — | — |
 | 后续确认面板 | 建议卡片 + "请求确认"操作 | POST /api/v1/calendar/reports/suggestions/{id}/request-action | 创建操作确认单 |
 | 展览馆内嵌 | 漏斗图 + 仪表盘图两张图表卡 | 复用展览馆数据钩子 | — |
@@ -139,7 +139,7 @@
 | 状态 chips 行 + 对比条 | 选中计数 chips；≥2 个选中出现对比条 → 对比弹窗（最多 3 张并排 + 导出） | — | — |
 | 图表卡片网格 | 分页网格（9/页，j/k 翻页热键）；每卡：头（标题/数据类型/图表类型/描述）、单卡数据源覆盖下拉、复制深链按钮、选中复选、标签 chips、图表体（懒加载真实数据、模拟数据回退、卡片级错误边界）、1–5 星评分、选中开关 | 复用各域查询端点：GET /api/v1/mobile/analytics/charts、/heatmap、GET /api/v1/mobile/location/analytics/tracks、/frequent-places、GET /api/v1/pc/summary、GET /api/v1/pc/aggregation/app-usage、GET /api/v1/calendar/tasks、GET /api/v1/calendar/habits 等 | 客户端聚合分箱；部分序列（习惯连续记录等）由标题确定性模拟；展览馆查询静音错误 toast；评分/选中/视图存 localStorage |
 | 分页条 + 空态 | 分页栏；空筛选状态（含重置）；JSON 导出（选中项下载）；"如何体验"说明面板；`?card=` 深链滚动定位 | — | — |
-| 图表类型覆盖 | 环形、折线、面积、堆叠柱、热力矩阵、GPS 散点地图、六边形密度、气泡、直方图、渐变条、键盘矩阵、日历热力图、进度环、仪表盘、状态条、漏斗 | — | — |
+| 图表类型覆盖 | 环形、折线、面积、堆叠柱、热力矩阵、GPS 散点地图、六边形密度、气泡、直方图、横向条形图、键盘矩阵、日历热力图、进度环、仪表盘、状态条、漏斗 | — | — |
 
 ## /quick-notes 快速记录
 
@@ -149,7 +149,7 @@
 |---|---|---|---|
 | 状态筛选 + 搜索 | chips 单选（全部/收集箱/已处理/已归档）+ 搜索输入 | GET /api/v1/quick-notes?status&search&page&pageSize | 搜索逐键直查服务端（无防抖）；服务端分页 |
 | 分类筛选条 | pills 单选（全部/灵感/学业/开发/运维/生活） | — | 分类从笔记内容前缀自动提取 |
-| 闪念瀑布流 | CSS 多列瀑布流卡片墙：分类 chip、时间戳、4 行内容预览、附件胶囊（名称+大小）、状态徽标；点击开编辑弹窗 | — | — |
+| 闪念瀑布流 | 瀑布流卡片墙（多列卡片流）：分类 chip、时间戳、内容预览、附件胶囊（名称+大小）、状态徽标；点击开编辑弹窗 | — | — |
 | 页面 FAB | 圆形按钮 → 菜单（写闪念/建任务/排日程） | — | — |
 | 闪念编辑弹窗 | 可拖拽弹窗：分类下拉、Markdown 编辑器 + 预览、归档/已处理复选、附件上传行（选择文件+胶囊列表）、保存/删除 | GET /api/v1/quick-notes/{id}；POST /api/v1/quick-notes；PUT /api/v1/quick-notes/{id}（contentMarkdown+attachmentIds）；POST /api/v1/quick-notes/{id}/process（仅标记为已处理）；POST …/{id}/archive；POST …/{id}/restore；DELETE …/{id}；POST /api/v1/quick-notes/attachments（multipart） | 编辑器支持粘贴/上传图片；预览时附件下载链接改写为带认证的 blob URL |
 | Shell 分享预填 | URL 参数预填 | — | 支持 `?prefill=`/`?text=`/`?embed=1` |
@@ -160,7 +160,7 @@
 
 | 模块 | 形式 | 调用接口 | 前端处理 |
 |---|---|---|---|
-| 未绑定引导 | 空绑定卡 + 自动弹出的设备码绑定向导弹窗（输入 Client ID → 显示设备码+外部验证链接 → 轮询直到连接） | GET /api/v1/files/providers；POST /api/v1/files/providers/onedrive；GET /api/v1/files/providers/{id}/binding-status | 绑定状态 5 秒固定轮询（尊重服务端 pollIntervalSeconds）；断开 DELETE /api/v1/files/providers/{id} |
+| 未绑定引导 | 空绑定卡 + 自动弹出的设备码绑定向导弹窗（输入 Client ID → 显示设备码+外部验证链接 → 轮询直到连接） | GET /api/v1/files/providers；POST /api/v1/files/providers/onedrive；GET /api/v1/files/providers/{id}/binding-status | 绑定状态固定 5 秒轮询；断开 DELETE /api/v1/files/providers/{id} |
 | 文件夹树 | 左栏懒加载树：展开/收起不切目录；双击/单击进入；每文件夹错误重试；截断提示 | GET /api/v1/files/items?path=…&page&pageSize | 逐文件夹顺序加载分页，硬上限 20 页/文件夹并明示截断；树状态横幅 |
 | 中栏工具行 | 移动端目录抽屉按钮、同步状态横幅+手动触发、上传按钮、新建文件夹、传输任务切换（活动点）、我的分享按钮 | POST /api/v1/files/providers/{id}/sync；GET /api/v1/files/providers/{id}/sync-status | 同步状态**条件轮询**：仅 syncing 时 2 秒，否则停止 |
 | 文件列表 | 面包屑导航；搜索输入+范围切换（本文件夹/全盘）；列表/网格（缩略图+灯箱）切换；可排序列；服务端分页；复选多选+批操作条（删除/移动/下载）；行菜单（打开/下载/改名/移动/删除/分享/在 OneDrive 打开） | GET /api/v1/files/items?path&page&pageSize=100&q&sort=name\|modified\|size&order&type；GET /api/v1/files/search?q&mode=keyword&page&pageSize | 服务端排序/过滤/分页；搜索 250ms 防抖；浏览器记忆（路径/排序/视图/搜索范围）存 localStorage |
@@ -182,7 +182,7 @@
 | 模块 | 形式 | 调用接口 | 前端处理 |
 |---|---|---|---|
 | 日期维度条 | 日期选择器 + 维度分段控件（时/日/月/年） | — | 驱动热力图维度 |
-| 今日复盘摘要 | 统计瓦片 + 待处理建议数 + 专注/深夜/分类分布迷你统计 | GET /api/v1/pc/summary?date= | 延迟轮询 |
+| 今日复盘摘要 | 统计瓦片 + 待处理建议数 + 专注/深夜/分类分布概要统计 | GET /api/v1/pc/summary?date= | 延迟轮询 |
 | 分类时间线 | 甘特式小时分类时间条（自定义图表）；"查看详情"→ 当日逐事件时间线弹窗 | GET /api/v1/pc/summary?date= | — |
 | 上下文确认面板 | 待处理上下文分类建议列表（预览/拒绝按钮） | GET /api/v1/pc/classification/suggestions?date=（延迟轮询）；POST /api/v1/pc/classification/suggestions/{id}/reject；POST …/{id}/preview；POST …/{id}/apply | 预览走"先预览后应用" |
 | 生产力面板 | 专注仪表盘 + 深夜统计 + 指标瓦片 | GET /api/v1/pc/productivity/dashboard?date= | — |
@@ -228,7 +228,7 @@
 | 筛选栏 | 范围快捷 + 自定义日期、设备下拉、最大精度输入、含已拒绝点开关、刷新 | — | 全部过滤条件序列化进 URL 参数 |
 | 指标条 | 位置点计数/距离等指标条 + 移动统计 4 瓦片 | GET /api/v1/mobile/location/analytics/overview；GET /api/v1/mobile/location/analytics/movement-stats | 延迟轮询 |
 | 轨迹地图 | 地图轨迹（懒加载）：轨迹折线、停留点标记、精度圆、重新定位控件 | GET /api/v1/mobile/location/analytics/tracks | 延迟轮询；地图瓦片走后端代理 /api/v1/tiles/{z}/{x}/{y}.png |
-| 段选择器 | 段选择/列表（与地图联动） | GET /api/v1/mobile/location/analytics/segments/{segmentId} | — |
+| 段选择器 | 段选择/列表（与地图联动） | （数据来自 tracks 响应内嵌的 segments） | 独立的分段详情端点 GET /api/v1/mobile/location/analytics/segments/{segmentId} 前端未调用 |
 | 停留/移动时间线 | 停留与移动段时间线 | — | — |
 | 原始点表格 | 分页原始点表格（前一页/后一页 cursor 翻页；每点可选择）；停留点列表 | GET /api/v1/mobile/location/analytics/segments/{segmentId}/points?cursor&pageSize=200&force | **cursor 分页**（cursor 栈支持回退）——全站唯一游标分页 |
 | 常去地点 | 地点列表 | GET /api/v1/mobile/location/analytics/frequent-places | 客户端按坐标舍入去重 home+places |
@@ -277,7 +277,7 @@
 | 模块 | 形式 | 调用接口 | 前端处理 |
 |---|---|---|---|
 | 重新体检按钮 | 触发体检 + 过期结果警告横幅 | GET /api/v1/data-reliability/inspection；POST /api/v1/data-reliability/inspection/refresh | 完成后 toast |
-| 13 规则列表 | 规则行：红/黄/绿状态、阈值、违规计数；按区块分组 | inspection 数据 | 只读（不自动修复） |
+| 13 规则列表 | 规则行：严重度三档（对应数据字段 redCount/yellowCount/greenCount）、阈值、违规计数；按区块分组 | inspection 数据 | 只读（不自动修复） |
 | 规则详情弹窗 | 判据/阈值/为什么这么定/当前情况/违规样例列表/关联 issue | GET /api/v1/data-reliability/rules/{code}/violations?limit=2000 | 面板显示 10 行；全量导出 CSV Blob |
 
 ## /settings/sync 同步设置

@@ -45,7 +45,7 @@
 | GET /api/v1/calendar/export-ics | `text/calendar` 下载 |
 | GET /api/v1/mobile/devices/{id}/export | JSON 文件下载 |
 | GET /api/v1/quick-notes/attachments/{id}/download | 302 到 OneDrive 直链，或代理文件字节 |
-| GET /api/v1/files/items/{id}/download、/content、/thumbnail | 302 重定向到微软直链（前端用带认证 fetch→Blob 或 window.open，见 03 §5） |
+| GET /api/v1/files/items/{id}/download、/content、/thumbnail | 302 重定向到微软直链（前端不调用本端点，改用 download-url；仅 /content、/thumbnail 用带认证 fetch→Blob，见 03 §5） |
 | GET /api/v1/tiles/{z}/{x}/{y}.png | PNG 流（OSM 代理，7 天不可变缓存，`X-PIM-Tile-Cache: HIT/MISS`） |
 | POST /mcp（GET 同路径） | JSON-RPC（POST）/ SSE 事件流（GET）——系统内唯一流式面 |
 

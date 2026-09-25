@@ -29,14 +29,14 @@
 | [mobile.md](05-api-reference/mobile.md) | `/api/v1/mobile` |
 | [pc-tracker.md](05-api-reference/pc-tracker.md) | `/api/v1/pc`（含 browser-tt、app-knowledge、app-signatures） |
 | [quick-notes-mcp.md](05-api-reference/quick-notes-mcp.md) | `/api/v1/quick-notes`、`/api/v1/mcp`、`/mcp`（Streamable HTTP） |
-| [operations-status.md](05-api-reference/operations-status.md) | `/api/v1/operations`、`/api/v1/data-reliability`、`/api/v1/status`、`/api/v1/daemon`、`/api/v1/endpoints`、`/api/v1/today`、`/api/v1/search`、`/api/v1/tiles`、`/api/version`、`/api/client/shell/latest`、`/health*`、`/metrics` |
+| [operations-status.md](05-api-reference/operations-status.md) | `/api/v1/operations`、`/api/v1/data-reliability`、`/api/v1/status`、`/api/v1/daemon`、`/api/v1/endpoints`、`/api/v1/today`、`/api/v1/search`、`/api/v1/tiles`、`/api/version`、`/api/client/shell/latest`、`/api/v1/stats`、`/health*`、`/metrics` |
 | [ops-console.md](05-api-reference/ops-console.md) | `/api/v1/ops`（运维只读控制台，Web 前端不使用） |
 
 ## 阅读约定与词汇表
 
 ### 模块形式词汇表（02 文件中"形式"列使用的类型词）
 
-数据展示类：**列表**（纵向条目行）、**卡片列表**（卡片堆叠）、**数据表格**（多列、可分页/排序）、**主从面板**（左列表+右详情）、**统计卡片/指标条**（少量关键数字）、**树**（层级展开）、**瀑布流卡片墙**、**时间线**（按时间轴排布的条目）、**甘特式时间条**（横向时间条形图）、**热力图**（矩阵强度网格）、**日历网格**（月/周日历）、**图表**（折线/柱状/环形/漏斗/仪表盘等 ECharts 类）、**地图轨迹**（地图上的点/线/覆盖物）、**侧板/抽屉**（从边缘滑出的面板）、**弹窗/对话框**、**向导/分步流程**、**表单**、**标签页**、**筛选栏**（输入框+下拉+开关组合）、** chips 过滤条**（可切换的短标签组）、**命令面板**、**拖拽上传区**。
+数据展示类：**列表**（纵向条目行）、**卡片列表**（卡片堆叠）、**数据表格**（多列、可分页/排序）、**主从面板**（左列表+右详情）、**统计卡片/指标条**（少量关键数字）、**树**（层级展开）、**瀑布流卡片墙**、**时间线**（按时间轴排布的条目）、**甘特式时间条**（横向时间条形图）、**热力图**（矩阵强度网格）、**日历网格**（月/周日历）、**图表**（折线/柱状/环形/漏斗/仪表盘等 ECharts 类）、**地图轨迹**（地图上的点/线/覆盖物）、**侧板/抽屉**（从边缘滑出的面板）、**弹窗/对话框**、**向导/分步流程**、**表单**、**标签页**、**筛选栏**（输入框+下拉+开关组合）、**chips 过滤条**（可切换的短标签组）、**命令面板**、**拖拽上传区**。
 
 交互结构类：**多选批操作**（复选+批量工具条）、**两步确认**（先"武装"再执行）、**删除影响预览**（先返回将受影响对象再确认）、**乐观本地状态**（无）、**内联编辑**、**拖放调度**（拖拽对象到时间槽）、**URL 即状态**（过滤器序列化进查询参数）、**本地持久化记忆**（localStorage）。
 
@@ -60,7 +60,7 @@
 ## 现状备注（重建时可据此取舍）
 
 - `pages/PcClassificationPage.tsx`（PC 分类规则页）存在于代码中但**未注册路由**（已被应用知识库取代），重建可跳过。
-- 前端 `api/*.ts` 中存在一批**已定义但无 UI 调用**的包装函数，清单见 [03-data-behaviors.md](03-data-behaviors.md) §7；对应端点在附录中标"否"。
+- 前端 `api/*.ts` 中存在一批**已定义但无 UI 调用**的包装函数，清单见 [03-data-behaviors.md](03-data-behaviors.md) §11；对应端点在附录中标"否"。
 - 本前端无 WebSocket/SignalR；实时性全部由轮询实现。唯一的流式接口是后端 `/mcp` 的 SSE（Web UI 不消费，供 MCP 客户端使用）。
 - `/embed/android/*` 两个内嵌页运行于 Android 原生壳内，通过 `window.pimAndroid` postMessage 桥获取令牌与原生采集状态，见 [03-data-behaviors.md](03-data-behaviors.md) §6。
 

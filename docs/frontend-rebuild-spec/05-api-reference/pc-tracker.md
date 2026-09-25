@@ -1,5 +1,5 @@
 # PC 活动追踪域接口规格（/api/v1/pc）
-> 基地址 `/api/v1`；响应封装 `ApiResponse<T>` = `{ code, message, data, timestamp }`（`code=0` 成功）；下文"响应 data"均指 `data` 字段内容；列表分页封装 `PagedResult<T>` = `{ items[], total, page, pageSize, totalPages }`。
+> 基地址 `/api/v1`；响应封装 `ApiResponse<T>` = `{ code, message, data, timestamp }`（`code=0` 成功）；下文"响应 data"均指 `data` 字段内容；列表分页封装 `PagedResult<T>` = `{ items[], totalCount, page, pageSize, totalPages }`。
 > 认证图例：JWT = `Authorization: Bearer <accessToken>`；匿名 = 无需认证；Admin = JWT 且 role=admin；OpsKey = 请求头 `X-PIM-Ops-Key`。
 > ⚠️ 本域特殊：写操作组（POST/PUT/DELETE）要求 JWT，但**读操作组（GET）当前未挂 RequireAuthorization，即匿名可读**（PcTrackerModule.cs 路由分组处，写明行号）。重建时建议按 JWT 处理，但现状如此。
 >
@@ -10,10 +10,10 @@
 
 ## 汇总与明细
 
-### GET /pc/summary
+### GET /api/v1/pc/summary
 - 用途：按业务日返回 PC 活动总览（键鼠统计、小时热力图、应用排行、时间线、工作会话、派生指标、分类占比）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
-- Web 前端使用：是（PC 追踪总览页 PcTrackerPage、工作台 WorkbenchPage、大屏展览数据钩子 useExhibitionData——ExhibitionPage 等使用）
+- Web 前端使用：是（PC 追踪总览页 PcTrackerPage、工作台 WorkbenchPage、展览数据钩子 useExhibitionData——ExhibitionPage 等使用）
 - Query 参数：
   | 字段 | 类型 | 必填 | 说明 |
   | date | string | 否 | 业务日 `yyyy-MM-dd`，缺省今天；业务日按 Asia/Shanghai 04:00 起算（PcTrackerService.cs:12） |
@@ -91,7 +91,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:241-256`（服务 `Services/PcTrackerService.cs:338-401`）；DTO `DTOs/PcTrackerDtos.cs:48-137`；前端 `src/client-web/src/api/pcTracker.ts:17-19`
 - 备注：前端类型定义见 `src/client-web/src/types/index.ts:848-939`，与后端一致。
 
-### GET /pc/detail
+### GET /api/v1/pc/detail
 - 用途：跨来源（AW 事件 / 原生 tracker 事件 / 键鼠采样）统一明细查询，前端在此响应基础上浏览器内生成 CSV/JSON 导出。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（PC 明细查询面板 PcDetailQueryPanel，宿主 PcDetailQueryPage）
@@ -163,7 +163,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:313-338`（服务 `Services/PcTrackerService.cs:551-610`）；DTO `DTOs/PcTrackerDtos.cs:148-165、175-224`；前端 `src/client-web/src/api/pcTracker.ts:35-41`、类型 `src/client-web/src/types/index.ts:1072-1152`
 - 备注：① 前端导出为浏览器内生成：CSV `PcDetailQueryPanel.tsx:44-56`（BOM + detailCsvColumns），JSON `PcDetailQueryPanel.tsx:327-330`；② `sortBy`/`dimension` 参数服务端实际未参与明细查询（PcTrackerService.cs:973-981 只按 Start 排序），`sortBy` 的 keyPresses/totalClicks/date 分支只存在于旧的键盘统计明细路径（PcTrackerService.cs:799-813）；③ eventType 下拉取值 web-page/web/window/afk/input-minute/app-input/key-input（PcDetailQueryPanel.tsx:261-271）。
 
-### GET /pc/quality
+### GET /api/v1/pc/quality
 - 用途：PC 数据质量体检（总状态、组件状态、问题清单、下一步建议）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（PC 明细查询面板 PcDetailQueryPanel、状态页 StatusPage）
@@ -195,7 +195,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:340-368`；DTO `DTOs/PcQualityDtos.cs:5-26`；前端 `src/client-web/src/api/pcTracker.ts:162-170`
 - 备注：前端对 status 做数值/字符串双兼容归一化（pcTracker.ts:43-94），序列化可能为数字或枚举名。
 
-### GET /pc/heatmap/grid
+### GET /api/v1/pc/heatmap/grid
 - 用途：键盘热力图网格（按小时单行或按周 7 列网格）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（PC 追踪总览页 PcTrackerPage）
@@ -219,7 +219,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:725-743`（服务 `Services/PcTrackerService.cs:675-750`）；DTO `DTOs/PcTrackerDtos.cs:233-237`；前端 `src/client-web/src/api/pcTracker.ts:29-33`
 - 备注：hour 维度合并 AW 与 tracker window 事件并跨来源去重（#303，PcTrackerService.cs:688-710）。
 
-### GET /pc/activity-analysis
+### GET /api/v1/pc/activity-analysis
 - 用途：按时间块（默认 60 分钟）分析当日活动强度、待分类数量与上下文切换。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（PC 追踪总览页 PcTrackerPage）
@@ -255,7 +255,7 @@
 
 > 本组统一查询：`date` 单日与 `start`&`end` 范围二选一；`timezone` 默认 Asia/Shanghai（DTOs/PcAggregationDtos.cs:3-4）；均支持 `force` 跳过聚合缓存；参数非法或格式错误返回 400。
 
-### GET /pc/aggregation/focus-blocks
+### GET /api/v1/pc/aggregation/focus-blocks
 - 用途：专注块列表（连续高专注时段及主要应用）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（今日页 PC 概览区块 TodayPcOverview、PC 追踪总览页 PcTrackerPage）
@@ -280,10 +280,10 @@
   | items[].topApps[].minutes | number | 分钟数 |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:970-1005`；DTO `DTOs/PcAggregationDtos.cs:7-14`；前端 `src/client-web/src/api/pcTracker.ts:447-450、462-464`
 
-### GET /pc/aggregation/app-usage
+### GET /api/v1/pc/aggregation/app-usage
 - 用途：应用时长排行与总时长。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
-- Web 前端使用：是（PC 追踪总览页 PcTrackerPage、应用渐变条组件 PcAppGradientBar、大屏展览数据钩子 useExhibitionData）
+- Web 前端使用：是（PC 追踪总览页 PcTrackerPage、应用条形图组件 PcAppGradientBar、展览数据钩子 useExhibitionData）
 - Query 参数：
   | 字段 | 类型 | 必填 | 说明 |
   | date | string | 否 | 单日模式 |
@@ -302,7 +302,7 @@
   | totalMinutes | number | 全部应用总分钟数 |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1007-1044`；DTO `DTOs/PcAggregationDtos.cs:17-19`；前端 `src/client-web/src/api/pcTracker.ts:451-452、466-468`
 
-### GET /pc/aggregation/late-night
+### GET /api/v1/pc/aggregation/late-night
 - 用途：深夜使用统计（按业务日）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（PC 追踪总览页 PcTrackerPage）
@@ -321,7 +321,7 @@
   | items[].hadActivity | boolean | 是否有活动 |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1046-1081`；DTO `DTOs/PcAggregationDtos.cs:22-24`；前端 `src/client-web/src/api/pcTracker.ts:454-455、470-472`
 
-### GET /pc/aggregation/category-distribution
+### GET /api/v1/pc/aggregation/category-distribution
 - 用途：分类时长分布。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（今日页 PC 概览区块 TodayPcOverview、PC 追踪总览页 PcTrackerPage）
@@ -345,7 +345,7 @@
 
 ## 分类与标注
 
-### GET /pc/categories
+### GET /api/v1/pc/categories
 - 用途：旧版应用→分类规则（AppCategoryRule 平铺列表，按优先级倒序）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：否（前端封装 getPcCategories 保留但无页面调用）
@@ -361,7 +361,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:370-376`；DTO `DTOs/PcTrackerDtos.cs:139-146`；前端 `src/client-web/src/api/pcTracker.ts:172-174`
 - 备注：与下方 `GET /pc/categories/`（树分组，JWT）路径仅差一个尾斜杠、响应结构完全不同，重建时应合并为一套。
 
-### GET /pc/categories/
+### GET /api/v1/pc/categories/
 - 用途：分类树（与 `/pc/categories/tree` 同一实现，返回 CategoryTreeNode 树）。
 - 认证：JWT（catRead 分组挂 RequireAuthorization，PcTrackerModule.cs:1121-1122、1124-1130）
 - Web 前端使用：否（前端一律请求 `/pc/categories/tree`）
@@ -370,7 +370,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1124-1130`；DTO `DTOs/Phase2Dtos.cs:3-14`；前端 `src/client-web/src/api/pcTracker.ts:319-321`（仅 tree 版）
 - 备注：清单外发现：与 `/tree` 重复注册（同一 handler `svc.GetTreeAsync`）。
 
-### GET /pc/categories/tree
+### GET /api/v1/pc/categories/tree
 - 用途：分类树（父子结构）。
 - 认证：JWT（catRead 分组挂 RequireAuthorization，PcTrackerModule.cs:1121-1122、1132-1138）
 - Web 前端使用：是（分类树页 CategoryTreePage、PC 追踪总览页 PcTrackerPage）
@@ -388,7 +388,7 @@
   | children | CategoryTreeNode[] | 子分类（递归） |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1132-1138`；DTO `DTOs/Phase2Dtos.cs:3-14`；前端 `src/client-web/src/api/pcTracker.ts:297-321`
 
-### GET /pc/categories/dictionary
+### GET /api/v1/pc/categories/dictionary
 - 用途：分类字典（标注场景用的平铺 id/名称/颜色/图标列表）。
 - 认证：JWT（catRead 分组挂 RequireAuthorization，PcTrackerModule.cs:1121-1122、1140-1146）
 - Web 前端使用：是（标注队列组件 LabelingQueue、首次标注向导 FirstLabelingWizard）
@@ -401,7 +401,7 @@
   | icon | string \| null | 图标 |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1140-1146`；DTO `DTOs/ActivityLabelingDtos.cs:13`；前端 `src/client-web/src/api/classificationLabeling.ts:39-41`
 
-### POST /pc/categories
+### POST /api/v1/pc/categories
 - 用途：旧版应用→分类规则保存（按 appPattern upsert）。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、378-387）
 - Web 前端使用：是（分类树页 CategoryTreePage 的 saveCategory 也请求同一路径 `/pc/categories`，见备注）
@@ -415,7 +415,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:378-387`（服务 `Services/PcTrackerService.cs:634-662`）；DTO `DTOs/PcTrackerDtos.cs:226-231`；前端 `src/client-web/src/api/pcTracker.ts:288-290`（savePcCategory，无页面调用）、`323-325`（saveCategory）
 - 备注：同一路径存在两套注册（本节 legacy SaveCategoryRequest 与下方树版 CategorySaveRequest 仅差尾斜杠）；前端 saveCategory 实际请求不带尾斜杠的 `/pc/categories`，落到的具体端点由路由解析，重建时需合并两套语义。成功后按前缀清空 `/api/v1/pc/` 聚合缓存（PcTrackerModule.cs:385）。
 
-### POST /pc/categories/
+### POST /api/v1/pc/categories/
 - 用途：分类树节点保存（新建或更新）。
 - 认证：JWT（catWrite 分组挂 RequireAuthorization，PcTrackerModule.cs:1121-1122、1148-1157）
 - Web 前端使用：是（分类树页 CategoryTreePage，实际请求路径 `/pc/categories`，见上节备注）
@@ -431,7 +431,7 @@
 - 响应 data：`CategoryTreeNode`（字段同 GET /pc/categories/tree 条目）
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1148-1157`；DTO `DTOs/Phase2Dtos.cs:16-25`；前端 `src/client-web/src/api/pcTracker.ts:309-325`
 
-### DELETE /pc/categories/{id}
+### DELETE /api/v1/pc/categories/{id}
 - 用途：删除分类（两套注册并存：legacy 应用规则删除与树节点删除，路径相同）。
 - 认证：JWT（writeGroup PcTrackerModule.cs:61-62、389-400；catWrite PcTrackerModule.cs:1121-1122、1159-1177）
 - Web 前端使用：是（分类树页 CategoryTreePage）
@@ -443,7 +443,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:389-400（legacy）、1159-1177（树版）`；前端 `src/client-web/src/api/pcTracker.ts:292-294（deletePcCategory）、327-329（deleteCategory）`
 - 备注：树版删除时会级联处理子节点冲突（409），见 `Services/PcCategoryService.cs`。
 
-### PUT /pc/categories/reorder
+### PUT /api/v1/pc/categories/reorder
 - 用途：批量更新分类树排序与父子关系。
 - 认证：JWT（catWrite 分组挂 RequireAuthorization，PcTrackerModule.cs:1121-1122、1179-1188）
 - Web 前端使用：否（前端未调用）
@@ -457,7 +457,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1179-1188`；DTO `DTOs/Phase2Dtos.cs:27-37`；前端无封装
 - 备注：上报方仅 Web 管理（当前前端未接入）。
 
-### POST /pc/categories/seed
+### POST /api/v1/pc/categories/seed
 - 用途：初始化内置分类种子数据。
 - 认证：JWT（catWrite 分组挂 RequireAuthorization，PcTrackerModule.cs:1121-1122、1190-1198）
 - Web 前端使用：是（分类树页 CategoryTreePage）
@@ -465,7 +465,7 @@
 - 响应 data：`string`（`"种子数据已初始化"`）
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1190-1198`；前端 `src/client-web/src/api/pcTracker.ts:331-333`
 
-### GET /pc/classification/rules
+### GET /api/v1/pc/classification/rules
 - 用途：活动分类规则列表。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（PC 分类页 PcClassificationPage）
@@ -487,7 +487,7 @@
   | explanation | string \| null | 解释 |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:402-408`；DTO `DTOs/ActivityClassificationDtos.cs:42-55`；前端 `src/client-web/src/api/pcTracker.ts:176-177、192-194`
 
-### POST /pc/classification/rules
+### POST /api/v1/pc/classification/rules
 - 用途：保存活动分类规则。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、524-544）
 - Web 前端使用：否（仅路径常量 pcClassificationApiPaths.rules；规则创建当前经由建议 accept/apply 链路）
@@ -506,7 +506,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:524-544`；DTO `DTOs/ActivityClassificationDtos.cs:57-66`；前端 `src/client-web/src/api/pcTracker.ts:177`
 - 备注：参数错误 400；规则冲突 409。成功后清空 `/api/v1/pc/` 聚合缓存。
 
-### POST /pc/classification/rules/preview
+### POST /api/v1/pc/classification/rules/preview
 - 用途：预演规则在指定范围内会影响哪些记录（不落库）。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、546-560）
 - Web 前端使用：否（前端封装 previewActivityClassificationRule 存在但无页面调用）
@@ -529,7 +529,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:546-560`；DTO `DTOs/ActivityClassificationDtos.cs:104-120`；前端 `src/client-web/src/api/pcTracker.ts:247-255`
 - 备注：参数错误 400。
 
-### POST /pc/classification/rules/apply
+### POST /api/v1/pc/classification/rules/apply
 - 用途：应用规则并重算指定范围内记录的分类（落库）。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、562-582）
 - Web 前端使用：否（前端封装 applyActivityClassificationRule 存在但无页面调用）
@@ -538,7 +538,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:562-582`；前端 `src/client-web/src/api/pcTracker.ts:257-265`
 - 备注：400/409；成功后清空聚合缓存。
 
-### GET /pc/classification/suggestions
+### GET /api/v1/pc/classification/suggestions
 - 用途：v1 分类建议（按指定日待分类明细聚类生成）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（PC 追踪总览页 PcTrackerPage）
@@ -566,7 +566,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:418-449`；DTO `DTOs/ActivityClassificationDtos.cs:68-84`；前端 `src/client-web/src/api/pcTracker.ts:180、196-200`
 - 备注：服务端先取当日明细（page=1, pageSize=500），筛出 `classificationSource=fallback` 或 `classificationConfidence<0.5` 的记录再聚类（PcTrackerModule.cs:1320-1324 NeedsClassificationSuggestion）。
 
-### GET /pc/classification/suggestions/v2
+### GET /api/v1/pc/classification/suggestions/v2
 - 用途：v2 分类建议（基于应用签名/域名知识库/启发式的聚类建议）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：否（前端封装 getSuggestionsV2 无页面调用）
@@ -592,7 +592,7 @@
   | createdAt | string | 创建时间 ISO-8601 |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:410-416`；DTO `DTOs/ActivityClassificationDtos.cs:258-275`；前端 `src/client-web/src/api/pcTracker.ts:479-481`
 
-### POST /pc/classification/suggestions/batch-accept
+### POST /api/v1/pc/classification/suggestions/batch-accept
 - 用途：批量接受 v2 建议（可批量建规则）。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、674-683）
 - Web 前端使用：否（前端封装 batchAcceptSuggestions 无页面调用）
@@ -610,7 +610,7 @@
   | failuresCount | number | 失败数 |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:674-683`；DTO `DTOs/ActivityClassificationDtos.cs:277-289`；前端 `src/client-web/src/api/pcTracker.ts:483-485`
 
-### POST /pc/classification/suggestions/{id}/preview
+### POST /api/v1/pc/classification/suggestions/{id}/preview
 - 用途：预演"按建议给定的分类/标签重算"的影响面（并生成规则草稿）。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、597-621）
 - Web 前端使用：否（前端封装 previewActivityClassificationSuggestion 无页面调用；有页面调用的是 app-knowledge 同构预览，见下）
@@ -629,7 +629,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:597-621`；DTO `DTOs/ActivityClassificationDtos.cs:126-138`；前端 `src/client-web/src/api/pcTracker.ts:181、227-235`
 - 备注：404 建议不存在；400 参数错误；409 冲突。
 
-### POST /pc/classification/suggestions/{id}/apply
+### POST /api/v1/pc/classification/suggestions/{id}/apply
 - 用途：按建议实际应用分类并重算（生成审计记录）。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、623-649）
 - Web 前端使用：否（前端封装 applyActivityClassificationSuggestion 无页面调用；有页面调用的是 app-knowledge apply）
@@ -644,7 +644,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:623-649`；DTO `DTOs/ActivityClassificationDtos.cs:131-144`；前端 `src/client-web/src/api/pcTracker.ts:182、237-245`
 - 备注：404/400/409 同 preview；成功后清空聚合缓存。
 
-### POST /pc/classification/suggestions/{id}/accept
+### POST /api/v1/pc/classification/suggestions/{id}/accept
 - 用途：直接接受建议（按请求体给定内容创建规则）。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、651-672）
 - Web 前端使用：否（前端封装 acceptActivityClassificationSuggestion 无页面调用）
@@ -665,7 +665,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:651-672`；DTO `DTOs/ActivityClassificationDtos.cs:86-95`；前端 `src/client-web/src/api/pcTracker.ts:207-225`
 - 备注：404 不存在；409 冲突。
 
-### POST /pc/classification/suggestions/{id}/reject
+### POST /api/v1/pc/classification/suggestions/{id}/reject
 - 用途：拒绝建议。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、685-705）
 - Web 前端使用：是（PC 追踪总览页 PcTrackerPage）
@@ -677,7 +677,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:685-705`；前端 `src/client-web/src/api/pcTracker.ts:202-205`
 - 备注：404 不存在；409 冲突。
 
-### GET /pc/classification/queue
+### GET /api/v1/pc/classification/queue
 - 用途：待标注队列（按未覆盖的应用/域名聚合）或向导候选。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（标注队列组件 LabelingQueue、首次标注向导 FirstLabelingWizard、今日页分类建议区块 TodayClassificationSuggestionsSection）
@@ -697,7 +697,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:467-476`；DTO `DTOs/ActivityLabelingDtos.cs:3-6`；前端 `src/client-web/src/api/classificationLabeling.ts:35-37`
 - 备注：limit 服务端未做上限钳制（直接透传 BuildQueueAsync）；userId 取自当前登录用户（ICurrentUserService，匿名时可能为空）。
 
-### POST /pc/classification/label
+### POST /api/v1/pc/classification/label
 - 用途：提交标注（把应用/域名/移动应用归入分类，按需创建规则）。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、478-493）
 - Web 前端使用：是（标注队列组件 LabelingQueue、首次标注向导 FirstLabelingWizard）
@@ -718,7 +718,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:478-493`；DTO `DTOs/ActivityLabelingDtos.cs:8-11`；前端 `src/client-web/src/api/classificationLabeling.ts:43-45`
 - 备注：app+all→LabelAppAsync，app+keyword→LabelAppKeywordAsync，domain→LabelDomainAsync，mobile_app→LabelMobileAppAsync（ActivityLabelingService.cs:44-49）；参数错误 400。
 
-### GET /pc/classification/settings
+### GET /api/v1/pc/classification/settings
 - 用途：读取分类全局设置（推荐最短分类时长）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（PC 分类页 PcClassificationPage）
@@ -729,7 +729,7 @@
   | supportedRecommendedMinimumDurations | number[] | 可选档位（如 `[1,3,5,10,15]`） |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:459-465`；DTO `DTOs/ActivityClassificationDtos.cs:97-99`；前端 `src/client-web/src/api/pcTracker.ts:267-269`
 
-### PUT /pc/classification/settings
+### PUT /api/v1/pc/classification/settings
 - 用途：更新推荐最短分类时长。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、584-595）
 - Web 前端使用：是（PC 分类页 PcClassificationPage）
@@ -740,7 +740,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:584-595`；DTO `DTOs/ActivityClassificationDtos.cs:101-102`；前端 `src/client-web/src/api/pcTracker.ts:271-276`
 - 备注：成功后清空聚合缓存。
 
-### GET /pc/classification/project-tags/recent
+### GET /api/v1/pc/classification/project-tags/recent
 - 用途：最近使用的项目标签（建议/标注输入联想）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：否（前端封装 getRecentActivityProjectTags 无页面调用）
@@ -748,7 +748,7 @@
 - 响应 data：`string[]`（项目标签列表）
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:451-457`；前端 `src/client-web/src/api/pcTracker.ts:185、278-280`
 
-### POST /pc/classification/recompute
+### POST /api/v1/pc/classification/recompute
 - 用途：按范围重算全部分类快照（不带新规则）。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、707-723）
 - Web 前端使用：否（前端仅有路径常量 pcClassificationApiPaths.recompute，无调用方）
@@ -770,7 +770,7 @@
 
 > 本分组读写在源码中均挂 RequireAuthorization（PcTrackerModule.cs:746-747），即全部端点要求 JWT。
 
-### GET /pc/app-knowledge/apps
+### GET /api/v1/pc/app-knowledge/apps
 - 用途：知识库应用列表（含上下文数量与近期影响时长）。
 - 认证：JWT（appKnowledgeRead 分组，PcTrackerModule.cs:746、749-756）
 - Web 前端使用：是（应用知识库页 AppKnowledgeBasePage）
@@ -795,7 +795,7 @@
   | recentAffectedDurationSeconds | number | 近期影响时长秒 |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:749-756`；DTO `DTOs/ActivityClassificationDtos.cs:202-216`；前端 `src/client-web/src/api/appKnowledge.ts:67-77`
 
-### GET /pc/app-knowledge/apps/{appId}/contexts
+### GET /api/v1/pc/app-knowledge/apps/{appId}/contexts
 - 用途：读取某应用的上下文知识（默认分类/标题/域名等模式规则）。
 - 认证：JWT（appKnowledgeRead 分组，PcTrackerModule.cs:746、758-765）
 - Web 前端使用：是（应用知识库页 AppKnowledgeBasePage）
@@ -820,7 +820,7 @@
   | lastMatchedAt | string \| null | 最近匹配时间 |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:758-765`；DTO `DTOs/ActivityClassificationDtos.cs:218-232`；前端 `src/client-web/src/api/appKnowledge.ts:69、79-81`
 
-### POST /pc/app-knowledge/contexts
+### POST /api/v1/pc/app-knowledge/contexts
 - 用途：手工保存上下文知识。
 - 认证：JWT（appKnowledgeWrite 分组，PcTrackerModule.cs:747、767-781）
 - Web 前端使用：否（前端封装 saveAppKnowledgeContext 无页面调用）
@@ -838,7 +838,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:767-781`；DTO `DTOs/ActivityClassificationDtos.cs:234-242`；前端 `src/client-web/src/api/appKnowledge.ts:70、83-85`
 - 备注：参数错误 400。
 
-### DELETE /pc/app-knowledge/contexts/{id}
+### DELETE /api/v1/pc/app-knowledge/contexts/{id}
 - 用途：删除上下文知识。
 - 认证：JWT（appKnowledgeWrite 分组，PcTrackerModule.cs:747、783-792）
 - Web 前端使用：是（应用知识库页 AppKnowledgeBasePage）
@@ -849,7 +849,7 @@
 - 响应 data：`string`（成功 `"已删除。"`；不存在 404 `"未找到上下文知识。"`）
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:783-792`；前端 `src/client-web/src/api/appKnowledge.ts:87-89`
 
-### POST /pc/app-knowledge/suggestions/{id}/preview
+### POST /api/v1/pc/app-knowledge/suggestions/{id}/preview
 - 用途：对分类建议预演并生成推荐上下文知识（含备选）。
 - 认证：JWT（appKnowledgeWrite 分组，PcTrackerModule.cs:747、794-824）
 - Web 前端使用：是（PC 追踪总览页 PcTrackerPage 的上下文确认流程 ContextConfirmationPanel）
@@ -870,7 +870,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:794-824`；DTO `DTOs/ActivityClassificationDtos.cs:244-248`；前端 `src/client-web/src/api/appKnowledge.ts:71、91-98`
 - 备注：404/400/409 语义同 classification suggestions preview。
 
-### POST /pc/app-knowledge/suggestions/{id}/apply
+### POST /api/v1/pc/app-knowledge/suggestions/{id}/apply
 - 用途：按建议应用分类并把推荐上下文写入应用知识库（一次完成重算+知识沉淀）。
 - 认证：JWT（appKnowledgeWrite 分组，PcTrackerModule.cs:747、826-888）
 - Web 前端使用：是（PC 追踪总览页 PcTrackerPage）
@@ -893,7 +893,7 @@
 
 > 本分组读写在源码中均挂 RequireAuthorization（PcTrackerModule.cs:890-891），即全部端点要求 JWT。
 
-### GET /pc/app-signatures/
+### GET /api/v1/pc/app-signatures/
 - 用途：应用签名列表（可搜索）。
 - 认证：JWT（kbRead 分组，PcTrackerModule.cs:890、893-900）
 - Web 前端使用：否（前端封装 getAppSignatures 无页面调用）
@@ -915,7 +915,7 @@
   | createdAt | string | 创建时间 |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:893-900`；DTO `DTOs/ActivityClassificationDtos.cs:182-193`；前端 `src/client-web/src/api/appSignatures.ts:28-33`
 
-### GET /pc/app-signatures/count
+### GET /api/v1/pc/app-signatures/count
 - 用途：签名总数。
 - 认证：JWT（kbRead 分组，PcTrackerModule.cs:890、930-936）
 - Web 前端使用：否（前端封装 getAppSignatureCount 无页面调用）
@@ -923,7 +923,7 @@
 - 响应 data：`number`
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:930-936`；前端 `src/client-web/src/api/appSignatures.ts:35-37`
 
-### GET /pc/app-signatures/lookup/{processName}
+### GET /api/v1/pc/app-signatures/lookup/{processName}
 - 用途：按进程名精确查找本地签名。
 - 认证：JWT（kbRead 分组，PcTrackerModule.cs:890、938-947）
 - Web 前端使用：否（前端封装 lookupAppSignature（appSignatures.ts）无页面调用）
@@ -933,7 +933,7 @@
 - 响应 data：`AppSignatureDto`（字段同上）；未找到 404 `"未找到"`
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:938-947`；前端 `src/client-web/src/api/appSignatures.ts:39-41`
 
-### POST /pc/app-signatures/lookup
+### POST /api/v1/pc/app-signatures/lookup
 - 用途：按进程名在线查询签名信息（本地未命中时回源）。
 - 认证：JWT（kbWrite 分组，PcTrackerModule.cs:891、919-928）
 - Web 前端使用：否（前端封装 lookupAppSignature（pcTracker.ts POST 版）无页面调用）
@@ -943,7 +943,7 @@
 - 响应 data：`AppSignatureDto`（字段同上）；未找到 404 `"未找到应用签名"`
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:919-928`；DTO `DTOs/Phase2Dtos.cs:49`；前端 `src/client-web/src/api/pcTracker.ts:495-497`
 
-### POST /pc/app-signatures/
+### POST /api/v1/pc/app-signatures/
 - 用途：新增/更新应用签名。
 - 认证：JWT（kbWrite 分组，PcTrackerModule.cs:891、949-956）
 - Web 前端使用：是（应用知识库页 AppKnowledgeBasePage）
@@ -958,7 +958,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:949-956`；DTO `DTOs/ActivityClassificationDtos.cs:195-200`；前端 `src/client-web/src/api/appSignatures.ts:43-45`
 - 备注：前端请求路径 `/pc/app-signatures/`（带尾斜杠，appSignatures.ts:44）；前端 SaveAppSignatureRequest 类型另含 icon/confidence 可选字段（appSignatures.ts:24-25），后端 DTO 无此二字段（多余字段被忽略）。
 
-### DELETE /pc/app-signatures/{id}
+### DELETE /api/v1/pc/app-signatures/{id}
 - 用途：删除应用签名。
 - 认证：JWT（kbWrite 分组，PcTrackerModule.cs:891、958-967）
 - Web 前端使用：是（应用知识库页 AppKnowledgeBasePage）
@@ -969,7 +969,7 @@
 - 响应 data：`string`（成功 `"已删除"`；内置项或不存在 400 `"内置项不可删除或不存在"`）
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:958-967`；前端 `src/client-web/src/api/appSignatures.ts:47-49`
 
-### GET /pc/app-signatures/export
+### GET /api/v1/pc/app-signatures/export
 - 用途：导出全部应用签名（JSON）。
 - 认证：JWT（kbRead 分组，PcTrackerModule.cs:890、902-908）
 - Web 前端使用：否（前端封装 exportAppSignatures 无页面调用）
@@ -977,7 +977,7 @@
 - 响应 data：`AppSignatureDto[]`（字段同 GET /pc/app-signatures/ 条目）
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:902-908`；前端 `src/client-web/src/api/pcTracker.ts:487-489`
 
-### POST /pc/app-signatures/import
+### POST /api/v1/pc/app-signatures/import
 - 用途：批量导入应用签名（按进程名 upsert）。
 - 认证：JWT（kbWrite 分组，PcTrackerModule.cs:891、910-917）
 - Web 前端使用：否（前端封装 importAppSignatures 无页面调用）
@@ -994,7 +994,7 @@
 
 > 本组 POST 全部位于 writeGroup（PcTrackerModule.cs:61-62），要求 JWT；上报方为 Windows 守护进程（及 AW/浏览器插件链路），Web 前端不调用。
 
-### POST /pc/keystats/upload
+### POST /api/v1/pc/keystats/upload
 - 用途：守护进程上传当日键鼠日汇总（upsert）。
 - 认证：JWT（writeGroup）
 - Web 前端使用：否（Windows 守护进程上报链路）
@@ -1027,7 +1027,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:64-71`；DTO `DTOs/TrackerDtos.cs:5-32`；前端无封装
 - 备注：序列化为 camelCase（keyPressCounts/appStats 等）。
 
-### POST /pc/keystats/samples
+### POST /api/v1/pc/keystats/samples
 - 用途：守护进程上传键鼠采样点（用于 input-minute 明细与增量计算）。
 - 认证：JWT（writeGroup）
 - Web 前端使用：否（Windows 守护进程上报链路）
@@ -1053,7 +1053,7 @@
 - 响应 data：`string`（`"已接收"`）
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:73-80`；DTO `DTOs/TrackerDtos.cs:273-295`；前端无封装
 
-### POST /pc/aw/upload
+### POST /api/v1/pc/aw/upload
 - 用途：守护进程上传 ActivityWatch 简化事件批。
 - 认证：JWT（writeGroup）
 - Web 前端使用：否（Windows 守护进程上报链路）
@@ -1070,7 +1070,7 @@
 - 响应 data：`number`（接收条数）
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:82-89`；DTO `DTOs/TrackerDtos.cs:34-46`；前端无封装
 
-### POST /pc/aw/upload-complete
+### POST /api/v1/pc/aw/upload-complete
 - 用途：守护进程整包同步 AW bucket 原始事件（含 bucket 元数据）。
 - 认证：JWT（writeGroup）
 - Web 前端使用：否（Windows 守护进程上报链路）
@@ -1099,7 +1099,7 @@
 - 响应 data：`number`（接收条数）
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:91-98`；DTO `DTOs/TrackerDtos.cs:239-271`；前端无封装
 
-### POST /pc/tracker/upload
+### POST /api/v1/pc/tracker/upload
 - 用途：原生 Windows 守护进程上传活动事件批。
 - 认证：JWT（writeGroup）
 - Web 前端使用：否（Windows 守护进程上报链路）
@@ -1132,7 +1132,7 @@
 - 响应 data：`number`（接收条数）；参数错误 400
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:100-114`；DTO `DTOs/TrackerDtos.cs:5-33`；前端无封装
 
-### POST /pc/tracker/health
+### POST /api/v1/pc/tracker/health
 - 用途：守护进程心跳上报（采集器运行状态、浏览器/站点通道健康）。
 - 认证：JWT（writeGroup）
 - Web 前端使用：否（Windows 守护进程上报链路）
@@ -1156,7 +1156,7 @@
 - 响应 data：`string`（`"ok"`）；参数错误 400
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:116-130`；DTO `DTOs/TrackerDtos.cs:35-51`；前端无封装
 
-### GET /pc/tracker/health/latest
+### GET /api/v1/pc/tracker/health/latest
 - 用途：读取最近一条守护进程心跳（状态页采集健康卡片）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（状态页 StatusPage）
@@ -1185,7 +1185,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:132-140`；实体 `Entities/TrackerHealthEntity.cs:7-28`；前端 `src/client-web/src/api/pcTracker.ts:513-534`
 - 备注：前端 TrackerHealth 类型省略 id/createdAt/updatedAt（pcTracker.ts:513-530）。
 
-### GET /pc/tracker/health
+### GET /api/v1/pc/tracker/health
 - 用途：按设备读取最近一条守护进程心跳。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：否（状态页只用 latest 版本）
@@ -1202,7 +1202,7 @@
 
 > 上传/导入位于 writeGroup（JWT）；查询位于 readGroup（匿名）。
 
-### POST /pc/browser-tt/upload
+### POST /api/v1/pc/browser-tt/upload
 - 用途：站点级停留数据上传（Time Tracker fork / 浏览器插件经守护进程通道）。
 - 认证：JWT（writeGroup）
 - Web 前端使用：否（time-tracker-4-browser 插件 → 守护进程上报链路）
@@ -1220,7 +1220,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:156-170`；DTO `DTOs/BrowserSiteDtos.cs:8-22`；前端无封装
 - 备注：字段名与守护进程 SiteEventDto 的 JSON 契约一致（BrowserSiteDtos.cs:7）。
 
-### POST /pc/browser-tt/import
+### POST /api/v1/pc/browser-tt/import
 - 用途：历史站点数据自助导入（tt4b 备份 markdown 或记录页导出 JSON）。
 - 认证：JWT（writeGroup）
 - Web 前端使用：是（浏览器站点页 PcBrowserSitePage 的导入对话框 ImportDialog）
@@ -1239,7 +1239,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:172-186`；DTO `DTOs/BrowserSiteDtos.cs:78-95`；前端 `src/client-web/src/api/pcBrowserSite.ts:74、89-91`
 - 备注：参数错误 400。
 
-### GET /pc/browser-tt/summary
+### GET /api/v1/pc/browser-tt/summary
 - 用途：站点使用汇总（总专注/访问/运行/媒体时长与 Top 站点）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（浏览器站点页 PcBrowserSitePage）
@@ -1264,7 +1264,7 @@
   | topHosts[].visitCount | number | 访问次数 |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:222-239`；DTO `DTOs/BrowserSiteDtos.cs:49-67`；前端 `src/client-web/src/api/pcBrowserSite.ts:71、77-79`
 
-### GET /pc/browser-tt/daily
+### GET /api/v1/pc/browser-tt/daily
 - 用途：站点按日明细行。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（浏览器站点页 PcBrowserSitePage）
@@ -1284,7 +1284,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:188-204`；DTO `DTOs/BrowserSiteDtos.cs:25-40`；前端 `src/client-web/src/api/pcBrowserSite.ts:72、81-83`
 - 备注：参数错误 400。
 
-### GET /pc/browser-tt/timeline
+### GET /api/v1/pc/browser-tt/timeline
 - 用途：单日站点时间线块。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：是（浏览器站点页 PcBrowserSitePage）
@@ -1303,7 +1303,7 @@
 
 ## 生产力
 
-### GET /pc/productivity/dashboard
+### GET /api/v1/pc/productivity/dashboard
 - 用途：当日生产力仪表盘（得分、三类时长、目标达成、周趋势）。
 - 认证：JWT（prodRead 分组挂 RequireAuthorization，PcTrackerModule.cs:1201、1203-1218）
 - Web 前端使用：是（PC 追踪总览页内生产力面板组件 ProductivityDashboard）
@@ -1328,7 +1328,7 @@
   | weeklyTrend[].productiveRatio | number | 生产力占比 |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1203-1218`；DTO `DTOs/Phase2Dtos.cs:39-65`；前端 `src/client-web/src/api/pcTracker.ts:355-357`
 
-### GET /pc/productivity/range
+### GET /api/v1/pc/productivity/range
 - 用途：区间逐日生产力统计。
 - 认证：JWT（prodRead 分组挂 RequireAuthorization，PcTrackerModule.cs:1201、1220-1237）
 - Web 前端使用：否（前端封装 getProductivityRange 无页面调用）
@@ -1340,7 +1340,7 @@
 - 响应 data：`DailyProductivityDto[]`（字段同 dashboard.weeklyTrend 条目）
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1220-1237`；前端 `src/client-web/src/api/pcTracker.ts:359-361`
 
-### GET /pc/productivity/goals
+### GET /api/v1/pc/productivity/goals
 - 用途：读取生产力目标（每日生产力小时数）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60、1240-1246）
 - Web 前端使用：否（前端封装 getProductivityGoals 无页面调用）
@@ -1350,7 +1350,7 @@
   | dailyProductiveHours | number | 每日生产力目标小时（默认 5.0） |
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1240-1246`；DTO `DTOs/Phase2Dtos.cs:51-54`；前端 `src/client-web/src/api/pcTracker.ts:499-501`
 
-### PUT /pc/productivity/goals
+### PUT /api/v1/pc/productivity/goals
 - 用途：更新生产力目标。
 - 认证：JWT（writeGroup，PcTrackerModule.cs:61-62、1248-1257）
 - Web 前端使用：否（前端封装 updateProductivityGoals 无页面调用）
@@ -1361,7 +1361,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:1248-1257`；前端 `src/client-web/src/api/pcTracker.ts:503-505`
 - 备注：成功后清空聚合缓存。
 
-### GET /pc/aw/timeline
+### GET /api/v1/pc/aw/timeline
 - 用途：v1 活动时间线（AW+tracker 合并平滑）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：否（前端封装 getPcTimeline 无页面调用；Web 已改用 timeline/v2）
@@ -1373,7 +1373,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:258-273`（服务 `Services/PcTrackerService.cs:403-426`）；前端 `src/client-web/src/api/pcTracker.ts:21-23`
 - 备注：上报方为守护进程链路写入的数据；Web 端时间线展示走 GET /pc/timeline/v2。
 
-### GET /pc/aw/heatmap
+### GET /api/v1/pc/aw/heatmap
 - 用途：v1 小时级活动热力（单层桶列表）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：否（前端封装 getPcHeatmap 无页面调用；Web 已改用 heatmap/grid）
@@ -1386,7 +1386,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:275-292`；前端 `src/client-web/src/api/pcTracker.ts:25-27`
 - 备注：上报方为守护进程链路写入的数据。
 
-### GET /pc/keystats/range
+### GET /api/v1/pc/keystats/range
 - 用途：区间逐日键鼠统计（热力图/趋势数据源）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：否（前端无封装无调用；数据消费方为键盘热力图等面板的替代实现）
@@ -1399,7 +1399,7 @@
 - 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:294-311`；前端无封装
 - 备注：上报方为 Windows 守护进程的 keystats 上传链路。
 
-### GET /pc/timeline/v2
+### GET /api/v1/pc/timeline/v2
 - 用途：v2 业务日时间线（带生产力属性与置信度）。
 - 认证：匿名（readGroup 未挂授权，PcTrackerModule.cs:60）
 - Web 前端使用：否（前端存在两个封装 getTimelineV2/getPcTimelineV2 但当前均无页面调用）

@@ -17,7 +17,7 @@
 
 ## 日历本
 
-### GET /calendar/calendars
+### GET /api/v1/calendar/calendars
 - 用途：列出当前用户的日历/任务本（含 Outlook 绑定信息）。
 - 认证：JWT
 - Web 前端使用：是（日历页 CalendarPage、数据管理页 CalendarDataManager、侧边栏 Sidebar、日程编辑对话框 EventEditorDialog、任务编辑对话框 TaskEditorDialog）
@@ -40,7 +40,7 @@
   | canEdit | boolean | 有 Outlook 绑定时取绑定.CanEdit，否则 true |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:339-342`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:11-20`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarService.cs:44-64`；前端 `src/client-web/src/api/calendar.ts:276-280`；类型 `src/client-web/src/types/index.ts:15-25`
 
-### POST /calendar/calendars
+### POST /api/v1/calendar/calendars
 - 用途：创建日历（kind=`task` 即任务本）。
 - 认证：JWT
 - Web 前端使用：是（侧边栏 Sidebar）
@@ -55,7 +55,7 @@
 - 响应 data：`CalendarResponse`（字段同 GET /calendar/calendars，新建时 eventCount=0、source=manual）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:344-348`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:5-9`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarService.cs:66-80`；前端 `src/client-web/src/api/calendar.ts:282-285`
 
-### PUT /calendar/calendars/{id}
+### PUT /api/v1/calendar/calendars/{id}
 - 用途：更新日历名称/颜色（后端复用 CreateCalendarRequest；kind 不参与更新）。
 - 认证：JWT
 - Web 前端使用：是（侧边栏 Sidebar）
@@ -74,7 +74,7 @@
 - 备注：前端发送 `{ name?, color? }`（api/calendar.ts:287-290），后端 record 要求 Name 必填；重命名场景前端始终带 name。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:350-353`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarService.cs:82-92`；前端 `src/client-web/src/api/calendar.ts:287-290`
 
-### POST /calendar/calendars/{id}/delete-preview
+### POST /api/v1/calendar/calendars/{id}/delete-preview
 - 用途：删除日历前预览影响范围（联同其下任务/日程数量）。
 - 认证：JWT
 - Web 前端使用：是（侧边栏 Sidebar 删除确认对话框）
@@ -96,7 +96,7 @@
   | requiresStrictConfirmation | boolean | 恒为 true |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:355-357`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:232-241`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs:27-43`；前端 `src/client-web/src/api/calendar.ts:440-446`；类型 `src/client-web/src/types/index.ts:724-733`
 
-### DELETE /calendar/calendars/{id}
+### DELETE /api/v1/calendar/calendars/{id}
 - 用途：软删除日历及其下全部任务/日程（进入回收站）。
 - 认证：JWT
 - Web 前端使用：是（侧边栏 Sidebar）
@@ -108,7 +108,7 @@
 - 响应 data：`CalendarOperationResult`（字段见 POST /calendar/tasks/batch-delete）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:359-361`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs:45-101`；前端 `src/client-web/src/api/calendar.ts:292-294`
 
-### POST /calendar/calendars/{id}/restore
+### POST /api/v1/calendar/calendars/{id}/restore
 - 用途：从回收站恢复日历（后端固定按 `type=calendar` 走恢复流程）。
 - 认证：JWT
 - Web 前端使用：否（前端未封装该调用）
@@ -124,7 +124,7 @@
 
 ## 日程事件
 
-### GET /calendar/events
+### GET /api/v1/calendar/events
 - 用途：查询日程事件（支持时间窗口、搜索、日历过滤与分页；同一 URL 存在两种响应形态）。
 - 认证：JWT
 - Web 前端使用：是（日历页 CalendarPage 用 `start&end&page=1&pageSize=100`；数据管理页 CalendarDataManager 用分页/搜索参数）
@@ -191,7 +191,7 @@
     | isCancelled | boolean | 是否已取消，默认 false |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:370-390`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:113-149`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarService.cs:104-168`；前端 `src/client-web/src/api/calendar.ts:296-317,804-827`
 
-### POST /calendar/events
+### POST /api/v1/calendar/events
 - 用途：创建日程事件。
 - 认证：JWT
 - Web 前端使用：是（EventEditorDialog createEvent）
@@ -225,7 +225,7 @@
 - 响应 data：`EventResponse`（字段同 GET /calendar/events）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:392-399`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:45-74`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarService.cs:170-255`；前端 `src/client-web/src/api/calendar.ts:319-322`；类型 `src/client-web/src/types/index.ts:597-630`
 
-### PUT /calendar/events/{id}
+### PUT /api/v1/calendar/events/{id}
 - 用途：更新日程事件（支持周期范围 scope：本次/系列）。
 - 认证：JWT
 - Web 前端使用：是（EventEditorDialog updateEvent）
@@ -243,7 +243,7 @@
 - 响应 data：`EventResponse`
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:401-430`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:76-111`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarService.cs:419-700`；前端 `src/client-web/src/api/calendar.ts:324-333`（scope 取值 `this`/`series`，见 EventEditorDialog.tsx:159-160）
 
-### DELETE /calendar/events/{id}
+### DELETE /api/v1/calendar/events/{id}
 - 用途：删除日程事件（软删除；支持周期范围）。
 - 认证：JWT
 - Web 前端使用：是（EventEditorDialog deleteEvent）
@@ -257,7 +257,7 @@
 - 备注：Outlook 绑定日程禁止此通道删除（02009，须走写回流程）。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:432-441`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarService.cs:719-900`、`Services/CalendarDeleteService.cs:103-130`；前端 `src/client-web/src/api/calendar.ts:335-343`
 
-### POST /calendar/events/{id}/restore
+### POST /api/v1/calendar/events/{id}/restore
 - 用途：从回收站恢复事件。
 - 认证：JWT
 - Web 前端使用：否（前端经通用回收站恢复端点 restoreRecycleItem 调用 `POST /calendar/recycle-bin/event/{id}/restore`，未用此专用端点）
@@ -273,7 +273,7 @@
 - 响应 data：`CalendarOperationResult`（字段见 POST /calendar/tasks/batch-delete）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:443-448`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarRecycleBinService.cs:138-160`
 
-### POST /calendar/events/batch-delete
+### POST /api/v1/calendar/events/batch-delete
 - 用途：批量软删除事件。
 - 认证：JWT
 - Web 前端使用：是（数据管理页 CalendarDataManager）
@@ -293,7 +293,7 @@
   | message | string | 中文结果消息 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:450-454`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:293,223-250`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs:132-175`；前端 `src/client-web/src/api/calendar.ts:345-348`；类型 `src/client-web/src/types/index.ts:735-742`
 
-### GET /calendar/events/{eventId}/attachments/{attachmentId}/download
+### GET /api/v1/calendar/events/{eventId}/attachments/{attachmentId}/download
 - 用途：下载 Outlook 附件二进制（服务端经 Graph 中转）。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts 未封装；移动端使用）
@@ -309,7 +309,7 @@
 
 ## 任务
 
-### GET /calendar/tasks
+### GET /api/v1/calendar/tasks
 - 用途：查询任务（支持收件箱、搜索、日历、状态、优先级、计划/截止时间过滤与分页；双态行为）。
 - 认证：JWT
 - Web 前端使用：是（任务清单页 TaskListPage、工作台 WorkbenchPage 用 getTasksPaged；收件箱面板 InboxPanel、图表 useExhibitionData 用旧版全量）
@@ -353,7 +353,7 @@
   - 备注：前端 TaskResponse 另声明可选 `checklistItems`（types/index.ts:126），后端 Web 响应不返回该字段。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:480-516`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:181-191`；前端 `src/client-web/src/api/calendar.ts:77-89,350-380`（`GetTasksParams`、`buildTasksPath`、`getTasks`、`getTasksPaged`）
 
-### POST /calendar/tasks
+### POST /api/v1/calendar/tasks
 - 用途：创建任务。
 - 认证：JWT
 - Web 前端使用：是（TaskEditorDialog createTask；WorkbenchPage/TaskListPage 间接经 taskToMutationData 组装）
@@ -376,7 +376,7 @@
 - 响应 data：`TaskResponse`（字段同 GET /calendar/tasks）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:518-522`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:151-164`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarService.cs:1002-1049`；前端 `src/client-web/src/api/calendar.ts:55-68,382-385`（`TaskMutationData`）
 
-### PUT /calendar/tasks/{id}
+### PUT /api/v1/calendar/tasks/{id}
 - 用途：更新任务（整体替换式：title/description/priority/due/时长/dtStart 均按请求写入）。
 - 认证：JWT
 - Web 前端使用：是（TaskEditorDialog updateTask）
@@ -390,7 +390,7 @@
 - 备注：`status=COMPLETED` 时写入 CompletedAt；提供 dtStart 或 calendarId 会将 IsInbox 置 false。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:567-570`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarService.cs:1051-1107`；前端 `src/client-web/src/api/calendar.ts:387-390`、`taskToMutationData:396-412`
 
-### DELETE /calendar/tasks/{id}
+### DELETE /api/v1/calendar/tasks/{id}
 - 用途：软删除任务（进入回收站）。
 - 认证：JWT
 - Web 前端使用：是（TaskEditorDialog deleteTask）
@@ -402,7 +402,7 @@
 - 响应 data：`CalendarOperationResult`（字段见 POST /calendar/tasks/batch-delete）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:572-575`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs:177-195`；前端 `src/client-web/src/api/calendar.ts:414-416`
 
-### POST /calendar/tasks/{id}/restore
+### POST /api/v1/calendar/tasks/{id}/restore
 - 用途：从回收站恢复任务。
 - 认证：JWT
 - Web 前端使用：否（前端经 `POST /calendar/recycle-bin/task/{id}/restore` 调用）
@@ -418,7 +418,7 @@
 - 响应 data：`CalendarOperationResult`
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:577-582`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarRecycleBinService.cs:138-160`
 
-### POST /calendar/tasks/{id}/move
+### POST /api/v1/calendar/tasks/{id}/move
 - 用途：拖拽移动任务：改计划开始/时长/排序（仅改 PIM 事实，不经确认流）。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts:392-394 封装了 moveTask，但 UI 未调用）
@@ -437,7 +437,7 @@
 - 响应 data：string（字面量 `"已移动"`）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:524-530`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:193-198`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarService.cs:1231-1265`；前端 `src/client-web/src/api/calendar.ts:392-394`
 
-### POST /calendar/tasks/{id}/plan
+### POST /api/v1/calendar/tasks/{id}/plan
 - 用途：把任务排入计划（写 DtStart/PlannedEnd，可选改预计时长）。
 - 认证：JWT
 - Web 前端使用：是（日历页 CalendarPage 拖拽排程）
@@ -455,7 +455,7 @@
 - 响应 data：`TaskResponse`（IsInbox 被置 false）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:532-537`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:302-306`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarService.cs:1109-1133`；前端 `src/client-web/src/api/calendar.ts:448-454`
 
-### POST /calendar/tasks/batch-delete
+### POST /api/v1/calendar/tasks/batch-delete
 - 用途：批量软删除任务。
 - 认证：JWT
 - Web 前端使用：是（任务清单页 TaskListPage）
@@ -475,7 +475,7 @@
   | message | string | 结果消息 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:584-588`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:293,243-250`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarDeleteService.cs:197-260`；前端 `src/client-web/src/api/calendar.ts:783-789`
 
-### POST /calendar/tasks/batch-update
+### POST /api/v1/calendar/tasks/batch-update
 - 用途：批量修改任务状态/优先级/日历。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts:791-802 封装了 batchUpdateTasks，但 UI 未调用）
@@ -492,14 +492,15 @@
 
 ## 任务清单与时间段
 
-### GET /calendar/tasks/{id}/checklist
+### GET /api/v1/calendar/tasks/{id}/checklist
 - 用途：（预期）列出任务检查清单条目。
 - 认证：JWT
+- Web 前端使用：否（路由不存在）
 - **未注册，调用将 404**：后端只注册了 POST/PUT/DELETE 三个 checklist 路由（CalendarModule.cs:176,184,193），不存在 GET 路由；前端亦未封装 GET 调用（仅 path 函数 calendarApiPaths.taskChecklist，api/calendar.ts:178-180）。
 - 响应 data：无（路由不存在）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:176-199`（仅 POST/PUT/DELETE）；前端 `src/client-web/src/api/calendar.ts:178-180`
 
-### POST /calendar/tasks/{id}/checklist
+### POST /api/v1/calendar/tasks/{id}/checklist
 - 用途：为任务新增检查清单条目。
 - 认证：JWT
 - Web 前端使用：是（TaskEditorDialog addTaskChecklistItem）
@@ -523,7 +524,7 @@
   | sortOrder | integer | 排序号 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:176-182`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:341-344`；共享 DTO `src/Pim.Core/Planning/PlanningDtos.cs:17-22`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:308-334`；前端 `src/client-web/src/api/calendar.ts:560-566`；类型 `src/client-web/src/types/index.ts:178-189`
 
-### PUT /calendar/tasks/{id}/checklist/{itemId}
+### PUT /api/v1/calendar/tasks/{id}/checklist/{itemId}
 - 用途：更新检查清单条目标题/完成状态。
 - 认证：JWT
 - Web 前端使用：是（TaskEditorDialog updateTaskChecklistItem）
@@ -542,7 +543,7 @@
 - 备注：条目不存在报 02037。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:184-191`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:346-349`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:336-363`；前端 `src/client-web/src/api/calendar.ts:572-582`
 
-### DELETE /calendar/tasks/{id}/checklist/{itemId}
+### DELETE /api/v1/calendar/tasks/{id}/checklist/{itemId}
 - 用途：软删除检查清单条目。
 - 认证：JWT
 - Web 前端使用：是（TaskEditorDialog deleteTaskChecklistItem）
@@ -555,7 +556,7 @@
 - 响应 data：string（任务 ID 的字符串形式，PlanningModelService.cs:383）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:193-199`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:365-384`；前端 `src/client-web/src/api/calendar.ts:568-570`
 
-### GET /calendar/tasks/{id}/segments
+### GET /api/v1/calendar/tasks/{id}/segments
 - 用途：列出任务执行时间段（时间线）。
 - 认证：JWT
 - Web 前端使用：是（schedule 组件 TaskSegmentEditor）
@@ -578,7 +579,7 @@
   | confirmationId | string(uuid)\|null | 关联确认单 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:539-544`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:316-326`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:871-892`；前端 `src/client-web/src/api/calendar.ts:456-461`；类型 `src/client-web/src/types/index.ts:401-411`
 
-### POST /calendar/tasks/{id}/segments
+### POST /api/v1/calendar/tasks/{id}/segments
 - 用途：为任务新增执行时间段（同时解除收件箱态、回填 DtStart/PlannedEnd）。
 - 认证：JWT
 - Web 前端使用：是（TaskSegmentEditor）
@@ -598,7 +599,7 @@
 - 响应 data：`TaskExecutionSegmentResponse`（字段同 GET segments）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:546-555`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:308-314`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:831-869`；前端 `src/client-web/src/api/calendar.ts:463-472`；类型 `src/client-web/src/types/index.ts:393-399`
 
-### DELETE /calendar/tasks/{taskId}/segments/{segmentId}
+### DELETE /api/v1/calendar/tasks/{taskId}/segments/{segmentId}
 - 用途：软删除执行时间段。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts:474-476 封装了 deleteTaskExecutionSegment，但 UI 未调用）
@@ -614,7 +615,7 @@
 
 ## 图层
 
-### GET /calendar/layers
+### GET /api/v1/calendar/layers
 - 用途：工作台/日历统一图层查询（日程、任务段、习惯、可用时段、AI 建议五层合一，含周期展开）。
 - 认证：JWT
 - Web 前端使用：是（工作台 WorkbenchPage、日历页 CalendarPage）
@@ -649,7 +650,7 @@
 
 ## 项目与任务本
 
-### GET /calendar/projects
+### GET /api/v1/calendar/projects
 - 用途：列出领域项目。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts:540-543 封装了 getProjects，但 UI 未调用）
@@ -663,7 +664,7 @@
   | status | string | 状态（创建默认 `Active`） |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:152-155`；DTO `src/Pim.Core/Planning/PlanningDtos.cs:3-7`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:212-221`；前端 `src/client-web/src/api/calendar.ts:540-543`；类型 `src/client-web/src/types/index.ts:149-154`
 
-### POST /calendar/projects
+### POST /api/v1/calendar/projects
 - 用途：创建领域项目。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts:545-548 封装了 createProject，但 UI 未调用）
@@ -677,7 +678,7 @@
 - 响应 data：`DomainProjectDto`（字段同 GET /calendar/projects）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:157-163`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:328-332`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:223-243`；前端 `src/client-web/src/api/calendar.ts:545-548`；类型 `src/client-web/src/types/index.ts:156-160`
 
-### GET /calendar/task-books
+### GET /api/v1/calendar/task-books
 - 用途：列出任务本（附未删除任务计数）。
 - 认证：JWT
 - Web 前端使用：是（工作台 WorkbenchPage、任务清单页 TaskListPage、侧边栏 Sidebar、TaskEditorDialog）
@@ -693,7 +694,7 @@
   | taskCount | integer | 未删除任务数 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:164-167`；DTO `src/Pim.Core/Planning/PlanningDtos.cs:9-15`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:245-275`；前端 `src/client-web/src/api/calendar.ts:550-553`；类型 `src/client-web/src/types/index.ts:162-169`
 
-### POST /calendar/task-books
+### POST /api/v1/calendar/task-books
 - 用途：创建任务本。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts:555-558 封装了 createTaskBook，但 UI 未调用）
@@ -710,7 +711,7 @@
 
 ## 习惯与可用时间
 
-### GET /calendar/habits
+### GET /api/v1/calendar/habits
 - 用途：列出习惯例程。
 - 认证：JWT
 - Web 前端使用：是（习惯页 HabitsPage、习惯热力图 HabitCalendarHeatmap、图表 useExhibitionData）
@@ -725,7 +726,7 @@
   | status | string | 状态（创建默认 `Active`） |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:201-204`；DTO `src/Pim.Core/Planning/PlanningDtos.cs:24-29`、枚举 `src/Pim.Core/Planning/PlanningEnums.cs:26-32`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:386-401`；前端 `src/client-web/src/api/calendar.ts:584-587`；类型 `src/client-web/src/types/index.ts:191-197`
 
-### POST /calendar/habits
+### POST /api/v1/calendar/habits
 - 用途：创建习惯例程。
 - 认证：JWT
 - Web 前端使用：是（schedule 组件 HabitRoutineEditor）
@@ -742,7 +743,7 @@
 - 响应 data：`HabitRoutineDto`（字段同 GET /calendar/habits）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:206-211`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:351-358`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:403-426`；前端 `src/client-web/src/api/calendar.ts:589-592`；类型 `src/client-web/src/types/index.ts:199-206`
 
-### POST /calendar/habits/{id}/occurrences
+### POST /api/v1/calendar/habits/{id}/occurrences
 - 用途：打卡/创建一次习惯发生记录。
 - 认证：JWT
 - Web 前端使用：否（前端未封装）
@@ -768,7 +769,7 @@
   | status | string | 状态 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:213-219`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:360-365`；共享 DTO `src/Pim.Core/Planning/PlanningDtos.cs:31-36`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:428-460`
 
-### GET /calendar/availability
+### GET /api/v1/calendar/availability
 - 用途：列出可用时间窗口。
 - 认证：JWT
 - Web 前端使用：否（前端未封装）
@@ -783,7 +784,7 @@
   | source | string | 来源 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:221-224`；DTO `src/Pim.Core/Planning/PlanningDtos.cs:38-43`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:462-471`
 
-### POST /calendar/availability
+### POST /api/v1/calendar/availability
 - 用途：创建可用时间窗口。
 - 认证：JWT
 - Web 前端使用：否（前端未封装）
@@ -801,7 +802,7 @@
 
 ## AI 排程占位
 
-### POST /calendar/ai-placeholders
+### POST /api/v1/calendar/ai-placeholders
 - 用途：手工创建 AI 排程占位（Suggested 态，供确认流消费）。
 - 认证：JWT
 - Web 前端使用：否（前端未封装）
@@ -825,7 +826,7 @@
   | confirmationId | string(uuid)\|null | 关联确认单（新建为 null） |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:233-238`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:375-381`；共享 DTO `src/Pim.Core/Planning/PlanningDtos.cs:45-51`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:502-530,1002-1009`
 
-### GET /calendar/ai-placeholders
+### GET /api/v1/calendar/ai-placeholders
 - 用途：列出排程建议（工作台 AI 规划面板）。
 - 认证：JWT
 - Web 前端使用：是（工作台 WorkbenchPage）
@@ -848,7 +849,7 @@
   | confirmationId | string(uuid)\|null | 关联确认单 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:240-244`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:389-397`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:533-549,1011-1020`；前端 `src/client-web/src/api/calendar.ts:864-868`；类型 `src/client-web/src/types/index.ts:1685-1694`
 
-### POST /calendar/ai-placeholders/generate
+### POST /api/v1/calendar/ai-placeholders/generate
 - 用途：生成排程建议（优先 AI 网关，失败/关闭回退规则引擎；建议只入库不直接改事实）。
 - 认证：JWT
 - Web 前端使用：是（工作台 WorkbenchPage generateAiPlan）
@@ -865,7 +866,7 @@
   | placeholders | AiPlanPlaceholderViewDto[] | 新建占位（≤10 条，字段同 GET /calendar/ai-placeholders） |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:246-250`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:383-386,399-401`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:573-745`；前端 `src/client-web/src/api/calendar.ts:870-873`；类型 `src/client-web/src/types/index.ts:1696-1704`
 
-### POST /calendar/ai-placeholders/{id}/confirm
+### POST /api/v1/calendar/ai-placeholders/{id}/confirm
 - 用途：确认排程建议，进入 L2 确认流（占位转 PendingConfirmation）。
 - 认证：JWT
 - Web 前端使用：是（工作台 WorkbenchPage confirmAiPlaceholder）
@@ -877,7 +878,7 @@
 - 响应 data：`OperationConfirmationDto`（字段见 POST /calendar/data-center/batch/request-confirmation；operationType=`calendar.ai_placeholder.confirm`，riskLevel=`L2PimFactChange`，过期 12 小时）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:252-256`；服务 `src/modules/Pim.Module.Calendar/Services/PlanningModelService.cs:775-829`；前端 `src/client-web/src/api/calendar.ts:875-878`；类型 `src/client-web/src/types/index.ts:672-700`
 
-### POST /calendar/ai-placeholders/{id}/dismiss
+### POST /api/v1/calendar/ai-placeholders/{id}/dismiss
 - 用途：忽略排程建议（Suggested/Dismissed → Dismissed，不进确认流）。
 - 认证：JWT
 - Web 前端使用：是（工作台 WorkbenchPage dismissAiPlaceholder）
@@ -891,7 +892,7 @@
 
 ## 提醒
 
-### GET /calendar/reminders
+### GET /api/v1/calendar/reminders
 - 用途：列出当前用户提醒。
 - 认证：JWT
 - Web 前端使用：是（提醒页 RemindersPage、今日页 TodayOpsSections）
@@ -914,7 +915,7 @@
 - 备注：前端 `ReminderSummary`（types/index.ts:208-224）额外声明 `escalationPolicy`/`deliveryHistory`/`responseHistory` 可选字段，后端 Web 响应不返回。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:264-267`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:601-614`；服务 `src/modules/Pim.Module.Calendar/Services/ReminderService.cs:64-73,200-213`；前端 `src/client-web/src/api/calendar.ts:594-597`；类型 `src/client-web/src/types/index.ts:208-224`
 
-### POST /calendar/reminders
+### POST /api/v1/calendar/reminders
 - 用途：创建提醒。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts:599-602 封装了 createReminder，但 UI 未调用）
@@ -934,7 +935,7 @@
 - 响应 data：`ReminderResponse`（字段同 GET /calendar/reminders，status=`Open`）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:269-274`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:588-599`；服务 `src/modules/Pim.Module.Calendar/Services/ReminderService.cs:32-62`；前端 `src/client-web/src/api/calendar.ts:599-602`；类型 `src/client-web/src/types/index.ts:242-253`
 
-### POST /calendar/reminders/{id}/snooze
+### POST /api/v1/calendar/reminders/{id}/snooze
 - 用途：贪睡（推迟触发时间）。
 - 认证：JWT
 - Web 前端使用：是（RemindersPage snoozeReminder）
@@ -950,7 +951,7 @@
 - 响应 data：`ReminderResponse`（status=`Snoozed`）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:276-284`；服务 `src/modules/Pim.Module.Calendar/Services/ReminderService.cs:75-83`；前端 `src/client-web/src/api/calendar.ts:604-611`
 
-### POST /calendar/reminders/{id}/dismiss
+### POST /api/v1/calendar/reminders/{id}/dismiss
 - 用途：忽略提醒。
 - 认证：JWT
 - Web 前端使用：是（RemindersPage dismissReminder）
@@ -962,7 +963,7 @@
 - 响应 data：`ReminderResponse`（status=`Dismissed`）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:286-290`；服务 `src/modules/Pim.Module.Calendar/Services/ReminderService.cs:85-92`；前端 `src/client-web/src/api/calendar.ts:613-616`
 
-### POST /calendar/reminders/{id}/actions/{action}
+### POST /api/v1/calendar/reminders/{id}/actions/{action}
 - 用途：处理提醒按钮动作（open/snooze/dismiss；高风险提醒的其他动作被拒并要求打开详情）。
 - 认证：JWT
 - Web 前端使用：是（RemindersPage handleReminderAction）
@@ -981,7 +982,7 @@
 - 备注：riskLevel 属于 {L2PimFactChange, L3ExternalSourceOrWriteback, L4BatchOrDestructiveGovernance} 且 action 非 open/snooze/dismiss 时，记录投递并返回 `OpenDetailRequired`，不执行动作。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:292-297`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:616-620`；服务 `src/modules/Pim.Module.Calendar/Services/ReminderService.cs:94-123,239-242`；前端 `src/client-web/src/api/calendar.ts:618-624`；类型 `src/client-web/src/types/index.ts:236-240`
 
-### GET /calendar/reminders/delivery-log
+### GET /api/v1/calendar/reminders/delivery-log
 - 用途：查询提醒投递/响应日志（最近 100 条）。
 - 认证：JWT
 - Web 前端使用：是（RemindersPage getReminderDeliveryLog）
@@ -1000,7 +1001,7 @@
 
 ## 报告
 
-### GET /calendar/reports
+### GET /api/v1/calendar/reports
 - 用途：列出报告工件。
 - 认证：JWT
 - Web 前端使用：是（报告页 ReportsPage、今日页 TodayOpsSections）
@@ -1019,7 +1020,7 @@
 - 备注：前端 `ReportArtifact`（types/index.ts:261-273）额外声明 `title`/`suggestions`/`confirmationId` 可选字段，后端 Web 响应不返回。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:304-307`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:649-658`；服务 `src/modules/Pim.Module.Calendar/Services/ReportService.cs:94-103,163-172`；前端 `src/client-web/src/api/calendar.ts:631-634`；类型 `src/client-web/src/types/index.ts:261-273`
 
-### POST /calendar/reports/generate
+### POST /api/v1/calendar/reports/generate
 - 用途：生成一份报告（规则统计模板，非 AI）。
 - 认证：JWT
 - Web 前端使用：是（ReportsPage generateReport）
@@ -1033,7 +1034,7 @@
 - 响应 data：`ReportArtifactDto`（字段同 GET /calendar/reports，status=`Active`）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:309-317`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:643-647`；服务 `src/modules/Pim.Module.Calendar/Services/ReportService.cs:31-92`；前端 `src/client-web/src/api/calendar.ts:641-644`；类型 `src/client-web/src/types/index.ts:255-259`
 
-### GET /calendar/reports/{id}
+### GET /api/v1/calendar/reports/{id}
 - 用途：获取单份报告。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts:636-639 封装了 getReport，但 UI 未调用）
@@ -1045,7 +1046,7 @@
 - 响应 data：`ReportArtifactDto`（字段同 GET /calendar/reports）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:319-323`；服务 `src/modules/Pim.Module.Calendar/Services/ReportService.cs:105-106,158-161`；前端 `src/client-web/src/api/calendar.ts:636-639`
 
-### POST /calendar/reports/{id}/archive
+### POST /api/v1/calendar/reports/{id}/archive
 - 用途：归档报告（status → Archived）。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts:646-649 封装了 archiveReport，但 UI 未调用）
@@ -1057,7 +1058,7 @@
 - 响应 data：`ReportArtifactDto`（status=`Archived`）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:325-329`；服务 `src/modules/Pim.Module.Calendar/Services/ReportService.cs:108-115`；前端 `src/client-web/src/api/calendar.ts:646-649`
 
-### POST /calendar/reports/suggestions/{id}/request-action
+### POST /api/v1/calendar/reports/suggestions/{id}/request-action
 - 用途：对报告建议发起动作确认（创建 L2 确认单，建议转 PendingConfirmation）。
 - 认证：JWT
 - Web 前端使用：是（ReportsPage requestReportSuggestionAction）
@@ -1071,7 +1072,7 @@
 
 ## 回收站
 
-### GET /calendar/recycle-bin
+### GET /api/v1/calendar/recycle-bin
 - 用途：分页列出回收站条目（日历/任务本/事件/任务）。
 - 认证：JWT
 - Web 前端使用：是（回收站页 RecycleBinPage）
@@ -1103,7 +1104,7 @@
   | totalCount / page / pageSize / totalPages | integer | 分页元数据 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:597-607`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:273-284`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarRecycleBinService.cs:30-133`；前端 `src/client-web/src/api/calendar.ts:70-75,418-423`（`RecycleBinParams`）；类型 `src/client-web/src/types/index.ts:763-774`
 
-### POST /calendar/recycle-bin/{type}/{id}/restore-preview
+### POST /api/v1/calendar/recycle-bin/{type}/{id}/restore-preview
 - 用途：恢复前预览（子条目数量、样例、冲突列表）。
 - 认证：JWT
 - Web 前端使用：是（RecycleBinPage previewRecycleRestore）
@@ -1125,7 +1126,7 @@
   | canRestoreWithoutConflict | boolean | conflicts 为空即 true |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:609-614`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:252-269`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarRecycleBinService.cs:135-136,178-510,512-523`；前端 `src/client-web/src/api/calendar.ts:425-430`；类型 `src/client-web/src/types/index.ts:744-761`
 
-### POST /calendar/recycle-bin/{type}/{id}/restore
+### POST /api/v1/calendar/recycle-bin/{type}/{id}/restore
 - 用途：执行恢复（可恢复为副本；冲突时须副本或报错）。
 - 认证：JWT
 - Web 前端使用：是（RecycleBinPage restoreRecycleItem）
@@ -1140,7 +1141,7 @@
 
 ## 数据中心
 
-### POST /calendar/data-center/query
+### POST /api/v1/calendar/data-center/query
 - 用途：数据中心全对象检索（事件/任务/时间段/习惯/习惯发生/可用窗口等跨类型聚合搜索）。
 - 认证：JWT
 - Web 前端使用：是（数据中心页 DataCenterPage）
@@ -1172,7 +1173,7 @@
   | totalCount | integer | 总数 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:100-104`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:430-455`；服务 `src/modules/Pim.Module.Calendar/Services/DataCenterQueryService.cs:33-124`；前端 `src/client-web/src/api/calendar.ts:485-491`；类型 `src/client-web/src/types/index.ts:440-465`
 
-### POST /calendar/data-center/batch/preview
+### POST /api/v1/calendar/data-center/batch/preview
 - 用途：批量操作（如 archive）风险预览。
 - 认证：JWT
 - Web 前端使用：是（数据中心批量预览组件 DataCenterBatchPreview）
@@ -1193,7 +1194,7 @@
   | affectedCount | integer | 对象数 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:106-111`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:457-474`；服务 `src/modules/Pim.Module.Calendar/Services/DataCenterGovernanceService.cs:39-62`；前端 `src/client-web/src/api/calendar.ts:493-499`；类型 `src/client-web/src/types/index.ts:330-347`
 
-### POST /calendar/data-center/batch/request-confirmation
+### POST /api/v1/calendar/data-center/batch/request-confirmation
 - 用途：为批量操作创建严格确认单（需二级确认 confirm-strict）。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts:501-507 封装了 requestDataCenterBatchConfirmation，但 UI 未调用）
@@ -1225,7 +1226,7 @@
   | aiRecommendation / externalEffect / recoveryPath | string\|null | 提示文案 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:113-118`；共享 DTO `src/Pim.Core/Operations/ConfirmationDtos.cs:26-53`、枚举 `src/Pim.Core/Operations/OperationEnums.cs:42-61`；服务 `src/modules/Pim.Module.Calendar/Services/DataCenterGovernanceService.cs:64-96`；前端 `src/client-web/src/api/calendar.ts:501-507`；类型 `src/client-web/src/types/index.ts:672-700`
 
-### POST /calendar/data-center/batch/execute
+### POST /api/v1/calendar/data-center/batch/execute
 - 用途：执行已确认的批量操作。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts:509-515 封装了 executeDataCenterBatch，但 UI 未调用）
@@ -1242,7 +1243,7 @@
   | affectedCount | integer | 实际影响对象数 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:120-125`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:476-484`；服务 `src/modules/Pim.Module.Calendar/Services/DataCenterGovernanceService.cs:98-113,177-260`；前端 `src/client-web/src/api/calendar.ts:509-515`；类型 `src/client-web/src/types/index.ts:349-353`
 
-### GET /calendar/data-center/audit/export
+### GET /api/v1/calendar/data-center/audit/export
 - 用途：导出当前用户审计版本数据（JSON 内容封装在响应内）。
 - 认证：JWT
 - Web 前端使用：是（DataCenterPage getAuditExport）
@@ -1261,7 +1262,7 @@
   | content | string | 导出内容（JSON 字符串） |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:127-136`；共享 DTO `src/Pim.Core/Audit/AuditVersionDtos.cs:26-29`；服务 `src/modules/Pim.Module.Calendar/Services/DataCenterGovernanceService.cs:115-119`；前端 `src/client-web/src/api/calendar.ts:517-522`；类型 `src/client-web/src/types/index.ts:314-318`
 
-### POST /calendar/data-center/restore/preview
+### POST /api/v1/calendar/data-center/restore/preview
 - 用途：按审计版本 ID 预览恢复（变更字段、前后值）。
 - 认证：JWT
 - Web 前端使用：是（DataCenterPage previewDataCenterRestore）
@@ -1283,7 +1284,7 @@
   | afterJson | string\|null | 后值 JSON |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:138-143`；共享 DTO `src/Pim.Core/Audit/AuditVersionDtos.cs:17-24`；服务 `src/modules/Pim.Module.Calendar/Services/DataCenterGovernanceService.cs:121-124`；前端 `src/client-web/src/api/calendar.ts:524-530`；类型 `src/client-web/src/types/index.ts:320-328`
 
-### POST /calendar/data-center/restore/request-confirmation
+### POST /api/v1/calendar/data-center/restore/request-confirmation
 - 用途：为审计版本恢复创建严格确认单。
 - 认证：JWT
 - Web 前端使用：否（api/calendar.ts:532-538 封装了 requestDataCenterRestoreConfirmation，但 UI 未调用）
@@ -1294,7 +1295,7 @@
 
 ## Outlook 同步
 
-### GET /calendar/outlook/settings
+### GET /api/v1/calendar/outlook/settings
 - 用途：读取 Outlook 连接设置（Client ID、状态、令牌健康度）。
 - 认证：JWT
 - Web 前端使用：是（同步页 SyncPage、工作台 WorkbenchPage、EventEditorDialog）
@@ -1314,7 +1315,7 @@
   | activeAuthorization | OutlookAuthorizationSessionResponse\|null | 本端点恒 null（字段见 POST /calendar/outlook/device-code） |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:694-704,1056-1083`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:505-516`；前端 `src/client-web/src/api/calendar.ts:659-664`；类型 `src/client-web/src/types/index.ts:467-478`
 
-### PUT /calendar/outlook/settings
+### PUT /api/v1/calendar/outlook/settings
 - 用途：保存 Microsoft Client ID（无连接时创建连接行；TenantId/Scopes 固定）。
 - 认证：JWT
 - Web 前端使用：是（SyncPage updateOutlookSettings）
@@ -1326,7 +1327,7 @@
 - 响应 data：`OutlookSettingsResponse`（字段同 GET /calendar/outlook/settings）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:706-732`；DTO `src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs:72`；前端 `src/client-web/src/api/calendar.ts:666-672`；类型 `src/client-web/src/types/index.ts:480-482`
 
-### POST /calendar/outlook/device-code
+### POST /api/v1/calendar/outlook/device-code
 - 用途：发起设备码授权（创建授权会话并启动流程）。
 - 认证：JWT
 - Web 前端使用：是（SyncPage createOutlookDeviceCode）
@@ -1347,7 +1348,7 @@
 - 备注：连接不存在报 02005 "Outlook is not connected."；Client ID 未配置报 02005 "Microsoft Client ID is not configured."。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:734-758,1085-1087`；DTO `src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs:3-13`；前端 `src/client-web/src/api/calendar.ts:674-680`；类型 `src/client-web/src/types/index.ts:484-495`
 
-### POST /calendar/outlook/device-code/poll
+### POST /api/v1/calendar/outlook/device-code/poll
 - 用途：轮询设备码授权会话状态。
 - 认证：JWT
 - Web 前端使用：是（SyncPage pollOutlookDeviceCode）
@@ -1360,7 +1361,7 @@
 - 备注：会话不存在（或不属于当前用户）返回 HTTP 404，body `ApiResponse<string>` code=404 "Session not found."。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:760-774`；DTO `src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs:73`；前端 `src/client-web/src/api/calendar.ts:682-688`
 
-### POST /calendar/outlook/device-code/{sessionId}/cancel
+### POST /api/v1/calendar/outlook/device-code/{sessionId}/cancel
 - 用途：取消进行中的设备码授权会话。
 - 认证：JWT
 - Web 前端使用：是（SyncPage cancelOutlookDeviceCode）
@@ -1373,7 +1374,7 @@
 - 备注：会话不存在/无法取消返回 HTTP 404（code=404 "Session not found."）。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:776-792`；前端 `src/client-web/src/api/calendar.ts:690-695`
 
-### POST /calendar/outlook/check
+### POST /api/v1/calendar/outlook/check
 - 用途：检查 Outlook 连接健康度（调 Graph /me 并触发日历发现，更新状态）。
 - 认证：JWT
 - Web 前端使用：是（SyncPage checkOutlookConnection）
@@ -1381,7 +1382,7 @@
 - 响应 data：`OutlookSettingsResponse`（字段同 GET /calendar/outlook/settings；成功后 status=`connected`、tokenHealth=`healthy`；需重新授权时 status=`reauth-required`、tokenHealth=`interaction-required`；连接行不存在时返回未配置默认值）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:794-830`；前端 `src/client-web/src/api/calendar.ts:697-702`
 
-### POST /calendar/outlook/calendars/discover
+### POST /api/v1/calendar/outlook/calendars/discover
 - 用途：从 Microsoft Graph 发现日历并刷新绑定（手动动作，直接打 Graph）。
 - 认证：JWT
 - Web 前端使用：是（SyncPage outlookDiscover）
@@ -1406,7 +1407,7 @@
   | lastError | string\|null | 最近错误 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:832-837`；DTO `src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs:15-20`；服务 `src/modules/Pim.Module.Calendar/Services/OutlookCalendarSyncService.cs`（DiscoverAsync，remoteState 写 `active`）；前端 `src/client-web/src/api/calendar.ts:731-736`；类型 `src/client-web/src/types/index.ts:497-513`
 
-### GET /calendar/outlook/calendars
+### GET /api/v1/calendar/outlook/calendars
 - 用途：只读列出已存储的 Outlook 日历绑定（不打 Graph；同步页刷新 remote_state 用）。
 - 认证：JWT
 - Web 前端使用：是（SyncPage outlookBindings）
@@ -1414,7 +1415,7 @@
 - 响应 data：`OutlookCalendarBindingResponse[]`（字段同 POST /calendar/outlook/calendars/discover）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:842-847`；前端 `src/client-web/src/api/calendar.ts:738-743`
 
-### PUT /calendar/outlook/calendars/selection
+### PUT /api/v1/calendar/outlook/calendars/selection
 - 用途：保存参与同步的日历绑定选择。
 - 认证：JWT
 - Web 前端使用：是（SyncPage outlookSelection）
@@ -1426,7 +1427,7 @@
 - 响应 data：`OutlookCalendarBindingResponse[]`（保存后的最新绑定列表，字段同 discover）
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:849-859`；DTO `src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs:76`；前端 `src/client-web/src/api/calendar.ts:745-751`
 
-### POST /calendar/outlook/sync
+### POST /api/v1/calendar/outlook/sync
 - 用途：手动触发 Outlook 日历同步批次。
 - 认证：JWT
 - Web 前端使用：是（SyncPage runOutlookSync，默认 `{ mode: 'normal' }`）
@@ -1462,7 +1463,7 @@
   | cancelRequested | boolean | 是否已请求取消 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:861-867,1089-1101`；DTO `src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs:22-27`、`src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:537-563`；服务 `src/modules/Pim.Module.Calendar/Services/OutlookCalendarSyncService.cs:454-458`（AllowedModes）；前端 `src/client-web/src/api/calendar.ts:704-710`；类型 `src/client-web/src/types/index.ts:515-549`
 
-### POST /calendar/outlook/sync/{batchId}/cancel
+### POST /api/v1/calendar/outlook/sync/{batchId}/cancel
 - 用途：请求取消运行中的同步批次。
 - 认证：JWT
 - Web 前端使用：是（SyncPage cancelOutlookSync）
@@ -1475,7 +1476,7 @@
 - 备注：批次不存在/不在 running 态返回 HTTP 404（code=404 "Batch not found or not running."）。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:869-886`；前端 `src/client-web/src/api/calendar.ts:724-729`
 
-### GET /calendar/outlook/sync/batches
+### GET /api/v1/calendar/outlook/sync/batches
 - 用途：分页列出同步批次历史。
 - 认证：JWT
 - Web 前端使用：是（SyncPage getOutlookSyncBatchesPaged）
@@ -1495,7 +1496,7 @@
   | pageSize | integer | 页大小 |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:888-916`；前端 `src/client-web/src/api/calendar.ts:262-267,712-717`；类型 `src/client-web/src/types/index.ts:584-589`（`OutlookSyncBatchPage`）
 
-### POST /calendar/outlook/events/writeback
+### POST /api/v1/calendar/outlook/events/writeback
 - 用途：经确认流把 PIM 事件变更写回 Microsoft Graph（创建/更新/删除）。
 - 认证：JWT
 - Web 前端使用：是（EventEditorDialog writeOutlookEvent；经 authedFetch 显式允许 409/412 状态）
@@ -1524,7 +1525,7 @@
 - 备注：冲突语义——服务端 Graph 返回 412 PreconditionFailed / 409 Conflict 时构造 `status=conflict, errorCode=CONFLICT` 的结果，路由以 HTTP 409 返回但 body 仍是 `ApiResponse` 成功封装（`Results.Conflict(ApiResponse<OutlookWriteResult>.Ok(result))`，CalendarModule.cs:925-926）；前端 authedFetch 将 409/412 列为允许状态后按 data 解析。需重新授权时 status=`reauth-required`、errorCode=`REAUTH_REQUIRED`（HTTP 200）。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:918-928`；DTO `src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs:53-70`、`src/client-web/src/types/index.ts:627-653`；服务 `src/modules/Pim.Module.Calendar/Services/OutlookEventWriteService.cs:185,337,480,575-576,680-683,711-713`；前端 `src/client-web/src/api/calendar.ts:753-760`
 
-### POST /calendar/outlook/disconnect
+### POST /api/v1/calendar/outlook/disconnect
 - 用途：断开 Outlook 连接（清令牌缓存、请求取消非写回同步批次）。
 - 认证：JWT
 - Web 前端使用：是（SyncPage outlookDisconnect）
@@ -1533,7 +1534,7 @@
 - 备注：连接行保留（status=`not-connected`、tokenHealth=`missing`）；不删除本地日历/事件（那由 DELETE local-data 完成）。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:930-968`；前端 `src/client-web/src/api/calendar.ts:776-781`
 
-### GET /calendar/outlook/local-data/preview
+### GET /api/v1/calendar/outlook/local-data/preview
 - 用途：预览断开后将清理的本地 Outlook 数据量。
 - 认证：JWT
 - Web 前端使用：是（SyncPage outlookLocalDataPreview）
@@ -1547,7 +1548,7 @@
 - 备注：连接不存在时返回 `(0, 0, 0)`。
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:970-998`；DTO `src/modules/Pim.Module.Calendar/DTOs/OutlookSyncDtos.cs:74`；前端 `src/client-web/src/api/calendar.ts:762-767`；类型 `src/client-web/src/types/index.ts:591-595`
 
-### DELETE /calendar/outlook/local-data
+### DELETE /api/v1/calendar/outlook/local-data
 - 用途：清理本地 Outlook 数据（软删 outlook 事件与日历、删绑定、清令牌缓存）。
 - 认证：JWT
 - Web 前端使用：是（SyncPage outlookLocalDataDelete）
@@ -1557,7 +1558,7 @@
 
 ## ICS
 
-### POST /calendar/import-ics
+### POST /api/v1/calendar/import-ics
 - 用途：导入 Outlook/通用 ICS 文件（解析、去重、落库）。
 - 认证：JWT
 - Web 前端使用：是（CalendarDataManager importIcs；用原生 fetch + FormData）
@@ -1576,7 +1577,7 @@
   | samples | ImportSkippedItem[] | 跳过样例：`{ reason, title, start, uid }` |
 - 来源：后端 `src/modules/Pim.Module.Calendar/CalendarModule.cs:637-661`；DTO `src/modules/Pim.Module.Calendar/DTOs/CalendarDtos.cs:491-503`；服务 `src/modules/Pim.Module.Calendar/Services/CalendarService.cs:257-355`；前端 `src/client-web/src/api/calendar.ts:848-861`；类型 `src/client-web/src/types/index.ts:776-788`
 
-### GET /calendar/export-ics
+### GET /api/v1/calendar/export-ics
 - 用途：导出 ICS 文件下载（text/calendar，附件名 `pim-events.ics`）。
 - 认证：JWT
 - Web 前端使用：是（CalendarDataManager exportIcs；用原生 fetch 携带 Bearer 头下载 blob）
@@ -1594,7 +1595,7 @@
 
 ## 排程
 
-### POST /calendar/schedule
+### POST /api/v1/calendar/schedule
 - 用途：对给定任务集合运行排程引擎（greedy/csp/genetic 三算法），返回排程方案。
 - 认证：JWT
 - Web 前端使用：否（前端 api/calendar.ts 未封装该调用）

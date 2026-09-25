@@ -151,7 +151,7 @@
 | 分类筛选条 | pills 单选（全部/灵感/学业/开发/运维/生活） | — | 分类从笔记内容前缀自动提取 |
 | 闪念瀑布流 | CSS 多列瀑布流卡片墙：分类 chip、时间戳、4 行内容预览、附件胶囊（名称+大小）、状态徽标；点击开编辑弹窗 | — | — |
 | 页面 FAB | 圆形按钮 → 菜单（写闪念/建任务/排日程） | — | — |
-| 闪念编辑弹窗 | 可拖拽弹窗：分类下拉、Markdown 编辑器 + 预览、归档/已处理复选、附件上传行（选择文件+胶囊列表）、保存/删除 | GET /api/v1/quick-notes/{id}；POST /api/v1/quick-notes；PUT /api/v1/quick-notes/{id}（contentMarkdown+attachmentIds）；POST /api/v1/quick-notes/{id}/process（AI 处理）；POST …/{id}/archive；POST …/{id}/restore；DELETE …/{id}；POST /api/v1/quick-notes/attachments（multipart） | 编辑器支持粘贴/上传图片；预览时附件下载链接改写为带认证的 blob URL |
+| 闪念编辑弹窗 | 可拖拽弹窗：分类下拉、Markdown 编辑器 + 预览、归档/已处理复选、附件上传行（选择文件+胶囊列表）、保存/删除 | GET /api/v1/quick-notes/{id}；POST /api/v1/quick-notes；PUT /api/v1/quick-notes/{id}（contentMarkdown+attachmentIds）；POST /api/v1/quick-notes/{id}/process（仅标记为已处理）；POST …/{id}/archive；POST …/{id}/restore；DELETE …/{id}；POST /api/v1/quick-notes/attachments（multipart） | 编辑器支持粘贴/上传图片；预览时附件下载链接改写为带认证的 blob URL |
 | Shell 分享预填 | URL 参数预填 | — | 支持 `?prefill=`/`?text=`/`?embed=1` |
 
 ## /files 文件

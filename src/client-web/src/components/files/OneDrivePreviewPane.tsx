@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Download, FileText, History, Loader2, Save } from 'lucide-react';
 import {
   apiDownloadBlob,
+  getDownloadUrl,
   getOneDrivePreviewUrl,
   getOneDriveSnapshots,
   getOneDriveText,
@@ -139,27 +140,27 @@ function PreviewBodyInner({
 
       <div className="flex flex-col gap-2 p-4">
         <div className="grid grid-cols-2 gap-2">
-          <a
+          <button
+            type="button"
             className="pim-button-secondary text-sm"
-            href={`/api/v1/files/items/${item.id}/content`}
-            download={item.name}
-            onClick={e => {
-              // 带 token 的 blob 下载（<a download> 无法带 Authorization）
-              e.preventDefault();
-              apiDownloadBlob(`/files/items/${item.id}/content`)
-                .then((blob: Blob) => {
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = item.name;
-                  a.click();
-                  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
-                })
-                .catch((err: unknown) => onToast?.(err instanceof Error ? err.message : '下载失败'));
+            data-testid="preview-download"
+            onClick={() => {
+              // REQ-20 / AC-20.1（验收 F-3 的同源问题）：这里一度用 apiDownloadBlob('/content')
+              // 跟随 302 把**整个文件**读进页面内存再转 blob，大文件会直接崩标签页。
+              // 改为取 JSON 直链后交给浏览器打开，页面不搬字节。
+              void (async () => {
+                try {
+                  const url = await getDownloadUrl(item.id);
+                  if (!url) throw new Error('未取到下载直链');
+                  window.open(url, '_blank', 'noopener,noreferrer');
+                } catch (err: unknown) {
+                  onToast?.(err instanceof Error ? err.message : '下载失败');
+                }
+              })();
             }}
           >
             <span className="inline-flex items-center gap-1.5"><Download size={14} /> 下载</span>
-          </a>
+          </button>
           <button
             type="button"
             className="pim-button-secondary text-sm"

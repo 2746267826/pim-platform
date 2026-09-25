@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import OneDrivePreviewPane, { isOfficeDocument, isTextEditable } from '../OneDrivePreviewPane';
 import * as filesApi from '../../../api/files';
@@ -13,6 +13,7 @@ vi.mock('../../../api/files', async importOriginal => {
     getOneDriveSnapshots: vi.fn(),
     restoreOneDriveSnapshot: vi.fn(),
     getOneDrivePreviewUrl: vi.fn(),
+    getDownloadUrl: vi.fn(),
   };
 });
 
@@ -21,6 +22,7 @@ const mockedSave = vi.mocked(filesApi.saveOneDriveText);
 const mockedSnapshots = vi.mocked(filesApi.getOneDriveSnapshots);
 const mockedRestore = vi.mocked(filesApi.restoreOneDriveSnapshot);
 const mockedPreviewUrl = vi.mocked(filesApi.getOneDrivePreviewUrl);
+const mockedDownloadUrl = vi.mocked(filesApi.getDownloadUrl);
 
 function makeItem(overrides: Partial<FileItem>): FileItem {
   return {
@@ -67,6 +69,46 @@ describe('OneDrivePreviewPane', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedSnapshots.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * REQ-20 / AC-20.1（验收 F-3 的同源问题）：预览面板的「下载」按钮一度用
+   * `apiDownloadBlob('/files/items/{id}/content')` 跟随 302 把**整个文件读进页面内存**，
+   * 大文件尤其危险。这里用真实 fetch 计数守住：下载不得触发任何内容体请求，
+   * 而应改为取 JSON 直链后交给浏览器。
+   */
+  it('AC-20.1 下载按钮不得把文件体读进页面内存', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      url: 'https://my.microsoftpersonalcontent.com/dl?tempauth=abc',
+      blob: async () => new Blob([]),
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+    const openSpy = vi.fn();
+    vi.stubGlobal('open', openSpy);
+
+    mockedPreviewUrl.mockResolvedValue('https://www.onedrive.com/preview?resid=x');
+    mockedSnapshots.mockResolvedValue([]);
+    mockedText.mockResolvedValue({ content: 'x', mimeType: 'text/plain', size: 1, truncated: false });
+    mockedDownloadUrl.mockResolvedValue('https://my.microsoftpersonalcontent.com/dl?tempauth=abc');
+
+    // 用文本文件：PDF 预览本身就会拉一次 /content 做内联渲染（另一个用途），
+    // 会混淆「下载是否多拉了文件体」这一断言。文本文件不触发该路径，能把下载动作单独隔离出来。
+    render(<OneDrivePreviewPane item={makeItem({ mimeType: 'text/plain', name: 'a.txt' })} />);
+
+    const downloadButton = await screen.findByText('下载');
+    fireEvent.click(downloadButton.closest('a') ?? downloadButton);
+    await waitFor(() => expect(filesApi.getDownloadUrl).toHaveBeenCalled());
+
+    // 关键：整个下载过程中没有对 302 内容端点发起请求（否则浏览器会真下载一次文件体）
+    const fetchedUrls = fetchSpy.mock.calls.map(call => String(call[0]));
+    expect(fetchedUrls.filter(url => url.includes('/content')), `fetched=${JSON.stringify(fetchedUrls)}`).toHaveLength(0);
+    await waitFor(() => expect(openSpy).toHaveBeenCalled());
   });
 
   it('未选中时显示空态', () => {

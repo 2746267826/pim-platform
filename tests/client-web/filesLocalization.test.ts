@@ -2,12 +2,19 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+// PR-2 新增的文件板块组件同样要覆盖：否则「文件页有英文文案」会在新组件里漏网
 const sourceFiles = [
   'src/client-web/src/pages/FilesPage.tsx',
   'src/client-web/src/components/files/OneDriveBindDialog.tsx',
   'src/client-web/src/components/files/OneDriveFileList.tsx',
   'src/client-web/src/components/files/OneDrivePreviewPane.tsx',
   'src/client-web/src/components/files/OneDriveFileTree.tsx',
+  'src/client-web/src/components/files/SyncBanner.tsx',
+  'src/client-web/src/components/files/RowMenu.tsx',
+  'src/client-web/src/components/files/FileOperationDialogs.tsx',
+  'src/client-web/src/components/files/ImageGrid.tsx',
+  'src/client-web/src/components/files/FileThumbnail.tsx',
+  'src/client-web/src/components/files/upload/TransferPanel.tsx',
 ];
 const source = sourceFiles
   .map(file => readFileSync(resolve(file), 'utf8'))

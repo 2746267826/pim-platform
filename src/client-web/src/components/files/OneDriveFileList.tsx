@@ -1,5 +1,6 @@
-import { AlertCircle, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, FileText, Folder, LayoutGrid, List, Loader2, RefreshCw, Search } from 'lucide-react';
+import { AlertCircle, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Folder, LayoutGrid, List, Loader2, RefreshCw, Search } from 'lucide-react';
 import type { FileItem, FileSearchScope, FileSortKey, FileSortOrder } from '../../types';
+import ImageGrid from './ImageGrid';
 import { breadcrumbSegments, displayParentPath, pageCountLabel, parentDirPath } from './fileBrowserState';
 
 export interface OneDriveFileListProps {
@@ -42,6 +43,17 @@ export interface OneDriveFileListProps {
   selectedItem: FileItem | null;
   onSelect: (item: FileItem) => void;
   onOpenFolder: (path: string) => void;
+
+  // ---- PR-2（REQ-18 / REQ-19）----
+  /** 行首勾选框的多选集合。 */
+  selectedIds?: ReadonlySet<string>;
+  onToggleSelected?: (id: string) => void;
+  onToggleAll?: (ids: string[]) => void;
+  onClearSelection?: () => void;
+  /** 批量操作入口（下载 / 移动 / 删除）。 */
+  onBatch?: (action: 'download' | 'move' | 'delete') => void;
+  /** 行内「⋯」菜单渲染（由页面注入，避免列表耦合操作实现）。 */
+  rowMenu?: (item: FileItem) => React.ReactNode;
 }
 
 const SORT_LABELS: Record<FileSortKey, string> = {
@@ -109,11 +121,18 @@ export default function OneDriveFileList({
   selectedItem,
   onSelect,
   onOpenFolder,
+  selectedIds,
+  onToggleSelected,
+  onToggleAll,
+  onClearSelection,
+  onBatch,
+  rowMenu,
 }: OneDriveFileListProps) {
   const keyword = query.trim();
   const parent = parentDirPath(currentPath);
   const segments = breadcrumbSegments(currentPath);
   const canPage = totalPages > 1;
+  const selectionCount = selectedIds?.size ?? 0;
 
   const toggleOrder = () => onSortChange(sort, order === 'asc' ? 'desc' : 'asc');
 
@@ -236,6 +255,28 @@ export default function OneDriveFileList({
         </div>
       </div>
 
+      {/* 批量操作条（REQ-18）：勾选后出现，操作后由页面清零选择态（AC-18.2） */}
+      {selectionCount > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-2 border-b border-[var(--pim-border)] bg-[var(--pim-primary-soft)] px-3 py-1.5 text-xs"
+          data-testid="batch-bar"
+        >
+          <span data-testid="batch-count">已选 {selectionCount} 项</span>
+          <button type="button" className="pim-button-secondary px-2 py-1 text-xs" data-testid="batch-download" onClick={() => onBatch?.('download')}>
+            批量下载
+          </button>
+          <button type="button" className="pim-button-secondary px-2 py-1 text-xs" data-testid="batch-move" onClick={() => onBatch?.('move')}>
+            批量移动
+          </button>
+          <button type="button" className="pim-button-secondary px-2 py-1 text-xs" data-testid="batch-delete" onClick={() => onBatch?.('delete')}>
+            批量删除
+          </button>
+          <button type="button" className="ml-auto text-[11px] underline" data-testid="batch-clear" onClick={() => onClearSelection?.()}>
+            清空选择
+          </button>
+        </div>
+      )}
+
       {/* 失败：就地错误条 + 重试（AC-10.3） */}
       {error && (
         <div
@@ -269,6 +310,15 @@ export default function OneDriveFileList({
           <table className="w-full border-collapse">
             <thead>
               <tr className="text-left text-xs text-[var(--pim-text-muted)]">
+                <th className="w-8 px-2 py-2">
+                  <input
+                    type="checkbox"
+                    aria-label="全选"
+                    data-testid="select-all"
+                    checked={selectionCount > 0 && selectionCount === items.length}
+                    onChange={() => onToggleAll?.(items.map(item => item.id))}
+                  />
+                </th>
                 <th className="px-3 py-2 font-medium">名称</th>
                 {showFullPath && <th className="px-3 py-2 font-medium">所在目录</th>}
                 <th className="px-3 py-2 font-medium">大小</th>
@@ -294,6 +344,15 @@ export default function OneDriveFileList({
                       else onSelect(item);
                     }}
                   >
+                    <td className="px-2 py-2" onClick={event => event.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`选择 ${item.name}`}
+                        data-testid={`select-${item.name}`}
+                        checked={selectedIds?.has(item.id) ?? false}
+                        onChange={() => onToggleSelected?.(item.id)}
+                      />
+                    </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2.5">
                         <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-bold ${badge.className}`}>
@@ -322,12 +381,13 @@ export default function OneDriveFileList({
                     )}
                     <td className="px-3 py-2 text-xs text-[var(--pim-text-muted)]">{formatSize(item.size)}</td>
                     <td className="px-3 py-2 text-xs text-[var(--pim-text-muted)]">{formatTime(item.modifiedAt)}</td>
+                    {rowMenu && <td className="w-10 px-2 py-2 text-right">{rowMenu(item)}</td>}
                   </tr>
                 );
               })}
               {items.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={showFullPath ? 4 : 3} className="px-3 py-10 text-center text-sm text-[var(--pim-text-muted)]">
+                  <td colSpan={(showFullPath ? 4 : 3) + 2} className="px-3 py-10 text-center text-sm text-[var(--pim-text-muted)]">
                     {keyword && searchScope === 'folder' ? (
                       <span className="inline-flex flex-col items-center gap-2">
                         <span>本文件夹无匹配，试试全盘搜索</span>
@@ -350,62 +410,32 @@ export default function OneDriveFileList({
             </tbody>
           </table>
         </div>
-      ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(150px,1fr))] content-start gap-3 overflow-auto p-4">
-          {items.map(item => {
-            const badge = typeBadge(item);
-            return (
+      ) : items.length === 0 && !loading ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center py-10 text-center text-sm text-[var(--pim-text-muted)]">
+          {keyword && searchScope === 'folder' ? (
+            <span className="inline-flex flex-col items-center gap-2">
+              <span>本文件夹无匹配，试试全盘搜索</span>
               <button
-                key={item.id}
                 type="button"
-                data-testid="file-card"
-                className={`overflow-hidden rounded-xl border text-left transition ${
-                  selectedItem?.id === item.id
-                    ? 'border-[var(--pim-primary)] bg-[var(--pim-primary-soft)]'
-                    : 'border-[var(--pim-border)] bg-white hover:-translate-y-px hover:shadow-sm'
-                }`}
-                onClick={() => {
-                  if (showFullPath) revealInFolder(displayParentPath(item.path), item);
-                  else if (item.itemType === 'folder') onOpenFolder(item.path);
-                  else onSelect(item);
-                }}
+                className="pim-button-secondary px-3 py-1 text-xs"
+                onClick={() => onSearchScopeChange('global')}
               >
-                <div className="flex h-20 items-center justify-center bg-[var(--pim-surface-muted)] text-2xl">
-                  {item.itemType === 'folder' ? (
-                    <Folder size={26} className="text-[var(--pim-text-muted)]" />
-                  ) : (
-                    <FileText size={26} className="text-[var(--pim-text-muted)]" />
-                  )}
-                </div>
-                <div className="truncate px-2.5 py-2 text-xs text-[var(--pim-text-muted)]">{item.name}</div>
-                {showFullPath && (
-                  <div className="truncate px-2.5 text-[10px] text-[var(--pim-text-muted)]">{displayParentPath(item.path)}</div>
-                )}
-                <div className={`mx-2.5 mb-2.5 inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold ${badge.className}`}>{badge.label}</div>
+                去全盘搜索
               </button>
-            );
-          })}
-          {items.length === 0 && !loading && (
-            <div className="col-span-full py-10 text-center text-sm text-[var(--pim-text-muted)]">
-              {keyword && searchScope === 'folder' ? (
-                <span className="inline-flex flex-col items-center gap-2">
-                  <span>本文件夹无匹配，试试全盘搜索</span>
-                  <button
-                    type="button"
-                    className="pim-button-secondary px-3 py-1 text-xs"
-                    onClick={() => onSearchScopeChange('global')}
-                  >
-                    去全盘搜索
-                  </button>
-                </span>
-              ) : keyword ? (
-                '没有匹配的文件'
-              ) : (
-                '此文件夹为空'
-              )}
-            </div>
+            </span>
+          ) : keyword ? (
+            '没有匹配的文件'
+          ) : (
+            '此文件夹为空'
           )}
         </div>
+      ) : (
+        /* REQ-23：网格视图用 ImageGrid（真缩略图懒加载 + 灯箱左右翻） */
+        <ImageGrid
+          items={items}
+          selectedItem={selectedItem}
+          onSelect={onSelect}
+        />
       )}
 
       {canPage && (

@@ -36,7 +36,6 @@ function makeItem(overrides: Partial<FileItem>): FileItem {
 
 const folder = makeItem({ id: 'f-1', path: '/合同', name: '合同', itemType: 'folder', mimeType: null, size: null });
 const pdf = makeItem({ id: 'f-2', path: '/合同/租赁.pdf', name: '租赁.pdf', mimeType: 'application/pdf', size: 1024 * 512 });
-const note = makeItem({ id: 'f-3', path: '/笔记.md', name: '笔记.md', mimeType: 'text/markdown' });
 
 function renderList(overrides: Partial<React.ComponentProps<typeof OneDriveFileList>> = {}) {
   const props = {
@@ -86,15 +85,15 @@ describe('OneDriveFileList 列表与网格', () => {
   });
 
   it('AC-5.1 点击文件夹进入，点击文件只选中预览', () => {
-    const props = renderList();
+    const rendered = renderList();
     const table = within(screen.getByRole('table'));
 
     fireEvent.click(table.getByText('合同'));
-    expect(props.onOpenFolder).toHaveBeenCalledWith('/合同');
-    expect(props.onSelect).not.toHaveBeenCalled();
+    expect(rendered.onOpenFolder).toHaveBeenCalledWith('/合同');
+    expect(rendered.onSelect).not.toHaveBeenCalled();
 
     fireEvent.click(table.getByText('租赁.pdf'));
-    expect(props.onSelect).toHaveBeenCalledWith(pdf);
+    expect(rendered.onSelect).toHaveBeenCalledWith(pdf);
   });
 });
 

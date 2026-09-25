@@ -25,6 +25,8 @@ assert.equal(fileApiPaths.items({ path: '/', type: 'folder' }), '/files/items?pa
 assert.equal(fileApiPaths.item(itemId), `/files/items/${itemId}`);
 assert.equal(fileApiPaths.upload(), '/files/items/upload');
 assert.equal(fileApiPaths.itemDownload(itemId), `/files/items/${itemId}/download`);
+// REQ-20 / F-3：下载直链改走 JSON 端点，页面不再 fetch 跟随 302（那样会把文件体多传一遍）
+assert.equal(fileApiPaths.itemDownloadUrl(itemId), `/files/items/${itemId}/download-url`);
 assert.equal(fileApiPaths.move(itemId), `/files/items/${itemId}/move`);
 assert.equal(fileApiPaths.rename(itemId), `/files/items/${itemId}/rename`);
 assert.equal(fileApiPaths.trash(), '/files/trash');

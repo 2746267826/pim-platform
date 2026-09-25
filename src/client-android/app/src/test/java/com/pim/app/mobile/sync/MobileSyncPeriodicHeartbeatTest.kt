@@ -247,6 +247,38 @@ class MobileSyncPeriodicHeartbeatTest {
         assertEquals(1, heartbeats().size)
     }
 
+    @Test
+    fun `REQ-3 the second wake in the same process carries a real time-since-last-heartbeat`() = runTest {
+        // 「距上次心搏间隔」必须来自上一次成功写入的基线，且不得为负。
+        val trackPrefs = context.getSharedPreferences("heartbeat-sync-test", Context.MODE_PRIVATE)
+        val logs = StructuredLogRepository(context, TrackingSettingsStore(trackPrefs)) { FIXED_NOW }
+        var now = FIXED_NOW
+        var boot = FIXED_BOOT_ELAPSED
+        val recorder = WakeHeartbeatRecorder(
+            ledger = ForensicLedger(db.forensicEventDao(), logs),
+            contextReader = FixedForensicContextSource(ForensicContext()),
+            snapshotReader = AndroidHeartbeatSnapshotReader(context),
+            logs = logs,
+            nowUtcMillis = { now },
+            bootElapsedMillis = { boot },
+            serviceRunning = { false }
+        )
+
+        // 第一条：本进程的第一跳没有基线，间隔为 null（阶段一既有行为）。
+        assertTrue(recorder.record())
+        // 第二条：比第一跳晚 15 分钟（一个周期同步周期），间隔必须是 900000ms。
+        // 壁钟与开机时长同步推进，避免被秒级去重键拦下（那正是 AC-3.3 的另一条路径）。
+        now += 15 * 60_000L
+        boot += 15 * 60_000L
+        assertTrue(recorder.record())
+
+        val sorted = heartbeats().sortedBy { it.occurredAtUtc }
+        val first = org.json.JSONObject(sorted[0].payloadJson)
+        val second = org.json.JSONObject(sorted[1].payloadJson)
+        assertTrue("首跳应为 null", first.isNull("sinceLastHeartbeatMs"))
+        assertEquals(15 * 60_000L, second.getLong("sinceLastHeartbeatMs"))
+    }
+
     private companion object {
         /** AC-3.3 的同一秒内：毫秒只在同一秒里抖动。 */
         const val FIXED_NOW = 1_790_300_000_000L

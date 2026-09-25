@@ -99,6 +99,14 @@ class WakeHeartbeatRecorder internal constructor(
         false
     }
 
-    /** 上一次成功写入心搏时的开机时长，用于算「距上次心搏间隔」。 */
+    /**
+     * 上一次成功写入心搏时的开机时长，用于算「距上次心搏间隔」。
+     *
+     * 本类是单例，且现在被启动取证与周期同步两条路径并发调用（周期作业可能与进程启动
+     * 取证几乎同时跑），因此这个可变基线必须是 `@Volatile`：否则可能出现可见性问题，
+     * 让后一次心搏读到过期的基线、算出一个不该有的间隔。
+     * 注意：**去重不依赖它**（去重只按壁钟秒级幂等键），所以它最多影响这一个诊断字段。
+     */
+    @Volatile
     private var lastHeartbeatBootElapsed: Long? = null
 }

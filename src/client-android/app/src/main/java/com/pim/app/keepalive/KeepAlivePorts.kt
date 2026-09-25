@@ -22,7 +22,6 @@ interface KeepAliveSchedulePort {
 
     suspend fun scheduleNext(intervalMinutes: Int, enabled: Boolean = true): Result
     suspend fun cancel()
-    suspend fun isAlarmRegistered(): Boolean
     fun hasExactAlarmPermission(): Boolean
 }
 

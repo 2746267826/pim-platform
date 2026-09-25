@@ -18,6 +18,15 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!--
+      REQ-14：精确闹钟权限**双声明**（决策索引 D2 / R2-20）。
+      - USE_EXACT_ALARM（API 33+）：安装即授予，官方定位为「核心功能就是精准定时」的应用；
+      - SCHEDULE_EXACT_ALARM（API 31+）：Android 14 起不再默认授予，需用户在「闹钟和提醒」里手动打开。
+      运行时一律以 canScheduleExactAlarms() 的查询结果为准，不以清单声明为准（REQ-14 原文）。
+    -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
     <application
         android:name=".PimApp"
         android:allowBackup="false"
@@ -63,6 +72,26 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+          REQ-16：精确闹钟的叫醒入口。闹钟由 AlarmManager 派发，因此 receiver 不需要
+          exported（系统可以派发给非 exported 的 receiver），也不需要 intent-filter。
+        -->
+        <receiver
+            android:name=".keepalive.KeepAliveAlarmReceiver"
+            android:exported="false" />
+
+        <!--
+          REQ-14 AC-14.3：权限被撤销/重新授予时系统会发这个广播，用于即时重新登记闹钟，
+          不必等下一次打开应用。ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED（API 31+）。
+        -->
+        <receiver
+            android:name=".keepalive.ExactAlarmPermissionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
 

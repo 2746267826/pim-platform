@@ -48,7 +48,6 @@ class KeepAliveCoordinatorTest {
             registered = false
         }
 
-        override suspend fun isAlarmRegistered(): Boolean = registered
         override fun hasExactAlarmPermission(): Boolean = permission
     }
 
@@ -241,30 +240,54 @@ class KeepAliveCoordinatorTest {
         assertTrue("通知应处于常驻状态", f.notifications.resident)
     }
 
-    /** AC-21.1：系统里闹钟消失 → 点亮「闹钟被清空」并重新登记。 */
+    /**
+     * AC-21.1：闹钟被清空 → 点亮「闹钟被清空」并重新登记。
+     *
+     * 检测口径是「预定叫醒时刻已过且宽限期内仍未触发」——不用 PendingIntent 是否存在
+     * （平台事实：cancel 后它仍在，见 KeepAliveAlarmSchedulerTest）。
+     */
     @Test
-    fun `AC-21_1 闹钟被清空时点亮红点并重新登记`() = runTest {
-        val scheduler = FakeScheduler(registered = false)
-        val settings = KeepAliveSettings.defaults().copy(pendingScheduledAtUtcMillis = 999_000L)
+    fun `AC-21_1 预定时刻已过却未触发时判定闹钟被清空`() = runTest {
+        val scheduler = FakeScheduler()
+        // 预定时刻远在过去（比 now=1_000_000 早 1 小时），说明那一枪没打响。
+        val settings = KeepAliveSettings.defaults()
+            .copy(pendingScheduledAtUtcMillis = 1_000_000L - 60 * 60_000L)
         val f = fixture(settings = settings, scheduler = scheduler)
 
         val outcome = f.coordinator.reconcile("app-start")
 
         assertTrue("应重新登记", outcome is KeepAliveScheduleOutcome.Scheduled)
-        assertTrue(f.health.reasons().contains(KeepAliveHealthReasons.ALARM_CLEARED))
+        assertTrue(
+            "闹钟打空了必须点亮红点",
+            f.health.reasons().contains(KeepAliveHealthReasons.ALARM_CLEARED)
+        )
     }
 
-    /** AC-21.2：闹钟存在时不点亮红点（原因消除后自动熄灭）。 */
+    /** AC-21.2：闹钟尚未到期时不点亮红点（原因消除后自动熄灭）。 */
     @Test
-    fun `AC-21_2 闹钟存在时不点亮红点`() = runTest {
-        val scheduler = FakeScheduler(registered = true)
-        val settings = KeepAliveSettings.defaults().copy(pendingScheduledAtUtcMillis = 999_000L)
+    fun `AC-21_2 闹钟尚未到期时不点亮红点`() = runTest {
+        val scheduler = FakeScheduler()
+        // 预定时刻在未来：闹钟还没到，属于正常状态。
+        val settings = KeepAliveSettings.defaults()
+            .copy(pendingScheduledAtUtcMillis = 1_000_000L + 10 * 60_000L)
         val f = fixture(settings = settings, scheduler = scheduler)
 
-        f.coordinator.reconcile("app-start")
+        val outcome = f.coordinator.reconcile("app-start")
 
+        assertTrue(outcome is KeepAliveScheduleOutcome.AlreadyRegistered)
         assertFalse(f.health.isAlerting())
-        assertTrue(f.scheduler.scheduledIntervals.isEmpty())
+        assertTrue("尚未到期时不得重复登记", f.scheduler.scheduledIntervals.isEmpty())
+    }
+
+    /** 首次开启保活（从未登记）时直接登记，且不算异常（不点红点）。 */
+    @Test
+    fun `首次开启保活时登记且不点亮红点`() = runTest {
+        val f = fixture(settings = KeepAliveSettings.defaults().copy(pendingScheduledAtUtcMillis = null))
+
+        val outcome = f.coordinator.reconcile("first-enable")
+
+        assertTrue(outcome is KeepAliveScheduleOutcome.Scheduled)
+        assertFalse("从未登记不是异常", f.health.isAlerting())
     }
 
     /** AC-17.2：连续被压制后，登记时使用翻倍后的间隔。 */

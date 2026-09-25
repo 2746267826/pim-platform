@@ -93,16 +93,12 @@ class KeepAliveAlarmScheduler internal constructor(
         }
     }
 
-    /**
-     * 系统里是否已有本应用的待触发闹钟（AC-21.1「闹钟被清空」的检测依据）。
-     * `FLAG_NO_CREATE` 语义：不存在时返回 null。
-     */
-    override suspend fun isAlarmRegistered(): Boolean = try {
-        buildPendingIntent(appContext, PendingIntent.FLAG_NO_CREATE) != null
-    } catch (ex: Exception) {
-        logs.warn("keepalive", "查询闹钟登记状态失败：${ex.message ?: ""}")
-        false
-    }
+    // 刻意**不提供**「闹钟是否还在系统里」的查询：
+    // AlarmManager 没有公开 API 能列出本应用已登记的闹钟；而 `PendingIntent` 在
+    // `cancel()` 之后依然存在（实测：cancel 后 FLAG_NO_CREATE 仍返回非 null），
+    // 因此「PendingIntent 是否存在」不能用来判断闹钟是否还在——那样会永远报告
+    // 「闹钟在」，恰好掩盖 AC-21.1 要检测的「闹钟被清空」。
+    // 正确做法是基于**截止时刻**判断（见 KeepAliveCoordinator.reconcile）。
 
     /** 当前是否具备精确闹钟授权（引导页与状态区据此显示）。 */
     override fun hasExactAlarmPermission(): Boolean = try {

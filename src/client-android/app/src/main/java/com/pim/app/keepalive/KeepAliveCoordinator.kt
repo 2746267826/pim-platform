@@ -137,6 +137,12 @@ class KeepAliveCoordinator internal constructor(
      * - 权限撤销导致系统连带取消闹钟（AC-14.3）；
      * - 被强行停止或系统清理导致闹钟消失（AC-21.1 的「闹钟被清空」）；
      * - 从未登记过（首次开启保活）。
+     *
+     * **检测手段（重要）**：不用「PendingIntent 是否存在」判断闹钟是否还在——
+     * `AlarmManager.cancel()` 之后 PendingIntent 依然存在（已实测），那样会永远报告
+     * 「闹钟在」，恰好掩盖 AC-21.1 要检测的情况。这里改用**截止时刻**判断：
+     * 已登记的下一次触发时刻如果已经过去（还留着余量），说明那一枪打空了，
+     * 系统里的闹钟确实没了（被强停清空 / 被系统回收 / 权限撤销连带取消）。
      */
     suspend fun reconcile(trigger: String): KeepAliveScheduleOutcome {
         val settings = settingsStore.read()
@@ -153,24 +159,38 @@ class KeepAliveCoordinator internal constructor(
             return KeepAliveScheduleOutcome.PermissionMissing
         }
 
-        if (!scheduler.isAlarmRegistered()) {
-            // 闹钟不在系统里：可能是被强停清空、被系统回收、或从未登记。
-            if (settings.pendingScheduledAtUtcMillis != null) {
-                health.raise(
-                    KeepAliveHealthReasons.ALARM_CLEARED,
-                    "系统里已找不到保活闹钟，已重新登记。"
-                )
-            }
+        val pending = settings.pendingScheduledAtUtcMillis
+        if (pending == null) {
+            // 从未登记过（首次开启保活）：直接登记，不算异常。
             return scheduleNext(trigger)
         }
 
+        val overdueBy = nowUtcMillis() - pending
+        if (overdueBy > OVERDUE_GRACE_MILLIS) {
+            // 预定时刻早该到了却没触发：闹钟不在系统里了。
+            health.raise(
+                KeepAliveHealthReasons.ALARM_CLEARED,
+                "预定叫醒时刻已过去 ${overdueBy / 60_000L} 分钟仍未触发，系统里的保活闹钟已不存在，现已重新登记。"
+            )
+            return scheduleNext(trigger)
+        }
+
+        // 闹钟尚未到期且登记信息在：确认它确实存在，此时才允许熄灭「闹钟被清空」红点（AC-21.2）。
         health.clear(KeepAliveHealthReasons.ALARM_CLEARED)
-        return KeepAliveScheduleOutcome.AlreadyRegistered(settings.pendingScheduledAtUtcMillis)
+        return KeepAliveScheduleOutcome.AlreadyRegistered(pending)
     }
 
     private companion object {
         /** 连续拉起失败达到该次数即点亮红点（R1-Q7/D13：记台账 + 红点 + 下轮重试）。 */
         const val KEEPALIVE_FAILURE_ALERT_THRESHOLD = 2
+
+        /**
+         * 判定「闹钟打空了」的宽限余量。
+         *
+         * 取 15 分钟：与 AC-17.1 的「压制」判定线一致，不另立一个自拟阈值；
+         * 小于该值可能只是系统正常延迟（Doze 下允许延迟），不能算闹钟消失。
+         */
+        const val OVERDUE_GRACE_MILLIS = 15 * 60_000L
     }
 }
 

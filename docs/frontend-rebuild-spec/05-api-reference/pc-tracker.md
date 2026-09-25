@@ -1024,7 +1024,7 @@
   | appStats.*.sideForwardClicks | number | 是 | 侧前进 |
   | appStats.*.scrollDistance | number | 是 | 滚轮距离 |
 - 响应 data：`string`（`"已接收"`）
-- 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:64-71`；DTO `DTOs/TrackerDtos.cs:5-32`；前端无封装
+- 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:64-71`；DTO `DTOs/PcTrackerDtos.cs:5-32`；前端无封装
 - 备注：序列化为 camelCase（keyPressCounts/appStats 等）。
 
 ### POST /api/v1/pc/keystats/samples
@@ -1045,13 +1045,13 @@
   | sideForwardClicks | number | 是 | 侧前进 |
   | mouseDistance | number | 是 | 鼠标距离 |
   | scrollDistance | number | 是 | 滚轮距离 |
-  | peakKPS | number | 是 | 峰值 KPS（JSON 别名 `peakKPS`，DTOs/TrackerDtos.cs:286-289） |
+  | peakKPS | number | 是 | 峰值 KPS（JSON 别名 `peakKPS`，DTOs/PcTrackerDtos.cs:286-289） |
   | peakCPS | number | 是 | 峰值 CPS（JSON 别名 `peakCPS`） |
   | formattedMouseDistance | string \| null | 否 | 格式化鼠标距离（JSON 别名 `formattedMouseDistance`） |
   | formattedScrollDistance | string \| null | 否 | 格式化滚轮距离（JSON 别名 `formattedScrollDistance`） |
   | appStats | Record<string, AppStatEntry> \| null | 否 | 按应用统计（结构同 keystats/upload） |
 - 响应 data：`string`（`"已接收"`）
-- 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:73-80`；DTO `DTOs/TrackerDtos.cs:273-295`；前端无封装
+- 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:73-80`；DTO `DTOs/PcTrackerDtos.cs:273-295`；前端无封装
 
 ### POST /api/v1/pc/aw/upload
 - 用途：守护进程上传 ActivityWatch 简化事件批。
@@ -1068,7 +1068,7 @@
   | events[].windowTitle | string \| null | 否 | 窗口标题 |
   | events[].afkStatus | string \| null | 否 | AFK 状态 |
 - 响应 data：`number`（接收条数）
-- 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:82-89`；DTO `DTOs/TrackerDtos.cs:34-46`；前端无封装
+- 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:82-89`；DTO `DTOs/PcTrackerDtos.cs:34-46`；前端无封装
 
 ### POST /api/v1/pc/aw/upload-complete
 - 用途：守护进程整包同步 AW bucket 原始事件（含 bucket 元数据）。
@@ -1097,7 +1097,7 @@
   | events[].duration | number | 是 | 时长秒 |
   | events[].data | Record<string, object> \| null | 否 | 原始数据 |
 - 响应 data：`number`（接收条数）
-- 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:91-98`；DTO `DTOs/TrackerDtos.cs:239-271`；前端无封装
+- 来源：后端 `src/modules/Pim.Module.PcTracker/PcTrackerModule.cs:91-98`；DTO `DTOs/PcTrackerDtos.cs:239-271`；前端无封装
 
 ### POST /api/v1/pc/tracker/upload
 - 用途：原生 Windows 守护进程上传活动事件批。

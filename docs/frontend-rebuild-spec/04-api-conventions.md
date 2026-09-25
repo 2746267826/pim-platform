@@ -1,6 +1,8 @@
 # 04 API 通用约定（Conventions）
 
 > 面向客户端开发者的后端 HTTP 面总览。字段级规格见 [05-api-reference/](05-api-reference/)。
+>
+> 阅读说明：`05-api-reference/` 各端点节标题为可读性统一**省略了路由参数约束**（如 `{id:guid}` 写作 `{id}`）；实际约束以各节"来源"行所引源码为准。
 
 ## 1. 架构与基地址
 

@@ -1,0 +1,95 @@
+package com.pim.app.keepalive
+
+import android.content.Context
+import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
+import com.pim.app.location.acquisition.TriggerType
+import com.pim.app.location.service.ForegroundLocationController
+import com.pim.app.location.service.ForegroundLocationRuntimeState
+import com.pim.app.location.service.ForegroundLocationService
+import com.pim.app.mobile.logs.StructuredLogRepository
+import com.pim.app.mobile.sync.MobileSyncScheduler
+import com.pim.app.settings.TrackingSettingsStore
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Provider
+import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
+
+/**
+ * [WakeEnvironment] 的 Android 实现（REQ-16 / REQ-20）。
+ *
+ * 「暂停」的判定口径：沿用既有实现事实——`ACTION_PAUSE_COLLECTION` 会把
+ * `continuousCollectionEnabled` 置为 false（见 `ForegroundLocationService`），
+ * 因此这里以该开关为准，而不是自造一个第二份暂停状态（否则两处会不一致）。
+ *
+ * 「手动采集会话进行中」的判定口径：采集协调器的当前会话是人工触发（`TriggerType` 为手动）
+ * 且仍在进行（`phase` 忙）时，认为用户正在进行手动采集。
+ */
+@Singleton
+class AndroidWakeEnvironment @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val trackingSettingsStore: TrackingSettingsStore,
+    private val controller: ForegroundLocationController,
+    private val syncScheduler: Provider<MobileSyncScheduler>,
+    private val acquisitionCoordinator: Provider<LocationAcquisitionCoordinator>,
+    private val logs: StructuredLogRepository
+) : WakeEnvironment {
+
+    override suspend fun isPaused(): Boolean = try {
+        // 与 ForegroundLocationService.ACTION_PAUSE_COLLECTION 设置的是同一个开关。
+        !trackingSettingsStore.read().continuousCollectionEnabled
+    } catch (ex: Exception) {
+        // 读不到时按「未暂停」处理：宁可多叫醒一次，也不要因为读数失败而永久不采集。
+        logs.warn("keepalive", "读取暂停状态失败，按未暂停处理：${ex.message ?: ""}")
+        false
+    }
+
+    override suspend fun isManualSessionActive(): Boolean = try {
+        val state = acquisitionCoordinator.get().state.value
+        state.isBusy && state.triggerType == TriggerType.MANUAL
+    } catch (ex: Exception) {
+        logs.warn("keepalive", "读取采集会话语义失败，按无手动会话处理：${ex.message ?: ""}")
+        false
+    }
+
+    override fun isForegroundServiceRunning(): Boolean = try {
+        ForegroundLocationService.isRunning()
+    } catch (ex: Exception) {
+        false
+    }
+
+    override suspend fun requestSyncNow(): Boolean = try {
+        syncScheduler.get().enqueueNow()
+        true
+    } catch (ex: Exception) {
+        logs.warn("keepalive", "叫醒后请求补传失败：${ex.message ?: ""}")
+        false
+    }
+
+    override suspend fun startForegroundService(): Boolean = try {
+        controller.start()
+        true
+    } catch (ex: CancellationException) {
+        throw ex
+    } catch (ex: Exception) {
+        // Android 12+ 后台启动前台服务受限，但精确闹钟在豁免清单内（平台依据 §2）；
+        // 若仍被系统拒绝，如实返回 false，由执行链走 AC-16.3 的兜底。
+        logs.warn("keepalive", "拉起前台采集服务失败：${ex.message ?: ex::class.java.simpleName}")
+        false
+    }
+
+    override suspend fun captureSinglePointFallback(): Boolean = try {
+        // 兜底：请求协调器做一次单点采集（不依赖前台服务是否成功起来）。
+        // Started 才算真的抓到了；Busy/Rejected 都视为兜底失败（如实记账，不假成功）。
+        acquisitionCoordinator.get().startManualSession() is
+            com.pim.app.location.acquisition.SessionStartResult.Started
+    } catch (ex: CancellationException) {
+        throw ex
+    } catch (ex: Exception) {
+        logs.warn("keepalive", "兜底抓取定位点失败：${ex.message ?: ex::class.java.simpleName}")
+        false
+    }
+
+    /** 当前运行状态（供设置页「当前状态」展示，AC-22.1）。 */
+    fun runtimeState(): ForegroundLocationRuntimeState = ForegroundLocationService.runtimeState.value
+}

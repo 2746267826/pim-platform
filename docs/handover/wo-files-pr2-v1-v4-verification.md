@@ -75,8 +75,22 @@ instance attribute `@microsoft.graph.conflictBehavior`（与验收实测通过�
 **整个文件读进页面内存**（大文件会直接压垮标签页）。触发的是同一个用户动作
 （下载文件），因此一并修复为取 JSON 直链后 `window.open`，并用组件用例
 （`OneDrivePreviewPane.test.tsx`）+ 端到端网络记录两处守住。
-诚实边界：`useAuthedContentBlob` 仍会为**图片缩略图与 PDF 内联预览**拉取内容体，
-这是预览本身的需要、且后端有尺寸闸（`HardMaxBytes`）；F-3 针对的是「下载」这条路径。
+
+### 修复时发现、但**本次未修**的同类残留（如实记录）
+
+预览面板的 `useAuthedContentBlob` 仍会对以下两类内容拉取完整响应体：
+
+1. 图片缩略图：`/items/{id}/thumbnail?size=large`（体积受缩略图尺寸约束，风险低）；
+2. **PDF 内联预览：`/items/{id}/content`**——该端点是 302 直链，前端 `apiDownloadBlob`
+   跟随并把**整个 PDF 读进页面内存**。这条路径**没有**尺寸闸：
+   `GetContentLinkAsync` 只做「可下载 + 非敏感路径」两道校验，
+   `HardMaxBytes` 只作用于 `read_text` 走的 `DownloadSmallAsync`。
+   因此「预览一个超大 PDF」仍可能压垮标签页。
+
+判断为**不在本次修复范围**：它是 P3 就已存在的既有行为（`34ce4956`），
+与验收的 F-3（下载动作）不是同一条路径；改它要动已验收的 PDF 预览呈现方式
+（blob ↔ iframe/Graph preview URL），属于改变已确认体验，需需求方确认后再做。
+此处留证据，不擅自扩大改动范围。
 
 ### 备注项（不阻塞）处理
 

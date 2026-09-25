@@ -70,6 +70,14 @@ instance attribute `@microsoft.graph.conflictBehavior`（与验收实测通过�
 - 端到端：E2E 真点下载并记录真实网络请求，得到
   `requests=["GET .../download-url"] contentFetches=0 bodyBytes=0`。
 
+**同一缺陷的第二个入口（修复时自查发现）**：预览面板的「下载」按钮曾是
+`<a download href=".../content">` + `apiDownloadBlob('/content')`，同样跟随 302 把
+**整个文件读进页面内存**（大文件会直接压垮标签页）。触发的是同一个用户动作
+（下载文件），因此一并修复为取 JSON 直链后 `window.open`，并用组件用例
+（`OneDrivePreviewPane.test.tsx`）+ 端到端网络记录两处守住。
+诚实边界：`useAuthedContentBlob` 仍会为**图片缩略图与 PDF 内联预览**拉取内容体，
+这是预览本身的需要、且后端有尺寸闸（`HardMaxBytes`）；F-3 针对的是「下载」这条路径。
+
 ### 备注项（不阻塞）处理
 
 - **重名文案**：预测格式按实测改为「名称 1.ext」（空格 + 序号，无括号），与真实账号一致。

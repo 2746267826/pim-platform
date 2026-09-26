@@ -1,0 +1,21 @@
+=== 修复后复验：REQ-16 台账顺序 + Doze 下派发闭环 ===
+时间(UTC): 2026-09-26T07:15:18Z
+设备: sdk_gphone64_x86_64 | sdk=36 | brand=google
+
+--- Doze 状态 ---
+  mState=IDLE mLightState=OVERRIDE
+
+--- 台账（真实 SQLite 查询）---
+event_type         cst                  outcome   delay
+-----------------  -------------------  --------  -----
+alarm-registered   2026-09-26 15:13:48                 
+alarm-fulfillment  2026-09-26 15:13:48  started        
+alarm-fulfillment  2026-09-26 15:13:48  executed  7    
+alarm-registered   2026-09-26 15:23:48                 
+alarm-registered   2026-09-26 15:33:15                 
+
+解读：
+  15:13:48 闹钟触发 -> 先写 started 开始标记（REQ-16「先写台账」）
+                  -> 执行链结果 executed，delayMillis=7（延迟 7ms）
+                  -> 续登记为 15:23:48（闭环成立）
+  started 标记 actualAtUtcMillis=null，不参与兑现率分母、不推进任何计数。

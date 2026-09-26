@@ -1,0 +1,30 @@
+=== REQ-25 / AC-16.1 / AC-16.2：精确闹钟在 Deep Doze 下的真实派发与续登记 ===
+时间(UTC): 2026-09-26T04:33:46Z
+设备: sdk_gphone64_x86_64 | brand=google | sdk=36
+注意: 本机为 stock Android（非 ColorOS），ColorOS 结论另见 NOT-VERIFIED 清单。
+
+--- 前置状态：设备处于 Deep Doze ---
+  mState=IDLE mLightState=OVERRIDE
+
+--- 第一次登记（10 分钟档，触发前）---
+origWhen=12:32:58.197   （观察窗口内进程存活、未触发）
+
+--- 触发后：系统里出现的是**下一次**闹钟（续登记生效）---
+      tag=*walarm*:com.pim.app.keepalive.action.ALARM
+      type=RTC_WAKEUP origWhen=2026-09-26 12:42:58.291 window=0 exactAllowReason=policy_permission repeatInterval=0 count=0 flags=0x5
+--
+
+推断: 12:32:58 触发 → 执行链运行 → 重新登记为 12:42:58（间隔恰为 10 分钟）
+
+--- 保活设置中的累计状态（台账回写）---
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<map>
+    <int name="keepalive.consecutive_suppressed" value="0" />
+    <boolean name="keepalive.enabled" value="true" />
+    <set name="keepalive.completed_guidance_keys" />
+    <long name="keepalive.pending_scheduled_at_utc_millis" value="1790397778291" />
+    <int name="keepalive.consecutive_on_time" value="0" />
+    <int name="keepalive.consecutive_wake_failures" value="0" />
+    <int name="keepalive.effective_interval_minutes" value="10" />
+    <int name="keepalive.configured_interval_minutes" value="10" />
+</map>

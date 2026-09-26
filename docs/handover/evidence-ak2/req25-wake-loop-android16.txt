@@ -1,0 +1,33 @@
+=== 阶段二真机（模拟器）实测证据：叫醒闭环 ===
+时间(UTC): 2026-09-26T04:47:01Z
+设备: sdk_gphone64_x86_64 | brand=google | sdk=36 | abi=x86_64
+PIM 包: com.pim.app (debug)
+★ 本机为 stock Android，非 ColorOS；ColorOS 专项结论见 NOT-VERIFIED 清单。
+
+--- 条件：持续采集已启用 + 设备处于 Deep Doze ---
+  mState=IDLE mLightState=OVERRIDE
+
+--- 台账（真实 SQLite 查询 mobile_forensic_events）---
+event_type         cst                  outcome   delay  trigger    
+-----------------  -------------------  --------  -----  -----------
+alarm-registered   2026-09-26 12:45:40                   app-start  
+alarm-fulfillment  2026-09-26 12:45:40  executed  5                 
+alarm-registered   2026-09-26 12:55:40                   alarm-fired
+
+解读: 12:45:40 闹钟触发 -> 执行链 outcome=executed（delayMillis=5，几乎零延迟）
+      -> 续登记为 12:55:40（间隔恰 10 分钟，闭环成立）
+
+--- AC-16.2：叫醒后前台采集服务状态 ---
+    isForeground=true foregroundId=7101 types=0x00000008 foregroundNoti=Notification(channel=pim_location_collection shortcut=null contentView=null vibrate=null sound=null defaults=0 flags=ONGOING_EVENT|ONLY_ALERT_ONCE|NO_CLEAR|FOREGROUND_SERVICE color=0x00000000 actions=3 vis=PRIVATE)
+
+--- AC-19.2：两条常驻通知并存（采集 7101 + 保活 7201）---
+id=7101 tag=null importance=2 key=0|com.pim.app|7101|null|10232: Notification(channel=pim_location_collection shortcut=null contentView=null vibrate=null sound=null defaults=0 flags=ONGOING_EVENT|ONLY_ALERT_ONCE|NO_CLEAR|FOREGROUND_SERVICE color=0x00000000 actions=3 vis=PRIVATE))
+id=7201 tag=null importance=1 key=0|com.pim.app|7201|null|10232: Notification(channel=pim_keepalive shortcut=null contentView=null vibrate=null sound=null defaults=0 flags=ONGOING_EVENT|SILENT color=0x00000000 vis=PRIVATE))
+
+--- AC-15.3：未使用 setAlarmClock（无状态栏闹钟图标）---
+AlarmClock 相关条目数: 0
+
+--- 权限：USE_EXACT_ALARM 安装即授予 ---
+      android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED:
+          Action: "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"
+      android.permission.SCHEDULE_EXACT_ALARM

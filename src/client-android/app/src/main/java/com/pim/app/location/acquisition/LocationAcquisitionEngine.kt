@@ -92,8 +92,8 @@ class LocationAcquisitionEngine @Inject constructor(
                             // 兜底依赖它），与「是否交付」解耦。
                             if (isBetterThan(snapshot, bestLocation)) {
                                 bestLocation = snapshot
-                                onCandidate(snapshot)
                             }
+                            onCandidate(snapshot)
                         }
                         is LocationUpdateEvent.Availability -> {
                             onAvailabilityChanged(event.available)

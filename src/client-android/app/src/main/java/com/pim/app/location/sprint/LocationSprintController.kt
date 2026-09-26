@@ -159,7 +159,12 @@ class LocationSprintController @Inject constructor(
         }
         synchronized(this) {
             if (window?.isOpen == true) {
-                return skip(SprintSkipReasons.HIGH_SPEED, nowUtcMillis)
+                // AC-2.5（A8 方案 B）：运动/车载档的窗口与周期相接、接近连续采样，
+                // 是需求方选定的**预期行为**。因此这里**不得**以「过于频繁」为由跳过 ——
+                // 记为「下一拍待发起」，本窗口一结束立刻接着开下一个，窗口之间不重叠
+                // （AC-2.3），但**每一拍都真的冲到**。
+                pendingStart = PendingSprint(context = context, requestedAtUtcMillis = nowUtcMillis)
+                return SprintStartDecision.Started(nowUtcMillis)
             }
             return startWindowLocked(context, nowUtcMillis)
         }

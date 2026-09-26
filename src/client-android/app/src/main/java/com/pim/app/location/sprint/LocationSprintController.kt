@@ -10,9 +10,12 @@ import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.QualityDecision
 import com.pim.app.location.quality.RawLocationFix
 import com.google.android.gms.location.Priority
+import com.pim.app.settings.TrackingSettingsStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -45,13 +48,34 @@ sealed interface SprintStartDecision {
 class LocationSprintController @Inject constructor(
     private val runner: LocationAcquisitionRunner,
     private val ledger: SprintLedgerPort,
-    private val scope: CoroutineScope,
-    private val wallClockMillis: () -> Long,
-    private val qualityGateProvider: () -> LocationQualityGate,
-    private val sprintEnabledProvider: () -> Boolean,
-    /** 可注入的延时（测试用虚拟时钟；生产为 `delay`）。 */
-    private val delayMillis: suspend (Long) -> Unit = { delay(it) }
+    private val trackingSettingsStore: TrackingSettingsStore
 ) {
+    private val internalScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** 测试接缝：注入 TestScope（与 [LocationAcquisitionCoordinator] 同一约定）。 */
+    internal var testScope: CoroutineScope? = null
+    private val scope: CoroutineScope get() = testScope ?: internalScope
+
+    internal var wallClockMillis: () -> Long = { System.currentTimeMillis() }
+
+    /**
+     * 质量门来源。默认**每拍**按当前设置构造，因此「门槛固定 30 米、无可调项」
+     * （REQ-7）与「海拔等待沿用既有设置」两条都保持既有语义。
+     */
+    internal var qualityGateProvider: () -> LocationQualityGate = {
+        LocationQualityGate.fromTrackingSettings(trackingSettingsStore.read())
+    }
+
+    /**
+     * 冲刺开关来源（REQ-5 / AC-5.5）。**每次发起冲刺都重新读**，
+     * 因此切换后无需重启即自下一个周期起生效。
+     */
+    internal var sprintEnabledProvider: () -> Boolean = {
+        trackingSettingsStore.read().sprintEnabled
+    }
+
+    /** 可注入的延时（测试用虚拟时钟；生产为 `delay`）。 */
+    internal var delayMillis: suspend (Long) -> Unit = { delay(it) }
     /**
      * (accepted, accuracy) 回调：由采集引擎负责真正入库（逐条入库，REQ-15）。
      * 冲刺只负责「判定 + 记账」，不直接写库，避免两处入库口径分叉。

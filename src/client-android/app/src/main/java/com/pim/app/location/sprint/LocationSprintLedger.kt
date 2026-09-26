@@ -27,10 +27,10 @@ import org.json.JSONObject
 class LocationSprintLedger @Inject constructor(
     private val dao: ForensicEventDao,
     private val logs: StructuredLogRepository
-) {
+) : SprintLedgerPort {
 
     /** 写入一条**已执行**的冲刺记录（AC-8.1：字段齐备）。 */
-    suspend fun recordExecuted(result: SprintWindowResult): Boolean = record(
+    override suspend fun recordExecuted(result: SprintWindowResult): Boolean = record(
         eventType = LocationSprintEventTypes.SPRINT,
         occurredAtUtcMillis = result.startedAtUtcMillis,
         clientItemKey = sprintKey(result.startedAtUtcMillis, SprintOutcome.EXECUTED, null),
@@ -55,7 +55,7 @@ class LocationSprintLedger @Inject constructor(
      * 注意 AC-5.4：这里写入的是「跳过」而不是「已冲刺」，
      * 台账消费方必须按 `outcome` 区分，不得把跳过计成已冲刺。
      */
-    suspend fun recordSkipped(
+    override suspend fun recordSkipped(
         occurredAtUtcMillis: Long,
         reason: String
     ): Boolean = record(

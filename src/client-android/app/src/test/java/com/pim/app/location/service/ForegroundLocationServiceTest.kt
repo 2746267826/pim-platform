@@ -1390,6 +1390,16 @@ class ForegroundLocationServiceTest {
 
         val sessionId = harness.runner.lastRequest!!.sessionId
         harness.runner.emitCandidate(acceptedSnapshot())
+        // WO-ANDROID-GATE-20260926 D6：手动会话不再「首个达标点即结束」，必须等满 30 秒。
+        // 这里显式让一次性采集截止，等价于窗口跑满。
+        // D6：手动会话等满 30 秒才终结 —— 显式让一次性采集截止。
+        harness.runner.completeCurrent(
+            LocationEngineResult(
+                sessionId = sessionId,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
         idleUntil {
             harness.coordinator.state.value.sessionId == sessionId &&
                 harness.coordinator.state.value.phase == AcquisitionPhase.Completed
@@ -1616,6 +1626,14 @@ class ForegroundLocationServiceTest {
         )
         idleUntil(timeoutMillis = 15_000L) { harness.runner.acquireCount.get() >= 1 }
         harness.runner.emitCandidate(acceptedSnapshot())
+        // D6：手动会话等满 30 秒；显式让一次性采集截止以进入 Completed。
+        harness.runner.completeCurrent(
+            LocationEngineResult(
+                sessionId = harness.runner.lastRequest!!.sessionId,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
         idleUntil(timeoutMillis = 15_000L) {
             harness.coordinator.state.value.phase == AcquisitionPhase.Completed
         }
@@ -1837,6 +1855,14 @@ class ForegroundLocationServiceTest {
         // has not run yet, which is exactly the deterministic window in which
         // an unexpected onDestroy must not cancel the owned result.
         harness.runner.emitCandidate(acceptedSnapshot())
+        // D6：手动会话等满 30 秒才终结 —— 显式让一次性采集截止。
+        harness.runner.completeCurrent(
+            LocationEngineResult(
+                sessionId = sessionId!!,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (harness.coordinator.state.value.phase != AcquisitionPhase.Completed) {
             if (System.nanoTime() > deadline) {
@@ -2314,6 +2340,14 @@ class ForegroundLocationServiceTest {
         // window in which a replaceAwaitingManual start switches the session id
         // before the old waiter ever sees the old terminal state.
         harness.runner.emitCandidate(acceptedSnapshot())
+        // D6：手动会话等满 30 秒才终结 —— 显式让一次性采集截止。
+        harness.runner.completeCurrent(
+            LocationEngineResult(
+                sessionId = startedId!!,
+                bestLocation = null,
+                completion = LocationEngineCompletion.TimedOut
+            )
+        )
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (harness.coordinator.state.value.phase != AcquisitionPhase.Completed) {
             if (System.nanoTime() > deadline) {

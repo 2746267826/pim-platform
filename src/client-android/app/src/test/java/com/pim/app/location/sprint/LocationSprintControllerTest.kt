@@ -8,6 +8,8 @@ import com.pim.app.location.acquisition.LocationEngineResult
 import com.pim.app.location.acquisition.LocationUpdateRequest
 import com.pim.app.location.policy.LocationPolicyMode
 import com.pim.app.location.quality.LocationQualityGate
+import com.pim.app.settings.TrackingSettingsStore
+import com.pim.app.testing.InMemorySharedPreferences
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.RawLocationFix
 import kotlinx.coroutines.CompletableDeferred
@@ -49,18 +51,19 @@ class LocationSprintControllerTest {
         val controller = LocationSprintController(
             runner = runner,
             ledger = ledger,
-            scope = scope,
-            wallClockMillis = { nowUtcMillis },
-            qualityGateProvider = { gate },
-            sprintEnabledProvider = { enabled },
-            // 虚拟延时：记下**窗口到期时刻**（= 调用时刻 + 剩余时长）并挂起，
-            // 直到测试宣布「窗口该结束了」。到期时刻直接由控制器算出，
-            // 因此测试中途推进时间也不会与它重复累加。
-            delayMillis = { requested ->
-                windowEndUtcMillis = nowUtcMillis + requested
-                windowExpiry.await()
-            }
+            trackingSettingsStore = TrackingSettingsStore(InMemorySharedPreferences())
         )
+        controller.testScope = scope
+        controller.wallClockMillis = { nowUtcMillis }
+        controller.qualityGateProvider = { gate }
+        controller.sprintEnabledProvider = { enabled }
+        // 虚拟延时：记下**窗口到期时刻**（= 调用时刻 + 剩余时长）并挂起，
+        // 直到测试宣布「窗口该结束了」。到期时刻直接由控制器算出，
+        // 因此测试中途推进时间也不会与它重复累加。
+        controller.delayMillis = { requested ->
+            windowEndUtcMillis = nowUtcMillis + requested
+            windowExpiry.await()
+        }
         controller.onAccepted = { accepted, accuracy -> acceptedSink += accepted to accuracy }
         controller.onDropped = { fix, reason -> droppedSink += fix to reason }
         return controller

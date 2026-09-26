@@ -33,7 +33,14 @@ data class SprintSummary(
     val enabled: Boolean?,
     /** 最近 24 小时已执行冲刺次数；无采集数据或读取失败时为 null（与「0 次」区分）。 */
     val count: Int?,
-    val countDisplay: SprintCountDisplay
+    val countDisplay: SprintCountDisplay,
+    /**
+     * 最近一次冲刺窗口的跨度（毫秒）；从未冲刺或读取失败时为 null。
+     *
+     * 让验收方**在应用内**就能核对「约 30 秒、不早退」（AC-2.2 / AC-3.1），
+     * 不必先导出诊断包再翻台账（设备操作卡 §3 曾因此无法现场核对）。
+     */
+    val lastWindowDurationMillis: Long? = null
 )
 
 /**
@@ -69,6 +76,7 @@ class LocationSprintSummaryRepository internal constructor(
         val windowStart = now - WINDOW_MILLIS
 
         val enabled = runCatching { trackingSettingsStore.read().sprintEnabled }.getOrNull()
+        val lastWindowDuration = runCatching { ledger.lastExecutedWindowDurationMillis() }.getOrNull()
 
         val hasCollectionData = try {
             // AC-9.2 的空态定义是「无定位点、无心跳、无台账记录」三条都成立，
@@ -88,7 +96,12 @@ class LocationSprintSummaryRepository internal constructor(
 
         if (!hasCollectionData) {
             // AC-9.2 态一：无采集数据 → 「暂无」。
-            return SprintSummary(enabled = enabled, count = null, countDisplay = SprintCountDisplay.Empty)
+            return SprintSummary(
+                enabled = enabled,
+                count = null,
+                countDisplay = SprintCountDisplay.Empty,
+                lastWindowDurationMillis = lastWindowDuration
+            )
         }
 
         val count = try {
@@ -107,7 +120,8 @@ class LocationSprintSummaryRepository internal constructor(
         return SprintSummary(
             enabled = enabled,
             count = count,
-            countDisplay = SprintCountDisplay.Value(count)
+            countDisplay = SprintCountDisplay.Value(count),
+            lastWindowDurationMillis = lastWindowDuration
         )
     }
 

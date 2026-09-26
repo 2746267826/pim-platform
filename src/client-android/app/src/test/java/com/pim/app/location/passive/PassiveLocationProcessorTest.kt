@@ -250,20 +250,33 @@ class PassiveLocationProcessorTest {
         )
     }
 
-    /** AC-14.2：计数可重置（按窗口对账用）。 */
+    /**
+     * AC-14.2：计数快照与清零分离 —— **先落库、成功后再清零**。
+     *
+     * 先清后写时，一旦写入被取消或失败，整个窗口的分母就没了
+     * （独立 review round 2 指出）。这里断言两者是独立操作：
+     * 取快照不清零，清零要显式调用。
+     */
     @Test
-    fun `计数可按窗口重置`() = runTest {
+    fun `计数快照不清零且清零需显式调用`() = runTest {
         val processor = processor()
         processor.handle(fix(at = START, accuracy = 10f))
         processor.handle(fix(at = START, accuracy = 40f))
 
-        val window = processor.drainCounters(now = START + 60_000L, windowStart = START)
+        val snapshot = processor.peekCounters()
 
-        assertEquals(2, window.callbackCount)
-        assertEquals(1, window.acceptedCount)
-        assertEquals(1, window.droppedCount)
-        assertEquals(0, window.duplicateCount)
-        assertEquals("对账缺口必须为 0", 0, window.unaccountedCount)
+        assertEquals(2, snapshot.callbackCount)
+        assertEquals(1, snapshot.acceptedCount)
+        assertEquals(1, snapshot.droppedCount)
+        assertEquals(0, snapshot.duplicateCount)
+        assertEquals("对账缺口必须为 0", 0, snapshot.unaccountedCount)
+        assertEquals(
+            "取快照不得清零（写台账成功后才允许清）",
+            2,
+            processor.countersSnapshot().callbackCount
+        )
+
+        processor.clearCounters()
         assertEquals(0, processor.countersSnapshot().callbackCount)
     }
 

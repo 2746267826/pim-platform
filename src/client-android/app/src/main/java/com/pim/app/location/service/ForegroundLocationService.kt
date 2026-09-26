@@ -355,6 +355,25 @@ class ForegroundLocationService : Service() {
     }
 
     /**
+     * 手动定位的冲刺（REQ-6 / AC-6.1 / AC-6.3）。
+     *
+     * - 开关**开**：发起一次冲刺窗口并落「已执行」台账（AC-6.1 证据）；
+     * - 开关**关**：记一条「跳过（开关关闭）」，**不**注册冲刺流（AC-6.3）。
+     *
+     * 无论哪种，手动会话本身照常跑满 30 秒（用户确认口径，D6）。
+     */
+    private fun maybeRunManualSprint() {
+        val context = AcquisitionContext(
+            policyMode = LocationPolicyMode.PowerSavingNormal.name,
+            scheduleLowFrequency = false,
+            motionSignal = motionSignalRepository.status.value.signal.name,
+            // 手动会话的固有节奏 ≈1 秒（基线即 1000/800 毫秒）。
+            requestIntervalMillis = MANUAL_SESSION_INTERVAL_MILLIS
+        )
+        locationSprintRuntime.onPeriod(context, LocationPolicyMode.PowerSavingNormal)
+    }
+
+    /**
      * 主动流最近的入库 fix 快照（AC-14.5 重复判定用）。
      *
      * 只读，且不触碰任何注册状态 —— 被动监听不得扰动主流（AC-14.7）。
@@ -433,6 +452,10 @@ class ForegroundLocationService : Service() {
             startAutomaticLoop()
             return
         }
+        // REQ-6 / AC-6.1：手动定位同样执行冲刺，并留下可核对的台账记录。
+        // 用户 2026-09-26 确认：手动会话**无论开关都跑满 30 秒**，开关只决定是否冲刺。
+        // 因此这里按开关决定发起冲刺还是记「跳过」，会话时长不受影响。
+        maybeRunManualSprint()
 
         scope.launch {
             // 观察本会话的终结状态；若该会话在 waiter 挂起期间被新的手动
@@ -885,6 +908,14 @@ class ForegroundLocationService : Service() {
          * （被动源本身不设限流，日志/台账写入量要可控）。
          */
         const val PASSIVE_COUNTER_FLUSH_MILLIS = 60_000L
+
+        /**
+         * 手动单次会话的取点节奏（基线 `LocationUpdateSource` 的 1000/800 毫秒）。
+         *
+         * 手动会话没有「策略档周期」的概念，它本身就是一段 ≈1 秒、最长 30 秒的取点过程，
+         * 因此周期门控对它恒放行（REQ-6：手动同样执行冲刺）。
+         */
+        const val MANUAL_SESSION_INTERVAL_MILLIS = 1_000L
 
         fun resolveRequestInterval(intervalMillis: Long): Long {
             require(intervalMillis > 0L) { "intervalMillis must be positive" }

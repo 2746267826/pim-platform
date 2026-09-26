@@ -101,6 +101,28 @@ class LocationSprintLedger @Inject constructor(
         }
     }
 
+    /**
+     * 最近一次**已执行**窗口的跨度（毫秒）；没有已执行记录时为 null。
+     *
+     * 供状态页现场核对「约 30 秒、不早退」（AC-2.2 / AC-3.1），
+     * 避免验收方必须导出诊断包才能看到窗口跨度。
+     */
+    suspend fun lastExecutedWindowDurationMillis(): Long? = try {
+        dao.recentByType(SPRINT_EVENT_TYPE, RECENT_SCAN_LIMIT)
+            .firstOrNull { payloadOutcome(it.payloadJson) == SprintOutcome.EXECUTED }
+            ?.let { entity ->
+                runCatching {
+                    val root = org.json.JSONObject(entity.payloadJson)
+                    if (root.isNull("sprintDurationMillis")) null
+                    else root.getLong("sprintDurationMillis")
+                }.getOrNull()
+            }
+    } catch (ex: CancellationException) {
+        throw ex
+    } catch (_: Exception) {
+        null
+    }
+
     /** 时间窗内是否存在**任何**冲刺台账记录（含跳过记录）。 */
     suspend fun hasAnySprintLedgerSince(fromUtcMillis: Long): Boolean =
         dao.countByTypeInWindow(SPRINT_EVENT_TYPE, fromUtcMillis) > 0
@@ -148,6 +170,9 @@ class LocationSprintLedger @Inject constructor(
          * 序列化，字段顺序与转义不保证稳定，精确匹配随时会因格式变化而失效。
          */
         const val EXECUTED_PAYLOAD_LIKE = "%\"outcome\":\"executed\"%"
+
+        /** 读取「最近一次已执行窗口跨度」时扫描的条数上限（冲刺台账条数有限）。 */
+        const val RECENT_SCAN_LIMIT = 64
 
         /** 冲刺台账的事件类型（供谓词与测试引用，避免字符串散落）。 */
         val SPRINT_EVENT_TYPE = LocationSprintEventTypes.SPRINT

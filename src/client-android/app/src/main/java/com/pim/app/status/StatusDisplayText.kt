@@ -35,6 +35,8 @@ object StatusDisplayText {
         PassiveLocationContract.REASON_MISSING_ACCURACY -> "被动定位缺少水平精度"
         PassiveLocationContract.REASON_DUPLICATE_FIX -> "被动定位与主动流重复"
         PassiveLocationContract.REASON_ENQUEUE_FAILED -> "被动定位入库失败"
+    "sprint-enqueue-failed" -> "冲刺点入库失败"
+        "sprint-enqueue-failed" -> "冲刺点入库失败"
         null, "" -> "暂无"
         else -> "其他原因"
     }

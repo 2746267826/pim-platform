@@ -135,24 +135,29 @@ class PassiveLocationProcessor(
     /** 最近一次入库失败（诊断用；非空说明有过写库异常，已转成丢弃留痕）。 */
     fun lastEnqueueFailure(): Exception? = synchronized(lock) { lastEnqueueError }
 
-    /**
-     * 取出并清零本窗口计数，供按周期写台账（AC-14.2 / AC-14.3 的三数对账）。
-     */
-    fun drainCounters(now: Long, windowStart: Long): PassiveLocationCounters =
-        drainCountersInternal()
-
-    private fun drainCountersInternal(): PassiveLocationCounters = synchronized(lock) {
-        val snapshot = PassiveLocationCounters(
+    /** 当前窗口计数快照（**不清零**）——先落库、成功后再清零，避免丢分母。 */
+    fun peekCounters(): PassiveLocationCounters = synchronized(lock) {
+        PassiveLocationCounters(
             callbackCount = callbackCount,
             acceptedCount = acceptedCount,
             droppedCount = droppedCount,
             duplicateCount = duplicateCount
         )
-        callbackCount = 0
-        acceptedCount = 0
-        droppedCount = 0
-        duplicateCount = 0
-        snapshot
+    }
+
+    /**
+     * 清零计数（在台账写入**成功之后**调用）。
+     *
+     * 顺序很关键：先清后写时，一旦写入被取消或失败，整个窗口的分母就没了；
+     * 先写后清则最坏情况是重复写一次同一窗口（幂等键会拦下）。
+     */
+    fun clearCounters() {
+        synchronized(lock) {
+            callbackCount = 0
+            acceptedCount = 0
+            droppedCount = 0
+            duplicateCount = 0
+        }
     }
 
     private suspend fun accept(

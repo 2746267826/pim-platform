@@ -109,6 +109,82 @@ class PassiveCounterFlushTest {
         assertEquals(2, counters().size)
     }
 
+    /**
+     * AC-14.2（独立 review round 2 指出缺的守卫）：写入失败时**必须保留计数**，
+     * 不得因为一次失败就丢掉整个窗口的分母。
+     */
+    @Test
+    fun `写入失败时保留计数等待重试`() = runTest {
+        val failingLedger = object : PassiveLocationLedger(
+            db.forensicEventDao(),
+            StructuredLogRepository(
+                ApplicationProvider.getApplicationContext(),
+                TrackingSettingsStore(
+                    ApplicationProvider.getApplicationContext<Context>()
+                        .getSharedPreferences("passive-flush-fail", Context.MODE_PRIVATE)
+                )
+            ) { now }
+        ) {
+            var failNext = true
+            override suspend fun recordCounters(
+                occurredAtUtcMillis: Long,
+                windowStartUtcMillis: Long,
+                windowSequence: Long,
+                callbackCount: Int,
+                acceptedCount: Int,
+                droppedCount: Int,
+                duplicateCount: Int
+            ): Boolean {
+                if (failNext) {
+                    failNext = false
+                    return false
+                }
+                return super.recordCounters(
+                    occurredAtUtcMillis,
+                    windowStartUtcMillis,
+                    windowSequence,
+                    callbackCount,
+                    acceptedCount,
+                    droppedCount,
+                    duplicateCount
+                )
+            }
+        }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val settings = TrackingSettingsStore(
+            context.getSharedPreferences("passive-flush-retry", Context.MODE_PRIVATE)
+        )
+        val logs = StructuredLogRepository(context, settings) { now }
+        val retrying = PassiveLocationCoordinator(
+            source = FakePassiveSource(context, settings, logs),
+            operations = NoopOperations(),
+            ledger = failingLedger,
+            logs = logs,
+            nowUtcMillis = { now }
+        )
+
+        retrying.start { emptyList() }
+        val processor = retrying.activeProcessorForTest()!!
+        repeat(5) { processor.handle(passiveFix(accuracy = 10f)) }
+
+        val firstAttempt = retrying.flushWindow()
+        assertEquals("第一次写入失败也要把计数返回（供诊断）", 5, firstAttempt!!.callbackCount)
+        assertEquals(
+            "写入失败后计数必须保留，不得清零",
+            5,
+            retrying.activeProcessorForTest()!!.countersSnapshot().callbackCount
+        )
+
+        val secondAttempt = retrying.flushWindow()
+        assertEquals("重试时必须仍是同一个窗口计数", 5, secondAttempt!!.callbackCount)
+        assertEquals(
+            "重试成功后计数才清零",
+            0,
+            retrying.activeProcessorForTest()!!.countersSnapshot().callbackCount
+        )
+        assertEquals("重试成功后台账恰好一行", 1, counters().size)
+    }
+
     /** AC-14.1：未注册时刷新是安全的空操作（服务未启动也能被周期任务调用）。 */
     @Test
     fun `未注册时刷新是空操作`() = runTest {

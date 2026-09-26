@@ -98,16 +98,14 @@ class PassiveLocationCoordinator internal constructor(
      */
     suspend fun flushWindow(): PassiveLocationCounters? {
         val active = processor ?: return null
-        val counters = active.drainCounters(
-            now = nowUtcMillis(),
-            windowStart = windowStartUtcMillis
-        )
-        // 无论有没有回调都要推进窗口（起点 + 序号），否则下一个窗口会复用同一条台账键。
+        // **先取快照，不立即清零**：先清后写时，写入被取消（停止采集）或抛异常
+        // 会让整个窗口的分母消失（独立 review round 2 指出）。先写后清则最坏情况
+        // 是重复写同一窗口 —— 幂等键会拦下，不会重复计数。
+        val counters = active.peekCounters()
+        if (counters.callbackCount == 0) return null
+
         val flushedWindowStart = windowStartUtcMillis
         val flushedSequence = windowSequence
-        windowStartUtcMillis = nowUtcMillis()
-        windowSequence += 1L
-        if (counters.callbackCount == 0) return null
         val written = ledger.recordCounters(
             occurredAtUtcMillis = nowUtcMillis(),
             windowStartUtcMillis = flushedWindowStart,
@@ -118,12 +116,19 @@ class PassiveLocationCoordinator internal constructor(
             duplicateCount = counters.duplicateCount
         )
         if (!written) {
-            // 键冲突（理论上不该发生）也必须可见：分母缺失是 AC-14.2 的致命问题。
+            // 写失败（含被取消/键冲突）→ **保留计数**，等下一次刷新重试；
+            // 分母缺失是 AC-14.2 的致命问题，宁可重复写也不能丢。
             logs.error(
                 "passive-location",
-                "被动计数台账写入被拒（键冲突）：windowStart=$flushedWindowStart seq=$flushedSequence"
+                "被动计数台账写入失败，保留计数待下次重试：" +
+                    "windowStart=$flushedWindowStart seq=$flushedSequence"
             )
+            return counters
         }
+        // 写入成功后才清零并推进窗口（起点 + 序号），下一个窗口不会复用同一条台账键。
+        active.clearCounters()
+        windowStartUtcMillis = nowUtcMillis()
+        windowSequence += 1L
         return counters
     }
 

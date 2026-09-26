@@ -18,13 +18,13 @@ import org.json.JSONObject
  * 让验收方能在台账里直接读出分母。
  */
 @Singleton
-class PassiveLocationLedger @Inject constructor(
+open class PassiveLocationLedger @Inject constructor(
     private val dao: ForensicEventDao,
     private val logs: StructuredLogRepository
 ) {
 
     /** 写入一条被动回调计数摘要。 */
-    suspend fun recordCounters(
+    open suspend fun recordCounters(
         occurredAtUtcMillis: Long,
         windowStartUtcMillis: Long,
         windowSequence: Long,

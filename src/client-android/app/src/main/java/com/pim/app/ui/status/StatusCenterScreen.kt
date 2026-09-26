@@ -370,6 +370,16 @@ private fun SprintSection(summary: com.pim.app.location.sprint.SprintSummary) {
             tag = "sprint-count-24h"
         )
 
+        // AC-2.2 / AC-3.1：最近一次窗口跨度直接可见，验收方无需导出诊断包即可核对
+        // 「约 30 秒、不早退」。
+        summary.lastWindowDurationMillis?.let { duration ->
+            FactRow(
+                label = "最近一次冲刺窗口",
+                value = "${duration / 1000} 秒",
+                tag = "sprint-last-window"
+            )
+        }
+
         Text(
             text = when (val display = summary.countDisplay) {
                 is com.pim.app.location.sprint.SprintCountDisplay.Value -> {

@@ -73,8 +73,17 @@ class KeepAliveLedger @Inject constructor(
         )
     }
 
-    /** 读取最近 [limit] 条叫醒记录（**从新到旧**），供降频判定与兑现率使用。 */
-    suspend fun recentFulfillments(limit: Int = RECENT_LIMIT): List<AlarmFulfillmentRecord> = try {
+    /**
+     * 读取最近 [limit] 条叫醒记录（**从新到旧**），供降频判定与兑现率使用。
+     *
+     * 默认条数由**降频判定规则本身**推导（见 [KeepAliveLedger.requiredRecordsForSuppressionPolicy]），
+     * 而不是一个自拟的「最多看 N 条」窗口：窗口太小会让「连续 3 次被压制」这类判定
+     * 因为看不到足够证据而永不触发。§9.1 P3 的不设上限约束的是本地留存，
+     * 这里只是**读多少条够判定**，两者不是一回事，但仍必须由规则决定而不是拍一个数。
+     */
+    suspend fun recentFulfillments(
+        limit: Int = requiredRecordsForSuppressionPolicy()
+    ): List<AlarmFulfillmentRecord> = try {
         dao.recentByType(KeepAliveEventTypes.ALARM_FULFILLMENT, limit).mapNotNull { entity ->
             runCatching {
                 val root = JSONObject(entity.payloadJson)
@@ -164,8 +173,22 @@ class KeepAliveLedger @Inject constructor(
         "alarm-fulfillment-${record.scheduledAtUtcMillis}-${record.outcome}"
 
     companion object {
-        /** 降频判定只看最近若干条，避免无界读取（本地仍不设条数上限，只限制读取窗口）。 */
-        const val RECENT_LIMIT = 20
+        /**
+         * 降频判定需要读取的最少记录条数。
+         *
+         * 取两侧门槛的较大者再加 1 条余量：判定看的是「连续前缀」，
+         * 因此至少要能看到 [AlarmSuppressionPolicy.SUPPRESSIONS_BEFORE_BACKOFF] 条
+         * 或 [AlarmSuppressionPolicy.ON_TIME_BEFORE_RESET] 条，多读 1 条用于判断前缀是否被打断。
+         *
+         * 这里**刻意不设**一个自拟的「最多看 N 条」窗口：§9.1 P3 明确本地队列不设条数上限，
+         * 而窗口太小会让「连续 3 次被压制」因看不到足够证据而永不触发。
+         * 上述数值全部来自工单已确认参数，不含自拟值。
+         */
+        fun requiredRecordsForSuppressionPolicy(): Int =
+            maxOf(
+                AlarmSuppressionPolicy.SUPPRESSIONS_BEFORE_BACKOFF,
+                AlarmSuppressionPolicy.ON_TIME_BEFORE_RESET
+            ) + 1
     }
 }
 

@@ -51,6 +51,28 @@ class FulfillmentRateTest {
         assertEquals(1.0, result.rate!!, 0.0001)
     }
 
+    /**
+     * REQ-16 的 `started` 开始标记**不得**影响兑现率。
+     *
+     * 它没有实际时刻，因此既不算按时也不算未按时——只应被计入「被排除」的条数。
+     * 若把它算进分母，每次叫醒都会凭空多出一条永远不会「按时」的记录，把兑现率压低。
+     */
+    @Test
+    fun `REQ-16 开始标记不污染兑现率`() {
+        val result = FulfillmentRate.compute(
+            listOf(
+                rec(null, AlarmOutcomes.STARTED),
+                rec(0, AlarmOutcomes.EXECUTED),
+                rec(null, AlarmOutcomes.STARTED),
+            )
+        )
+
+        assertEquals("分母只应有 1 条真实执行", 1, result.considered)
+        assertEquals(1, result.fulfilled)
+        assertEquals(2, result.excludedNoActualTime)
+        assertEquals(1.0, result.rate!!, 0.0001)
+    }
+
     /** AC-18.2：没有可判定记录时返回空态，**不是** 0%。 */
     @Test
     fun `AC-18_2 没有已执行记录时给空态而不是百分之零`() {

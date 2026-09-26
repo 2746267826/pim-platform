@@ -171,11 +171,19 @@ class KeepAliveCoordinator internal constructor(
         }
 
         val overdueBy = nowUtcMillis() - pending
-        if (overdueBy > OVERDUE_GRACE_MILLIS) {
-            // 预定时刻早该到了却没触发：闹钟不在系统里了。
+        if (overdueBy > 0) {
+            // 预定时刻已过却没有等到触发：说明闹钟不在系统里了（被强停清空 / 被系统回收 /
+            // 权限撤销连带取消）。这里**不设宽限期阈值**——工单 §9.1 只确认了
+            // 「延迟 >15 分钟算被压制」（那是**延迟**的判定线，不是「闹钟存在性」的判定线），
+            // 把一个已确认的延迟阈值挪用到「闹钟是否还在」上属于自拟用法（§8.6 禁止）。
+            //
+            // 代价与取舍：Doze 下精确闹钟可能有少量延迟，因此「刚过期几秒」也可能被记成
+            // 「闹钟被清空」而点亮红点——这是**偏保守**的一侧（多提示而非漏提示），
+            // 且随后的成功登记会立即重新登记；而漏报会让用户完全看不到保活已失效。
             health.raise(
                 KeepAliveHealthReasons.ALARM_CLEARED,
-                "预定叫醒时刻已过去 ${overdueBy / 60_000L} 分钟仍未触发，系统里的保活闹钟已不存在，现已重新登记。"
+                "预定叫醒时刻已过去 ${overdueBy / 60_000L} 分钟仍未触发，" +
+                    "系统里的保活闹钟可能已不存在，现已重新登记。"
             )
             return scheduleNext(trigger)
         }
@@ -185,15 +193,7 @@ class KeepAliveCoordinator internal constructor(
         return KeepAliveScheduleOutcome.AlreadyRegistered(pending)
     }
 
-    private companion object {
-        /**
-         * 判定「闹钟打空了」的宽限余量。
-         *
-         * 取 15 分钟：与 AC-17.1 的「压制」判定线一致，不另立一个自拟阈值；
-         * 小于该值可能只是系统正常延迟（Doze 下允许延迟），不能算闹钟消失。
-         */
-        const val OVERDUE_GRACE_MILLIS = 15 * 60_000L
-    }
+    // 刻意不设「宽限余量」常量：见 reconcile 内对 OVERDUE 处理的说明。
 }
 
 /** 登记结果（供界面与状态展示，AC-22.2「台账与界面均显示已关闭」）。 */

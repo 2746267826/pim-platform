@@ -14,6 +14,8 @@ import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * [WakeEnvironment] 的 Android 实现（REQ-16 / REQ-20）。
@@ -39,17 +41,25 @@ class AndroidWakeEnvironment @Inject constructor(
         // 与 ForegroundLocationService.ACTION_PAUSE_COLLECTION 设置的是同一个开关。
         !trackingSettingsStore.read().continuousCollectionEnabled
     } catch (ex: Exception) {
-        // 读不到时按「未暂停」处理：宁可多叫醒一次，也不要因为读数失败而永久不采集。
-        logs.warn("keepalive", "读取暂停状态失败，按未暂停处理：${ex.message ?: ""}")
-        false
+        // **fail-closed**：读不到暂停状态时按「已暂停」处理，即不拉起服务、不采集。
+        //
+        // 理由：REQ-20 是保护用户显式意图的条款（用户暂停了就不许偷偷拉起）。
+        // 取 fail-open（按未暂停处理）会在读数失败时违背这个意图——而读数失败本身
+        // 已经说明出了异常，此时更不该擅自启动采集。宁可少叫醒一次（下个周期会重试，
+        // 且红点会提示），也不能违背用户明确表达的「暂停」。
+        logs.warn("keepalive", "读取暂停状态失败，按已暂停处理（fail-closed）：${ex.message ?: ""}")
+        true
     }
 
     override suspend fun isManualSessionActive(): Boolean = try {
         val state = acquisitionCoordinator.get().state.value
         state.isBusy && state.triggerType == TriggerType.MANUAL
     } catch (ex: Exception) {
-        logs.warn("keepalive", "读取采集会话语义失败，按无手动会话处理：${ex.message ?: ""}")
-        false
+        // **fail-closed**：读不到会话状态时按「有手动会话」处理，跳过本次叫醒。
+        // 理由同 [isPaused]：AC-20.2 要求不得打断用户正在进行的会话，
+        // 而「读不到」意味着我们无法确认没有会话，此时不打断才是安全的一侧。
+        logs.warn("keepalive", "读取采集会话语义失败，按存在手动会话处理（fail-closed）：${ex.message ?: ""}")
+        true
     }
 
     override fun isForegroundServiceRunning(): Boolean = try {
@@ -66,9 +76,31 @@ class AndroidWakeEnvironment @Inject constructor(
         false
     }
 
+    /**
+     * 拉起前台采集服务**并确认它真的起来了**。
+     *
+     * `ForegroundLocationController.start()` 只是 `startForegroundService()`（异步派发 Intent），
+     * 返回成功并不代表服务已进入前台。若据此直接报告成功，会把「服务其实没起来」
+     * 记成 `executed`（false-green），并跳过 AC-16.3 要求的兜底抓点。
+     * 因此这里发完 Intent 后轮询确认（短等，不新增常驻轮询）。
+     */
     override suspend fun startForegroundService(): Boolean = try {
         controller.start()
-        true
+
+        // 等待服务**真的**进入运行态，而不是假定它成功了。
+        // 用既有 runtimeState 的 StateFlow 做**事件驱动**等待（first{isRunning} + 超时），
+        // 不写 `while + delay` 轮询循环——AC-29.1 明确禁止新增定时轮询，且这是可 grep 核对的。
+        val running = withTimeoutOrNull(START_CONFIRM_TIMEOUT_MILLIS) {
+            ForegroundLocationService.runtimeState.first { it.isRunning }
+        } != null
+
+        if (!running) {
+            logs.warn(
+                "keepalive",
+                "已发出拉起指令，但 ${START_CONFIRM_TIMEOUT_MILLIS}ms 内采集服务未进入运行态"
+            )
+        }
+        running
     } catch (ex: CancellationException) {
         throw ex
     } catch (ex: Exception) {
@@ -92,4 +124,11 @@ class AndroidWakeEnvironment @Inject constructor(
 
     /** 当前运行状态（供设置页「当前状态」展示，AC-22.1）。 */
     fun runtimeState(): ForegroundLocationRuntimeState = ForegroundLocationService.runtimeState.value
+
+    private companion object {
+        /** 拉起后确认服务进入运行态的最长等待。 */
+        const val START_CONFIRM_TIMEOUT_MILLIS = 5_000L
+
+        // 刻意不设「轮询间隔」常量：确认方式是 StateFlow 事件等待，不是轮询。
+    }
 }

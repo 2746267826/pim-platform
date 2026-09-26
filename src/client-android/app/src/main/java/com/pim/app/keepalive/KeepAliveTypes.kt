@@ -30,9 +30,21 @@ object AlarmOutcomes {
     /** 未执行：设备关机等导致没有实际触发时刻（AC-18.3：不计入兑现率分母）。 */
     const val NOT_EXECUTED = "not-executed"
 
+    /**
+     * **开始标记**：闹钟已触发、执行链已开始，但结果尚未落定。
+     *
+     * 存在的理由：工单 REQ-16 要求「触发时**按序**执行：写台账 → 检查前台采集服务 → …」。
+     * 若只在执行链结束后才写台账，那么「拉起服务/抓点过程中进程再次退出」这一最需要证据的
+     * 场景会一条记录都不剩。因此先落一条开始标记，结束时再落一条带真实结果的记录。
+     *
+     * 它**不参与**任何统计：`actualAtUtcMillis` 为 null（AC-18.3 不计入兑现率分母），
+     * 且 [com.pim.app.keepalive.AlarmRecordCounter] 对它不做任何计数推进。
+     */
+    const val STARTED = "started"
+
     val ALL = setOf(
         EXECUTED, SUPPRESSED, PULL_FAILED,
-        SKIPPED_PAUSED, SKIPPED_MANUAL_SESSION, SKIPPED_DISABLED, NOT_EXECUTED
+        SKIPPED_PAUSED, SKIPPED_MANUAL_SESSION, SKIPPED_DISABLED, NOT_EXECUTED, STARTED
     )
 
     fun label(outcome: String): String = when (outcome) {
@@ -43,6 +55,7 @@ object AlarmOutcomes {
         SKIPPED_MANUAL_SESSION -> "手动采集会话进行中，已跳过"
         SKIPPED_DISABLED -> "保活已关闭"
         NOT_EXECUTED -> "未执行（设备关机或未触发）"
+        STARTED -> "叫醒已开始（结果未落定）"
         else -> "未知结果"
     }
 }

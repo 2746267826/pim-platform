@@ -46,8 +46,20 @@ class WakeExecutionChain internal constructor(
         val now = nowUtcMillis()
         val settings = settingsStore.read()
 
-        // 顺序 1：先写台账。AC-16.1 要求「杀死进程后，下一个闹钟周期内被叫醒，台账记录本次动作」，
-        // 因此这一步必须在任何可能失败的动作之前。
+        // 顺序 1：**先写台账**。工单 REQ-16 明确「触发时按序执行：写台账 → 检查前台采集服务 → …」，
+        // 且 AC-16.1 要求「杀死进程后，下一个闹钟周期内被叫醒，台账记录本次动作」。
+        //
+        // 这里先落一条「已开始」的记录，是因为：若在执行链中途（拉起服务、抓点）进程再次退出，
+        // 只在最后写台账会**一条记录都不剩**——而那正是最需要留下证据的场景。
+        ledger.recordFulfillment(
+            AlarmFulfillmentRecord(
+                scheduledAtUtcMillis = scheduledAtUtcMillis,
+                // 为 null：开始标记不进兑现率分母，也不推进任何计数（AC-18.3）。
+                actualAtUtcMillis = null,
+                outcome = AlarmOutcomes.STARTED
+            )
+        )
+
         val outcome = try {
             runChain(settings, now)
         } catch (ex: CancellationException) {

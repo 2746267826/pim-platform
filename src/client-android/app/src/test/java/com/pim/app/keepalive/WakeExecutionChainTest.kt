@@ -112,6 +112,49 @@ class WakeExecutionChainTest {
         return Triple(execution, recorder, store)
     }
 
+    /**
+     * REQ-16 顺序：**必须先写台账**再执行链路。
+     *
+     * 理由：若只在链路结束后写台账，「拉起服务/抓点过程中进程再次退出」这一最需要证据的场景
+     * 会一条记录都不剩。因此实现先落一条 `started` 开始标记。
+     * 这里断言两件事：开始标记确实**先于**任何采集动作写入；且它**不污染**统计。
+     */
+    @Test
+    fun `REQ-16 先写台账再执行链路`() = runTest {
+        val env = FakeEnvironment(serviceRunning = false, startSucceeds = true)
+        val recorder = FakeRecorder()
+        val store = FakeSettings(KeepAliveSettings.defaults())
+        val execution = WakeExecutionChain(
+            ledger = recorder,
+            settingsStore = store,
+            environment = env,
+            logs = logs(),
+            nowUtcMillis = { now }
+        )
+
+        execution.execute(now)
+
+        assertEquals("开始标记 + 结果记录 = 两条", 2, recorder.written.size)
+        assertEquals(
+            "第一条必须是 started 开始标记（先写台账）",
+            AlarmOutcomes.STARTED,
+            recorder.written.first().outcome
+        )
+        assertEquals(
+            "开始标记不得带实际时刻（否则会进兑现率分母）",
+            null,
+            recorder.written.first().actualAtUtcMillis
+        )
+        assertFalse(
+            "开始标记不得构成被压制证据",
+            recorder.written.first().isSuppressedEvidence
+        )
+        assertFalse(
+            "开始标记不得构成按时证据",
+            recorder.written.first().isOnTimeEvidence
+        )
+    }
+
     /** AC-16.2：服务未运行时被拉起，且台账记录本次动作。 */
     @Test
     fun `AC-16_2 服务未运行则拉起并记台账`() = runTest {
@@ -122,7 +165,9 @@ class WakeExecutionChainTest {
 
         assertEquals(AlarmOutcomes.EXECUTED, record.outcome)
         assertTrue("必须真的尝试拉起服务", env.calls.contains("startForegroundService"))
-        assertEquals("本次动作必须落台账（AC-16.1）", 1, recorder.written.size)
+        // REQ-16 要求先写台账再执行，因此一次叫醒落两条：started 开始标记 + 结果记录。
+        assertEquals("开始标记 + 结果记录", 2, recorder.written.size)
+        assertEquals(AlarmOutcomes.EXECUTED, recorder.written.last().outcome)
     }
 
     /** AC-16.1：已运行则触发一次补传，而不是重复拉服务。 */
@@ -148,7 +193,8 @@ class WakeExecutionChainTest {
 
         assertEquals(AlarmOutcomes.PULL_FAILED, record.outcome)
         assertTrue("拉起失败必须兜底抓点", env.calls.contains("captureSinglePointFallback"))
-        assertEquals(1, recorder.written.size)
+        assertEquals(2, recorder.written.size)
+        assertEquals(AlarmOutcomes.PULL_FAILED, recorder.written.last().outcome)
     }
 
     /** AC-20.1 / AC-20.3：暂停后一个周期内只写台账，不拉起服务、不采集。 */
@@ -163,7 +209,8 @@ class WakeExecutionChainTest {
         assertFalse("暂停期间绝不能拉起服务", env.calls.contains("startForegroundService"))
         assertFalse("暂停期间不得请求补传", env.calls.contains("requestSyncNow"))
         assertFalse("暂停期间不得抓点", env.calls.contains("captureSinglePointFallback"))
-        assertEquals("仍要留下台账证据", 1, recorder.written.size)
+        assertEquals("仍要留下台账证据（started + 跳过原因）", 2, recorder.written.size)
+        assertEquals(AlarmOutcomes.SKIPPED_PAUSED, recorder.written.last().outcome)
         assertNull("AC-18.3：未执行没有实际时刻，不进兑现率分母", record.actualAtUtcMillis)
     }
 

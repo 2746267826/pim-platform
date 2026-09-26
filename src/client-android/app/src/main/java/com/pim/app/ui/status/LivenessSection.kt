@@ -28,6 +28,7 @@ import com.pim.app.forensics.LivenessUiSnapshot
 internal fun LivenessSection(
     snapshot: LivenessUiSnapshot?,
     onOpenDroppedReasons: () -> Unit = {},
+    onOpenGuidance: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -116,11 +117,20 @@ internal fun LivenessSection(
                 )
             }
 
-            TextButton(
-                onClick = onOpenDroppedReasons,
-                modifier = Modifier.testTag("status-open-dropped-reasons")
-            ) {
-                Text("查看丢弃原因")
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(
+                    onClick = onOpenDroppedReasons,
+                    modifier = Modifier.testTag("status-open-dropped-reasons")
+                ) {
+                    Text("查看丢弃原因")
+                }
+                // AC-23.1：状态页作为系统设置引导的入口之一（另一处在设置页）。
+                TextButton(
+                    onClick = onOpenGuidance,
+                    modifier = Modifier.testTag("status-open-guidance")
+                ) {
+                    Text("系统设置引导")
+                }
             }
         }
     }

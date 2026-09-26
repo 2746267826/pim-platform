@@ -67,6 +67,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import com.pim.app.settings.TrackingPresetCatalog
 import com.pim.app.status.StatusPermissionNavigator
+import com.pim.app.keepalive.ui.ColorOsGuidanceScreen
+import com.pim.app.keepalive.ui.KeepAliveSection
+import com.pim.app.keepalive.ui.KeepAliveViewModel
 import com.pim.app.ui.components.PimSection
 import com.pim.app.ui.permissions.permissionSettingRows
 import com.pim.app.ui.status.repeatConnectionProbePolling
@@ -80,15 +83,24 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
+    keepAliveViewModel: KeepAliveViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val keepAliveState by keepAliveViewModel.sectionState.collectAsStateWithLifecycle()
+    val guidanceState by keepAliveViewModel.guidanceState.collectAsStateWithLifecycle()
+    var showGuidance by rememberSaveable { mutableStateOf(false) }
     var username by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var advancedExpanded by rememberSaveable { mutableStateOf(false) }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    // AC-23.2：每次进入引导页都重新读一次系统状态，避免显示上次进入时的旧读数。
+    LaunchedEffect(showGuidance, lifecycleOwner) {
+        if (showGuidance) keepAliveViewModel.refresh()
+    }
 
     LaunchedEffect(lifecycleOwner, viewModel) {
         lifecycleOwner.lifecycle.repeatConnectionProbePolling {
@@ -116,6 +128,17 @@ fun SettingsScreen(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (showGuidance) {
+        ColorOsGuidanceScreen(
+            state = guidanceState,
+            onOpenSettings = keepAliveViewModel::openSettingsFor,
+            onToggleManual = keepAliveViewModel::setManualCompleted,
+            onBack = { showGuidance = false },
+            modifier = modifier
+        )
+        return
     }
 
     if (showResetDialog) {
@@ -440,6 +463,18 @@ fun SettingsScreen(
                 )
             }
         }
+
+        KeepAliveSection(
+            state = keepAliveState,
+            onToggleEnabled = keepAliveViewModel::setEnabled,
+            onIntervalChange = keepAliveViewModel::setIntervalMinutes,
+            onOpenGuidance = { showGuidance = true },
+            onOpenExactAlarmSettings = {
+                keepAliveViewModel.openSettingsFor(
+                    com.pim.app.keepalive.ColorOsGuidanceCatalog.EXACT_ALARM
+                )
+            }
+        )
 
         PimSection("权限") {
             val rows = permissionSettingRows(state.permissions)

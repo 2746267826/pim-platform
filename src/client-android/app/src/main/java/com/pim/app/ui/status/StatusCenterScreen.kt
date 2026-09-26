@@ -41,6 +41,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
@@ -84,7 +87,8 @@ import java.time.format.DateTimeFormatter
 fun StatusCenterScreen(
     modifier: Modifier = Modifier,
     onOpenSettings: () -> Unit = {},
-    viewModel: StatusCenterViewModel = hiltViewModel()
+    viewModel: StatusCenterViewModel = hiltViewModel(),
+    keepAliveViewModel: com.pim.app.keepalive.ui.KeepAliveViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -101,10 +105,26 @@ fun StatusCenterScreen(
     val feedback by viewModel.feedback.collectAsStateWithLifecycle()
     val exportState by viewModel.exportState.collectAsStateWithLifecycle()
     val showMeteredSyncConfirmation by viewModel.showMeteredSyncConfirmation.collectAsStateWithLifecycle()
+    var showGuidance by rememberSaveable { mutableStateOf(false) }
     if (showDroppedReasons) {
         DroppedReasonScreen(
             state = droppedReasons,
             onBack = { viewModel.closeDroppedReasons() },
+            modifier = modifier
+        )
+        return
+    }
+
+    // AC-23.1：状态页是引导页的**入口之一**（另一处在设置页）。
+    // 顶部红点点亮时用户最可能从这里进来，因此入口就放在存活区块旁。
+    if (showGuidance) {
+        val guidance by keepAliveViewModel.guidanceState.collectAsStateWithLifecycle()
+        LaunchedEffect(Unit) { keepAliveViewModel.refresh() }
+        com.pim.app.keepalive.ui.ColorOsGuidanceScreen(
+            state = guidance,
+            onOpenSettings = keepAliveViewModel::openSettingsFor,
+            onToggleManual = keepAliveViewModel::setManualCompleted,
+            onBack = { showGuidance = false },
             modifier = modifier
         )
         return
@@ -115,6 +135,7 @@ fun StatusCenterScreen(
         feedback = feedback,
         liveness = liveness,
         onOpenDroppedReasons = { viewModel.openDroppedReasons() },
+        onOpenGuidance = { showGuidance = true },
         modifier = modifier,
         onIssueAction = { issue ->
             when (StatusActionRouter.route(viewModel.onIssueAction(issue))) {
@@ -150,6 +171,7 @@ internal fun StatusCenterContent(
     feedback: StatusActionFeedback? = null,
     liveness: LivenessUiSnapshot? = null,
     onOpenDroppedReasons: () -> Unit = {},
+    onOpenGuidance: () -> Unit = {},
     modifier: Modifier = Modifier,
     onIssueAction: (StatusIssue) -> Unit = {},
     onSyncNow: () -> Unit = {},
@@ -182,7 +204,8 @@ internal fun StatusCenterContent(
         // 存活区块放在最顶部（REQ-8）：先回答"设备活没活"，再回答既有权限/同步状态。
         LivenessSection(
             snapshot = liveness,
-            onOpenDroppedReasons = onOpenDroppedReasons
+            onOpenDroppedReasons = onOpenDroppedReasons,
+            onOpenGuidance = onOpenGuidance
         )
 
         feedback?.let {

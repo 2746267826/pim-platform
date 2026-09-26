@@ -34,7 +34,14 @@ data class KeepAliveSettings(
      * 持久化而不是放在 Intent extra 里：闹钟可能在被杀进程后由系统派发，
      * 此时进程是全新的，只有落盘的数据还在。延迟值（REQ-18）由它与实际时刻算出。
      */
-    val pendingScheduledAtUtcMillis: Long?
+    val pendingScheduledAtUtcMillis: Long?,
+    /**
+     * 当前点亮的健康红点原因集合（REQ-21）。
+     *
+     * **必须持久化**：保活要解决的正是「应用被杀」，若红点只存在内存里，
+     * 进程重启后异常会静默消失——那比不显示更糟，用户会以为一切正常。
+     */
+    val activeHealthReasons: Set<String> = emptySet()
 ) {
     companion object {
         fun defaults(): KeepAliveSettings = KeepAliveSettings(
@@ -45,7 +52,8 @@ data class KeepAliveSettings(
             consecutiveOnTime = 0,
             consecutiveWakeFailures = 0,
             completedGuidanceKeys = emptySet(),
-            pendingScheduledAtUtcMillis = null
+            pendingScheduledAtUtcMillis = null,
+            activeHealthReasons = emptySet()
         )
     }
 }
@@ -73,7 +81,9 @@ class KeepAliveSettingsStore @Inject constructor(
             completedGuidanceKeys = preferences.getStringSet(KEY_COMPLETED_GUIDANCE, emptySet())
                 ?.toSet() ?: emptySet(),
             pendingScheduledAtUtcMillis = preferences.getLong(KEY_PENDING_SCHEDULED_AT, 0L)
-                .takeIf { it > 0L }
+                .takeIf { it > 0L },
+            activeHealthReasons = preferences.getStringSet(KEY_ACTIVE_HEALTH_REASONS, emptySet())
+                ?.toSet() ?: emptySet()
         )
     }
 
@@ -93,6 +103,7 @@ class KeepAliveSettingsStore @Inject constructor(
             .putInt(KEY_CONSECUTIVE_WAKE_FAILURES, settings.consecutiveWakeFailures)
             .putStringSet(KEY_COMPLETED_GUIDANCE, settings.completedGuidanceKeys)
             .putLong(KEY_PENDING_SCHEDULED_AT, settings.pendingScheduledAtUtcMillis ?: 0L)
+            .putStringSet(KEY_ACTIVE_HEALTH_REASONS, settings.activeHealthReasons)
             .apply()
         return read()
     }
@@ -133,5 +144,6 @@ class KeepAliveSettingsStore @Inject constructor(
         const val KEY_CONSECUTIVE_WAKE_FAILURES = "keepalive.consecutive_wake_failures"
         const val KEY_COMPLETED_GUIDANCE = "keepalive.completed_guidance_keys"
         const val KEY_PENDING_SCHEDULED_AT = "keepalive.pending_scheduled_at_utc_millis"
+        const val KEY_ACTIVE_HEALTH_REASONS = "keepalive.active_health_reasons"
     }
 }

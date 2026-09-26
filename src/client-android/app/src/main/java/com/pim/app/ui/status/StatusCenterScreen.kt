@@ -106,6 +106,11 @@ fun StatusCenterScreen(
     val exportState by viewModel.exportState.collectAsStateWithLifecycle()
     val showMeteredSyncConfirmation by viewModel.showMeteredSyncConfirmation.collectAsStateWithLifecycle()
     var showGuidance by rememberSaveable { mutableStateOf(false) }
+    // REQ-21：红点状态取自持久化设置（进程重启后仍在），进入状态页时刷新一次。
+    val keepAliveAlert by keepAliveViewModel.healthAlert.collectAsStateWithLifecycle()
+    LaunchedEffect(lifecycleOwner) {
+        keepAliveViewModel.refresh()
+    }
     if (showDroppedReasons) {
         DroppedReasonScreen(
             state = droppedReasons,
@@ -134,6 +139,7 @@ fun StatusCenterScreen(
         state = state,
         feedback = feedback,
         liveness = liveness,
+        keepAliveHealthAlert = keepAliveAlert,
         onOpenDroppedReasons = { viewModel.openDroppedReasons() },
         onOpenGuidance = { showGuidance = true },
         modifier = modifier,
@@ -170,6 +176,7 @@ internal fun StatusCenterContent(
     state: StatusCenterState,
     feedback: StatusActionFeedback? = null,
     liveness: LivenessUiSnapshot? = null,
+    keepAliveHealthAlert: String? = null,
     onOpenDroppedReasons: () -> Unit = {},
     onOpenGuidance: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -197,6 +204,12 @@ internal fun StatusCenterContent(
             "状态中心",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
+        )
+
+        // REQ-21：保活健康红点放在**状态页最顶部**（工单第 6 节）。
+        com.pim.app.keepalive.ui.KeepAliveHealthBanner(
+            alertText = keepAliveHealthAlert,
+            onOpenGuidance = onOpenGuidance
         )
 
         OverallStatusSurface(state)

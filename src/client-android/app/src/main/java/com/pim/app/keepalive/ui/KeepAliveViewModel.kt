@@ -42,6 +42,10 @@ class KeepAliveViewModel @Inject constructor(
     private val _sectionState = MutableStateFlow(emptyKeepAliveSectionState())
     val sectionState: StateFlow<KeepAliveSectionState> = _sectionState.asStateFlow()
 
+    /** 红点文案（null = 不点亮）；状态页顶部与设置页共用同一来源。 */
+    private val _healthAlert = MutableStateFlow<String?>(null)
+    val healthAlert: StateFlow<String?> = _healthAlert.asStateFlow()
+
     private val _guidanceState = MutableStateFlow(
         GuidanceScreenState(detectable = emptyList(), manual = emptyList(), jumpFailed = false)
     )
@@ -59,6 +63,8 @@ class KeepAliveViewModel @Inject constructor(
                 val lastWake = ledger.lastFulfillmentAtUtc()
                 val configured = settings.configuredIntervalMinutes
                 val effective = settings.effectiveIntervalMinutes
+
+                _healthAlert.value = health.summaryText()
 
                 _sectionState.value = KeepAliveSectionState(
                     enabled = settings.enabled,

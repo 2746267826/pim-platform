@@ -129,6 +129,7 @@ class KeepAliveCoordinatorTest {
         val health = KeepAliveHealthMonitor(
             ledger = keepAliveLedger(logRepo),
             notifications = notifications,
+            settings = settingsStore,
             logs = logRepo,
             nowUtcMillis = { 1_000_000L }
         )
@@ -320,7 +321,7 @@ class KeepAliveCoordinatorTest {
         val settingsStore = FakeSettings(settings)
         val notifications = FakeNotifications()
         val scheduler = FakeScheduler()
-        val health = KeepAliveHealthMonitor(ledger, notifications, logRepo) { 1_000_000L }
+        val health = KeepAliveHealthMonitor(ledger, notifications, settingsStore, logRepo) { 1_000_000L }
         val chain = WakeExecutionChain(
             ledger = FakeRecorder(),
             settingsStore = settingsStore,

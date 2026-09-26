@@ -211,6 +211,59 @@ class WakeExecutionChainTest {
         assertFalse(env.calls.contains("captureSinglePointFallback"))
     }
 
+    /**
+     * AC-16.4（反面）：叫醒不产生重复采集会话。
+     *
+     * 具体守两件事：
+     * 1. 服务**已在运行**时只请求补传，绝不发起新的采集会话；
+     * 2. 只有在拉起失败时才走兜底抓点（一次），且此时不得再额外拉起服务——
+     *    否则一次叫醒可能同时产生「拉起的自动采集」与「兜底的手动会话」两套会话。
+     */
+    @Test
+    fun `AC-16_4 服务已运行时不得发起新的采集会话`() = runTest {
+        val env = FakeEnvironment(serviceRunning = true)
+        val (execution, _, _) = chain(env)
+
+        execution.execute(now)
+
+        assertTrue("已运行时应请求补传", env.calls.contains("requestSyncNow"))
+        assertFalse("已运行时不得发起兜底会话（AC-16.4）", env.calls.contains("captureSinglePointFallback"))
+        assertFalse("已运行时不得重复拉起服务", env.calls.contains("startForegroundService"))
+    }
+
+    /** AC-16.4：拉起失败时兜底只抓一次点，且不再重复拉起服务。 */
+    @Test
+    fun `AC-16_4 拉起失败时兜底只执行一次`() = runTest {
+        val env = FakeEnvironment(serviceRunning = false, startSucceeds = false)
+        val (execution, _, _) = chain(env)
+
+        execution.execute(now)
+
+        assertEquals(
+            "兜底抓点必须恰好一次",
+            1,
+            env.calls.count { it == "captureSinglePointFallback" }
+        )
+        assertEquals(
+            "拉起只尝试一次（失败后不得反复拉起）",
+            1,
+            env.calls.count { it == "startForegroundService" }
+        )
+    }
+
+    /** 手动采集会话进行中时不得走任何会话相关路径（AC-20.2 与 AC-16.4 同向）。 */
+    @Test
+    fun `AC-16_4 手动会话期间不产生任何采集调用`() = runTest {
+        val env = FakeEnvironment(manualSession = true, serviceRunning = true)
+        val (execution, _, _) = chain(env)
+
+        execution.execute(now)
+
+        assertFalse(env.calls.contains("captureSinglePointFallback"))
+        assertFalse(env.calls.contains("requestSyncNow"))
+        assertFalse(env.calls.contains("startForegroundService"))
+    }
+
     /** AC-17.1：延迟大于阈值时结果构成「被压制」证据。 */
     @Test
     fun `AC-17_1 延迟过大时构成被压制证据`() = runTest {

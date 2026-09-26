@@ -1,0 +1,129 @@
+{
+  "slot": "A1",
+  "wave": "wave005",
+  "nodes": [
+    {
+      "id": "src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs",
+      "label": "QuickNoteDtos",
+      "path": "src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs.md",
+      "layer": "module.quicknotes",
+      "kind": "dto"
+    },
+    {
+      "id": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs",
+      "label": "QuickNoteService",
+      "path": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs.md",
+      "layer": "module.quicknotes",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.App/LoginWindow.xaml.cs",
+      "label": "LoginWindow",
+      "path": "src/client-windows/Pim.Client.App/LoginWindow.xaml.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.App/LoginWindow.xaml.cs.md",
+      "layer": "client-windows",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Models/AuthDtos.cs",
+      "label": "AuthDtos",
+      "path": "src/client-windows/Pim.Client.Core/Models/AuthDtos.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Models/AuthDtos.cs.md",
+      "layer": "client-windows",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs",
+      "label": "KeyStatsCollectorService",
+      "path": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/api/client.ts",
+      "label": "api/client",
+      "path": "src/client-web/src/api/client.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/api/client.ts.md",
+      "layer": "client-web",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/auth/authApi.ts",
+      "label": "authApi",
+      "path": "src/client-web/src/auth/authApi.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/auth/authApi.ts.md",
+      "layer": "client-web",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx",
+      "label": "HistoricalLocationDashboard",
+      "path": "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileAnalyticsHeader.tsx",
+      "label": "MobileAnalyticsHeader",
+      "path": "src/client-web/src/components/mobile/MobileAnalyticsHeader.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileAnalyticsHeader.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileQualityPanel.tsx",
+      "label": "MobileQualityPanel",
+      "path": "src/client-web/src/components/mobile/MobileQualityPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileQualityPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    }
+  ],
+  "edges": [
+    { "from": "src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs", "to": "src/Pim.Core/Common", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs", "to": "src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs", "to": "src/Pim.Infrastructure/Auth/CurrentUserService.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs", "to": "src/Pim.Infrastructure/Operations/AuditLogService.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs", "to": "src/modules/Pim.Module.QuickNotes/Entities", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteService.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.QuickNotes/QuickNotesModule.cs", "to": "src/modules/Pim.Module.QuickNotes/DTOs/QuickNoteDtos.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/LoginWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/AuthService.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/LoginWindow.xaml.cs", "to": "src/client-windows/Pim.Client.App/LoginWindow.xaml", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/App.xaml.cs", "to": "src/client-windows/Pim.Client.App/LoginWindow.xaml.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "to": "src/client-windows/Pim.Client.App/LoginWindow.xaml.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/TrayIcon.cs", "to": "src/client-windows/Pim.Client.App/LoginWindow.xaml.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/AuthService.cs", "to": "src/client-windows/Pim.Client.Core/Models/AuthDtos.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs", "to": "src/client-windows/Pim.Client.Core/Models/AuthDtos.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs", "to": "http://127.0.0.1:18080/api/stats/", "type": "http" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs", "to": "/pc/keystats/samples", "type": "http" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs", "to": "/pc/keystats/upload", "type": "http" },
+    { "from": "src/client-windows/Pim.Client.App/Startup.cs", "to": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/App.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs", "type": "calls" },
+    { "from": "src/client-web/src/api/client.ts", "to": "/api/v1/auth/refresh", "type": "http" },
+    { "from": "src/client-web/src/auth/AuthContext.tsx", "to": "src/client-web/src/api/client.ts", "type": "calls" },
+    { "from": "src/client-web/src/api/calendar.ts", "to": "src/client-web/src/api/client.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/api/files.ts", "to": "src/client-web/src/api/client.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/api/mobile.ts", "to": "src/client-web/src/api/client.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/auth/authApi.ts", "to": "src/client-web/src/types/index.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx", "to": "src/client-web/src/components/mobile/LocationHistoryMap.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx", "to": "src/client-web/src/components/mobile/LocationMetricStrip.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx", "to": "src/client-web/src/components/mobile/LocationSegmentDetail.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx", "to": "src/client-web/src/components/mobile/LocationStayMoveTimeline.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx", "to": "src/client-web/src/components/mobile/LocationRawPointTable.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/HistoricalLocationPage.tsx", "to": "src/client-web/src/components/mobile/HistoricalLocationDashboard.tsx", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/MobileAnalyticsHeader.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileAnalyticsHeader.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/MobileRecordsPage.tsx", "to": "src/client-web/src/components/mobile/MobileAnalyticsHeader.tsx", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/MobileQualityPanel.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileQualityPanel.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileRecordsDashboard.tsx", "to": "src/client-web/src/components/mobile/MobileQualityPanel.tsx", "type": "calls" }
+  ]
+}

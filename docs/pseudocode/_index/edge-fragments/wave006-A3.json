@@ -1,0 +1,116 @@
+{
+  "slot": "A3",
+  "wave": "wave006",
+  "nodes": [
+    {
+      "id": "src/client-web/src/components/pc-tracker/CategoryTimeline.tsx",
+      "label": "CategoryTimeline",
+      "path": "src/client-web/src/components/pc-tracker/CategoryTimeline.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/CategoryTimeline.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/pc-tracker/PcQualitySummary.tsx",
+      "label": "PcQualitySummary",
+      "path": "src/client-web/src/components/pc-tracker/PcQualitySummary.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/PcQualitySummary.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx",
+      "label": "QuickNoteMarkdownPreview",
+      "path": "src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/status/SidebarStatusIndicator.tsx",
+      "label": "SidebarStatusIndicator",
+      "path": "src/client-web/src/components/status/SidebarStatusIndicator.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/status/SidebarStatusIndicator.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/dialogs/EventEditorDialog.tsx",
+      "label": "EventEditorDialog",
+      "path": "src/client-web/src/dialogs/EventEditorDialog.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/dialogs/EventEditorDialog.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/CalendarPage.tsx",
+      "label": "CalendarPage",
+      "path": "src/client-web/src/pages/CalendarPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/CalendarPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/PcDetailQueryPage.tsx",
+      "label": "PcDetailQueryPage",
+      "path": "src/client-web/src/pages/PcDetailQueryPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/PcDetailQueryPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/TodayPage.tsx",
+      "label": "TodayPage",
+      "path": "src/client-web/src/pages/TodayPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/TodayPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/ui/PageHeader.tsx",
+      "label": "PageHeader",
+      "path": "src/client-web/src/ui/PageHeader.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/ui/PageHeader.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt",
+      "label": "AppUsageDao",
+      "path": "src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/LocationSubmissionPolicy.kt",
+      "label": "LocationSubmissionPolicy",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/LocationSubmissionPolicy.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/LocationSubmissionPolicy.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt",
+      "label": "ForegroundLocationService",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    { "from": "src/client-web/src/components/pc-tracker/CategoryTimeline.tsx", "to": "src/client-web/src/types/index.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/pc-tracker/PcQualitySummary.tsx", "to": "src/client-web/src/ui/StatusBadge.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/components/quick-notes/QuickNoteMarkdownPreview.tsx", "to": "src/client-web/src/api/quickNotes.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/status/SidebarStatusIndicator.tsx", "to": "src/client-web/src/api/status.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/dialogs/EventEditorDialog.tsx", "to": "src/client-web/src/api/calendar.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/CalendarPage.tsx", "to": "src/client-web/src/api/calendar.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/CalendarPage.tsx", "to": "src/client-web/src/context/CalendarVisibilityContext.tsx", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/TodayPage.tsx", "to": "src/client-web/src/api/today.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/pages/TodayPage.tsx", "to": "src/client-web/src/components/today/TodaySectionHost.tsx", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/data/AppUsageDao.kt", "to": "src/client-android/app/src/main/java/com/pim/app/data/AppUsageEntity.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt", "to": "src/client-android/app/src/main/java/com/pim/app/location/LocationQueueRepository.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/location/service/ForegroundLocationService.kt", "to": "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyEngine.kt", "type": "depends_on" }
+  ]
+}

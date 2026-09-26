@@ -1,0 +1,184 @@
+{
+  "slot": "A8",
+  "wave": "wave006",
+  "nodes": [
+    {
+      "id": "src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx",
+      "label": "DailyActivityPanel",
+      "path": "src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts",
+      "label": "extractQuickNoteAttachmentIds",
+      "path": "src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts.md",
+      "layer": "client-web",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/components/schedule/OutlookConflictResolver.tsx",
+      "label": "OutlookConflictResolver",
+      "path": "src/client-web/src/components/schedule/OutlookConflictResolver.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/schedule/OutlookConflictResolver.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/today/TodayScheduleList.tsx",
+      "label": "TodayScheduleList",
+      "path": "src/client-web/src/components/today/TodayScheduleList.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/today/TodayScheduleList.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/main.tsx",
+      "label": "main",
+      "path": "src/client-web/src/main.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/main.tsx.md",
+      "layer": "client-web",
+      "kind": "entrypoint"
+    },
+    {
+      "id": "src/client-web/src/pages/FilesPage.tsx",
+      "label": "FilesPage",
+      "path": "src/client-web/src/pages/FilesPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/FilesPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/pages/ReportsPage.tsx",
+      "label": "ReportsPage",
+      "path": "src/client-web/src/pages/ReportsPage.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/pages/ReportsPage.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/ui/confirmActionDialogModel.ts",
+      "label": "getDeleteTargetTypeLabel",
+      "path": "src/client-web/src/ui/confirmActionDialogModel.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/ui/confirmActionDialogModel.ts.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/vite.config.ts",
+      "label": "defineConfig",
+      "path": "src/client-web/vite.config.ts",
+      "doc": "docs/pseudocode/files/src/client-web/vite.config.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt",
+      "label": "PimDatabaseMigrations",
+      "path": "src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/data/PimDatabaseMigrations.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt",
+      "label": "LocationPolicyMode",
+      "path": "src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/location/policy/LocationPolicyTypes.kt.md",
+      "layer": "client-android",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt",
+      "label": "MobileAcknowledgementItem",
+      "path": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    {
+      "from": "src/client-web/src/components/pc-tracker/DailyActivityPanel.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/quick-notes/quickNoteAttachmentBlobUrls.ts",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/schedule/OutlookConflictResolver.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayScheduleList.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayScheduleList.tsx",
+      "to": "src/client-web/src/ui/EmptyState.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/components/today/TodayScheduleList.tsx",
+      "to": "src/client-web/src/ui/StatusBadge.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/main.tsx",
+      "to": "src/client-web/src/App.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/FilesPage.tsx",
+      "to": "src/client-web/src/api/files.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/FilesPage.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/FilesPage.tsx",
+      "to": "src/client-web/src/ui/PageHeader.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/ReportsPage.tsx",
+      "to": "src/client-web/src/api/calendar.ts",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/ReportsPage.tsx",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/ReportsPage.tsx",
+      "to": "src/client-web/src/ui/PageHeader.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/pages/ReportsPage.tsx",
+      "to": "src/client-web/src/ui/SegmentedControl.tsx",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-web/src/ui/confirmActionDialogModel.ts",
+      "to": "src/client-web/src/types",
+      "type": "depends_on"
+    },
+    {
+      "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileAcknowledgementPlanner.kt",
+      "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt",
+      "type": "depends_on"
+    }
+  ]
+}

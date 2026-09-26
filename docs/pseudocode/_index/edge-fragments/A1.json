@@ -1,0 +1,92 @@
+{
+  "slot": "A1",
+  "nodes": [
+    {
+      "id": "src/modules/Pim.Module.Mobile/DTOs/MobileAnalyticsDtos.cs",
+      "label": "MobileAnalyticsDtos",
+      "path": "src/modules/Pim.Module.Mobile/DTOs/MobileAnalyticsDtos.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Mobile/DTOs/MobileAnalyticsDtos.cs.md",
+      "layer": "module.mobile",
+      "kind": "dto"
+    },
+    {
+      "id": "src/modules/Pim.Module.Mobile/Entities/MobileTimelineBlockEntity.cs",
+      "label": "MobileTimelineBlockEntity",
+      "path": "src/modules/Pim.Module.Mobile/Entities/MobileTimelineBlockEntity.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Mobile/Entities/MobileTimelineBlockEntity.cs.md",
+      "layer": "module.mobile",
+      "kind": "entity"
+    },
+    {
+      "id": "src/modules/Pim.Module.Mobile/Services/MobileDeviceService.cs",
+      "label": "MobileDeviceService",
+      "path": "src/modules/Pim.Module.Mobile/Services/MobileDeviceService.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileDeviceService.cs.md",
+      "layer": "module.mobile",
+      "kind": "service"
+    },
+    {
+      "id": "src/modules/Pim.Module.Mobile/Services/MobileUsageGoalService.cs",
+      "label": "MobileUsageGoalService",
+      "path": "src/modules/Pim.Module.Mobile/Services/MobileUsageGoalService.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Mobile/Services/MobileUsageGoalService.cs.md",
+      "layer": "module.mobile",
+      "kind": "service"
+    },
+    {
+      "id": "src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationAuditEntity.cs",
+      "label": "ActivityClassificationAuditEntity",
+      "path": "src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationAuditEntity.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationAuditEntity.cs.md",
+      "layer": "module.pctracker",
+      "kind": "entity"
+    },
+    {
+      "id": "src/modules/Pim.Module.PcTracker/Entities/KeystatsAppBreakdownEntity.cs",
+      "label": "KeystatsAppBreakdownEntity",
+      "path": "src/modules/Pim.Module.PcTracker/Entities/KeystatsAppBreakdownEntity.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Entities/KeystatsAppBreakdownEntity.cs.md",
+      "layer": "module.pctracker",
+      "kind": "entity"
+    },
+    {
+      "id": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSettingsService.cs",
+      "label": "ActivityClassificationSettingsService",
+      "path": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSettingsService.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSettingsService.cs.md",
+      "layer": "module.pctracker",
+      "kind": "service"
+    },
+    {
+      "id": "src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs",
+      "label": "BrowserPageTimelineBuilder",
+      "path": "src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs.md",
+      "layer": "module.pctracker",
+      "kind": "service"
+    }
+  ],
+  "edges": [
+    { "from": "src/modules/Pim.Module.Mobile/Entities/MobileTimelineBlockEntity.cs", "to": "src/modules/Pim.Module.Mobile/DTOs/MobileAnalyticsDtos.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/modules/Pim.Module.Mobile/Entities/MobileTimelineBlockEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileDeviceService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileDeviceService.cs", "to": "src/Pim.Infrastructure/Auth/CurrentUserService.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileDeviceService.cs", "to": "src/modules/Pim.Module.Mobile/Entities/MobileDeviceEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileDeviceService.cs", "to": "src/modules/Pim.Module.Mobile/DTOs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageGoalService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageGoalService.cs", "to": "src/Pim.Infrastructure/Auth/CurrentUserService.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageGoalService.cs", "to": "src/modules/Pim.Module.Mobile/DTOs/MobileAnalyticsDtos.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Mobile/Services/MobileUsageGoalService.cs", "to": "src/modules/Pim.Module.Mobile/Entities/MobileUsageGoalEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationAuditEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Entities/KeystatsAppBreakdownEntity.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/KeystatsDailyEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/KeystatsAppBreakdownEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSettingsService.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSettingsService.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/ActivityClassificationSettingsEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/ActivityClassificationSettingsService.cs", "to": "src/modules/Pim.Module.PcTracker/DTOs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/AwEventEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs", "to": "src/modules/Pim.Module.PcTracker/Entities/ActivityCategoryRuleEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs", "to": "src/modules/Pim.Module.PcTracker/DTOs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs", "to": "src/modules/Pim.Module.PcTracker/Services/ActivityClassifier.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.PcTracker/Services/BrowserPageTimelineBuilder.cs", "to": "src/modules/Pim.Module.PcTracker/Services/AppNameNormalizer.cs", "type": "calls" }
+  ]
+}

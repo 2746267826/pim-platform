@@ -82,7 +82,7 @@ class AndroidWakeEnvironment @Inject constructor(
      * `ForegroundLocationController.start()` 只是 `startForegroundService()`（异步派发 Intent），
      * 返回成功并不代表服务已进入前台。若据此直接报告成功，会把「服务其实没起来」
      * 记成 `executed`（false-green），并跳过 AC-16.3 要求的兜底抓点。
-     * 因此这里发完 Intent 后轮询确认（短等，不新增常驻轮询）。
+     * 因此这里发完 Intent 后**等一下确认**（事件驱动，不是定时轮询）。
      */
     override suspend fun startForegroundService(): Boolean = try {
         controller.start()
@@ -126,7 +126,17 @@ class AndroidWakeEnvironment @Inject constructor(
     fun runtimeState(): ForegroundLocationRuntimeState = ForegroundLocationService.runtimeState.value
 
     private companion object {
-        /** 拉起后确认服务进入运行态的最长等待。 */
+        /**
+         * 拉起后确认服务进入运行态的等待上限。
+         *
+         * 这是一个**工程实现常量**，不是需求参数：工单只要求「叫醒后前台采集服务重新运行」
+         * （AC-16.2），没有规定等多长时间。它取 5 秒的理由是：
+         * - 前台服务的 `onCreate → startForeground` 在同一进程内是毫秒级操作，5 秒足够宽松；
+         * - 不能无限等：等太久会让本次叫醒一直占着广播的 `goAsync` 预算，
+         *   反而拖慢下一次续登记（而续登记是保活的核心）。
+         * 因此它是「保守的等待上限」而非判定阈值；超时只意味着「这次没等到」，
+         * 执行链会如实记为 `pull-failed` 并走 AC-16.3 的兜底，不会谎报成功。
+         */
         const val START_CONFIRM_TIMEOUT_MILLIS = 5_000L
 
         // 刻意不设「轮询间隔」常量：确认方式是 StateFlow 事件等待，不是轮询。

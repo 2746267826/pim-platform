@@ -13,6 +13,7 @@ const device: MobileLivenessDeviceBlock = {
   longestSilenceSeverity: 'critical', hasSilenceOverOneHour: false, silences: [], causes: [],
   lastEventAtUtc: null, coverageByHourDefinition: '小时覆盖定义',
   coverageByExpectedHeartbeatDefinition: '心跳覆盖定义',
+  fulfillment: { rate: 0.5, fulfilled: 1, considered: 2, excludedNoActualTime: 0 },
 };
 const overview: MobileLivenessOverview = {
   rangeStartUtc: '2026-09-01T00:00:00Z', rangeEndUtc: '2026-09-02T00:00:00Z',

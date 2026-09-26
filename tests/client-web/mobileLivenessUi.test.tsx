@@ -24,6 +24,7 @@ const overview: MobileLivenessOverview = {
     causes: [{ cause: 'unknown', label: '未知', count: 2, inference: '推断依据：同期未收到进程退出事件。' }],
     lastEventAtUtc: '2026-09-07T20:00:00Z', coverageByHourDefinition: '每小时至少收到一次心跳的小时比例。',
     coverageByExpectedHeartbeatDefinition: '收到心跳数除以预期心跳数。',
+    fulfillment: { rate: 0.5, fulfilled: 1, considered: 2, excludedNoActualTime: 1 },
   }],
   tablets: [],
   unclassified: [{
@@ -34,6 +35,8 @@ const overview: MobileLivenessOverview = {
     longestSilenceStartUtc: null, longestSilenceEndUtc: null, longestSilenceSeverity: 'none',
     hasSilenceOverOneHour: false, silences: [], causes: [], lastEventAtUtc: null,
     coverageByHourDefinition: '小时定义。', coverageByExpectedHeartbeatDefinition: '心跳定义。',
+    // 无闹钟数据 -> 必须渲染空态，而不是 0%（AC-18.2）
+    fulfillment: null,
   }],
 };
 
@@ -42,5 +45,13 @@ for (const text of ['最近一周设备存活稳定。', '手机', '平板', '�
   assert.ok(markup.includes(text), `设备存活页面应显示「${text}」`);
 }
 assert.ok(markup.includes('data-severity="critical"'), '严重静默应带红色等级标记');
+
+// ── REQ-18 兑现率在页面上的呈现（AC-18.2 / AC-18.3）──
+assert.ok(markup.includes('叫醒兑现率'), '存活页应显示兑现率一项');
+assert.ok(markup.includes('50.0%（1/2 次按时）'), '有数据时应显示兑现率与分子分母');
+assert.ok(markup.includes('无数据（区间内没有已执行的叫醒）'), '无闹钟数据的设备应显示空态');
+assert.ok(markup.includes('不计入分母'), '页面应写明代谢率口径（排除未执行）');
+// 关键反面：整页不得把「无数据」渲染成 0%
+assert.ok(!markup.includes('0.0%（0/0 次按时）'), '无数据不得显示为 0%（AC-18.2）');
 
 console.error('PASS: mobileLivenessUi');

@@ -174,21 +174,25 @@ class KeepAliveLedger @Inject constructor(
 
     companion object {
         /**
-         * 降频判定需要读取的最少记录条数。
+         * 降频判定需要读取的记录条数。
          *
-         * 取两侧门槛的较大者再加 1 条余量：判定看的是「连续前缀」，
-         * 因此至少要能看到 [AlarmSuppressionPolicy.SUPPRESSIONS_BEFORE_BACKOFF] 条
-         * 或 [AlarmSuppressionPolicy.ON_TIME_BEFORE_RESET] 条，多读 1 条用于判断前缀是否被打断。
+         * **必须把 `started` 标记的占用算进去**：每次叫醒写两条（started + 结果），
+         * 按时间倒序读出来是 result_n, started_n, result_{n-1}, started_{n-1}, …
+         * ——每条结果前面都夹着一个 started 标记。
+         * 若窗口只按「需要几条结果」来定，实际能看到的**结果**只有窗口的一半，
+         * 「连续 3 次被压制」会晚一个周期才触发（已由 KeepAliveLedgerTest 抓出）。
          *
-         * 这里**刻意不设**一个自拟的「最多看 N 条」窗口：§9.1 P3 明确本地队列不设条数上限，
-         * 而窗口太小会让「连续 3 次被压制」因看不到足够证据而永不触发。
-         * 上述数值全部来自工单已确认参数，不含自拟值。
+         * 因此：判定需要的证据条数 × 2（每条证据对应 started + 结果），再 +1 条余量
+         * 用于判断连续前缀是否被打断。所有基数都来自工单已确认参数，不含自拟值。
          */
         fun requiredRecordsForSuppressionPolicy(): Int =
             maxOf(
                 AlarmSuppressionPolicy.SUPPRESSIONS_BEFORE_BACKOFF,
                 AlarmSuppressionPolicy.ON_TIME_BEFORE_RESET
-            ) + 1
+            ) * RECORDS_PER_WAKE + 1
+
+        /** 每次叫醒写入的台账条数：started 开始标记 + 结果记录（REQ-16）。 */
+        const val RECORDS_PER_WAKE = 2
     }
 }
 

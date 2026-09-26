@@ -174,13 +174,45 @@ class LocationSprintLedgerTest {
         assertEquals(1, rows().size)
     }
 
-    /** AC-9.2：无任何采集数据时 `hasAnyLedgerDataSince` 为 false（状态页「暂无」空态）。 */
+    /** AC-9.2：台账存在性判定（状态页「暂无」空态的三条件之一）。 */
     @Test
-    fun `AC-9_2 无采集数据时为空态`() = runTest {
-        assertFalse(ledger.hasAnyLedgerDataSince(0L))
+    fun `AC-9_2 台账存在性判定`() = runTest {
+        assertFalse(ledger.hasAnySprintLedgerSince(0L))
 
         ledger.recordSkipped(1_700_000_000_000L, SprintSkipReasons.DISABLED)
-        assertTrue(ledger.hasAnyLedgerDataSince(1_699_000_000_000L))
+        assertTrue(ledger.hasAnySprintLedgerSince(1_699_000_000_000L))
+        assertFalse(
+            "窗口外的记录不得算作有数据",
+            ledger.hasAnySprintLedgerSince(1_700_000_001_000L)
+        )
+    }
+
+    /** AC-9.1：24 小时计数走 SQL，不受「读最近 N 条」上限影响。 */
+    @Test
+    fun `AC-9_1 大量跳过记录不会把已执行记录挤出计数`() = runTest {
+        val now = 1_700_000_000_000L
+        val ledger = LocationSprintLedger(
+            db.forensicEventDao(),
+            StructuredLogRepository(
+                ApplicationProvider.getApplicationContext(),
+                TrackingSettingsStore(
+                    ApplicationProvider.getApplicationContext<Context>()
+                        .getSharedPreferences("sprint-ledger-bulk", Context.MODE_PRIVATE)
+                )
+            ) { now }
+        )
+        // 一条早已执行的记录（窗口内、时间最早）
+        ledger.recordExecuted(SprintWindowResult(now - 3_600_000L, now - 3_570_000L, 30, 8f, 30))
+        // 之后涌入大量跳过记录（模拟高速档 2.5 秒一拍的「跳过」）
+        repeat(5_000) { index ->
+            ledger.recordSkipped(now - 3_500_000L + index, SprintSkipReasons.HIGH_SPEED)
+        }
+
+        assertEquals(
+            "AC-9.1：已执行计数必须走 SQL 全窗口统计，不能被海量跳过记录挤掉",
+            1,
+            ledger.executedCountSince(now - 24L * 60L * 60L * 1_000L)
+        )
     }
 
     /** AC-8.2：跳过原因编码有中文文案。 */

@@ -19,6 +19,12 @@ import com.pim.app.location.acquisition.AcquisitionContext
 import com.pim.app.location.acquisition.AcquisitionPhase
 import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
 import com.pim.app.location.acquisition.SessionStartResult
+import com.pim.app.location.acquisition.TriggerType
+
+import com.pim.app.location.passive.PassiveLocationCoordinator
+import com.pim.app.location.quality.RawLocationFix
+import com.pim.app.location.sprint.LocationSprintRuntime
+import com.pim.app.location.sprint.SprintWindowResult
 import com.pim.app.location.highspeed.HighSpeedMode
 import com.pim.app.location.motion.MotionSignalRepository
 import com.pim.app.location.policy.LocationPolicyEngine
@@ -69,6 +75,8 @@ class ForegroundLocationService : Service() {
     @Inject lateinit var mobileSyncScheduler: MobileSyncScheduler
     @Inject lateinit var locationAcquisitionCoordinator: LocationAcquisitionCoordinator
     @Inject lateinit var queueStatusRepository: QueueStatusRepository
+    @Inject lateinit var locationSprintRuntime: LocationSprintRuntime
+    @Inject lateinit var passiveLocationCoordinator: PassiveLocationCoordinator
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var scheduleRefreshJob: Job? = null
@@ -106,6 +114,9 @@ class ForegroundLocationService : Service() {
     // 最近一次流入库 fix 的 GPS 速度：高速轨迹状态机（policyEngine.highSpeedTracker）
     // 以它为输入，自动循环每次重算时观察。null 表示尚未收到任何入库 fix。
     private var lastSpeedMetersPerSecond: Float? = null
+    // ── WO-ANDROID-GATE-20260926：冲刺与被动定位的运行时状态 ──
+    /** 最近一次冲刺窗口结果（供状态页/通知读取）。 */
+    private var lastSprintResult: SprintWindowResult? = null
     // fix 入库信号：自动循环等待它唤醒，从而在速度变化时立即重算策略并
     // （按需）重注册常驻流，让 2.5s 密集采样与 10s/60s 防抖即时生效。
     private val fixRecordedSignal = MutableStateFlow(0L)
@@ -328,7 +339,47 @@ class ForegroundLocationService : Service() {
         startAutomaticLoop()
     }
 
+    /**
+     * 冲刺与被动源的运行时接线（WO-ANDROID-GATE-20260926 REQ-6 / REQ-8 / REQ-14）。
+     *
+     * 具体判定/入库/留痕都在各自的编排类里（`LocationSprintRuntime` /
+     * `PassiveLocationCoordinator`），服务只负责生命周期与「每拍发起一次」——
+     * 既有契约测试要求服务自身不出现质量门与丢弃诊断符号。
+     */
+    private fun wireSprintLedger(settings: TrackingSettings) {
+        locationSprintRuntime.wire()
+        locationSprintRuntime.abort()
+        // AC-14.1：被动监听随采集服务常驻；注册成功会留日志（含 provider 与时刻）。
+        passiveLocationCoordinator.start(::activeStreamFixes)
+    }
+
+    /**
+     * 主动流最近的入库 fix 快照（AC-14.5 重复判定用）。
+     *
+     * 只读，且不触碰任何注册状态 —— 被动监听不得扰动主流（AC-14.7）。
+     */
+    private fun activeStreamFixes(): List<RawLocationFix> {
+        val latest = locationAcquisitionCoordinator.streamState.value.latestFix
+            ?: return emptyList()
+        return listOf(
+            RawLocationFix(
+                latitude = latest.latitude,
+                longitude = latest.longitude,
+                horizontalAccuracyMeters = latest.horizontalAccuracyMeters,
+                altitudeMeters = latest.altitudeMeters,
+                provider = latest.provider,
+                recordedAtMillis = latest.timeMillis,
+                policyMode = currentDecision.mode.name,
+                scheduleLowFrequency = currentDecision.scheduleLowFrequency,
+                motionSignal = motionSignalRepository.status.value.signal.name
+            )
+        )
+    }
+
     private fun stopCollection() {
+        // 被动计数在本窗口停止前落台账（AC-14.2 的三数对账分母）。
+        scope.launch { runCatching { passiveLocationCoordinator.stop() } }
+        locationSprintRuntime.abort()
         automaticLoopJob?.cancel()
         automaticLoopJob = null
         queueObservationJob?.cancel()
@@ -423,6 +474,7 @@ class ForegroundLocationService : Service() {
         locationAcquisitionCoordinator.onRecorded = { snapshot ->
             recordAccepted(snapshot)
         }
+        wireSprintLedger(settings)
         applyDecision(
             policyEngine!!.reduce(
                 LocationPolicyInput(
@@ -493,7 +545,22 @@ class ForegroundLocationService : Service() {
                     } else {
                         locationAcquisitionCoordinator.updateAutomaticStream(context)
                     }
+                    // REQ-2 / D2：每个采集周期发起一次冲刺。
+                    // AC-5.6：冲刺走**自己的**注册，本行不触碰上面主流的 context/注册；
+                    // AC-2.5：运动/车载档（30 秒硬下限）照常发起，不做任何「节拍过密即跳过」判断。
+                    locationSprintRuntime.onPeriod(context, decision.mode)
+                    updateNotification()
                 } else {
+                    // AC-10.3：非采集时段不冲刺，但**要记录未冲刺原因**（AC-8.2）。
+                    locationSprintRuntime.onPeriod(
+                        AcquisitionContext(
+                            policyMode = decision.mode.name,
+                            scheduleLowFrequency = decision.scheduleLowFrequency,
+                            motionSignal = motionSignalRepository.status.value.signal.name,
+                            requestIntervalMillis = 0L
+                        ),
+                        decision.mode
+                    )
                     locationAcquisitionCoordinator.stopAutomaticStream()
                 }
                 // 运动信号变化或新 fix 入库即时唤醒（高速档依赖 fix 驱动重算）；

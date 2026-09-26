@@ -19,4 +19,12 @@ abstract class LocationSprintModuleBinds {
     @Binds
     @Singleton
     abstract fun bindSprintLedger(impl: LocationSprintLedger): SprintLedgerPort
+
+    /**
+     * 冲刺使用**独立**的注册源（AC-5.6）：同一个底层 provider，
+     * 但注册与取消与主流完全分开。
+     */
+    @Binds
+    @Singleton
+    abstract fun bindSprintUpdateSource(impl: FusedSprintUpdateSource): SprintUpdateSource
 }

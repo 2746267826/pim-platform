@@ -2,6 +2,7 @@ package com.pim.app.location.acquisition
 
 import android.os.SystemClock
 import com.google.android.gms.location.Priority
+import com.pim.app.location.LocationPointPayload
 import com.pim.app.location.LocationSnapshot
 import com.pim.app.location.quality.AltitudeWaitCoordinator
 import com.pim.app.location.quality.LocationQualityGate
@@ -25,11 +26,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -466,10 +463,19 @@ class LocationAcquisitionCoordinator @Inject constructor(
         val engineFinished = AtomicBoolean(false)
         // 入库失败（DB 异常等）必须让会话显式失败，不得静默丢弃（AC-15.3）。
         val enqueueError = AtomicReference<Exception?>(null)
+        // 预热是否已经收下首个达标点（范围外行为，保持基线；手动会话不使用本标志）。
+        val warmUpClaimed = AtomicBoolean(false)
+        // 手动会话的中止判定：停止采集/取消后，迟到的达标点不得再入库。
+        fun sessionStillActive(): Boolean = when (sink) {
+            StateSink.SESSION -> isCurrentSession(sessionId) &&
+                _state.value.phase != AcquisitionPhase.Cancelled
+            StateSink.STREAM -> true
+        }
 
         // REQ-15 / AC-15.1 / AC-15.3：达标点**逐条入库**（不是窗口结束才批量落库），
         // 这样进程中途被杀也不会丢已达标点，且不存在「命中即 return 且无记录」的路径。
         suspend fun enqueueAcceptedNow(accepted: QualityAcceptedLocation) {
+            if (!sessionStillActive()) return
             try {
                 val json = rawJson(accepted, triggerType.storageSource)
                 operations.enqueueAccepted(accepted, json, triggerType.storageSource)
@@ -482,9 +488,17 @@ class LocationAcquisitionCoordinator @Inject constructor(
         }
 
         fun onQualityAccepted(accepted: QualityAcceptedLocation) {
-            // REQ-3 / D6：**不早退**。达标点照收，会话继续跑满 30 秒
-            // （基线在这里 `cancel()` 引擎，正是本工单取消的「首个达标点即结束」）。
+            // D6 / AC-6.4：**手动会话不早退** —— 达标点照收，会话继续跑满 30 秒
+            // （基线在这里无条件 `cancel()` 引擎，正是本工单取消的「首个达标点即结束」）。
+            //
+            // 但**流预热**（collectAll = false）保持基线语义：拿到首个达标点即结束，
+            // 只入库一条。REQ-10 要求「范围外一律不改」，预热属于范围外，
+            // 因此不能顺手一起改掉（独立 review 指出过这一点）。
+            if (!collectAll && !warmUpClaimed.compareAndSet(false, true)) return
             acceptedLocations += accepted
+            if (!collectAll) {
+                engineJobRef.get()?.cancel()
+            }
         }
 
         val engineJob = launch {
@@ -504,8 +518,16 @@ class LocationAcquisitionCoordinator @Inject constructor(
                                     deadlineCapMillis = deadlineCapMillis,
                                     deadlineCapElapsedRealtimeMillis = deadlineCapElapsedRealtimeMillis,
                                     onAccepted = { accepted ->
-                                        onQualityAccepted(accepted)
-                                        enqueueAcceptedNow(accepted)
+                                        val isNew = if (collectAll) {
+                                            // 手动会话：每条达标点都要（不早退）。
+                                            onQualityAccepted(accepted)
+                                            true
+                                        } else {
+                                            // 预热：只有首条算数（保持基线语义）。
+                                            onQualityAccepted(accepted)
+                                            acceptedLocations.size == 1
+                                        }
+                                        if (isNew) enqueueAcceptedNow(accepted)
                                     },
                                     onDropped = { droppedFix, reason -> recordDrop(droppedFix, reason) }
                                 )
@@ -665,43 +687,13 @@ class LocationAcquisitionCoordinator @Inject constructor(
     private fun isCurrentSession(sessionId: String?): Boolean =
         sessionId != null && _state.value.sessionId == sessionId
 
-    private fun rawJson(accepted: QualityAcceptedLocation, source: String): String {
-        val fix = accepted.fix
-        val payload = buildJsonObject {
-            put("latitude", JsonPrimitive(fix.latitude))
-            put("longitude", JsonPrimitive(fix.longitude))
-            put(
-                "horizontalAccuracyMeters",
-                finiteJsonNumberOrNull(fix.horizontalAccuracyMeters?.toDouble())
-            )
-            put("provider", JsonPrimitive(fix.provider))
-            put("source", JsonPrimitive(source))
-            put("altitudeMeters", finiteJsonNumberOrNull(accepted.altitudeMeters))
-            put(
-                "speedMetersPerSecond",
-                finiteJsonNumberOrNull(fix.speedMetersPerSecond?.toDouble())
-            )
-            put(
-                "bearingDegrees",
-                finiteJsonNumberOrNull(fix.bearingDegrees?.toDouble())
-            )
-            put("recordedAtUnixMs", JsonPrimitive(fix.recordedAtMillis))
-            put("submittedAtUnixMs", JsonPrimitive(wallClockMillis()))
-            put("policyMode", JsonPrimitive(fix.policyMode))
-            put("scheduleLowFrequency", JsonPrimitive(fix.scheduleLowFrequency))
-            put("motionSignal", JsonPrimitive(fix.motionSignal))
-            put(
-                "qualityFlags",
-                buildJsonArray {
-                    accepted.qualityFlags.sorted().forEach { add(JsonPrimitive(it)) }
-                }
-            )
-        }
-        return json.encodeToString(JsonElement.serializer(), payload)
-    }
-
-    private fun finiteJsonNumberOrNull(value: Double?): JsonElement =
-        if (value == null || !value.isFinite()) JsonNull else JsonPrimitive(value)
+    /** 负载构造收敛到 [LocationPointPayload]（主动流/冲刺/被动三源共用一份）。 */
+    private fun rawJson(accepted: QualityAcceptedLocation, source: String): String =
+        LocationPointPayload.encode(
+            accepted = accepted,
+            source = source,
+            submittedAtMillis = wallClockMillis()
+        )
 
     private fun LocationSnapshot.toRawFix(
         triggerType: TriggerType,

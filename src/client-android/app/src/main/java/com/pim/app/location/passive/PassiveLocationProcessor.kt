@@ -86,6 +86,7 @@ class PassiveLocationProcessor(
     private var droppedCount = 0
     private var duplicateCount = 0
     private var lastReason: String? = null
+    private var lastEnqueueError: Exception? = null
 
     /**
      * 判定一条被动点。
@@ -131,6 +132,9 @@ class PassiveLocationProcessor(
     /** 最近一次留痕原因（诊断与测试用）。 */
     fun lastDropReason(): String? = synchronized(lock) { lastReason }
 
+    /** 最近一次入库失败（诊断用；非空说明有过写库异常，已转成丢弃留痕）。 */
+    fun lastEnqueueFailure(): Exception? = synchronized(lock) { lastEnqueueError }
+
     /**
      * 取出并清零本窗口计数，供按周期写台账（AC-14.2 / AC-14.3 的三数对账）。
      */
@@ -161,13 +165,25 @@ class PassiveLocationProcessor(
             recordDrop(raw, PassiveLocationContract.REASON_DUPLICATE_FIX, duplicate = true)
             return null
         }
-        synchronized(lock) { acceptedCount += 1 }
         val result = PassiveAcceptedLocation(
             accepted = accepted,
             source = PassiveLocationContract.SOURCE
         )
-        // REQ-15 / AC-15.1：达标点逐条入库（无裁剪、无限流）。
-        onAccepted?.invoke(result)
+        // AC-14.2 / AC-14.6：**先确认真的落库，再计入入库数**。
+        // 若先计数后写库，一旦写库抛异常（或没有出口），计数会显示缺口为 0
+        // 而点其实丢了 —— 那正是「静默丢弃」的伪装。
+        try {
+            // REQ-15 / AC-15.1：达标点逐条入库（无裁剪、无限流）。
+            onAccepted?.invoke(result)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // 落库失败必须转换成**丢弃留痕**，而不是让点数凭空消失。
+            recordDrop(raw, PassiveLocationContract.REASON_ENQUEUE_FAILED, duplicate = false)
+            lastEnqueueError = e
+            return null
+        }
+        synchronized(lock) { acceptedCount += 1 }
         return result
     }
 

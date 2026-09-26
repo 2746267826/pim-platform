@@ -2,13 +2,13 @@ package com.pim.app.location.sprint
 
 import com.pim.app.location.LocationSnapshot
 import com.pim.app.location.acquisition.AcquisitionContext
-import com.pim.app.location.acquisition.LocationAcquisitionRunner
 import com.pim.app.location.acquisition.LocationUpdateRequest
 import com.pim.app.location.policy.LocationPolicyMode
 import com.pim.app.location.quality.LocationQualityGate
 import com.pim.app.location.quality.QualityAcceptedLocation
 import com.pim.app.location.quality.QualityDecision
 import com.pim.app.location.quality.RawLocationFix
+import android.os.SystemClock
 import com.google.android.gms.location.Priority
 import com.pim.app.settings.TrackingSettingsStore
 import kotlinx.coroutines.CancellationException
@@ -46,7 +46,7 @@ sealed interface SprintStartDecision {
  */
 @Singleton
 class LocationSprintController @Inject constructor(
-    private val runner: LocationAcquisitionRunner,
+    private val runner: SprintUpdateSource,
     private val ledger: SprintLedgerPort,
     private val trackingSettingsStore: TrackingSettingsStore
 ) {
@@ -57,6 +57,16 @@ class LocationSprintController @Inject constructor(
     private val scope: CoroutineScope get() = testScope ?: internalScope
 
     internal var wallClockMillis: () -> Long = { System.currentTimeMillis() }
+
+    /**
+     * 单调时钟（窗口时长的唯一依据）。
+     *
+     * 窗口跨度必须按**单调时钟**度量：墙钟可能被 NTP 校正或用户手动调整，
+     * 回拨会把窗口拉长到超过 AC-2.2 的 30 秒 + ε，前拨又会立刻结束窗口而违反
+     * AC-3.1（这与会话内海拔等待的既有做法一致：`AltitudeWaitCoordinator`
+     * 同样用 `elapsedRealtime` 兜住墙钟回拨）。
+     */
+    internal var elapsedRealtimeMillis: () -> Long = { SystemClock.elapsedRealtime() }
 
     /**
      * 质量门来源。默认**每拍**按当前设置构造，因此「门槛固定 30 米、无可调项」
@@ -90,6 +100,25 @@ class LocationSprintController @Inject constructor(
 
     private var window: LocationSprintWindow? = null
     private var windowJob: Job? = null
+
+    /** 窗口的单调时钟起点（判定剩余时长用；账台账仍记墙钟时刻供人对账）。 */
+    private var windowStartedElapsedRealtimeMillis: Long = 0L
+
+    /**
+     * 「下一拍待发起」槽位（AC-2.5 / A8 方案 B）。
+     *
+     * 运动/车载档（30 秒硬下限）下窗口会与周期相接：下一个周期的请求往往在本窗口
+     * 结束前就到。此时**不能跳过**（那会让「每一拍都冲」变成隔拍才冲），而是记在这里，
+     * 本窗口一结束立刻接着开 —— 窗口之间不重叠（AC-2.3），但每一拍都真的冲到。
+     *
+     * 只保留**一个**待发起请求（合并多余的重复请求），避免窗口串成无限长的高频模式。
+     */
+    private var pendingStart: PendingSprint? = null
+
+    private data class PendingSprint(
+        val context: AcquisitionContext,
+        val requestedAtUtcMillis: Long
+    )
 
     /** 窗口是否开放（AC-2.3 用；也供验收方在状态页观察）。 */
     @Synchronized
@@ -128,18 +157,29 @@ class LocationSprintController @Inject constructor(
         if (mode == LocationPolicyMode.HighSpeed) {
             return skip(SprintSkipReasons.HIGH_SPEED, nowUtcMillis)
         }
-        // AC-2.3：同一时刻不得存在两个并发窗口。
-        // 注意 AC-2.5：这里**没有**任何「节拍过密即跳过」的规则 —— 运动/车载档
-        // （30 秒硬下限）下窗口与周期相接是需求方选定的预期行为（A8）。
         synchronized(this) {
             if (window?.isOpen == true) {
-                return skip(SprintSkipReasons.WINDOW_ALREADY_OPEN, nowUtcMillis)
+                // AC-2.5（A8 方案 B）：运动/车载档的窗口与周期相接、接近连续采样，
+                // 是需求方选定的**预期行为**。因此这里**不得**以「过于频繁」为由跳过 ——
+                // 记为「下一拍待发起」，本窗口一结束立刻接着开下一个，窗口之间不重叠
+                // （AC-2.3），但**每一拍都真的冲到**。
+                pendingStart = PendingSprint(context = context, requestedAtUtcMillis = nowUtcMillis)
+                return SprintStartDecision.Started(nowUtcMillis)
             }
-            val fresh = LocationSprintWindow(startedAtUtcMillis = nowUtcMillis)
-            window = fresh
-            windowJob = scope.launch { runWindow(fresh, context) }
-            return SprintStartDecision.Started(nowUtcMillis)
+            return startWindowLocked(context, nowUtcMillis)
         }
+    }
+
+    /** 在锁内真正开一个窗口（调用方必须已持有锁）。 */
+    private fun startWindowLocked(
+        context: AcquisitionContext,
+        nowUtcMillis: Long
+    ): SprintStartDecision {
+        val fresh = LocationSprintWindow(startedAtUtcMillis = nowUtcMillis)
+        window = fresh
+        windowStartedElapsedRealtimeMillis = elapsedRealtimeMillis()
+        windowJob = scope.launch { runWindow(fresh, context) }
+        return SprintStartDecision.Started(nowUtcMillis)
     }
 
     /**
@@ -153,8 +193,14 @@ class LocationSprintController @Inject constructor(
             window = null
             windowJob?.cancel()
             windowJob = null
+            // 中止时一并清掉待发起：避免停止采集后还冒出一个窗口。
+            pendingStart = null
         }
     }
+
+    /** 是否存在待发起的下一拍（诊断用）。 */
+    @Synchronized
+    fun hasPendingStart(): Boolean = pendingStart != null
 
     private suspend fun runWindow(active: LocationSprintWindow, context: AcquisitionContext) {
         // AC-5.6：冲刺必须独立注册；主流注册的 interval 与锚点完全不受影响。
@@ -173,8 +219,8 @@ class LocationSprintController @Inject constructor(
             coroutineScope {
                 val sprintRegistration = launch {
                     try {
-                        runner.stream(request) { snapshot ->
-                            if (!active.isOpen) return@stream
+                        runner.streamSprintWindow(request) { snapshot ->
+                            if (!active.isOpen) return@streamSprintWindow
                             handleSample(active, snapshot, context)
                         }
                     } catch (e: CancellationException) {
@@ -185,8 +231,10 @@ class LocationSprintController @Inject constructor(
                     }
                 }
                 // REQ-3：窗口**不早退** —— 无论中途是否已拿到达标/极精确的点，都等满 30 秒。
+                // 剩余时长按**单调时钟**算：墙钟回拨不会把窗口拉长（AC-2.2），
+                // 前拨也不会提前结束窗口（AC-3.1）。
                 val remaining = LocationSprintContract.WINDOW_MILLIS -
-                    (wallClockMillis() - active.startedAtUtcMillis)
+                    (elapsedRealtimeMillis() - windowStartedElapsedRealtimeMillis)
                 if (remaining > 0L) {
                     delayMillis(remaining)
                 }
@@ -235,7 +283,10 @@ class LocationSprintController @Inject constructor(
 
     private suspend fun finishWindow(active: LocationSprintWindow) {
         val result = active.finish(wallClockMillis())
+        val next: PendingSprint?
         synchronized(this) {
+            next = pendingStart
+            pendingStart = null
             if (window === active) {
                 window = null
                 windowJob = null
@@ -244,6 +295,21 @@ class LocationSprintController @Inject constructor(
         lastWindowResult = result
         ledger.recordExecuted(result)
         onWindowFinished?.invoke(result)
+
+        // AC-2.5：本窗口结束后立刻接上待发起的那一拍（窗口与周期相接）。
+        if (next != null) {
+            synchronized(this) {
+                if (window?.isOpen != true) {
+                    startWindowLocked(next.context, wallClockMillis())
+                    return
+                }
+            }
+            // 极小概率：期间已有别的窗口开着（例如手动重启）——重新挂回待发起，
+            // 不静默丢弃（AC-8.2：未冲刺必须有原因，而不是凭空消失）。
+            synchronized(this) {
+                if (pendingStart == null) pendingStart = next
+            }
+        }
     }
 
     private fun skip(reason: String, nowUtcMillis: Long): SprintStartDecision {

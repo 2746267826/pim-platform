@@ -107,13 +107,23 @@ class PassiveLocationSource @Inject constructor(
                 Looper.getMainLooper()
             )
             listener = newListener
+            val registeredAtUtcMillis = System.currentTimeMillis()
+            // AC-14.1：注册成功必须留下含 provider 名与时刻的日志（证据物之一），
+            // 可配合 `dumpsys location` 取证。失败路径在下面同样留痕。
+            Timber.i(
+                "被动定位监听已注册：provider=%s registeredAtUtcMillis=%d",
+                LocationManager.PASSIVE_PROVIDER,
+                registeredAtUtcMillis
+            )
             PassiveRegistrationResult
                 .Registered(
                     provider = LocationManager.PASSIVE_PROVIDER,
-                    registeredAtUtcMillis = System.currentTimeMillis()
+                    registeredAtUtcMillis = registeredAtUtcMillis
                 )
                 .also { registration = it }
         } catch (e: Exception) {
+            // AC-14.1：注册失败同样不得静默（否则「没收到被动点」无从解释）。
+            Timber.w(e, "被动定位监听注册失败")
             PassiveRegistrationResult
                 .Failed(e.message ?: e.javaClass.simpleName)
                 .also { registration = it }

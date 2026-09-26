@@ -2,9 +2,6 @@ package com.pim.app.location.sprint
 
 import com.pim.app.location.LocationSnapshot
 import com.pim.app.location.acquisition.AcquisitionContext
-import com.pim.app.location.acquisition.LocationAcquisitionRunner
-import com.pim.app.location.acquisition.LocationEngineRequest
-import com.pim.app.location.acquisition.LocationEngineResult
 import com.pim.app.location.acquisition.LocationUpdateRequest
 import com.pim.app.location.policy.LocationPolicyMode
 import com.pim.app.location.quality.LocationQualityGate
@@ -55,6 +52,9 @@ class LocationSprintControllerTest {
         )
         controller.testScope = scope
         controller.wallClockMillis = { nowUtcMillis }
+        // 窗口时长按单调时钟度量（墙钟回拨不得影响 AC-2.2 / AC-3.1）；
+        // 测试里把两者一起推进，保持「虚拟时间」单一来源。
+        controller.elapsedRealtimeMillis = { nowUtcMillis }
         controller.qualityGateProvider = { gate }
         controller.sprintEnabledProvider = { enabled }
         // 虚拟延时：记下**窗口到期时刻**（= 调用时刻 + 剩余时长）并挂起，
@@ -235,9 +235,14 @@ class LocationSprintControllerTest {
         assertEquals(0, runner.streamCount)
     }
 
-    /** AC-2.3：同一时刻不得存在两个并发窗口（第二次请求被跳过，不叠加）。 */
+    /**
+     * AC-2.3：同一时刻不得存在两个并发窗口；AC-2.5：周期相接时**不得跳过**。
+     *
+     * 两者一起看：本窗口结束前到来的下一拍被记为「待发起」，窗口之间不重叠，
+     * 但每一拍都真的冲到（不会退化成隔拍才冲）。
+     */
     @Test
-    fun `窗口未结束时不得再开一个窗口`() = runTest {
+    fun `窗口未结束时到来的下一拍记为待发起而不跳过`() = runTest {
         val controller = controller(this)
         controller.startSprint(context(), mode = LocationPolicyMode.PowerSavingNormal)
         runCurrent()
@@ -245,13 +250,28 @@ class LocationSprintControllerTest {
         val second = controller.startSprint(context(), mode = LocationPolicyMode.PowerSavingNormal)
         runCurrent()
 
-        assertEquals(
-            "AC-2.3：窗口不得跨周期叠加",
-            SprintStartDecision.Skipped(SprintSkipReasons.WINDOW_ALREADY_OPEN),
-            second
+        assertTrue(
+            "AC-2.5：周期相接时下一拍也必须照常发起（不得跳过）",
+            second is SprintStartDecision.Started
         )
-        assertEquals("AC-2.3：只允许一个冲刺取点流", 1, runner.streamCount)
+        assertTrue("AC-2.5：下一拍必须被记为待发起", controller.hasPendingStart())
+        assertEquals(
+            "AC-2.3：同一时刻仍然只能有一个冲刺取点流（窗口不重叠）",
+            1,
+            runner.streamCount
+        )
+
+        // 本窗口结束后，待发起的那一拍必须立刻接上
+        finishWindow(controller)
+        runCurrent()
+        assertEquals(
+            "AC-2.5：上一窗口结束后必须立刻接上下一拍",
+            2,
+            runner.streamCount
+        )
+        // 接上的新窗口也要收尾，测试协程才能结束
         controller.abort()
+        runCurrent()
     }
 
     /** AC-2.5：运动/车载档（30 秒硬下限）下冲刺照常发起，不得以「过于频繁」跳过。 */
@@ -465,7 +485,8 @@ class LocationSprintControllerTest {
         runner.releaseStream()
         windowExpiry.release()
         runCurrent()
-        assertFalse("窗口必须已结束", controller.isWindowOpen())
+        // 注意：AC-2.5 允许「待发起」的下一拍在本窗口结束后**立刻**接上，
+        // 因此这里不断言窗口已关闭（那要与待发起语义打架）；各用例按需自行断言。
     }
 
     private fun context(
@@ -531,7 +552,7 @@ private class ReleaseGate {
  * 假的定位引擎：把回调暴露给测试，并让 `stream` 挂起直到测试显式放行
  * （等价于「系统在请求 duration 到期后停止回调」）。
  */
-private class FakeSprintRunner : LocationAcquisitionRunner {
+private class FakeSprintRunner : SprintUpdateSource {
     var streamCount = 0
         private set
     var lastStreamRequest: LocationUpdateRequest? = null
@@ -551,13 +572,7 @@ private class FakeSprintRunner : LocationAcquisitionRunner {
         onCandidateRef?.invoke(snapshot)
     }
 
-    override suspend fun acquire(
-        request: LocationEngineRequest,
-        onCandidate: suspend (LocationSnapshot) -> Unit,
-        onAvailabilityChanged: suspend (Boolean) -> Unit
-    ): LocationEngineResult = error("sprint must not use one-shot acquire")
-
-    override suspend fun stream(
+    override suspend fun streamSprintWindow(
         request: LocationUpdateRequest,
         onCandidate: suspend (LocationSnapshot) -> Unit
     ) {

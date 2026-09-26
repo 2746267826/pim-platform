@@ -100,6 +100,7 @@ fun StatusCenterScreen(
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val liveness by viewModel.liveness.collectAsStateWithLifecycle()
+    val sprintSummary by viewModel.sprintSummary.collectAsStateWithLifecycle()
     val droppedReasons by viewModel.droppedReasons.collectAsStateWithLifecycle()
     val showDroppedReasons by viewModel.showDroppedReasons.collectAsStateWithLifecycle()
     val feedback by viewModel.feedback.collectAsStateWithLifecycle()
@@ -176,6 +177,11 @@ internal fun StatusCenterContent(
     state: StatusCenterState,
     feedback: StatusActionFeedback? = null,
     liveness: LivenessUiSnapshot? = null,
+    sprintSummary: com.pim.app.location.sprint.SprintSummary = com.pim.app.location.sprint.SprintSummary(
+        enabled = null,
+        count = null,
+        countDisplay = com.pim.app.location.sprint.SprintCountDisplay.Empty
+    ),
     keepAliveHealthAlert: String? = null,
     onOpenDroppedReasons: () -> Unit = {},
     onOpenGuidance: () -> Unit = {},
@@ -224,6 +230,11 @@ internal fun StatusCenterContent(
         feedback?.let {
             FeedbackRow(it)
         }
+
+        Divider()
+
+        // REQ-9：状态页可见冲刺概况（开关当前状态 + 最近 24 小时冲刺次数）。
+        SprintSection(sprintSummary)
 
         Divider()
 
@@ -321,6 +332,60 @@ private fun FeedbackRow(feedback: StatusActionFeedback) {
             text = text,
             modifier = Modifier.padding(12.dp),
             style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+/**
+ * 冲刺概况区块（REQ-9 / AC-9.1 / AC-9.2 / §5 页面清单）。
+ *
+ * 三态（正常 / 空 / 错误）与加载占位都必须可区分：
+ * - 空态：最近 24 小时无任何采集数据 → 「暂无」；
+ * - 有数据：如实显示「N 次」（含 0 次）并同时展示开关状态；
+ * - 错误态：显示「读取失败」并保留上次值。
+ */
+@Composable
+private fun SprintSection(summary: com.pim.app.location.sprint.SprintSummary) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        SectionHeader("高频冲刺", Icons.Filled.Sensors)
+
+        FactRow(
+            label = "冲刺开关",
+            value = when (summary.enabled) {
+                true -> "已开启"
+                false -> "已关闭"
+                // §5 加载/错误态：开关必有值，读不到时显示占位而不是猜一个。
+                null -> "—"
+            },
+            tag = "sprint-switch"
+        )
+
+        FactRow(
+            label = "最近 24 小时冲刺次数",
+            value = when (val display = summary.countDisplay) {
+                is com.pim.app.location.sprint.SprintCountDisplay.Value -> "${display.count} 次"
+                com.pim.app.location.sprint.SprintCountDisplay.Empty -> "暂无"
+                com.pim.app.location.sprint.SprintCountDisplay.Failed -> "读取失败"
+            },
+            tag = "sprint-count-24h"
+        )
+
+        Text(
+            text = when (val display = summary.countDisplay) {
+                is com.pim.app.location.sprint.SprintCountDisplay.Value -> {
+                    if (display.count == 0) {
+                        "最近 24 小时有采集数据，但一次冲刺都没执行。"
+                    } else {
+                        "每个采集周期会做一次最长 30 秒的高频取点。"
+                    }
+                }
+                com.pim.app.location.sprint.SprintCountDisplay.Empty ->
+                    "最近 24 小时没有采集数据，因此无法统计冲刺次数。"
+                com.pim.app.location.sprint.SprintCountDisplay.Failed ->
+                    "读取冲刺台账失败，下面显示的是上一次成功读取的结果。"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

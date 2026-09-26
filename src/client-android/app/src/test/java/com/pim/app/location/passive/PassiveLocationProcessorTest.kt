@@ -267,6 +267,48 @@ class PassiveLocationProcessorTest {
         assertEquals(0, processor.countersSnapshot().callbackCount)
     }
 
+    /**
+     * AC-14.2 / AC-14.6 反面：**入库失败不得伪装成对账通过**。
+     *
+     * 如果先计入 acceptedCount 再写库，写库抛异常时会出现「缺口 = 0、点却没了」
+     * ——正是静默丢弃的伪装（独立 review 指出）。
+     */
+    @Test
+    fun `入库失败时留下丢弃记录而不是伪造入库`() = runTest {
+        val processor = PassiveLocationProcessor(qualityGate = LocationQualityGate())
+        processor.onDrop = { fix, reason -> dropped += fix to reason }
+        processor.onAccepted = { throw IllegalStateException("db exploded") }
+
+        val outcome = processor.handle(fix(at = START, accuracy = 10f))
+
+        assertEquals("入库失败不得算作已收下", null, outcome)
+        val counters = processor.countersSnapshot()
+        assertEquals(1, counters.callbackCount)
+        assertEquals("不得把失败的点计成入库", 0, counters.acceptedCount)
+        assertEquals("入库失败必须留丢弃记录", 1, counters.droppedCount)
+        assertEquals("对账缺口必须为 0（点不能凭空消失）", 0, counters.unaccountedCount)
+        assertEquals(
+            "入库失败必须用专属原因编码",
+            PassiveLocationContract.REASON_ENQUEUE_FAILED,
+            processor.lastDropReason()
+        )
+    }
+
+    /** AC-14.4：重复原因编码也必须带 passive- 前缀（可按前缀筛选）。 */
+    @Test
+    fun `重复原因编码带 passive 前缀`() {
+        assertTrue(
+            "AC-14.4：重复记录也必须能按 passive- 前缀筛选",
+            PassiveLocationContract.isPassiveReason(PassiveLocationContract.REASON_DUPLICATE_FIX)
+        )
+        PassiveDropReasons.ALL.forEach { reason ->
+            assertTrue(
+                "AC-14.4：所有被动丢弃编码都必须带 passive- 前缀（$reason）",
+                PassiveLocationContract.isPassiveReason(reason)
+            )
+        }
+    }
+
     /** AC-14.2：每个原因编码都有中文文案（未映射会显示「其他原因」）。 */
     @Test
     fun `被动丢弃原因都有中文文案`() = runTest {

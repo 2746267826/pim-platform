@@ -31,6 +31,7 @@ import org.robolectric.annotation.Config
 class LocationSprintSummaryTest {
 
     private lateinit var db: AppDatabase
+    private lateinit var dao: com.pim.app.data.MobileDataDao
     private lateinit var repository: LocationSprintSummaryRepository
     private lateinit var settingsStore: TrackingSettingsStore
 
@@ -43,6 +44,7 @@ class LocationSprintSummaryTest {
         db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java)
             .allowMainThreadQueries()
             .build()
+        dao = db.mobileDataDao()
         settingsStore = TrackingSettingsStore(
             context.getSharedPreferences("sprint-summary-test", Context.MODE_PRIVATE)
         )
@@ -52,6 +54,7 @@ class LocationSprintSummaryTest {
                 db.forensicEventDao(),
                 StructuredLogRepository(context, settingsStore) { now }
             ),
+            dao = dao,
             trackingSettingsStore = settingsStore,
             nowUtcMillis = { now }
         )

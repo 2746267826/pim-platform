@@ -32,8 +32,19 @@ object PassiveLocationContract {
      *
      * 同一个 fix 可能同时从主动流与被动通道到达：服务端已有唯一索引会再合并一次，
      * **客户端不留痕就看不到重复率**。
+     *
+     * 前缀必须是 `passive-`：AC-14.4 要求丢弃记录**可按 reason 前缀 `passive-` 筛选**，
+     * 因此不能沿用工单里作为**示例**出现的 `duplicate-fix`（那样会漏出前缀筛选）。
      */
-    const val REASON_DUPLICATE_FIX = "duplicate-fix"
+    const val REASON_DUPLICATE_FIX = "passive-duplicate-fix"
+
+    /**
+     * 入库失败（写库异常）的留痕原因编码。
+     *
+     * 若不允许这条，写库失败的点会「计数显示缺口为 0、点却不见了」——
+     * 伪装成对账通过的静默丢弃（AC-14.2 / AC-14.6 的反面）。
+     */
+    const val REASON_ENQUEUE_FAILED = "passive-enqueue-failed"
 
     /** 被动来源的丢弃原因前缀（AC-14.4：按 `passive-` 前缀筛选）。 */
     const val REASON_PREFIX = "passive-"
@@ -58,13 +69,15 @@ object PassiveDropReasons {
     val ALL = listOf(
         PassiveLocationContract.REASON_ACCURACY_TOO_LOW,
         PassiveLocationContract.REASON_MISSING_ACCURACY,
-        PassiveLocationContract.REASON_DUPLICATE_FIX
+        PassiveLocationContract.REASON_DUPLICATE_FIX,
+        PassiveLocationContract.REASON_ENQUEUE_FAILED
     )
 
     fun label(reason: String): String? = when (reason) {
         PassiveLocationContract.REASON_ACCURACY_TOO_LOW -> "被动定位精度不达标"
         PassiveLocationContract.REASON_MISSING_ACCURACY -> "被动定位缺少水平精度"
         PassiveLocationContract.REASON_DUPLICATE_FIX -> "被动定位与主动流重复"
+        PassiveLocationContract.REASON_ENQUEUE_FAILED -> "被动定位入库失败"
         else -> null
     }
 }

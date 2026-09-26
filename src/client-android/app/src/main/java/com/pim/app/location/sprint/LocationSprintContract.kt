@@ -48,22 +48,13 @@ object SprintSkipReasons {
     /** 缺少定位权限或系统定位服务未开启（REQ-8 要求的可见出口，不静默失败）。 */
     const val PREREQUISITE_BLOCKED = "prerequisite-blocked"
 
-    /**
-     * 上一个窗口尚未结束（AC-2.3：窗口不得跨周期叠加）。
-     *
-     * 这不是「过于频繁即跳过」—— 对运动/车载档没有任何节拍检查（AC-2.5 / A8），
-     * 只在**同一个窗口还开着**时拒绝再开一个。
-     */
-    const val WINDOW_ALREADY_OPEN = "window-already-open"
-
-    val ALL = setOf(DISABLED, HIGH_SPEED, NOT_COLLECTING, PREREQUISITE_BLOCKED, WINDOW_ALREADY_OPEN)
+    val ALL = setOf(DISABLED, HIGH_SPEED, NOT_COLLECTING, PREREQUISITE_BLOCKED)
 
     fun label(reason: String): String = when (reason) {
         DISABLED -> "冲刺开关已关闭"
         HIGH_SPEED -> "高速轨迹档不叠加冲刺"
         NOT_COLLECTING -> "当前不在采集时段"
         PREREQUISITE_BLOCKED -> "定位权限或系统定位未就绪"
-        WINDOW_ALREADY_OPEN -> "上一段冲刺窗口尚未结束"
         else -> "未冲刺"
     }
 }

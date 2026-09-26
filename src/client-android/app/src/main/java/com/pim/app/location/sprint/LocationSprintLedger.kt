@@ -81,27 +81,33 @@ class LocationSprintLedger @Inject constructor(
      * 只数 `outcome = executed` 的记录：AC-5.3.1 的验收口径是「台账不再新增**已冲刺**记录」，
      * 关闭期间产生的跳过记录不得被算进去。
      */
-    suspend fun executedCountSince(fromUtcMillis: Long): Int = try {
-        dao.recentByType(LocationSprintEventTypes.SPRINT, EXECUTED_SCAN_LIMIT)
-            .count { entity ->
-                entity.occurredAtUtc >= fromUtcMillis &&
-                    payloadOutcome(entity.payloadJson) == SprintOutcome.EXECUTED
-            }
-    } catch (ex: CancellationException) {
-        throw ex
-    } catch (ex: Exception) {
-        logs.error("location-sprint", "读取冲刺台账失败：${ex.message ?: ex::class.java.simpleName}", ex)
-        0
+    suspend fun executedCountSince(fromUtcMillis: Long): Int {
+        return try {
+            // 走 SQL（事件类型 + 时间窗 + outcome 载荷），不是「读最近 N 条再过滤」：
+            // 高速档下跳过记录可达约 34560 条/天，固定条数上限会把窗口内的已执行记录
+            // 挤出读取范围，把「其实冲了很多次」显示成 0 次。
+            dao.countByTypeInWindowWithPayloadLike(
+                eventType = SPRINT_EVENT_TYPE,
+                fromUtc = fromUtcMillis,
+                payloadLike = EXECUTED_PAYLOAD_LIKE
+            )
+        } catch (ex: CancellationException) {
+            throw ex
+        } catch (ex: Exception) {
+            // 读失败必须**显式上抛**，不能悄悄变成 0 次：那会把「读不到」伪装成
+            // 「一次都没冲」，正好掩盖 AC-5.3 要复查的「关了还在跑」。
+            logs.error("location-sprint", "读取冲刺台账失败：${ex.message ?: ex::class.java.simpleName}", ex)
+            throw ex
+        }
     }
 
-    /** 最近 24 小时内是否存在任何采集数据（用于 AC-9.2 的「暂无」空态判定）。 */
-    suspend fun hasAnyLedgerDataSince(fromUtcMillis: Long): Boolean = try {
-        dao.eventsInRange(fromUtcMillis, Long.MAX_VALUE).isNotEmpty()
-    } catch (ex: CancellationException) {
-        throw ex
-    } catch (_: Exception) {
-        false
-    }
+    /** 时间窗内是否存在**任何**冲刺台账记录（含跳过记录）。 */
+    suspend fun hasAnySprintLedgerSince(fromUtcMillis: Long): Boolean =
+        dao.countByTypeInWindow(SPRINT_EVENT_TYPE, fromUtcMillis) > 0
+
+    /** 时间窗内是否有心跳（AC-9.2 的空态判定三条件之一：无定位点、无心跳、无台账）。 */
+    suspend fun hasAnyHeartbeatSince(fromUtcMillis: Long): Boolean =
+        dao.countByTypeInWindow(ForensicEventTypes.HEARTBEAT, fromUtcMillis) > 0
 
     private suspend fun record(
         eventType: String,
@@ -136,13 +142,12 @@ class LocationSprintLedger @Inject constructor(
 
     companion object {
         /**
-         * 单次查询扫描的台账条数上限。
+         * 「已执行」在台账载荷里的匹配串。
          *
-         * 这不是本地留存上限（本地不设条数上限，靠 30 天时间清理兜底），
-         * 而是「读多少条够算 24 小时」：冲刺每周期一条，最长周期 15 分钟
-         * → 24 小时最多 96 条；这里给足余量以容纳跳过记录与被动源记录。
+         * 断言用 `payload_json LIKE` 而不是精确 JSON 匹配：载荷由设备端 `JSONObject`
+         * 序列化，字段顺序与转义不保证稳定，精确匹配随时会因格式变化而失效。
          */
-        const val EXECUTED_SCAN_LIMIT = 4_096
+        const val EXECUTED_PAYLOAD_LIKE = "%\"outcome\":\"executed\"%"
 
         /** 冲刺台账的事件类型（供谓词与测试引用，避免字符串散落）。 */
         val SPRINT_EVENT_TYPE = LocationSprintEventTypes.SPRINT
@@ -152,59 +157,5 @@ class LocationSprintLedger @Inject constructor(
             val root = JSONObject(payloadJson)
             if (root.isNull("outcome")) null else root.optString("outcome").takeIf { it.isNotBlank() }
         }.getOrNull()
-    }
-}
-
-/**
- * 被动定位的计数台账（WO-ANDROID-GATE-20260926 REQ-14 / AC-14.2 / AC-14.3）。
- *
- * AC-14.2 / AC-14.3 要求对账三个数：**被动回调总数（去重前）/ 入库数 / 丢弃记录数**，
- * 且**缺口 = 0**。入库数与丢弃数分别落在点表 `source = passive` 与丢弃诊断表
- * （原因编码 `passive-*`），回调总数没有落点 —— 因此按周期写一条摘要事件，
- * 让验收方能在台账里直接读出分母。
- */
-@Singleton
-class PassiveLocationLedger @Inject constructor(
-    private val dao: ForensicEventDao,
-    private val logs: StructuredLogRepository
-) {
-
-    /** 写入一条被动回调计数摘要。 */
-    suspend fun recordCounters(
-        occurredAtUtcMillis: Long,
-        windowStartUtcMillis: Long,
-        callbackCount: Int,
-        acceptedCount: Int,
-        droppedCount: Int,
-        duplicateCount: Int
-    ): Boolean = try {
-        val payload = JSONObject()
-            .put("windowStartUtcMillis", windowStartUtcMillis)
-            .put("passiveCallbackCount", callbackCount)
-            .put("passiveAcceptedCount", acceptedCount)
-            .put("passiveDroppedCount", droppedCount)
-            .put("passiveDuplicateCount", duplicateCount)
-            // 三数对账缺口（AC-14.2）：回调 = 入库 + 丢弃 + 重复 时必须为 0。
-            .put(
-                "passiveUnaccountedCount",
-                callbackCount - acceptedCount - droppedCount - duplicateCount
-            )
-        dao.insertIgnore(
-            ForensicEventEntity(
-                eventType = PassiveLocationEventTypes.PASSIVE_COUNTER,
-                occurredAtUtc = occurredAtUtcMillis,
-                clientItemKey = "passive-counter-${windowStartUtcMillis / 1_000L}",
-                payloadJson = payload.toString()
-            )
-        ) != -1L
-    } catch (ex: CancellationException) {
-        throw ex
-    } catch (ex: Exception) {
-        logs.error(
-            "passive-location",
-            "写入被动定位计数失败：${ex.message ?: ex::class.java.simpleName}",
-            ex
-        )
-        false
     }
 }

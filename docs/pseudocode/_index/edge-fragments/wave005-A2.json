@@ -1,0 +1,118 @@
+{
+  "slot": "A2",
+  "wave": "wave005",
+  "nodes": [
+    {
+      "id": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs",
+      "label": "QuickNoteAttachmentEntity",
+      "path": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs.md",
+      "layer": "module.quicknotes",
+      "kind": "entity"
+    },
+    {
+      "id": "src/modules/Pim.Module.Stats/DTOs/StatsDtos.cs",
+      "label": "StatsDtos",
+      "path": "src/modules/Pim.Module.Stats/DTOs/StatsDtos.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Stats/DTOs/StatsDtos.cs.md",
+      "layer": "module.stats",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs",
+      "label": "MainShellWindow",
+      "path": "src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs.md",
+      "layer": "client-windows",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Models/DaemonHeartbeatDtos.cs",
+      "label": "DaemonHeartbeatRequest",
+      "path": "src/client-windows/Pim.Client.Core/Models/DaemonHeartbeatDtos.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Models/DaemonHeartbeatDtos.cs.md",
+      "layer": "client-windows",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Services/KeyStatsHealthProbe.cs",
+      "label": "KeyStatsHealthProbe",
+      "path": "src/client-windows/Pim.Client.Core/Services/KeyStatsHealthProbe.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/KeyStatsHealthProbe.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/api/endpoints.ts",
+      "label": "endpoints",
+      "path": "src/client-web/src/api/endpoints.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/api/endpoints.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/auth/AuthContext.tsx",
+      "label": "AuthContext",
+      "path": "src/client-web/src/auth/AuthContext.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/auth/AuthContext.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx",
+      "label": "HistoricalLocationLeafletMap",
+      "path": "src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileAnomalyPanel.tsx",
+      "label": "MobileAnomalyPanel",
+      "path": "src/client-web/src/components/mobile/MobileAnomalyPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileAnomalyPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileRecordsDashboard.tsx",
+      "label": "MobileRecordsDashboard",
+      "path": "src/client-web/src/components/mobile/MobileRecordsDashboard.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileRecordsDashboard.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    }
+  ],
+  "edges": [
+    { "from": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs", "to": "src/Pim.Core/Data", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs", "to": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteEntity.cs", "type": "depends_on" },
+    { "from": "src/Pim.Infrastructure/Data/PimDbContext.cs", "to": "src/modules/Pim.Module.QuickNotes/Entities/QuickNoteAttachmentEntity.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Stats", "to": "src/modules/Pim.Module.Stats/DTOs/StatsDtos.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/AuthService.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/AwCollectorService.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/KeyStatsCollectorService.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs", "to": "src/client-windows/Pim.Client.App/EmbeddedWebViewHost.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/DaemonConfig.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs", "to": "src/client-windows/Pim.Client.App/StatusWindow.xaml.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.Core", "to": "src/client-windows/Pim.Client.Core/Models/DaemonHeartbeatDtos.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/KeyStatsHealthProbe.cs", "to": "src/client-windows/Pim.Client.Core/Models", "type": "depends_on" },
+    { "from": "src/client-web/src/api/endpoints.ts", "to": "src/client-web/src/api/client.ts", "type": "calls" },
+    { "from": "src/client-web/src/api/endpoints.ts", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/api/endpoints.ts", "to": "src/Pim.Api/Endpoints/EndpointEndpoints.cs", "type": "http" },
+    { "from": "src/client-web/src/auth/AuthContext.tsx", "to": "src/client-web/src/api/client.ts", "type": "calls" },
+    { "from": "src/client-web/src/auth/AuthContext.tsx", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/auth/AuthContext.tsx", "to": "src/Pim.Api/Endpoints/AuthEndpoints.cs", "type": "http" },
+    { "from": "src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/HistoricalLocationLeafletMap.tsx", "to": "src/client-web/src/components/mobile/locationFormatting.ts", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/MobileAnomalyPanel.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileAnomalyPanel.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/MobileRecordsDashboard.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileRecordsDashboard.tsx", "to": "src/client-web/src/components/mobile/MobileAppRanking.tsx", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/MobileRecordsDashboard.tsx", "to": "src/client-web/src/components/mobile/MobileMetricStrip.tsx", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/MobileRecordsDashboard.tsx", "to": "src/client-web/src/components/mobile/MobileQualityPanel.tsx", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/MobileRecordsDashboard.tsx", "to": "src/client-web/src/components/mobile/MobileTimeline.tsx", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/MobileRecordsDashboard.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "calls" }
+  ]
+}

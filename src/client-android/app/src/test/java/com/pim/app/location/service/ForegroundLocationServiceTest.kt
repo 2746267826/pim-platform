@@ -166,13 +166,11 @@ class ForegroundLocationServiceTest {
             controller = sprintController,
             operations = operations
         )
+        val passiveLogs = StructuredLogRepository(context, settingsStore) { System.currentTimeMillis() }
         passiveLocationCoordinator = PassiveLocationCoordinator(
-            source = PassiveLocationSource(context, settingsStore),
+            source = PassiveLocationSource(context, settingsStore, passiveLogs),
             operations = operations,
-            ledger = PassiveLocationLedger(
-                database.forensicEventDao(),
-                StructuredLogRepository(context, settingsStore) { System.currentTimeMillis() }
-            )
+            ledger = PassiveLocationLedger(database.forensicEventDao(), passiveLogs)
         )
     }
 

@@ -8,6 +8,7 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
 import com.pim.app.location.quality.LocationQualityGate
+import com.pim.app.mobile.logs.StructuredLogRepository
 import com.pim.app.location.quality.RawLocationFix
 import com.pim.app.settings.TrackingSettingsStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -18,7 +19,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import timber.log.Timber
 
 /** 被动监听的注册/注销结果（AC-14.1 要求留下注册成功日志）。 */
 sealed interface PassiveRegistrationResult {
@@ -45,7 +45,8 @@ sealed interface PassiveRegistrationResult {
 @Singleton
 class PassiveLocationSource @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val trackingSettingsStore: TrackingSettingsStore
+    private val trackingSettingsStore: TrackingSettingsStore,
+    private val logs: StructuredLogRepository
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val locationManager: LocationManager?
@@ -83,8 +84,8 @@ class PassiveLocationSource @Inject constructor(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        // 被动通道异常不得影响采集主流（AC-14.7）。
-                        Timber.w(e, "被动定位处理失败")
+                        // 被动通道异常不得影响采集主流（AC-14.7），但要留痕（不静默）。
+                        logWarn("被动定位处理失败：${e.message ?: e.javaClass.simpleName}")
                     }
                 }
             }
@@ -110,11 +111,12 @@ class PassiveLocationSource @Inject constructor(
             val registeredAtUtcMillis = System.currentTimeMillis()
             // AC-14.1：注册成功必须留下含 provider 名与时刻的日志（证据物之一），
             // 可配合 `dumpsys location` 取证。失败路径在下面同样留痕。
-            Timber.i(
-                "被动定位监听已注册：provider=%s registeredAtUtcMillis=%d",
-                LocationManager.PASSIVE_PROVIDER,
-                registeredAtUtcMillis
-            )
+            //
+            // 注意用 `StructuredLogRepository`（会落进诊断包导出的 mobile-*.jsonl），
+            // **不是 Timber**：本应用从未 `Timber.plant(...)`，Timber 输出在真机上
+            // 根本不会出现 —— 真机实测确认过这一点。若用 Timber，验收方在设备上
+            // 找不到任何注册痕迹，「注册成功」就成了无法核对的口头声明。
+            logRegistration(registeredAtUtcMillis)
             PassiveRegistrationResult
                 .Registered(
                     provider = LocationManager.PASSIVE_PROVIDER,
@@ -123,7 +125,14 @@ class PassiveLocationSource @Inject constructor(
                 .also { registration = it }
         } catch (e: Exception) {
             // AC-14.1：注册失败同样不得静默（否则「没收到被动点」无从解释）。
-            Timber.w(e, "被动定位监听注册失败")
+            scope.launch {
+                runCatching {
+                    logs.warn(
+                        operation = "passive-location",
+                        message = "被动定位监听注册失败：${e.message ?: e.javaClass.simpleName}"
+                    )
+                }
+            }
             PassiveRegistrationResult
                 .Failed(e.message ?: e.javaClass.simpleName)
                 .also { registration = it }
@@ -134,7 +143,7 @@ class PassiveLocationSource @Inject constructor(
     fun unregister() {
         val current = listener ?: return
         runCatching { locationManager?.removeUpdates(current) }
-            .onFailure { Timber.w(it, "注销被动定位监听失败") }
+            .onFailure { failure -> logWarn("注销被动定位监听失败：${failure.message ?: ""}") }
         listener = null
         registration = PassiveRegistrationResult.NotRegistered
     }
@@ -149,6 +158,28 @@ class PassiveLocationSource @Inject constructor(
         qualityGate = LocationQualityGate.fromTrackingSettings(trackingSettingsStore.read()),
         activeFixProvider = activeFixProvider
     )
+
+    private fun logWarn(message: String) {
+        scope.launch { runCatching { logs.warn(operation = "passive-location", message = message) } }
+    }
+
+    /**
+     * 把「被动监听已注册」写进可导出的结构化日志（AC-14.1 的证据物）。
+     *
+     * 用 fire-and-forget 协程：注册发生在服务启动路径上，不能因为写日志而阻塞；
+     * 写失败也不影响监听本身（沿用既有「写日志失败不影响采集」的约定）。
+     */
+    private fun logRegistration(registeredAtUtcMillis: Long) {
+        scope.launch {
+            runCatching {
+                logs.info(
+                    operation = "passive-location",
+                    message = "被动定位监听已注册：provider=${LocationManager.PASSIVE_PROVIDER}，" +
+                        "registeredAtUtcMillis=$registeredAtUtcMillis"
+                )
+            }
+        }
+    }
 
     private fun Location.toPassiveFix() = PassiveFix(
         latitude = latitude,

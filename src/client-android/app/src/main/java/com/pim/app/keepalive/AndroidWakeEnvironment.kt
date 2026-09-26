@@ -4,6 +4,7 @@ import android.content.Context
 import com.pim.app.location.acquisition.LocationAcquisitionCoordinator
 import com.pim.app.location.acquisition.TriggerType
 import com.pim.app.location.service.ForegroundLocationController
+import com.pim.app.location.policy.LocationPolicyMode
 import com.pim.app.location.service.ForegroundLocationRuntimeState
 import com.pim.app.location.service.ForegroundLocationService
 import com.pim.app.mobile.logs.StructuredLogRepository
@@ -88,10 +89,20 @@ class AndroidWakeEnvironment @Inject constructor(
         controller.start()
 
         // 等待服务**真的**进入运行态，而不是假定它成功了。
-        // 用既有 runtimeState 的 StateFlow 做**事件驱动**等待（first{isRunning} + 超时），
-        // 不写 `while + delay` 轮询循环——AC-29.1 明确禁止新增定时轮询，且这是可 grep 核对的。
+        //
+        // 只等 `isRunning == true` 是不够的：`ForegroundLocationService.onCreate()` 会先
+        // 发布 `isRunning = true`，而真正的启动检查（权限、定位开关、Play 服务）发生在
+        // `onStartCommand → startCollection`，失败时它会把状态改成 `isRunning = false`
+        // 且 `currentPolicyMode = Off` 并 `stopSelf`。若只等第一个 true，
+        // 就会把「起来又立刻倒下」记成 executed（false-green）并跳过 AC-16.3 兜底。
+        //
+        // 因此这里等的是**已进入实际采集策略**：`isRunning && mode != Off`。
+        // 仍用 StateFlow 事件驱动（`first{...}` + 超时），不写 `while + delay` 轮询
+        // ——AC-29.1 明确禁止新增定时轮询，且这是可 grep 核对的。
         val running = withTimeoutOrNull(START_CONFIRM_TIMEOUT_MILLIS) {
-            ForegroundLocationService.runtimeState.first { it.isRunning }
+            ForegroundLocationService.runtimeState.first {
+                it.isRunning && it.currentPolicyMode != LocationPolicyMode.Off.name
+            }
         } != null
 
         if (!running) {

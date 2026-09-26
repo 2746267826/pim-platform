@@ -362,6 +362,69 @@ class KeepAliveCoordinatorTest {
         assertTrue("尚未到期时不得重复登记", f.scheduler.scheduledIntervals.isEmpty())
     }
 
+    /**
+     * AC-15.4（Critical，由独立 review 指出）：**重启 / 应用更新后必须重建闹钟**。
+     *
+     * 平台事实（android-平台依据 §4）：被强行停止会清空该应用全部闹钟与作业；
+     * 设备重启同样不会保留闹钟。也就是说在这两类事件之后，「系统里已经没有我们的闹钟」
+     * 是**已知事实**，不需要靠「预定时刻是否已过」去猜。
+     *
+     * 原实现只看预定时刻是否过期：若重启发生在预定时刻**之前**（例如刚登记完 30 分钟
+     * 就重启），`overdueBy < 0` → 判定「已登记」→ 不重建 → 保活永久停摆，
+     * 而且界面还会显示「已登记」、红点也被清掉——把失效报成健康。
+     */
+    @Test
+    fun `AC-15_4 重启后即使预定时刻未到也必须重建闹钟`() = runTest {
+        val scheduler = FakeScheduler()
+        // 预定时刻在未来 10 分钟（模拟「刚登记完就重启」）
+        val settings = KeepAliveSettings.defaults()
+            .copy(pendingScheduledAtUtcMillis = 1_000_000L + 10 * 60_000L)
+        val f = fixture(settings = settings, scheduler = scheduler)
+
+        val outcome = f.coordinator.reconcile("boot-or-update")
+
+        assertTrue(
+            "重启后系统里必定没有闹钟，必须重建（实际返回：$outcome）",
+            outcome is KeepAliveScheduleOutcome.Scheduled
+        )
+        assertEquals("必须真的发起一次登记", 1, scheduler.scheduledIntervals.size)
+    }
+
+    /** AC-15.4 同理适用于应用更新（MY_PACKAGE_REPLACED）。 */
+    @Test
+    fun `AC-15_4 应用更新后即使预定时刻未到也必须重建闹钟`() = runTest {
+        val scheduler = FakeScheduler()
+        val settings = KeepAliveSettings.defaults()
+            .copy(pendingScheduledAtUtcMillis = 1_000_000L + 10 * 60_000L)
+        val f = fixture(settings = settings, scheduler = scheduler)
+
+        f.coordinator.reconcile("package-replaced")
+
+        assertEquals("应用更新后必须重建闹钟", 1, scheduler.scheduledIntervals.size)
+    }
+
+    /**
+     * AC-21.1 的第四类原因「检测到强停」必须真的能被点亮。
+     *
+     * 此前 [KeepAliveHealthReasons.FORCE_STOPPED] 只被声明、从未被 raise，
+     * 而操作卡（REQ-24）向需求方承诺强停后会出现「检测到应用被强行停止」的红点——
+     * 承诺了却产生不出来的提示，比没有提示更糟。
+     */
+    @Test
+    fun `AC-21_1 强停后点亮检测到强停的红点`() = runTest {
+        val scheduler = FakeScheduler()
+        val settings = KeepAliveSettings.defaults()
+            .copy(pendingScheduledAtUtcMillis = 1_000_000L + 10 * 60_000L)
+        val f = fixture(settings = settings, scheduler = scheduler)
+
+        f.coordinator.reconcile("boot-or-update", forceStopped = true)
+
+        assertTrue(
+            "强停必须点亮「检测到应用被强行停止」的红点",
+            f.health.reasons().contains(KeepAliveHealthReasons.FORCE_STOPPED)
+        )
+    }
+
     /** 首次开启保活（从未登记）时直接登记，且不算异常（不点红点）。 */
     @Test
     fun `首次开启保活时登记且不点亮红点`() = runTest {

@@ -87,6 +87,16 @@ class KeepAliveSettingsStore @Inject constructor(
         )
     }
 
+    /**
+     * 写入设置。
+     *
+     * 这里用 **`commit()` 同步落盘**而不是 `apply()`：
+     * 本 store 的字段正是为「进程被杀之后仍然保有状态」而存在的
+     * （红点原因、已登记的预定时刻、连续计数），而 `apply()` 是异步写盘——
+     * 在 `raise()` 之后立刻被杀，这次写入可能还没落盘，状态就随进程一起消失
+     * 了（独立 review 指出）。写入频率很低（用户操作 + 每个叫醒周期一次），
+     * 同步写盘的成本可以接受。
+     */
     override fun write(settings: KeepAliveSettings): KeepAliveSettings {
         preferences.edit()
             .putBoolean(KEY_ENABLED, settings.enabled)
@@ -104,7 +114,7 @@ class KeepAliveSettingsStore @Inject constructor(
             .putStringSet(KEY_COMPLETED_GUIDANCE, settings.completedGuidanceKeys)
             .putLong(KEY_PENDING_SCHEDULED_AT, settings.pendingScheduledAtUtcMillis ?: 0L)
             .putStringSet(KEY_ACTIVE_HEALTH_REASONS, settings.activeHealthReasons)
-            .apply()
+            .commit()
         return read()
     }
 

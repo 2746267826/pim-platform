@@ -149,7 +149,15 @@ class KeepAliveCoordinator internal constructor(
      * 已登记的下一次触发时刻如果已经过去（还留着余量），说明那一枪打空了，
      * 系统里的闹钟确实没了（被强停清空 / 被系统回收 / 权限撤销连带取消）。
      */
-    suspend fun reconcile(trigger: String): KeepAliveScheduleOutcome {
+    /**
+     * @param forceStopped 本次启动是否由阶段一的强停判定认定为「被强行停止」。
+     *   强停属于 AC-21.1 的四类原因之一，必须能点亮红点（操作卡 REQ-24 已向需求方
+     *   承诺该提示），因此由调用方把阶段一的判定结果传进来。
+     */
+    suspend fun reconcile(
+        trigger: String,
+        forceStopped: Boolean = false
+    ): KeepAliveScheduleOutcome {
         val settings = settingsStore.read()
         if (!settings.enabled) {
             scheduler.cancel()
@@ -164,9 +172,29 @@ class KeepAliveCoordinator internal constructor(
             return KeepAliveScheduleOutcome.PermissionMissing
         }
 
+        // AC-21.1 第四类原因：强停。先点亮（后续登记成功也不会清除它——
+        // 它是「曾经被强停」的事实，用于解释这段静默，而不是「当前有故障」）。
+        if (forceStopped) {
+            health.raise(
+                KeepAliveHealthReasons.FORCE_STOPPED,
+                "检测到应用被强行停止过；强停会清空系统里的闹钟，现已重新登记。"
+            )
+        }
+
         val pending = settings.pendingScheduledAtUtcMillis
         if (pending == null) {
             // 从未登记过（首次开启保活）：直接登记，不算异常。
+            return scheduleNext(trigger)
+        }
+
+        // AC-15.4：**重启 / 应用更新后的对账必须无条件重建闹钟**。
+        //
+        // 平台事实（android-平台依据 §4）：强停会清空该应用全部闹钟与作业；
+        // 设备重启同样不保留闹钟。因此在 boot-or-update 这类触发源下，
+        // 「系统里已经没有我们的闹钟」是**已知事实**，不能再用「预定时刻是否已过」去猜——
+        // 那样在「刚登记完就重启」时会判定为「已登记」而跳过重建，保活从此永久停摆，
+        // 界面还会显示「已登记」、红点被清掉（把失效报成健康）。
+        if (isAlarmResetTrigger(trigger)) {
             return scheduleNext(trigger)
         }
 
@@ -189,9 +217,28 @@ class KeepAliveCoordinator internal constructor(
         }
 
         // 闹钟尚未到期且登记信息在：确认它确实存在，此时才允许熄灭「闹钟被清空」红点（AC-21.2）。
+        //
+        // 注意：`clear` 在「最后一个原因被消除」时会撤掉常驻通知（REQ-21 的红点通道），
+        // 但 REQ-19 的**叫醒常驻通知**是另一条要求，不应因红点消除而消失。
+        // 因此这里在熄灭红点后补一次 `ensureResident`，保证那条通知始终在。
         health.clear(KeepAliveHealthReasons.ALARM_CLEARED)
+        if (notifications.isEnabled()) {
+            notifications.ensureResident()
+        }
         return KeepAliveScheduleOutcome.AlreadyRegistered(pending)
     }
+
+    /**
+     * 这些触发源意味着「系统里的闹钟已被清空」是**已知事实**，必须无条件重建（AC-15.4）。
+     *
+     * - `boot-or-update`：开机 / 应用更新（`StartupRecoveryReceiver`）
+     * - `package-replaced`：应用更新（若调用方分开命名）
+     *
+     * 其余触发源（app-start / 权限变化 / 用户操作）无法确定闹钟是否还在，
+     * 才需要走「预定时刻是否已过」的推断。
+     */
+    internal fun isAlarmResetTrigger(trigger: String): Boolean =
+        trigger == "boot-or-update" || trigger == "package-replaced"
 
     // 刻意不设「宽限余量」常量：见 reconcile 内对 OVERDUE 处理的说明。
 }

@@ -11,6 +11,7 @@ import com.pim.app.keepalive.KeepAliveCoordinator
 import com.pim.app.keepalive.KeepAliveHealthMonitor
 import com.pim.app.keepalive.KeepAliveLedger
 import com.pim.app.keepalive.KeepAliveScheduleOutcome
+import com.pim.app.keepalive.KeepAliveSettings
 import com.pim.app.keepalive.KeepAliveSettingsAccessor
 import com.pim.app.keepalive.KeepAliveSettingsStore
 import com.pim.app.mobile.logs.StructuredLogRepository
@@ -80,7 +81,7 @@ class KeepAliveViewModel @Inject constructor(
                     ignoresBatteryOptimizations = guidanceDetector.ignoresBatteryOptimizations(),
                     lastWakeAtUtcMillis = lastWake,
                     healthAlert = health.summaryText(),
-                    scheduleStatusText = scheduleStatusText(settings.enabled)
+                    scheduleStatusText = scheduleStatusText(settings)
                 )
 
                 _guidanceState.value = GuidanceScreenState(
@@ -182,16 +183,29 @@ class KeepAliveViewModel @Inject constructor(
         }
     }
 
-    /** 权限状态文案（AC-22.2：关闭时界面显示「已关闭」）。 */
-    private fun scheduleStatusText(enabled: Boolean): String = if (!enabled) {
-        "已关闭"
-    } else {
-        when (permissionChecker.state()) {
-            ExactAlarmPermissionState.GRANTED -> "已登记"
-            ExactAlarmPermissionState.DENIED -> "未登记（缺少「闹钟和提醒」权限）"
-            ExactAlarmPermissionState.NOT_APPLICABLE -> "本设备不支持精确闹钟"
-        }
+    /**
+     * 登记状态文案（AC-22.2：关闭时界面显示「已关闭」）。
+     *
+     * **必须同时看权限与「是否真的登记过」**：原先只看权限位就显示「已登记」，
+     * 会在「有权限但闹钟其实没登记上」时谎报健康（独立 review 指出）。
+     * 现在依据持久化的预定时刻判断是否真的登记过；已过期则提示会重建。
+     */
+    private fun scheduleStatusText(settings: KeepAliveSettings): String = when {
+        !settings.enabled -> "已关闭"
+        permissionChecker.state() == ExactAlarmPermissionState.DENIED ->
+            "未登记（缺少「闹钟和提醒」权限）"
+        permissionChecker.state() == ExactAlarmPermissionState.NOT_APPLICABLE ->
+            "本设备不支持精确闹钟"
+        settings.pendingScheduledAtUtcMillis == null ->
+            "尚未登记（打开后会立即登记）"
+        else -> "已登记（下次叫醒 ${formatWakeTime(settings.pendingScheduledAtUtcMillis)}）"
     }
+
+    /** 把预定叫醒时刻格式化成「HH:mm」。 */
+    private fun formatWakeTime(atUtcMillis: Long): String =
+        java.text.SimpleDateFormat("HH:mm", java.util.Locale.CHINA).apply {
+            timeZone = java.util.TimeZone.getDefault()
+        }.format(java.util.Date(atUtcMillis))
 }
 
 /** 空态（用于首帧，避免闪烁出错误数值）。 */

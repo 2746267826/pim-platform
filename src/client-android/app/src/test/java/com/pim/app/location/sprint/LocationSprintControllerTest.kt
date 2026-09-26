@@ -461,6 +461,57 @@ class LocationSprintControllerTest {
         controller.abort()
     }
 
+    /**
+     * AC-10.3 / AC-5.3 反面（独立 review round 2 指出）：`abort()` 之后，
+     * 已经挂起在 `finishWindow`（写台账）里的协程**不得**再开出待发起的窗口 ——
+     * 否则停止采集/服务销毁后还在冲刺。
+     */
+    @Test
+    fun `中止后待发起的下一拍不得再开窗口`() = runTest {
+        val controller = controller(this)
+        controller.startSprint(context(), mode = LocationPolicyMode.PowerSavingNormal)
+        runCurrent()
+        // 让下一拍进入待发起槽位（AC-2.5）
+        controller.startSprint(context(), mode = LocationPolicyMode.PowerSavingNormal)
+        runCurrent()
+        assertTrue(controller.hasPendingStart())
+
+        controller.abort()
+        runCurrent()
+
+        assertFalse("中止后不得再开窗口", controller.isWindowOpen())
+        assertFalse("中止后待发起槽位必须清空", controller.hasPendingStart())
+        assertEquals("中止后不得注册新的冲刺流", 1, runner.streamCount)
+    }
+
+    /** AC-5.3 反面：窗口还开着时把开关关掉，待发起的下一拍**不得**被接上。 */
+    @Test
+    fun `窗口开着时关闭开关则待发起的下一拍不得接上`() = runTest {
+        val controller = controller(this)
+        controller.startSprint(context(), mode = LocationPolicyMode.PowerSavingNormal)
+        runCurrent()
+        controller.startSprint(context(), mode = LocationPolicyMode.PowerSavingNormal)
+        runCurrent()
+        assertTrue(controller.hasPendingStart())
+
+        // 关掉开关（无需重启）→ 本窗口结束也不得再开新的
+        enabled = false
+        controller.startSprint(context(), mode = LocationPolicyMode.PowerSavingNormal)
+        runCurrent()
+
+        assertFalse("AC-5.3：关闭后待发起槽位必须清空", controller.hasPendingStart())
+
+        finishWindow(controller)
+        runCurrent()
+
+        assertEquals(
+            "AC-5.3：关闭后不得因待发起而在本窗口结束后再接上一拍",
+            1,
+            runner.streamCount
+        )
+        assertFalse("关闭后不得有窗口在跑", controller.isWindowOpen())
+    }
+
     /** 中止的窗口不产出「已执行」记录（不得拿未跑完的窗口充证据）。 */
     @Test
     fun `中止的窗口不写已执行记录`() = runTest {

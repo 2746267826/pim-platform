@@ -48,6 +48,14 @@ object SprintSkipReasons {
     /** 缺少定位权限或系统定位服务未开启（REQ-8 要求的可见出口，不静默失败）。 */
     const val PREREQUISITE_BLOCKED = "prerequisite-blocked"
 
+    /**
+     * 本拍尚未到采集周期（REQ-2 / D2：每个采集周期一次）。
+     *
+     * 采集循环每 30 秒唤醒一次，而档位可能是 45/120/600 秒 —— 未到点的唤醒
+     * 不发起冲刺，也**不写**「跳过」台账（否则台账会被每 30 秒一条的噪声灌满）。
+     */
+    const val NOT_THIS_PERIOD = "not-this-period"
+
     val ALL = setOf(DISABLED, HIGH_SPEED, NOT_COLLECTING, PREREQUISITE_BLOCKED)
 
     fun label(reason: String): String = when (reason) {
@@ -55,6 +63,7 @@ object SprintSkipReasons {
         HIGH_SPEED -> "高速轨迹档不叠加冲刺"
         NOT_COLLECTING -> "当前不在采集时段"
         PREREQUISITE_BLOCKED -> "定位权限或系统定位未就绪"
+        NOT_THIS_PERIOD -> "尚未到本采集周期"
         else -> "未冲刺"
     }
 }

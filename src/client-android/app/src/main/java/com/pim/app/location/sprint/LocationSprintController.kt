@@ -115,6 +115,18 @@ class LocationSprintController @Inject constructor(
      */
     private var pendingStart: PendingSprint? = null
 
+    /**
+     * 中止代数（abort generation）。
+     *
+     * `finishWindow` 会在**挂起**（写台账）之后才启动待发起的下一拍；这期间
+     * `abort()`（停止采集/服务销毁）与「开关被关掉」都可能已经发生。
+     * 独立 review round 2 指出：那时 `windowJob` 已是 null，`abort()` 取消不到
+     * 这个协程，于是它仍会开出一个新窗口 —— 停止采集后还在冲刺。
+     *
+     * 每次 [abort] 递增本代数；启动待发起窗口前必须复核代数未变**且**开关仍开。
+     */
+    private var abortGeneration: Long = 0L
+
     private data class PendingSprint(
         val context: AcquisitionContext,
         val requestedAtUtcMillis: Long
@@ -144,6 +156,8 @@ class LocationSprintController @Inject constructor(
     ): SprintStartDecision {
         // REQ-5 / AC-5.3：开关每拍重新读，关闭后必须**真的不再发起任何冲刺**。
         if (!sprintEnabledProvider()) {
+            // 关闭时清掉待发起的下一拍：否则它会在本窗口结束后被接上（AC-5.3 反面）。
+            synchronized(this) { pendingStart = null }
             return skip(SprintSkipReasons.DISABLED, nowUtcMillis)
         }
         if (blockedReason != null) {
@@ -189,6 +203,9 @@ class LocationSprintController @Inject constructor(
      */
     fun abort() {
         synchronized(this) {
+            // 递增代数：让正在 `finishWindow` 里挂起（写台账）的那个协程
+            // 在恢复后也**无法**再开出待发起的窗口。
+            abortGeneration += 1L
             window?.let { it.finish(wallClockMillis()) }
             window = null
             windowJob?.cancel()
@@ -284,8 +301,10 @@ class LocationSprintController @Inject constructor(
     private suspend fun finishWindow(active: LocationSprintWindow) {
         val result = active.finish(wallClockMillis())
         val next: PendingSprint?
+        val generationAtFinish: Long
         synchronized(this) {
             next = pendingStart
+            generationAtFinish = abortGeneration
             pendingStart = null
             if (window === active) {
                 window = null
@@ -298,16 +317,25 @@ class LocationSprintController @Inject constructor(
 
         // AC-2.5：本窗口结束后立刻接上待发起的那一拍（窗口与周期相接）。
         if (next != null) {
+            val generationAtCapture = generationAtFinish
             synchronized(this) {
-                if (window?.isOpen != true) {
+                // ① 期间被中止（停止采集/服务销毁）→ 不得再开新窗口。
+                // ② 期间开关被关掉 → 同样不得再开（AC-5.3：关了必须真的不冲）。
+                val cancelled = abortGeneration != generationAtCapture
+                if (!cancelled && sprintEnabledProvider() && window?.isOpen != true) {
                     startWindowLocked(next.context, wallClockMillis())
                     return
                 }
+                // 未接上时**不静默丢弃**：按规则记「跳过」原因并清掉待发起，
+                // 让台账如实反映「这一拍没冲」（AC-8.2）。
+                pendingStart = null
             }
-            // 极小概率：期间已有别的窗口开着（例如手动重启）——重新挂回待发起，
-            // 不静默丢弃（AC-8.2：未冲刺必须有原因，而不是凭空消失）。
-            synchronized(this) {
-                if (pendingStart == null) pendingStart = next
+            if (abortGeneration != generationAtCapture) {
+                // 已中止：连「跳过」也不必记（停止采集不是一次采集决策）。
+                return
+            }
+            if (!sprintEnabledProvider()) {
+                skip(SprintSkipReasons.DISABLED, wallClockMillis())
             }
         }
     }

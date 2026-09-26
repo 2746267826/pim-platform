@@ -33,6 +33,14 @@ class LocationSprintRuntime internal constructor(
     val lastWindowResult: SprintWindowResult?
         get() = controller.lastWindowResult
 
+    /**
+     * 周期门控（REQ-2 / D2）：把「采集循环的 30 秒唤醒」收敛成「采集周期」。
+     *
+     * 循环唤醒周期恒为 30 秒，而档位是 30/45/120/600 秒；没有这道门控时
+     * 45 秒档会退化成 30 秒一拍（独立 review round 2 发现的真实缺口）。
+     */
+    private val periodGate = SprintPeriodGate()
+
     /** 组装入库/丢弃出口。构造一次即可，重复调用是幂等的。 */
     fun wire() {
         controller.onAccepted = { accepted, _ ->
@@ -71,10 +79,31 @@ class LocationSprintRuntime internal constructor(
         context: AcquisitionContext,
         mode: LocationPolicyMode,
         blockedReason: String? = null
-    ): SprintStartDecision = controller.startSprint(context, mode, blockedReason)
+    ): SprintStartDecision {
+        val now = nowUtcMillis()
+        // D2：只在**本采集周期**真的到点时发起冲刺（运动/车载档间隔 = 30 秒，
+        // 与唤醒同周期，因此每一轮都放行 —— AC-2.5 照冲）。
+        if (!periodGate.shouldStart(now, context.requestIntervalMillis)) {
+            return SprintStartDecision.Skipped(SprintSkipReasons.NOT_THIS_PERIOD)
+        }
+        val decision = controller.startSprint(context, mode, blockedReason, now)
+        return when (decision) {
+            is SprintStartDecision.Started -> {
+                // 锚点 = 放行时刻（AC-5.6：周期锚点不得被窗口长度拖后）。
+                periodGate.onWindowStarted(now)
+                decision
+            }
+            // 未真正发起（开关关闭/高速档等）不推进锚点：这些是本拍的**决策**，
+            // 不是「已经冲过」，下次到点仍应重新判断（AC-5.5 改开关后一个周期内生效）。
+            is SprintStartDecision.Skipped -> decision
+        }
+    }
 
     /** 停止采集/服务销毁时中止窗口（不产出「已执行」记录）。 */
-    fun abort() = controller.abort()
+    fun abort() {
+        periodGate.reset()
+        controller.abort()
+    }
 
     fun isWindowOpen(): Boolean = controller.isWindowOpen()
 

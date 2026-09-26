@@ -7,7 +7,9 @@ import {
   type MobileLivenessOverview,
 } from '../../api/mobile';
 import {
+  FULFILLMENT_DEFINITION,
   formatCoverage,
+  formatFulfillment,
   formatPayload,
   formatUtc,
   groupDeviceBlocks,
@@ -68,6 +70,11 @@ function DeviceBlock({ device, rangeStartUtc, rangeEndUtc }: { device: MobileLiv
           <p className="text-xs font-semibold text-slate-500">预期心跳覆盖</p>
           <p className="mt-1 text-lg font-semibold text-slate-950">{formatCoverage(device.hasData ? device.coverageByExpectedHeartbeat : null)}（{device.observedHeartbeats}/{device.expectedHeartbeats} 次）</p>
           <p className="mt-1 text-xs text-slate-500">{device.coverageByExpectedHeartbeatDefinition}</p>
+        </div>
+        <div className="rounded-md bg-slate-50 p-3 md:col-span-2" data-testid="device-liveness-fulfillment">
+          <p className="text-xs font-semibold text-slate-500">叫醒兑现率</p>
+          <p className="mt-1 text-lg font-semibold text-slate-950">{formatFulfillment(device.fulfillment)}</p>
+          <p className="mt-1 text-xs text-slate-500">{FULFILLMENT_DEFINITION}</p>
         </div>
       </div>
       {device.longestSilenceSeverity !== 'none' ? (

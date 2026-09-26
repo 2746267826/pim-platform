@@ -153,6 +153,41 @@ class KeepAliveCoordinatorTest {
         return Fixture(coordinator, scheduler, settingsStore, notifications, health)
     }
 
+    /**
+     * 复用同一份 settings / health / scheduler 的 fixture。
+     *
+     * 用途：需要「同一台设备先失败一次、再成功一次」这类**跨两次叫醒**的断言时，
+     * 两次必须共享同一份持久化状态，否则测的是两个互不相干的实例。
+     */
+    private fun fixtureWithSharedHealth(
+        env: FakeEnvironment,
+        settings: FakeSettings,
+        scheduler: FakeScheduler,
+        notifications: FakeNotifications,
+        health: KeepAliveHealthMonitor
+    ): Fixture {
+        val logRepo = logs()
+        val recorder = FakeRecorder()
+        val chain = WakeExecutionChain(
+            ledger = recorder,
+            settingsStore = settings,
+            environment = env,
+            logs = logRepo,
+            nowUtcMillis = { 1_000_000L }
+        )
+        val coordinator = KeepAliveCoordinator(
+            settingsStore = settings,
+            scheduler = scheduler,
+            executionChain = chain,
+            ledger = keepAliveLedger(logRepo),
+            health = health,
+            notifications = notifications,
+            logs = logRepo,
+            nowUtcMillis = { 1_000_000L }
+        )
+        return Fixture(coordinator, scheduler, settings, notifications, health)
+    }
+
     /** 真实 Room 台账（Robolectric 内存库），用于 recordAlarmRegistered 等落库调用。 */
     private fun keepAliveLedger(logRepo: StructuredLogRepository): KeepAliveLedger {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -228,6 +263,53 @@ class KeepAliveCoordinatorTest {
         f.coordinator.onAlarmFired()
 
         assertEquals("失败也必须续登记，否则保活停摆", 1, f.scheduler.scheduledIntervals.size)
+    }
+
+    /**
+     * AC-21.1（四类原因之一）：拉起失败点亮红点。
+     *
+     * 口径说明：工单 §9.1 **没有**给出「连续失败 N 次」的 N，决策索引 R1-Q7/D13 的原话是
+     * 「拉起失败：记台账 + 状态页红点 + 下轮重试（不降频）」，未要求连续次数；
+     * 工单 §8.6 又明确禁止按自拟数值实现。因此本实现取「当前连续失败计数非零即点亮」，
+     * 一次成功即清零熄灭，「连续」由计数器承担而不是一个凭空规定的门槛。
+     * 本用例固定这一口径，防止日后有人偷偷塞一个自拟阈值进来。
+     */
+    @Test
+    fun `AC-21_1 拉起失败即点亮红点（不自拟连续次数阈值）`() = runTest {
+        val env = FakeEnvironment(serviceRunning = false, startSucceeds = false)
+        val f = fixture(env = env)
+
+        f.coordinator.onAlarmFired()
+
+        assertTrue("拉起失败必须点亮红点", f.health.isAlerting())
+        assertTrue(f.health.reasons().contains(KeepAliveHealthReasons.WAKE_CALL_FAILED))
+    }
+
+    /** AC-21.2：失败后一次成功即熄灭「拉起失败」红点（成功路径清除该原因）。 */
+    @Test
+    fun `AC-21_2 成功一次后拉起失败红点熄灭`() = runTest {
+        // 先失败一次点亮红点
+        val failing = FakeEnvironment(serviceRunning = false, startSucceeds = false)
+        val f = fixture(env = failing)
+        f.coordinator.onAlarmFired()
+        assertTrue("前置：失败应点亮红点", f.health.isAlerting())
+
+        // 再成功一次：执行链会清零失败计数，编排据结果清除该原因
+        val succeeding = FakeEnvironment(serviceRunning = true)
+        val succeedingFixture = fixtureWithSharedHealth(
+            env = succeeding,
+            settings = f.settings,
+            scheduler = f.scheduler,
+            notifications = f.notifications,
+            health = f.health
+        )
+        succeedingFixture.coordinator.onAlarmFired()
+
+        assertFalse(
+            "成功一次后「拉起失败」红点应熄灭（AC-21.2）",
+            f.health.reasons().contains(KeepAliveHealthReasons.WAKE_CALL_FAILED)
+        )
+        assertFalse("红点整体应熄灭", f.health.isAlerting())
     }
 
     /** AC-19.1：叫醒后通知内容更新为最近一次叫醒时间。 */

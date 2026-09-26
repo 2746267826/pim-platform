@@ -108,15 +108,20 @@ class KeepAliveCoordinator internal constructor(
         // REQ-19：常驻通知更新为最近一次叫醒时间（内容滚动更新，仍是一条）。
         notifications.updateLastWake(record.actualAtUtcMillis ?: record.scheduledAtUtcMillis)
 
-        // AC-17.5 / REQ-21：连续拉起失败要点亮红点（不降频，只提示并下轮重试）。
+        // REQ-21「连续叫醒调用失败」点亮红点（AC-21.1 四类之一）。
+        //
+        // 这里**刻意不设「连续 N 次」的 N**：工单 §9.1 未给出该数值，决策索引
+        // （R1-Q7 / D13）的原话是「拉起失败：记台账 + 状态页红点 + 下轮重试（不降频）」，
+        // 并没有说要连续几次。工单 §8.6 明确禁止按自拟数值实现。
+        // 因此口径取「当前连续失败计数非零即点亮」：一次成功就会清零并熄灭，
+        // 「连续」的语义由计数器本身承担，不需要一个凭空规定的门槛。
+        // 若需求方希望「连续 N 次才提示」，那是一个新的待确认参数（§9.2 流程），不是本次可自定的。
         if (record.outcome == AlarmOutcomes.PULL_FAILED) {
             val failures = settingsStore.read().consecutiveWakeFailures
-            if (failures >= KEEPALIVE_FAILURE_ALERT_THRESHOLD) {
-                health.raise(
-                    KeepAliveHealthReasons.WAKE_CALL_FAILED,
-                    "连续 $failures 次未能拉起采集服务，将在下个周期重试。"
-                )
-            }
+            health.raise(
+                KeepAliveHealthReasons.WAKE_CALL_FAILED,
+                "最近一次未能拉起采集服务（已连续失败 $failures 次），将在下个周期重试。"
+            )
         } else if (record.outcome == AlarmOutcomes.EXECUTED) {
             health.clear(KeepAliveHealthReasons.WAKE_CALL_FAILED)
         }
@@ -181,9 +186,6 @@ class KeepAliveCoordinator internal constructor(
     }
 
     private companion object {
-        /** 连续拉起失败达到该次数即点亮红点（R1-Q7/D13：记台账 + 红点 + 下轮重试）。 */
-        const val KEEPALIVE_FAILURE_ALERT_THRESHOLD = 2
-
         /**
          * 判定「闹钟打空了」的宽限余量。
          *

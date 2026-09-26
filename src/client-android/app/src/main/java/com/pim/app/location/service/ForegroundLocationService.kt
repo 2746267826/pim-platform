@@ -83,6 +83,7 @@ class ForegroundLocationService : Service() {
     private var snapshotCollectJob: Job? = null
     private var automaticLoopJob: Job? = null
     private var queueObservationJob: Job? = null
+    private var passiveCounterFlushJob: Job? = null
     private var policyEngine: LocationPolicyEngine? = null
     private var scheduleFreshness: ScheduleCacheFreshness = ScheduleCacheFreshness.Missing
     private var scheduleLastSuccessAtMillis: Long? = null
@@ -384,6 +385,8 @@ class ForegroundLocationService : Service() {
         automaticLoopJob = null
         queueObservationJob?.cancel()
         queueObservationJob = null
+        passiveCounterFlushJob?.cancel()
+        passiveCounterFlushJob = null
         scheduleRefreshJob?.cancel()
         snapshotCollectJob?.cancel()
         runCatching { motionSignalRepository.unregister() }
@@ -620,6 +623,16 @@ class ForegroundLocationService : Service() {
                 pendingUploadTotal = snapshot.pendingUploadTotal
                 publishRuntimeState()
                 updateNotification()
+            }
+        }
+        // AC-14.2：被动点的三数计数必须**周期性**落台账，不能只在停止时写 ——
+        // 服务可能被系统杀掉或被 force-stop，那时 onDestroy/stopCollection 都不执行，
+        // 「回调总数」这个分母就丢了（真机实测确认过）。这里按固定周期刷窗口。
+        passiveCounterFlushJob?.cancel()
+        passiveCounterFlushJob = scope.launch {
+            while (true) {
+                delay(PASSIVE_COUNTER_FLUSH_MILLIS)
+                runCatching { passiveLocationCoordinator.flushWindow() }
             }
         }
     }
@@ -864,6 +877,14 @@ class ForegroundLocationService : Service() {
         fun isRunning(): Boolean = runtimeState.value.isRunning
 
         val timeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+        /**
+         * 被动计数落台账的周期（AC-14.2）。
+         *
+         * 1 分钟：既保证服务被杀时最多丢 1 分钟的分母，又不会把台账写爆
+         * （被动源本身不设限流，日志/台账写入量要可控）。
+         */
+        const val PASSIVE_COUNTER_FLUSH_MILLIS = 60_000L
 
         fun resolveRequestInterval(intervalMillis: Long): Long {
             require(intervalMillis > 0L) { "intervalMillis must be positive" }

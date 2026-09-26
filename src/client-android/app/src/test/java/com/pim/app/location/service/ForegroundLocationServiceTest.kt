@@ -170,7 +170,8 @@ class ForegroundLocationServiceTest {
         passiveLocationCoordinator = PassiveLocationCoordinator(
             source = PassiveLocationSource(context, settingsStore, passiveLogs),
             operations = operations,
-            ledger = PassiveLocationLedger(database.forensicEventDao(), passiveLogs)
+            ledger = PassiveLocationLedger(database.forensicEventDao(), passiveLogs),
+            logs = passiveLogs
         )
     }
 

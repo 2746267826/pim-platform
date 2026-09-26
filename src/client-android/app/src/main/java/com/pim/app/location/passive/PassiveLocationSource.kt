@@ -43,7 +43,7 @@ sealed interface PassiveRegistrationResult {
  * - AC-14.7：**不得扰动主流** —— 全程不触碰主动流的注册间隔与周期锚点。
  */
 @Singleton
-class PassiveLocationSource @Inject constructor(
+open class PassiveLocationSource @Inject constructor(
     @ApplicationContext private val context: Context,
     private val trackingSettingsStore: TrackingSettingsStore,
     private val logs: StructuredLogRepository
@@ -67,7 +67,7 @@ class PassiveLocationSource @Inject constructor(
      * 以贴合 REQ-14 规则 2「不设限流」。
      */
     @SuppressLint("MissingPermission")
-    fun register(processor: PassiveLocationProcessor): PassiveRegistrationResult {
+    open fun register(processor: PassiveLocationProcessor): PassiveRegistrationResult {
         if (listener != null) return registration
         val manager = locationManager
             ?: return PassiveRegistrationResult.Failed("系统定位服务不可用").also {

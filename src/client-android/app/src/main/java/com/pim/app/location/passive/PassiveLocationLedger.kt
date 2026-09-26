@@ -27,6 +27,7 @@ class PassiveLocationLedger @Inject constructor(
     suspend fun recordCounters(
         occurredAtUtcMillis: Long,
         windowStartUtcMillis: Long,
+        windowSequence: Long,
         callbackCount: Int,
         acceptedCount: Int,
         droppedCount: Int,
@@ -34,6 +35,7 @@ class PassiveLocationLedger @Inject constructor(
     ): Boolean = try {
         val payload = JSONObject()
             .put("windowStartUtcMillis", windowStartUtcMillis)
+            .put("windowSequence", windowSequence)
             .put("passiveCallbackCount", callbackCount)
             .put("passiveAcceptedCount", acceptedCount)
             .put("passiveDroppedCount", droppedCount)
@@ -47,7 +49,9 @@ class PassiveLocationLedger @Inject constructor(
             ForensicEventEntity(
                 eventType = PassiveLocationEventTypes.PASSIVE_COUNTER,
                 occurredAtUtc = occurredAtUtcMillis,
-                clientItemKey = "passive-counter-${windowStartUtcMillis / 1_000L}",
+                // 幂等键含**窗口序号**：同一秒内刷新两次不会撞键，
+                // 否则第二个窗口的计数会被 insertIgnore 静默丢掉（分母缺失）。
+                clientItemKey = "passive-counter-$windowSequence-${windowStartUtcMillis / 1_000L}",
                 payloadJson = payload.toString()
             )
         ) != -1L

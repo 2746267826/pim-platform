@@ -4,6 +4,7 @@ import com.pim.app.location.LocationPointPayload
 import com.pim.app.location.acquisition.LocationAcquisitionOperations
 import com.pim.app.location.acquisition.TriggerType
 import com.pim.app.location.quality.RawLocationFix
+import com.pim.app.mobile.logs.StructuredLogRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -26,17 +27,28 @@ class PassiveLocationCoordinator internal constructor(
     private val source: PassiveLocationSource,
     private val operations: LocationAcquisitionOperations,
     private val ledger: PassiveLocationLedger,
+    private val logs: StructuredLogRepository,
     private val nowUtcMillis: () -> Long
 ) {
     @Inject
     constructor(
         source: PassiveLocationSource,
         operations: LocationAcquisitionOperations,
-        ledger: PassiveLocationLedger
-    ) : this(source, operations, ledger, System::currentTimeMillis)
+        ledger: PassiveLocationLedger,
+        logs: StructuredLogRepository
+    ) : this(source, operations, ledger, logs, System::currentTimeMillis)
 
     private var processor: PassiveLocationProcessor? = null
     private var windowStartUtcMillis: Long = nowUtcMillis()
+
+    /**
+     * 窗口序号（台账幂等键的一部分）。
+     *
+     * **不能只用墙钟秒做窗口键**：同一秒内刷新两次会命中同一个键，
+     * `insertIgnore` 返回 -1，第二个窗口的计数被**静默丢掉** ——
+     * 分母缺失会让 AC-14.2 的三数对账失效。序号保证每个窗口一个键。
+     */
+    private var windowSequence: Long = 0L
 
     /** 最近一次注册结果（AC-14.1：注册成功日志 + 可核对状态）。 */
     val registration: PassiveRegistrationResult
@@ -52,6 +64,7 @@ class PassiveLocationCoordinator internal constructor(
     fun start(activeFixProvider: () -> List<RawLocationFix>): PassiveRegistrationResult {
         if (source.isRegistered()) return source.registration
         windowStartUtcMillis = nowUtcMillis()
+        windowSequence += 1L
         val newProcessor = source.processorUsing(activeFixProvider)
         newProcessor.onAccepted = { result ->
             val raw = LocationPointPayload.encode(
@@ -74,30 +87,62 @@ class PassiveLocationCoordinator internal constructor(
     }
 
     /**
+     * 把当前窗口的三数计数落台账并开启新窗口（AC-14.2）。
+     *
+     * **必须周期性调用，不能只在停止时调用**：服务可能被系统杀掉或被
+     * force-stop，`onDestroy`/`stopCollection` 都不保证执行。真机实测确认过这一点
+     * （force-stop 后计数器一行都没有），那会让「回调总数」这个**分母**消失，
+     * 验收方看到「入库 N 条」却无从判断是否丢点。
+     *
+     * @return 本次落库的计数（无回调时为 null）。
+     */
+    suspend fun flushWindow(): PassiveLocationCounters? {
+        val active = processor ?: return null
+        val counters = active.drainCounters(
+            now = nowUtcMillis(),
+            windowStart = windowStartUtcMillis
+        )
+        // 无论有没有回调都要推进窗口（起点 + 序号），否则下一个窗口会复用同一条台账键。
+        val flushedWindowStart = windowStartUtcMillis
+        val flushedSequence = windowSequence
+        windowStartUtcMillis = nowUtcMillis()
+        windowSequence += 1L
+        if (counters.callbackCount == 0) return null
+        val written = ledger.recordCounters(
+            occurredAtUtcMillis = nowUtcMillis(),
+            windowStartUtcMillis = flushedWindowStart,
+            windowSequence = flushedSequence,
+            callbackCount = counters.callbackCount,
+            acceptedCount = counters.acceptedCount,
+            droppedCount = counters.droppedCount,
+            duplicateCount = counters.duplicateCount
+        )
+        if (!written) {
+            // 键冲突（理论上不该发生）也必须可见：分母缺失是 AC-14.2 的致命问题。
+            logs.error(
+                "passive-location",
+                "被动计数台账写入被拒（键冲突）：windowStart=$flushedWindowStart seq=$flushedSequence"
+            )
+        }
+        return counters
+    }
+
+    /**
      * 停止被动监听（AC-14.1：服务停止后窗口内不再产生被动点）。
      *
      * 停止前把本窗口的三数计数落台账（AC-14.2）：否则「回调总数」这个分母
      * 会随着服务停止而消失，验收方无法对账。
      */
     suspend fun stop() {
-        val active = processor
+        // 先落库再摘掉处理器：顺序反了会让 flushWindow 看不到窗口计数，
+        // 分母就丢了（真机实测踩过）。
+        flushWindow()
         processor = null
         source.unregister()
-        if (active == null) return
-        val counters = active.drainCounters(
-            now = nowUtcMillis(),
-            windowStart = windowStartUtcMillis
-        )
-        if (counters.callbackCount == 0) return
-        ledger.recordCounters(
-            occurredAtUtcMillis = nowUtcMillis(),
-            windowStartUtcMillis = windowStartUtcMillis,
-            callbackCount = counters.callbackCount,
-            acceptedCount = counters.acceptedCount,
-            droppedCount = counters.droppedCount,
-            duplicateCount = counters.duplicateCount
-        )
     }
+
+    /** 测试接缝：当前活动的判定器（生产代码不得依赖）。 */
+    internal fun activeProcessorForTest(): PassiveLocationProcessor? = processor
 
     /** 当前窗口的三数计数快照（诊断/状态页用）。 */
     fun counters(): PassiveLocationCounters? = processor?.countersSnapshot()

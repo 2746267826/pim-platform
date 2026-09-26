@@ -1,0 +1,125 @@
+{
+  "slot": "A3",
+  "wave": "wave007",
+  "nodes": [
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt",
+      "label": "MobileSyncWorker",
+      "path": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt.md",
+      "layer": "client-android",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/PimApp.kt",
+      "label": "PimApp",
+      "path": "src/client-android/app/src/main/java/com/pim/app/PimApp.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/PimApp.kt.md",
+      "layer": "client-android",
+      "kind": "entrypoint"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/ui/components/PimSection.kt",
+      "label": "PimSection",
+      "path": "src/client-android/app/src/main/java/com/pim/app/ui/components/PimSection.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/components/PimSection.kt.md",
+      "layer": "client-android",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterScreen.kt",
+      "label": "StatusCenterScreen",
+      "path": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterScreen.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterScreen.kt.md",
+      "layer": "client-android",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/location/motion/MotionSignalMapperTest.kt",
+      "label": "MotionSignalMapperTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/location/motion/MotionSignalMapperTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/location/motion/MotionSignalMapperTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncUsageQueueTest.kt",
+      "label": "MobileSyncUsageQueueTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncUsageQueueTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncUsageQueueTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/status/ServerSettingsSecurityTest.kt",
+      "label": "ServerSettingsSecurityTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/status/ServerSettingsSecurityTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/status/ServerSettingsSecurityTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TextEncodingTest.kt",
+      "label": "AndroidV2TextEncodingTest",
+      "path": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TextEncodingTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TextEncodingTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/models/StatsModels.kt",
+      "label": "StatsModels",
+      "path": "src/client-android/core/src/main/java/com/pim/core/models/StatsModels.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/models/StatsModels.kt.md",
+      "layer": "client-android",
+      "kind": "dto"
+    },
+    {
+      "id": "src/client-android/core/src/main/java/com/pim/core/util/ThrowableMessages.kt",
+      "label": "ThrowableMessages",
+      "path": "src/client-android/core/src/main/java/com/pim/core/util/ThrowableMessages.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/main/java/com/pim/core/util/ThrowableMessages.kt.md",
+      "layer": "client-android",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-android/core/src/test/java/com/pim/core/util/ThrowableMessagesTest.kt",
+      "label": "ThrowableMessagesTest",
+      "path": "src/client-android/core/src/test/java/com/pim/core/util/ThrowableMessagesTest.kt",
+      "doc": "docs/pseudocode/files/src/client-android/core/src/test/java/com/pim/core/util/ThrowableMessagesTest.kt.md",
+      "layer": "tests",
+      "kind": "test"
+    },
+    {
+      "id": "tests/client-web/confirmationSecondLevel.test.ts",
+      "label": "confirmationSecondLevel.test",
+      "path": "tests/client-web/confirmationSecondLevel.test.ts",
+      "doc": "docs/pseudocode/files/tests/client-web/confirmationSecondLevel.test.ts.md",
+      "layer": "tests",
+      "kind": "test"
+    }
+  ],
+  "edges": [
+    { "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt", "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt", "type": "calls" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncWorker.kt", "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncOutcome.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/PimApp.kt", "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncScheduler.kt", "type": "calls" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/PimApp.kt", "to": "src/client-android/app/src/main/java/com/pim/app/di/PimWorkerFactory.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterScreen.kt", "to": "src/client-android/app/src/main/java/com/pim/app/ui/components/PimSection.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterScreen.kt", "to": "src/client-android/app/src/main/java/com/pim/app/status/StatusActionRouter.kt", "type": "calls" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterScreen.kt", "to": "src/client-android/app/src/main/java/com/pim/app/status/StatusIssue.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterScreen.kt", "to": "src/client-android/app/src/main/java/com/pim/app/ui/status/StatusCenterViewModel.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/location/motion/MotionSignalMapperTest.kt", "to": "src/client-android/app/src/main/java/com/pim/app/location/motion/MotionSignalRepository.kt", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/location/motion/MotionSignalMapperTest.kt", "to": "src/client-android/app/src/main/java/com/pim/app/location/policy/MotionSignal.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncUsageQueueTest.kt", "to": "src/client-android/app/src/main/java/com/pim/app/mobile/sync/MobileSyncCoordinator.kt", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncUsageQueueTest.kt", "to": "src/client-android/app/src/main/java/com/pim/app/data/AppDatabase.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/mobile/sync/MobileSyncUsageQueueTest.kt", "to": "src/client-android/app/src/main/java/com/pim/app/data/MobileDataDao.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/status/ServerSettingsSecurityTest.kt", "to": "src/client-android/core/src/main/java/com/pim/core/settings/ServerSettingsStore.kt", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/status/ServerSettingsSecurityTest.kt", "to": "src/client-android/core/src/main/java/com/pim/core/network/ApiClientProvider.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/status/ServerSettingsSecurityTest.kt", "to": "src/client-android/core/src/main/java/com/pim/core/auth/AuthSessionStore.kt", "type": "depends_on" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TextEncodingTest.kt", "to": "src/client-android/app/src/main/java/com/pim/app/ui", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TextEncodingTest.kt", "to": "src/client-android/app/src/main/java/com/pim/app/location", "type": "tests" },
+    { "from": "src/client-android/app/src/test/java/com/pim/app/v2/AndroidV2TextEncodingTest.kt", "to": "src/client-android/app/src/main/java/com/pim/app/status", "type": "tests" },
+    { "from": "src/client-android/core/src/test/java/com/pim/core/util/ThrowableMessagesTest.kt", "to": "src/client-android/core/src/main/java/com/pim/core/util/ThrowableMessages.kt", "type": "tests" },
+    { "from": "tests/client-web/confirmationSecondLevel.test.ts", "to": "src/client-web/src/pages/ConfirmationsPage.tsx", "type": "tests" }
+  ]
+}

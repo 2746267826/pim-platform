@@ -1,0 +1,126 @@
+{
+  "slot": "A6",
+  "nodes": [
+    {
+      "id": "src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs",
+      "label": "IQuickNoteObjectStorage",
+      "path": "src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs.md",
+      "layer": "module.quicknotes",
+      "kind": "service"
+    },
+    {
+      "id": "src/modules/Pim.Module.Stats/StatsModule.cs",
+      "label": "StatsModule",
+      "path": "src/modules/Pim.Module.Stats/StatsModule.cs",
+      "doc": "docs/pseudocode/files/src/modules/Pim.Module.Stats/StatsModule.cs.md",
+      "layer": "module.stats",
+      "kind": "entrypoint"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.App/Services/NavigationService.cs",
+      "label": "NavigationService",
+      "path": "src/client-windows/Pim.Client.App/Services/NavigationService.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.App/Services/NavigationService.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-windows/Pim.Client.Core/Services/AuthService.cs",
+      "label": "AuthService",
+      "path": "src/client-windows/Pim.Client.Core/Services/AuthService.cs",
+      "doc": "docs/pseudocode/files/src/client-windows/Pim.Client.Core/Services/AuthService.cs.md",
+      "layer": "client-windows",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/eslint.config.js",
+      "label": "eslint.config",
+      "path": "src/client-web/eslint.config.js",
+      "doc": "docs/pseudocode/files/src/client-web/eslint.config.js.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/api/pcTracker.ts",
+      "label": "pcTracker",
+      "path": "src/client-web/src/api/pcTracker.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/api/pcTracker.ts.md",
+      "layer": "client-web",
+      "kind": "service"
+    },
+    {
+      "id": "src/client-web/src/components/ai/AiStatusPanel.tsx",
+      "label": "AiStatusPanel",
+      "path": "src/client-web/src/components/ai/AiStatusPanel.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/ai/AiStatusPanel.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/LocationPointList.tsx",
+      "label": "LocationPointList",
+      "path": "src/client-web/src/components/mobile/LocationPointList.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/LocationPointList.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/mobileFormatting.ts",
+      "label": "mobileFormatting",
+      "path": "src/client-web/src/components/mobile/mobileFormatting.ts",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/mobileFormatting.ts.md",
+      "layer": "client-web",
+      "kind": "other"
+    },
+    {
+      "id": "src/client-web/src/components/mobile/MobileUsageHeatmap.tsx",
+      "label": "MobileUsageHeatmap",
+      "path": "src/client-web/src/components/mobile/MobileUsageHeatmap.tsx",
+      "doc": "docs/pseudocode/files/src/client-web/src/components/mobile/MobileUsageHeatmap.tsx.md",
+      "layer": "client-web",
+      "kind": "ui"
+    }
+  ],
+  "edges": [
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/MinioQuickNoteObjectStorage.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs", "type": "implements" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/NullQuickNoteObjectStorage.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs", "type": "implements" },
+    { "from": "src/modules/Pim.Module.QuickNotes/Services/QuickNoteAttachmentService.cs", "to": "src/modules/Pim.Module.QuickNotes/Services/IQuickNoteObjectStorage.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Stats/StatsModule.cs", "to": "src/Pim.Core/Modules/IModule.cs", "type": "implements" },
+    { "from": "src/modules/Pim.Module.Stats/StatsModule.cs", "to": "src/Pim.Infrastructure/Data/PimDbContext.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Stats/StatsModule.cs", "to": "src/modules/Pim.Module.Stats/Services/StatsService.cs", "type": "calls" },
+    { "from": "src/modules/Pim.Module.Stats/StatsModule.cs", "to": "src/modules/Pim.Module.Stats/DTOs/StatsDtos.cs", "type": "depends_on" },
+    { "from": "src/modules/Pim.Module.Stats/StatsModule.cs", "to": "src/Pim.Core/Common", "type": "depends_on" },
+    { "from": "src/Pim.Api/ModuleRegistry.cs", "to": "src/modules/Pim.Module.Stats/StatsModule.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/Services/NavigationService.cs", "to": "src/client-windows/Pim.Client.App/Services/INavigationService.cs", "type": "implements" },
+    { "from": "src/client-windows/Pim.Client.App/MainShellWindow.xaml.cs", "to": "src/client-windows/Pim.Client.App/Services/NavigationService.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/AuthService.cs", "to": "src/client-windows/Pim.Client.Core/Services/ApiClient.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/AuthService.cs", "to": "src/client-windows/Pim.Client.Core/Models/AuthDtos.cs", "type": "depends_on" },
+    { "from": "src/client-windows/Pim.Client.App/LoginWindow.xaml.cs", "to": "src/client-windows/Pim.Client.Core/Services/AuthService.cs", "type": "calls" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/AuthService.cs", "to": "/auth/login", "type": "http" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/AuthService.cs", "to": "/auth/register", "type": "http" },
+    { "from": "src/client-windows/Pim.Client.Core/Services/AuthService.cs", "to": "/auth/refresh", "type": "http" },
+    { "from": "src/client-web/eslint.config.js", "to": "typescript-eslint", "type": "depends_on" },
+    { "from": "src/client-web/eslint.config.js", "to": "eslint-plugin-react-hooks", "type": "depends_on" },
+    { "from": "src/client-web/eslint.config.js", "to": "eslint-plugin-react-refresh", "type": "depends_on" },
+    { "from": "src/client-web/src/api/pcTracker.ts", "to": "src/client-web/src/api/client.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/api/pcTracker.ts", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/api/pcTracker.ts", "to": "/pc/summary", "type": "http" },
+    { "from": "src/client-web/src/api/pcTracker.ts", "to": "/pc/quality", "type": "http" },
+    { "from": "src/client-web/src/api/pcTracker.ts", "to": "/pc/classification/rules", "type": "http" },
+    { "from": "src/client-web/src/api/pcTracker.ts", "to": "/pc/categories", "type": "http" },
+    { "from": "src/client-web/src/api/pcTracker.ts", "to": "/pc/productivity/dashboard", "type": "http" },
+    { "from": "src/client-web/src/components/pc-classification", "to": "src/client-web/src/api/pcTracker.ts", "type": "calls" },
+    { "from": "src/client-web/src/components/ai/AiStatusPanel.tsx", "to": "src/client-web/src/api/ai.ts", "type": "calls" },
+    { "from": "src/client-web/src/components/ai/AiStatusPanel.tsx", "to": "src/client-web/src/ui/StatusBadge", "type": "depends_on" },
+    { "from": "src/client-web/src/components/ai/AiStatusPanel.tsx", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/LocationPointList.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/LocationPointList.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/LocationPointList.tsx", "to": "src/client-web/src/components/mobile/locationFormatting.ts", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/mobileFormatting.ts", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/mobileFormatting.ts", "to": "src/client-web/src/types", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileUsageHeatmap.tsx", "to": "src/client-web/src/api/mobile.ts", "type": "depends_on" },
+    { "from": "src/client-web/src/components/mobile/MobileUsageHeatmap.tsx", "to": "src/client-web/src/components/mobile/mobileFormatting.ts", "type": "calls" },
+    { "from": "src/client-web/src/components/mobile/MobileUsageHeatmap.tsx", "to": "src/client-web/src/components/mobile/mobileHeatmapMatrix.ts", "type": "calls" }
+  ]
+}

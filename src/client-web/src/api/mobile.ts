@@ -97,6 +97,19 @@ export interface MobileLivenessDeviceBlock {
   lastEventAtUtc: string | null;
   coverageByHourDefinition: string;
   coverageByExpectedHeartbeatDefinition: string;
+  /**
+   * REQ-18 叫醒兑现率（可选展示项）。
+   * `null` 表示该设备没有闹钟数据——**不得显示为 0%**（AC-18.2）。
+   */
+  fulfillment: MobileLivenessFulfillment | null;
+}
+
+/** REQ-18 兑现率；rate 为 null 表示无可判定记录。 */
+export interface MobileLivenessFulfillment {
+  rate: number | null;
+  fulfilled: number;
+  considered: number;
+  excludedNoActualTime: number;
 }
 
 export interface MobileLivenessOverview {

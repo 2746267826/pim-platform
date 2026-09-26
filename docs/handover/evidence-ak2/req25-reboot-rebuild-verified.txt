@@ -1,0 +1,32 @@
+=== Critical 修复的真机验证：重启后 AC-15.4 闹钟重建 ===
+时间(UTC): 2026-09-26T07:54:15Z
+设备: sdk_gphone64_x86_64 | sdk=36 | brand=google
+
+--- 重启前状态（15:51）---
+系统内闹钟 origWhen = 2026-09-26 16:01:18
+持久化预定时刻       = 1790409678687 (16:01:18)
+
+--- 执行真实 adb reboot（15:52，即**预定时刻尚未到达**）---
+这是独立 review 指出的 Critical 场景：旧实现按「预定时刻是否已过」推断闹钟是否还在，
+预定时刻未到 → 判定「已登记」→ 跳过重建 → 保活永久停摆，且界面显示「已登记」。
+
+--- 重启后（15:53+）：系统确实清空了闹钟（符合 android-平台依据 §4）---
+dumpsys alarm 中 keepalive.action.ALARM 一度为空
+
+--- 应用被 BOOT_COMPLETED 唤起后的台账（真实 SQLite）---
+event_type        cst                  trigger       
+----------------  -------------------  --------------
+alarm-registered  2026-09-26 16:03:52  boot-or-update
+alarm-registered  2026-09-26 16:01:18  boot-or-update
+alarm-registered  2026-09-26 15:53:48  alarm-fired   
+alarm-registered  2026-09-26 15:43:48  alarm-fired   
+
+--- 重建后的系统闹钟（已重新登记）---
+      tag=*walarm*:com.pim.app.keepalive.action.ALARM
+      type=RTC_WAKEUP origWhen=2026-09-26 16:03:52.024 window=0 exactAllowReason=policy_permission repeatInterval=0 count=0 flags=0x5
+
+--- 红点状态（重建成功，故无「闹钟被清空」）---
+    <set name="keepalive.active_health_reasons" />
+    <long name="keepalive.pending_scheduled_at_utc_millis" value="1790409832024" />
+
+结论：台账出现 trigger=boot-or-update 的登记，且系统内重新出现闹钟 → AC-15.4 在真机成立。

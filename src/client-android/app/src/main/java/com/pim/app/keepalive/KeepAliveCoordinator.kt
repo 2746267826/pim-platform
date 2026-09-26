@@ -1,0 +1,253 @@
+package com.pim.app.keepalive
+
+import com.pim.app.mobile.logs.StructuredLogRepository
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
+
+/**
+ * 保活编排：把「登记闹钟 → 被叫醒 → 执行 → 再登记」串成一个闭环（REQ-15 / REQ-16 / REQ-17）。
+ *
+ * 工单要求的关键点是**续登记**：只叫醒一次、不登记下一次，等于没有保活。
+ * 因此 [onAlarmFired] 在走完执行链后一定会尝试登记下一次（除非总开关关闭或权限缺失）。
+ *
+ * 与权限的关系（REQ-14）：
+ * - 未授权时不登记，并记一条健康事件点亮红点（AC-14.3 / AC-14.4 / AC-21.1），本次记为
+ *   「未执行」而不是「被压制」——权限问题不是延迟问题。
+ * - 重新授权后由 [reconcile] 自动恢复登记。
+ */
+@Singleton
+class KeepAliveCoordinator internal constructor(
+    private val settingsStore: KeepAliveSettingsAccessor,
+    private val scheduler: KeepAliveSchedulePort,
+    private val executionChain: WakeExecutionChain,
+    private val ledger: KeepAliveLedger,
+    private val health: KeepAliveHealthMonitor,
+    private val notifications: KeepAliveNotificationPort,
+    private val logs: StructuredLogRepository,
+    private val nowUtcMillis: () -> Long
+) {
+    @Inject
+    constructor(
+        settingsStore: KeepAliveSettingsAccessor,
+        scheduler: KeepAliveSchedulePort,
+        executionChain: WakeExecutionChain,
+        ledger: KeepAliveLedger,
+        health: KeepAliveHealthMonitor,
+        notifications: KeepAliveNotificationPort,
+        logs: StructuredLogRepository
+    ) : this(
+        settingsStore, scheduler, executionChain, ledger, health, notifications, logs,
+        System::currentTimeMillis
+    )
+    /** 登记（或续登记）下一次叫醒。返回实际登记结果。 */
+    suspend fun scheduleNext(trigger: String): KeepAliveScheduleOutcome {
+        val settings = settingsStore.read()
+
+        if (!settings.enabled) {
+            // AC-22.2 / AC-22.3：关闭期间不得暗中登记。
+            scheduler.cancel()
+            return KeepAliveScheduleOutcome.Disabled
+        }
+
+        val effective = AlarmSuppressionPolicy.resolveEffectiveMinutes(
+            configuredMinutes = settings.configuredIntervalMinutes,
+            effectiveMinutes = settings.effectiveIntervalMinutes,
+            recentRecords = ledger.recentFulfillments()
+        )
+
+        // 生效值变化（降频/复位）要落盘，AC-17.2/AC-17.3 的状态页提示与通知都读它。
+        if (effective != settings.effectiveIntervalMinutes) {
+            settingsStore.write(settings.copy(effectiveIntervalMinutes = effective))
+            logs.info("keepalive", "保活间隔调整为 $effective 分钟（触发于 $trigger）")
+        }
+
+        return when (val result = scheduler.scheduleNext(effective, enabled = true)) {
+            is KeepAliveSchedulePort.Result.Scheduled -> {
+                settingsStore.write(
+                    settingsStore.read().copy(pendingScheduledAtUtcMillis = result.triggerAtUtcMillis)
+                )
+                ledger.recordAlarmRegistered(effective, result.triggerAtUtcMillis, trigger)
+                // 登记成功说明权限可用，因此清掉「权限被撤销」。
+                // 但**不清**「闹钟被清空」：那是「观察到闹钟曾消失」这一事实，
+                // 由 [reconcile] 在下次确认闹钟确实存在时清除（AC-21.1 可被观察到 / AC-21.2 才熄灭）。
+                health.clear(KeepAliveHealthReasons.PERMISSION_REVOKED)
+                KeepAliveScheduleOutcome.Scheduled(result.triggerAtUtcMillis, effective)
+            }
+
+            KeepAliveSchedulePort.Result.PermissionMissing -> {
+                // AC-14.3 / AC-21.1：权限被撤销 → 红点 + 通知栏提示。
+                health.raise(
+                    KeepAliveHealthReasons.PERMISSION_REVOKED,
+                    "未获得「闹钟和提醒」权限，保活闹钟无法登记。"
+                )
+                KeepAliveScheduleOutcome.PermissionMissing
+            }
+
+            is KeepAliveSchedulePort.Result.Failed -> {
+                health.raise(KeepAliveHealthReasons.ALARM_CLEARED, result.message)
+                KeepAliveScheduleOutcome.Failed(result.message)
+            }
+
+            KeepAliveSchedulePort.Result.Disabled -> KeepAliveScheduleOutcome.Disabled
+        }
+    }
+
+    /**
+     * 闹钟触发后的完整处理（REQ-16 + 续登记）。
+     *
+     * 顺序：执行链 → 通知更新 → 续登记。即使执行链失败也要续登记，
+     * 否则一次失败会让保活永久停摆。
+     */
+    suspend fun onAlarmFired(): AlarmFulfillmentRecord {
+        val settings = settingsStore.read()
+        val scheduledAt = settings.pendingScheduledAtUtcMillis ?: nowUtcMillis()
+
+        val record = executionChain.execute(scheduledAt)
+
+        // REQ-19：常驻通知更新为最近一次叫醒时间（内容滚动更新，仍是一条）。
+        notifications.updateLastWake(record.actualAtUtcMillis ?: record.scheduledAtUtcMillis)
+
+        // REQ-21「连续叫醒调用失败」点亮红点（AC-21.1 四类之一）。
+        //
+        // 这里**刻意不设「连续 N 次」的 N**：工单 §9.1 未给出该数值，决策索引
+        // （R1-Q7 / D13）的原话是「拉起失败：记台账 + 状态页红点 + 下轮重试（不降频）」，
+        // 并没有说要连续几次。工单 §8.6 明确禁止按自拟数值实现。
+        // 因此口径取「当前连续失败计数非零即点亮」：一次成功就会清零并熄灭，
+        // 「连续」的语义由计数器本身承担，不需要一个凭空规定的门槛。
+        // 若需求方希望「连续 N 次才提示」，那是一个新的待确认参数（§9.2 流程），不是本次可自定的。
+        if (record.outcome == AlarmOutcomes.PULL_FAILED) {
+            val failures = settingsStore.read().consecutiveWakeFailures
+            health.raise(
+                KeepAliveHealthReasons.WAKE_CALL_FAILED,
+                "最近一次未能拉起采集服务（已连续失败 $failures 次），将在下个周期重试。"
+            )
+        } else if (record.outcome == AlarmOutcomes.EXECUTED) {
+            health.clear(KeepAliveHealthReasons.WAKE_CALL_FAILED)
+        }
+
+        // 续登记：保活的核心，不能被上面的失败跳过。
+        val outcome = scheduleNext(trigger = "alarm-fired")
+        if (outcome is KeepAliveScheduleOutcome.Scheduled && notifications.isEnabled()) {
+            notifications.ensureResident()
+        }
+
+        return record
+    }
+
+    /**
+     * 与系统真实状态对账（启动时 / 权限变化 / 返回前台时调用）。
+     *
+     * 覆盖三种需要修复的情形：
+     * - 权限撤销导致系统连带取消闹钟（AC-14.3）；
+     * - 被强行停止或系统清理导致闹钟消失（AC-21.1 的「闹钟被清空」）；
+     * - 从未登记过（首次开启保活）。
+     *
+     * **检测手段（重要）**：不用「PendingIntent 是否存在」判断闹钟是否还在——
+     * `AlarmManager.cancel()` 之后 PendingIntent 依然存在（已实测），那样会永远报告
+     * 「闹钟在」，恰好掩盖 AC-21.1 要检测的情况。这里改用**截止时刻**判断：
+     * 已登记的下一次触发时刻如果已经过去（还留着余量），说明那一枪打空了，
+     * 系统里的闹钟确实没了（被强停清空 / 被系统回收 / 权限撤销连带取消）。
+     */
+    /**
+     * @param forceStopped 本次启动是否由阶段一的强停判定认定为「被强行停止」。
+     *   强停属于 AC-21.1 的四类原因之一，必须能点亮红点（操作卡 REQ-24 已向需求方
+     *   承诺该提示），因此由调用方把阶段一的判定结果传进来。
+     */
+    suspend fun reconcile(
+        trigger: String,
+        forceStopped: Boolean = false
+    ): KeepAliveScheduleOutcome {
+        val settings = settingsStore.read()
+        if (!settings.enabled) {
+            scheduler.cancel()
+            return KeepAliveScheduleOutcome.Disabled
+        }
+
+        if (!scheduler.hasExactAlarmPermission()) {
+            health.raise(
+                KeepAliveHealthReasons.PERMISSION_REVOKED,
+                "未获得「闹钟和提醒」权限，保活闹钟无法登记。"
+            )
+            return KeepAliveScheduleOutcome.PermissionMissing
+        }
+
+        // AC-21.1 第四类原因：强停。先点亮（后续登记成功也不会清除它——
+        // 它是「曾经被强停」的事实，用于解释这段静默，而不是「当前有故障」）。
+        if (forceStopped) {
+            health.raise(
+                KeepAliveHealthReasons.FORCE_STOPPED,
+                "检测到应用被强行停止过；强停会清空系统里的闹钟，现已重新登记。"
+            )
+        }
+
+        val pending = settings.pendingScheduledAtUtcMillis
+        if (pending == null) {
+            // 从未登记过（首次开启保活）：直接登记，不算异常。
+            return scheduleNext(trigger)
+        }
+
+        // AC-15.4：**重启 / 应用更新后的对账必须无条件重建闹钟**。
+        //
+        // 平台事实（android-平台依据 §4）：强停会清空该应用全部闹钟与作业；
+        // 设备重启同样不保留闹钟。因此在 boot-or-update 这类触发源下，
+        // 「系统里已经没有我们的闹钟」是**已知事实**，不能再用「预定时刻是否已过」去猜——
+        // 那样在「刚登记完就重启」时会判定为「已登记」而跳过重建，保活从此永久停摆，
+        // 界面还会显示「已登记」、红点被清掉（把失效报成健康）。
+        if (isAlarmResetTrigger(trigger)) {
+            return scheduleNext(trigger)
+        }
+
+        val overdueBy = nowUtcMillis() - pending
+        if (overdueBy > 0) {
+            // 预定时刻已过却没有等到触发：说明闹钟不在系统里了（被强停清空 / 被系统回收 /
+            // 权限撤销连带取消）。这里**不设宽限期阈值**——工单 §9.1 只确认了
+            // 「延迟 >15 分钟算被压制」（那是**延迟**的判定线，不是「闹钟存在性」的判定线），
+            // 把一个已确认的延迟阈值挪用到「闹钟是否还在」上属于自拟用法（§8.6 禁止）。
+            //
+            // 代价与取舍：Doze 下精确闹钟可能有少量延迟，因此「刚过期几秒」也可能被记成
+            // 「闹钟被清空」而点亮红点——这是**偏保守**的一侧（多提示而非漏提示），
+            // 且随后的成功登记会立即重新登记；而漏报会让用户完全看不到保活已失效。
+            health.raise(
+                KeepAliveHealthReasons.ALARM_CLEARED,
+                "预定叫醒时刻已过去 ${overdueBy / 60_000L} 分钟仍未触发，" +
+                    "系统里的保活闹钟可能已不存在，现已重新登记。"
+            )
+            return scheduleNext(trigger)
+        }
+
+        // 闹钟尚未到期且登记信息在：确认它确实存在，此时才允许熄灭「闹钟被清空」红点（AC-21.2）。
+        //
+        // 注意：`clear` 在「最后一个原因被消除」时会撤掉常驻通知（REQ-21 的红点通道），
+        // 但 REQ-19 的**叫醒常驻通知**是另一条要求，不应因红点消除而消失。
+        // 因此这里在熄灭红点后补一次 `ensureResident`，保证那条通知始终在。
+        health.clear(KeepAliveHealthReasons.ALARM_CLEARED)
+        if (notifications.isEnabled()) {
+            notifications.ensureResident()
+        }
+        return KeepAliveScheduleOutcome.AlreadyRegistered(pending)
+    }
+
+    /**
+     * 这些触发源意味着「系统里的闹钟已被清空」是**已知事实**，必须无条件重建（AC-15.4）。
+     *
+     * - `boot-or-update`：开机 / 应用更新（`StartupRecoveryReceiver`）
+     * - `package-replaced`：应用更新（若调用方分开命名）
+     *
+     * 其余触发源（app-start / 权限变化 / 用户操作）无法确定闹钟是否还在，
+     * 才需要走「预定时刻是否已过」的推断。
+     */
+    internal fun isAlarmResetTrigger(trigger: String): Boolean =
+        trigger == "boot-or-update" || trigger == "package-replaced"
+
+    // 刻意不设「宽限余量」常量：见 reconcile 内对 OVERDUE 处理的说明。
+}
+
+/** 登记结果（供界面与状态展示，AC-22.2「台账与界面均显示已关闭」）。 */
+sealed interface KeepAliveScheduleOutcome {
+    data class Scheduled(val triggerAtUtcMillis: Long, val intervalMinutes: Int) : KeepAliveScheduleOutcome
+    data class AlreadyRegistered(val triggerAtUtcMillis: Long?) : KeepAliveScheduleOutcome
+    data object PermissionMissing : KeepAliveScheduleOutcome
+    data object Disabled : KeepAliveScheduleOutcome
+    data class Failed(val message: String) : KeepAliveScheduleOutcome
+}

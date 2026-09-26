@@ -1,0 +1,18 @@
+=== REQ-25 实测证据（模拟器 stock Android 16 / API 36）===
+生成时间(UTC): 2026-09-26T04:12:27Z
+设备: sdk_gphone64_x86_64 / brand=google / sdk=36
+
+--- 1) 权限授予情况（USE_EXACT_ALARM 是否安装即授予）---
+      android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED:
+          Action: "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"
+      android.permission.USE_EXACT_ALARM
+      android.permission.SCHEDULE_EXACT_ALARM
+      android.permission.USE_EXACT_ALARM: granted=true
+
+--- 2) 系统里是否存在本应用的精确闹钟（RTC_WAKEUP + walarm tag）---
+      tag=*walarm*:com.pim.app.keepalive.action.ALARM
+      type=RTC_WAKEUP origWhen=2026-09-26 12:42:14.813 window=0 exactAllowReason=policy_permission repeatInterval=0 count=0 flags=0x5
+      policyWhenElapsed: requester=+29m47s60ms app_standby=-12s939ms device_idle=-- battery_saver=-12s939ms
+
+--- 3) 状态栏是否出现闹钟图标（setAlarmClock 的产物 getNextAlarmClock）---
+(以上为空 = 未使用 setAlarmClock，符合 AC-15.3)
